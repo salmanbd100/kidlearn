@@ -3,6 +3,8 @@
   "tasks": {
     "dev": { "cache": false, "persistent": true },
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
-    "lint": {}
+    "lint": {},
+    "db:generate": { "cache": false },
+    "db:migrate": { "cache": false, "persistent": false }
   }
 }

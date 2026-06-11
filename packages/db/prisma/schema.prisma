@@ -1,0 +1,36 @@
+// Prisma schema for kidlearn — Supabase (PostgreSQL).
+// Minimal starter: Parent + Child. Expand toward the full domain
+// (curriculum -> lessons -> activities[JSONB], progress, sessions, i18n) as features land.
+//
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooled connection (Supabase pooler, port 6543, append ?pgbouncer=true) — used at runtime.
+  url       = env("DATABASE_URL")
+  // Direct connection (port 5432) — used by the Prisma CLI for migrations/introspection.
+  directUrl = env("DIRECT_URL")
+}
+
+model Parent {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  children  Child[]
+  createdAt DateTime @default(now())
+}
+
+model Child {
+  id        String   @id @default(uuid())
+  name      String
+  locale    String   @default("en")
+  parentId  String
+  parent    Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([parentId])
+}
