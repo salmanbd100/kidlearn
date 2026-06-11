@@ -1,0 +1,144 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   kidlearn design tokens — single source of truth in code.
+   Mirrors document/design.md. Update design.md first, then this file.
+
+   Structure:
+   1. Static design tokens (brand colors, radius, shadows, motion) → @theme
+   2. Per-theme semantic values (kid / parent) → plain CSS custom properties
+   3. Semantic → Tailwind utility mapping → @theme inline (resolves at runtime,
+      so utilities like `bg-primary` follow the active [data-theme]).
+
+   Consumed by apps/web via `@import "@kidlearn/ui/styles/tokens.css"`.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Static design tokens ─────────────────────────────────────────────────── */
+@theme {
+  /* Brand palette (raw) — decorative/game art only; UI uses semantic tokens. */
+  --color-sky: #36b3f5;
+  --color-grape: #8b5cf6;
+  --color-sunshine: #ffc93c;
+  --color-coral: #ff6b6b;
+  --color-mint: #34d399;
+  --color-ink: #2b2a4a;
+  --color-cream: #fffdf7;
+
+  /* Radius scale (design.md §4.2) */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 9999px;
+
+  /* Elevation (design.md §4.3) — soft, ink-tinted */
+  --shadow-sm: 0 1px 2px 0 rgb(43 42 74 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(43 42 74 / 0.12);
+  --shadow-lg: 0 12px 32px -8px rgb(43 42 74 / 0.18);
+  --shadow-pop:
+    0 8px 0 0 rgb(54 179 245 / 0.16), 0 12px 24px -6px rgb(43 42 74 / 0.18);
+}
+
+/* 2. Per-theme semantic values ────────────────────────────────────────────── */
+
+/* Kid theme (default): bright, playful, rounded. design.md §2.2 */
+:root,
+[data-theme="kid"] {
+  --background: #fffdf7;
+  --foreground: #2b2a4a;
+  --card: #ffffff;
+  --card-foreground: #2b2a4a;
+  --popover: #ffffff;
+  --popover-foreground: #2b2a4a;
+  --primary: #36b3f5;
+  --primary-foreground: #ffffff;
+  --secondary: #8b5cf6;
+  --secondary-foreground: #ffffff;
+  --accent: #ffc93c;
+  --accent-foreground: #2b2a4a;
+  --muted: #eaf7fe;
+  --muted-foreground: #64748b;
+  --success: #34d399;
+  --success-foreground: #ffffff;
+  --warning: #ffc93c;
+  --warning-foreground: #2b2a4a;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #ffffff;
+  --border: #d6eefc;
+  --input: #d6eefc;
+  --ring: #36b3f5;
+
+  /* base radius for this surface = rounded-lg (design.md §4.2) */
+  --radius: var(--radius-lg);
+}
+
+/* Parent / admin theme: calm, neutral, professional. design.md §2.2 */
+[data-theme="parent"] {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #6366f1;
+
+  /* base radius for this surface = rounded-md */
+  --radius: var(--radius-md);
+}
+
+/* Motion tokens (design.md §5.1) — plain custom props, used via Motion / arbitrary values */
+:root {
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-slow: 400ms;
+}
+
+/* 3. Semantic → Tailwind utility mapping ──────────────────────────────────────
+   `inline` keeps the var() reference, so `bg-primary`, `text-foreground`, etc.
+   re-resolve against whichever [data-theme] is active at runtime. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Font families — values injected by next/font on <html> (design.md §3.1) */
+  --font-display: var(--font-fredoka);
+  --font-body: var(--font-nunito);
+  --font-ui: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+}

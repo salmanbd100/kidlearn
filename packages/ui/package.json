@@ -1,0 +1,34 @@
+{
+  "name": "@kidlearn/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles/tokens.css": "./src/styles/tokens.css",
+    "./lib/cn": "./src/lib/cn.ts",
+    "./primitives/*": "./src/primitives/*.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.1.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.469.0",
+    "motion": "^11.15.0",
+    "tailwind-merge": "^2.6.0"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "^5"
+  }
+}
