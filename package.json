@@ -5,12 +5,15 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "turbo run typecheck",
     "db:generate": "pnpm --filter @kidlearn/db db:generate",
     "db:migrate": "pnpm --filter @kidlearn/db db:migrate",
     "db:studio": "pnpm --filter @kidlearn/db db:studio"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "turbo": "^2.0.0"
   }
 }

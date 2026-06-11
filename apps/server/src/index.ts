@@ -1,7 +1,7 @@
 import "dotenv/config";
-import express, { type Request, type Response } from "express";
-import cors from "cors";
 import { prisma } from "@kidlearn/db";
+import cors from "cors";
+import express, { type Request, type Response } from "express";
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
