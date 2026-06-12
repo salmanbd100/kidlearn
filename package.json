@@ -8,6 +8,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "db:generate": "pnpm --filter @kidlearn/db db:generate",
     "db:migrate": "pnpm --filter @kidlearn/db db:migrate",
     "db:studio": "pnpm --filter @kidlearn/db db:studio"

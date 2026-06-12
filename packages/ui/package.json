@@ -25,6 +25,7 @@
     "react-dom": "^19"
   },
   "devDependencies": {
+    "@kidlearn/config": "workspace:*",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "react": "^19",

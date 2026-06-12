@@ -1,23 +1,12 @@
 import "dotenv/config";
 import { prisma } from "@kidlearn/db";
-import cors from "cors";
-import express, { type Request, type Response } from "express";
+import type { Request, Response } from "express";
+import { app } from "./app.js";
 
-const app = express();
 const port = Number(process.env.PORT) || 4000;
 
-app.use(cors());
-app.use(express.json());
-
-app.get("/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok" });
-});
-
-app.get("/", (_req: Request, res: Response) => {
-  res.json({ message: "kidlearn server" });
-});
-
 // Demo route proving the Prisma -> Supabase wiring end-to-end.
+// Left as-is until file 08 restructures routing; removed in file 02.
 app.get("/parents", async (_req: Request, res: Response) => {
   const parents = await prisma.parent.findMany({ include: { children: true } });
   res.json(parents);
