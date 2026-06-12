@@ -21,7 +21,7 @@ File 03 is done: `packages/db` has `Parent` (with nullable `pinHash`, consent fi
 4. **Parent provisioning:** on first authenticated request (in `requireParent`), if no `Parent` row exists for the session user, create one (`userId`, `email` from the session). This keeps sign-up and sign-in a single flow.
 5. **`requireParent` middleware:** reads the better-auth session from the request cookies; 401 `UNAUTHORIZED` envelope if absent/expired; otherwise attaches `req.parent` (the `Parent` row) and `req.session` (better-auth session incl. `activeChildProfileId`). All `/api/*` routes except `/api/auth/*` and `/health` will sit behind it from file 10 onward.
 6. **Active-child scoping (FR-AUTH-06):** store `activeChildProfileId: string | null` **in the better-auth session** (via better-auth's `additionalFields` on the session model). Decision: session storage, not an `X-Child-Profile-Id` header — the server stays authoritative, the value survives reloads, and a child tapping profiles can't spoof another parent's child by editing a header. The setter endpoint (`POST /api/children/:id/activate`) ships in file 11; this file only makes the field exist and exposes it on `req.session` and `/api/auth/me`. Switching profiles = one API call, **no re-auth** (FR-AUTH-06); PIN enforcement for parent areas is file 10's `requirePinVerified`, layered on top of `requireParent`.
-7. **`GET /api/auth/me`:** behind `requireParent`; returns `{ data: { parent: { id, email, hasPin, consentAt }, activeChildProfileId } }`. Never returns `pinHash`.
+7. **`GET /api/auth/me`:** behind `requireParent`; returns `{ data: { parent: { id, email, hasPin, consentGivenAt }, activeChildProfileId } }` (`consentGivenAt` is the canonical Parent column from file 03). Never returns `pinHash`.
 8. **Env & Google Cloud setup:** new env keys `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` added to `lib/env.ts` and `.env.example`. Document the console steps (see Technical Approach).
 9. **Tests:** Supertest tests with a mocked session — `/api/auth/me` 401 without session; 200 with parent payload when mocked; lazy `Parent` provisioning happens once; `pinHash` absent from every response.
 
@@ -119,7 +119,7 @@ declare global {
 }
 ```
 
-**Testing strategy:** don't drive the real Google flow. Use `vi.mock("../lib/auth")` so `auth.api.getSession` returns `null` (401 case) or a fixture session; mock `prisma.parent` (or use a test-DB transaction pattern if file 02 set one up). Test cases: (1) no cookie → 401 envelope; (2) session for unknown user → `Parent` created, 200; (3) second call → no duplicate create (assert `create` called once / `findUnique` hit); (4) `/api/auth/me` body matches `{ data: { parent: { id, email, hasPin: false, consentAt: null }, activeChildProfileId: null } }` and contains no `pinHash` key.
+**Testing strategy:** don't drive the real Google flow. Use `vi.mock("../lib/auth")` so `auth.api.getSession` returns `null` (401 case) or a fixture session; mock `prisma.parent` (or use a test-DB transaction pattern if file 02 set one up). Test cases: (1) no cookie → 401 envelope; (2) session for unknown user → `Parent` created, 200; (3) second call → no duplicate create (assert `create` called once / `findUnique` hit); (4) `/api/auth/me` body matches `{ data: { parent: { id, email, hasPin: false, consentGivenAt: null }, activeChildProfileId: null } }` and contains no `pinHash` key.
 
 **Google Cloud console steps (document verbatim in this file's section of `.env.example` comments or `apps/server/README` note):**
 

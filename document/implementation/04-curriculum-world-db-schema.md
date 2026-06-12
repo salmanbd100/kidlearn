@@ -187,6 +187,14 @@ const language = await prisma.subject.upsert({
 - [ ] Every new content model carries `status ContentStatus @default(draft)`.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all exit 0.
 
+## Schema additions in later files (forward references)
+
+These models grow later; the consolidated final shape lives in **`document/database-design.md`**. Tracked here for alignment:
+
+- **`Lesson.aiJobId String?`** (+ relation to `AIGenerationJob`) and **`MediaAsset.aiJobId String?`** — **file 34** (every AI-generated row links back to its generation job).
+- **`Lesson.conceptsIntroduced String[] @default([])`** — **file 30** (prefixed tokens `letter:A` / `word:apple` / `number:7` for weekly-report aggregation).
+- **`CharacterSheet`** model `{ id, slug @unique, name, worldId String?, world World? @relation, description, createdAt, updatedAt }` — **file 36** (stable visual descriptions for AI image character consistency, FR-AI-09). It is the only new model that references `World` after this file.
+
 ## Out of Scope
 - `Activity`, `Quiz`, `Story` models and upgrading `Lesson.activityId`/`quizId` into real relations — file 05.
 - Progress, rewards, characters — file 06.

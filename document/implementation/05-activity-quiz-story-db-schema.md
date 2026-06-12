@@ -186,6 +186,14 @@ model StoryPageTranslation {
 - [ ] `pnpm --filter @kidlearn/db db:seed` exits 0 twice; the seeded lesson resolves `activity` and `quiz`, and the seeded story has 2 pages each with `en` + `bn` translations.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all exit 0.
 
+## Schema additions in later files (forward references)
+
+These models grow later; the consolidated final shape lives in **`document/database-design.md`**. Tracked here for alignment:
+
+- **`aiJobId String?`** (+ relation to `AIGenerationJob`) added to **`Activity`**, **`Quiz`**, **`QuizQuestion`**, and **`Story`** — **file 34** (links AI-generated rows to their generation job; the AI-publish guard `assertAiPublishable` in file 37 reads it).
+- **`StoryPage.illustrationPrompt String?`** — **file 35** (the prompt the AI image generator in file 36 consumes; no public URL until a generated illustration is approved).
+- **Quiz `definition` convention:** AI-generated picture questions use the literal placeholder URL `pending://image` for option images until an admin attaches a real asset; approval is blocked (409) while any `pending://` placeholder remains (file 37). This is a payload convention, not a column.
+
 ## Out of Scope
 - Zod schemas defining what lives inside `definition` payloads — file 07 (`packages/types`).
 - `QuizResponse`, `LessonProgress`, rewards, and all tracking models — file 06.

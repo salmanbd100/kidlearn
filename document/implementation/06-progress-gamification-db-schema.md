@@ -242,6 +242,15 @@ model AIGenerationJob {
 - [ ] `Streak.lastActivityDate` is Postgres `date`; `ScreenTimeSetting.windowStart/windowEnd` are `time(0)` (check `migration.sql`).
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all exit 0.
 
+## Schema additions in later files (forward references)
+
+These models grow later; the consolidated final shape lives in **`document/database-design.md`**. Tracked here for alignment:
+
+- **`AIGenerationJob.reviewNote String?`** — **file 37** (rejection reason; `rawOutput` is retained even after rejection for FR-AI-08 audit).
+- **Job ↔ content linkage is one-directional:** `AIGenerationJob` gets **no** `lessonId`/`storyId`/`quizId` columns. Instead each content row carries `aiJobId` (files 34–35) and the job resolves its outputs via those back-relations. `AIGenerationJob.rawOutput` Json carries `{ attempts, usage, parsed, entities }` (created-row ids + the FK name to set on approval for audio/image jobs) — an opaque payload, not columns.
+- **`WeeklyReport` note storage:** `metrics Json` holds the structured `WeeklyReportMetrics` (active days, minutes, new letters/words/numbers, lessons/stories completed, quiz accuracy, badges, plus **`noteKey`** + **`noteParams`** for i18n rendering). The `note String?` column stores only the rendered **English fallback** (file 30). No extra columns.
+- **Content-row audit field `updatedBy String?`** is added to `World`/`Subject`/`Topic`/`Lesson` in **file 32** (publishing-workflow audit — who created/transitioned a row).
+
 ## Out of Scope
 - Reward/streak/badge *logic* (grant rules, milestone evaluation, celebration payloads) — files 23–24.
 - Heartbeat endpoint, learning-time aggregation queries, and screen-time enforcement — files 27–28.
