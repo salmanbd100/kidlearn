@@ -28,8 +28,8 @@
 
 | # | File | Feature | Requirement IDs | Depends on | Est. | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 01 | `01-workspace-packages-and-test-setup.md` | Real workspace packages (`types`, `ui`, `config`) + Vitest | NFR-SCALE-03, §12.8 | — | 3–4h | ⬜ Not started |
-| 02 | `02-database-package-prisma-supabase.md` | `packages/db`: Prisma + Supabase wiring | §7.2, §9 | 01 | 3–4h | ⬜ Not started |
+| 01 | `01-workspace-packages-and-test-setup.md` | Real workspace packages (`types`, `ui`, `config`) + Vitest | NFR-SCALE-03, §12.8 | — | 3–4h | ✅ Done |
+| 02 | `02-database-package-prisma-supabase.md` | `packages/db`: Prisma + Supabase wiring | §7.2, §9 | 01 | 3–4h | 🟨 In progress (code done; awaiting Supabase project + `.env` for live `/health/db` smoke test) |
 | 03 | `03-auth-profile-db-schema.md` | Parent / AdminUser / ChildProfile schema + consent | FR-AUTH-03, FR-PROF-01..02, NFR-SAFE-03 | 02 | 3–4h | ⬜ Not started |
 | 04 | `04-curriculum-world-db-schema.md` | Subject / Topic / Lesson / World / MediaAsset schema | FR-CURR-01..04, FR-WORLD-01..05 | 02, 03 | 3–4h | ⬜ Not started |
 | 05 | `05-activity-quiz-story-db-schema.md` | Activity / Quiz / Story schema (JSONB payloads) | FR-ACT-06, FR-QUIZ-07, FR-STORY-* (data) | 04 | 3–4h | ⬜ Not started |
