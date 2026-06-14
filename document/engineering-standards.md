@@ -21,6 +21,7 @@
 7. [Testing Standards](#7-testing-standards)
 8. [Naming Conventions](#8-naming-conventions)
 9. [Enforcement Matrix](#9-enforcement-matrix)
+10. [GitHub Flow](#10-github-flow)
 
 ---
 
@@ -461,6 +462,61 @@ A reviewer is responsible for catching these. **They are mandatory — not optio
 | No barrel files inside packages beyond `src/index.ts` | Not yet a linter rule |
 | No `enum` — `as const` only | Biome's `noEnum` rule is not enabled by default |
 | `as` casts have an explanatory comment | Comment presence is not enforced |
+
+---
+
+## 10. GitHub Flow
+
+### The rule
+
+Every implementation file in `document/implementation/` maps to exactly one feature branch. The branch name is the implementation filename without the `.md` extension.
+
+```
+document/implementation/01-workspace-packages-and-test-setup.md
+→ branch: 01-workspace-packages-and-test-setup
+```
+
+### Starting work on an implementation file
+
+Use the `/start-implementation <filename-without-extension>` skill. It will:
+
+1. Verify the current branch is `main` and that `main` is clean.
+2. Create the feature branch from `main`: `git checkout -b <filename>`.
+3. Read the implementation file and begin the work described in it.
+4. **Stop before committing.** Leave all changes unstaged (or staged but not committed) for the engineer to review manually.
+
+Do not start implementation work directly on `main`. Do not create ad-hoc branch names — the branch name must match the implementation filename exactly.
+
+### Committing
+
+The engineer reviews the changes, then commits manually. Claude does not commit implementation work. This is intentional: a human must own every commit on a feature branch.
+
+### Opening a pull request
+
+Use the `/pr-description` skill after implementation is complete. It reads the implementation file for the current branch, diffs against `main`, and produces a structured PR description ready to paste into GitHub.
+
+### Branch lifecycle
+
+| Stage | State |
+|---|---|
+| Work in progress | Feature branch, no commits yet (engineer reviews) |
+| Ready for review | Feature branch pushed, PR opened with `/pr-description` output |
+| Merged | PR squash-merged to `main`; feature branch deleted |
+
+### Progress tracking — mandatory
+
+`document/implementation/00-progress-tracker.md` is the single source of truth for what is done and what is not. It must be kept current at every stage:
+
+| Moment | Action |
+|---|---|
+| When the feature branch is created | Change the row's **Status** from `⬜ Not started` → `🟨 In progress` |
+| When implementation is complete (before committing) | Change the row's **Status** from `🟨 In progress` → `✅ Done` |
+
+Both edits to `00-progress-tracker.md` are left unstaged alongside the implementation work so the engineer reviews and commits them together. Never push a feature branch without the tracker reflecting the correct status. **[REVIEW]**
+
+### One branch per implementation file
+
+Do not combine two implementation files into one branch. If work on file `07` reveals a bug in file `05`'s output, fix it in a separate branch named `05-<filename>-fix` and open a separate PR.
 
 ---
 
