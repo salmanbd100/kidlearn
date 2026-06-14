@@ -1,6 +1,7 @@
 ---
 name: code-review
 description: Review a local branch against main before pushing. Invoke as /code-review <branch-name>. Checks document/engineering-standards.md compliance, bugs, content-safety rules (status:"published" guard, i18next), TypeScript/architecture conventions, and packages/ui component layer placement. Use before any PR is opened.
+model: sonnet
 ---
 
 # kidlearn Code Review
