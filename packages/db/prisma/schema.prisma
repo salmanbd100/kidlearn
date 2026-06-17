@@ -14,3 +14,54 @@ datasource db {
   // Direct connection (port 5432) — Prisma CLI migrations/introspection.
   directUrl = env("DIRECT_URL")
 }
+
+enum GradeLevel {
+  NURSERY
+  KG1
+  KG2
+}
+
+enum Language {
+  en
+  bn
+}
+
+model Parent {
+  id             String         @id @default(uuid())
+  googleId       String         @unique
+  email          String         @unique
+  name           String?
+  avatarUrl      String?
+  pinHash        String? // set in file 10; bcrypt/argon2 hash, never the raw PIN
+  consentGivenAt DateTime? // FR-AUTH-03 / NFR-SAFE-03: null until consent accepted
+  consentVersion String? // version of the consent text that was accepted
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  children       ChildProfile[]
+}
+
+model AdminUser {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  role      String   @default("admin")
+  // No passwordHash: admin credentials live on the better-auth `User` row.
+  // File 31 adds `authUserId String? @unique` (+ relation to User) to link them.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChildProfile {
+  id                 String     @id @default(uuid())
+  firstName          String
+  age                Int // 3–6; validated by Zod at the API layer (file 11)
+  gradeLevel         GradeLevel
+  preferredLanguage  Language   @default(en)
+  avatarCharacterRef String? // placeholder; becomes a Character FK in file 06
+  parentId           String
+  parent             Parent     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([parentId])
+}
