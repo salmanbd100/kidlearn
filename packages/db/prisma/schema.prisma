@@ -66,8 +66,6 @@ model ChildProfile {
   @@index([parentId])
 }
 
-// ── Task 04: Curriculum & World Schema ────────────────────────────────────────
-
 enum ContentStatus {
   draft
   in_review
