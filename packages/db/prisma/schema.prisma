@@ -65,3 +65,110 @@ model ChildProfile {
 
   @@index([parentId])
 }
+
+enum ContentStatus {
+  draft
+  in_review
+  approved
+  rejected
+  published
+  archived
+}
+
+enum MediaKind {
+  video
+  audio
+  image
+}
+
+model MediaAsset {
+  id        String    @id @default(uuid())
+  url       String
+  kind      MediaKind
+  language  Language?
+  createdAt DateTime  @default(now())
+
+  worldMascots      World[]             @relation("WorldMascot")
+  lessonIntroAudios LessonTranslation[] @relation("LessonIntroAudio")
+  lessonVideos      LessonTranslation[] @relation("LessonVideo")
+}
+
+model World {
+  id            String        @id @default(uuid())
+  slug          String        @unique
+  name          String
+  palette       Json
+  mascotAssetId String?
+  mascotAsset   MediaAsset?   @relation("WorldMascot", fields: [mascotAssetId], references: [id])
+  status        ContentStatus @default(draft)
+  lessons       Lesson[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Subject {
+  id          String        @id @default(uuid())
+  slug        String        @unique
+  name        String
+  sortOrder   Int           @default(0)
+  gradeLevels GradeLevel[]
+  status      ContentStatus @default(draft)
+  topics      Topic[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([sortOrder])
+}
+
+model Topic {
+  id          String        @id @default(uuid())
+  subjectId   String
+  subject     Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  slug        String
+  name        String
+  sortOrder   Int           @default(0)
+  gradeLevels GradeLevel[]
+  status      ContentStatus @default(draft)
+  lessons     Lesson[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([subjectId, slug])
+  @@index([subjectId, sortOrder])
+}
+
+model Lesson {
+  id           String              @id @default(uuid())
+  topicId      String
+  topic        Topic               @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  worldId      String
+  world        World               @relation(fields: [worldId], references: [id])
+  slug         String
+  title        String
+  sortOrder    Int                 @default(0)
+  gradeLevels  GradeLevel[]
+  status       ContentStatus       @default(draft)
+  activityId   String?
+  quizId       String?
+  translations LessonTranslation[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([topicId, slug])
+  @@index([topicId, sortOrder])
+  @@index([worldId])
+}
+
+model LessonTranslation {
+  id                String      @id @default(uuid())
+  lessonId          String
+  lesson            Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  language          Language
+  introScript       String
+  introAudioAssetId String?
+  introAudioAsset   MediaAsset? @relation("LessonIntroAudio", fields: [introAudioAssetId], references: [id])
+  videoAssetId      String?
+  videoAsset        MediaAsset? @relation("LessonVideo", fields: [videoAssetId], references: [id])
+
+  @@unique([lessonId, language])
+}
