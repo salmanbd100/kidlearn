@@ -32,7 +32,7 @@
 | 02 | `02-database-package-prisma-supabase.md` | `packages/db`: Prisma + Supabase wiring | §7.2, §9 | 01 | 3–4h | ✅ Done |
 | 03 | `03-auth-profile-db-schema.md` | Parent / AdminUser / ChildProfile schema + consent | FR-AUTH-03, FR-PROF-01..02, NFR-SAFE-03 | 02 | 3–4h | ✅ Done |
 | 04 | `04-curriculum-world-db-schema.md` | Subject / Topic / Lesson / World / MediaAsset schema | FR-CURR-01..04, FR-WORLD-01..05 | 02, 03 | 3–4h | ✅ Done |
-| 05 | `05-activity-quiz-story-db-schema.md` | Activity / Quiz / Story schema (JSONB payloads) | FR-ACT-06, FR-QUIZ-07, FR-STORY-* (data) | 04 | 3–4h | ⬜ Not started |
+| 05 | `05-activity-quiz-story-db-schema.md` | Activity / Quiz / Story schema (JSONB payloads) | FR-ACT-06, FR-QUIZ-07, FR-STORY-* (data) | 04 | 3–4h | ✅ Done |
 | 06 | `06-progress-gamification-db-schema.md` | Progress, rewards, streaks, screen time, reports, AI jobs schema | FR-LSN-06..07, FR-GAM-*, FR-TIME-06, FR-DASH-05, FR-AI-08 (data) | 03, 05 | 3–4h | ⬜ Not started |
 | 07 | `07-shared-types-activity-quiz-schemas.md` | Versioned Zod/JSON schemas for activities & quizzes in `packages/types` | FR-ACT-06, FR-QUIZ-07, NFR-SCALE-02 | 01 | 3–4h | ⬜ Not started |
 | 08 | `08-server-foundation-api-architecture.md` | Express app structure, middleware, validation, error handling | §7.3, NFR-PERF-04 | 02 | 3–4h | ⬜ Not started |
