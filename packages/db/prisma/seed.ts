@@ -27,7 +27,7 @@ async function main() {
       parentId: parent.id,
     },
   });
-  
+
   const jungle = await prisma.world.upsert({
     where: { slug: "jungle" },
     update: {},
@@ -132,6 +132,200 @@ async function main() {
       lessonId: lessonA.id,
       language: "en",
       introScript: "Hello! Today we are going to learn about the letter A!",
+    },
+  });
+
+  // File 05 — Activity, Quiz & Story seed data 
+
+  // 1. One drag-drop Activity with the exact-shaped definition
+  const letterAActivity = await prisma.activity.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000101" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000101",
+      type: "drag_drop",
+      status: "published",
+      definition: {
+        version: 1,
+        prompt: "Match the letter!",
+        items: [
+          {
+            id: "apple",
+            imageUrl: "https://placehold.co/200x200?text=Apple",
+            target: "A",
+          },
+        ],
+        targets: [{ id: "A", label: "A" }],
+      },
+    },
+  });
+
+  // 2. One Quiz with 3 mcq/picture_select questions, sortOrder 1–3.
+  const letterAQuiz = await prisma.quiz.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000201" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000201",
+      title: "Letter A Quiz",
+      status: "published",
+    },
+  });
+
+  // Question 1 — mcq: which letter is this?
+  await prisma.quizQuestion.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000202" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000202",
+      quizId: letterAQuiz.id,
+      format: "mcq",
+      sortOrder: 1,
+      definition: {
+        version: 1,
+        prompt: "Which letter is this?",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+        correctOptionId: "a",
+      },
+    },
+  });
+
+  // Question 2 — picture_select: pick the picture starting with A
+  await prisma.quizQuestion.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000203" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000203",
+      quizId: letterAQuiz.id,
+      format: "picture_select",
+      sortOrder: 2,
+      definition: {
+        version: 1,
+        prompt: "Select the picture that starts with A",
+        options: [
+          { id: "apple", imageUrl: "https://placehold.co/200x200?text=Apple" },
+          { id: "ball", imageUrl: "https://placehold.co/200x200?text=Ball" },
+        ],
+        correctOptionId: "apple",
+      },
+    },
+  });
+
+  // Question 3 — mcq: what sound does the letter 'A' make?
+  await prisma.quizQuestion.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000204" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000204",
+      quizId: letterAQuiz.id,
+      format: "mcq",
+      sortOrder: 3,
+      definition: {
+        version: 1,
+        prompt: "What sound does the letter 'A' make?",
+        options: [
+          { id: "apple", label: "Apple" },
+          { id: "cat", label: "cat" },
+        ],
+        correctOptionId: "apple",
+      },
+    },
+  });
+
+  // 3. Write the Activity + Quiz onto the existing seeded letter-a lesson via update.
+  await prisma.lesson.update({
+    where: { id: lessonA.id },
+    data: {
+      activityId: letterAActivity.id,
+      quizId: letterAQuiz.id,
+    },
+  });
+
+ 
+  //    2 pages, each with en + bn StoryPageTranslation rows.
+
+  const sharingMonkeyStory = await prisma.story.upsert({
+    where: { slug: "the-sharing-monkey" },
+    update: {},
+    create: {
+      slug: "the-sharing-monkey",
+      title: "The Sharing Monkey",
+      theme: "sharing",
+      status: "published",
+      worldId: jungle.id,
+      gradeLevels: ["NURSERY", "KG1"],
+    },
+  });
+
+  // Page 1
+  const storyPage1 = await prisma.storyPage.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000301" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000301",
+      storyId: sharingMonkeyStory.id,
+      sortOrder: 1,
+    },
+  });
+
+  await prisma.storyPageTranslation.upsert({
+    where: {
+      storyPageId_language: { storyPageId: storyPage1.id, language: "en" },
+    },
+    update: {},
+    create: {
+      storyPageId: storyPage1.id,
+      language: "en",
+      text: "Momo the monkey found a big juicy mango.",
+    },
+  });
+
+  await prisma.storyPageTranslation.upsert({
+    where: {
+      storyPageId_language: { storyPageId: storyPage1.id, language: "bn" },
+    },
+    update: {},
+    create: {
+      storyPageId: storyPage1.id,
+      language: "bn",
+      text: "মোমো বানর একটা বড় রসালো আম খুঁজে পেল।",
+    },
+  });
+
+  // Page 2
+  const storyPage2 = await prisma.storyPage.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000302" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000302",
+      storyId: sharingMonkeyStory.id,
+      sortOrder: 2,
+    },
+  });
+
+  await prisma.storyPageTranslation.upsert({
+    where: {
+      storyPageId_language: { storyPageId: storyPage2.id, language: "en" },
+    },
+    update: {},
+    create: {
+      storyPageId: storyPage2.id,
+      language: "en",
+      text: "Momo shared the mango with all his friends.",
+    },
+  });
+
+  await prisma.storyPageTranslation.upsert({
+    where: {
+      storyPageId_language: { storyPageId: storyPage2.id, language: "bn" },
+    },
+    update: {},
+    create: {
+      storyPageId: storyPage2.id,
+      language: "bn",
+      text: "মোমো তার সব বন্ধুদের সাথে আমটা ভাগ করে খেল।",
     },
   });
 }

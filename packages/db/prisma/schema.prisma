@@ -32,9 +32,9 @@ model Parent {
   email          String         @unique
   name           String?
   avatarUrl      String?
-  pinHash        String? // set in file 10; bcrypt/argon2 hash, never the raw PIN
-  consentGivenAt DateTime? // FR-AUTH-03 / NFR-SAFE-03: null until consent accepted
-  consentVersion String? // version of the consent text that was accepted
+  pinHash        String? 
+  consentGivenAt DateTime? 
+  consentVersion String? 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   children       ChildProfile[]
@@ -82,15 +82,19 @@ enum MediaKind {
 }
 
 model MediaAsset {
-  id        String    @id @default(uuid())
-  url       String
-  kind      MediaKind
-  language  Language?
-  createdAt DateTime  @default(now())
-
-  worldMascots      World[]             @relation("WorldMascot")
-  lessonIntroAudios LessonTranslation[] @relation("LessonIntroAudio")
-  lessonVideos      LessonTranslation[] @relation("LessonVideo")
+  id                     String                    @id @default(uuid())
+  url                    String
+  kind                   MediaKind
+  language               Language?
+  createdAt              DateTime                  @default(now())
+  worldMascots           World[]                   @relation("WorldMascot")
+  lessonIntroAudios      LessonTranslation[]       @relation("LessonIntroAudio")
+  lessonVideos           LessonTranslation[]       @relation("LessonVideo")
+  activityPromptAudios   ActivityTranslation[]     @relation("ActivityPromptAudio")
+  quizQuestionAudios     QuizQuestionTranslation[] @relation("QuizQuestionAudio")
+  storyCovers            Story[]                   @relation("StoryCover")
+  storyPageIllustrations StoryPage[]               @relation("StoryPageIllustration")
+  storyPageNarrations    StoryPageTranslation[]    @relation("StoryPageNarration")
 }
 
 model World {
@@ -104,6 +108,7 @@ model World {
   lessons       Lesson[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  stories       Story[]
 }
 
 model Subject {
@@ -149,7 +154,9 @@ model Lesson {
   gradeLevels  GradeLevel[]
   status       ContentStatus       @default(draft)
   activityId   String?
+  activity     Activity?           @relation(fields: [activityId], references: [id])
   quizId       String?
+  quiz         Quiz?               @relation(fields: [quizId], references: [id])
   translations LessonTranslation[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
@@ -171,4 +178,115 @@ model LessonTranslation {
   videoAsset        MediaAsset? @relation("LessonVideo", fields: [videoAssetId], references: [id])
 
   @@unique([lessonId, language])
+}
+
+enum ActivityType {
+  drag_drop
+  trace
+  match
+  puzzle
+}
+
+enum QuizQuestionFormat {
+  mcq
+  match_pair
+  drag_answer
+  picture_select
+}
+
+model Activity {
+  id            String                @id @default(uuid())
+  type          ActivityType
+  definition    Json
+  schemaVersion Int                   @default(1)
+  status        ContentStatus         @default(draft)
+  translations  ActivityTranslation[]
+  lessons       Lesson[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+}
+
+model ActivityTranslation {
+  id                 String      @id @default(uuid())
+  activityId         String
+  activity           Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  language           Language
+  promptAudioAssetId String?
+  promptAudioAsset   MediaAsset? @relation("ActivityPromptAudio", fields: [promptAudioAssetId], references: [id])
+
+  @@unique([activityId, language])
+}
+
+model Quiz {
+  id        String         @id @default(uuid())
+  title     String?
+  status    ContentStatus  @default(draft)
+  questions QuizQuestion[]
+  lessons   Lesson[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model QuizQuestion {
+  id            String                    @id @default(uuid())
+  quizId        String
+  quiz          Quiz                      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  format        QuizQuestionFormat
+  definition    Json
+  schemaVersion Int                       @default(1)
+  sortOrder     Int
+  translations  QuizQuestionTranslation[]
+
+  @@unique([quizId, sortOrder])
+}
+
+model QuizQuestionTranslation {
+  id           String       @id @default(uuid())
+  questionId   String
+  question     QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  language     Language
+  audioAssetId String?
+  audioAsset   MediaAsset?  @relation("QuizQuestionAudio", fields: [audioAssetId], references: [id])
+
+  @@unique([questionId, language])
+}
+
+model Story {
+  id           String        @id @default(uuid())
+  slug         String        @unique
+  title        String
+  theme        String
+  worldId      String
+  world        World         @relation(fields: [worldId], references: [id])
+  gradeLevels  GradeLevel[]
+  coverAssetId String?
+  coverAsset   MediaAsset?   @relation("StoryCover", fields: [coverAssetId], references: [id])
+  status       ContentStatus @default(draft)
+  pages        StoryPage[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model StoryPage {
+  id                  String                 @id @default(uuid())
+  storyId             String
+  story               Story                  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  sortOrder           Int
+  illustrationAssetId String?
+  illustrationAsset   MediaAsset?            @relation("StoryPageIllustration", fields: [illustrationAssetId], references: [id])
+  translations        StoryPageTranslation[]
+
+  @@unique([storyId, sortOrder])
+}
+
+model StoryPageTranslation {
+  id                    String      @id @default(uuid())
+  storyPageId           String
+  storyPage             StoryPage   @relation(fields: [storyPageId], references: [id], onDelete: Cascade)
+  language              Language
+  text                  String
+  narrationAudioAssetId String?
+  narrationAudioAsset   MediaAsset? @relation("StoryPageNarration", fields: [narrationAudioAssetId], references: [id])
+
+  @@unique([storyPageId, language])
 }
