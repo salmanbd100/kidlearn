@@ -32,36 +32,46 @@ model Parent {
   email          String         @unique
   name           String?
   avatarUrl      String?
-  pinHash        String? 
-  consentGivenAt DateTime? 
-  consentVersion String? 
+  pinHash        String?
+  consentGivenAt DateTime?
+  consentVersion String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   children       ChildProfile[]
 }
 
 model AdminUser {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String            @id @default(uuid())
+  email     String            @unique
   name      String
-  role      String   @default("admin")
+  role      String            @default("admin")
   // No passwordHash: admin credentials live on the better-auth `User` row.
   // File 31 adds `authUserId String? @unique` (+ relation to User) to link them.
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  aiReviews AIGenerationJob[]
 }
 
 model ChildProfile {
-  id                 String     @id @default(uuid())
-  firstName          String
-  age                Int // 3–6; validated by Zod at the API layer (file 11)
-  gradeLevel         GradeLevel
-  preferredLanguage  Language   @default(en)
-  avatarCharacterRef String? // placeholder; becomes a Character FK in file 06
-  parentId           String
-  parent             Parent     @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  id                String             @id @default(uuid())
+  firstName         String
+  age               Int // 3–6; validated by Zod at the API layer (file 11)
+  gradeLevel        GradeLevel
+  preferredLanguage Language           @default(en)
+  avatarCharacterId String?
+  avatarCharacter   Character?         @relation(fields: [avatarCharacterId], references: [id])
+  parentId          String
+  parent            Parent             @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  lessonProgress    LessonProgress[]
+  quizResponses     QuizResponse[]
+  rewards           RewardLedger[]
+  characters        ChildCharacter[]
+  streak            Streak?
+  screenTime        ScreenTimeSetting?
+  sessionEvents     SessionEvent[]
+  weeklyReports     WeeklyReport[]
 
   @@index([parentId])
 }
@@ -95,6 +105,8 @@ model MediaAsset {
   storyCovers            Story[]                   @relation("StoryCover")
   storyPageIllustrations StoryPage[]               @relation("StoryPageIllustration")
   storyPageNarrations    StoryPageTranslation[]    @relation("StoryPageNarration")
+  badgeIcons             Badge[]                   @relation("BadgeIcon")
+  characterAssets        Character[]               @relation("CharacterAsset")
 }
 
 model World {
@@ -160,6 +172,7 @@ model Lesson {
   translations LessonTranslation[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
+  progress     LessonProgress[]
 
   @@unique([topicId, slug])
   @@index([topicId, sortOrder])
@@ -236,6 +249,7 @@ model QuizQuestion {
   schemaVersion Int                       @default(1)
   sortOrder     Int
   translations  QuizQuestionTranslation[]
+  responses     QuizResponse[]
 
   @@unique([quizId, sortOrder])
 }
@@ -289,4 +303,190 @@ model StoryPageTranslation {
   narrationAudioAsset   MediaAsset? @relation("StoryPageNarration", fields: [narrationAudioAssetId], references: [id])
 
   @@unique([storyPageId, language])
+}
+
+//--------part-6-----------
+enum LessonStep {
+  intro
+  video
+  activity
+  quiz
+  reward
+}
+
+enum RewardType {
+  star
+  coin
+  badge
+}
+
+enum SessionEventType {
+  heartbeat
+  session_start
+  session_end
+  lesson_start
+  lesson_complete
+  story_start
+  story_complete
+}
+
+enum AIJobType {
+  lesson
+  story
+  quiz
+  audio
+  image
+}
+
+enum AIJobStatus {
+  pending
+  generating
+  awaiting_review
+  approved
+  rejected
+  failed
+}
+
+enum AIReviewDecision {
+  approve
+  edit_then_approve
+  reject
+}
+
+model LessonProgress {
+  id           String       @id @default(uuid())
+  childId      String
+  child        ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  lessonId     String
+  lesson       Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  currentStep  LessonStep   @default(intro)
+  completedAt  DateTime?
+  score        Int?
+  timeSpentSec Int          @default(0)
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([childId, lessonId])
+}
+
+model QuizResponse {
+  id         String       @id @default(uuid())
+  childId    String
+  child      ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer     Json
+  isCorrect  Boolean
+  answeredAt DateTime     @default(now())
+
+  @@index([childId, answeredAt])
+}
+
+model Badge {
+  id          String         @id @default(uuid())
+  slug        String         @unique
+  name        String
+  description String?
+  ruleType    String // interpreted by the badge engine (file 24)
+  rule        Json // e.g. { "count": 26, "topicSlug": "alphabet" }
+  iconAssetId String?
+  iconAsset   MediaAsset?    @relation("BadgeIcon", fields: [iconAssetId], references: [id])
+  status      ContentStatus  @default(draft)
+  ledger      RewardLedger[]
+}
+
+model RewardLedger {
+  id         String       @id @default(uuid())
+  childId    String
+  child      ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  rewardType RewardType
+  amount     Int // stars/coins granted; 1 for badge rows
+  sourceType String // "lesson_completion" | "quiz_answer" | "story_completion" | "daily_activity" | ...
+  sourceId   String? // id of the lesson/quiz/story that triggered the grant
+  badgeId    String?
+  badge      Badge?       @relation(fields: [badgeId], references: [id])
+  createdAt  DateTime     @default(now())
+
+  @@index([childId, createdAt])
+}
+
+model Character {
+  id         String           @id @default(uuid())
+  slug       String           @unique
+  name       String
+  assetId    String?
+  asset      MediaAsset?      @relation("CharacterAsset", fields: [assetId], references: [id])
+  isDefault  Boolean          @default(false)
+  unlockRule Json // e.g. { "coins": 50 } — interpreted in file 24
+  status     ContentStatus    @default(draft)
+  unlocks    ChildCharacter[]
+  avatars    ChildProfile[]
+}
+
+model ChildCharacter {
+  id          String       @id @default(uuid())
+  childId     String
+  child       ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  characterId String
+  character   Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  unlockedAt  DateTime     @default(now())
+
+  @@unique([childId, characterId])
+}
+
+model Streak {
+  id               String       @id @default(uuid())
+  childId          String       @unique
+  child            ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  current          Int          @default(0)
+  longest          Int          @default(0)
+  lastActivityDate DateTime?    @db.Date
+}
+
+model ScreenTimeSetting {
+  id                String       @id @default(uuid())
+  childId           String       @unique
+  child             ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  dailyLimitMinutes Int?
+  windowStart       DateTime?    @db.Time(0)
+  windowEnd         DateTime?    @db.Time(0)
+  updatedAt         DateTime     @updatedAt
+}
+
+model SessionEvent {
+  id         String           @id @default(uuid())
+  childId    String
+  child      ChildProfile     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  type       SessionEventType
+  occurredAt DateTime         @default(now())
+  payload    Json?
+
+  @@index([childId, occurredAt])
+}
+
+model WeeklyReport {
+  id        String       @id @default(uuid())
+  childId   String
+  child     ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  weekStart DateTime     @db.Date
+  metrics   Json
+  note      String?
+  createdAt DateTime     @default(now())
+
+  @@unique([childId, weekStart])
+}
+
+model AIGenerationJob {
+  id         String            @id @default(uuid())
+  type       AIJobType
+  input      Json
+  rawOutput  Json?
+  status     AIJobStatus       @default(pending)
+  reviewerId String?
+  reviewer   AdminUser?        @relation(fields: [reviewerId], references: [id])
+  decision   AIReviewDecision?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  reviewedAt DateTime?
+
+  @@index([status, createdAt])
 }

@@ -135,7 +135,7 @@ async function main() {
     },
   });
 
-  // File 05 — Activity, Quiz & Story seed data 
+  // File 05 — Activity, Quiz & Story seed data
 
   // 1. One drag-drop Activity with the exact-shaped definition
   const letterAActivity = await prisma.activity.upsert({
@@ -243,7 +243,6 @@ async function main() {
     },
   });
 
- 
   //    2 pages, each with en + bn StoryPageTranslation rows.
 
   const sharingMonkeyStory = await prisma.story.upsert({
@@ -326,6 +325,118 @@ async function main() {
       storyPageId: storyPage2.id,
       language: "bn",
       text: "মোমো তার সব বন্ধুদের সাথে আমটা ভাগ করে খেল।",
+    },
+  });
+
+  //------------part-6-----------
+  // ---------- Default Character ----------
+  const characterLion = await prisma.character.upsert({
+    where: { slug: "leo-the-lion" },
+    update: {},
+    create: {
+      slug: "leo-the-lion",
+      name: "Leo the Lion",
+      isDefault: true,
+      status: "published",
+      unlockRule: {},
+    },
+  });
+
+  // ---------- Six FR-GAM-04 Badges ----------
+  await prisma.badge.upsert({
+    where: { slug: "alphabet-hero" },
+    update: {},
+    create: {
+      slug: "alphabet-hero",
+      name: "Alphabet Hero",
+      description: "Complete all letters in the Alphabet topic",
+      ruleType: "lessons_completed_in_topic",
+      rule: { topicSlug: "alphabet", count: 26 },
+      status: "published",
+    },
+  });
+
+  await prisma.badge.upsert({
+    where: { slug: "math-champion" },
+    update: {},
+    create: {
+      slug: "math-champion",
+      name: "Math Champion",
+      description: "Complete all lessons in Mathematics",
+      ruleType: "lessons_completed_in_subject",
+      rule: { subjectSlug: "mathematics", count: 20 },
+      status: "published",
+    },
+  });
+
+  await prisma.badge.upsert({
+    where: { slug: "reading-star" },
+    update: {},
+    create: {
+      slug: "reading-star",
+      name: "Reading Star",
+      description: "Finish 10 stories",
+      ruleType: "stories_completed",
+      rule: { count: 10 },
+      status: "published",
+    },
+  });
+
+  await prisma.badge.upsert({
+    where: { slug: "animal-expert" },
+    update: {},
+    create: {
+      slug: "animal-expert",
+      name: "Animal Expert",
+      description: "Complete all lessons in Science",
+      ruleType: "lessons_completed_in_subject",
+      rule: { subjectSlug: "science", count: 15 },
+      status: "published",
+    },
+  });
+
+  await prisma.badge.upsert({
+    where: { slug: "streak-starter" },
+    update: {},
+    create: {
+      slug: "streak-starter",
+      name: "Streak Starter",
+      description: "Learn 3 days in a row",
+      ruleType: "streak_days",
+      rule: { days: 3 },
+      status: "published",
+    },
+  });
+
+  await prisma.badge.upsert({
+    where: { slug: "week-warrior" },
+    update: {},
+    create: {
+      slug: "week-warrior",
+      name: "Week Warrior",
+      description: "Learn 7 days in a row",
+      ruleType: "streak_days",
+      rule: { days: 7 },
+      status: "published",
+    },
+  });
+
+  // ---------- Assign Default Character to Child Profile ----------
+  const ChildProfileUpdate = await prisma.childProfile.update({
+    where: { id: "00000000-0000-0000-0000-000000000001" },
+    data: { avatarCharacterId: characterLion.id },
+  });
+  await prisma.childCharacter.upsert({
+    where: {
+      childId_characterId: {
+        childId: ChildProfileUpdate.id,
+        characterId: characterLion.id,
+      },
+    },
+    update: {},
+    create: {
+      childId: ChildProfileUpdate.id,
+      characterId: characterLion.id,
     },
   });
 }

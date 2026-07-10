@@ -1,0 +1,14 @@
+On branch 04-curriculum-world-db-schema
+Your branch is up to date with 'origin/04-curriculum-world-db-schema'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	modified:   README.md
+	new file:   packages/db/.turbo/turbo-build.log
+	modified:   packages/db/package.json
+	modified:   pnpm-lock.yaml
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	status_output.txt
+
