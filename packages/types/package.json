@@ -19,5 +19,8 @@
   "devDependencies": {
     "@kidlearn/config": "workspace:*",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "zod": "^3.24.0"
   }
 }

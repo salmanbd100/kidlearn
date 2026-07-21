@@ -30,6 +30,7 @@
   "devDependencies": {
     "@kidlearn/config": "workspace:*",
     "@types/node": "^20",
+    "dotenv": "^17.4.2",
     "prisma": "^6",
     "tsx": "^4",
     "typescript": "^5"
