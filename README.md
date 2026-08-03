@@ -156,7 +156,10 @@ Detailed specs live in `document/`:
 - [`project-requirement-details.md`](document/project-requirement-details.md) — full functional + non-functional requirements
 - [`design.md`](document/design.md) — UI/UX design decisions
 - [`database-design.md`](document/database-design.md) — full data model
-- [`engineering-standards.md`](document/engineering-standards.md) — coding standards
+- [`engineering-standards.md`](document/engineering-standards.md) — coding standards index, routing to:
+  - [`standards/general.md`](document/standards/general.md) — applies to every task (layout, TypeScript, imports, naming, testing, GitHub flow)
+  - [`standards/frontend.md`](document/standards/frontend.md) — `packages/ui`, `apps/web`, React/Next.js
+  - [`standards/backend.md`](document/standards/backend.md) — `apps/server`, Prisma, `packages/db`, API design
 - [`user-journey-manual.md`](document/user-journey-manual.md) — end-to-end user flows
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: start-implementation
-description: Start work on a kidlearn implementation file. Invoke as /start-implementation <filename-without-extension> (e.g. /start-implementation 01-workspace-packages-and-test-setup). Creates the feature branch from main, reads the spec, implements it, then stops before committing so the engineer can review manually.
+description: Start work on a kidlearn implementation file. Invoke as /start-implementation <filename-without-extension> (e.g. /start-implementation 01-workspace-packages-and-test-setup). Creates the feature branch from main, loads only the standards docs relevant to the layers the spec touches, implements it, then stops before committing so the engineer can review manually.
 model: sonnet
 ---
 
@@ -51,10 +51,6 @@ Then immediately update `document/implementation/00-progress-tracker.md`: find t
 
 Read the full contents of `document/implementation/<args>.md`.
 
-Also read:
-- `document/engineering-standards.md` — standards that apply to every file
-- `document/design.md` — only if the spec touches UI or components
-
 Identify from the spec:
 - **Goal** — what this file delivers
 - **Dependencies** — which earlier implementation files must already be done
@@ -65,24 +61,62 @@ If the spec lists dependencies on files that appear to not be implemented yet (c
 
 ---
 
-## Step 3 — Implement
+## Step 3 — Load only the relevant standards
 
-Work through the spec goal by goal. Follow all rules in `document/engineering-standards.md`. Key reminders:
+**Always read** `document/standards/general.md`. It applies to every file in the repo — monorepo layout, TypeScript, imports, naming, testing, GitHub flow.
 
-- TypeScript `strict: true` — no `any`, no implicit returns.
-- Semantic tokens only in components — no raw hex, no Tailwind color literals.
-- `'use client'` as low in the tree as possible.
-- Every Express route that accepts input gets Zod validation before the service call.
+Then classify the spec using the **Layers touched** from Step 2 and read only the matching documents. If the engineer stated the task type explicitly in their message ("this is a frontend task", "backend only"), that overrides the inference.
+
+| If the spec touches… | Also read |
+|---|---|
+| `packages/ui`, `apps/web`, React, Next.js, components, styling, layouts, i18n copy | `document/standards/frontend.md` **and** `document/design.md` **and** `apps/web/AGENTS.md` |
+| `apps/server`, Express, API routes, services, middleware, auth | `document/standards/backend.md` |
+| `packages/db`, Prisma schema, migrations | `document/standards/backend.md` **and** `document/database-design.md` |
+| `packages/types`, shared Zod schemas, activity/quiz payload types | `document/standards/backend.md` (the payload-type and validation rules live there) — add `frontend.md` only if the spec also renders them |
+| Repo root config, `turbo.json`, workspace wiring, test tooling only | nothing beyond `general.md` |
+
+**Do not read the role document you do not need.** A pure schema spec (files 03–07) does not need `frontend.md` or `design.md`. A pure UI spec does not need `backend.md` or `database-design.md`. A full-stack spec reads both.
+
+State which documents you loaded before starting work, in one line:
+
+```
+Standards loaded: general.md + backend.md + database-design.md (db schema task)
+```
+
+---
+
+## Step 4 — Implement
+
+Work through the spec goal by goal, following every rule in the standards documents you loaded.
+
+**Always applies (`general.md`):**
+- TypeScript `strict: true` — no `any`, no implicit returns, no `enum` (use `as const`).
+- `as` casts only at verified external boundaries, each with an explanatory comment.
+- No cross-package relative imports — import by package name. `packages/*` never imports from `apps/*`.
+- No barrel files beyond a package's `src/index.ts`.
+- Naming conventions: PascalCase component files, kebab-case everything else, boolean `is`/`has`/`can` prefixes.
+- Tests co-located next to the file under test. Never mock `@kidlearn/db`. No snapshot tests.
+
+**If you loaded `frontend.md`:**
+- Correct `packages/ui` layer — `primitives/` / `kid/` / `parent/` / `hooks/` / `lib/` / `styles/`.
+- Variants via `cva` + `cn()`. Semantic tokens only — no raw hex or Tailwind color literals.
+- No theme branching in JS — `data-theme` at the layout boundary.
+- `'use client'` as low in the tree as possible; no data fetching in Client Components.
+- Every user-facing string through `i18next`. `next/image` for images, `next/font` for fonts.
+
+**If you loaded `backend.md`:**
+- Route handlers stay thin — business logic goes in a service function callable without HTTP.
+- Zod validation at the route boundary on every route that accepts input.
+- `@kidlearn/db` singleton only — never `new PrismaClient()`, never raw SQL.
 - Every student-facing Prisma query filters `status: "published"`.
-- No hard-coded user-facing strings — route through `i18next`.
-- Use `@kidlearn/db` singleton — never `new PrismaClient()`.
-- No cross-package relative imports.
+- Throw errors; a single error-handler middleware sends them. Semantic status codes.
+- Required env vars validated at boot, failing fast.
 
 Run `pnpm typecheck` and `pnpm lint` after implementing. Fix all errors before stopping.
 
 ---
 
-## Step 4 — Update progress tracker to Done
+## Step 5 — Update progress tracker to Done
 
 Edit `document/implementation/00-progress-tracker.md`: find the row for `<args>.md` and change its **Status** cell from `🟨 In progress` to `✅ Done`.
 
@@ -90,16 +124,17 @@ Leave the file modified but **do not stage or commit it**.
 
 ---
 
-## Step 5 — Stop before committing
+## Step 6 — Stop before committing
 
 **Do not run `git add` or `git commit`.** Leave all changes — implementation files and the updated `00-progress-tracker.md` — in the working tree for the engineer to review.
 
-Output a concise summary:
+Output a concise summary. Include only the checklist lines relevant to the layers you touched — take them from the review checklist at the end of the role document(s) you loaded (`frontend.md §5`, `backend.md §7`).
 
 ```
 ## Implementation complete — <args>
 
 Branch: <args> (created from main)
+Standards loaded: <the one-line list from Step 3>
 
 ### What was done
 <bullet list of changes — one line per file or logical change>
@@ -111,10 +146,15 @@ Branch: <args> (created from main)
 <tick each item from the spec's acceptance criteria — ✓ done / ✗ not done + reason>
 
 ### Review checklist for the engineer
-- [ ] Run `pnpm dev` and smoke-test the new surface
-- [ ] Check content-safety filters (status: "published") on any new Prisma queries
-- [ ] Verify i18n strings are routed through i18next
-- [ ] Confirm touch targets (≥64px kid / ≥44px parent) if UI was touched
 - [ ] Verify 00-progress-tracker.md shows ✅ Done for this file
+<frontend items, only if frontend.md was loaded:>
+- [ ] Run `pnpm dev` and smoke-test the new surface
+- [ ] Verify i18n strings are routed through i18next
+- [ ] Confirm semantic tokens only — no raw hex or Tailwind color literals
+- [ ] Confirm touch targets (≥64px kid / ≥44px parent)
+<backend items, only if backend.md was loaded:>
+- [ ] Check content-safety filters (status: "published") on any new Prisma queries
+- [ ] Confirm Zod validation on every route accepting input
+- [ ] Confirm route handlers are thin — logic in services
 - [ ] Commit everything (including 00-progress-tracker.md) and push, then run /pr-description
 ```

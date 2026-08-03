@@ -9,8 +9,12 @@ model: sonnet
 You are performing a pre-push code review for the **kidlearn** monorepo. The branch to review is provided as args.
 
 The authoritative standards for this codebase are:
-- **`document/engineering-standards.md`** — code structure, naming, TypeScript, testing, enforcement rules
+- **`document/standards/general.md`** — always applies: monorepo layout, TypeScript, imports, naming, testing, enforcement matrix
+- **`document/standards/frontend.md`** — read when the diff touches `packages/ui` or `apps/web`
+- **`document/standards/backend.md`** — read when the diff touches `apps/server`, `packages/db`, or `packages/types`
 - **`document/design.md`** — visual tokens, motion, accessibility (referenced for component changes)
+
+`document/engineering-standards.md` is an index that routes to the three documents above. Load only the role documents matching the layers the diff touches (established in Step 1).
 
 ---
 
@@ -45,20 +49,25 @@ Launch all five agents in parallel. Each agent reads the full diff and the files
 
 ### Agent A — Engineering Standards: `[REVIEW]` rules
 
-Read `document/engineering-standards.md` in full. Check every `[REVIEW]`-tagged rule against the diff. Focus especially on:
+Read `document/standards/general.md` in full, plus `frontend.md` and/or `backend.md` for the layers this diff touches. Check every `[REVIEW]`-tagged rule against the diff. The consolidated list of `[REVIEW]` rules is in `general.md §6`. Focus especially on:
 
-- **Semantic tokens** — any raw hex, CSS color literal, or Tailwind color class (`text-blue-500`, `bg-red-600`) used in a component instead of a semantic token (`text-foreground`, `bg-primary`). Rule: §2.
-- **i18next** — any JSX string literal or template string that is user-visible and not routed through `i18next`. Rule: §5 (React), §10 (content voice).
-- **`'use client'` placement** — boundary added higher in the tree than necessary; a Server Component converted to a Client Component when only a leaf needs interactivity. Rule: §5.
-- **Component layer** — a component placed in the wrong `packages/ui` subdirectory (e.g. a kid-specific widget in `primitives/`, a pure utility in `kid/`). Rule: §2.
-- **Route handler thickness** — business logic (Prisma queries, conditional branching, calculations) inside a route handler function body rather than a service. Rule: §6.
-- **Zod missing** — a route handler that accepts a request body or params but has no Zod validation call before the service call. Rule: §6.
-- **`new PrismaClient()`** — any direct instantiation in `apps/server` instead of using the `@kidlearn/db` singleton. Rule: §6.
-- **Cross-package direction** — any import in `packages/*` that resolves to `apps/*`. Rule: §4.
-- **Internal barrel files** — a new `index.ts` created inside a package at a path other than `src/index.ts` that re-exports from multiple sibling files. Rule: §4.
-- **`enum` usage** — any TypeScript `enum` declaration. Rule: §3.
-- **`as` cast without comment** — a type assertion (`as SomeType`) with no inline comment explaining why narrowing is not possible. Rule: §3.
-- **`any`** — any explicit `any` type. Rule: §3.
+Always:
+- **Cross-package direction** — any import in `packages/*` that resolves to `apps/*`. Rule: `general.md §3`.
+- **Internal barrel files** — a new `index.ts` created inside a package at a path other than `src/index.ts` that re-exports from multiple sibling files. Rule: `general.md §3`.
+- **`enum` usage** — any TypeScript `enum` declaration. Rule: `general.md §2`.
+- **`as` cast without comment** — a type assertion (`as SomeType`) with no inline comment explaining why narrowing is not possible. Rule: `general.md §2`.
+- **`any`** — any explicit `any` type. Rule: `general.md §2`.
+
+Frontend layers only (`packages/ui`, `apps/web`):
+- **Semantic tokens** — any raw hex, CSS color literal, or Tailwind color class (`text-blue-500`, `bg-red-600`) used in a component instead of a semantic token (`text-foreground`, `bg-primary`). Rule: `frontend.md §1`.
+- **i18next** — any JSX string literal or template string that is user-visible and not routed through `i18next`. Rule: `frontend.md §3`; `design.md §10` (content voice).
+- **`'use client'` placement** — boundary added higher in the tree than necessary; a Server Component converted to a Client Component when only a leaf needs interactivity. Rule: `frontend.md §2`.
+- **Component layer** — a component placed in the wrong `packages/ui` subdirectory (e.g. a kid-specific widget in `primitives/`, a pure utility in `kid/`). Rule: `frontend.md §1`.
+
+Backend layers only (`apps/server`, `packages/db`, `packages/types`):
+- **Route handler thickness** — business logic (Prisma queries, conditional branching, calculations) inside a route handler function body rather than a service. Rule: `backend.md §2`.
+- **Zod missing** — a route handler that accepts a request body or params but has no Zod validation call before the service call. Rule: `backend.md §2`.
+- **`new PrismaClient()`** — any direct instantiation in `apps/server` instead of using the `@kidlearn/db` singleton. Rule: `backend.md §3`.
 
 ### Agent B — Bugs
 
@@ -89,7 +98,7 @@ Also check:
 
 ### Agent D — TypeScript & architecture conventions
 
-Read `document/engineering-standards.md §3` and §4. Check the diff for:
+Read `document/standards/general.md §2` (TypeScript) and `§3` (imports). Check the diff for:
 
 - Prisma types redeclared in app code instead of imported from `@kidlearn/db`
 - Types or interfaces that should be in `packages/types` (shared between frontend and backend) but are duplicated in both
@@ -101,7 +110,7 @@ Read `document/engineering-standards.md §3` and §4. Check the diff for:
 
 ### Agent E — Component & design system audit (run only if the diff touches `packages/ui/` or `apps/web/`)
 
-Read `document/design.md §11` (the PR checklist) and `document/engineering-standards.md §2`. Check:
+Read `document/design.md §11` (the PR checklist) and `document/standards/frontend.md §1`. Check:
 
 - `cva` used for all variant logic; no ad-hoc className concatenation
 - `cn()` used to merge classes (not string template literals)
@@ -117,14 +126,14 @@ Read `document/design.md §11` (the PR checklist) and `document/engineering-stan
 
 ## Step 3 — Confidence scoring
 
-For each issue returned by any agent in Step 2, launch a parallel scoring agent. The scoring agent receives: the issue description, the relevant diff lines, and the rule from `document/engineering-standards.md` that was cited.
+For each issue returned by any agent in Step 2, launch a parallel scoring agent. The scoring agent receives: the issue description, the relevant diff lines, and the rule from the standards documents (`general.md` / `frontend.md` / `backend.md`) that was cited.
 
 Score 0–100 using this rubric (give this rubric to the agent verbatim):
 
 - **0** — False positive. The rule doesn't actually apply here, or this is a pre-existing issue not introduced by this branch.
 - **25** — Possible issue, but could be a false positive. Agent could not fully verify.
 - **50** — Real issue but minor — a nitpick that a senior engineer might let through on a low-risk branch.
-- **75** — Real issue, verified. Will affect functionality or directly violates a named rule in `document/engineering-standards.md`. The reviewer would block this.
+- **75** — Real issue, verified. Will affect functionality or directly violates a named rule in the standards documents. The reviewer would block this.
 - **100** — Certain. The issue is confirmed, will cause a bug or standards violation in production. No ambiguity.
 
 **Content-safety issues (missing `status: "published"` filter, missing auth/PIN checks) are automatically scored 100 regardless of the agent's judgment.** These are never nitpicks.
@@ -157,7 +166,7 @@ Found N issue(s):
 
 1. **<one-line description>**
 
-   Rule: `document/engineering-standards.md §<section>` — *"<exact quote of the rule>"*
+   Rule: `document/standards/<general|frontend|backend>.md §<section>` — *"<exact quote of the rule>"*
 
    File: `<path/to/file.ts>` (lines approx. <range>)
 
@@ -177,4 +186,4 @@ Found N issue(s):
 - Keep descriptions factual. No praise, no encouragement. Be direct.
 - Do not list issues that Biome or TypeScript will catch automatically — those run in CI.
 - Do not flag issues on lines that were not modified by this branch.
-- Quote the rule from `document/engineering-standards.md` verbatim for every standards violation.
+- Quote the rule from the relevant `document/standards/*.md` file verbatim for every standards violation.
