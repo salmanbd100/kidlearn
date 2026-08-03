@@ -1,4 +1,20 @@
-// Shared, versioned schemas for kidlearn (activities, quizzes, stories).
-// Real Zod schemas land in implementation file 07 — this seed export just
-// gives the build something to emit and pins the content schema version.
-export const SCHEMA_VERSION = 1;
+/**
+ * `@kidlearn/types` — the single source of truth for versioned content payloads.
+ *
+ * The frontend renderers, the backend validators, and the AI generation prompts
+ * all import from here. Nothing in this package may depend on `@kidlearn/db`,
+ * Prisma, Express, or React: it is pure schema, usable on both sides of the wire.
+ *
+ * The additive versioning rule for `schemaVersion` is documented in
+ * `./primitives` — read it before changing any schema.
+ */
+
+// Fixtures ship from the package root by design: the content seed script
+// (file 12) and the AI prompt examples (file 34) reuse the valid payloads.
+export * from "./__fixtures__/activities.js";
+export * from "./__fixtures__/quiz.js";
+export * from "./activity/parse.js";
+export * from "./activity/schemas.js";
+export * from "./primitives.js";
+export * from "./quiz/parse.js";
+export * from "./quiz/schemas.js";
