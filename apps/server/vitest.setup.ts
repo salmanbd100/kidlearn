@@ -9,3 +9,10 @@ process.env.DATABASE_URL ??=
 process.env.WEB_ORIGIN ??= "http://localhost:3000";
 // Silence pino so assertion failures are readable.
 process.env.LOG_LEVEL ??= "fatal";
+// better-auth (file 09). Dummy values only — no test drives the real Google
+// flow, but `betterAuth()` is constructed at import time and env.ts rejects
+// blank credentials, so the suite needs syntactically valid placeholders.
+process.env.BETTER_AUTH_URL ??= "http://localhost:4000";
+process.env.BETTER_AUTH_SECRET ??= "test-secret-at-least-32-chars-long!!";
+process.env.GOOGLE_CLIENT_ID ??= "test-google-client-id";
+process.env.GOOGLE_CLIENT_SECRET ??= "test-google-client-secret";

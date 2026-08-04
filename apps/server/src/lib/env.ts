@@ -15,6 +15,18 @@ const EnvSchema = z.object({
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
     .default("info"),
+  // --- better-auth (file 09) ---------------------------------------------
+  // Public base URL of THIS server. better-auth builds its OAuth redirect URI
+  // from it, so it must match the Authorized redirect URI registered in the
+  // Google Cloud console exactly (`<BETTER_AUTH_URL>/api/auth/callback/google`).
+  BETTER_AUTH_URL: z.string().url().default("http://localhost:4000"),
+  // Signing key for session tokens and OAuth state. Generate with
+  // `openssl rand -base64 32`. Rotating it invalidates every live session.
+  BETTER_AUTH_SECRET: z.string().min(32),
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  // Where the browser lands after a successful Google round-trip.
+  PARENT_POST_LOGIN_PATH: z.string().startsWith("/").default("/parent"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
