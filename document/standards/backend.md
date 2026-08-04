@@ -46,7 +46,7 @@ Route handlers validate the request and delegate to a service function. No busin
 
 ```ts
 // Correct
-router.get("/:id", validateParams(lessonParamsSchema), async (req, res) => {
+router.get("/:id", validateParams(LessonParamsSchema), async (req, res) => {
   const lesson = await lessonService.findById(req.params.id);
   if (!lesson) return res.status(404).json({ error: "Not found" });
   res.json(lesson);

@@ -148,7 +148,7 @@ import { Button } from "@kidlearn/ui";
 | Functions and variables | camelCase | `fetchLessonById`, `childProfile` |
 | True constants (never change at runtime) | SCREAMING_SNAKE_CASE | `MAX_CHILDREN_PER_PARENT` |
 | TypeScript types and interfaces | PascalCase — no `I` prefix, no `Type` suffix | `LessonPayload`, `ActivityKind` |
-| Zod schemas | camelCase + `Schema` suffix | `activityPayloadSchema` |
+| Zod schemas | PascalCase + `Schema` suffix | `ActivityDefinitionSchema`, `McqQuestionSchema` |
 | `cva` variant objects | camelCase + `Variants` suffix | `buttonVariants` |
 | React hooks | `use` prefix | `useScreenTime`, `useChildProfile` |
 | Context objects | noun + `Context` | `ChildProfileContext` |
@@ -160,6 +160,7 @@ import { Button } from "@kidlearn/ui";
 ### Additional rules
 
 - **No unexplained abbreviations.** `id`, `url`, `api`, `db` are universally understood and permitted. `qty`, `usr`, `btn`, `cfg` are not. **[REVIEW]**
+- **Zod schemas are PascalCase** so each schema reads as a pair with the type inferred from it — `McqQuestionSchema` declares `McqQuestion`. A camelCase schema next to a PascalCase type makes the pairing hard to scan, and a Zod schema is a type declaration in practice. **[REVIEW]**
 - **Boolean variables and props use an `is`, `has`, or `can` prefix.** `isPublished`, `hasChildren`, `canRetry`. A prop named `published` is ambiguous; `isPublished` is not. **[REVIEW]**
 - **Route group directories** follow Next.js App Router convention: parentheses notation, lowercase — `(student)`, `(parent)`, `(admin)`. **[REVIEW]**
 

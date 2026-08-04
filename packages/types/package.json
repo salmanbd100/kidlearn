@@ -12,13 +12,15 @@
     }
   },
   "scripts": {
-    "dev": "tsc --watch --preserveWatchOutput",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "dev": "tsc --project tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsc --project tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@kidlearn/config": "workspace:*",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "zod": "^3.24.0"
