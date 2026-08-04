@@ -1,0 +1,3 @@
+# Business logic lives here — plain async functions with no Express types, so
+# every service is callable from a test without an HTTP layer. Populated from
+# implementation file 09 onward.

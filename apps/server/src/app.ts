@@ -1,25 +1,42 @@
-import { prisma } from "@kidlearn/db";
 import cors from "cors";
-import express, { type Request, type Response } from "express";
+import express, { type Express } from "express";
+import { env } from "./lib/env.js";
+import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
+import { requestLogger } from "./middleware/request-logger.js";
+import { healthRouter } from "./routes/health.js";
+import { apiRouter } from "./routes/index.js";
 
-export const app = express();
+/**
+ * Builds the Express application without binding a port, so tests can drive it
+ * through Supertest. Middleware order is load-bearing: logging first (so every
+ * request is recorded, including rejected ones), then CORS, then body parsing,
+ * then routes, then the two terminal handlers.
+ */
+export function buildApp(): Express {
+  const app = express();
 
-app.use(cors());
-app.use(express.json());
+  app.disable("x-powered-by");
 
-app.get("/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok" });
-});
+  app.use(requestLogger);
+  app.use(
+    cors({
+      // The array form matters: given a bare string, the `cors` package echoes
+      // that origin back on every response regardless of who asked. The array
+      // form checks the request's Origin and omits the header when it does not
+      // match, which is what NFR-SAFE-07 requires.
+      origin: [env.WEB_ORIGIN],
+      credentials: true,
+    }),
+  );
+  app.use(express.json());
 
-app.get("/health/db", async (_req: Request, res: Response) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: "ok", database: "reachable" });
-  } catch {
-    res.status(503).json({ status: "error", database: "unreachable" });
-  }
-});
+  app.use(healthRouter);
+  app.use("/api", apiRouter);
 
-app.get("/", (_req: Request, res: Response) => {
-  res.json({ message: "kidlearn server" });
-});
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  return app;
+}
+
+export const app = buildApp();
