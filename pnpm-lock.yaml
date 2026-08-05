@@ -20,6 +20,9 @@ importers:
       '@kidlearn/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@kidlearn/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       argon2:
         specifier: ^0.45.1
         version: 0.45.1
@@ -133,6 +136,9 @@ importers:
       '@kidlearn/config':
         specifier: workspace:*
         version: link:../config
+      '@kidlearn/types':
+        specifier: workspace:*
+        version: link:../types
       '@types/node':
         specifier: ^20
         version: 20.19.43

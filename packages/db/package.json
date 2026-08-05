@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@kidlearn/config": "workspace:*",
+    "@kidlearn/types": "workspace:*",
     "@types/node": "^20",
     "dotenv": "^17.4.2",
     "prisma": "^6",

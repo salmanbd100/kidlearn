@@ -1,5 +1,8 @@
 import { Router } from "express";
+import { requireActiveChild } from "../middleware/require-active-child.js";
+import { requireParent } from "../middleware/require-parent.js";
 import { childrenRouter } from "./children.js";
+import { contentRouter } from "./content.js";
 import { parentRouter } from "./parent.js";
 
 /**
@@ -15,3 +18,8 @@ export const apiRouter = Router();
 apiRouter.use("/parent", parentRouter);
 
 apiRouter.use("/children", childrenRouter);
+
+// Curriculum reads (file 12). The two guards are mounted here rather than
+// inside `content.ts` so that every current and future `/api/content/*` path is
+// covered by construction — a new route added there cannot forget them.
+apiRouter.use("/content", requireParent, requireActiveChild, contentRouter);

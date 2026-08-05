@@ -39,7 +39,7 @@
 | 09 | `09-parent-google-oauth.md` | Google OAuth sign-in + profile-scoped sessions | FR-AUTH-02, FR-AUTH-06 | 03, 08 | 3–4h | ✅ Done |
 | 10 | `10-pin-gate-consent-account-deletion.md` | PIN parental gate, COPPA consent, full account deletion | FR-AUTH-03..05, NFR-SAFE-05..06 | 09 | 3–4h | ✅ Done |
 | 11 | `11-child-profile-api.md` | Child profile CRUD API (max 5, owner-only access) | FR-PROF-01..07, NFR-SAFE-02 | 09 | 3–4h | ✅ Done |
-| 12 | `12-curriculum-content-read-api.md` | Published-only, grade+language-filtered content read APIs | FR-PROF-03, FR-CURR-02, §7.3.4 | 04, 05, 08 | 3–4h | ⬜ Not started |
+| 12 | `12-curriculum-content-read-api.md` | Published-only, grade+language-filtered content read APIs | FR-PROF-03, FR-CURR-02, §7.3.4 | 04, 05, 08 | 3–4h | ✅ Done |
 | 13 | `13-web-app-foundation-i18n.md` | Next.js app shell, i18next (EN/BN), theme tokens, audio helper | FR-I18N-01..03, NFR-A11Y-01..06 | 01 | 3–4h | ⬜ Not started |
 | 14 | `14-parent-onboarding-profile-ui.md` | Parent sign-in, consent, PIN setup, child profile management UI | FR-AUTH-02..04, FR-PROF-01..02, 05..06 | 10, 11, 13 | 3–4h | ⬜ Not started |
 | 15 | `15-student-profile-select-and-home.md` | Profile picker, world-themed home, lesson browsing, streak display | FR-AUTH-06, FR-PROF-03, FR-WORLD-01..03, FR-GAM-06 (display) | 12, 13, 14 | 3–4h | ⬜ Not started |

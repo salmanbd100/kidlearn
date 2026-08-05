@@ -1,10 +1,22 @@
-import { PrismaClient } from "@prisma/client";
+import { validDragDrop, validMcq, validPictureSelect } from "@kidlearn/types";
+import { type Prisma, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 const DEV_PARENT_EMAIL = "dev-parent@kidlearn.local";
 /** Fixed id so re-seeding is idempotent; better-auth uses opaque string ids. */
 const DEV_PARENT_USER_ID = "dev-user-parent";
+
+/**
+ * `@kidlearn/types` fixtures are typed as the interfaces Zod infers, which do
+ * not carry the index signature Prisma's `InputJsonValue` requires. Round-
+ * tripping through `JSON.stringify` produces the same value with a type the
+ * driver accepts — a real conversion at a verified boundary, not a cast that
+ * asserts something untrue.
+ */
+function asJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 
 async function main() {
   // File 09 — every Parent hangs off a better-auth `user` row. This fixture has
@@ -457,6 +469,223 @@ async function main() {
     create: {
       childId: ChildProfileUpdate.id,
       characterId: characterLion.id,
+    },
+  });
+
+  //------------part-12 · curriculum content read API fixtures-----------------
+  // Developer scaffolding for `GET /api/content/*` and for the frontend files
+  // 15–22. Everything below is upserted on a stable id or slug, so running the
+  // seed twice changes no row count.
+  //
+  // Deliberate status spread — the leak-proof tests and manual smoke checks
+  // need content that must NOT be visible:
+  //   letter-a            draft        (seeded above by file 04)
+  //   letter-a-sounds     published    NURSERY + KG1, en + bn
+  //   letter-a-practice   published    NURSERY + KG1, en only (fallback demo)
+  //   letter-c            in_review
+  //   letter-z-advanced   published    KG2 only (wrong-grade probe)
+
+  // ---------- Media assets ----------
+  const jungleMascot = await prisma.mediaAsset.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000401" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000401",
+      url: "https://cdn.kidlearn.test/images/mascot-jungle-monkey.png",
+      kind: "image",
+    },
+  });
+
+  const letterAVideoEn = await prisma.mediaAsset.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000402" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000402",
+      url: "https://cdn.kidlearn.test/video/en/letter-a.mp4",
+      kind: "video",
+      language: "en",
+    },
+  });
+
+  const letterAVideoBn = await prisma.mediaAsset.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000403" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000403",
+      url: "https://cdn.kidlearn.test/video/bn/letter-a.mp4",
+      kind: "video",
+      language: "bn",
+    },
+  });
+
+  // FR-WORLD-05 — the mascot the world screen themes itself with. Written as a
+  // separate update because the `jungle` upsert above passes `update: {}`.
+  await prisma.world.update({
+    where: { id: jungle.id },
+    data: { mascotAssetId: jungleMascot.id },
+  });
+
+  // ---------- Activity + quiz, straight from the @kidlearn/types fixtures ----
+  // Reusing the canonical fixtures is what guarantees the seeded JSONB parses
+  // with the very parsers `GET /api/content/lessons/:id` runs against it.
+  const dragTheAnimalHome = await prisma.activity.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000110" },
+    update: { definition: asJson(validDragDrop) },
+    create: {
+      id: "00000000-0000-0000-0000-000000000110",
+      type: "drag_drop",
+      status: "published",
+      schemaVersion: validDragDrop.schemaVersion,
+      definition: asJson(validDragDrop),
+    },
+  });
+
+  const letterASoundsQuiz = await prisma.quiz.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000210" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000210",
+      title: "Letter A Sounds Quiz",
+      status: "published",
+    },
+  });
+
+  const quizQuestions = [
+    {
+      id: "00000000-0000-0000-0000-000000000211",
+      format: "mcq",
+      definition: validMcq,
+    },
+    {
+      id: "00000000-0000-0000-0000-000000000212",
+      format: "picture_select",
+      definition: validPictureSelect,
+    },
+    {
+      id: "00000000-0000-0000-0000-000000000213",
+      format: "mcq",
+      definition: validMcq,
+    },
+  ] as const;
+
+  for (const [index, question] of quizQuestions.entries()) {
+    await prisma.quizQuestion.upsert({
+      where: { id: question.id },
+      update: { definition: asJson(question.definition) },
+      create: {
+        id: question.id,
+        quizId: letterASoundsQuiz.id,
+        format: question.format,
+        sortOrder: index + 1,
+        schemaVersion: question.definition.schemaVersion,
+        definition: asJson(question.definition),
+      },
+    });
+  }
+
+  // ---------- Lessons ----------
+  const letterASounds = await prisma.lesson.upsert({
+    where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a-sounds" } },
+    update: {},
+    create: {
+      slug: "letter-a-sounds",
+      title: "The Letter A",
+      sortOrder: 2,
+      gradeLevels: ["NURSERY", "KG1"],
+      status: "published",
+      topicId: alphabet.id,
+      worldId: jungle.id,
+      activityId: dragTheAnimalHome.id,
+      quizId: letterASoundsQuiz.id,
+    },
+  });
+
+  await prisma.lessonTranslation.upsert({
+    where: {
+      lessonId_language: { lessonId: letterASounds.id, language: "en" },
+    },
+    update: {},
+    create: {
+      lessonId: letterASounds.id,
+      language: "en",
+      introScript: "Hello! Today we are going to learn the letter A.",
+      videoAssetId: letterAVideoEn.id,
+    },
+  });
+
+  await prisma.lessonTranslation.upsert({
+    where: {
+      lessonId_language: { lessonId: letterASounds.id, language: "bn" },
+    },
+    update: {},
+    create: {
+      lessonId: letterASounds.id,
+      language: "bn",
+      introScript: "হ্যালো! আজ আমরা A বর্ণটি শিখব।",
+      videoAssetId: letterAVideoBn.id,
+    },
+  });
+
+  // English-only on purpose: exercises the `bn → en` fallback by hand.
+  const letterAPractice = await prisma.lesson.upsert({
+    where: {
+      topicId_slug: { topicId: alphabet.id, slug: "letter-a-practice" },
+    },
+    update: {},
+    create: {
+      slug: "letter-a-practice",
+      title: "Practise the Letter A",
+      sortOrder: 3,
+      gradeLevels: ["NURSERY", "KG1"],
+      status: "published",
+      topicId: alphabet.id,
+      worldId: jungle.id,
+      activityId: dragTheAnimalHome.id,
+    },
+  });
+
+  await prisma.lessonTranslation.upsert({
+    where: {
+      lessonId_language: { lessonId: letterAPractice.id, language: "en" },
+    },
+    update: {},
+    create: {
+      lessonId: letterAPractice.id,
+      language: "en",
+      introScript: "Let's practise the letter A together!",
+      videoAssetId: letterAVideoEn.id,
+    },
+  });
+
+  // Awaiting human review — must never reach a child (§7.3.4).
+  await prisma.lesson.upsert({
+    where: { topicId_slug: { topicId: alphabet.id, slug: "letter-c" } },
+    update: {},
+    create: {
+      slug: "letter-c",
+      title: "The Letter C",
+      sortOrder: 5,
+      gradeLevels: ["NURSERY", "KG1"],
+      status: "in_review",
+      topicId: alphabet.id,
+      worldId: jungle.id,
+    },
+  });
+
+  // Published, but for KG2 only: the wrong-grade probe for FR-CURR-02.
+  await prisma.lesson.upsert({
+    where: {
+      topicId_slug: { topicId: alphabet.id, slug: "letter-z-advanced" },
+    },
+    update: {},
+    create: {
+      slug: "letter-z-advanced",
+      title: "The Letter Z",
+      sortOrder: 6,
+      gradeLevels: ["KG2"],
+      status: "published",
+      topicId: alphabet.id,
+      worldId: jungle.id,
     },
   });
 }
