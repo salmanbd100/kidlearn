@@ -128,33 +128,33 @@ Leave the file modified but **do not stage or commit it**.
 
 **Do not run `git add` or `git commit`.** Leave all changes — implementation files and the updated `00-progress-tracker.md` — in the working tree for the engineer to review.
 
-Output a concise summary. Include only the checklist lines relevant to the layers you touched — take them from the review checklist at the end of the role document(s) you loaded (`frontend.md §5`, `backend.md §7`).
+**Keep the closing report short.** Do not write a PR description here: no per-file change list, no acceptance-criteria tick list, no standards-compliance table. The pull request is where all of that belongs, written from the real diff at commit time — producing it here as well just means the engineer reads the same thing twice.
+
+What the report must contain — nothing more:
 
 ```
-## Implementation complete — <args>
+## <args> — implementation complete
 
-Branch: <args> (created from main)
+Branch: <args>
 Standards loaded: <the one-line list from Step 3>
 
-### What was done
-<bullet list of changes — one line per file or logical change>
+<2–5 sentences on what now works and any decision a reviewer could not infer
+from the diff. Prose, not a file inventory.>
 
-### Typecheck & lint
-<output of pnpm typecheck and pnpm lint — PASSED or list of remaining issues>
+### Verification
+<the checks you actually ran, with their real results>
 
-### Acceptance criteria
-<tick each item from the spec's acceptance criteria — ✓ done / ✗ not done + reason>
+### Needs you
+<Anything blocked, unverified, or requiring a human: a migration you could not
+execute, a flow needing real credentials, a manual smoke test, a standards
+deviation to sign off on. Say "nothing" if there is genuinely nothing — do not
+pad this section.>
 
-### Review checklist for the engineer
-- [ ] Verify 00-progress-tracker.md shows ✅ Done for this file
-<frontend items, only if frontend.md was loaded:>
-- [ ] Run `pnpm dev` and smoke-test the new surface
-- [ ] Verify i18n strings are routed through i18next
-- [ ] Confirm semantic tokens only — no raw hex or Tailwind color literals
-- [ ] Confirm touch targets (≥64px kid / ≥44px parent)
-<backend items, only if backend.md was loaded:>
-- [ ] Check content-safety filters (status: "published") on any new Prisma queries
-- [ ] Confirm Zod validation on every route accepting input
-- [ ] Confirm route handlers are thin — logic in services
-- [ ] Commit everything (including 00-progress-tracker.md) and push, then run /pr-description
+Run `/pr` to commit, push, and open the pull request — or, if `/pr` is not
+installed, commit and push by hand and run `/pr-description` for the body.
 ```
+
+Two rules for that report:
+
+- **Never claim a check passed unless you ran it and saw it pass.** Anything you could not verify belongs under **Needs you**, stated plainly.
+- **Pre-commit checks the engineer should make themselves** go under **Needs you**, drawn from the review checklist of whichever role document you loaded (`frontend.md §5`, `backend.md §7`) — but only the items this branch actually touches. A backend-only branch has no touch targets to check; listing them anyway trains the engineer to skim.
