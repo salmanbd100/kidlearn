@@ -7,8 +7,10 @@ import { ApiError } from "../lib/errors.js";
 import { type Lang, pickLocale, toLocaleMap } from "../lib/locale.js";
 import { prisma } from "../lib/prisma.js";
 import {
+  isPublished,
   publishedForChild,
   publishedOnly,
+  publishedRelation,
 } from "../lib/published-for-child.js";
 
 /**
@@ -17,7 +19,10 @@ import {
  * Two invariants hold for every function in this file:
  *
  *  1. Visibility comes from `lib/published-for-child.ts` and nowhere else. No
- *     `status` or `gradeLevels` condition is written inline here.
+ *     `status` or `gradeLevels` condition is written inline here. That covers
+ *     related rows as well as queried ones: `Activity`, `Quiz` and `World` each
+ *     carry their own `status`, so a *published* lesson can still point at
+ *     unreviewed content, and every one of those edges is gated below.
  *  2. Grade and language come from the `ChildProfile` row the caller passes in —
  *     resolved server-side by `requireActiveChild` — never from request input
  *     (FR-PROF-03).
@@ -34,6 +39,7 @@ import {
  */
 export type ContentLogger = {
   error: (context: Record<string, unknown>, message: string) => void;
+  warn: (context: Record<string, unknown>, message: string) => void;
 };
 
 /** A media reference flattened for the client — no ids of rows it cannot fetch. */
@@ -227,7 +233,10 @@ export async function listLessonsForChild(
   }
 
   const lessons = await prisma.lesson.findMany({
-    where: { topicId: topic.id, ...visible },
+    // `world` is gated here as well as in `getLessonForChild` so the two agree:
+    // a lesson the detail endpoint 404s must not appear as a tile that opens
+    // onto nothing.
+    where: { topicId: topic.id, ...visible, world: publishedRelation },
     orderBy: { sortOrder: "asc" },
   });
 
@@ -253,6 +262,13 @@ export async function listLessonsForChild(
  * Corrupt JSONB on a *published* row is a server bug, not a client error: it is
  * logged with the offending id and answered with a 500 that carries no part of
  * the payload.
+ *
+ * `Lesson.status` is not the whole guard. The world, activity and quiz a lesson
+ * points at each carry their own `status`, and the publishing workflow routinely
+ * produces a published lesson whose activity is still in review. Those three
+ * edges are gated separately below — the world in the `where` (a lesson in an
+ * unpublished world does not exist as far as a child is concerned), the two
+ * nullable ones after the read.
  */
 export async function getLessonForChild(
   child: ChildProfile,
@@ -260,7 +276,11 @@ export async function getLessonForChild(
   log: ContentLogger,
 ): Promise<LessonDetail> {
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, ...publishedForChild(child) },
+    where: {
+      id: lessonId,
+      ...publishedForChild(child),
+      world: publishedRelation,
+    },
     include: {
       world: { include: { mascotAsset: true } },
       translations: { include: { videoAsset: true, introAudioAsset: true } },
@@ -286,8 +306,25 @@ export async function getLessonForChild(
     language,
   );
 
+  // An unpublished activity or quiz is omitted, not served and not fatal: the
+  // lesson's video and intro are published content in their own right, and a
+  // lesson with neither attached is a shape the player already handles. The
+  // pairing is an authoring mistake though, so it is logged with both ids.
+  if (lesson.activity && !isPublished(lesson.activity)) {
+    log.warn(
+      { lessonId: lesson.id, activityId: lesson.activity.id },
+      "published lesson references an unpublished activity — omitting it",
+    );
+  }
+  if (lesson.quiz && !isPublished(lesson.quiz)) {
+    log.warn(
+      { lessonId: lesson.id, quizId: lesson.quiz.id },
+      "published lesson references an unpublished quiz — omitting it",
+    );
+  }
+
   let activity: LessonDetail["activity"] = null;
-  if (lesson.activity) {
+  if (lesson.activity && isPublished(lesson.activity)) {
     const parsed = safeParseActivityDefinition(lesson.activity.definition);
     if (!parsed.success) {
       log.error(
@@ -305,7 +342,7 @@ export async function getLessonForChild(
   }
 
   let quiz: LessonDetail["quiz"] = null;
-  if (lesson.quiz) {
+  if (lesson.quiz && isPublished(lesson.quiz)) {
     const questions = [];
     for (const question of lesson.quiz.questions) {
       const parsed = safeParseQuizQuestion(question.definition);

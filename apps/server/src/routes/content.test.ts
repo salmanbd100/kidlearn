@@ -454,6 +454,9 @@ describe("GET /api/content/topics/:id/lessons", () => {
         topicId: TOPIC_ID,
         status: "published",
         gradeLevels: { has: "NURSERY" },
+        // The lesson's world carries its own status, and the list must agree
+        // with the detail endpoint about which lessons exist.
+        world: { is: { status: "published" } },
       },
       orderBy: { sortOrder: "asc" },
     });
@@ -585,6 +588,82 @@ describe("GET /api/content/lessons/:id", () => {
   });
 });
 
+/**
+ * `Lesson.status` is only part of the guard. `Activity`, `Quiz` and `World` each
+ * carry a `ContentStatus` of their own, and the publishing workflow routinely
+ * produces a published lesson whose activity is still in review. Those edges are
+ * relations, so the `where`-clause assertions above cannot see them — these
+ * tests inspect the response body instead.
+ */
+describe("related rows carry their own status gate (backend.md §4)", () => {
+  const UNPUBLISHED = ["draft", "in_review", "approved", "rejected"] as const;
+
+  it.each(
+    UNPUBLISHED,
+  )("omits an activity in %s from a published lesson rather than serving it", async (status) => {
+    signInAs(childProfile());
+    db.lessonFindFirst.mockResolvedValue(
+      lessonRow({
+        activity: {
+          id: "activity_1",
+          type: "drag_drop",
+          schemaVersion: 1,
+          status,
+          definition: validDragDrop,
+        },
+      }),
+    );
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity).toBeNull();
+    // Not one field of the unreviewed payload reaches the child.
+    expect(res.text).not.toContain("drag_drop");
+  });
+
+  it.each(
+    UNPUBLISHED,
+  )("omits a quiz in %s from a published lesson rather than serving it", async (status) => {
+    signInAs(childProfile());
+    const row = lessonRow();
+    db.lessonFindFirst.mockResolvedValue({
+      ...row,
+      quiz: { ...row.quiz, status },
+    });
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.quiz).toBeNull();
+    expect(res.text).not.toContain("picture_select");
+  });
+
+  it("still serves a published activity and quiz", async () => {
+    signInAs(childProfile());
+    db.lessonFindFirst.mockResolvedValue(lessonRow());
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.body.data.lesson.activity).not.toBeNull();
+    expect(res.body.data.lesson.quiz.questions).toHaveLength(3);
+  });
+
+  it("requires the lesson's world to be published, on both the detail and list queries", async () => {
+    signInAs(childProfile());
+
+    await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+    await request(app).get(`/api/content/topics/${TOPIC_ID}/lessons`);
+
+    // A required to-one relation cannot be filtered in an `include`, so the
+    // condition sits in `where` and an unpublished world 404s the lesson.
+    for (const fn of [db.lessonFindFirst, db.lessonFindMany]) {
+      const [args] = fn.mock.calls[0] as [{ where: Record<string, unknown> }];
+      expect(args.where.world).toEqual({ is: { status: "published" } });
+    }
+  });
+});
+
 describe("leak-proofing (FR-CURR-02, spec §7.3.4)", () => {
   const HIDDEN_STATUSES = [
     "draft",
@@ -641,6 +720,7 @@ describe("leak-proofing (FR-CURR-02, spec §7.3.4)", () => {
           id: LESSON_ID,
           status: "published",
           gradeLevels: { has: "NURSERY" },
+          world: { is: { status: "published" } },
         },
       }),
     );

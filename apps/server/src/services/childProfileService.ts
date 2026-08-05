@@ -2,7 +2,9 @@
  * Child-profile domain logic (FR-PROF-01..07). No Express types cross this
  * boundary — every function here is callable from a test without an HTTP layer.
  */
-import type { ChildProfile, Prisma } from "@kidlearn/db";
+// `Prisma` is a value import, not a type-only one: the isolation level and the
+// known-request-error class below are runtime members of the namespace.
+import { type ChildProfile, Prisma } from "@kidlearn/db";
 import { ApiError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
 import type { CreateChildBody, UpdateChildBody } from "../schemas/children.js";
@@ -78,36 +80,66 @@ async function assertAvatarIsSelectable(
   }
 }
 
+/** Postgres aborted a Serializable transaction rather than let it interleave. */
+function isSerializationFailure(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2034"
+  );
+}
+
 /**
  * Creates a profile, enforcing the five-per-parent cap.
  *
- * The count and the insert share one transaction on purpose: counting outside
- * it lets two concurrent requests both read four and both write, producing a
- * sixth profile that no later request can explain.
+ * Sharing one transaction between the count and the insert is not enough on its
+ * own: an interactive transaction runs at Postgres's default READ COMMITTED,
+ * under which two concurrent creates both count four and both commit, producing
+ * exactly the sixth profile the transaction is supposed to prevent. Serializable
+ * is what actually makes the cap hold — the loser aborts with P2034 having
+ * written nothing, and the retry below re-counts under the winner's row and
+ * either succeeds honestly or reports the limit.
+ *
+ * One retry, not a loop: a second serialization failure means genuine sustained
+ * contention on a single parent's five profiles, which is not a real user.
  */
 export async function createChildProfile(
   parentId: string,
   input: CreateChildBody,
 ): Promise<ChildProfile> {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.childProfile.count({ where: { parentId } });
-    if (existing >= MAX_CHILDREN_PER_PARENT) {
-      throw ApiError.conflict(
-        `Profile limit reached (${MAX_CHILDREN_PER_PARENT})`,
-      );
-    }
+  try {
+    return await createChildProfileOnce(parentId, input);
+  } catch (error) {
+    if (!isSerializationFailure(error)) throw error;
+    return createChildProfileOnce(parentId, input);
+  }
+}
 
-    await assertAvatarIsSelectable(tx, input.avatarCharacterId);
+function createChildProfileOnce(
+  parentId: string,
+  input: CreateChildBody,
+): Promise<ChildProfile> {
+  return prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.childProfile.count({ where: { parentId } });
+      if (existing >= MAX_CHILDREN_PER_PARENT) {
+        throw ApiError.conflict(
+          `Profile limit reached (${MAX_CHILDREN_PER_PARENT})`,
+        );
+      }
 
-    // Named rather than inlined: Prisma's create input is an XOR of the checked
-    // and unchecked shapes, and an inline literal carrying both `parentId` and
-    // `avatarCharacterId` is ambiguous to the compiler.
-    const data: Prisma.ChildProfileUncheckedCreateInput = {
-      ...input,
-      parentId,
-    };
-    return tx.childProfile.create({ data });
-  });
+      await assertAvatarIsSelectable(tx, input.avatarCharacterId);
+
+      // Named rather than inlined: Prisma's create input is an XOR of the
+      // checked and unchecked shapes, and an inline literal carrying both
+      // `parentId` and `avatarCharacterId` is ambiguous to the compiler.
+      const data: Prisma.ChildProfileUncheckedCreateInput = {
+        ...input,
+        parentId,
+      };
+      return tx.childProfile.create({ data });
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }
 
 /** Every profile belonging to one parent, oldest first. */

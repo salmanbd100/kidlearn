@@ -14,11 +14,29 @@ import { prisma } from "../lib/prisma.js";
 /** How long one successful PIN entry keeps the parent area unlocked. */
 export const PIN_GRANT_MS = 15 * 60_000;
 
-/** Consecutive wrong entries before the account cools off. */
+/** Wrong entries allowed before the account cools off. */
 const MAX_PIN_ATTEMPTS = 5;
 
-/** Length of that cool-off window. */
-const PIN_LOCKOUT_MS = 60_000;
+/** The first cool-off window. Every wrong entry past the fifth doubles it. */
+const PIN_LOCKOUT_BASE_MS = 60_000;
+
+/** Ceiling on that doubling, so a forgetful parent is not locked out for a day. */
+const PIN_LOCKOUT_MAX_MS = 60 * 60_000;
+
+/**
+ * How long the cool-off lasts after `failedCount` consecutive wrong entries.
+ *
+ * A 4-digit PIN has 10,000 values, so a fixed window that also resets the
+ * counter is not a defence: five guesses per minute walks the whole space in
+ * about 33 hours. The counter now survives the lockout — only a correct PIN
+ * clears it — so each further guess costs double the last: 1 min, 2, 4, 8 …
+ * capped at an hour. An attacker gets ~5 free guesses and then a handful more
+ * per day; the parent who mistyped twice notices nothing.
+ */
+function lockoutMsFor(failedCount: number): number {
+  const doublings = Math.max(0, failedCount - MAX_PIN_ATTEMPTS);
+  return Math.min(PIN_LOCKOUT_BASE_MS * 2 ** doublings, PIN_LOCKOUT_MAX_MS);
+}
 
 export type PinGrant = { pinVerifiedUntil: Date };
 
@@ -130,7 +148,7 @@ async function consumePinAttempt(
     throw new ApiError(
       429,
       "PIN_LOCKED",
-      "Too many incorrect attempts — try again in a minute",
+      "Too many incorrect attempts — try again shortly",
     );
   }
 
@@ -146,18 +164,26 @@ async function consumePinAttempt(
     return true;
   }
 
-  const failedCount = parent.pinFailedCount + 1;
-  const isLockedOut = failedCount >= MAX_PIN_ATTEMPTS;
-  await prisma.parent.update({
+  // Postgres does the arithmetic, not this process. `parent` is the snapshot
+  // `requireParent` read at the start of *this* request, so computing
+  // `pinFailedCount + 1` in JS is a lost update: fire N wrong PINs in parallel
+  // and every one of them reads 0, writes 1, and the lockout never trips —
+  // the whole 10,000-value space falls in a single burst. `increment` is atomic
+  // and the returned row is the authority on where this attempt landed.
+  const { pinFailedCount } = await prisma.parent.update({
     where: { id: parent.id },
-    data: {
-      // Zero the counter as the lockout starts, so each cool-off is followed by
-      // a fresh allowance of attempts rather than a one-strike hair trigger.
-      pinFailedCount: isLockedOut ? 0 : failedCount,
-      pinLockedUntil: isLockedOut
-        ? new Date(Date.now() + PIN_LOCKOUT_MS)
-        : null,
-    },
+    data: { pinFailedCount: { increment: 1 } },
+    select: { pinFailedCount: true },
   });
+
+  if (pinFailedCount >= MAX_PIN_ATTEMPTS) {
+    await prisma.parent.update({
+      where: { id: parent.id },
+      data: {
+        pinLockedUntil: new Date(Date.now() + lockoutMsFor(pinFailedCount)),
+      },
+    });
+  }
+
   return false;
 }

@@ -92,7 +92,7 @@ function mockSession(pinVerifiedUntil: Date | null = null) {
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
-/** The `data` written by the single `prisma.parent.update` under test. */
+/** The `data` written by the most recent `prisma.parent.update`. */
 function lastParentUpdateData(): Record<string, unknown> {
   const calls = db.parentUpdate.mock.calls;
   const [{ data }] = calls[calls.length - 1] as [
@@ -101,10 +101,51 @@ function lastParentUpdateData(): Record<string, unknown> {
   return data;
 }
 
+/**
+ * The row `prisma.parent.update` writes to: seeded from whatever the test told
+ * `parentFindUnique` to return, then carried across every write in the test.
+ *
+ * A stub that returned a fixed row would hide what this suite now has to guard.
+ * The PIN counter is written with Prisma's atomic `{ increment: 1 }`, and only
+ * a stub that applies the increment to *stored* state can tell that apart from
+ * the lost-update version that computed `snapshot + 1` in this process — where
+ * parallel guesses all read the same snapshot and the lockout never trips.
+ */
+let storedParent: Parent | undefined;
+
+function applyUpdate(row: Parent, data: Record<string, unknown>): Parent {
+  const next: Record<string, unknown> = { ...row };
+  for (const [field, value] of Object.entries(data)) {
+    const isIncrement =
+      typeof value === "object" && value !== null && "increment" in value;
+    next[field] = isIncrement
+      ? Number(next[field] ?? 0) + (value as { increment: number }).increment
+      : value;
+  }
+  // Every key came from a `Parent` column, so the widened record is a `Parent`
+  // again; TypeScript cannot follow that through `Object.entries`.
+  return next as Parent;
+}
+
 beforeEach(async () => {
   correctPinHash ??= await hashPin(CORRECT_PIN);
   for (const mock of Object.values(db)) mock.mockReset();
-  db.parentUpdate.mockResolvedValue(parentRow());
+  storedParent = undefined;
+  db.parentUpdate.mockImplementation(
+    async ({ data }: { data: Record<string, unknown> }) => {
+      // Seeded lazily from the fixture the test handed `parentFindUnique`, so
+      // no call site has to opt in. Requests keep their own stale snapshot —
+      // which is the point: the stored row is the only thing that accumulates.
+      const seed =
+        storedParent ??
+        ((await db.parentFindUnique.mock.results.at(-1)?.value) as
+          | Parent
+          | undefined) ??
+        parentRow();
+      storedParent = applyUpdate(seed, data);
+      return storedParent;
+    },
+  );
   db.sessionUpdate.mockResolvedValue({ id: "session_1" });
   mockSession();
 });
@@ -180,7 +221,10 @@ describe("POST /api/parent/pin", () => {
     expect(res.status).toBe(403);
     // The failed attempt is counted — the change endpoint is a guessing oracle
     // too, so it shares the brute-force guard.
-    expect(lastParentUpdateData()).toMatchObject({ pinFailedCount: 1 });
+    expect(lastParentUpdateData()).toMatchObject({
+      pinFailedCount: { increment: 1 },
+    });
+    expect(storedParent?.pinFailedCount).toBe(1);
   });
 
   it("replaces the PIN when the current one is correct", async () => {
@@ -233,10 +277,12 @@ describe("POST /api/parent/pin/verify", () => {
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("PIN_INVALID");
     expect(db.sessionUpdate).not.toHaveBeenCalled();
-    expect(lastParentUpdateData()).toMatchObject({
-      pinFailedCount: 1,
-      pinLockedUntil: null,
+    // Counted by the database, not by this process — see `applyUpdate`.
+    expect(lastParentUpdateData()).toEqual({
+      pinFailedCount: { increment: 1 },
     });
+    expect(storedParent?.pinFailedCount).toBe(1);
+    expect(storedParent?.pinLockedUntil).toBeNull();
   });
 
   it("tells a parent with no PIN to set one instead of failing the comparison", async () => {
@@ -261,11 +307,67 @@ describe("POST /api/parent/pin/verify", () => {
       .send({ pin: WRONG_PIN });
 
     expect(res.status).toBe(403);
-    const data = lastParentUpdateData();
-    expect(data.pinFailedCount).toBe(0);
-    expect((data.pinLockedUntil as Date).getTime()).toBeGreaterThanOrEqual(
-      before + 59_000,
+    const lockedUntil = storedParent?.pinLockedUntil;
+    expect(lockedUntil?.getTime()).toBeGreaterThanOrEqual(before + 59_000);
+    expect(lockedUntil?.getTime()).toBeLessThanOrEqual(Date.now() + 60_000);
+  });
+
+  it("keeps counting past the fifth failure, so each cool-off is longer than the last", async () => {
+    // The counter used to be zeroed as the lockout started, which handed the
+    // attacker a fresh five-per-minute allowance forever: 10,000 PINs in about
+    // 33 hours. It now survives the lockout — only a correct PIN clears it.
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ pinHash: correctPinHash, pinFailedCount: 4 }),
     );
+
+    await request(app).post("/api/parent/pin/verify").send({ pin: WRONG_PIN });
+    const firstLockout = storedParent?.pinLockedUntil?.getTime() ?? 0;
+    expect(storedParent?.pinFailedCount).toBe(5);
+
+    // The cool-off has passed; the counter has not been forgiven.
+    const afterCoolOff = parentRow({
+      pinHash: correctPinHash,
+      pinFailedCount: 5,
+      pinLockedUntil: new Date(Date.now() - 1_000),
+    });
+    db.parentFindUnique.mockResolvedValue(afterCoolOff);
+    storedParent = afterCoolOff;
+    const before = Date.now();
+
+    await request(app).post("/api/parent/pin/verify").send({ pin: WRONG_PIN });
+
+    expect(storedParent?.pinFailedCount).toBe(6);
+    // Sixth failure → double the window, so ~2 minutes rather than ~1.
+    expect(storedParent?.pinLockedUntil?.getTime()).toBeGreaterThanOrEqual(
+      before + 119_000,
+    );
+    expect(firstLockout).toBeLessThan(
+      storedParent?.pinLockedUntil?.getTime() ?? 0,
+    );
+  });
+
+  it("counts a parallel burst of wrong PINs atomically, so the lockout still trips", async () => {
+    // The regression this guards: every one of these requests reads the same
+    // `pinFailedCount: 0` snapshot in `requireParent`. Computing the next count
+    // from that snapshot means all six write 1 and the account never locks —
+    // a 4-digit PIN falls in a single burst. The write has to be an atomic
+    // `{ increment: 1 }` so the database, not this process, does the counting.
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ pinHash: correctPinHash, pinFailedCount: 0 }),
+    );
+
+    const responses = await Promise.all(
+      Array.from({ length: 6 }, () =>
+        request(app).post("/api/parent/pin/verify").send({ pin: WRONG_PIN }),
+      ),
+    );
+
+    for (const res of responses) {
+      expect(res.status).toBe(403);
+    }
+    expect(storedParent?.pinFailedCount).toBe(6);
+    expect(storedParent?.pinLockedUntil).toBeInstanceOf(Date);
+    expect(storedParent?.pinLockedUntil?.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("returns 429 PIN_LOCKED while the cool-off is running, even for the right PIN", async () => {

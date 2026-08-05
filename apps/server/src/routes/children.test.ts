@@ -11,7 +11,7 @@
  * schema itself at the bottom of this file.
  */
 import { readFileSync } from "node:fs";
-import type { ChildProfile, Parent } from "@kidlearn/db";
+import { type ChildProfile, type Parent, Prisma } from "@kidlearn/db";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -486,6 +486,55 @@ describe("POST /api/children", () => {
     await authedAgentFor(PARENT_A).post("/api/children").send(VALID_BODY);
 
     expect(db.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs that transaction at Serializable, which is what makes the cap hold", async () => {
+    // Sharing a transaction is not enough on its own: an interactive
+    // transaction runs at Postgres's default READ COMMITTED, under which two
+    // concurrent creates both count four and both commit — the sixth profile
+    // the transaction is supposed to prevent. A stub cannot reproduce that
+    // interleaving, so assert the isolation level the guarantee rests on.
+    await authedAgentFor(PARENT_A).post("/api/children").send(VALID_BODY);
+
+    const [, options] = db.transaction.mock.calls[0] as [
+      unknown,
+      { isolationLevel?: string } | undefined,
+    ];
+    expect(options?.isolationLevel).toBe("Serializable");
+  });
+
+  it("retries once when Postgres aborts the transaction to prevent an interleave", async () => {
+    const serializationFailure = new Prisma.PrismaClientKnownRequestError(
+      "Transaction failed due to a write conflict or a deadlock",
+      { code: "P2034", clientVersion: "6" },
+    );
+    const realTransaction = db.transaction.getMockImplementation();
+    db.transaction.mockRejectedValueOnce(serializationFailure);
+
+    const res = await authedAgentFor(PARENT_A)
+      .post("/api/children")
+      .send(VALID_BODY);
+
+    expect(res.status).toBe(201);
+    expect(db.transaction).toHaveBeenCalledTimes(2);
+    expect(state.children).toHaveLength(1);
+    expect(realTransaction).toBeDefined();
+  });
+
+  it("surfaces a non-serialization database error instead of silently retrying", async () => {
+    const other = new Prisma.PrismaClientKnownRequestError("Unique violation", {
+      code: "P2002",
+      clientVersion: "6",
+    });
+    db.transaction.mockRejectedValueOnce(other);
+
+    const res = await authedAgentFor(PARENT_A)
+      .post("/api/children")
+      .send(VALID_BODY);
+
+    expect(res.status).toBe(500);
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(state.children).toHaveLength(0);
   });
 
   describe("COPPA consent gate (FR-AUTH-03)", () => {

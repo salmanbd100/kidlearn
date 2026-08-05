@@ -2,7 +2,11 @@
  * `general.md §5` forbids mocking `@kidlearn/db` — service tests belong against a
  * real test database. There is no test database wired up yet (no Vitest DB
  * harness, `document/project-requirement-details.md §12` assumption 8), so these
- * tests stub `lib/prisma.js` per this implementation file's testing strategy.
+ * tests stub `lib/prisma.js` under the recorded exception in `general.md §5`
+ * ("apps/server stubs lib/prisma.js until the test database lands"). Read the
+ * four rules there before adding a stubbed suite — they exist because two
+ * defects have already shipped through this gap.
+ *
  * When the test-database harness lands, rewrite the provisioning assertions
  * against real rows: the behaviour under test (exactly one `Parent` per `User`)
  * is precisely the kind of thing a stub can agree with while a migration is
