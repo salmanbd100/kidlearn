@@ -10,7 +10,7 @@
  * hand-written, so `session.additionalFields` in `lib/auth.ts` stays the single
  * definition of `activeChildProfileId`.
  */
-import type { Parent } from "@kidlearn/db";
+import type { ChildProfile, Parent } from "@kidlearn/db";
 import type { auth } from "../lib/auth.js";
 
 type BetterAuthSession = NonNullable<
@@ -24,6 +24,8 @@ declare global {
       parent?: Parent;
       /** better-auth's session row, including `activeChildProfileId`. */
       session?: BetterAuthSession["session"];
+      /** The ownership-checked child profile, attached by `loadOwnedChild` (file 11) or `requireActiveChild` (file 12). */
+      child?: ChildProfile;
     }
   }
 }
