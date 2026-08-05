@@ -70,7 +70,7 @@ Then classify the spec using the **Layers touched** from Step 2 and read only th
 | If the spec touches… | Also read |
 |---|---|
 | `packages/ui`, `apps/web`, React, Next.js, components, styling, layouts, i18n copy | `document/standards/frontend.md` **and** `document/design.md` **and** `apps/web/AGENTS.md` |
-| `apps/server`, Express, API routes, services, middleware, auth | `document/standards/backend.md` |
+| `apps/server`, Express, API routes, services, middleware, auth | `document/standards/backend.md` — and if the spec adds or changes an **endpoint**, read `backend.md §7` and `apps/server/src/openapi/paths/` before writing the route, so the documentation lands in the same change rather than as an afterthought |
 | `packages/db`, Prisma schema, migrations | `document/standards/backend.md` **and** `document/database-design.md` |
 | `packages/types`, shared Zod schemas, activity/quiz payload types | `document/standards/backend.md` (the payload-type and validation rules live there) — add `frontend.md` only if the spec also renders them |
 | Repo root config, `turbo.json`, workspace wiring, test tooling only | nothing beyond `general.md` |
@@ -111,8 +111,9 @@ Work through the spec goal by goal, following every rule in the standards docume
 - Every student-facing Prisma query filters `status: "published"`.
 - Throw errors; a single error-handler middleware sends them. Semantic status codes.
 - Required env vars validated at boot, failing fast.
+- **Every new or changed endpoint is registered in `apps/server/src/openapi/paths/<resource>.ts` in the same change** — request schema imported from the route's Zod validator, response schema authored as Zod in `packages/types/src/api/`, and every status code the guards and handler can produce. Assert each successful response in its route test with `assertContract`. `openapi/coverage.test.ts` fails the suite if you skip this, so it is not a step you can defer to a follow-up.
 
-Run `pnpm typecheck` and `pnpm lint` after implementing. Fix all errors before stopping.
+Run `pnpm typecheck`, `pnpm lint`, and — for any spec touching `apps/server` — `pnpm --filter server test` after implementing. Fix all errors before stopping.
 
 ---
 
@@ -157,4 +158,4 @@ installed, commit and push by hand and run `/pr-description` for the body.
 Two rules for that report:
 
 - **Never claim a check passed unless you ran it and saw it pass.** Anything you could not verify belongs under **Needs you**, stated plainly.
-- **Pre-commit checks the engineer should make themselves** go under **Needs you**, drawn from the review checklist of whichever role document you loaded (`frontend.md §5`, `backend.md §7`) — but only the items this branch actually touches. A backend-only branch has no touch targets to check; listing them anyway trains the engineer to skim.
+- **Pre-commit checks the engineer should make themselves** go under **Needs you**, drawn from the review checklist of whichever role document you loaded (`frontend.md §5`, `backend.md §8`) — but only the items this branch actually touches. A backend-only branch has no touch targets to check; listing them anyway trains the engineer to skim.

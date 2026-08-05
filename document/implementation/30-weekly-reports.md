@@ -108,6 +108,7 @@ Lazy check in `routes/reports.ts`: `lastCompletedWeekStart(now)` = Monday of the
 - [ ] `/parent/reports` shows the latest report card (all FR-DASH-05 fields: active days, minutes, new letters/words/numbers, lessons, stories, accuracy, badges, encouraging note) and every past week remains listed (FR-DASH-06).
 - [ ] The note renders from `noteKey` + params in both EN and BN — the stored English `note` string is only a fallback.
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

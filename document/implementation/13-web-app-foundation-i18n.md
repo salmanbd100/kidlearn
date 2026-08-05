@@ -93,6 +93,8 @@ export function useAudio(): {
 
 **i18n init:** bundle resources statically (`import en from "@/locales/en/common.json"`) — two small JSON files, no async loading complexity; detector order `["cookie"]`, `caches: ["cookie"]`, cookie name `kidlearn_locale`. `LanguageSwitch` calls `i18n.changeLanguage(next)` and `document.documentElement.lang = next` — React re-renders, **no navigation** (FR-I18N-03).
 
+**API contracts (file 12a):** import response types and the `ErrorCode` union from `@kidlearn/types` (`packages/types/src/api/`) — never redeclare a response shape in `apps/web`. Branch on `error.code`, never on `error.message`, which is a developer hint and may be reworded; behind a `403` the code is what distinguishes `CONSENT_REQUIRED`, `PIN_REQUIRED` and `PIN_VERIFICATION_REQUIRED`, which are three different screens. Run the server and browse `/docs` for the live contract.
+
 ## Step-by-Step Plan
 
 1. Write failing Vitest specs for `apiFetch` (envelope shape, retry-on-503 with mocked `fetch`, `onColdStart` fired once) in `apps/web/lib/api-client.test.ts`. (~20 min)

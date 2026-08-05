@@ -27,6 +27,12 @@ pnpm db:migrate       # prisma migrate dev (needs DIRECT_URL)
 pnpm db:studio        # prisma studio
 ```
 
+API docs (server must be running — see `/docs` at http://localhost:4000/docs):
+
+```bash
+pnpm --filter server openapi:write   # emit apps/server/openapi.json (gitignored) for Postman / codegen
+```
+
 **`typecheck` depends on `^build`** — `packages/db` must be built before `apps/server` can typecheck.
 
 **Linting is Biome** — no ESLint anywhere. Biome runs repo-wide from the root; apps have no per-package `lint` scripts.
@@ -76,6 +82,12 @@ Activities (drag-drop, trace, match, puzzle) and quizzes are stored as versioned
 ### Progress is server-authoritative
 
 Rewards, streaks, screen time, and lesson completion are computed server-side. The client reports events; the server records and validates them.
+
+### API documentation
+
+The server assembles an OpenAPI 3.0 document at boot from `apps/server/src/openapi/`, served as Swagger UI at `/docs` and raw at `/docs.json` (always outside production; in production only with `ENABLE_API_DOCS=true`). Read `/docs` before writing any client code against the API.
+
+Nothing in the document is hand-written twice: request schemas are the Zod objects the routes already validate with (`apps/server/src/schemas/`), response schemas are Zod in `packages/types/src/api/` and shared with `apps/web`. **A new endpoint must be registered in `src/openapi/paths/<resource>.ts` in the same change** — `src/openapi/coverage.test.ts` walks the live Express routers and fails the suite otherwise. Successful responses are asserted against their schemas in the route tests via `assertContract`. Full rules in `document/standards/backend.md §7`.
 
 ### Publishing workflow
 

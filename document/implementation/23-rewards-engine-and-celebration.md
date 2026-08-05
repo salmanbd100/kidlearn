@@ -145,6 +145,7 @@ useEffect(() => {
 - [ ] The celebration shows star burst, coin count-up, mascot animation + audio, and a ≥ 96px "Done!" returning home; a failed request never shows an error to the child (FR-LSN-05).
 - [ ] No route anywhere accepts client-supplied reward amounts or types; ledger writes exist only in `services/rewards.ts` (FR-GAM-08) — verify with `grep -r "rewardLedger.create" apps/server/src` showing only the service.
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

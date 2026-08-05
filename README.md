@@ -36,6 +36,9 @@ Every design decision traces back to two real users: my daughters.
 | Backend | Express 5 + TypeScript (ESM) |
 | Database | Supabase (PostgreSQL) — relational data + `JSONB` for quiz/activity schemas |
 | ORM | Prisma (`packages/db`) |
+| API docs | OpenAPI 3.0 generated from Zod schemas → Swagger UI at [`/docs`](http://localhost:4000/docs) |
+| Validation | Zod — one schema per contract, shared between the API and the web app (`packages/types`) |
+| Testing | Vitest — Supertest for API routes, React Testing Library for components |
 | i18n | i18next on frontend + per-language asset refs in DB |
 | AI — text & quizzes | LLMs → typed JSON payloads validated against shared schemas |
 | AI — audio | ElevenLabs (multi-language narration) |
@@ -50,9 +53,10 @@ kidlearn/
 ├── apps/
 │   ├── web/        # Next.js — student portal, parent dashboard, admin CMS
 │   └── server/     # Express API — progress, quiz responses, AI pipeline
+│       └── src/openapi/   # OpenAPI document served at /docs
 ├── packages/
 │   ├── ui/         # Shared React components
-│   ├── types/      # Shared TypeScript types + JSON schemas
+│   ├── types/      # Shared Zod schemas — activity/quiz payloads + API contracts (src/api/)
 │   ├── db/         # Prisma schema + client (Supabase/PostgreSQL)
 │   └── config/     # Shared TS configs
 └── document/       # Full requirements spec, design decisions, DB design
@@ -95,7 +99,13 @@ Turborepo starts all apps in parallel:
 |---|---|
 | Web (Next.js) | http://localhost:3000 |
 | API (Express) | http://localhost:4000 |
+| **API docs (Swagger UI)** | **http://localhost:4000/docs** |
+| OpenAPI spec (raw JSON) | http://localhost:4000/docs.json |
 | Health check | http://localhost:4000/health |
+
+**Start at [`/docs`](http://localhost:4000/docs) before writing any client code against the API.** It documents every endpoint — request and response schemas, every status code, and which of the session / consent / PIN / active-child gates each route sits behind. Because Swagger UI is served from the same origin the session cookie belongs to, signing in once at [`/api/auth/google`](http://localhost:4000/api/auth/google) makes **Try it out** work on every authenticated endpoint, with no token to copy around.
+
+The page is generated from the code at boot, not maintained by hand: request schemas are the same Zod objects the routes validate with, and response schemas are shared with the web app via `packages/types/src/api/`. A test fails if an endpoint is missing from it. It is always available outside production; in production it requires `ENABLE_API_DOCS=true`.
 
 ### Run a single app
 
@@ -108,10 +118,17 @@ cd apps/server && pnpm dev   # Express only (with hot reload)
 
 ```bash
 pnpm build        # Production build of every app
-pnpm lint         # Lint + typecheck every app (Biome)
+pnpm lint         # Lint + format check + import sort (Biome, no writes)
+pnpm format       # Apply Biome fixes
+pnpm typecheck    # tsc --noEmit per package
+pnpm test         # Vitest across every package
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:migrate   # Run DB migrations
 pnpm db:studio    # Open Prisma Studio (DB browser)
+
+# Write the OpenAPI spec to apps/server/openapi.json — for Postman or a client
+# generator. The server already serves it live at /docs.json, so this is optional.
+pnpm --filter server openapi:write
 ```
 
 ### Production build
@@ -159,7 +176,7 @@ Detailed specs live in `document/`:
 - [`engineering-standards.md`](document/engineering-standards.md) — coding standards index, routing to:
   - [`standards/general.md`](document/standards/general.md) — applies to every task (layout, TypeScript, imports, naming, testing, GitHub flow)
   - [`standards/frontend.md`](document/standards/frontend.md) — `packages/ui`, `apps/web`, React/Next.js
-  - [`standards/backend.md`](document/standards/backend.md) — `apps/server`, Prisma, `packages/db`, API design
+  - [`standards/backend.md`](document/standards/backend.md) — `apps/server`, Prisma, `packages/db`, API design, and the OpenAPI rules every new endpoint follows (§7)
 - [`user-journey-manual.md`](document/user-journey-manual.md) — end-to-end user flows
 
 ---

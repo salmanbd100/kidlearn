@@ -88,6 +88,8 @@ export function LessonTile(props: {
 
 **Counters:** `RewardStrip` renders pill chips using `--brand-sunshine` star icon + coin icon + flame; values straight from `useActiveChild().child`. With `currentStreak === 0` render the flame at reduced opacity with label "Start a streak!" — never hide it (predictability for kids).
 
+**API contracts (file 12a):** import response types and the `ErrorCode` union from `@kidlearn/types` (`packages/types/src/api/`) — never redeclare a response shape in `apps/web`. Branch on `error.code`, never on `error.message`, which is a developer hint and may be reworded; behind a `403` the code is what distinguishes `CONSENT_REQUIRED`, `PIN_REQUIRED` and `PIN_VERIFICATION_REQUIRED`, which are three different screens. Run the server and browse `/docs` for the live contract.
+
 ## Step-by-Step Plan
 
 1. Add `student.json` locales (EN/BN) and `content-api.ts` typed wrappers; drop placeholder UI audio files into `public/audio/ui/`. (~20 min)

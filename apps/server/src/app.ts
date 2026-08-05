@@ -2,10 +2,11 @@ import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express, { type Express } from "express";
 import { auth } from "./lib/auth.js";
-import { env } from "./lib/env.js";
+import { env, isDocsEnabled } from "./lib/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
 import { authRouter } from "./routes/auth.js";
+import { docsRouter } from "./routes/docs.js";
 import { healthRouter } from "./routes/health.js";
 import { apiRouter } from "./routes/index.js";
 
@@ -43,6 +44,14 @@ export function buildApp(): Express {
   app.use(express.json());
 
   app.use(healthRouter);
+
+  // API documentation (file 12a). Off in production unless ENABLE_API_DOCS is
+  // set. Mounted here — after the body parser, before the terminal handlers —
+  // and not under /api/auth, where better-auth's wildcard would swallow it.
+  if (isDocsEnabled(env)) {
+    app.use(docsRouter);
+  }
+
   app.use("/api", apiRouter);
 
   app.use(notFoundHandler);

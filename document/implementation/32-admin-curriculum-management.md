@@ -152,6 +152,7 @@ UI sketch: `page.tsx` renders `<SubjectColumn> → <TopicColumn> → <LessonColu
 - [ ] Every mutated row carries the acting admin's id in `updatedBy`.
 - [ ] In the UI, an `in_review` lesson shows Approve/Reject/Withdraw buttons only; a `draft` lesson shows Submit/Archive only.
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

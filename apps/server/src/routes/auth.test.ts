@@ -6,8 +6,10 @@
  * authorization URL — no network call, no database read.
  */
 import type { Parent } from "@kidlearn/db";
+import { AuthMeResponseSchema } from "@kidlearn/types";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { assertContract } from "../openapi/assert-contract.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -102,6 +104,7 @@ describe("GET /api/auth/me", () => {
     const res = await request(app).get("/api/auth/me");
 
     expect(res.status).toBe(200);
+    assertContract(AuthMeResponseSchema, res.body, "GET /api/auth/me");
     expect(res.body).toEqual({
       data: {
         parent: {

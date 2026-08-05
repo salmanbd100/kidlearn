@@ -40,6 +40,7 @@
 | 10 | `10-pin-gate-consent-account-deletion.md` | PIN parental gate, COPPA consent, full account deletion | FR-AUTH-03..05, NFR-SAFE-05..06 | 09 | 3–4h | ✅ Done |
 | 11 | `11-child-profile-api.md` | Child profile CRUD API (max 5, owner-only access) | FR-PROF-01..07, NFR-SAFE-02 | 09 | 3–4h | ✅ Done |
 | 12 | `12-curriculum-content-read-api.md` | Published-only, grade+language-filtered content read APIs | FR-PROF-03, FR-CURR-02, §7.3.4 | 04, 05, 08 | 3–4h | ✅ Done |
+| 12a | `12a-api-documentation-openapi-swagger.md` | OpenAPI 3.0 spec + Swagger UI for every existing endpoint, shared response schemas, coverage gate | §7.3 | 08, 09, 10, 11, 12 | 4–5h | ✅ Done |
 | 13 | `13-web-app-foundation-i18n.md` | Next.js app shell, i18next (EN/BN), theme tokens, audio helper | FR-I18N-01..03, NFR-A11Y-01..06 | 01 | 3–4h | ⬜ Not started |
 | 14 | `14-parent-onboarding-profile-ui.md` | Parent sign-in, consent, PIN setup, child profile management UI | FR-AUTH-02..04, FR-PROF-01..02, 05..06 | 10, 11, 13 | 3–4h | ⬜ Not started |
 | 15 | `15-student-profile-select-and-home.md` | Profile picker, world-themed home, lesson browsing, streak display | FR-AUTH-06, FR-PROF-03, FR-WORLD-01..03, FR-GAM-06 (display) | 12, 13, 14 | 3–4h | ⬜ Not started |
@@ -78,6 +79,7 @@ These are fixed across all implementation files so chunks stay consistent:
 - **Testing:** Vitest everywhere (`apps/web` with React Testing Library + jsdom, `apps/server` with Supertest). Set up in file 01.
 - **Database:** Supabase PostgreSQL via Prisma in `packages/db`; JSONB columns for activity/quiz payloads.
 - **Validation:** Zod schemas in `packages/types` — single source of truth shared by frontend renderers, backend validators, and AI generation prompts.
+- **API documentation (from file 12a):** every endpoint is registered in the OpenAPI document (`apps/server/src/openapi/paths/`) **in the same change that adds it**. Request schemas come from the route's own Zod validator; response schemas are Zod in `packages/types/src/api/` and are asserted in the route test with `assertContract`. A route missing from the registry fails `apps/server/src/openapi/coverage.test.ts`, so this is not optional. Browse the current API at `/docs`. Frontend files consume `packages/types/src/api/` rather than redeclaring response shapes. See `standards/backend.md §7`.
 - **Auth:** Google OAuth only for parents (better-auth on Express with the Prisma adapter; cookie sessions). PIN gate is an app-level check, not a second auth system.
 - **i18n:** `i18next` + `react-i18next` on the frontend; per-language asset references (text/audio URLs keyed by locale) in the database. Locales: `en`, `bn`.
 - **Drag & drop:** `@dnd-kit/core` (touch-friendly, accessible).
@@ -92,3 +94,4 @@ These are fixed across all implementation files so chunks stay consistent:
 2. Follow TDD where the chunk produces logic (schemas, APIs, engines): failing test → minimal code → pass → commit.
 3. Run `pnpm lint && pnpm typecheck` and the relevant tests before marking a file ✅ Done.
 4. If a requirement emerges that isn't in the master spec, add it to `document/project-requirement-details.md` first, then to the relevant implementation file.
+5. A file that adds or changes an API endpoint is not ✅ Done until the OpenAPI document covers it and `pnpm --filter server test` passes — the coverage test will tell you if it does not.

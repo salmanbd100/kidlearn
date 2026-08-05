@@ -68,6 +68,9 @@ Backend layers only (`apps/server`, `packages/db`, `packages/types`):
 - **Route handler thickness** — business logic (Prisma queries, conditional branching, calculations) inside a route handler function body rather than a service. Rule: `backend.md §2`.
 - **Zod missing** — a route handler that accepts a request body or params but has no Zod validation call before the service call. Rule: `backend.md §2`.
 - **`new PrismaClient()`** — any direct instantiation in `apps/server` instead of using the `@kidlearn/db` singleton. Rule: `backend.md §3`.
+- **Undocumented endpoint** — a route added or changed in `apps/server/src/routes/` with no matching entry in `apps/server/src/openapi/paths/`, or an entry that omits a status code the route's guards can produce (`requireParent` → 401, `requireConsent`/`requirePinVerified`/`requireActiveChild` → 403, `loadOwnedChild` → 404). Rule: `backend.md §7`. Note `openapi/coverage.test.ts` catches the missing-entry case, so flag it only if the diff also weakens or skips that test — but the *incomplete* entry is yours to catch, because no test can.
+- **Response shape restated** — a response type declared in `apps/web` or hand-written as JSON Schema in `src/openapi/` when it should be Zod in `packages/types/src/api/`, or a response schema using `z.date()` where the wire format is an ISO string. Rule: `backend.md §7`.
+- **Missing contract assertion** — a new successful response path with no `assertContract(Schema, res.body, …)` in its route test. Rule: `backend.md §7`.
 
 ### Agent B — Bugs
 

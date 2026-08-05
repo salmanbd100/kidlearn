@@ -15,6 +15,9 @@ export * from "./__fixtures__/activities.js";
 export * from "./__fixtures__/quiz.js";
 export * from "./activity/parse.js";
 export * from "./activity/schemas.js";
+// HTTP request/response contracts (file 12a). Shared with `apps/web` so the
+// client never redeclares a response shape.
+export * from "./api/index.js";
 export * from "./primitives.js";
 export * from "./quiz/parse.js";
 export * from "./quiz/schemas.js";

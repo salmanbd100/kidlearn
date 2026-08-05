@@ -126,6 +126,7 @@ Editor UI: `quiz-question-editor.tsx` keeps form state per format, compiles `def
 - [ ] `GET /api/content/lessons/:id` for a draft lesson returns 404 to students and parents even with `?preview=1`; returns the lesson to an admin with `?preview=1`; in preview the player writes no `LessonProgress` or `SessionEvent` rows.
 - [ ] Badge rows created via the guided form contain only the params the selected `ruleType` allows (server rejects extras — `.strict()`).
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

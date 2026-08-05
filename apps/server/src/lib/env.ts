@@ -27,6 +27,17 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   // Where the browser lands after a successful Google round-trip.
   PARENT_POST_LOGIN_PATH: z.string().startsWith("/").default("/parent"),
+  // --- API documentation (file 12a) --------------------------------------
+  // Publishes Swagger UI at `/docs` in production, where it is off by default:
+  // the docs describe the whole attack surface, so exposing them is a decision
+  // somebody should make deliberately. Always on outside production.
+  //
+  // Not `z.coerce.boolean()` — that returns `true` for the *string* "false",
+  // which is exactly how this variable arrives from a shell or a dashboard.
+  ENABLE_API_DOCS: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -46,3 +57,16 @@ if (!parsed.success) {
 
 /** Validated, immutable environment. Import this instead of `process.env`. */
 export const env: Readonly<Env> = Object.freeze(parsed.data);
+
+/**
+ * Whether to mount the API documentation routes.
+ *
+ * A pure predicate over the two fields it needs, rather than a check against the
+ * module-level `env`, so `app.test.ts` can assert both branches without
+ * re-importing this module (which would re-run `dotenv` and `process.exit`).
+ */
+export function isDocsEnabled(
+  config: Pick<Env, "NODE_ENV" | "ENABLE_API_DOCS">,
+): boolean {
+  return config.NODE_ENV !== "production" || config.ENABLE_API_DOCS;
+}

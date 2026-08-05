@@ -12,8 +12,15 @@
  */
 import { readFileSync } from "node:fs";
 import { type ChildProfile, type Parent, Prisma } from "@kidlearn/db";
+import {
+  ActiveChildResponseSchema,
+  ChildProfileListResponseSchema,
+  ChildProfileResponseSchema,
+  DeletedResponseSchema,
+} from "@kidlearn/types";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { assertContract } from "../openapi/assert-contract.js";
 
 type CharacterRow = { id: string; isDefault: boolean; status: string };
 type SessionRow = {
@@ -387,6 +394,7 @@ describe("POST /api/children", () => {
       .send(VALID_BODY);
 
     expect(res.status).toBe(201);
+    assertContract(ChildProfileResponseSchema, res.body, "POST /api/children");
     expect(res.body.data).toMatchObject({
       firstName: "Ayaan",
       age: 4,
@@ -611,6 +619,11 @@ describe("GET /api/children", () => {
     const res = await authedAgentFor(PARENT_A).get("/api/children");
 
     expect(res.status).toBe(200);
+    assertContract(
+      ChildProfileListResponseSchema,
+      res.body,
+      "GET /api/children",
+    );
     expect(res.body.data.map((c: { id: string }) => c.id)).toEqual([
       first.id,
       second.id,
@@ -645,6 +658,11 @@ describe("GET /api/children/:id", () => {
     const res = await authedAgentFor(PARENT_A).get(`/api/children/${child.id}`);
 
     expect(res.status).toBe(200);
+    assertContract(
+      ChildProfileResponseSchema,
+      res.body,
+      "GET /api/children/{id}",
+    );
     expect(res.body.data.id).toBe(child.id);
     expect(res.body.data.stats).toEqual({
       stars: 0,
@@ -691,6 +709,11 @@ describe("PATCH /api/children/:id", () => {
       .send({ firstName: "Nabila" });
 
     expect(res.status).toBe(200);
+    assertContract(
+      ChildProfileResponseSchema,
+      res.body,
+      "PATCH /api/children/{id}",
+    );
     expect(res.body.data).toMatchObject({
       firstName: "Nabila",
       age: 4,
@@ -755,6 +778,11 @@ describe("DELETE /api/children/:id", () => {
     );
 
     expect(res.status).toBe(200);
+    assertContract(
+      DeletedResponseSchema,
+      res.body,
+      "DELETE /api/children/{id}",
+    );
     expect(res.body).toEqual({ data: { deleted: true } });
     expect(state.children).toHaveLength(0);
   });
@@ -812,6 +840,11 @@ describe("POST /api/children/:id/activate", () => {
     );
 
     expect(res.status).toBe(200);
+    assertContract(
+      ActiveChildResponseSchema,
+      res.body,
+      "POST /api/children/{id}/activate",
+    );
     expect(res.body).toEqual({ data: { activeChildProfileId: child.id } });
     expect(state.sessions.get(PARENT_A.sessionId)?.activeChildProfileId).toBe(
       child.id,

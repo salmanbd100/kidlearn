@@ -8,8 +8,16 @@
  * asserts the writes that were issued, not that a row vanished from Postgres.
  */
 import type { Parent } from "@kidlearn/db";
+import {
+  ConsentRecordResponseSchema,
+  DeletedResponseSchema,
+  DeletionRequestResponseSchema,
+  PinGrantResponseSchema,
+  PinStatusResponseSchema,
+} from "@kidlearn/types";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { assertContract } from "../openapi/assert-contract.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -186,6 +194,7 @@ describe("POST /api/parent/pin", () => {
       .send({ pin: CORRECT_PIN });
 
     expect(res.status).toBe(200);
+    assertContract(PinStatusResponseSchema, res.body, "POST /api/parent/pin");
     expect(res.body).toEqual({ data: { hasPin: true } });
     const { pinHash } = lastParentUpdateData();
     expect(typeof pinHash).toBe("string");
@@ -255,6 +264,11 @@ describe("POST /api/parent/pin/verify", () => {
       .send({ pin: CORRECT_PIN });
 
     expect(res.status).toBe(200);
+    assertContract(
+      PinGrantResponseSchema,
+      res.body,
+      "POST /api/parent/pin/verify",
+    );
     const grantedUntil = new Date(res.body.data.pinVerifiedUntil).getTime();
     expect(grantedUntil).toBeGreaterThanOrEqual(before + 14 * 60_000);
     expect(grantedUntil).toBeLessThanOrEqual(Date.now() + 15 * 60_000);
@@ -430,6 +444,11 @@ describe("POST /api/parent/consent", () => {
       .send({ accepted: true, version: CONSENT_VERSION });
 
     expect(res.status).toBe(200);
+    assertContract(
+      ConsentRecordResponseSchema,
+      res.body,
+      "POST /api/parent/consent",
+    );
     expect(res.body.data.consentVersion).toBe(CONSENT_VERSION);
     expect(new Date(res.body.data.consentGivenAt).getTime()).toBeGreaterThan(0);
     expect(lastParentUpdateData()).toMatchObject({
@@ -520,6 +539,11 @@ describe("account deletion", () => {
     const res = await request(app).post("/api/parent/account/delete-request");
 
     expect(res.status).toBe(200);
+    assertContract(
+      DeletionRequestResponseSchema,
+      res.body,
+      "POST /api/parent/account/delete-request",
+    );
     expect(res.body.data.confirmationToken).toMatch(/^[0-9a-f]{64}$/);
     expect(lastParentUpdateData()).toMatchObject({
       deleteToken: res.body.data.confirmationToken,
@@ -591,6 +615,11 @@ describe("account deletion", () => {
       .send({ confirmationToken: STORED_TOKEN });
 
     expect(res.status).toBe(200);
+    assertContract(
+      DeletedResponseSchema,
+      res.body,
+      "DELETE /api/parent/account",
+    );
     expect(res.body).toEqual({ data: { deleted: true } });
     expect(db.transaction).toHaveBeenCalledTimes(1);
     expect(db.childProfileDeleteMany).toHaveBeenCalledWith({
