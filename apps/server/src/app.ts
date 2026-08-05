@@ -1,16 +1,19 @@
+import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express, { type Express } from "express";
+import { auth } from "./lib/auth.js";
 import { env } from "./lib/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
+import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 import { apiRouter } from "./routes/index.js";
 
 /**
  * Builds the Express application without binding a port, so tests can drive it
  * through Supertest. Middleware order is load-bearing: logging first (so every
- * request is recorded, including rejected ones), then CORS, then body parsing,
- * then routes, then the two terminal handlers.
+ * request is recorded, including rejected ones), then CORS, then the auth
+ * routes, then body parsing, then routes, then the two terminal handlers.
  */
 export function buildApp(): Express {
   const app = express();
@@ -28,6 +31,15 @@ export function buildApp(): Express {
       credentials: true,
     }),
   );
+  // --- Auth, before any body parser -------------------------------------
+  // Our own /api/auth routes go first: Express matches in registration order,
+  // and the wildcard below would otherwise swallow them.
+  app.use("/api/auth", authRouter);
+  // better-auth reads the raw request stream, so it must be mounted *before*
+  // express.json() — with a JSON parser in front, its client calls hang.
+  // `{*any}` is Express 5's named-wildcard syntax; a bare `*` no longer matches.
+  app.all("/api/auth/{*any}", toNodeHandler(auth));
+
   app.use(express.json());
 
   app.use(healthRouter);

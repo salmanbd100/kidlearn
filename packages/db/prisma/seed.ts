@@ -2,13 +2,33 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const DEV_PARENT_EMAIL = "dev-parent@kidlearn.local";
+/** Fixed id so re-seeding is idempotent; better-auth uses opaque string ids. */
+const DEV_PARENT_USER_ID = "dev-user-parent";
+
 async function main() {
-  const parent = await prisma.parent.upsert({
-    where: { email: "dev-parent@kidlearn.local" },
+  // File 09 — every Parent hangs off a better-auth `user` row. This fixture has
+  // no `account` row on purpose, so it cannot sign in: real parents get their
+  // identity from the Google callback. It exists only to satisfy the FK for
+  // local development and to give the child-profile fixtures an owner.
+  const devUser = await prisma.user.upsert({
+    where: { id: DEV_PARENT_USER_ID },
     update: {},
     create: {
+      id: DEV_PARENT_USER_ID,
+      email: DEV_PARENT_EMAIL,
+      name: "Dev Parent",
+      emailVerified: true,
+    },
+  });
+
+  const parent = await prisma.parent.upsert({
+    where: { email: DEV_PARENT_EMAIL },
+    update: {},
+    create: {
+      userId: devUser.id,
       googleId: "dev-google-id",
-      email: "dev-parent@kidlearn.local",
+      email: DEV_PARENT_EMAIL,
       name: "Dev Parent",
       consentGivenAt: new Date(),
       consentVersion: "dev-1",
