@@ -27,25 +27,33 @@ enum Language {
 }
 
 model Parent {
-  id             String         @id @default(uuid())
+  id                   String         @id @default(uuid())
   // File 09 — the better-auth identity this domain row belongs to. Required:
   // a Parent that maps to no `User` could never sign in. The row is created
   // lazily on the first authenticated request (apps/server requireParent), so
   // "sign up" and "sign in" are one flow. Cascade means deleting the identity
   // deletes the domain row and, through ChildProfile, all of the child's data —
   // the synchronous right-to-erasure path (NFR-SAFE-05/06, wired up in file 10).
-  userId         String         @unique
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  googleId       String         @unique
-  email          String         @unique
-  name           String?
-  avatarUrl      String?
-  pinHash        String?
-  consentGivenAt DateTime?
-  consentVersion String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  children       ChildProfile[]
+  userId               String         @unique
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleId             String         @unique
+  email                String         @unique
+  name                 String?
+  avatarUrl            String?
+  pinHash              String?
+  consentGivenAt       DateTime?
+  consentVersion       String?
+  // File 10 — PIN brute-force guard. The counters live on the durable Parent
+  // row rather than on the session, so clearing cookies cannot reset a lockout.
+  pinFailedCount       Int            @default(0)
+  pinLockedUntil       DateTime?
+  // File 10 — account-deletion confirmation: a single-use random token with a
+  // short expiry. Both columns disappear with the row on a completed deletion.
+  deleteToken          String?
+  deleteTokenExpiresAt DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  children             ChildProfile[]
 }
 
 model AdminUser {
@@ -533,16 +541,19 @@ model User {
 }
 
 model Session {
-  id                   String   @id
+  id                   String    @id
   expiresAt            DateTime
   token                String
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   ipAddress            String?
   userAgent            String?
   userId               String
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   activeChildProfileId String?
+  // File 10 — the 15-minute parental-PIN grant (FR-AUTH-04). A session field,
+  // not a separate cookie: one source of truth, and signing out ends the grant.
+  pinVerifiedUntil     DateTime?
 
   @@unique([token])
   @@index([userId])

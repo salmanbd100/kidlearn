@@ -37,7 +37,7 @@
 | 07 | `07-shared-types-activity-quiz-schemas.md` | Versioned Zod/JSON schemas for activities & quizzes in `packages/types` | FR-ACT-06, FR-QUIZ-07, NFR-SCALE-02 | 01 | 3–4h | ✅ Done |
 | 08 | `08-server-foundation-api-architecture.md` | Express app structure, middleware, validation, error handling | §7.3, NFR-PERF-04 | 02 | 3–4h | ✅ Done |
 | 09 | `09-parent-google-oauth.md` | Google OAuth sign-in + profile-scoped sessions | FR-AUTH-02, FR-AUTH-06 | 03, 08 | 3–4h | ✅ Done |
-| 10 | `10-pin-gate-consent-account-deletion.md` | PIN parental gate, COPPA consent, full account deletion | FR-AUTH-03..05, NFR-SAFE-05..06 | 09 | 3–4h | ⬜ Not started |
+| 10 | `10-pin-gate-consent-account-deletion.md` | PIN parental gate, COPPA consent, full account deletion | FR-AUTH-03..05, NFR-SAFE-05..06 | 09 | 3–4h | ✅ Done |
 | 11 | `11-child-profile-api.md` | Child profile CRUD API (max 5, owner-only access) | FR-PROF-01..07, NFR-SAFE-02 | 09 | 3–4h | ⬜ Not started |
 | 12 | `12-curriculum-content-read-api.md` | Published-only, grade+language-filtered content read APIs | FR-PROF-03, FR-CURR-02, §7.3.4 | 04, 05, 08 | 3–4h | ⬜ Not started |
 | 13 | `13-web-app-foundation-i18n.md` | Next.js app shell, i18next (EN/BN), theme tokens, audio helper | FR-I18N-01..03, NFR-A11Y-01..06 | 01 | 3–4h | ⬜ Not started |

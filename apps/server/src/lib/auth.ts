@@ -51,6 +51,17 @@ export const auth = betterAuth({
         // update endpoint — only our validated route may set it.
         input: false,
       },
+      // FR-AUTH-04 — the parental-PIN grant, valid for 15 minutes after
+      // `POST /api/parent/pin/verify`. Kept on the session rather than in a
+      // second signed cookie so there is exactly one source of truth and
+      // signing out revokes the grant for free.
+      pinVerifiedUntil: {
+        type: "date",
+        required: false,
+        // Writable only by our verify route, never through better-auth's own
+        // session-update endpoint — otherwise the PIN gate is bypassable.
+        input: false,
+      },
     },
   },
   advanced: {
