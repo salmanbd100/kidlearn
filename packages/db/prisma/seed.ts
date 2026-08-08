@@ -374,6 +374,41 @@ async function main() {
     },
   });
 
+  // ---------- Starter avatar set (file 14) ----------
+  // The child-profile form offers every published `isDefault` character, so one
+  // seeded character meant a picker with a single option and no real choice
+  // (FR-PROF-02). These five join Leo to make the six-avatar starter set.
+  //
+  // `unlockRule: {}` marks "no rule — available from the start", the same as
+  // Leo's. Characters that must be *earned* carry a real rule and
+  // `isDefault: false`; those arrive with the unlock mechanics in file 24.
+  //
+  // No `assetId`: the illustrated character sheet comes from the content
+  // pipeline (design.md §9) and does not exist yet. `GET /api/characters` reports
+  // `imageUrl: null` and the web picker draws a placeholder keyed on the slug,
+  // so attaching real artwork later is a data change and nothing more.
+  const STARTER_CHARACTERS = [
+    { slug: "ellie-the-elephant", name: "Ellie the Elephant" },
+    { slug: "tara-the-turtle", name: "Tara the Turtle" },
+    { slug: "bella-the-butterfly", name: "Bella the Butterfly" },
+    { slug: "dara-the-dolphin", name: "Dara the Dolphin" },
+    { slug: "ollie-the-owl", name: "Ollie the Owl" },
+  ];
+
+  for (const { slug, name } of STARTER_CHARACTERS) {
+    await prisma.character.upsert({
+      where: { slug },
+      update: {},
+      create: {
+        slug,
+        name,
+        isDefault: true,
+        status: "published",
+        unlockRule: {},
+      },
+    });
+  }
+
   // ---------- Six FR-GAM-04 Badges ----------
   await prisma.badge.upsert({
     where: { slug: "alphabet-hero" },

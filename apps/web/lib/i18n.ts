@@ -2,7 +2,9 @@ import i18next, { type i18n as I18nInstance } from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 import bnCommon from "@/locales/bn/common.json";
+import bnParent from "@/locales/bn/parent.json";
 import enCommon from "@/locales/en/common.json";
+import enParent from "@/locales/en/parent.json";
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE_MINUTES,
@@ -28,9 +30,17 @@ import {
 
 export const DEFAULT_NAMESPACE = "common";
 
+/**
+ * `parent` is a namespace of its own rather than a branch of `common` so that the
+ * parent-dashboard copy — dense, formal, and much larger than the kid surface's —
+ * can later be split out of the bundle a child's device downloads. Nothing in it
+ * is reachable from the Student Portal.
+ */
+export const PARENT_NAMESPACE = "parent";
+
 const resources = {
-  en: { common: enCommon },
-  bn: { common: bnCommon },
+  en: { common: enCommon, parent: enParent },
+  bn: { common: bnCommon, parent: bnParent },
 } as const;
 
 let browserInstance: I18nInstance | undefined;
@@ -63,7 +73,7 @@ function createI18n(locale: Locale): I18nInstance {
     lng: locale,
     fallbackLng: DEFAULT_LOCALE,
     supportedLngs: [...SUPPORTED_LOCALES],
-    ns: [DEFAULT_NAMESPACE],
+    ns: [DEFAULT_NAMESPACE, PARENT_NAMESPACE],
     defaultNS: DEFAULT_NAMESPACE,
     // React escapes for us; double-escaping mangles Bangla punctuation.
     interpolation: { escapeValue: false },

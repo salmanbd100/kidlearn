@@ -12,6 +12,7 @@ import {
   ConsentRecordResponseSchema,
   DeletedResponseSchema,
   DeletionRequestResponseSchema,
+  GateStatusResponseSchema,
   PinGrantResponseSchema,
   PinStatusResponseSchema,
 } from "@kidlearn/types";
@@ -432,6 +433,106 @@ describe("POST /api/parent/pin/verify", () => {
 
     expect(res.text).not.toContain(WRONG_PIN);
     expect(res.text).not.toContain("pinHash");
+  });
+});
+
+describe("GET /api/parent/gate-status", () => {
+  it("requires an authenticated parent", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+
+    const res = await request(app).get("/api/parent/gate-status");
+
+    expect(res.status).toBe(401);
+  });
+
+  it("reports no PIN at all, so the client opens setup rather than the pad", async () => {
+    db.parentFindUnique.mockResolvedValue(parentRow({ pinHash: null }));
+
+    const res = await request(app).get("/api/parent/gate-status");
+
+    expect(res.status).toBe(200);
+    assertContract(
+      GateStatusResponseSchema,
+      res.body,
+      "GET /api/parent/gate-status",
+    );
+    expect(res.body).toEqual({
+      data: { hasPin: false, isPinVerified: false, pinVerifiedUntil: null },
+    });
+  });
+
+  it("reports a PIN with no live grant, so the client opens the pad", async () => {
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ pinHash: correctPinHash }),
+    );
+    mockSession(null);
+
+    const res = await request(app).get("/api/parent/gate-status");
+
+    expect(res.body).toEqual({
+      data: { hasPin: true, isPinVerified: false, pinVerifiedUntil: null },
+    });
+  });
+
+  it("reports the live grant and when it lapses", async () => {
+    const until = new Date(Date.now() + 10 * 60_000);
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ pinHash: correctPinHash }),
+    );
+    mockSession(until);
+
+    const res = await request(app).get("/api/parent/gate-status");
+
+    assertContract(
+      GateStatusResponseSchema,
+      res.body,
+      "GET /api/parent/gate-status",
+    );
+    expect(res.body.data.isPinVerified).toBe(true);
+    expect(res.body.data.pinVerifiedUntil).toBe(until.toISOString());
+  });
+
+  it("treats an expired grant as no grant and reports no expiry", async () => {
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ pinHash: correctPinHash }),
+    );
+    mockSession(new Date(Date.now() - 1_000));
+
+    const res = await request(app).get("/api/parent/gate-status");
+
+    // A past timestamp is reported as absent, so no client has to subtract two
+    // clocks to work out that the gate is shut.
+    expect(res.body).toEqual({
+      data: { hasPin: true, isPinVerified: false, pinVerifiedUntil: null },
+    });
+  });
+
+  it("is not itself PIN-gated — a shut gate must still be readable", async () => {
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ pinHash: correctPinHash }),
+    );
+    mockSession(null);
+
+    const res = await request(app).get("/api/parent/gate-status");
+
+    // The route that *is* gated answers 403 on this same session, which is what
+    // makes the contrast the point of this test rather than a duplicate.
+    expect(res.status).toBe(200);
+    const gated = await request(app).post("/api/parent/account/delete-request");
+    expect(gated.status).toBe(403);
+    expect(gated.body.error.code).toBe("PIN_VERIFICATION_REQUIRED");
+  });
+
+  it("never reveals the PIN hash or the lockout counters", async () => {
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ pinHash: correctPinHash, pinFailedCount: 3 }),
+    );
+
+    const res = await request(app).get("/api/parent/gate-status");
+
+    expect(res.text).not.toContain(correctPinHash);
+    expect(res.text).not.toContain("pinFailedCount");
+    expect(res.text).not.toContain("pinLockedUntil");
   });
 });
 

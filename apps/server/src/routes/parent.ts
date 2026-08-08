@@ -14,6 +14,8 @@ import {
   requestAccountDeletion,
 } from "../services/accountDeletionService.js";
 import {
+  type GateStatus,
+  readGateStatus,
   recordParentConsent,
   setParentPin,
   verifyParentPinForSession,
@@ -52,6 +54,26 @@ type DeleteRequestResponse = SuccessEnvelope<{
   expiresAt: Date;
 }>;
 type DeleteResponse = SuccessEnvelope<{ deleted: true }>;
+type GateStatusResponse = SuccessEnvelope<GateStatus>;
+
+/**
+ * Whether the parent area is open right now (FR-AUTH-04).
+ *
+ * Deliberately **not** behind `requirePinVerified` — a gate cannot be asked
+ * whether it is shut from the far side of itself. It is also why this route
+ * exists at all: without it a client's only way to learn the state of the gate is
+ * to call a PIN-gated endpoint and read the 403, and the only PIN-gated endpoint
+ * is "request account deletion", which mints a deletion token as a side effect.
+ *
+ * Reads only what `requireParent` already loaded, so it costs no query and
+ * answers while the database is asleep (NFR-PERF-04).
+ */
+parentRouter.get("/gate-status", (req, res) => {
+  const { parent, session } = authContext(req);
+
+  const body: GateStatusResponse = { data: readGateStatus(parent, session) };
+  res.json(body);
+});
 
 /**
  * Sets the parental PIN, or replaces it when `currentPin` proves possession

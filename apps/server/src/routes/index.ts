@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireActiveChild } from "../middleware/require-active-child.js";
 import { requireParent } from "../middleware/require-parent.js";
+import { charactersRouter } from "./characters.js";
 import { childrenRouter } from "./children.js";
 import { contentRouter } from "./content.js";
 import { parentRouter } from "./parent.js";
@@ -18,6 +19,11 @@ export const apiRouter = Router();
 apiRouter.use("/parent", parentRouter);
 
 apiRouter.use("/children", childrenRouter);
+
+// The starter avatars a profile may wear (file 14). Its own resource rather than
+// a path on `/children`, because a character is not a child's sub-resource — it
+// is published content that every parent picks from.
+apiRouter.use("/characters", charactersRouter);
 
 // Curriculum reads (file 12). The two guards are mounted here rather than
 // inside `content.ts` so that every current and future `/api/content/*` path is
