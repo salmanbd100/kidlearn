@@ -10,10 +10,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@kidlearn/types": "workspace:*",
     "@kidlearn/ui": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "i18next": "^26.3.6",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "lucide-react": "^0.469.0",
+    "motion": "^11.15.0",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-i18next": "^17.0.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

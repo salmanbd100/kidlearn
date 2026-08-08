@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "KidLearn",
+    "tagline": "Learn, play, grow."
+  },
+  "actions": {
+    "letsGo": "Let's go!",
+    "play": "Play",
+    "next": "Next",
+    "back": "Back",
+    "tryAgain": "Try again",
+    "done": "Done!"
+  },
+  "loading": {
+    "default": "Loading…",
+    "coldStart": "Waking up…",
+    "coldStartHint": "This can take a few seconds."
+  },
+  "errors": {
+    "network": "We can't reach KidLearn right now.",
+    "unknown": "Something went wrong."
+  },
+  "language": {
+    "label": "Language",
+    "switchTo": "Switch to {{language}}",
+    "en": "English",
+    "bn": "বাংলা"
+  },
+  "audio": {
+    "mute": "Turn sounds off",
+    "unmute": "Turn sounds on"
+  },
+  "a11y": {
+    "settings": "Accessibility",
+    "highContrast": "High contrast",
+    "dyslexiaFont": "Dyslexia-friendly font",
+    "reducedMotion": "Reduce motion"
+  }
+}

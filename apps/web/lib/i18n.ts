@@ -1,0 +1,86 @@
+import i18next, { type i18n as I18nInstance } from "i18next";
+import LanguageDetector from "i18next-browser-languagedetector";
+import { initReactI18next } from "react-i18next";
+import bnCommon from "@/locales/bn/common.json";
+import enCommon from "@/locales/en/common.json";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE_MINUTES,
+  LOCALE_COOKIE_NAME,
+  type Locale,
+  SUPPORTED_LOCALES,
+} from "./locale";
+
+/**
+ * i18next, with both locales bundled statically (FR-I18N-01).
+ *
+ * Two small resource files beat an async backend here: `changeLanguage` has
+ * nothing to fetch, so the switch is instant and cannot fail offline
+ * (FR-I18N-02) — and no screen ever renders a key while a bundle downloads.
+ *
+ * The initial language is passed in by the Server Component that read the
+ * cookie, never detected during render. Detecting on the client instead would
+ * make the server emit English and the browser swap to Bangla after hydration:
+ * a mismatch React warns about and a visible flash for every Bangla user. The
+ * detector is still registered in the browser so `caches: ["cookie"]` persists
+ * the choice on every `changeLanguage` (FR-I18N-03).
+ */
+
+export const DEFAULT_NAMESPACE = "common";
+
+const resources = {
+  en: { common: enCommon },
+  bn: { common: bnCommon },
+} as const;
+
+let browserInstance: I18nInstance | undefined;
+
+/**
+ * On the server a fresh instance is built per call: a module-level singleton is
+ * shared by every concurrent request in a worker, so one Bangla visitor would
+ * flip the language of an English render happening at the same moment.
+ */
+export function getI18n(locale: Locale = DEFAULT_LOCALE): I18nInstance {
+  if (typeof window === "undefined") return createI18n(locale);
+
+  if (browserInstance === undefined) {
+    browserInstance = createI18n(locale);
+  } else if (browserInstance.language !== locale) {
+    void browserInstance.changeLanguage(locale);
+  }
+  return browserInstance;
+}
+
+function createI18n(locale: Locale): I18nInstance {
+  const instance = i18next.createInstance();
+
+  if (typeof window !== "undefined") {
+    instance.use(LanguageDetector);
+  }
+
+  void instance.use(initReactI18next).init({
+    resources,
+    lng: locale,
+    fallbackLng: DEFAULT_LOCALE,
+    supportedLngs: [...SUPPORTED_LOCALES],
+    ns: [DEFAULT_NAMESPACE],
+    defaultNS: DEFAULT_NAMESPACE,
+    // React escapes for us; double-escaping mangles Bangla punctuation.
+    interpolation: { escapeValue: false },
+    detection: {
+      order: ["cookie"],
+      caches: ["cookie"],
+      lookupCookie: LOCALE_COOKIE_NAME,
+      cookieMinutes: LOCALE_COOKIE_MINUTES,
+      cookieOptions: { path: "/", sameSite: "lax" },
+    },
+    react: { useSuspense: false },
+  });
+
+  return instance;
+}
+
+/** Test seam — drops the memoised browser instance between specs. */
+export function resetI18nForTests(): void {
+  browserInstance = undefined;
+}
