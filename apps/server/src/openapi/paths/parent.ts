@@ -25,6 +25,31 @@ const PIN_LOCKED_RESPONSE = errorResponse(
 
 export const PARENT_ROUTES: RouteDoc[] = [
   {
+    method: "get",
+    path: "/api/parent/gate-status",
+    operation: {
+      tags: ["Parent Account"],
+      summary: "Is the parent area open right now?",
+      description: [
+        "Reports the state of the parental gate without changing it (FR-AUTH-04), so a client can render the right screen on first paint instead of provoking a `403` to find out.",
+        "",
+        "This is the read-only counterpart to what `requirePinVerified` decides on every gated route. `hasPin` and `isPinVerified` are separate fields because they lead to different screens — no PIN means **setup**, a lapsed grant means the **PIN pad** — the same distinction `PIN_REQUIRED` and `PIN_VERIFICATION_REQUIRED` draw behind a 403.",
+        "",
+        "Deliberately **not** behind the PIN gate: a gate cannot be asked whether it is shut from the far side of itself. That is also why the operation exists — the only other PIN-gated endpoint is `POST /api/parent/account/delete-request`, which mints a deletion token as a side effect and is therefore useless as a probe.",
+        "",
+        "Costs no query: it reads the parent and session rows the auth middleware already loaded.",
+      ].join("\n"),
+      responses: {
+        "200": jsonResponse(
+          "`pinVerifiedUntil` is `null` whenever `isPinVerified` is false — a lapsed grant is reported as absent rather than as a past timestamp, so no client has to subtract two clocks to interpret it.",
+          "GateStatusResponse",
+        ),
+        "401": UNAUTHORIZED_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
     method: "post",
     path: "/api/parent/pin",
     operation: {

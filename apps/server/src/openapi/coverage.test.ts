@@ -1,6 +1,7 @@
 import type { Router } from "express";
 import { describe, expect, it } from "vitest";
 import { authRouter } from "../routes/auth.js";
+import { charactersRouter } from "../routes/characters.js";
 import { childrenRouter } from "../routes/children.js";
 import { contentRouter } from "../routes/content.js";
 import { healthRouter } from "../routes/health.js";
@@ -38,11 +39,16 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     router: childrenRouter,
     file: "paths/children.ts",
   },
+  {
+    prefix: "/api/characters",
+    router: charactersRouter,
+    file: "paths/characters.ts",
+  },
   { prefix: "/api/content", router: contentRouter, file: "paths/content.ts" },
 ];
 
 /** How many routers `routes/index.ts` mounts under `/api`. */
-const EXPECTED_API_MOUNTS = 3;
+const EXPECTED_API_MOUNTS = 4;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally

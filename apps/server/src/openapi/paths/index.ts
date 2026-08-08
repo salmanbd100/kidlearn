@@ -1,5 +1,6 @@
 import type { RouteDoc } from "../route-doc.js";
 import { AUTH_ROUTES, BETTER_AUTH_ROUTES } from "./auth.js";
+import { CHARACTERS_ROUTES } from "./characters.js";
 import { CHILDREN_ROUTES } from "./children.js";
 import { CONTENT_ROUTES } from "./content.js";
 import { HEALTH_ROUTES } from "./health.js";
@@ -18,6 +19,7 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...AUTH_ROUTES,
   ...PARENT_ROUTES,
   ...CHILDREN_ROUTES,
+  ...CHARACTERS_ROUTES,
   ...CONTENT_ROUTES,
 ];
 

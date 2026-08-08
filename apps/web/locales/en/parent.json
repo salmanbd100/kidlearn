@@ -1,0 +1,110 @@
+{
+  "login": {
+    "title": "Parent sign-in",
+    "subtitle": "KidLearn uses your Google account, so there is no extra password to remember.",
+    "google": "Continue with Google",
+    "privacy": "We ask Google only for your name and email address."
+  },
+  "onboarding": {
+    "stepOf": "Step {{current}} of {{total}}",
+    "consent": "Permission",
+    "pin": "Parent PIN",
+    "child": "First profile"
+  },
+  "consent": {
+    "title": "Your permission",
+    "intro": "KidLearn is made for children aged 3 to 6, so a parent or guardian has to agree before a child profile can exist.",
+    "collectTitle": "What we keep",
+    "collectProfile": "A first name, age, grade and chosen avatar for each child — no surname, no photograph.",
+    "collectProgress": "Which lessons your child finished and how they did, so the app can choose what comes next.",
+    "collectAccount": "Your own name and email address from Google, so you can sign back in.",
+    "neverTitle": "What we never do",
+    "neverAds": "Show your child advertising, or sell anyone's data.",
+    "neverSocial": "Let your child chat, post, or be contacted by another user.",
+    "neverSpend": "Let your child spend money anywhere in the app.",
+    "rights": "You can read, correct or permanently delete everything we hold, at any time, from Settings.",
+    "checkbox": "I am this child's parent or guardian, and I agree to the above.",
+    "submit": "I agree — continue",
+    "outdated": "The permission text has changed. Please read it again and agree to continue."
+  },
+  "pin": {
+    "setupTitle": "Create a parent PIN",
+    "setupIntro": "Four digits, asked for whenever someone opens the parent area. Pick something your child would not guess.",
+    "choosePrompt": "Choose your PIN",
+    "confirmPrompt": "Enter it once more",
+    "mismatch": "Those two PINs did not match. Let's start again.",
+    "gateTitle": "Enter your parent PIN",
+    "gateIntro": "This keeps the parent area out of little hands.",
+    "invalid": "That PIN is not right. Please try again.",
+    "locked": "Too many tries. Please wait a short while before trying again.",
+    "notSet": "This account has no PIN yet. Let's set one up.",
+    "entered": "{{filled}} of {{length}} digits entered",
+    "backspace": "Delete the last digit",
+    "digit": "Digit {{digit}}",
+    "checking": "Checking…",
+    "empty": "Enter your four-digit PIN."
+  },
+  "form": {
+    "newTitle": "Add a child",
+    "editTitle": "Edit {{name}}",
+    "firstChildTitle": "Your first child's profile",
+    "firstChildIntro": "You can add up to five, and change any of this later.",
+    "firstName": "First name",
+    "firstNameHint": "First name only — KidLearn never asks for a surname.",
+    "age": "Age",
+    "ageDecrease": "Younger",
+    "ageIncrease": "Older",
+    "ageYears": "{{age}} years old",
+    "grade": "Grade",
+    "gradeNursery": "Nursery",
+    "gradeKg1": "KG-1",
+    "language": "Language",
+    "languageEn": "English",
+    "languageBn": "বাংলা",
+    "avatar": "Avatar",
+    "avatarHint": "Your child will see this character on every screen.",
+    "avatarChoose": "Choose {{name}}",
+    "avatarEmpty": "No avatars are available right now. Please try again in a moment.",
+    "create": "Create profile",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "errors": {
+      "firstNameRequired": "Please enter your child's first name.",
+      "firstNameTooLong": "That name is too long — please use {{max}} characters or fewer.",
+      "ageRange": "Age must be between {{min}} and {{max}}.",
+      "gradeRequired": "Please choose a grade.",
+      "languageRequired": "Please choose a language.",
+      "avatarRequired": "Please choose an avatar.",
+      "invalid": "Please check this field."
+    }
+  },
+  "children": {
+    "title": "Children",
+    "subtitle": "Up to five profiles, one per child.",
+    "add": "Add a child",
+    "empty": "No profiles yet. Add your first child to get started.",
+    "limitReached": "You've reached the maximum of 5 children. Delete a profile to add another.",
+    "edit": "Edit {{name}}",
+    "delete": "Delete {{name}}",
+    "meta": "Age {{age}} · {{grade}} · {{language}}",
+    "loading": "Loading profiles…"
+  },
+  "delete": {
+    "title": "Delete {{name}}'s profile?",
+    "warning": "This removes {{name}}'s profile and all of their progress, stars and badges. It cannot be undone.",
+    "prompt": "Type {{name}} to confirm",
+    "confirm": "Delete profile",
+    "deleting": "Deleting…",
+    "cancel": "Keep profile",
+    "close": "Close"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "We can't reach KidLearn right now. Please check your connection.",
+    "childLimit": "You've reached the maximum of 5 children. Delete a profile to add another.",
+    "notFound": "That profile no longer exists.",
+    "consentRequired": "Please agree to the permission text first.",
+    "retry": "Try again"
+  }
+}

@@ -3,6 +3,8 @@ import {
   ActivityDefinitionSchema,
   AuthMeResponseSchema,
   AuthMeSchema,
+  AvatarCharacterListResponseSchema,
+  AvatarCharacterSchema,
   ChildProfileListResponseSchema,
   ChildProfileResponseSchema,
   ChildProfileSchema,
@@ -11,6 +13,8 @@ import {
   DeletedResponseSchema,
   DeletionRequestResponseSchema,
   ErrorEnvelopeSchema,
+  GateStatusResponseSchema,
+  GateStatusSchema,
   HealthResponseSchema,
   LessonActivitySchema,
   LessonDetailResponseSchema,
@@ -98,6 +102,8 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AuthMeResponse: AuthMeResponseSchema,
   PinStatusResponse: PinStatusResponseSchema,
   PinGrantResponse: PinGrantResponseSchema,
+  GateStatus: GateStatusSchema,
+  GateStatusResponse: GateStatusResponseSchema,
   ConsentRecordResponse: ConsentRecordResponseSchema,
   DeletionRequestResponse: DeletionRequestResponseSchema,
   DeletedResponse: DeletedResponseSchema,
@@ -108,6 +114,10 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ChildProfileResponse: ChildProfileResponseSchema,
   ChildProfileListResponse: ChildProfileListResponseSchema,
   ActiveChildResponse: ActiveChildResponseSchema,
+
+  // --- Characters ---------------------------------------------------------
+  AvatarCharacter: AvatarCharacterSchema,
+  AvatarCharacterListResponse: AvatarCharacterListResponseSchema,
 
   // --- Content ------------------------------------------------------------
   MediaSummary: MediaSummarySchema,
@@ -175,6 +185,11 @@ export const TAGS = [
     name: "Children",
     description:
       "Learner profiles, at most five per household. Scoped entirely by the session — there is no parent id parameter anywhere on these routes.",
+  },
+  {
+    name: "Characters",
+    description:
+      "Avatar characters. At MVP only the published starter set is readable, which is what the child-profile form picks from; earned characters and their unlock rules arrive in file 24.",
   },
   {
     name: "Content",

@@ -40,6 +40,49 @@ function lockoutMsFor(failedCount: number): number {
 
 export type PinGrant = { pinVerifiedUntil: Date };
 
+export type GateStatus = {
+  hasPin: boolean;
+  isPinVerified: boolean;
+  pinVerifiedUntil: Date | null;
+};
+
+/**
+ * Reports whether the parent area is currently open, without opening it.
+ *
+ * A pure function of the two rows the request already carries — no query, no
+ * write. `requirePinVerified` applies exactly this logic to decide between
+ * `PIN_REQUIRED`, `PIN_VERIFICATION_REQUIRED` and letting the request through;
+ * this is that decision made available as a read, so the client can render the
+ * right screen on first paint instead of provoking a 403 to find out.
+ *
+ * A lapsed `pinVerifiedUntil` is reported as `null` rather than as a past
+ * timestamp: the only question a client has is "is it open, and until when", and
+ * a stale expiry invites a client to subtract two clocks to answer it.
+ */
+export function readGateStatus(
+  parent: Pick<Parent, "pinHash">,
+  session: { pinVerifiedUntil?: Date | string | null },
+  now: Date = new Date(),
+): GateStatus {
+  // `Date | string`, not just `Date`: better-auth types this additional field as
+  // a date but hands back whatever its adapter produced, and
+  // `requirePinVerified` already wraps it in `new Date(...)` for the same
+  // reason. Normalising once here keeps the comparison honest.
+  const raw = session.pinVerifiedUntil ?? null;
+  const until = raw === null ? null : new Date(raw);
+  const isPinVerified =
+    parent.pinHash !== null &&
+    until !== null &&
+    !Number.isNaN(until.getTime()) &&
+    until.getTime() > now.getTime();
+
+  return {
+    hasPin: parent.pinHash !== null,
+    isPinVerified,
+    pinVerifiedUntil: isPinVerified ? until : null,
+  };
+}
+
 export type ConsentRecord = {
   consentGivenAt: Date;
   consentVersion: string;
