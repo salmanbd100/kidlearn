@@ -147,6 +147,7 @@ Produce:
 - [ ] `POST /api/admin/ai/generate/lesson` returns 401 unauthenticated, 403 for parents, 202 with `{ data: { jobId } }` for admins.
 - [ ] Starting the server without `ANTHROPIC_API_KEY` exits non-zero naming the missing var.
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

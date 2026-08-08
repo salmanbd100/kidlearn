@@ -10,9 +10,19 @@
  * JSONB so the definition parsing is exercised for real.
  */
 import type { ChildProfile, Parent } from "@kidlearn/db";
-import { validDragDrop, validMcq, validPictureSelect } from "@kidlearn/types";
+import {
+  LessonDetailResponseSchema,
+  LessonListResponseSchema,
+  SubjectListResponseSchema,
+  TopicListResponseSchema,
+  validDragDrop,
+  validMcq,
+  validPictureSelect,
+  WorldListResponseSchema,
+} from "@kidlearn/types";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { assertContract } from "../openapi/assert-contract.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -285,6 +295,11 @@ describe("GET /api/content/worlds", () => {
     const res = await request(app).get("/api/content/worlds");
 
     expect(res.status).toBe(200);
+    assertContract(
+      WorldListResponseSchema,
+      res.body,
+      "GET /api/content/worlds",
+    );
     expect(res.body.data.worlds).toEqual([
       {
         id: "world_jungle",
@@ -328,6 +343,11 @@ describe("GET /api/content/subjects", () => {
     const res = await request(app).get("/api/content/subjects");
 
     expect(res.status).toBe(200);
+    assertContract(
+      SubjectListResponseSchema,
+      res.body,
+      "GET /api/content/subjects",
+    );
     expect(res.body.data.subjects).toEqual([
       {
         id: SUBJECT_ID,
@@ -376,6 +396,11 @@ describe("GET /api/content/subjects/:id/topics", () => {
     );
 
     expect(res.status).toBe(200);
+    assertContract(
+      TopicListResponseSchema,
+      res.body,
+      "GET /api/content/subjects/{id}/topics",
+    );
     expect(res.body.data.topics).toEqual([
       { id: TOPIC_ID, slug: "alphabet", name: "Alphabet", sortOrder: 1 },
     ]);
@@ -430,6 +455,11 @@ describe("GET /api/content/topics/:id/lessons", () => {
     );
 
     expect(res.status).toBe(200);
+    assertContract(
+      LessonListResponseSchema,
+      res.body,
+      "GET /api/content/topics/{id}/lessons",
+    );
     expect(res.body.data.lessons).toEqual([
       {
         id: LESSON_ID,
@@ -483,6 +513,11 @@ describe("GET /api/content/lessons/:id", () => {
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
     expect(res.status).toBe(200);
+    assertContract(
+      LessonDetailResponseSchema,
+      res.body,
+      "GET /api/content/lessons/{id}",
+    );
     const { lesson } = res.body.data;
     expect(lesson.title).toBe("The Letter A");
     expect(lesson.locale).toBe("en");

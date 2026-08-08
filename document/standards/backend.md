@@ -19,7 +19,8 @@
 4. [Content-Status Guard — Hard Rule](#4-content-status-guard--hard-rule)
 5. [Error Handling & Environment](#5-error-handling--environment)
 6. [Backend Testing](#6-backend-testing)
-7. [Backend Review Checklist](#7-backend-review-checklist)
+7. [API Documentation — OpenAPI](#7-api-documentation--openapi)
+8. [Backend Review Checklist](#8-backend-review-checklist)
 
 ---
 
@@ -30,6 +31,8 @@ apps/server/src/
 ├── routes/         # Express Router files — one file per resource (plural noun)
 ├── services/       # Business logic — plain async functions, no Express types
 ├── middleware/     # Express middleware (auth, validation, error handling)
+├── schemas/        # Zod request schemas, one file per resource
+├── openapi/        # The OpenAPI document — see §7
 ├── lib/            # Pure utility functions
 └── index.ts        # App bootstrap only — no routes or business logic inline
 ```
@@ -146,13 +149,55 @@ it("does not return unpublished lessons to students", async () => {
 
 ---
 
-## 7. Backend Review Checklist
+## 7. API Documentation — OpenAPI
+
+The server publishes an OpenAPI 3.0 document, served as Swagger UI at `/docs` and raw at `/docs.json`. It is assembled at boot in `apps/server/src/openapi/` — there is no checked-in spec file, because a derived artifact in the repository is one more thing to forget to regenerate.
+
+### The rule
+
+**An endpoint is registered in `src/openapi/paths/<resource>.ts` in the same change that adds it.** Not in a follow-up, not "before the PR" — the same change. **[CI once tests are configured]**
+
+This is enforced, not requested: `src/openapi/coverage.test.ts` walks the live Express routers and diffs their registrations against the registry in both directions. An undocumented route fails `pnpm --filter server test` and names itself. A registry entry whose route was deleted fails too.
+
+### Where each half of a contract lives
+
+| | Where | Why |
+|---|---|---|
+| **Request** schemas | `apps/server/src/schemas/<resource>.ts` | The same Zod object `validate()` runs at the boundary. The spec imports it; it is never restated. |
+| **Response** schemas | `packages/types/src/api/<resource>.ts` | Shared with `apps/web`, so the client never redeclares a response shape (§2). |
+
+Both halves are converted to JSON Schema by `src/openapi/to-json-schema.ts`. Nothing in `src/openapi/` may describe a shape by hand that a Zod schema already describes — a hand-written duplicate is a second source of truth and will drift.
+
+### Rules for response schemas
+
+- **Timestamps are `IsoDateTimeSchema`, never `z.date()`.** The services type these as `Date`, but `res.json()` sends an ISO string. A schema mirroring the TypeScript type is wrong about every timestamp in the API.
+- **They document and test; they never police.** No route parses or strips an outgoing body at runtime. Drift is caught by the route tests, not by rejecting a response in front of a user.
+- **Every successful response is asserted in its route test** with `assertContract(Schema, res.body, "<operation>")`. Because the schemas are `.strict()`, this also catches an accidentally-leaked field — which is a content-safety failure (§4, NFR-SAFE-02), not just an inaccurate document.
+- `packages/types` must not depend on `@kidlearn/db`, so Prisma enums are mirrored there by hand. Any mirror needs a compile-time assertion on the server side that it still matches — see `src/openapi/paths/children.ts` for the pattern.
+
+### What a new operation must document
+
+Every status code the route can actually produce, including the ones its middleware produces rather than its handler: `requireParent` → 401; `requireConsent` → 403 `CONSENT_REQUIRED`; `requirePinVerified` → 403 `PIN_REQUIRED` / `PIN_VERIFICATION_REQUIRED`; `requireActiveChild` → 403; `loadOwnedChild` → **404, never 403**.
+
+State the reasoning where a response is deliberately counter-intuitive. The `404` for another parent's child, and the `404` for unpublished content, both exist so that a probe cannot confirm a row exists (§4, NFR-SAFE-02) — an operation description that does not say so invites someone to "fix" it into a `403`.
+
+Restate in a `description` any rule that JSON Schema cannot express. Zod `.refine()` and `.superRefine()` are dropped silently in conversion, so a rule like `UpdateChildBodySchema`'s "at least one field required" is invisible in the spec unless it is written out.
+
+### Exposure
+
+`/docs` is always available outside production. In production it is off unless `ENABLE_API_DOCS=true`, because the document describes the whole API surface. Both routes are mounted behind `isDocsEnabled(env)` in `app.ts`.
+
+---
+
+## 8. Backend Review Checklist
 
 Before considering backend work complete:
 
 - [ ] Route handlers are thin — all business logic lives in a service function callable without HTTP
 - [ ] Every route accepting user input has a Zod schema at the boundary; invalid input returns `400`
 - [ ] Shared request/response schemas live in `packages/types`, not duplicated per app
+- [ ] Every new or changed endpoint is registered in `src/openapi/paths/`, documenting every status code its guards and handler can produce (§7)
+- [ ] Every successful response is asserted against its `packages/types/src/api` schema in the route test
 - [ ] `prisma` singleton from `@kidlearn/db` used — no `new PrismaClient()`, no raw SQL
 - [ ] Every student-facing query filters `status: "published"`, with an explicit test
 - [ ] Errors are thrown, not sent — a single error-handler middleware is last in `index.ts`

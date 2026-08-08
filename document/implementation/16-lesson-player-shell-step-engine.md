@@ -122,6 +122,7 @@ const StepComponent = {
 - [ ] Exit button always asks before leaving; Stay loses nothing; Leave returns to the world screen with progress retained
 - [ ] Progress dots always show 5 steps with current-step indication; UI is full-bleed and works in portrait + landscape
 - [ ] Replaying a completed lesson starts at intro without erasing `completedAt`
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

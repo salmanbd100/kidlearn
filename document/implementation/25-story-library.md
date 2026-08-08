@@ -134,6 +134,7 @@ Cards are `IconTile`-sized or larger (≥96px cover, whole card is the hit targe
 - [ ] With the dev stack up, the student home shows a Stories tile; `/stories` renders the 2 seeded covers in a grid at 360px (2-col) and 768px (≥3-col).
 - [ ] Tapping a card audibly plays its title before navigation; the same card's second tap opens `/stories/[id]` (404 page acceptable until file 26).
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

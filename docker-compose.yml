@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kidlearn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: kidlearn
+    ports:
+      # host:container — 5432 must be free. If you already run a local Postgres,
+      # change the host side to 5433 and update DATABASE_URL/DIRECT_URL to match.
+      - "5432:5432"
+    volumes:
+      - kidlearn-pgdata:/var/lib/postgresql/data
+      # Runs ONCE, on first creation of the volume. Creates the extra database
+      # the vitest suite expects (apps/server/vitest.setup.ts).
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kidlearn"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kidlearn-pgdata:

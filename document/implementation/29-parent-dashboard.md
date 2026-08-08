@@ -133,6 +133,7 @@ locales/{en,bn}/parent.json                   # + dashboard namespace keys
 - [ ] A brand-new child shows friendly empty states everywhere — no `NaN%`, no empty highlight chips (FR-DASH-03 highlight suppressed at all-zero).
 - [ ] Tabs switch children without losing the PIN grant; deep-linking `/parent?child=<id>` selects that child.
 - [ ] All strings render in EN and BN; `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

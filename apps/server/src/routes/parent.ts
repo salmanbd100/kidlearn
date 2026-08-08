@@ -1,9 +1,14 @@
 import { Router } from "express";
-import { z } from "zod";
 import type { SuccessEnvelope } from "../lib/errors.js";
 import { authContext, requireParent } from "../middleware/require-parent.js";
 import { requirePinVerified } from "../middleware/require-pin-verified.js";
 import { validate } from "../middleware/validate.js";
+import {
+  ConsentSchema,
+  DeleteAccountSchema,
+  SetPinSchema,
+  VerifyPinSchema,
+} from "../schemas/parent.js";
 import {
   confirmAccountDeletion,
   requestAccountDeletion,
@@ -29,26 +34,6 @@ import {
 export const parentRouter = Router();
 
 parentRouter.use(requireParent);
-
-/** Exactly four digits — leading zeros are significant, so this is a string. */
-const PinSchema = z.string().regex(/^\d{4}$/, "PIN must be exactly 4 digits");
-
-const SetPinSchema = z.object({
-  pin: PinSchema,
-  /** Required only when replacing an existing PIN; enforced in the service. */
-  currentPin: PinSchema.optional(),
-});
-
-const VerifyPinSchema = z.object({ pin: PinSchema });
-
-const ConsentSchema = z.object({
-  // `literal(true)` and not `boolean()`: "accepted: false" is not a consent
-  // record with a different value, it is an absence of consent.
-  accepted: z.literal(true),
-  version: z.string().min(1),
-});
-
-const DeleteAccountSchema = z.object({ confirmationToken: z.string().min(1) });
 
 // Each handler below re-parses `req.body` with the same schema `validate`
 // already applied. `validate` is what rejects bad input at the boundary (the

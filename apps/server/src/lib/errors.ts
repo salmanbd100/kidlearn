@@ -17,31 +17,19 @@
  * ---------------------------------------------------------------------------
  */
 
-export const ERROR_CODES = [
-  "VALIDATION_FAILED",
-  "UNAUTHORIZED",
-  "FORBIDDEN",
-  "NOT_FOUND",
-  "CONFLICT",
-  "INTERNAL",
-  // --- File 10, the parental-PIN and consent gates -------------------------
-  // Distinct top-level codes rather than a `details.reason` discriminator: the
-  // client's next action differs for each one (open PIN setup, open the PIN
-  // pad, show "wrong PIN", show a countdown, open the consent screen), and a
-  // switch on `error.code` is the shape every other client branch already uses.
-  /** No PIN has been set on this account yet — route to PIN setup. */
-  "PIN_REQUIRED",
-  /** A PIN exists but this session has no live 15-minute grant. */
-  "PIN_VERIFICATION_REQUIRED",
-  /** The submitted PIN was wrong. */
-  "PIN_INVALID",
-  /** Too many wrong attempts; the account is in its cool-off window. */
-  "PIN_LOCKED",
-  /** COPPA consent has not been recorded for this parent yet. */
-  "CONSENT_REQUIRED",
-] as const;
+import { ERROR_CODES, type ErrorCode } from "@kidlearn/types";
 
-export type ErrorCode = (typeof ERROR_CODES)[number];
+// --- Error vocabulary -----------------------------------------------------
+// `ERROR_CODES` moved to `@kidlearn/types` in file 12a, because the parent UI
+// branches on it: `CONSENT_REQUIRED`, `PIN_REQUIRED` and
+// `PIN_VERIFICATION_REQUIRED` are three different destinations behind the same
+// 403, and a client that tells them apart by matching message strings breaks the
+// first time someone rewords a message. Distinct top-level codes rather than a
+// `details.reason` discriminator, for the same reason.
+//
+// Re-exported so `ApiError` and every existing import keep working: within
+// `apps/server`, `lib/errors.js` remains the place to import an error code from.
+export { ERROR_CODES, type ErrorCode };
 
 export type SuccessEnvelope<TData> = { data: TData };
 

@@ -119,6 +119,7 @@ export const screenTimeUpdateSchema = z.object({
 - [ ] In the browser, a blocked child sees the mascot time-up screen on the home load and on lesson tap — never a raw error (FR-TIME-02); the window screen shows the localized start time.
 - [ ] Settings routes return 404 for another parent's child and 401 without the PIN grant (FR-TIME-05 behind the gate).
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

@@ -106,6 +106,7 @@ If `useAudio()` lacks an ended hook, extend it as `play(url, { onEnded })` in `c
 - [ ] Rotating the device swaps stacked ⇄ side-by-side layout with no JS errors.
 - [ ] "Read again" restarts at page 1 and the server receives no second grant (verify via ledger row count).
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

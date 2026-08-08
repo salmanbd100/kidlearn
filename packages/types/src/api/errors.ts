@@ -1,0 +1,34 @@
+/**
+ * The API's error vocabulary.
+ *
+ * This lives in `@kidlearn/types` rather than in the server because it is a
+ * *client* contract: the parent UI branches on it. `CONSENT_REQUIRED` sends the
+ * parent to the consent screen, `PIN_REQUIRED` to PIN setup,
+ * `PIN_VERIFICATION_REQUIRED` to the PIN prompt — three different destinations
+ * behind the same 403 status. A client that has to match on message strings to
+ * tell them apart is a client that breaks when someone rewords a message.
+ *
+ * `apps/server/src/lib/errors.ts` re-exports both symbols and builds `ApiError`
+ * on top of them.
+ */
+
+export const ERROR_CODES = [
+  "VALIDATION_FAILED",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "CONFLICT",
+  "INTERNAL",
+  /** No PIN has been set on this account yet — route to PIN setup. */
+  "PIN_REQUIRED",
+  /** A PIN exists but this session has no live 15-minute grant. */
+  "PIN_VERIFICATION_REQUIRED",
+  /** The submitted PIN was wrong. */
+  "PIN_INVALID",
+  /** Too many wrong attempts; the account is in its cool-off window. */
+  "PIN_LOCKED",
+  /** COPPA consent has not been recorded for this parent yet. */
+  "CONSENT_REQUIRED",
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];

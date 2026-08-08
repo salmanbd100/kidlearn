@@ -136,6 +136,7 @@ Supertest streak fixture tip: seed `Streak` rows directly with `lastActivityDate
 - [ ] A badge row with an unknown `ruleType` or malformed `rule` logs a warning and the completion still succeeds (no 500).
 - [ ] The student home shows the real current streak; the milestone celebration animation plays only on milestone completions (FR-GAM-06).
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 

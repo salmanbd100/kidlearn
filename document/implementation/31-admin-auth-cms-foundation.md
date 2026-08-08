@@ -127,6 +127,7 @@ Admin strings may stay English-only at MVP (internal tool; FR-I18N covers child/
 - [ ] `GET /api/admin/analytics/overview` returns the documented envelope; `/admin/analytics` renders the four numbers (FR-CMS-07 basic).
 - [ ] All six sidebar routes render (placeholders included) with the plain desktop-first admin look — no kid theme tokens, fonts, or mascots anywhere under `/admin`.
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] Every endpoint this file adds or changes is registered in `apps/server/src/openapi/paths/<resource>.ts` — request schema from the route's Zod validator, response schema authored in `packages/types/src/api/`, and **every** status code its guards and handler can produce. `apps/server/src/openapi/coverage.test.ts` passes, and each successful response is asserted in its route test with `assertContract` (file 12a, `standards/backend.md §7`).
 
 ## Out of Scope
 
