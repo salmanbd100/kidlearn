@@ -57,7 +57,10 @@ function DialogOverlay({
 }
 
 const dialogContentVariants = cva(
-  "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-[var(--radius-xl)] bg-card p-6 text-card-foreground shadow-lg",
+  // `rounded-xl` is 28px here, not Tailwind's default: `tokens.css` overrides the
+  // `--radius-*` scale in `@theme` (design.md §4.2), so the utility resolves to
+  // the kid/parent panel radius.
+  "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-xl bg-card p-6 text-card-foreground shadow-lg",
   {
     variants: {
       size: {
@@ -110,7 +113,7 @@ function DialogContent({
         {isDismissable ? (
           <DialogPrimitive.Close
             // 44px, so the parent surface's minimum target holds (design.md §7).
-            className="absolute right-3 top-3 inline-flex size-11 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="absolute right-3 top-3 inline-flex size-11 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-label={closeLabel}
           >
             <X aria-hidden="true" className="size-5" />

@@ -59,7 +59,7 @@ export function ChildCard({
     <li className="flex items-center gap-4 rounded-[var(--radius)] border border-border bg-card p-4 shadow-sm">
       <span
         className={cn(
-          "flex size-14 shrink-0 items-center justify-center rounded-[var(--radius-lg)] text-3xl",
+          "flex size-14 shrink-0 items-center justify-center rounded-lg text-3xl",
           character?.imageUrl == null ? art.tileClassName : "bg-muted",
         )}
       >
@@ -71,7 +71,7 @@ export function ChildCard({
             alt=""
             width={56}
             height={56}
-            className="size-12 rounded-[var(--radius-lg)] object-cover"
+            className="size-12 rounded-lg object-cover"
           />
         )}
       </span>

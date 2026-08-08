@@ -22,7 +22,7 @@ import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
  */
 
 const iconTileVariants = cva(
-  "group inline-flex aspect-square flex-col items-center justify-center gap-2 rounded-[var(--radius-xl)] border-2 bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+  "group inline-flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border-2 bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       size: {

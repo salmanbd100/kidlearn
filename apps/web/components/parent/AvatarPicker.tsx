@@ -75,7 +75,7 @@ export function AvatarPicker({
               className={cn(
                 // 64px+ and square: this is the one control on the parent surface
                 // a child also reaches for, so it gets the kid target size.
-                "flex size-16 items-center justify-center rounded-[var(--radius-lg)] border-2 border-transparent text-3xl transition-[border-color,transform] peer-checked:border-primary peer-checked:scale-105 peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 motion-reduce:peer-checked:scale-100",
+                "flex size-16 items-center justify-center rounded-lg border-2 border-transparent text-3xl transition-[border-color,transform] peer-checked:border-primary peer-checked:scale-105 peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 motion-reduce:peer-checked:scale-100",
                 option.imageUrl === null ? art.tileClassName : "bg-muted",
               )}
             >
@@ -89,7 +89,7 @@ export function AvatarPicker({
                   alt=""
                   width={64}
                   height={64}
-                  className="size-14 rounded-[var(--radius-lg)] object-cover"
+                  className="size-14 rounded-lg object-cover"
                 />
               )}
             </span>
