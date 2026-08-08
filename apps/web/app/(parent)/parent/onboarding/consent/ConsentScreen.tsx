@@ -52,6 +52,11 @@ export function ConsentScreen() {
       // Deliberately not a local "done" flag: the server's record is the only
       // thing that decides whether consent exists.
       await refresh();
+      // Normally unreachable — the guard has navigated away by now. It is not
+      // unreachable if `refresh()` came back without the record (a failed reload,
+      // a rolled-back write), and leaving the button disabled there would strand
+      // a parent on a mandatory step with nothing to press.
+      setIsSubmitting(false);
       return;
     }
 

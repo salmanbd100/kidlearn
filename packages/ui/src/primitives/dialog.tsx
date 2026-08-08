@@ -21,7 +21,7 @@ import { cn } from "../lib/cn";
  *    ignores Escape and outside clicks. That is for a dialog that *is* the gate —
  *    the parental PIN prompt — where a dismissable modal is not a gate at all.
  *  - Radius and colour follow the active `[data-theme]`, so the same dialog is a
- *    28px kid panel or a 12px parent card with no prop.
+ *    20px kid panel or a 12px parent card with no prop.
  */
 
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -57,10 +57,12 @@ function DialogOverlay({
 }
 
 const dialogContentVariants = cva(
-  // `rounded-xl` is 28px here, not Tailwind's default: `tokens.css` overrides the
-  // `--radius-*` scale in `@theme` (design.md §4.2), so the utility resolves to
-  // the kid/parent panel radius.
-  "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-xl bg-card p-6 text-card-foreground shadow-lg",
+  // `var(--radius)`, not `rounded-xl`: the `--radius-*` scale `tokens.css`
+  // declares in `@theme` is static, so `rounded-xl` would pin every dialog to the
+  // 28px kid-panel radius on both surfaces. Only `--radius` is redefined per
+  // theme (design.md §4.2), so this is what actually follows `[data-theme]` —
+  // 20px on the kid surface, 12px on the parent one.
+  "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-[var(--radius)] bg-card p-6 text-card-foreground shadow-lg",
   {
     variants: {
       size: {

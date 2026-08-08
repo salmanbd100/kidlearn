@@ -3,6 +3,7 @@
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
+  GradeLevelValue,
 } from "@kidlearn/types";
 import { Button, cn } from "@kidlearn/ui";
 import { Pencil, Trash2 } from "lucide-react";
@@ -23,6 +24,21 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
  * Edit is a link, delete is a button: one navigates, the other opens a dialog, and
  * a parent should be able to tell which is which before tapping.
  */
+
+/**
+ * Every grade the API can return, not every grade this app's form offers.
+ *
+ * `ChildProfileForm` deliberately omits KG-2 at MVP (spec §10), but
+ * `GradeLevelSchema` accepts all three, so `POST /api/children` will store one and
+ * this card has to be able to name it. Typing the map on `GradeLevelValue` makes
+ * that a compile error rather than a silent mislabel the next time the enum grows
+ * — which is what the ternary this replaced could not do.
+ */
+const GRADE_LABEL_KEYS: Record<GradeLevelValue, string> = {
+  NURSERY: "form.gradeNursery",
+  KG1: "form.gradeKg1",
+  KG2: "form.gradeKg2",
+};
 export interface ChildCardProps {
   child: ChildProfileResponse;
   avatars: readonly AvatarCharacterResponse[];
@@ -46,10 +62,7 @@ export function ChildCard({
   // render a hole.
   const art = character ? avatarArtFor(character.slug) : FALLBACK_AVATAR_ART;
 
-  const grade =
-    child.gradeLevel === "NURSERY"
-      ? t("form.gradeNursery")
-      : t("form.gradeKg1");
+  const grade = t(GRADE_LABEL_KEYS[child.gradeLevel]);
   const language =
     child.preferredLanguage === "bn"
       ? t("form.languageBn")
