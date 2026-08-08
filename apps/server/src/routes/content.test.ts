@@ -18,6 +18,7 @@ import {
   validDragDrop,
   validMcq,
   validPictureSelect,
+  WorldLessonsResponseSchema,
   WorldListResponseSchema,
 } from "@kidlearn/types";
 import request from "supertest";
@@ -30,6 +31,7 @@ const db = vi.hoisted(() => ({
   accountFindFirst: vi.fn(),
   childFindFirst: vi.fn(),
   worldFindMany: vi.fn(),
+  worldFindFirst: vi.fn(),
   subjectFindMany: vi.fn(),
   subjectFindFirst: vi.fn(),
   topicFindMany: vi.fn(),
@@ -43,7 +45,7 @@ vi.mock("../lib/prisma.js", () => ({
     parent: { findUnique: db.parentFindUnique, upsert: db.parentUpsert },
     account: { findFirst: db.accountFindFirst },
     childProfile: { findFirst: db.childFindFirst },
-    world: { findMany: db.worldFindMany },
+    world: { findMany: db.worldFindMany, findFirst: db.worldFindFirst },
     subject: { findMany: db.subjectFindMany, findFirst: db.subjectFindFirst },
     topic: { findMany: db.topicFindMany, findFirst: db.topicFindFirst },
     lesson: { findMany: db.lessonFindMany, findFirst: db.lessonFindFirst },
@@ -225,6 +227,7 @@ function lessonRow(overrides: Record<string, unknown> = {}) {
 function everyWhereClause(): unknown[] {
   return [
     db.worldFindMany,
+    db.worldFindFirst,
     db.subjectFindMany,
     db.subjectFindFirst,
     db.topicFindMany,
@@ -247,6 +250,7 @@ beforeEach(() => {
   db.subjectFindMany.mockResolvedValue([]);
   db.topicFindMany.mockResolvedValue([]);
   db.lessonFindMany.mockResolvedValue([]);
+  db.worldFindFirst.mockResolvedValue({ id: JUNGLE_WORLD.id });
   db.subjectFindFirst.mockResolvedValue({ id: SUBJECT_ID });
   db.topicFindFirst.mockResolvedValue({ id: TOPIC_ID });
   db.lessonFindFirst.mockResolvedValue(null);
@@ -323,6 +327,164 @@ describe("GET /api/content/worlds", () => {
     expect(db.worldFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { status: "published" } }),
     );
+  });
+});
+
+describe("GET /api/content/worlds/:id/lessons", () => {
+  const SECOND_TOPIC_ID = "44444444-4444-4444-8444-444444444444";
+  const WORLD_ID = "55555555-5555-4555-8555-555555555555";
+
+  function topicRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: TOPIC_ID,
+      subjectId: SUBJECT_ID,
+      slug: "letters",
+      name: "Letters",
+      sortOrder: 1,
+      gradeLevels: ["NURSERY"],
+      status: "published",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      ...overrides,
+    };
+  }
+
+  it("groups the world's lessons under their topic headings", async () => {
+    signInAs(childProfile());
+    const letters = topicRow();
+    const numbers = topicRow({
+      id: SECOND_TOPIC_ID,
+      slug: "numbers",
+      name: "Numbers",
+      sortOrder: 2,
+    });
+    db.lessonFindMany.mockResolvedValue([
+      { ...lessonRow(), topic: letters },
+      {
+        ...lessonRow({
+          id: "lesson_2",
+          slug: "letter-b",
+          title: "The Letter B",
+          sortOrder: 2,
+        }),
+        topic: letters,
+      },
+      {
+        ...lessonRow({
+          id: "lesson_3",
+          slug: "count-to-three",
+          title: "Count to Three",
+          topicId: SECOND_TOPIC_ID,
+          sortOrder: 1,
+        }),
+        topic: numbers,
+      },
+    ]);
+
+    const res = await request(app).get(
+      `/api/content/worlds/${WORLD_ID}/lessons`,
+    );
+
+    expect(res.status).toBe(200);
+    assertContract(
+      WorldLessonsResponseSchema,
+      res.body,
+      "GET /api/content/worlds/{id}/lessons",
+    );
+    expect(res.body.data.topics).toEqual([
+      {
+        id: TOPIC_ID,
+        slug: "letters",
+        name: "Letters",
+        sortOrder: 1,
+        lessons: [
+          expect.objectContaining({ id: LESSON_ID, title: "The Letter A" }),
+          expect.objectContaining({ id: "lesson_2", title: "The Letter B" }),
+        ],
+      },
+      {
+        id: SECOND_TOPIC_ID,
+        slug: "numbers",
+        name: "Numbers",
+        sortOrder: 2,
+        lessons: [
+          expect.objectContaining({ id: "lesson_3", title: "Count to Three" }),
+        ],
+      },
+    ]);
+  });
+
+  it("gates the lesson, its topic and its subject — not the lesson alone", async () => {
+    signInAs(childProfile({ gradeLevel: "KG1" }));
+
+    await request(app).get(`/api/content/worlds/${WORLD_ID}/lessons`);
+
+    expect(db.lessonFindMany).toHaveBeenCalledWith({
+      where: {
+        worldId: JUNGLE_WORLD.id,
+        status: "published",
+        gradeLevels: { has: "KG1" },
+        // A lesson tagged for this child can still sit under a topic tagged for
+        // another grade, or under a subject still in draft. Both say the lesson
+        // is not for this child, and neither is visible in the lesson's own row.
+        topic: {
+          is: {
+            status: "published",
+            gradeLevels: { has: "KG1" },
+            subject: {
+              is: { status: "published", gradeLevels: { has: "KG1" } },
+            },
+          },
+        },
+      },
+      orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      include: { topic: true },
+    });
+  });
+
+  it("resolves the world through the published filter before reading lessons", async () => {
+    signInAs(childProfile());
+
+    await request(app).get(`/api/content/worlds/${WORLD_ID}/lessons`);
+
+    expect(db.worldFindFirst).toHaveBeenCalledWith({
+      where: { id: WORLD_ID, status: "published" },
+      select: { id: true },
+    });
+  });
+
+  it("returns 404 for an unpublished world rather than an empty list", async () => {
+    signInAs(childProfile());
+    db.worldFindFirst.mockResolvedValue(null);
+
+    const res = await request(app).get(
+      `/api/content/worlds/${MISSING_ID}/lessons`,
+    );
+
+    expect(res.status).toBe(404);
+    expect(db.lessonFindMany).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 with no topics when a published world holds nothing for this grade", async () => {
+    signInAs(childProfile());
+    db.lessonFindMany.mockResolvedValue([]);
+
+    const res = await request(app).get(
+      `/api/content/worlds/${WORLD_ID}/lessons`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.topics).toEqual([]);
+  });
+
+  it("rejects a non-uuid world id before touching the database", async () => {
+    signInAs(childProfile());
+
+    const res = await request(app).get("/api/content/worlds/jungle/lessons");
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+    expect(db.worldFindFirst).not.toHaveBeenCalled();
   });
 });
 
@@ -469,6 +631,7 @@ describe("GET /api/content/topics/:id/lessons", () => {
         sortOrder: 1,
         thumbnailUrl: null,
         durationEstimateSec: null,
+        nameAudioUrl: null,
         progress: null,
       },
     ]);

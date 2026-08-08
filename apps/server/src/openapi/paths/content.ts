@@ -69,6 +69,40 @@ export const CONTENT_ROUTES: RouteDoc[] = [
   },
   {
     method: "get",
+    path: "/api/content/worlds/{id}/lessons",
+    operation: {
+      tags: ["Content"],
+      summary: "List a world's lessons, grouped by topic",
+      description: [
+        `Everything the child can do inside one world — the world screen's only request. ${FILTERED}`,
+        "",
+        "`World` and `Topic` are orthogonal: a lesson has one topic (its curriculum position, authored subject → topic → lesson) and one world (its setting). Navigating by world therefore crosses the subject tree sideways, which is why this endpoint exists rather than the client walking `/subjects → /topics → /lessons` and keeping the rows whose `worldId` matched — that client would be deciding content visibility for itself.",
+        "",
+        "Three status and grade gates apply, not one: the lesson's own, its topic's, and its subject's. A lesson tagged for this child can still sit under a topic tagged for another grade or a subject still in draft, and in both cases its curriculum position says it is not for this child.",
+        "",
+        "Topics are ordered by `sortOrder`, lessons by `sortOrder` within each. A topic with no visible lesson in this world is absent entirely — there are no empty sections.",
+      ].join("\n"),
+      parameters: [CONTENT_ID_PARAM("world")],
+      responses: {
+        "200": jsonResponse(
+          "Topic sections, each with its lessons. Empty when the world is published but holds nothing for this child's grade.",
+          "WorldLessonsResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": NO_ACTIVE_CHILD_RESPONSE,
+        // Not `contentNotFound`: worlds carry no grade tagging, so only two of
+        // its three causes can apply here.
+        "404": errorResponse(
+          "No such world, **or** it is not published. Both are the same `404`, for the same reason as everywhere else in this tag: a `403` would confirm the row exists. A *published* world holding nothing for this child's grade is not a 404 — it answers `200` with an empty `topics` array.",
+          ["NOT_FOUND"],
+        ),
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "get",
     path: "/api/content/subjects",
     operation: {
       tags: ["Content"],
@@ -123,7 +157,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "",
         "A lesson in an unpublished world is omitted here as well as from the detail endpoint, so the two agree: a tile that appears must open.",
         "",
-        "`thumbnailUrl`, `durationEstimateSec` and `progress` are reserved fields, always `null`. `progress` is where file 16 joins per-child `LessonProgress` without changing this contract.",
+        "`thumbnailUrl`, `durationEstimateSec`, `nameAudioUrl` and `progress` are reserved fields, always `null`. `nameAudioUrl` is where the voice pipeline (file 36) attaches the child's-locale reading of `title`, and `progress` where file 16 joins per-child `LessonProgress` — neither changes this contract when it lands.",
       ].join("\n"),
       parameters: [CONTENT_ID_PARAM("topic")],
       responses: {

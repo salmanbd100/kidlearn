@@ -89,9 +89,20 @@ export function listAvatars(): Promise<ApiResult<AvatarCharacterResponse[]>> {
   return apiFetch<AvatarCharacterResponse[]>("/api/characters");
 }
 
-/** Every profile belonging to the signed-in parent, oldest first. */
-export function listChildren(): Promise<ApiResult<ChildProfileResponse[]>> {
-  return apiFetch<ChildProfileResponse[]>("/api/children");
+/**
+ * Every profile belonging to the signed-in parent, oldest first.
+ *
+ * `onColdStart` is optional because only one caller needs it: `/select-profile`
+ * is often the first request a device makes after the API has been idle, and a
+ * child waiting on it should see the mascot waking up rather than a blank screen
+ * (NFR-PERF-04).
+ */
+export function listChildren(
+  options: { onColdStart?: () => void } = {},
+): Promise<ApiResult<ChildProfileResponse[]>> {
+  return apiFetch<ChildProfileResponse[]>("/api/children", {
+    onColdStart: options.onColdStart,
+  });
 }
 
 export function createChild(
@@ -115,4 +126,19 @@ export function updateChild(
 
 export function deleteChild(id: string): Promise<ApiResult<{ deleted: true }>> {
   return apiFetch(`/api/children/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Points the session at a child, which is what makes `/api/content/*` answer
+ * (FR-AUTH-06).
+ *
+ * Deliberately not PIN-gated, on the server as well as here: a five-year-old
+ * handing the tablet to a sibling must not meet a parental gate, and the switch
+ * can only ever land on a profile the already-authenticated parent owns. The PIN
+ * guards `/parent/*`, not who is playing.
+ */
+export function activateChild(
+  id: string,
+): Promise<ApiResult<{ activeChildProfileId: string }>> {
+  return apiFetch(`/api/children/${id}/activate`, { method: "POST" });
 }

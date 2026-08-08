@@ -3,8 +3,10 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 import bnCommon from "@/locales/bn/common.json";
 import bnParent from "@/locales/bn/parent.json";
+import bnStudent from "@/locales/bn/student.json";
 import enCommon from "@/locales/en/common.json";
 import enParent from "@/locales/en/parent.json";
+import enStudent from "@/locales/en/student.json";
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE_MINUTES,
@@ -38,9 +40,17 @@ export const DEFAULT_NAMESPACE = "common";
  */
 export const PARENT_NAMESPACE = "parent";
 
+/**
+ * The Student Portal's copy, split from `common` for the mirror-image reason
+ * `parent` is: a child's device has no use for dashboard strings, and the parent
+ * dashboard never renders "Who's learning today?". Keeping the two apart is what
+ * makes either one splittable out of the other's bundle later.
+ */
+export const STUDENT_NAMESPACE = "student";
+
 const resources = {
-  en: { common: enCommon, parent: enParent },
-  bn: { common: bnCommon, parent: bnParent },
+  en: { common: enCommon, parent: enParent, student: enStudent },
+  bn: { common: bnCommon, parent: bnParent, student: bnStudent },
 } as const;
 
 let browserInstance: I18nInstance | undefined;
@@ -73,7 +83,7 @@ function createI18n(locale: Locale): I18nInstance {
     lng: locale,
     fallbackLng: DEFAULT_LOCALE,
     supportedLngs: [...SUPPORTED_LOCALES],
-    ns: [DEFAULT_NAMESPACE, PARENT_NAMESPACE],
+    ns: [DEFAULT_NAMESPACE, PARENT_NAMESPACE, STUDENT_NAMESPACE],
     defaultNS: DEFAULT_NAMESPACE,
     // React escapes for us; double-escaping mangles Bangla punctuation.
     interpolation: { escapeValue: false },

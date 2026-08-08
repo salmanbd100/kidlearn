@@ -11,6 +11,7 @@ import {
   publishedForChild,
   publishedOnly,
   publishedRelation,
+  publishedRelationForChild,
 } from "../lib/published-for-child.js";
 
 /**
@@ -85,15 +86,22 @@ export type LessonListItem = {
   worldId: string;
   sortOrder: number;
   /**
-   * Reserved contract fields, all three explicitly `null`:
+   * Reserved contract fields, all four explicitly `null`:
    *  - `thumbnailUrl` / `durationEstimateSec` — the implementation spec asked
    *    for them but the settled `Lesson` model has neither column.
+   *  - `nameAudioUrl` — the locale-resolved voice-over of `title`, which a
+   *    pre-reader needs to know what a tile says. `LessonTranslation` has no
+   *    such column until the voice pipeline (file 36) adds one.
    *  - `progress` — file 16 joins `LessonProgress` per child here.
    */
   thumbnailUrl: string | null;
   durationEstimateSec: number | null;
+  nameAudioUrl: string | null;
   progress: null;
 };
+
+/** A topic heading and the lessons of one world that sit under it. */
+export type WorldTopicLessons = TopicSummary & { lessons: LessonListItem[] };
 
 export type LessonDetail = {
   id: string;
@@ -218,6 +226,26 @@ export async function listTopicsForChild(
   }));
 }
 
+function toLessonListItem(lesson: {
+  id: string;
+  slug: string;
+  title: string;
+  worldId: string;
+  sortOrder: number;
+}): LessonListItem {
+  return {
+    id: lesson.id,
+    slug: lesson.slug,
+    title: lesson.title,
+    worldId: lesson.worldId,
+    sortOrder: lesson.sortOrder,
+    thumbnailUrl: null,
+    durationEstimateSec: null,
+    nameAudioUrl: null,
+    progress: null,
+  };
+}
+
 export async function listLessonsForChild(
   child: ChildProfile,
   topicId: string,
@@ -240,16 +268,76 @@ export async function listLessonsForChild(
     orderBy: { sortOrder: "asc" },
   });
 
-  return lessons.map((lesson) => ({
-    id: lesson.id,
-    slug: lesson.slug,
-    title: lesson.title,
-    worldId: lesson.worldId,
-    sortOrder: lesson.sortOrder,
-    thumbnailUrl: null,
-    durationEstimateSec: null,
-    progress: null,
-  }));
+  return lessons.map(toLessonListItem);
+}
+
+/**
+ * FR-WORLD-01..03 — everything a child can do inside one world, grouped by the
+ * topic each lesson sits under.
+ *
+ * This is the world screen's only request. `World` and `Topic` are orthogonal in
+ * the settled schema — a lesson has one topic (its curriculum position) and one
+ * world (its setting) — so navigating by world means crossing the subject tree
+ * sideways. Doing that here rather than in the client is what keeps the grade and
+ * status filter server-side (FR-PROF-03): a client walking
+ * `/subjects → /topics → /lessons` and keeping the rows whose `worldId` matched
+ * would be deciding visibility for itself.
+ *
+ * Three status gates apply, not one. The lesson's own, its topic's, and its
+ * subject's — a lesson tagged for this child can still hang off a topic that is
+ * tagged for another grade, or under a subject still in draft, and in both cases
+ * its curriculum position says it is not for this child. The world itself needs
+ * no lesson-level gate here because an unpublished world 404s before any lesson
+ * is read.
+ */
+export async function listWorldLessonsForChild(
+  child: ChildProfile,
+  worldId: string,
+): Promise<WorldTopicLessons[]> {
+  // Resolved separately so an unknown *or* unpublished world 404s rather than
+  // silently answering with an empty list — same reasoning as `listTopicsForChild`.
+  const world = await prisma.world.findFirst({
+    where: { id: worldId, ...publishedOnly },
+    select: { id: true },
+  });
+  if (!world) {
+    throw ApiError.notFound("World not found");
+  }
+
+  const visible = publishedForChild(child);
+  const lessons = await prisma.lesson.findMany({
+    where: {
+      worldId: world.id,
+      ...visible,
+      topic: {
+        is: { ...visible, subject: publishedRelationForChild(child) },
+      },
+    },
+    orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+    include: { topic: true },
+  });
+
+  // Grouped in insertion order, which the `orderBy` above already made
+  // topic-then-lesson. A Map rather than a second query per topic: the topic rows
+  // arrived with the lessons, and two topics sharing a `sortOrder` still come out
+  // in a stable order this way.
+  const byTopic = new Map<string, WorldTopicLessons>();
+  for (const lesson of lessons) {
+    let group = byTopic.get(lesson.topicId);
+    if (group === undefined) {
+      group = {
+        id: lesson.topic.id,
+        slug: lesson.topic.slug,
+        name: lesson.topic.name,
+        sortOrder: lesson.topic.sortOrder,
+        lessons: [],
+      };
+      byTopic.set(lesson.topicId, group);
+    }
+    group.lessons.push(toLessonListItem(lesson));
+  }
+
+  return [...byTopic.values()];
 }
 
 /**
