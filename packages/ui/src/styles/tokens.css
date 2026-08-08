@@ -108,6 +108,22 @@
   --dur-slow: 400ms;
 }
 
+/* Font families (design.md §3.1).
+   The indirection is load-bearing: `@theme inline` substitutes a token's value
+   into the utility it generates, so `.font-body` would compile to
+   `font-family: var(--font-nunito)` and redefining `--font-body` further down
+   the tree would do nothing. Pointing the theme key at `--family-*` instead
+   makes the utility re-resolve per element, which is what lets `:lang(bn)` swap
+   in the Bengali stack and `.dyslexia-font` swap in OpenDyslexic (apps/web's
+   globals.css). The `--font-*` values themselves are injected on <html> by
+   next/font. */
+:root {
+  --family-display: var(--font-fredoka);
+  --family-body: var(--font-nunito);
+  --family-ui: var(--font-inter);
+  --family-mono: var(--font-jetbrains-mono);
+}
+
 /* 3. Semantic → Tailwind utility mapping ──────────────────────────────────────
    `inline` keeps the var() reference, so `bg-primary`, `text-foreground`, etc.
    re-resolve against whichever [data-theme] is active at runtime. */
@@ -136,9 +152,10 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Font families — values injected by next/font on <html> (design.md §3.1) */
-  --font-display: var(--font-fredoka);
-  --font-body: var(--font-nunito);
-  --font-ui: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
+  /* Font families — see the --family-* block above for why this indirection
+     exists rather than pointing straight at next/font's variables. */
+  --font-display: var(--family-display);
+  --font-body: var(--family-body);
+  --font-ui: var(--family-ui);
+  --font-mono: var(--family-mono);
 }

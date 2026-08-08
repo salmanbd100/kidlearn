@@ -1,3 +1,5 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: the reduced-motion reset has to outrank utility classes and animation shorthands wherever they are declared — this is the canonical form of the rule, and the only alternative is auditing every future transition by hand. */
+
 @import "tailwindcss";
 /* kidlearn design tokens (brand palette, kid/parent themes, semantic mappings). */
 @import "@kidlearn/ui/styles/tokens.css";
@@ -5,3 +7,132 @@
 /* Tailwind v4 does not scan node_modules, so the workspace UI package's class
    names would be purged. Explicitly register its source for class detection. */
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Bangla typography (FR-I18N-01)
+
+   Fredoka, Nunito and Inter have no Bengali glyphs — without this, a Bangla
+   string falls back to whatever the device happens to have and the two
+   languages look like two different products. `<html lang>` is kept in step by
+   `components/Providers.tsx`, so the stack follows a language switch with no
+   reload.
+
+   Two selectors, and deliberately not a bare `:lang(bn)`. The root form sets
+   the tokens once and lets them inherit; `[lang="bn"]` catches a single tagged
+   element inside an otherwise-English page — the language switch labels itself
+   "বাংলা" while the interface is still in English. A bare `:lang(bn)` would
+   match *every* descendant of a Bangla page, and a declaration made directly on
+   an element always beats an inherited one, so it would silently outrank the
+   `.dyslexia-font` block below on every node in the tree.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root:lang(bn),
+[lang="bn"] {
+  --family-display: var(--font-noto-bengali), var(--font-fredoka);
+  --family-body: var(--font-noto-bengali), var(--font-nunito);
+  --family-ui: var(--font-noto-bengali), var(--font-inter);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Accessibility preferences (NFR-A11Y-03..05)
+
+   Classes on <html>, written by `lib/a11y-prefs.ts` and applied before first
+   paint by the inline bootstrap script in the root layout.
+
+   The colour overrides need the extra `[data-theme]` selector because each
+   route group re-declares those tokens on its own wrapper — an override on
+   <html> alone would be shadowed by the nearer declaration. The font overrides
+   do not: `--family-*` is declared once on `:root` and simply inherits.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* High contrast — every pair below is ≥7:1 (WCAG AAA). */
+.high-contrast,
+.high-contrast [data-theme] {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #003399;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #000000;
+  --accent: #ffff00;
+  --accent-foreground: #000000;
+  --muted: #ffffff;
+  --muted-foreground: #000000;
+  --success: #005f2f;
+  --success-foreground: #ffffff;
+  --warning: #ffff00;
+  --warning-foreground: #000000;
+  --destructive: #a50000;
+  --destructive-foreground: #ffffff;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+}
+
+/* Drop the file in `public/fonts/` to activate; until then the chain below
+   falls through to the next family and the setting still changes the type. */
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("/fonts/OpenDyslexic-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("/fonts/OpenDyslexic-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Noto Bengali stays in the chain: OpenDyslexic has no Bengali glyphs, so a
+   Bangla reader who needs the dyslexia font must still get readable text.
+   `:root.dyslexia-font` matches the specificity of `:root:lang(bn)` above and
+   is declared after it, so the accessibility setting wins the tie. */
+:root.dyslexia-font {
+  --family-display:
+    "OpenDyslexic", "Comic Sans MS", var(--font-noto-bengali),
+    var(--font-fredoka);
+  --family-body:
+    "OpenDyslexic", "Comic Sans MS", var(--font-noto-bengali),
+    var(--font-nunito);
+  --family-ui:
+    "OpenDyslexic", "Comic Sans MS", var(--font-noto-bengali), var(--font-inter);
+}
+
+/* Reduced motion.
+
+   The OS-level query comes first so specificity ascends down the file; the
+   `.reduced-motion` class below is the in-app opt-in for a user whose device
+   setting is off. Neither reaches a transform Motion writes as an inline style
+   — components that animate in JS read `hooks/use-reduced-motion.ts`. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduced-motion {
+  --dur-fast: 0.01ms;
+  --dur-base: 0.01ms;
+  --dur-slow: 0.01ms;
+}
+
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
