@@ -1,0 +1,39 @@
+{
+  "selectProfile": {
+    "title": "Who's learning today?",
+    "choose": "Play as {{name}}",
+    "emptyTitle": "No players yet!",
+    "emptyHint": "Ask a grown-up to add you.",
+    "loading": "Getting ready…"
+  },
+  "home": {
+    "greeting": "Hi, {{name}}!",
+    "pickWorld": "Pick a world!",
+    "open": "Go to {{name}}",
+    "empty": "New worlds are coming soon!"
+  },
+  "world": {
+    "back": "Back",
+    "open": "Play {{title}}",
+    "empty": "Nothing here yet!",
+    "notFound": "That world is closed."
+  },
+  "rewards": {
+    "stars_one": "{{count}} star",
+    "stars_other": "{{count}} stars",
+    "coins_one": "{{count}} coin",
+    "coins_other": "{{count}} coins",
+    "streak_one": "{{count}} day in a row",
+    "streak_other": "{{count}} days in a row",
+    "streakNone": "Start a streak!"
+  },
+  "parentCorner": {
+    "label": "For grown-ups",
+    "title": "Grown-ups only",
+    "intro": "Enter your PIN to open the parent area."
+  },
+  "status": {
+    "waking": "Waking up…",
+    "error": "Let's try that again."
+  }
+}

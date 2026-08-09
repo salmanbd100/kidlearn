@@ -10,10 +10,12 @@ import {
   listLessonsForChild,
   listSubjectsForChild,
   listTopicsForChild,
+  listWorldLessonsForChild,
   listWorlds,
   type SubjectSummary,
   type TopicSummary,
   type WorldSummary,
+  type WorldTopicLessons,
 } from "../services/contentService.js";
 
 /**
@@ -49,6 +51,25 @@ contentRouter.get("/worlds", async (_req, res, next) => {
     next(error);
   }
 });
+
+contentRouter.get(
+  "/worlds/:id/lessons",
+  validate({ params: ContentIdParamsSchema }),
+  async (req, res, next) => {
+    try {
+      const topics = await listWorldLessonsForChild(
+        activeChild(req),
+        idParam(req),
+      );
+      const body: SuccessEnvelope<{ topics: WorldTopicLessons[] }> = {
+        data: { topics },
+      };
+      res.json(body);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 contentRouter.get("/subjects", async (req, res, next) => {
   try {

@@ -1,0 +1,39 @@
+{
+  "selectProfile": {
+    "title": "আজ কে শিখবে?",
+    "choose": "{{name}} হয়ে খেলো",
+    "emptyTitle": "এখনো কেউ নেই!",
+    "emptyHint": "বড়দের বলো তোমাকে যোগ করতে।",
+    "loading": "তৈরি হচ্ছে…"
+  },
+  "home": {
+    "greeting": "হাই, {{name}}!",
+    "pickWorld": "একটি জগৎ বেছে নাও!",
+    "open": "{{name}}-এ যাও",
+    "empty": "নতুন জগৎ শিগগিরই আসছে!"
+  },
+  "world": {
+    "back": "পিছনে",
+    "open": "{{title}} খেলো",
+    "empty": "এখানে এখনো কিছু নেই!",
+    "notFound": "এই জগৎটি বন্ধ আছে।"
+  },
+  "rewards": {
+    "stars_one": "{{count}}টি তারা",
+    "stars_other": "{{count}}টি তারা",
+    "coins_one": "{{count}}টি কয়েন",
+    "coins_other": "{{count}}টি কয়েন",
+    "streak_one": "টানা {{count}} দিন",
+    "streak_other": "টানা {{count}} দিন",
+    "streakNone": "ধারা শুরু করো!"
+  },
+  "parentCorner": {
+    "label": "বড়দের জন্য",
+    "title": "শুধু বড়দের জন্য",
+    "intro": "প্যারেন্ট এলাকা খুলতে আপনার পিন দিন।"
+  },
+  "status": {
+    "waking": "জেগে উঠছে…",
+    "error": "আবার চেষ্টা করি।"
+  }
+}

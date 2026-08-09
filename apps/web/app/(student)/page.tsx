@@ -1,12 +1,15 @@
-import { ShellShowcase } from "./ShellShowcase";
+import { redirect } from "next/navigation";
 
 /**
- * Temporary landing screen for the Student Portal.
+ * The app's front door.
  *
- * File 15 replaces this with the profile picker; until then it is the smoke
- * test for everything this shell provides — the kid theme, the language switch,
- * and the two kid primitives at a phone width.
+ * A child opening kidlearn goes straight to "Who's learning today?" — there is no
+ * marketing page, no sign-in wall they could read, and nothing to decide before
+ * picking a face. If nobody has connected the device to an account yet,
+ * `/select-profile` is what sends the grown-up to sign in.
+ *
+ * This replaces the shell showcase that stood here while files 13–14 were built.
  */
-export default function StudentHomePage() {
-  return <ShellShowcase />;
+export default function StudentRootPage() {
+  redirect("/select-profile");
 }

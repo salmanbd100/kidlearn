@@ -80,6 +80,13 @@ export const LessonListItemSchema = z
     thumbnailUrl: z.string().nullable(),
     /** Reserved, always `null` — as above. */
     durationEstimateSec: z.number().int().nullable(),
+    /**
+     * Reserved, always `null`: the child's-locale voice-over of `title`, which a
+     * pre-reader needs to know what a tile says (NFR-A11Y-01). There is no
+     * `LessonTranslation.nameAudioAsset` column yet — the voice pipeline in file
+     * 36 adds one. Present now so the tile that speaks it is already wired.
+     */
+    nameAudioUrl: z.string().nullable(),
     /** Reserved, always `null` — file 16 joins `LessonProgress` per child here. */
     progress: z.null(),
   })
@@ -141,8 +148,25 @@ export const LessonDetailSchema = z
   })
   .strict();
 
+/**
+ * One topic heading and the lessons of the requested world that sit under it.
+ *
+ * The grouping exists because `World` and `Topic` are orthogonal in the settled
+ * schema: a lesson belongs to exactly one topic (its place in the curriculum,
+ * authored subject → topic → lesson) and to exactly one world (its setting).
+ * The student home screen navigates by world, so the world screen needs both —
+ * and carrying the headings alongside the lessons is what saves it a round trip
+ * per topic.
+ */
+export const WorldTopicLessonsSchema = TopicSummarySchema.extend({
+  lessons: z.array(LessonListItemSchema),
+}).strict();
+
 export const WorldListResponseSchema = ok(
   z.object({ worlds: z.array(WorldSummarySchema) }).strict(),
+);
+export const WorldLessonsResponseSchema = ok(
+  z.object({ topics: z.array(WorldTopicLessonsSchema) }).strict(),
 );
 export const SubjectListResponseSchema = ok(
   z.object({ subjects: z.array(SubjectSummarySchema) }).strict(),
@@ -156,3 +180,15 @@ export const LessonListResponseSchema = ok(
 export const LessonDetailResponseSchema = ok(
   z.object({ lesson: LessonDetailSchema }).strict(),
 );
+
+/**
+ * Payload types for the client.
+ *
+ * Exported so `apps/web` names a world or a lesson tile with the same type the
+ * route test asserts the real body against, rather than declaring its own
+ * (`backend.md §7` — a response shape has one definition).
+ */
+export type WorldSummaryResponse = z.infer<typeof WorldSummarySchema>;
+export type TopicSummaryResponse = z.infer<typeof TopicSummarySchema>;
+export type LessonListItemResponse = z.infer<typeof LessonListItemSchema>;
+export type WorldTopicLessonsResponse = z.infer<typeof WorldTopicLessonsSchema>;

@@ -34,8 +34,10 @@ import {
   TopicListResponseSchema,
   TopicSummarySchema,
   ValidationDetailsSchema,
+  WorldLessonsResponseSchema,
   WorldListResponseSchema,
   WorldSummarySchema,
+  WorldTopicLessonsSchema,
 } from "@kidlearn/types";
 import type { ZodTypeAny } from "zod";
 import {
@@ -125,11 +127,13 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   SubjectSummary: SubjectSummarySchema,
   TopicSummary: TopicSummarySchema,
   LessonListItem: LessonListItemSchema,
+  WorldTopicLessons: WorldTopicLessonsSchema,
   LessonActivity: LessonActivitySchema,
   LessonQuizQuestion: LessonQuizQuestionSchema,
   LessonQuiz: LessonQuizSchema,
   LessonDetail: LessonDetailSchema,
   WorldListResponse: WorldListResponseSchema,
+  WorldLessonsResponse: WorldLessonsResponseSchema,
   SubjectListResponse: SubjectListResponseSchema,
   TopicListResponse: TopicListResponseSchema,
   LessonListResponse: LessonListResponseSchema,
