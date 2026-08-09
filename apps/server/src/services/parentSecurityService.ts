@@ -6,7 +6,7 @@
  * logged, never returned, and never written anywhere but through `hashPin`.
  */
 import type { Parent } from "@kidlearn/db";
-import { CONSENT_VERSION } from "../lib/consent.js";
+import { CONSENT_VERSION } from "@kidlearn/types";
 import { ApiError } from "../lib/errors.js";
 import { hashPin, verifyPin } from "../lib/pin.js";
 import { prisma } from "../lib/prisma.js";

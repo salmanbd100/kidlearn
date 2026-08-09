@@ -12,18 +12,20 @@ import { IsoDateTimeSchema, ok } from "./envelope.js";
 /**
  * The consent text a parent is currently asked to accept (FR-AUTH-03).
  *
- * It lives here rather than in `apps/server/src/lib/consent.ts` — which now
- * re-exports it — because it is a *client* contract in the same way `ERROR_CODES`
- * is: `POST /api/parent/consent` rejects any other version with a `409`, so the
- * consent screen has to know which version the copy it is rendering corresponds
- * to. The alternative was for the client to post a guess and re-post whatever
- * `error.details.currentVersion` came back with, which records agreement to text
- * the parent never saw.
+ * It lives here, shared by both sides, because it is a *client* contract in the
+ * same way `ERROR_CODES` is: `POST /api/parent/consent` rejects any other version
+ * with a `409`, so the consent screen has to know which version the copy it is
+ * rendering corresponds to. The alternative was for the client to post a guess
+ * and re-post whatever `error.details.currentVersion` came back with, which
+ * records agreement to text the parent never saw.
  *
  * Bump it whenever the wording changes in a way that alters what is being agreed
  * to — that includes the copy in `apps/web/locales/*\/parent.json`, which is
  * where a parent actually reads it. Cosmetic edits do not warrant a bump;
  * anything that changes the scope of data collection does.
+ *
+ * What the stored consent record itself means is documented in
+ * `document/implementation/notes/compliance-consent-deletion.md`.
  */
 export const CONSENT_VERSION = "2026-06-v1";
 

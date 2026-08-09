@@ -9,6 +9,7 @@
  */
 import type { Parent } from "@kidlearn/db";
 import {
+  CONSENT_VERSION,
   ConsentRecordResponseSchema,
   DeletedResponseSchema,
   DeletionRequestResponseSchema,
@@ -50,7 +51,6 @@ vi.mock("../lib/prisma.js", () => ({
 
 const { app } = await import("../app.js");
 const { auth } = await import("../lib/auth.js");
-const { CONSENT_VERSION } = await import("../lib/consent.js");
 const { hashPin } = await import("../lib/pin.js");
 
 const SESSION_USER = {
