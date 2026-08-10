@@ -24,30 +24,24 @@ export function buildApp(): Express {
   app.use(requestLogger);
   app.use(
     cors({
-      // The array form matters: given a bare string, the `cors` package echoes
-      // that origin back on every response regardless of who asked. The array
-      // form checks the request's Origin and omits the header when it does not
-      // match, which is what NFR-SAFE-07 requires.
       origin: [env.WEB_ORIGIN],
       credentials: true,
     }),
   );
-  // --- Auth, before any body parser -------------------------------------
-  // Our own /api/auth routes go first: Express matches in registration order,
-  // and the wildcard below would otherwise swallow them.
+
+  // --- Auth, before any body parser ----- //
   app.use("/api/auth", authRouter);
   // better-auth reads the raw request stream, so it must be mounted *before*
   // express.json() — with a JSON parser in front, its client calls hang.
   // `{*any}` is Express 5's named-wildcard syntax; a bare `*` no longer matches.
+
   app.all("/api/auth/{*any}", toNodeHandler(auth));
 
   app.use(express.json());
 
   app.use(healthRouter);
 
-  // API documentation (file 12a). Off in production unless ENABLE_API_DOCS is
-  // set. Mounted here — after the body parser, before the terminal handlers —
-  // and not under /api/auth, where better-auth's wildcard would swallow it.
+  // API documentation
   if (isDocsEnabled(env)) {
     app.use(docsRouter);
   }

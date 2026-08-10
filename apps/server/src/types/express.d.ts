@@ -1,15 +1,3 @@
-/**
- * Request augmentation for the authenticated-parent context (file 09).
- *
- * Both properties are optional because they only exist after `requireParent`
- * has run. Route handlers should not reach for them directly — call
- * `authContext(req)` from `middleware/require-parent.ts`, which narrows them to
- * non-optional or throws.
- *
- * The session type is derived from the better-auth instance rather than
- * hand-written, so `session.additionalFields` in `lib/auth.ts` stays the single
- * definition of `activeChildProfileId`.
- */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import type { auth } from "../lib/auth.js";
 

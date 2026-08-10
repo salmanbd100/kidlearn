@@ -93,6 +93,10 @@ Nothing in the document is hand-written twice: request schemas are the Zod objec
 
 All content has a `status` field (`draft → in_review → approved/rejected → published`). Student-facing queries filter to `published` only. AI-generated content must pass human admin review before publication — never auto-publish.
 
+## Code style
+
+**Minimal comments — only explain non-obvious logic.** Do not restate what the code already says, add section banners, or write JSDoc for self-evident functions. Comment the *why* (a workaround, a spec constraint, a non-obvious invariant), never the *what*. The specific comments `document/standards/general.md` mandates — justifying an `as` cast, a non-obvious side-effect import, a Prisma-stub file header — still apply.
+
 ## Design system
 
 `document/design.md` is the **single source of truth** for visual decisions. Key rules that affect every component:
