@@ -116,7 +116,7 @@ flowchart TB
 | `QuizQuestionFormat` | `mcq`, `match_pair`, `drag_answer`, `picture_select` | 05 | QuizQuestion |
 | `LessonStep` | `intro`, `video`, `activity`, `quiz`, `reward` | 06 | LessonProgress.currentStep |
 | `RewardType` | `star`, `coin`, `badge` | 06 | RewardLedger |
-| `SessionEventType` | `heartbeat`, `session_start`, `session_end`, `lesson_start`, `lesson_complete`, `story_start`, `story_complete` | 06 | SessionEvent |
+| `SessionEventType` | `heartbeat`, `session_start`, `session_end`, `lesson_start`, `step_complete`, `lesson_complete`, `story_start`, `story_complete` | 06, `step_complete` in 16 | SessionEvent |
 | `AIJobType` | `lesson`, `story`, `quiz`, `audio`, `image` | 06 | AIGenerationJob |
 | `AIJobStatus` | `pending`, `generating`, `awaiting_review`, `approved`, `rejected`, `failed` | 06 | AIGenerationJob |
 | `AIReviewDecision` | `approve`, `edit_then_approve`, `reject` | 06 | AIGenerationJob.decision |
@@ -667,13 +667,14 @@ The schema is built additively. Each migration is named and owned by one file:
 | 4 | `curriculum_world_schema` (04) | `ContentStatus`, `MediaKind`; `MediaAsset`, `World`, `Subject`, `Topic`, `Lesson`, `LessonTranslation` |
 | 5 | `activity_quiz_story_schema` (05) | `ActivityType`, `QuizQuestionFormat`; `Activity(+Translation)`, `Quiz`, `QuizQuestion(+Translation)`, `Story`, `StoryPage(+Translation)`; FK-upgrade `Lesson.activityId/quizId` |
 | 6 | `progress_gamification_schema` (06) | 7 enums; `LessonProgress`, `QuizResponse`, `Badge`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`, `AIGenerationJob`; `ChildProfile.avatarCharacterId` FK |
-| 7 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]` |
-| 8 | `admin_auth_link` (31) | `AdminUser.authUserId` |
-| 9 | `content_audit_fields` (32) | `updatedBy String?` on `World`/`Subject`/`Topic`/`Lesson` |
-| 10 | `ai_job_linkage` (34) | `aiJobId String?` on `Lesson`, `Quiz`, `QuizQuestion`, `Story`, `Activity`, `MediaAsset` |
-| 11 | `storypage_illustration_prompt` (35) | `StoryPage.illustrationPrompt String?` |
-| 12 | `character_sheets` (36) | `CharacterSheet` model |
-| 13 | `ai_job_review_note` (37) | `AIGenerationJob.reviewNote String?` |
+| 7 | `session_event_step_complete` (16) | `SessionEventType.step_complete` — the per-step marker file 06's enum omitted |
+| 8 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]` |
+| 9 | `admin_auth_link` (31) | `AdminUser.authUserId` |
+| 10 | `content_audit_fields` (32) | `updatedBy String?` on `World`/`Subject`/`Topic`/`Lesson` |
+| 11 | `ai_job_linkage` (34) | `aiJobId String?` on `Lesson`, `Quiz`, `QuizQuestion`, `Story`, `Activity`, `MediaAsset` |
+| 12 | `storypage_illustration_prompt` (35) | `StoryPage.illustrationPrompt String?` |
+| 13 | `character_sheets` (36) | `CharacterSheet` model |
+| 14 | `ai_job_review_note` (37) | `AIGenerationJob.reviewNote String?` |
 
 > **Ordering note:** files 04–06 (core content/progress) are authored before the auth-detail and AI-pipeline files in implementation sequence, but several migrations interleave. The exact `prisma migrate` order is the file number order above; the **end state** is what this document describes. Confirm migration names when running `pnpm db:migrate`.
 

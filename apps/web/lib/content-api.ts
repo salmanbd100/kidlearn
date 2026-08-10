@@ -1,4 +1,5 @@
 import type {
+  LessonDetailResponse,
   WorldSummaryResponse,
   WorldTopicLessonsResponse,
 } from "@kidlearn/types";
@@ -45,6 +46,25 @@ export function listWorldLessons(
 ): Promise<ApiResult<{ topics: WorldTopicLessonsResponse[] }>> {
   return apiFetch<{ topics: WorldTopicLessonsResponse[] }>(
     `/api/content/worlds/${worldId}/lessons`,
+    { onColdStart: options.onColdStart },
+  );
+}
+
+/**
+ * Everything the lesson player needs, in one round trip (FR-LSN-01..05).
+ *
+ * Intro script, video url, activity payload and quiz questions all arrive together
+ * because the five steps run back to back and a request between two of them would be
+ * a stall a child reads as "broken". `activity` and `quiz` may each be `null` — the
+ * lesson had none, or the one it points at is not itself published — and the flow
+ * handles both.
+ */
+export function getLesson(
+  lessonId: string,
+  options: ContentFetchOptions = {},
+): Promise<ApiResult<{ lesson: LessonDetailResponse }>> {
+  return apiFetch<{ lesson: LessonDetailResponse }>(
+    `/api/content/lessons/${lessonId}`,
     { onColdStart: options.onColdStart },
   );
 }

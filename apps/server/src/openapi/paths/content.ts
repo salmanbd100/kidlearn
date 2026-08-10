@@ -157,7 +157,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "",
         "A lesson in an unpublished world is omitted here as well as from the detail endpoint, so the two agree: a tile that appears must open.",
         "",
-        "`thumbnailUrl`, `durationEstimateSec`, `nameAudioUrl` and `progress` are reserved fields, always `null`. `nameAudioUrl` is where the voice pipeline (file 36) attaches the child's-locale reading of `title`, and `progress` where file 16 joins per-child `LessonProgress` — neither changes this contract when it lands.",
+        "`thumbnailUrl`, `durationEstimateSec`, `nameAudioUrl` and `progress` are reserved fields, always `null`. `nameAudioUrl` is where the voice pipeline (file 36) attaches the child's-locale reading of `title`. `progress` stays reserved: file 16 shipped `GET /api/progress/lessons/{id}` rather than a per-lesson join, so that a tile's progress and the player's resume point cannot disagree by being read from two places.",
       ].join("\n"),
       parameters: [CONTENT_ID_PARAM("topic")],
       responses: {

@@ -87,7 +87,13 @@ export const LessonListItemSchema = z
      * 36 adds one. Present now so the tile that speaks it is already wired.
      */
     nameAudioUrl: z.string().nullable(),
-    /** Reserved, always `null` — file 16 joins `LessonProgress` per child here. */
+    /**
+     * Reserved, always `null`. File 16 was expected to join `LessonProgress` here
+     * and did not: it shipped `GET /api/progress/lessons/{id}` instead, so that a
+     * tile's progress and the player's resume point cannot disagree by being read
+     * from two places. The field stays for a future list-level badge — filling it
+     * means a join per lesson, which the world screen does not need yet.
+     */
     progress: z.null(),
   })
   .strict();
@@ -143,7 +149,12 @@ export const LessonDetailSchema = z
     activity: LessonActivitySchema.nullable(),
     /** `null` under the same two conditions as `activity`. */
     quiz: LessonQuizSchema.nullable(),
-    /** Reserved, always `null` — file 16 fills this in. */
+    /**
+     * Reserved, always `null`. The player reads its resume point from
+     * `GET /api/progress/lessons/{id}` (file 16) rather than from here — one owner
+     * for progress, so a lesson payload cached in the client cannot go stale about
+     * where the child actually is.
+     */
     progress: z.null(),
   })
   .strict();
@@ -192,3 +203,5 @@ export type WorldSummaryResponse = z.infer<typeof WorldSummarySchema>;
 export type TopicSummaryResponse = z.infer<typeof TopicSummarySchema>;
 export type LessonListItemResponse = z.infer<typeof LessonListItemSchema>;
 export type WorldTopicLessonsResponse = z.infer<typeof WorldTopicLessonsSchema>;
+/** What the lesson player is handed, and what each of its five steps receives. */
+export type LessonDetailResponse = z.infer<typeof LessonDetailSchema>;

@@ -2,9 +2,11 @@ import i18next, { type i18n as I18nInstance } from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 import bnCommon from "@/locales/bn/common.json";
+import bnLesson from "@/locales/bn/lesson.json";
 import bnParent from "@/locales/bn/parent.json";
 import bnStudent from "@/locales/bn/student.json";
 import enCommon from "@/locales/en/common.json";
+import enLesson from "@/locales/en/lesson.json";
 import enParent from "@/locales/en/parent.json";
 import enStudent from "@/locales/en/student.json";
 import {
@@ -48,9 +50,27 @@ export const PARENT_NAMESPACE = "parent";
  */
 export const STUDENT_NAMESPACE = "student";
 
+/**
+ * The lesson player's own copy (file 16), split from `student` because it is the
+ * one student surface a child stays inside for ten minutes: it is where the step
+ * labels, the exit confirm and the finish screen live, and the screens that only
+ * navigate *to* a lesson have no use for any of it.
+ */
+export const LESSON_NAMESPACE = "lesson";
+
 const resources = {
-  en: { common: enCommon, parent: enParent, student: enStudent },
-  bn: { common: bnCommon, parent: bnParent, student: bnStudent },
+  en: {
+    common: enCommon,
+    parent: enParent,
+    student: enStudent,
+    lesson: enLesson,
+  },
+  bn: {
+    common: bnCommon,
+    parent: bnParent,
+    student: bnStudent,
+    lesson: bnLesson,
+  },
 } as const;
 
 let browserInstance: I18nInstance | undefined;
@@ -83,7 +103,12 @@ function createI18n(locale: Locale): I18nInstance {
     lng: locale,
     fallbackLng: DEFAULT_LOCALE,
     supportedLngs: [...SUPPORTED_LOCALES],
-    ns: [DEFAULT_NAMESPACE, PARENT_NAMESPACE, STUDENT_NAMESPACE],
+    ns: [
+      DEFAULT_NAMESPACE,
+      PARENT_NAMESPACE,
+      STUDENT_NAMESPACE,
+      LESSON_NAMESPACE,
+    ],
     defaultNS: DEFAULT_NAMESPACE,
     // React escapes for us; double-escaping mangles Bangla punctuation.
     interpolation: { escapeValue: false },

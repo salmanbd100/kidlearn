@@ -1,0 +1,32 @@
+{
+  "progress": {
+    "label": "Step {{current}} of {{total}}",
+    "stepDone": "Done",
+    "stepCurrent": "Now",
+    "stepTodo": "Next"
+  },
+  "steps": {
+    "intro": "Let's start!",
+    "video": "Watch",
+    "activity": "Play",
+    "quiz": "Your turn",
+    "reward": "You did it!"
+  },
+  "next": "Next",
+  "exit": {
+    "open": "Leave the lesson",
+    "title": "Leave the lesson?",
+    "intro": "We saved your place. You can come back!",
+    "stay": "Stay",
+    "close": "Keep playing",
+    "leave": "Leave"
+  },
+  "finished": {
+    "title": "All done!",
+    "back": "Back to the world"
+  },
+  "loading": "Getting your lesson…",
+  "waking": "Waking up…",
+  "error": "Let's try that again.",
+  "notFound": "That lesson is closed."
+}

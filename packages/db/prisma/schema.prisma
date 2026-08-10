@@ -341,6 +341,10 @@ enum SessionEventType {
   session_start
   session_end
   lesson_start
+  // Added in file 16: the five per-step markers between lesson_start and
+  // lesson_complete. Without them the time aggregation in file 27 can only see a
+  // lesson's two endpoints, so an abandoned lesson contributes nothing.
+  step_complete
   lesson_complete
   story_start
   story_complete

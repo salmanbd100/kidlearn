@@ -7,6 +7,7 @@ import { contentRouter } from "../routes/content.js";
 import { healthRouter } from "../routes/health.js";
 import { apiRouter } from "../routes/index.js";
 import { parentRouter } from "../routes/parent.js";
+import { progressRouter } from "../routes/progress.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
 
@@ -45,10 +46,15 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     file: "paths/characters.ts",
   },
   { prefix: "/api/content", router: contentRouter, file: "paths/content.ts" },
+  {
+    prefix: "/api/progress",
+    router: progressRouter,
+    file: "paths/progress.ts",
+  },
 ];
 
 /** How many routers `routes/index.ts` mounts under `/api`. */
-const EXPECTED_API_MOUNTS = 4;
+const EXPECTED_API_MOUNTS = 5;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally

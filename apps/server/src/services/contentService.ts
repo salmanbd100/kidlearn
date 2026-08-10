@@ -92,7 +92,9 @@ export type LessonListItem = {
    *  - `nameAudioUrl` — the locale-resolved voice-over of `title`, which a
    *    pre-reader needs to know what a tile says. `LessonTranslation` has no
    *    such column until the voice pipeline (file 36) adds one.
-   *  - `progress` — file 16 joins `LessonProgress` per child here.
+   *  - `progress` — reserved. File 16 shipped `GET /api/progress/lessons/:id`
+   *    instead of a join here, so a tile's progress and the player's resume point
+   *    have one owner and cannot disagree.
    */
   thumbnailUrl: string | null;
   durationEstimateSec: number | null;
