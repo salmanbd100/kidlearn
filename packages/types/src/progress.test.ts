@@ -155,4 +155,15 @@ describe("SessionEventReportSchema", () => {
         .success,
     ).toBe(false);
   });
+
+  it("accepts the locale-fallback flag a step reports", () => {
+    expect(
+      SessionEventReportSchema.safeParse({ ...validEvent, fallback: true })
+        .success,
+    ).toBe(true);
+  });
+
+  it("treats fallback as optional — most steps have nothing to report", () => {
+    expect(SessionEventReportSchema.safeParse(validEvent).success).toBe(true);
+  });
 });

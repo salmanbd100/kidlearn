@@ -488,6 +488,43 @@ describe("POST /api/progress/events", () => {
     });
   });
 
+  it("records the locale-fallback flag the step reported (FR-I18N-01)", async () => {
+    signInAs(childProfile({ preferredLanguage: "bn" }));
+
+    await postEvent({
+      type: "step_complete",
+      lessonId: LESSON_ID,
+      step: "video",
+      fallback: true,
+      clientTs: CLIENT_TS,
+    });
+
+    expect(store.events[0]).toMatchObject({
+      payload: { lessonId: LESSON_ID, step: "video", fallback: true },
+    });
+  });
+
+  it("leaves the fallback key off the payload when the step did not report one", async () => {
+    signInAs(childProfile());
+
+    await postEvent({
+      type: "step_complete",
+      lessonId: LESSON_ID,
+      step: "intro",
+      clientTs: CLIENT_TS,
+    });
+
+    // Absent, not `false`: a step that never reported is distinguishable from one
+    // that reported "no fallback", which is what makes the report countable.
+    expect(store.events[0]).toMatchObject({ payload: { step: "intro" } });
+    expect(
+      Object.hasOwn(
+        (store.events[0] as { payload: Record<string, unknown> }).payload,
+        "fallback",
+      ),
+    ).toBe(false);
+  });
+
   it("ignores clientTs and stamps its own time (FR-TIME-06)", async () => {
     signInAs(childProfile());
 

@@ -140,6 +140,8 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "`type` is restricted to the three lesson-flow events. Prisma's `SessionEventType` also holds `heartbeat`, `session_start`, `session_end` and the story events; those have their own producers, and accepting them here would let a client forge the rows a time limit is enforced from.",
         "",
         "`step` belongs on `step_complete` and is absent on the two lesson-level events. It is stored inside the row's `payload` alongside `lessonId`, because `SessionEvent` is one log shared by heartbeats, lessons and stories — a lesson-step column would be null on most of its rows.",
+        "",
+        "`fallback` is optional and rides in `payload` the same way. It says the finished step played an English asset because the child's locale had none (`LessonDetail.assetFallbacks`, FR-I18N-01), and it is reported by the client rather than derived here because only the step knows which of the lesson's assets it actually used — the intro consumed the narration, the video the film. It feeds a content-gap report and nothing a child sees, so a client that reports it wrongly skews a report and affects no limit.",
       ].join("\n"),
       requestBody: jsonRequestBody("SessionEventBody"),
       responses: {

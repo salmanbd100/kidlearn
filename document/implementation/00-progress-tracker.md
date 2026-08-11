@@ -45,7 +45,7 @@
 | 14 | `14-parent-onboarding-profile-ui.md` | Parent sign-in, consent, PIN setup, child profile management UI | FR-AUTH-02..04, FR-PROF-01..02, 05..06 | 10, 11, 13 | 3–4h | ✅ Done |
 | 15 | `15-student-profile-select-and-home.md` | Profile picker, world-themed home, lesson browsing, streak display | FR-AUTH-06, FR-PROF-03, FR-WORLD-01..03, FR-GAM-06 (display) | 12, 13, 14 | 3–4h | ✅ Done |
 | 16 | `16-lesson-player-shell-step-engine.md` | Five-step lesson flow state machine, resume, progress saving | FR-LSN-01..07 (shell), FR-LSN-06..07 | 12, 15 | 3–4h | ✅ Done |
-| 17 | `17-lesson-intro-and-video-steps.md` | Intro greeting step + narrated video step | FR-LSN-01..02, NFR-PERF-02 | 16 | 3–4h | ⬜ Not started |
+| 17 | `17-lesson-intro-and-video-steps.md` | Intro greeting step + narrated video step | FR-LSN-01..02, NFR-PERF-02 | 16 | 3–4h | ✅ Done |
 | 18 | `18-activity-engine-and-drag-drop.md` | Generic JSON-driven activity engine + drag-and-drop activity | FR-ACT-01, FR-ACT-05..06 | 07, 16 | 3–4h | ⬜ Not started |
 | 19 | `19-trace-letters-numbers-activity.md` | Letter/number tracing activity (touch + mouse) | FR-ACT-02, FR-ACT-05 | 18 | 3–4h | ⬜ Not started |
 | 20 | `20-match-and-puzzle-activities.md` | Match-objects + picture puzzle activities | FR-ACT-03..05 | 18 | 3–4h | ⬜ Not started |

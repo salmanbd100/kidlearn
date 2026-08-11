@@ -106,6 +106,16 @@ export const SessionEventReportSchema = z
     lessonId: z.string().uuid(),
     /** Present on `step_complete`, absent on the two lesson-level events. */
     step: LessonStepSchema.optional(),
+    /**
+     * `true` when the step the child just finished played an English asset
+     * because their locale had none (`LessonAssetFallbacks`, FR-I18N-01).
+     *
+     * Reported rather than derived server-side: the server knows what it *sent*,
+     * but only the step knows which of the lesson's assets it actually used —
+     * the intro consumed the narration, the video the film. Recording it here
+     * makes the content gap countable per step instead of per lesson.
+     */
+    fallback: z.boolean().optional(),
     clientTs: z.string().datetime(),
   })
   .strict();

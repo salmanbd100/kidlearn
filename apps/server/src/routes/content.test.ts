@@ -165,6 +165,12 @@ function lessonRow(overrides: Record<string, unknown> = {}) {
           url: "https://cdn.kidlearn.test/video/en/letter-a.mp4",
           kind: "video",
         },
+        videoPosterAssetId: "asset_poster_en",
+        videoPosterAsset: {
+          id: "asset_poster_en",
+          url: "https://cdn.kidlearn.test/poster/en/letter-a.jpg",
+          kind: "image",
+        },
       },
       {
         id: "lt_bn",
@@ -178,6 +184,12 @@ function lessonRow(overrides: Record<string, unknown> = {}) {
           id: "asset_video_bn",
           url: "https://cdn.kidlearn.test/video/bn/letter-a.mp4",
           kind: "video",
+        },
+        videoPosterAssetId: "asset_poster_bn",
+        videoPosterAsset: {
+          id: "asset_poster_bn",
+          url: "https://cdn.kidlearn.test/poster/bn/letter-a.jpg",
+          kind: "image",
         },
       },
     ],
@@ -1019,5 +1031,73 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.lesson.introScript).toBeNull();
     expect(res.body.data.lesson.videoUrl).toBeNull();
+  });
+
+  it("serves the Bangla poster alongside the Bangla video", async () => {
+    signInAs(childProfile({ preferredLanguage: "bn" }));
+    db.lessonFindFirst.mockResolvedValue(lessonRow());
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.body.data.lesson.videoPosterUrl).toBe(
+      "https://cdn.kidlearn.test/poster/bn/letter-a.jpg",
+    );
+  });
+
+  it("reports no fallbacks when every asset exists in the child's own locale", async () => {
+    signInAs(childProfile({ preferredLanguage: "bn" }));
+    db.lessonFindFirst.mockResolvedValue(lessonRow());
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.body.data.lesson.assetFallbacks).toEqual({
+      introAudioUrl: false,
+      videoUrl: false,
+      videoPosterUrl: false,
+    });
+  });
+
+  it("flags only the asset that was substituted, not the whole lesson", async () => {
+    signInAs(childProfile({ preferredLanguage: "bn" }));
+    const row = lessonRow();
+    db.lessonFindFirst.mockResolvedValue({
+      ...row,
+      translations: row.translations.map((t) =>
+        t.language === "bn"
+          ? { ...t, videoAssetId: null, videoAsset: null }
+          : t,
+      ),
+    });
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    // The poster is still Bangla's own, so flagging the lesson wholesale would
+    // send a content report chasing a translation that already exists.
+    expect(res.body.data.lesson.assetFallbacks).toEqual({
+      introAudioUrl: false,
+      videoUrl: true,
+      videoPosterUrl: false,
+    });
+  });
+
+  it("does not call an asset missing from both locales a fallback", async () => {
+    signInAs(childProfile({ preferredLanguage: "bn" }));
+    db.lessonFindFirst.mockResolvedValue(lessonRow({ translations: [] }));
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    // A recording nobody made is a hole in the content, not an untranslated
+    // asset — counting it here would conflate "translate this" with "make this".
+    expect(res.body.data.lesson.videoUrl).toBeNull();
+    expect(res.body.data.lesson.assetFallbacks.videoUrl).toBe(false);
+  });
+
+  it("does not flag an English-preferring child as receiving a fallback", async () => {
+    signInAs(childProfile({ preferredLanguage: "en" }));
+    db.lessonFindFirst.mockResolvedValue(lessonRow());
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.body.data.lesson.assetFallbacks.videoUrl).toBe(false);
   });
 });
