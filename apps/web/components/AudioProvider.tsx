@@ -136,8 +136,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     [muted, stop],
   );
 
-  // Leaving a clip playing after the tree unmounts is how narration follows a
-  // child into the next screen.
+  // Stop on unmount. An `HTMLAudioElement` is not part of the React tree, so a
+  // clip left playing would follow the child into the next screen and talk over
+  // whatever it says.
   useEffect(() => stop, [stop]);
 
   const channel = useMemo<AudioChannel>(

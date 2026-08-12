@@ -60,7 +60,9 @@ export const PARENT_ROUTES: RouteDoc[] = [
         "",
         "Deliberately **not** behind the PIN gate: a parent with no PIN could never get through it to create their first one. Omit `currentPin` when setting the first PIN; it is required to replace one, because otherwise anyone who found an unattended unlocked session could lock the real parent out of their own dashboard.",
         "",
-        "Changing a PIN counts as a PIN attempt, so this endpoint can lock out exactly like `/pin/verify` — it would otherwise be an equally good guessing oracle. A successful change resets the counter.",
+        "Changing a PIN counts as a PIN attempt, so this endpoint can lock out exactly like `/pin/verify` — it would otherwise be an equally good guessing oracle. A successful change resets both counters.",
+        "",
+        "**Opens the grant as it stores the PIN**, and returns its expiry. Choosing a PIN is possession of it, so a prompt to type it again immediately would verify nothing — and onboarding walks straight from here to `POST /api/children`, which *is* PIN-gated, so without the grant the first-run flow would deadlock on a gate the parent had just satisfied.",
       ].join("\n"),
       requestBody: jsonRequestBody(
         "SetPinBody",
@@ -68,7 +70,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
       ),
       responses: {
         "200": jsonResponse(
-          "The PIN is set. The response carries only the fact that one exists — never the PIN or its hash.",
+          "The PIN is set, and this session now holds a 15-minute grant. The response carries only the fact that a PIN exists and when the grant lapses — never the PIN or its hash.",
           "PinStatusResponse",
         ),
         "400": VALIDATION_RESPONSE,

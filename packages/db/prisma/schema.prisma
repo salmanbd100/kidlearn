@@ -45,7 +45,16 @@ model Parent {
   consentVersion       String?
   // File 10 — PIN brute-force guard. The counters live on the durable Parent
   // row rather than on the session, so clearing cookies cannot reset a lockout.
+  //
+  // Two counters, because they answer different questions and are forgiven at
+  // different times. `pinFailedCount` is the allowance *within* the current
+  // window — it is what the atomic slot claim in `parentSecurityService`
+  // compares against, and a served cool-off restores it. `pinLockoutStrikes` is
+  // how many cool-offs have been served in a row; it survives them and drives
+  // the doubling, so the escalation cannot be reset by simply waiting. Only a
+  // correct PIN clears both.
   pinFailedCount       Int            @default(0)
+  pinLockoutStrikes    Int            @default(0)
   pinLockedUntil       DateTime?
   // File 10 — account-deletion confirmation: a single-use random token with a
   // short expiry. Both columns disappear with the row on a completed deletion.
@@ -127,48 +136,95 @@ model MediaAsset {
 }
 
 model World {
-  id            String        @id @default(uuid())
-  slug          String        @unique
-  name          String
+  id   String @id @default(uuid())
+  slug String @unique
+  // The admin label, not the child-facing name — see `WorldTranslation`.
+  name String
+
   palette       Json
   mascotAssetId String?
-  mascotAsset   MediaAsset?   @relation("WorldMascot", fields: [mascotAssetId], references: [id])
-  status        ContentStatus @default(draft)
+  mascotAsset   MediaAsset?        @relation("WorldMascot", fields: [mascotAssetId], references: [id])
+  status        ContentStatus      @default(draft)
   lessons       Lesson[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  translations  WorldTranslation[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   stories       Story[]
 }
 
+// The child-facing world name, per locale.
+//
+// Split from `World.name` because the two answer different questions: the column
+// is the internal label a CMS list and an audit trail are built from, this is what
+// a Bangla learner reads on the tile. Without it the read API could only ever
+// serve one language's names while serving that child's narration in another.
+model WorldTranslation {
+  id       String   @id @default(uuid())
+  worldId  String
+  world    World    @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  language Language
+  name     String
+
+  @@unique([worldId, language])
+}
+
 model Subject {
-  id          String        @id @default(uuid())
-  slug        String        @unique
-  name        String
-  sortOrder   Int           @default(0)
-  gradeLevels GradeLevel[]
-  status      ContentStatus @default(draft)
-  topics      Topic[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id   String @id @default(uuid())
+  slug String @unique
+  // The admin label — see `SubjectTranslation` for what a child reads.
+  name String
+
+  sortOrder    Int                  @default(0)
+  gradeLevels  GradeLevel[]
+  status       ContentStatus        @default(draft)
+  topics       Topic[]
+  translations SubjectTranslation[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   @@index([sortOrder])
 }
 
+/// The child-facing subject name, per locale. See `WorldTranslation`.
+model SubjectTranslation {
+  id        String   @id @default(uuid())
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  language  Language
+  name      String
+
+  @@unique([subjectId, language])
+}
+
 model Topic {
-  id          String        @id @default(uuid())
-  subjectId   String
-  subject     Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  slug        String
-  name        String
-  sortOrder   Int           @default(0)
-  gradeLevels GradeLevel[]
-  status      ContentStatus @default(draft)
-  lessons     Lesson[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id        String  @id @default(uuid())
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  slug      String
+  // The admin label — see `TopicTranslation` for what a child reads.
+  name      String
+
+  sortOrder    Int                @default(0)
+  gradeLevels  GradeLevel[]
+  status       ContentStatus      @default(draft)
+  lessons      Lesson[]
+  translations TopicTranslation[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@unique([subjectId, slug])
   @@index([subjectId, sortOrder])
+}
+
+/// The child-facing topic name, per locale. See `WorldTranslation`.
+model TopicTranslation {
+  id       String   @id @default(uuid())
+  topicId  String
+  topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  language Language
+  name     String
+
+  @@unique([topicId, language])
 }
 
 model Lesson {
@@ -178,6 +234,7 @@ model Lesson {
   worldId      String
   world        World               @relation(fields: [worldId], references: [id])
   slug         String
+  // The admin label — see `LessonTranslation.title` for what a child reads.
   title        String
   sortOrder    Int                 @default(0)
   gradeLevels  GradeLevel[]
@@ -201,6 +258,9 @@ model LessonTranslation {
   lessonId           String
   lesson             Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   language           Language
+  /// The child-facing lesson title. See `WorldTranslation` for why it is here
+  /// rather than only on `Lesson.title`.
+  title              String
   introScript        String
   introAudioAssetId  String?
   introAudioAsset    MediaAsset? @relation("LessonIntroAudio", fields: [introAudioAssetId], references: [id])

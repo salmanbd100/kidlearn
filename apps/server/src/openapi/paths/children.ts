@@ -44,6 +44,20 @@ const CHILD_NOT_FOUND_RESPONSE = errorResponse(
   ["NOT_FOUND"],
 );
 
+/**
+ * The PIN gate's two `403` codes, on every route that writes a profile.
+ *
+ * Two codes rather than one because the client's next screen differs:
+ * `PIN_REQUIRED` means no PIN exists, so open setup; `PIN_VERIFICATION_REQUIRED`
+ * means one exists but this session's 15-minute grant has lapsed, so open the PIN
+ * pad. A client telling them apart by matching message strings breaks the first
+ * time someone rewords a message.
+ */
+const PIN_GATE_RESPONSE = errorResponse(
+  "The parental gate is shut. `PIN_REQUIRED` — no PIN is set on this account, so send the parent to setup. `PIN_VERIFICATION_REQUIRED` — a PIN exists but this session has no live grant; call `POST /api/parent/pin/verify`.",
+  ["PIN_REQUIRED", "PIN_VERIFICATION_REQUIRED"],
+);
+
 const CHILD_ID_PARAM = pathParam(
   "id",
   "The child profile id. Validated as a non-empty string rather than a uuid, so a malformed id yields the same `404` as an unknown one.",
@@ -75,8 +89,8 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         ),
         "401": UNAUTHORIZED_RESPONSE,
         "403": errorResponse(
-          "COPPA consent has not been recorded. Call `POST /api/parent/consent` first.",
-          ["CONSENT_REQUIRED"],
+          "One of three gates is shut. `CONSENT_REQUIRED` — COPPA consent has not been recorded; call `POST /api/parent/consent` first. `PIN_REQUIRED` / `PIN_VERIFICATION_REQUIRED` — the parental gate (FR-AUTH-04). Onboarding does not normally meet the PIN codes here, because `POST /api/parent/pin` opens the grant as it stores the PIN.",
+          ["CONSENT_REQUIRED", "PIN_REQUIRED", "PIN_VERIFICATION_REQUIRED"],
         ),
         "409": errorResponse(
           "The household already holds five profiles (FR-PROF-01). Delete one first.",
@@ -127,7 +141,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
       tags: ["Children"],
       summary: "Update a child profile",
       description:
-        "Partial update (FR-PROF-05..06). Send only the fields that change.",
+        "Partial update (FR-PROF-05..06). Send only the fields that change. PIN-gated (FR-AUTH-04) — editing a profile is a parent-dashboard action.",
       parameters: [CHILD_ID_PARAM],
       requestBody: jsonRequestBody(
         "UpdateChildBody",
@@ -143,6 +157,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
+        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -154,13 +169,17 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     operation: {
       tags: ["Children"],
       summary: "Delete a child profile",
-      description:
-        "Removes the profile and its data (FR-PROF-07). Not PIN-gated today; the account-level deletion in `Parent Account` is the guarded one.",
+      description: [
+        "Removes the profile and everything belonging to it (FR-PROF-07) — progress, quiz responses, rewards, streaks and screen-time settings all cascade.",
+        "",
+        "PIN-gated (FR-AUTH-04). This is the most destructive thing a parent can do short of deleting the account, and the client's modal gate is what stops a child, not what stops everything else.",
+      ].join("\n"),
       parameters: [CHILD_ID_PARAM],
       responses: {
         "200": jsonResponse("The profile is gone.", "DeletedResponse"),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
+        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },

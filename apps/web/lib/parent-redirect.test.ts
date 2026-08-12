@@ -2,6 +2,7 @@ import type { ParentSummaryResponse } from "@kidlearn/types";
 import { describe, expect, it } from "vitest";
 import {
   isGateExemptPath,
+  isOnboardingPath,
   PARENT_ROUTES,
   resolveParentRedirect,
 } from "./parent-redirect";
@@ -165,17 +166,37 @@ describe("resolveParentRedirect — profiles not loaded yet", () => {
 });
 
 describe("gate exemptions", () => {
-  it("exempts login and every onboarding step", () => {
+  it("exempts only the steps reachable before a PIN exists", () => {
+    // Without these the flow deadlocks: the gate would ask for a PIN the parent
+    // has not created yet.
     expect(isGateExemptPath(PARENT_ROUTES.login)).toBe(true);
     expect(isGateExemptPath(PARENT_ROUTES.consent)).toBe(true);
     expect(isGateExemptPath(PARENT_ROUTES.pinSetup)).toBe(true);
-    // Exempt too: the PIN exists by then, but asking for it one screen after it
-    // was chosen guards nothing.
-    expect(isGateExemptPath(PARENT_ROUTES.firstChild)).toBe(true);
+  });
+
+  it("does not exempt the first-child step, whose write is PIN-gated", () => {
+    // A parent walking the normal path never sees the pad here, because
+    // `POST /api/parent/pin` opens the grant as it stores the PIN. Exempting the
+    // path would only hide the pad in the case it is needed — a grant that did
+    // not survive the trip, leaving the server refusing a form the client thinks
+    // is fine.
+    expect(isGateExemptPath(PARENT_ROUTES.firstChild)).toBe(false);
   });
 
   it("does not exempt the profile list or its sub-pages", () => {
     expect(isGateExemptPath(PARENT_ROUTES.children)).toBe(false);
     expect(isGateExemptPath("/parent/children/new")).toBe(false);
+  });
+
+  /**
+   * The exempt list and the onboarding list hold overlapping paths and mean
+   * different things. They were once the same array, and the day the first-child
+   * step left one it silently left the other — stranding a finished parent on a
+   * form they had already completed.
+   */
+  it("keeps the onboarding list separate from the exempt list", () => {
+    expect(isOnboardingPath(PARENT_ROUTES.firstChild)).toBe(true);
+    expect(isGateExemptPath(PARENT_ROUTES.firstChild)).toBe(false);
+    expect(isOnboardingPath(PARENT_ROUTES.children)).toBe(false);
   });
 });

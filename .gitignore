@@ -42,3 +42,7 @@ coverage/
 
 # Next.js
 next-env.d.ts
+
+# Docker Compose — machine-local overrides (ports, mounts). Compose loads this
+# automatically on top of docker-compose.yml, so it stays out of the repo.
+docker-compose.override.yml

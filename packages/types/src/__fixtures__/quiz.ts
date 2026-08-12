@@ -115,6 +115,12 @@ export const invalidMatchPairReusedLeftId: unknown = {
   ],
 };
 
+/** `cat` has no correct sound, so the question cannot be answered fully. */
+export const invalidMatchPairUnpairedLeftOption: unknown = {
+  ...validMatchPair,
+  correctPairs: [{ leftId: "dog", rightId: "woof" }],
+};
+
 export const validDragAnswer: DragAnswerQuestion = {
   schemaVersion: 1,
   type: "drag_answer",

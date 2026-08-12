@@ -5,6 +5,7 @@ import {
   invalidDragAnswerTwoBlanks,
   invalidMatchPairReusedLeftId,
   invalidMatchPairUnknownRightId,
+  invalidMatchPairUnpairedLeftOption,
   invalidMcqBadCorrectId,
   invalidMcqMissingBanglaPrompt,
   invalidMcqTooFewOptions,
@@ -136,6 +137,16 @@ describe("MatchPairQuestionSchema", () => {
     ).toBe(false);
   });
 
+  it("rejects a left-column option that appears in no correct pair", () => {
+    const result = MatchPairQuestionSchema.safeParse(
+      invalidMatchPairUnpairedLeftOption,
+    );
+    expect(result.success).toBe(false);
+    expect(
+      result.success ? [] : result.error.issues.map((issue) => issue.message),
+    ).toContainEqual(expect.stringContaining('"cat" has no pair'));
+  });
+
   it("rejects a column entry with neither text nor image", () => {
     const result = MatchPairQuestionSchema.safeParse({
       ...validMatchPair,
@@ -169,6 +180,15 @@ describe("MatchPairQuestionSchema", () => {
         filler("quack"),
         filler("bleat"),
         filler("cluck"),
+      ],
+      // All six pairs, not just the original two: every left-column entry needs
+      // somewhere correct to go.
+      correctPairs: [
+        ...validMatchPair.correctPairs,
+        { leftId: "cow", rightId: "moo" },
+        { leftId: "duck", rightId: "quack" },
+        { leftId: "goat", rightId: "bleat" },
+        { leftId: "hen", rightId: "cluck" },
       ],
     });
     expect(result.success).toBe(true);

@@ -43,7 +43,10 @@ parentRouter.use(requireParent);
 // because `req.body` is `any` and this codebase does not cast. The schemas are
 // four small fields — the cost is noise-level.
 
-type PinSetResponse = SuccessEnvelope<{ hasPin: true }>;
+type PinSetResponse = SuccessEnvelope<{
+  hasPin: true;
+  pinVerifiedUntil: Date;
+}>;
 type PinVerifyResponse = SuccessEnvelope<{ pinVerifiedUntil: Date }>;
 type ConsentResponse = SuccessEnvelope<{
   consentGivenAt: Date;
@@ -79,19 +82,22 @@ parentRouter.get("/gate-status", (req, res) => {
  * Sets the parental PIN, or replaces it when `currentPin` proves possession
  * (FR-AUTH-04). Deliberately not behind `requirePinVerified`: a parent with no
  * PIN could never get through the gate to create their first one.
+ *
+ * Answers with the grant it opened, so onboarding can walk straight on to the
+ * first-profile form — which *is* gated. See `setParentPin`.
  */
 parentRouter.post(
   "/pin",
   validate({ body: SetPinSchema }),
   async (req, res, next) => {
     try {
-      const { parent } = authContext(req);
+      const { parent, session } = authContext(req);
       const { pin, currentPin } = SetPinSchema.parse(req.body);
 
-      await setParentPin(parent, pin, currentPin);
+      const grant = await setParentPin(parent, session.id, pin, currentPin);
 
       // Only ever the fact that a PIN exists — never the PIN or its hash.
-      const body: PinSetResponse = { data: { hasPin: true } };
+      const body: PinSetResponse = { data: { hasPin: true, ...grant } };
       res.json(body);
     } catch (error) {
       next(error);

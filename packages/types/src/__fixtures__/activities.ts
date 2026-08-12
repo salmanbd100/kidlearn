@@ -180,6 +180,12 @@ export const invalidMatchUnknownLeftId: unknown = {
   pairs: [{ leftId: "star", rightId: "night" }],
 };
 
+/** `moon` is left with nowhere correct to go, so the child can never finish. */
+export const invalidMatchUnpairedLeftItem: unknown = {
+  ...validMatch,
+  pairs: [{ leftId: "sun", rightId: "day" }],
+};
+
 export const validPuzzle: PuzzleActivity = {
   schemaVersion: 1,
   type: "puzzle",

@@ -41,10 +41,10 @@ function idParam(req: Request): string {
   return req.params.id as string;
 }
 
-contentRouter.get("/worlds", async (_req, res, next) => {
+contentRouter.get("/worlds", async (req, res, next) => {
   try {
     const body: SuccessEnvelope<{ worlds: WorldSummary[] }> = {
-      data: { worlds: await listWorlds() },
+      data: { worlds: await listWorlds(activeChild(req)) },
     };
     res.json(body);
   } catch (error) {

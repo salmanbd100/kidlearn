@@ -27,11 +27,15 @@ type SessionRow = {
   id: string;
   userId: string;
   activeChildProfileId: string | null;
+  /** The parental-PIN grant the write routes sit behind (FR-AUTH-04). */
+  pinVerifiedUntil: Date | null;
 };
 
 const state = vi.hoisted(() => ({
   children: [] as ChildProfile[],
   sessions: new Map<string, SessionRow>(),
+  /** `ChildCharacter` rows — the characters a child has earned (file 24). */
+  unlocks: [] as { childId: string; characterId: string }[],
   nextChildId: 0,
 }));
 
@@ -108,13 +112,18 @@ function makeParentFixture(key: string): ParentFixture {
       email: user.email,
       name: user.name,
       avatarUrl: null,
-      pinHash: null,
+      // Set by default for the same reason `consentGivenAt` is: the write routes
+      // sit behind `requirePinVerified`, so a PIN-less fixture would 403 every
+      // creation, update and delete test. The gate tests clear it deliberately.
+      // Never compared against — only its presence is read.
+      pinHash: "$argon2id$fixture",
       // Consented by default: `POST /api/children` sits behind `requireConsent`,
       // so an unconsented fixture would 403 every creation test. `beforeEach`
       // restores this, and the consent tests clear it deliberately.
       consentGivenAt: CONSENTED_AT,
       consentVersion: "1.0",
       pinFailedCount: 0,
+      pinLockoutStrikes: 0,
       pinLockedUntil: null,
       deleteToken: null,
       deleteTokenExpiresAt: null,
@@ -201,6 +210,16 @@ function anonymousAgent() {
 
 type ChildWhere = { id?: string; parentId?: string };
 
+/** The shape `assertAvatarIsSelectable` sends to `character.findFirst`. */
+type AvatarWhere = {
+  id: string;
+  status: string;
+  OR?: {
+    isDefault?: boolean;
+    unlocks?: { some: { childId: string } };
+  }[];
+};
+
 function matches(child: ChildProfile, where: ChildWhere): boolean {
   if (where.id !== undefined && child.id !== where.id) return false;
   if (where.parentId !== undefined && child.parentId !== where.parentId) {
@@ -211,6 +230,7 @@ function matches(child: ChildProfile, where: ChildWhere): boolean {
 
 beforeEach(() => {
   state.children = [];
+  state.unlocks = [];
   state.nextChildId = 0;
   state.sessions.clear();
   for (const fixture of FIXTURES.values()) {
@@ -218,11 +238,15 @@ beforeEach(() => {
       id: fixture.sessionId,
       userId: fixture.user.id,
       activeChildProfileId: null,
+      // A live grant, so the PIN-gated write routes are reachable. The gate tests
+      // below expire or remove it deliberately.
+      pinVerifiedUntil: new Date(Date.now() + 15 * 60_000),
     });
     // The fixture parents are module-level objects, so a test that revokes
-    // consent would otherwise leak into every test after it.
+    // consent or the PIN would otherwise leak into every test after it.
     fixture.parent.consentGivenAt = CONSENTED_AT;
     fixture.parent.consentVersion = "1.0";
+    fixture.parent.pinHash = "$argon2id$fixture";
   }
 
   for (const spy of Object.values(db)) spy.mockReset();
@@ -240,14 +264,34 @@ beforeEach(() => {
       null,
   );
 
+  // Models the real `where`: the status gate is unconditional, and selectability
+  // is an OR of "is a starter" and "this child unlocked it". A stub that only
+  // understood `isDefault` could not tell the update path's rule from the create
+  // path's, which is the difference these tests exist to pin down.
   db.characterFindFirst.mockImplementation(
-    async ({ where }: { where: CharacterRow }) =>
-      CHARACTERS.find(
-        (c) =>
-          c.id === where.id &&
-          c.isDefault === where.isDefault &&
-          c.status === where.status,
-      ) ?? null,
+    async ({ where }: { where: AvatarWhere }) => {
+      const unlockedChildId = where.OR?.find(
+        (branch) => branch.unlocks !== undefined,
+      )?.unlocks?.some.childId;
+      const allowsStarters =
+        where.OR?.some((branch) => branch.isDefault === true) ?? false;
+
+      return (
+        CHARACTERS.find((character) => {
+          if (character.id !== where.id) return false;
+          if (character.status !== where.status) return false;
+          if (allowsStarters && character.isDefault) return true;
+          return (
+            unlockedChildId !== undefined &&
+            state.unlocks.some(
+              (unlock) =>
+                unlock.childId === unlockedChildId &&
+                unlock.characterId === character.id,
+            )
+          );
+        }) ?? null
+      );
+    },
   );
 
   db.childFindFirst.mockImplementation(
@@ -607,6 +651,96 @@ describe("POST /api/children", () => {
   });
 });
 
+/**
+ * The parental gate on the write verbs (FR-AUTH-04).
+ *
+ * These exist because the gate used to live only in the browser: `ParentGuard`
+ * rendered a modal over a page that had already loaded, and the API behind it
+ * asked for nothing but a session cookie. A gate that one `fetch` walks around is
+ * not a gate, and `DELETE /api/children/:id` destroys a child's whole history.
+ *
+ * The read verbs are asserted open in the same breath, because that is not an
+ * oversight either — the Student Portal calls them and FR-AUTH-06 forbids showing
+ * a child a PIN prompt.
+ */
+describe("parental PIN gate on writes (FR-AUTH-04)", () => {
+  const WRITE_ROUTES = [
+    ["post", "/api/children", VALID_BODY],
+    ["patch", "/api/children/:id", { firstName: "Nabila" }],
+    ["delete", "/api/children/:id", undefined],
+  ] as const;
+
+  function expire(fixture: typeof PARENT_A) {
+    const session = state.sessions.get(fixture.sessionId);
+    if (session) session.pinVerifiedUntil = new Date(Date.now() - 1_000);
+  }
+
+  it.each(
+    WRITE_ROUTES,
+  )("refuses %s %s with 403 PIN_VERIFICATION_REQUIRED once the grant has lapsed", async (method, path, body) => {
+    const child = seedChild(PARENT_A);
+    expire(PARENT_A);
+    const before = state.children.length;
+
+    const url = path.replace(":id", child.id);
+    const request_ = authedAgentFor(PARENT_A)[method](url);
+    const res = await (body === undefined ? request_ : request_.send(body));
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("PIN_VERIFICATION_REQUIRED");
+    // Nothing was created, changed or removed.
+    expect(state.children).toHaveLength(before);
+    expect(state.children[0]?.firstName).toBe(child.firstName);
+  });
+
+  it.each(
+    WRITE_ROUTES,
+  )("refuses %s %s with 403 PIN_REQUIRED when the account has no PIN at all", async (method, path, body) => {
+    const child = seedChild(PARENT_A);
+    PARENT_A.parent.pinHash = null;
+
+    const url = path.replace(":id", child.id);
+    const request_ = authedAgentFor(PARENT_A)[method](url);
+    const res = await (body === undefined ? request_ : request_.send(body));
+
+    expect(res.status).toBe(403);
+    // A different code, because the client's next screen is setup, not the pad.
+    expect(res.body.error.code).toBe("PIN_REQUIRED");
+  });
+
+  it("leaves reads and activate open — the Student Portal calls them (FR-AUTH-06)", async () => {
+    const child = seedChild(PARENT_A);
+    expire(PARENT_A);
+
+    const list = await authedAgentFor(PARENT_A).get("/api/children");
+    const detail = await authedAgentFor(PARENT_A).get(
+      `/api/children/${child.id}`,
+    );
+    const activate = await authedAgentFor(PARENT_A).post(
+      `/api/children/${child.id}/activate`,
+    );
+
+    expect(list.status).toBe(200);
+    expect(detail.status).toBe(200);
+    // A child switching profiles must never meet a parental gate.
+    expect(activate.status).toBe(200);
+  });
+
+  it("refuses another parent's child with 404 before the gate reports 403", async () => {
+    // Ordering matters: `requirePinVerified` runs before `loadOwnedChild`, so a
+    // locked session probing someone else's id learns "locked", not "exists".
+    // Either way it must not learn that the row is real (NFR-SAFE-02).
+    const theirChild = seedChild(PARENT_B);
+
+    const res = await authedAgentFor(PARENT_A).delete(
+      `/api/children/${theirChild.id}`,
+    );
+
+    expect(res.status).toBe(404);
+    expect(state.children).toHaveLength(1);
+  });
+});
+
 describe("GET /api/children", () => {
   it("returns only the calling parent's children, oldest first", async () => {
     const second = seedChild(PARENT_A, { firstName: "Zara" });
@@ -744,7 +878,7 @@ describe("PATCH /api/children/:id", () => {
     expect(state.children[0].parentId).toBe(PARENT_A.parent.id);
   });
 
-  it("re-validates a changed avatar against the default-character catalogue", async () => {
+  it("refuses a non-starter character this child has not unlocked", async () => {
     const child = seedChild(PARENT_A);
 
     const res = await authedAgentFor(PARENT_A)
@@ -753,6 +887,55 @@ describe("PATCH /api/children/:id", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
+  });
+
+  /**
+   * The update path may not reuse creation's rule. A brand-new profile can only
+   * wear a starter, but an existing one may wear anything it has earned — and
+   * checking `isDefault` on both paths would refuse every character a child
+   * unlocks the day rewards ship (file 24).
+   */
+  it("accepts a non-starter character this child has unlocked", async () => {
+    const child = seedChild(PARENT_A);
+    state.unlocks.push({
+      childId: child.id,
+      characterId: "character_unlockable",
+    });
+
+    const res = await authedAgentFor(PARENT_A)
+      .patch(`/api/children/${child.id}`)
+      .send({ avatarCharacterId: "character_unlockable" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.avatarCharacterId).toBe("character_unlockable");
+  });
+
+  it("does not let one child wear another child's unlock", async () => {
+    const mine = seedChild(PARENT_A);
+    const sibling = seedChild(PARENT_A);
+    state.unlocks.push({
+      childId: sibling.id,
+      characterId: "character_unlockable",
+    });
+
+    const res = await authedAgentFor(PARENT_A)
+      .patch(`/api/children/${mine.id}`)
+      .send({ avatarCharacterId: "character_unlockable" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("still refuses an unpublished character even when unlocked", async () => {
+    // The status gate is unconditional — an unlock is not a publication
+    // (`backend.md §4`).
+    const child = seedChild(PARENT_A);
+    state.unlocks.push({ childId: child.id, characterId: "character_draft" });
+
+    const res = await authedAgentFor(PARENT_A)
+      .patch(`/api/children/${child.id}`)
+      .send({ avatarCharacterId: "character_draft" });
+
+    expect(res.status).toBe(400);
   });
 
   it("answers 404 for another parent's child without touching the row", async () => {

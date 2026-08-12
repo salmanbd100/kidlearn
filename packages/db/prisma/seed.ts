@@ -18,6 +18,50 @@ function asJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
+/**
+ * Child-facing display names, in both locales.
+ *
+ * Seeded for every curriculum row the student API can reach, because an untranslated
+ * seed makes the locale fallback invisible: everything would resolve through the
+ * admin label and look correct in Bangla without a single translation existing.
+ */
+async function seedNames(
+  rows: {
+    world?: string;
+    subject?: string;
+    topic?: string;
+    en: string;
+    bn: string;
+  }[],
+): Promise<void> {
+  for (const row of rows) {
+    for (const language of ["en", "bn"] as const) {
+      const name = row[language];
+      if (row.world !== undefined) {
+        await prisma.worldTranslation.upsert({
+          where: { worldId_language: { worldId: row.world, language } },
+          update: { name },
+          create: { worldId: row.world, language, name },
+        });
+      }
+      if (row.subject !== undefined) {
+        await prisma.subjectTranslation.upsert({
+          where: { subjectId_language: { subjectId: row.subject, language } },
+          update: { name },
+          create: { subjectId: row.subject, language, name },
+        });
+      }
+      if (row.topic !== undefined) {
+        await prisma.topicTranslation.upsert({
+          where: { topicId_language: { topicId: row.topic, language } },
+          update: { name },
+          create: { topicId: row.topic, language, name },
+        });
+      }
+    }
+  }
+}
+
 async function main() {
   // File 09 — every Parent hangs off a better-auth `user` row. This fixture has
   // no `account` row on purpose, so it cannot sign in: real parents get their
@@ -71,7 +115,7 @@ async function main() {
     },
   });
 
-  await prisma.world.upsert({
+  const ocean = await prisma.world.upsert({
     where: { slug: "ocean" },
     update: {},
     create: {
@@ -94,7 +138,7 @@ async function main() {
     },
   });
 
-  await prisma.subject.upsert({
+  const mathematics = await prisma.subject.upsert({
     where: { slug: "mathematics" },
     update: {},
     create: {
@@ -106,7 +150,7 @@ async function main() {
     },
   });
 
-  await prisma.subject.upsert({
+  const science = await prisma.subject.upsert({
     where: { slug: "science" },
     update: {},
     create: {
@@ -118,7 +162,7 @@ async function main() {
     },
   });
 
-  await prisma.subject.upsert({
+  const socialSkills = await prisma.subject.upsert({
     where: { slug: "social-skills" },
     update: {},
     create: {
@@ -143,6 +187,16 @@ async function main() {
     },
   });
 
+  await seedNames([
+    { world: jungle.id, en: "Jungle World", bn: "জঙ্গল জগৎ" },
+    { world: ocean.id, en: "Ocean World", bn: "সমুদ্র জগৎ" },
+    { subject: language.id, en: "Language", bn: "ভাষা" },
+    { subject: mathematics.id, en: "Mathematics", bn: "গণিত" },
+    { subject: science.id, en: "Science", bn: "বিজ্ঞান" },
+    { subject: socialSkills.id, en: "Social Skills", bn: "সামাজিক দক্ষতা" },
+    { topic: alphabet.id, en: "Alphabet", bn: "বর্ণমালা" },
+  ]);
+
   const lessonA = await prisma.lesson.upsert({
     where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a" } },
     update: {},
@@ -157,13 +211,37 @@ async function main() {
     },
   });
 
+  /**
+   * `title` is the one field this seed asserts on **update** as well as create.
+   *
+   * Every other upsert here passes `update: {}` on purpose — a re-seed must not
+   * stamp on content someone has since edited. Titles are the exception because
+   * of how they arrived: the `curriculum_name_translations` migration backfilled
+   * `LessonTranslation.title` from `Lesson.title`, which is the English admin
+   * label, so every pre-existing `bn` row came out reading English. With
+   * `update: {}` those rows would keep that English title forever — the seed
+   * would look correct on a fresh database and silently leave every existing one
+   * wrong. Owning the field on update is what makes a re-seed repair it.
+   */
   await prisma.lessonTranslation.upsert({
     where: { lessonId_language: { lessonId: lessonA.id, language: "en" } },
-    update: {},
+    update: { title: "Letter A" },
     create: {
       lessonId: lessonA.id,
       language: "en",
+      title: "Letter A",
       introScript: "Hello! Today we are going to learn about the letter A!",
+    },
+  });
+
+  await prisma.lessonTranslation.upsert({
+    where: { lessonId_language: { lessonId: lessonA.id, language: "bn" } },
+    update: { title: "অক্ষর A" },
+    create: {
+      lessonId: lessonA.id,
+      language: "bn",
+      title: "অক্ষর A",
+      introScript: "হ্যালো! আজ আমরা A অক্ষর সম্পর্কে শিখব!",
     },
   });
 
@@ -669,10 +747,11 @@ async function main() {
     where: {
       lessonId_language: { lessonId: letterASounds.id, language: "en" },
     },
-    update: {},
+    update: { title: "The Letter A" },
     create: {
       lessonId: letterASounds.id,
       language: "en",
+      title: "The Letter A",
       introScript: "Hello! Today we are going to learn the letter A.",
       videoAssetId: letterAVideoEn.id,
       videoPosterAssetId: letterAPosterEn.id,
@@ -684,10 +763,11 @@ async function main() {
     where: {
       lessonId_language: { lessonId: letterASounds.id, language: "bn" },
     },
-    update: {},
+    update: { title: "অক্ষর A" },
     create: {
       lessonId: letterASounds.id,
       language: "bn",
+      title: "অক্ষর A",
       introScript: "হ্যালো! আজ আমরা A বর্ণটি শিখব।",
       videoAssetId: letterAVideoBn.id,
       // No Bangla poster or narration: a `bn` child on this lesson gets the
@@ -718,10 +798,11 @@ async function main() {
     where: {
       lessonId_language: { lessonId: letterAPractice.id, language: "en" },
     },
-    update: {},
+    update: { title: "Practise the Letter A" },
     create: {
       lessonId: letterAPractice.id,
       language: "en",
+      title: "Practise the Letter A",
       introScript: "Let's practise the letter A together!",
       videoAssetId: letterAVideoEn.id,
       videoPosterAssetId: letterAPosterEn.id,

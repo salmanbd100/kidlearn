@@ -9,7 +9,10 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useParentSession } from "@/app/(parent)/context/parent-session";
+import {
+  useParentGate,
+  useParentSession,
+} from "@/app/(parent)/context/parent-session";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ChildCard } from "@/components/parent/ChildCard";
 import { DeleteChildDialog } from "@/components/parent/DeleteChildDialog";
@@ -35,6 +38,7 @@ const MAX_CHILDREN = 5;
 export function ChildrenScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles, refresh } = useParentSession();
+  const { guard } = useParentGate();
   const [avatars, setAvatars] = useState<AvatarCharacterResponse[]>([]);
   const [pendingDeletion, setPendingDeletion] = useState<
     ChildProfileResponse | undefined
@@ -106,7 +110,7 @@ export function ChildrenScreen() {
           onOpenChange={(isOpen) => {
             if (!isOpen) setPendingDeletion(undefined);
           }}
-          onConfirm={deleteChild}
+          onConfirm={(id) => guard(deleteChild(id))}
           onDeleted={() => {
             setPendingDeletion(undefined);
             void refresh();
