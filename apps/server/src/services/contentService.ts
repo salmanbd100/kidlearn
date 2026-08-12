@@ -1,10 +1,16 @@
 import type { ChildProfile, MediaAsset, Prisma } from "@kidlearn/db";
 import {
+  type LessonAssetFallbacks,
   safeParseActivityDefinition,
   safeParseQuizQuestion,
 } from "@kidlearn/types";
 import { ApiError } from "../lib/errors.js";
-import { type Lang, pickLocale, toLocaleMap } from "../lib/locale.js";
+import {
+  type Lang,
+  type LocalePick,
+  pickLocale,
+  toLocaleMap,
+} from "../lib/locale.js";
 import { prisma } from "../lib/prisma.js";
 import {
   isPublished,
@@ -92,7 +98,9 @@ export type LessonListItem = {
    *  - `nameAudioUrl` — the locale-resolved voice-over of `title`, which a
    *    pre-reader needs to know what a tile says. `LessonTranslation` has no
    *    such column until the voice pipeline (file 36) adds one.
-   *  - `progress` — file 16 joins `LessonProgress` per child here.
+   *  - `progress` — reserved. File 16 shipped `GET /api/progress/lessons/:id`
+   *    instead of a join here, so a tile's progress and the player's resume point
+   *    have one owner and cannot disagree.
    */
   thumbnailUrl: string | null;
   durationEstimateSec: number | null;
@@ -114,6 +122,9 @@ export type LessonDetail = {
   introScript: string | null;
   introAudioUrl: string | null;
   videoUrl: string | null;
+  videoPosterUrl: string | null;
+  /** Which of the three media above were substituted from English. */
+  assetFallbacks: LessonAssetFallbacks;
   activity: {
     id: string;
     type: string;
@@ -134,6 +145,19 @@ export type LessonDetail = {
   } | null;
   progress: null;
 };
+
+/**
+ * Whether an asset the child is about to receive came from English instead of
+ * their own locale (FR-I18N-01).
+ *
+ * `pickLocale` reports `FALLBACK_LANG` for a value it never found, so the value
+ * has to be checked as well as the locale: a lesson with no video at all is a
+ * missing recording, not a missing *translation*, and counting it as a fallback
+ * would tell the content report to translate something that does not exist.
+ */
+function isSubstituted(pick: LocalePick<string>, requested: Lang): boolean {
+  return pick.value !== null && pick.locale !== requested;
+}
 
 function toMediaSummary(asset: MediaAsset | null): MediaSummary | null {
   return asset ? { id: asset.id, url: asset.url, kind: asset.kind } : null;
@@ -371,7 +395,13 @@ export async function getLessonForChild(
     },
     include: {
       world: { include: { mascotAsset: true } },
-      translations: { include: { videoAsset: true, introAudioAsset: true } },
+      translations: {
+        include: {
+          videoAsset: true,
+          videoPosterAsset: true,
+          introAudioAsset: true,
+        },
+      },
       activity: true,
       quiz: { include: { questions: { orderBy: { sortOrder: "asc" } } } },
     },
@@ -391,6 +421,10 @@ export async function getLessonForChild(
   );
   const video = pickLocale(
     toLocaleMap(lesson.translations, (row) => row.videoAsset?.url),
+    language,
+  );
+  const videoPoster = pickLocale(
+    toLocaleMap(lesson.translations, (row) => row.videoPosterAsset?.url),
     language,
   );
 
@@ -462,6 +496,12 @@ export async function getLessonForChild(
     introScript: intro.value,
     introAudioUrl: introAudio.value,
     videoUrl: video.value,
+    videoPosterUrl: videoPoster.value,
+    assetFallbacks: {
+      introAudioUrl: isSubstituted(introAudio, language),
+      videoUrl: isSubstituted(video, language),
+      videoPosterUrl: isSubstituted(videoPoster, language),
+    },
     activity,
     quiz,
     progress: null,

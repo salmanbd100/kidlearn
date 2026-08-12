@@ -21,6 +21,9 @@ import {
   LessonDetailSchema,
   LessonListItemSchema,
   LessonListResponseSchema,
+  LessonProgressReadResponseSchema,
+  LessonProgressResponseSchema,
+  LessonProgressSchema,
   LessonQuizQuestionSchema,
   LessonQuizSchema,
   MediaSummarySchema,
@@ -29,6 +32,8 @@ import {
   PinStatusResponseSchema,
   QuizQuestionSchema,
   ServiceIdentityResponseSchema,
+  SessionEventRecordSchema,
+  SessionEventResponseSchema,
   SubjectListResponseSchema,
   SubjectSummarySchema,
   TopicListResponseSchema,
@@ -50,6 +55,10 @@ import {
   SetPinSchema,
   VerifyPinSchema,
 } from "../schemas/parent.js";
+import {
+  LessonStepBodySchema,
+  SessionEventBodySchema,
+} from "../schemas/progress.js";
 import {
   buildComponentSchemas,
   type JsonSchemaObject,
@@ -93,6 +102,8 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   VerifyPinBody: VerifyPinSchema,
   ConsentBody: ConsentSchema,
   DeleteAccountBody: DeleteAccountSchema,
+  LessonStepBody: LessonStepBodySchema,
+  SessionEventBody: SessionEventBodySchema,
 
   // --- Health -------------------------------------------------------------
   ServiceIdentityResponse: ServiceIdentityResponseSchema,
@@ -138,6 +149,13 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   TopicListResponse: TopicListResponseSchema,
   LessonListResponse: LessonListResponseSchema,
   LessonDetailResponse: LessonDetailResponseSchema,
+
+  // --- Progress -----------------------------------------------------------
+  LessonProgress: LessonProgressSchema,
+  LessonProgressReadResponse: LessonProgressReadResponseSchema,
+  LessonProgressResponse: LessonProgressResponseSchema,
+  SessionEventRecord: SessionEventRecordSchema,
+  SessionEventResponse: SessionEventResponseSchema,
 
   // --- Versioned content payloads -----------------------------------------
   // Registered so the activity and quiz JSONB contracts are readable from the
@@ -199,6 +217,11 @@ export const TAGS = [
     name: "Content",
     description:
       "The student-facing curriculum. Every response is filtered to `status = published` and the active child's grade, with text resolved to their language — all of it server-side, from the child record, never from request input.",
+  },
+  {
+    name: "Progress",
+    description:
+      "What a child has done: their position in a lesson, and the append-only event log learning time is derived from. The client reports events; the server decides what they mean and when they happened (spec §7, FR-TIME-06). Every write is scoped to the session's active child and to lessons that child can actually see.",
   },
 ];
 

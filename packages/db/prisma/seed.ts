@@ -531,23 +531,53 @@ async function main() {
     },
   });
 
+  // Local paths, not a CDN host that does not resolve. The lesson player is the
+  // first screen where a broken media url is indistinguishable from a broken
+  // player, so the seeded lesson points at files a developer can actually serve
+  // — `apps/web/public/dev/`, which has a README saying what to drop there. The
+  // real assets arrive by admin upload (file 33) and the AI pipeline (file 36).
   const letterAVideoEn = await prisma.mediaAsset.upsert({
     where: { id: "00000000-0000-0000-0000-000000000402" },
-    update: {},
+    update: { url: "/dev/letter-a.en.mp4" },
     create: {
       id: "00000000-0000-0000-0000-000000000402",
-      url: "https://cdn.kidlearn.test/video/en/letter-a.mp4",
+      url: "/dev/letter-a.en.mp4",
       kind: "video",
+      language: "en",
+    },
+  });
+
+  // Deliberately absent for `bn`: the Bangla lesson below falls back to the
+  // English film, which is the `assetFallbacks.videoUrl` path (FR-I18N-01) and
+  // the only way to exercise it without a second recording.
+  const letterAPosterEn = await prisma.mediaAsset.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000404" },
+    update: { url: "/dev/letter-a.en.jpg" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000404",
+      url: "/dev/letter-a.en.jpg",
+      kind: "image",
+      language: "en",
+    },
+  });
+
+  const letterAIntroAudioEn = await prisma.mediaAsset.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000405" },
+    update: { url: "/dev/letter-a-intro.en.mp3" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000405",
+      url: "/dev/letter-a-intro.en.mp3",
+      kind: "audio",
       language: "en",
     },
   });
 
   const letterAVideoBn = await prisma.mediaAsset.upsert({
     where: { id: "00000000-0000-0000-0000-000000000403" },
-    update: {},
+    update: { url: "/dev/letter-a.bn.mp4" },
     create: {
       id: "00000000-0000-0000-0000-000000000403",
-      url: "https://cdn.kidlearn.test/video/bn/letter-a.mp4",
+      url: "/dev/letter-a.bn.mp4",
       kind: "video",
       language: "bn",
     },
@@ -645,6 +675,8 @@ async function main() {
       language: "en",
       introScript: "Hello! Today we are going to learn the letter A.",
       videoAssetId: letterAVideoEn.id,
+      videoPosterAssetId: letterAPosterEn.id,
+      introAudioAssetId: letterAIntroAudioEn.id,
     },
   });
 
@@ -658,6 +690,9 @@ async function main() {
       language: "bn",
       introScript: "হ্যালো! আজ আমরা A বর্ণটি শিখব।",
       videoAssetId: letterAVideoBn.id,
+      // No Bangla poster or narration: a `bn` child on this lesson gets the
+      // English poster and the English voice, which is exactly the pair of
+      // `assetFallbacks` flags file 17 reports (FR-I18N-01).
     },
   });
 
@@ -689,6 +724,7 @@ async function main() {
       language: "en",
       introScript: "Let's practise the letter A together!",
       videoAssetId: letterAVideoEn.id,
+      videoPosterAssetId: letterAPosterEn.id,
     },
   });
 

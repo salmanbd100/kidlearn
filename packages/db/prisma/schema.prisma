@@ -116,6 +116,7 @@ model MediaAsset {
   worldMascots           World[]                   @relation("WorldMascot")
   lessonIntroAudios      LessonTranslation[]       @relation("LessonIntroAudio")
   lessonVideos           LessonTranslation[]       @relation("LessonVideo")
+  lessonVideoPosters     LessonTranslation[]       @relation("LessonVideoPoster")
   activityPromptAudios   ActivityTranslation[]     @relation("ActivityPromptAudio")
   quizQuestionAudios     QuizQuestionTranslation[] @relation("QuizQuestionAudio")
   storyCovers            Story[]                   @relation("StoryCover")
@@ -196,15 +197,20 @@ model Lesson {
 }
 
 model LessonTranslation {
-  id                String      @id @default(uuid())
-  lessonId          String
-  lesson            Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  language          Language
-  introScript       String
-  introAudioAssetId String?
-  introAudioAsset   MediaAsset? @relation("LessonIntroAudio", fields: [introAudioAssetId], references: [id])
-  videoAssetId      String?
-  videoAsset        MediaAsset? @relation("LessonVideo", fields: [videoAssetId], references: [id])
+  id                 String      @id @default(uuid())
+  lessonId           String
+  lesson             Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  language           Language
+  introScript        String
+  introAudioAssetId  String?
+  introAudioAsset    MediaAsset? @relation("LessonIntroAudio", fields: [introAudioAssetId], references: [id])
+  videoAssetId       String?
+  videoAsset         MediaAsset? @relation("LessonVideo", fields: [videoAssetId], references: [id])
+  // The still frame the player shows before the video can play (file 17,
+  // NFR-PERF-02). Per-locale alongside the video because a poster with a word
+  // burnt into it belongs to the language its video was produced in.
+  videoPosterAssetId String?
+  videoPosterAsset   MediaAsset? @relation("LessonVideoPoster", fields: [videoPosterAssetId], references: [id])
 
   @@unique([lessonId, language])
 }
@@ -341,6 +347,10 @@ enum SessionEventType {
   session_start
   session_end
   lesson_start
+  // Added in file 16: the five per-step markers between lesson_start and
+  // lesson_complete. Without them the time aggregation in file 27 can only see a
+  // lesson's two endpoints, so an abandoned lesson contributes nothing.
+  step_complete
   lesson_complete
   story_start
   story_complete

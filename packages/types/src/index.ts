@@ -19,5 +19,9 @@ export * from "./activity/schemas.js";
 // client never redeclares a response shape.
 export * from "./api/index.js";
 export * from "./primitives.js";
+// The lesson-flow vocabulary (file 16): step order, resume arithmetic, and the
+// two request contracts the player posts. Shared because the reducer in
+// `apps/web` and the monotonic guard in `apps/server` must walk the same array.
+export * from "./progress.js";
 export * from "./quiz/parse.js";
 export * from "./quiz/schemas.js";

@@ -5,6 +5,7 @@ import { charactersRouter } from "./characters.js";
 import { childrenRouter } from "./children.js";
 import { contentRouter } from "./content.js";
 import { parentRouter } from "./parent.js";
+import { progressRouter } from "./progress.js";
 
 /**
  * Aggregates every `/api/*` resource router. Later implementation files mount
@@ -29,3 +30,9 @@ apiRouter.use("/characters", charactersRouter);
 // inside `content.ts` so that every current and future `/api/content/*` path is
 // covered by construction — a new route added there cannot forget them.
 apiRouter.use("/content", requireParent, requireActiveChild, contentRouter);
+
+// Lesson progress and the player's event log (file 16). Same guards as
+// `/api/content/*`, for the same reason and with the same consequence: progress
+// belongs to the *active* child, resolved server-side, so no request body can name
+// whose progress is being written.
+apiRouter.use("/progress", requireParent, requireActiveChild, progressRouter);

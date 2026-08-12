@@ -25,9 +25,29 @@ import {
 
 const MUTE_STORAGE_KEY = "kidlearn_audio_muted";
 
+export interface PlayOptions {
+  interrupt?: boolean;
+  /**
+   * Called once when this clip is no longer going to be heard — it reached its
+   * end, failed to load, was blocked by autoplay policy, or was refused because
+   * the channel is muted or already busy.
+   *
+   * All four collapse into one callback deliberately. A caller waiting on
+   * narration is asking "has the child heard this yet?", and the honest answer
+   * to a clip that never played is "as much as they ever will" — the alternative
+   * is a lesson's advance cue that never appears because a file 404'd (file 17,
+   * FR-LSN-01).
+   *
+   * It does **not** fire for a clip cut off by a newer one: the channel moved on,
+   * which is not the same as this clip being done, and the newer clip carries its
+   * own callback.
+   */
+  onFinished?: () => void;
+}
+
 export interface AudioChannel {
   /** Resolves once playback has started (or was skipped). Never rejects. */
-  play: (url: string, opts?: { interrupt?: boolean }) => Promise<void>;
+  play: (url: string, opts?: PlayOptions) => Promise<void>;
   stop: () => void;
   isPlaying: boolean;
   muted: boolean;
@@ -71,22 +91,34 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   );
 
   const play = useCallback(
-    async (url: string, opts?: { interrupt?: boolean }) => {
-      if (muted) return;
+    async (url: string, opts?: PlayOptions) => {
+      if (muted) {
+        opts?.onFinished?.();
+        return;
+      }
 
       const shouldInterrupt = opts?.interrupt ?? true;
-      if (!shouldInterrupt && currentRef.current !== undefined) return;
+      if (!shouldInterrupt && currentRef.current !== undefined) {
+        opts?.onFinished?.();
+        return;
+      }
 
       stop();
 
       const element = new Audio(url);
       currentRef.current = element;
 
+      let hasFinished = false;
       const handleEnded = () => {
         if (currentRef.current === element) {
           currentRef.current = undefined;
           setIsPlaying(false);
         }
+        // `ended` and `error` are both registered `once`, but a clip that fails
+        // after starting can fire the second while the first has already run.
+        if (hasFinished) return;
+        hasFinished = true;
+        opts?.onFinished?.();
       };
       element.addEventListener("ended", handleEnded, { once: true });
       element.addEventListener("error", handleEnded, { once: true });

@@ -157,7 +157,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "",
         "A lesson in an unpublished world is omitted here as well as from the detail endpoint, so the two agree: a tile that appears must open.",
         "",
-        "`thumbnailUrl`, `durationEstimateSec`, `nameAudioUrl` and `progress` are reserved fields, always `null`. `nameAudioUrl` is where the voice pipeline (file 36) attaches the child's-locale reading of `title`, and `progress` where file 16 joins per-child `LessonProgress` — neither changes this contract when it lands.",
+        "`thumbnailUrl`, `durationEstimateSec`, `nameAudioUrl` and `progress` are reserved fields, always `null`. `nameAudioUrl` is where the voice pipeline (file 36) attaches the child's-locale reading of `title`. `progress` stays reserved: file 16 shipped `GET /api/progress/lessons/{id}` rather than a per-lesson join, so that a tile's progress and the player's resume point cannot disagree by being read from two places.",
       ].join("\n"),
       parameters: [CONTENT_ID_PARAM("topic")],
       responses: {
@@ -182,7 +182,9 @@ export const CONTENT_ROUTES: RouteDoc[] = [
       description: [
         `Everything the lesson player needs in one round trip. ${FILTERED}`,
         "",
-        "`introScript`, `introAudioUrl` and `videoUrl` are resolved to a single locale, and `locale` reports which one supplied `introScript`. The URLs fall back to English independently of it, so a Bangla intro script with an English video is a normal response.",
+        "`introScript`, `introAudioUrl`, `videoUrl` and `videoPosterUrl` are resolved to a single locale, and `locale` reports which one supplied `introScript`. The URLs fall back to English independently of it, so a Bangla intro script with an English video is a normal response.",
+        "",
+        "`assetFallbacks` names which of those URLs were substituted from English. It is **reporting only** — every URL is already resolved, so a client that ignored the object entirely would play identical media. The player attaches it to its `step_complete` event so the content gap is countable. A flag is `true` only where an English asset actually replaced a missing one; a lesson with no video in either locale reads `false`, because that is a recording that was never made rather than a translation that is missing.",
         "",
         "`activity.definition` and each `quiz.questions[].definition` are the versioned JSONB payloads, passed through **whole** — see the `ActivityDefinition` and `QuizQuestion` schemas. They are the one exception to locale resolution: they embed `LocalizedText`, and the engines pick the locale themselves via `@kidlearn/types`.",
         "",

@@ -43,3 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local development media (see public/dev/README.md) — real lesson assets come
+# from admin upload and the AI pipeline, never from the repo
+/public/dev/*
+!/public/dev/README.md
