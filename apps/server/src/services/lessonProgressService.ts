@@ -168,9 +168,15 @@ function reportLessonStepOnce(
  * server's and not the client's: `occurredAt` (the column default, never
  * `clientTs`) and which lesson the event may name (`requireVisibleLessonId`).
  *
- * `step` rides in `payload` rather than in a column of its own. `SessionEvent` is
- * a single append-only log for heartbeats, lessons and stories alike; a
- * lesson-step column would be null on most of its rows.
+ * `step` and `fallback` ride in `payload` rather than in columns of their own.
+ * `SessionEvent` is a single append-only log for heartbeats, lessons and stories
+ * alike; either column would be null on most of its rows.
+ *
+ * `fallback` is written exactly as the client sent it, and is the one field here
+ * that is not otherwise knowable server-side: it says which asset the *step*
+ * consumed, not which one the lesson payload offered (file 17, FR-I18N-01).
+ * Nothing a child sees depends on it, so a client that lies about it skews a
+ * content report and nothing else.
  */
 export async function recordSessionEvent(
   child: ChildProfile,
@@ -181,6 +187,7 @@ export async function recordSessionEvent(
   const payload: Prisma.InputJsonObject = {
     lessonId,
     ...(event.step === undefined ? {} : { step: event.step }),
+    ...(event.fallback === undefined ? {} : { fallback: event.fallback }),
   };
 
   return prisma.sessionEvent.create({

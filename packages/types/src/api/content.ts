@@ -127,6 +127,33 @@ export const LessonQuizSchema = z
   })
   .strict();
 
+/**
+ * Which of the lesson's media the child is hearing or watching in English
+ * because their own locale has none (FR-I18N-01).
+ *
+ * **Reporting only — never behaviour.** The server has already resolved every
+ * URL, so a client that ignored this object entirely would play exactly the same
+ * assets. It exists so the content gap is countable: the player attaches the flag
+ * to its `step_complete` event, and the report says which lessons still need a
+ * Bangla recording rather than leaving that to be discovered by a parent.
+ *
+ * A flag is `true` only when an English asset was actually substituted. A lesson
+ * with no video in either locale is a hole in the content, not a fallback, and
+ * reads `false` — otherwise the count would conflate "translate this" with
+ * "record this at all".
+ *
+ * Booleans rather than the locale that supplied each asset: English is the only
+ * fallback there is (`FALLBACK_LANG`), so a locale here could only ever be `"en"`
+ * or absent, which is a boolean spelled at length.
+ */
+export const LessonAssetFallbacksSchema = z
+  .object({
+    introAudioUrl: z.boolean(),
+    videoUrl: z.boolean(),
+    videoPosterUrl: z.boolean(),
+  })
+  .strict();
+
 /** Everything the lesson player needs in one round trip. */
 export const LessonDetailSchema = z
   .object({
@@ -140,6 +167,9 @@ export const LessonDetailSchema = z
     introScript: z.string().nullable(),
     introAudioUrl: z.string().nullable(),
     videoUrl: z.string().nullable(),
+    /** The still frame painted while the video loads. `null` until file 33 uploads one. */
+    videoPosterUrl: z.string().nullable(),
+    assetFallbacks: LessonAssetFallbacksSchema,
     /**
      * `null` when the lesson has no activity, **or** when it points at one that
      * is not yet published — a published lesson referencing an in-review
@@ -203,5 +233,6 @@ export type WorldSummaryResponse = z.infer<typeof WorldSummarySchema>;
 export type TopicSummaryResponse = z.infer<typeof TopicSummarySchema>;
 export type LessonListItemResponse = z.infer<typeof LessonListItemSchema>;
 export type WorldTopicLessonsResponse = z.infer<typeof WorldTopicLessonsSchema>;
+export type LessonAssetFallbacks = z.infer<typeof LessonAssetFallbacksSchema>;
 /** What the lesson player is handed, and what each of its five steps receives. */
 export type LessonDetailResponse = z.infer<typeof LessonDetailSchema>;

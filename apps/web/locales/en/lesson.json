@@ -13,6 +13,19 @@
     "reward": "You did it!"
   },
   "next": "Next",
+  "intro": {
+    "letsGo": "Let's go!",
+    "replay": "Say it again"
+  },
+  "video": {
+    "play": "Play",
+    "pause": "Pause",
+    "replay": "Watch it again",
+    "loading": "Getting the video ready…",
+    "done": "Done — next!",
+    "error": "That video didn't want to play.",
+    "tryAgain": "Try again"
+  },
   "exit": {
     "open": "Leave the lesson",
     "title": "Leave the lesson?",

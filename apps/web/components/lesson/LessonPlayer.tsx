@@ -1,6 +1,10 @@
 "use client";
 
-import type { LessonDetailResponse, LessonStep } from "@kidlearn/types";
+import type {
+  LessonAssetFallbacks,
+  LessonDetailResponse,
+  LessonStep,
+} from "@kidlearn/types";
 import { resumeLessonStep } from "@kidlearn/types";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -15,6 +19,7 @@ import {
   reportStep,
   sendSessionEvent,
 } from "@/lib/progress-api";
+import { stepAssetFallback } from "./asset-fallback";
 import { ExitConfirm } from "./ExitConfirm";
 import {
   initialLessonState,
@@ -126,7 +131,12 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
     dispatch({ type: "RESUME", step: resumeAt });
   }, [resumeAt, lessonId]);
 
-  useLessonRecording(state, lessonId, resumeAt);
+  useLessonRecording(
+    state,
+    lessonId,
+    resumeAt,
+    load.status === "ready" ? load.lesson.assetFallbacks : undefined,
+  );
 
   if (load.status === "loading") {
     return (
@@ -168,7 +178,13 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
     <>
       <StepContainer
         step={state.step}
-        mascotUrl={lesson.world.mascot?.url}
+        // The intro puts the mascot centre stage and talks through it (file 17),
+        // so the container's small corner copy is withheld there — two of the
+        // same character on one screen reads as a bug to the adult and as two
+        // characters to the child.
+        mascotUrl={
+          state.step === "intro" ? undefined : lesson.world.mascot?.url
+        }
         onExit={() => dispatch({ type: "EXIT" })}
       >
         <StepComponent
@@ -214,6 +230,7 @@ function useLessonRecording(
   state: LessonPlayerState,
   lessonId: string,
   resumeAt: LessonStep | undefined,
+  assetFallbacks: LessonAssetFallbacks | undefined,
 ): void {
   const previous = useRef<LessonPlayerState | undefined>(undefined);
 
@@ -240,7 +257,21 @@ function useLessonRecording(
     ) {
       const finished = before.step;
       void reportStep(lessonId, { step: finished, completed: false });
-      sendSessionEvent({ type: "step_complete", lessonId, step: finished });
+      // Which asset that step actually played, for the content-gap report
+      // (FR-I18N-01). Nothing the child saw depended on it — the server had
+      // already resolved the URL — so it rides on the analytics event only, and
+      // a step with no locale-resolved media of its own omits the key rather
+      // than claiming it played the right language.
+      const fallback =
+        assetFallbacks === undefined
+          ? undefined
+          : stepAssetFallback(finished, assetFallbacks);
+      sendSessionEvent({
+        type: "step_complete",
+        lessonId,
+        step: finished,
+        ...(fallback === undefined ? {} : { fallback }),
+      });
       return;
     }
 
@@ -249,5 +280,5 @@ function useLessonRecording(
       sendSessionEvent({ type: "step_complete", lessonId, step: "reward" });
       sendSessionEvent({ type: "lesson_complete", lessonId });
     }
-  }, [state, lessonId, resumeAt]);
+  }, [state, lessonId, resumeAt, assetFallbacks]);
 }

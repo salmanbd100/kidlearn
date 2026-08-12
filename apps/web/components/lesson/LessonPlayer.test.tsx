@@ -38,6 +38,12 @@ function lessonDetail(): LessonDetailResponse {
     introScript: "Hello! Today we learn the letter A.",
     introAudioUrl: null,
     videoUrl: null,
+    videoPosterUrl: null,
+    assetFallbacks: {
+      introAudioUrl: false,
+      videoUrl: false,
+      videoPosterUrl: false,
+    },
     activity: null,
     quiz: null,
     progress: null,
@@ -53,7 +59,7 @@ function renderPlayer() {
 }
 
 /**
- * Which step's placeholder is on screen right now.
+ * Which step is on screen right now.
  *
  * `section[data-step]`, not `[data-step]`: the container's progress dots each name a
  * step too, and matching one of those would report `intro` forever.
@@ -65,9 +71,25 @@ function currentStep(): string | null {
   );
 }
 
-/** Taps the step's own "Next", i.e. the step reporting itself complete. */
+/**
+ * What each step calls its way onward.
+ *
+ * The placeholders all said "Next"; the real steps say what they mean, and files
+ * 18–23 will keep changing these words. Looked up per step rather than asserted,
+ * because none of the tests below are about a step's copy — they are about the
+ * flow that runs when a step reports itself complete, whatever it was labelled.
+ */
+const ADVANCE_LABEL: Record<string, RegExp> = {
+  intro: /Let's go!/,
+  video: /Done — next!/,
+};
+
+/** Taps the step's own advance control, i.e. the step reporting itself complete. */
 function completeStep() {
-  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  const step = currentStep() ?? "";
+  fireEvent.click(
+    screen.getByRole("button", { name: ADVANCE_LABEL[step] ?? "Next" }),
+  );
 }
 
 function eventsOfType(type: string): unknown[] {
@@ -108,7 +130,11 @@ describe("LessonPlayer", () => {
     renderPlayer();
 
     await waitFor(() => expect(currentStep()).toBe("intro"));
-    expect(screen.getByText("The Letter A")).toBeInTheDocument();
+    // The lesson's *greeting*, not its title: file 17 replaced the placeholder,
+    // and a child who cannot read has no use for "The Letter A" on screen.
+    expect(
+      screen.getByText("Hello! Today we learn the letter A."),
+    ).toBeInTheDocument();
   });
 
   it("fetches the lesson and the saved position in parallel", async () => {
@@ -190,12 +216,63 @@ describe("LessonPlayer", () => {
       progress.sendSessionEvent.mock.calls.map(([event]) => event),
     ).toEqual([
       { type: "lesson_start", lessonId: LESSON_ID },
-      { type: "step_complete", lessonId: LESSON_ID, step: "intro" },
-      { type: "step_complete", lessonId: LESSON_ID, step: "video" },
+      // The two steps that play a server-resolved asset say which language they
+      // got; the three that render their own localized payloads say nothing.
+      {
+        type: "step_complete",
+        lessonId: LESSON_ID,
+        step: "intro",
+        fallback: false,
+      },
+      {
+        type: "step_complete",
+        lessonId: LESSON_ID,
+        step: "video",
+        fallback: false,
+      },
       { type: "step_complete", lessonId: LESSON_ID, step: "activity" },
       { type: "step_complete", lessonId: LESSON_ID, step: "quiz" },
       { type: "step_complete", lessonId: LESSON_ID, step: "reward" },
       { type: "lesson_complete", lessonId: LESSON_ID },
+    ]);
+  });
+
+  it("carries the locale fallback the finished step played (FR-I18N-01)", async () => {
+    content.getLesson.mockResolvedValue({
+      ok: true,
+      data: {
+        lesson: {
+          ...lessonDetail(),
+          assetFallbacks: {
+            introAudioUrl: false,
+            videoUrl: true,
+            videoPosterUrl: false,
+          },
+        },
+      },
+    });
+    renderPlayer();
+    await waitFor(() => expect(currentStep()).toBe("intro"));
+
+    completeStep();
+    await waitFor(() => expect(currentStep()).toBe("video"));
+    completeStep();
+    await waitFor(() => expect(currentStep()).toBe("activity"));
+
+    expect(eventsOfType("step_complete")).toEqual([
+      // The Bangla narration existed; only the film fell back to English.
+      {
+        type: "step_complete",
+        lessonId: LESSON_ID,
+        step: "intro",
+        fallback: false,
+      },
+      {
+        type: "step_complete",
+        lessonId: LESSON_ID,
+        step: "video",
+        fallback: true,
+      },
     ]);
   });
 

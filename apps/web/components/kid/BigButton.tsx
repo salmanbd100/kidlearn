@@ -24,8 +24,18 @@ const bigButtonVariants = cva("gap-3", {
       md: "min-h-16 min-w-16",
       lg: "min-h-20 w-full",
     },
+    /**
+     * "Your turn now" — the cue that a step has finished saying its piece
+     * (design.md §5.1). `motion-safe:` and nothing else: the pulse is the CSS
+     * keyframe `globals.css` already neutralises under reduced motion, so it
+     * needs no JS guard the way a Motion transform would.
+     */
+    isPulsing: {
+      true: "motion-safe:animate-pulse",
+      false: "",
+    },
   },
-  defaultVariants: { size: "md" },
+  defaultVariants: { size: "md", isPulsing: false },
 });
 
 /**
@@ -56,6 +66,7 @@ export function BigButton({
   children,
   variant = "primary",
   size,
+  isPulsing,
   icon,
   audioSrc,
   onPress,
@@ -69,7 +80,7 @@ export function BigButton({
       asChild
       variant={BUTTON_VARIANT_BY_TONE[variant]}
       size="kid"
-      className={bigButtonVariants({ size })}
+      className={bigButtonVariants({ size, isPulsing })}
     >
       <motion.button
         type="button"
