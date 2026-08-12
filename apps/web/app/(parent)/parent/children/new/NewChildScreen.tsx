@@ -2,7 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import { useParentSession } from "@/app/(parent)/context/parent-session";
+import {
+  useParentGate,
+  useParentSession,
+} from "@/app/(parent)/context/parent-session";
 import { ChildProfileForm } from "@/components/parent/ChildProfileForm";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { createChild } from "@/lib/parent-api";
@@ -21,6 +24,7 @@ export function NewChildScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();
   const { refresh } = useParentSession();
+  const { guard } = useParentGate();
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 py-2">
@@ -28,7 +32,7 @@ export function NewChildScreen() {
         {t("form.newTitle")}
       </h1>
       <ChildProfileForm
-        onSubmit={createChild}
+        onSubmit={(values) => guard(createChild(values))}
         onSaved={() => {
           void refresh().then(() => router.push(PARENT_ROUTES.children));
         }}

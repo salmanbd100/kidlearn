@@ -38,6 +38,13 @@ import {
  * them. The one exception is activity/quiz `definition` JSONB, which is passed
  * through whole: those payloads embed `LocalizedText` and the engines in files
  * 18–22 do their own locale picking via `@kidlearn/types`.
+ *
+ * That includes **display names**. `World.name`, `Subject.name`, `Topic.name` and
+ * `Lesson.title` are admin labels, not the strings a child reads — the child's come
+ * from the matching `*Translation` row via `pickName` below. Reading the column
+ * directly is the bug this file used to have: a Bangla learner heard Bangla
+ * narration inside a lesson whose tile, topic, subject and world were all named in
+ * English, while the response contract claimed every string was already resolved.
  */
 
 /**
@@ -159,6 +166,60 @@ function isSubstituted(pick: LocalePick<string>, requested: Lang): boolean {
   return pick.value !== null && pick.locale !== requested;
 }
 
+/**
+ * A payload's own `type` literal must agree with the enum column beside it.
+ *
+ * `Activity.type` / `QuizQuestion.format` are columns; the JSONB payload repeats
+ * the same fact as a Zod literal. Two sources of truth for one decision, and the
+ * response carries both — so the engines in files 18–22 can pick a renderer from
+ * the column while the payload they hand it is a different shape entirely. Zod
+ * cannot catch that: a `match` payload under `type: "drag_drop"` parses perfectly
+ * well as a `match` payload.
+ *
+ * Treated exactly like corrupt JSONB, and for the same reason: on a *published*
+ * row it is a server-side authoring failure, not something the child's request
+ * did wrong, so it is logged with the offending id and answered with a 500 that
+ * carries no part of the payload. Fail closed — serving the row and letting the
+ * client guess which of the two to believe is how a three-year-old ends up
+ * looking at a tracing canvas with jigsaw pieces in it.
+ */
+function assertDiscriminatorAgrees(
+  discriminator: { column: string; payload: string },
+  ids: Record<string, string>,
+  label: string,
+  log: ContentLogger,
+): void {
+  if (discriminator.column === discriminator.payload) return;
+
+  log.error(
+    { ...ids, column: discriminator.column, payload: discriminator.payload },
+    `published ${label} column disagrees with its definition type`,
+  );
+  throw new ApiError(500, "INTERNAL", "Content unavailable");
+}
+
+/**
+ * The child-facing name of a curriculum row, in their language.
+ *
+ * Resolution order is `preferredLanguage → en → the row's own label`. That last
+ * step is not a nicety: it keeps content authored before a translation existed
+ * servable instead of nameless, and it means adding a locale is a data change
+ * rather than a migration that has to backfill every row first. A missing
+ * translation is a content gap to report, never a blank tile.
+ */
+function pickName(
+  translations: readonly { language: Lang; name: string }[] | undefined,
+  fallbackLabel: string,
+  language: Lang,
+): string {
+  return (
+    pickLocale(
+      toLocaleMap(translations, (row) => row.name),
+      language,
+    ).value ?? fallbackLabel
+  );
+}
+
 function toMediaSummary(asset: MediaAsset | null): MediaSummary | null {
   return asset ? { id: asset.id, url: asset.url, kind: asset.kind } : null;
 }
@@ -171,12 +232,14 @@ function toWorldSummary(
     palette: Prisma.JsonValue;
   } & {
     mascotAsset: MediaAsset | null;
+    translations?: { language: Lang; name: string }[];
   },
+  language: Lang,
 ): WorldSummary {
   return {
     id: world.id,
     slug: world.slug,
-    name: world.name,
+    name: pickName(world.translations, world.name, language),
     palette: world.palette,
     mascot: toMediaSummary(world.mascotAsset),
   };
@@ -185,14 +248,17 @@ function toWorldSummary(
 /**
  * FR-WORLD-01..03, FR-WORLD-05 — the themed worlds the home screen renders.
  * Worlds carry no grade tagging of their own, so only the status gate applies.
+ *
+ * Takes the `ChildProfile` purely for `preferredLanguage`: the world names are
+ * child-facing text, so they are resolved per locale like everything else here.
  */
-export async function listWorlds(): Promise<WorldSummary[]> {
+export async function listWorlds(child: ChildProfile): Promise<WorldSummary[]> {
   const worlds = await prisma.world.findMany({
     where: publishedOnly,
     orderBy: { slug: "asc" },
-    include: { mascotAsset: true },
+    include: { mascotAsset: true, translations: true },
   });
-  return worlds.map(toWorldSummary);
+  return worlds.map((world) => toWorldSummary(world, child.preferredLanguage));
 }
 
 /**
@@ -210,12 +276,13 @@ export async function listSubjectsForChild(
       topics: { some: { ...visible, lessons: { some: visible } } },
     },
     orderBy: { sortOrder: "asc" },
+    include: { translations: true },
   });
 
   return subjects.map((subject) => ({
     id: subject.id,
     slug: subject.slug,
-    name: subject.name,
+    name: pickName(subject.translations, subject.name, child.preferredLanguage),
     sortOrder: subject.sortOrder,
     iconAsset: null,
   }));
@@ -240,27 +307,49 @@ export async function listTopicsForChild(
   const topics = await prisma.topic.findMany({
     where: { subjectId: subject.id, ...visible, lessons: { some: visible } },
     orderBy: { sortOrder: "asc" },
+    include: { translations: true },
   });
 
-  return topics.map((topic) => ({
-    id: topic.id,
-    slug: topic.slug,
-    name: topic.name,
-    sortOrder: topic.sortOrder,
-  }));
+  return topics.map((topic) => toTopicSummary(topic, child.preferredLanguage));
 }
 
-function toLessonListItem(lesson: {
-  id: string;
-  slug: string;
-  title: string;
-  worldId: string;
-  sortOrder: number;
-}): LessonListItem {
+function toTopicSummary(
+  topic: {
+    id: string;
+    slug: string;
+    name: string;
+    sortOrder: number;
+    translations?: { language: Lang; name: string }[];
+  },
+  language: Lang,
+): TopicSummary {
+  return {
+    id: topic.id,
+    slug: topic.slug,
+    name: pickName(topic.translations, topic.name, language),
+    sortOrder: topic.sortOrder,
+  };
+}
+
+function toLessonListItem(
+  lesson: {
+    id: string;
+    slug: string;
+    title: string;
+    worldId: string;
+    sortOrder: number;
+    translations?: { language: Lang; title: string }[];
+  },
+  language: Lang,
+): LessonListItem {
   return {
     id: lesson.id,
     slug: lesson.slug,
-    title: lesson.title,
+    title:
+      pickLocale(
+        toLocaleMap(lesson.translations, (row) => row.title),
+        language,
+      ).value ?? lesson.title,
     worldId: lesson.worldId,
     sortOrder: lesson.sortOrder,
     thumbnailUrl: null,
@@ -290,9 +379,12 @@ export async function listLessonsForChild(
     // onto nothing.
     where: { topicId: topic.id, ...visible, world: publishedRelation },
     orderBy: { sortOrder: "asc" },
+    include: { translations: { select: { language: true, title: true } } },
   });
 
-  return lessons.map(toLessonListItem);
+  return lessons.map((lesson) =>
+    toLessonListItem(lesson, child.preferredLanguage),
+  );
 }
 
 /**
@@ -338,7 +430,10 @@ export async function listWorldLessonsForChild(
       },
     },
     orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
-    include: { topic: true },
+    include: {
+      topic: { include: { translations: true } },
+      translations: { select: { language: true, title: true } },
+    },
   });
 
   // Grouped in insertion order, which the `orderBy` above already made
@@ -350,15 +445,12 @@ export async function listWorldLessonsForChild(
     let group = byTopic.get(lesson.topicId);
     if (group === undefined) {
       group = {
-        id: lesson.topic.id,
-        slug: lesson.topic.slug,
-        name: lesson.topic.name,
-        sortOrder: lesson.topic.sortOrder,
+        ...toTopicSummary(lesson.topic, child.preferredLanguage),
         lessons: [],
       };
       byTopic.set(lesson.topicId, group);
     }
-    group.lessons.push(toLessonListItem(lesson));
+    group.lessons.push(toLessonListItem(lesson, child.preferredLanguage));
   }
 
   return [...byTopic.values()];
@@ -394,7 +486,7 @@ export async function getLessonForChild(
       world: publishedRelation,
     },
     include: {
-      world: { include: { mascotAsset: true } },
+      world: { include: { mascotAsset: true, translations: true } },
       translations: {
         include: {
           videoAsset: true,
@@ -411,6 +503,10 @@ export async function getLessonForChild(
   }
 
   const language = child.preferredLanguage;
+  const title = pickLocale(
+    toLocaleMap(lesson.translations, (row) => row.title),
+    language,
+  );
   const intro = pickLocale(
     toLocaleMap(lesson.translations, (row) => row.introScript),
     language,
@@ -455,6 +551,12 @@ export async function getLessonForChild(
       );
       throw new ApiError(500, "INTERNAL", "Content unavailable");
     }
+    assertDiscriminatorAgrees(
+      { column: lesson.activity.type, payload: parsed.data.type },
+      { activityId: lesson.activity.id },
+      "activity",
+      log,
+    );
     activity = {
       id: lesson.activity.id,
       type: lesson.activity.type,
@@ -475,6 +577,12 @@ export async function getLessonForChild(
         );
         throw new ApiError(500, "INTERNAL", "Content unavailable");
       }
+      assertDiscriminatorAgrees(
+        { column: question.format, payload: parsed.data.type },
+        { questionId: question.id },
+        "quiz question",
+        log,
+      );
       questions.push({
         id: question.id,
         format: question.format,
@@ -489,9 +597,9 @@ export async function getLessonForChild(
   return {
     id: lesson.id,
     slug: lesson.slug,
-    title: lesson.title,
+    title: title.value ?? lesson.title,
     worldId: lesson.worldId,
-    world: toWorldSummary(lesson.world),
+    world: toWorldSummary(lesson.world, language),
     locale: intro.locale,
     introScript: intro.value,
     introAudioUrl: introAudio.value,

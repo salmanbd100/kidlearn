@@ -73,6 +73,7 @@ const PARENT: Parent = {
   consentGivenAt: null,
   consentVersion: null,
   pinFailedCount: 0,
+  pinLockoutStrikes: 0,
   pinLockedUntil: null,
   deleteToken: null,
   deleteTokenExpiresAt: null,
@@ -127,7 +128,12 @@ const JUNGLE_MASCOT = {
 const JUNGLE_WORLD = {
   id: "world_jungle",
   slug: "jungle",
+  // The admin label. What a child reads comes from `translations` below.
   name: "Jungle World",
+  translations: [
+    { language: "en", name: "Jungle World" },
+    { language: "bn", name: "জঙ্গল জগৎ" },
+  ],
   palette: { primary: "#2E7D32", secondary: "#FDD835", bg: "#E8F5E9" },
   mascotAssetId: JUNGLE_MASCOT.id,
   mascotAsset: JUNGLE_MASCOT,
@@ -156,6 +162,7 @@ function lessonRow(overrides: Record<string, unknown> = {}) {
         id: "lt_en",
         lessonId: LESSON_ID,
         language: "en",
+        title: "The Letter A",
         introScript: "Hello! Today we learn the letter A.",
         introAudioAssetId: null,
         introAudioAsset: null,
@@ -176,6 +183,7 @@ function lessonRow(overrides: Record<string, unknown> = {}) {
         id: "lt_bn",
         lessonId: LESSON_ID,
         language: "bn",
+        title: "অক্ষর A",
         introScript: "হ্যালো! আজ আমরা A শিখব।",
         introAudioAssetId: null,
         introAudioAsset: null,
@@ -378,6 +386,7 @@ describe("GET /api/content/worlds/:id/lessons", () => {
           slug: "letter-b",
           title: "The Letter B",
           sortOrder: 2,
+          translations: [{ language: "en", title: "The Letter B" }],
         }),
         topic: letters,
       },
@@ -386,6 +395,7 @@ describe("GET /api/content/worlds/:id/lessons", () => {
           id: "lesson_3",
           slug: "count-to-three",
           title: "Count to Three",
+          translations: [{ language: "en", title: "Count to Three" }],
           topicId: SECOND_TOPIC_ID,
           sortOrder: 1,
         }),
@@ -450,7 +460,10 @@ describe("GET /api/content/worlds/:id/lessons", () => {
         },
       },
       orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
-      include: { topic: true },
+      include: {
+        topic: { include: { translations: true } },
+        translations: { select: { language: true, title: true } },
+      },
     });
   });
 
@@ -664,6 +677,7 @@ describe("GET /api/content/topics/:id/lessons", () => {
         world: { is: { status: "published" } },
       },
       orderBy: { sortOrder: "asc" },
+      include: { translations: { select: { language: true, title: true } } },
     });
   });
 
@@ -795,6 +809,60 @@ describe("GET /api/content/lessons/:id", () => {
     expect(res.status).toBe(500);
     expect(res.body.error.code).toBe("INTERNAL");
     expect(res.text).not.toContain("options");
+  });
+
+  /**
+   * Both halves of these two rows are individually valid — the payload parses, the
+   * column holds a legal enum member — and they describe different things. Zod
+   * cannot see it, so the service compares them.
+   */
+  it("returns 500 INTERNAL when Activity.type disagrees with its definition", async () => {
+    signInAs(childProfile());
+    db.lessonFindFirst.mockResolvedValue(
+      lessonRow({
+        activity: {
+          id: "activity_1",
+          // The column says trace; the payload is a perfectly valid drag_drop.
+          type: "trace",
+          schemaVersion: 1,
+          status: "published",
+          definition: validDragDrop,
+        },
+      }),
+    );
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.text).not.toContain("drag_drop");
+  });
+
+  it("returns 500 INTERNAL when QuizQuestion.format disagrees with its definition", async () => {
+    signInAs(childProfile());
+    const row = lessonRow();
+    row.quiz.questions[0] = {
+      ...row.quiz.questions[0],
+      format: "match_pair",
+      definition: validMcq,
+    };
+    db.lessonFindFirst.mockResolvedValue(row);
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.text).not.toContain("match_pair");
+  });
+
+  it("serves a lesson whose column and definition agree", async () => {
+    signInAs(childProfile());
+    db.lessonFindFirst.mockResolvedValue(lessonRow());
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity.type).toBe(validDragDrop.type);
   });
 });
 
@@ -1099,5 +1167,132 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
     expect(res.body.data.lesson.assetFallbacks.videoUrl).toBe(false);
+  });
+});
+
+/**
+ * Display names are child-facing text, and were the one kind this API resolved by
+ * reading the untranslated column.
+ *
+ * The response contract in `packages/types/src/api/content.ts` has always promised
+ * a single string already picked for the child's language. It was true of the
+ * narration and false of every name around it, so a Bangla learner heard Bangla
+ * inside a lesson whose tile, topic, subject and world were all labelled in
+ * English. These tests pin all four, and pin the fallback that keeps untranslated
+ * content servable rather than nameless.
+ */
+describe("curriculum names are localised (FR-I18N-01)", () => {
+  const BANGLA = { preferredLanguage: "bn" as const };
+
+  it("serves the world name in the child's language", async () => {
+    signInAs(childProfile(BANGLA));
+    db.worldFindMany.mockResolvedValue([JUNGLE_WORLD]);
+
+    const res = await request(app).get("/api/content/worlds");
+
+    expect(res.status).toBe(200);
+    assertContract(
+      WorldListResponseSchema,
+      res.body,
+      "GET /api/content/worlds",
+    );
+    expect(res.body.data.worlds[0].name).toBe("জঙ্গল জগৎ");
+    // The admin label is never what a child receives.
+    expect(res.text).not.toContain("Jungle World");
+  });
+
+  it("serves the subject name in the child's language", async () => {
+    signInAs(childProfile(BANGLA));
+    db.subjectFindMany.mockResolvedValue([
+      {
+        id: SUBJECT_ID,
+        slug: "literacy",
+        name: "Literacy",
+        sortOrder: 1,
+        translations: [
+          { language: "en", name: "Literacy" },
+          { language: "bn", name: "সাক্ষরতা" },
+        ],
+      },
+    ]);
+
+    const res = await request(app).get("/api/content/subjects");
+
+    expect(res.body.data.subjects[0].name).toBe("সাক্ষরতা");
+  });
+
+  it("serves the topic name in the child's language", async () => {
+    signInAs(childProfile(BANGLA));
+    db.subjectFindFirst.mockResolvedValue({ id: SUBJECT_ID });
+    db.topicFindMany.mockResolvedValue([
+      {
+        id: TOPIC_ID,
+        slug: "letters",
+        name: "Letters",
+        sortOrder: 1,
+        translations: [
+          { language: "en", name: "Letters" },
+          { language: "bn", name: "অক্ষর" },
+        ],
+      },
+    ]);
+
+    const res = await request(app).get(
+      `/api/content/subjects/${SUBJECT_ID}/topics`,
+    );
+
+    expect(res.body.data.topics[0].name).toBe("অক্ষর");
+  });
+
+  it("serves the lesson title in the child's language, on the tile and in the player", async () => {
+    signInAs(childProfile(BANGLA));
+    db.topicFindFirst.mockResolvedValue({ id: TOPIC_ID });
+    db.lessonFindMany.mockResolvedValue([lessonRow()]);
+    db.lessonFindFirst.mockResolvedValue(lessonRow());
+
+    const list = await request(app).get(
+      `/api/content/topics/${TOPIC_ID}/lessons`,
+    );
+    const detail = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    // Both, and the same string: a tile a child taps must not be named one thing
+    // and the screen it opens another.
+    expect(list.body.data.lessons[0].title).toBe("অক্ষর A");
+    expect(detail.body.data.lesson.title).toBe("অক্ষর A");
+  });
+
+  it("falls back to English before falling back to the admin label", async () => {
+    signInAs(childProfile(BANGLA));
+    db.worldFindMany.mockResolvedValue([
+      {
+        ...JUNGLE_WORLD,
+        name: "internal-jungle-v2",
+        translations: [{ language: "en", name: "Jungle World" }],
+      },
+    ]);
+
+    const res = await request(app).get("/api/content/worlds");
+
+    expect(res.body.data.worlds[0].name).toBe("Jungle World");
+  });
+
+  it("falls back to the row's own label when nothing is translated", async () => {
+    // Not a blank tile and not a 404: content authored before a translation
+    // existed stays usable, and the gap is a content report rather than an outage.
+    signInAs(childProfile(BANGLA));
+    db.worldFindMany.mockResolvedValue([{ ...JUNGLE_WORLD, translations: [] }]);
+
+    const res = await request(app).get("/api/content/worlds");
+
+    expect(res.body.data.worlds[0].name).toBe("Jungle World");
+  });
+
+  it("gives an English-preferring child the English name", async () => {
+    signInAs(childProfile({ preferredLanguage: "en" }));
+    db.worldFindMany.mockResolvedValue([JUNGLE_WORLD]);
+
+    const res = await request(app).get("/api/content/worlds");
+
+    expect(res.body.data.worlds[0].name).toBe("Jungle World");
   });
 });

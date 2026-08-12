@@ -1,0 +1,8 @@
+{
+  "extends": "@kidlearn/config/tsconfig/node.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["prisma/seed.ts"],
+  "exclude": ["node_modules", "dist"]
+}

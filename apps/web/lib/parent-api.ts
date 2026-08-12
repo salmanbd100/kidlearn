@@ -66,8 +66,17 @@ export function submitConsent(): Promise<ApiResult<unknown>> {
   });
 }
 
-/** Sets the first PIN. Changing an existing one needs `currentPin` (file 29). */
-export function setPin(pin: string): Promise<ApiResult<{ hasPin: true }>> {
+/**
+ * Sets the first PIN. Changing an existing one needs `currentPin` (file 29).
+ *
+ * Answers with the grant the write opened, so the caller must hand it to
+ * `useParentGate().unlock` — the very next onboarding screen is PIN-gated on the
+ * server (`POST /api/children`), and a client that discarded this expiry would
+ * show the PIN pad one screen after the parent chose their PIN.
+ */
+export function setPin(
+  pin: string,
+): Promise<ApiResult<{ hasPin: true; pinVerifiedUntil: string }>> {
   return apiFetch("/api/parent/pin", {
     method: "POST",
     body: JSON.stringify({ pin }),

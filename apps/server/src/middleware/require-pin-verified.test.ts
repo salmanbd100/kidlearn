@@ -47,6 +47,7 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
     consentGivenAt: null,
     consentVersion: null,
     pinFailedCount: 0,
+    pinLockoutStrikes: 0,
     pinLockedUntil: null,
     deleteToken: null,
     deleteTokenExpiresAt: null,

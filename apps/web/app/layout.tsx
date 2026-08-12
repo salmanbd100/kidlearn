@@ -62,6 +62,34 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+/**
+ * Every route in this app is dynamic (`ƒ` in the build output), and that is a
+ * decision rather than an oversight — recorded here because it looks like one.
+ *
+ * The `cookies()` call below is what causes it: reading a request cookie in the
+ * root layout opts the whole tree out of static rendering. Two ways out were
+ * considered and both rejected:
+ *
+ *  - **Detect the locale in the browser instead.** This is the one that would
+ *    actually make the tree static, and it reintroduces exactly what the comment
+ *    below describes: the server emits English, the browser swaps to Bangla after
+ *    hydration. A flash and a mismatch for every Bangla user, in exchange for a
+ *    faster shell.
+ *  - **Cache Components / PPR** (`cacheComponents: true`, Next 16). The right tool
+ *    in general, but it wins nothing here: the locale is needed by `Providers`,
+ *    which wraps everything, so the "static shell" it could prerender is the
+ *    `<html>` element and a fallback. It also switches navigation to React
+ *    `<Activity>`, which keeps routes mounted — a behaviour change this app's
+ *    dialogs (the PIN gate, the lesson exit confirm) would need re-verifying
+ *    against for no user-visible gain.
+ *
+ * What makes the trade easy is where the latency actually is: every screen is
+ * behind a client-side guard waiting on `apps/server`, which sleeps on its free
+ * tier. A CDN-served shell would not make the first meaningful paint sooner —
+ * `api-client`'s cold-start retry and `StudentGuard`'s waking-up message are the
+ * mitigation that matters (NFR-PERF-04). Revisit if the app ever grows a screen
+ * that renders real content without a session.
+ */
 export default async function RootLayout({
   children,
 }: Readonly<{

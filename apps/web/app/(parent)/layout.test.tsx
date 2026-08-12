@@ -232,6 +232,49 @@ describe("ParentLayout", () => {
     }
   });
 
+  /**
+   * The gate has to fail closed. `isLocked` starts `false`, so a version that only
+   * locked when `gate-status` *succeeded* turned one failed request into a bypass:
+   * the parent dashboard rendered ungated for anyone holding the device. `hasPin`
+   * from `/api/auth/me` is enough to decide, and it arrived on a request that did.
+   */
+  it("raises the gate when gate-status cannot be read at all", async () => {
+    api.fetchGateStatus.mockResolvedValue({
+      ok: false,
+      error: { code: "NETWORK_ERROR", message: "Could not reach the API" },
+    });
+
+    renderLayout();
+
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    expect(screen.getByRole("dialog")).toHaveAccessibleName(
+      "Enter your parent PIN",
+    );
+  });
+
+  it("leaves the gate down when gate-status fails for a parent with no PIN", async () => {
+    // Fail-closed must not mean fail-deadlocked: there is no PIN to enter, so the
+    // pad would be a dead end. `resolveParentRedirect` sends them to setup instead.
+    api.fetchAuthMe.mockResolvedValue({
+      ok: true,
+      data: {
+        parent: { ...PARENT, hasPin: false },
+        activeChildProfileId: null,
+      },
+    });
+    api.fetchGateStatus.mockResolvedValue({
+      ok: false,
+      error: { code: "NETWORK_ERROR", message: "Could not reach the API" },
+    });
+
+    renderLayout();
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(PARENT_ROUTES.pinSetup),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("reports a network failure instead of pretending to be signed out", async () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: false,

@@ -3,6 +3,7 @@ import type { SuccessEnvelope } from "../lib/errors.js";
 import { loadOwnedChild, ownedChild } from "../middleware/load-owned-child.js";
 import { requireConsent } from "../middleware/require-consent.js";
 import { authContext, requireParent } from "../middleware/require-parent.js";
+import { requirePinVerified } from "../middleware/require-pin-verified.js";
 import { validate } from "../middleware/validate.js";
 import {
   ChildIdParamsSchema,
@@ -28,6 +29,23 @@ import {
  * parent-id parameter anywhere on this router, and `loadOwnedChild` answers 404
  * rather than 403 for somebody else's child, so the API leaks no information
  * about profiles the caller does not own (NFR-SAFE-02).
+ *
+ * ## Which verbs the PIN gates, and why the split is not arbitrary
+ *
+ * **Writes are gated** (`requirePinVerified`). Creating, editing and above all
+ * deleting a profile are parent-dashboard actions, and deleting one destroys a
+ * child's entire learning history (FR-PROF-06). FR-AUTH-04 makes the PIN the
+ * boundary in front of that, and a boundary enforced only by the browser is not
+ * one: the client's modal is what stops a child, and this is what stops everything
+ * else. Defence in depth is the whole point — the two are not redundant.
+ *
+ * **Reads and `activate` are not gated**, and must never be. The Student Portal
+ * calls both: `GET /` populates the profile picker and `POST /:id/activate` scopes
+ * the session to whoever is playing. FR-AUTH-06 exists precisely so a five-year-old
+ * handing the tablet to a sibling never meets a parental gate, so gating either
+ * would break the surface this product is for. The consequence is stated plainly:
+ * sibling first names and ages are readable by anyone holding the device, which is
+ * inherent to a profile picker a child has to be able to use.
  */
 export const childrenRouter = Router();
 
@@ -39,6 +57,9 @@ childrenRouter.post(
   // exist (FR-AUTH-03). Creation is the only verb gated this way: the other
   // routes read or amend a profile that consent already covers.
   requireConsent,
+  // Reachable during onboarding because `POST /api/parent/pin` opens the grant
+  // as it stores the PIN — see `setParentPin`.
+  requirePinVerified,
   validate({ body: CreateChildBodySchema }),
   async (req, res, next) => {
     try {
@@ -84,6 +105,7 @@ childrenRouter.get(
 
 childrenRouter.patch(
   "/:id",
+  requirePinVerified,
   validate({ params: ChildIdParamsSchema, body: UpdateChildBodySchema }),
   loadOwnedChild,
   async (req, res, next) => {
@@ -103,6 +125,7 @@ childrenRouter.patch(
 
 childrenRouter.delete(
   "/:id",
+  requirePinVerified,
   validate({ params: ChildIdParamsSchema }),
   loadOwnedChild,
   async (req, res, next) => {

@@ -7,7 +7,9 @@
  * What a stub cannot prove is called out where it matters: the deletion test
  * asserts the writes that were issued, not that a row vanished from Postgres.
  */
-import type { Parent } from "@kidlearn/db";
+// `Prisma` is a value import: the stub constructs the real P2025 error class so
+// the service's own `instanceof` check is exercised rather than bypassed.
+import { type Parent, Prisma } from "@kidlearn/db";
 import {
   CONSENT_VERSION,
   ConsentRecordResponseSchema,
@@ -25,6 +27,7 @@ const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
   parentUpsert: vi.fn(),
   parentUpdate: vi.fn(),
+  parentUpdateMany: vi.fn(),
   parentDelete: vi.fn(),
   accountFindFirst: vi.fn(),
   sessionUpdate: vi.fn(),
@@ -39,6 +42,7 @@ vi.mock("../lib/prisma.js", () => ({
       findUnique: db.parentFindUnique,
       upsert: db.parentUpsert,
       update: db.parentUpdate,
+      updateMany: db.parentUpdateMany,
       delete: db.parentDelete,
     },
     account: { findFirst: db.accountFindFirst },
@@ -78,6 +82,7 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
     consentGivenAt: null,
     consentVersion: null,
     pinFailedCount: 0,
+    pinLockoutStrikes: 0,
     pinLockedUntil: null,
     deleteToken: null,
     deleteTokenExpiresAt: null,
@@ -136,23 +141,116 @@ function applyUpdate(row: Parent, data: Record<string, unknown>): Parent {
   return next as Parent;
 }
 
+/**
+ * Evaluates a Prisma `where` against the stored row.
+ *
+ * Needed because the brute-force guard's correctness now lives *in* a `where`:
+ * `claimAttemptSlot` bounds a concurrent burst by putting
+ * `pinFailedCount: { lt: 5 }` in the same `UPDATE` that increments it, and a stub
+ * that ignored the filter would report the whole burst as allowed — exactly the
+ * defect the guard exists to prevent. Only the operators that guard uses are
+ * supported; an unrecognised one throws rather than quietly matching, so a future
+ * predicate cannot pass this suite by being invisible to it.
+ */
+function matchesWhere(row: Parent, where: Record<string, unknown>): boolean {
+  return Object.entries(where).every(([field, condition]) => {
+    if (field === "OR") {
+      return (condition as Record<string, unknown>[]).some((branch) =>
+        matchesWhere(row, branch),
+      );
+    }
+
+    const actual = (row as unknown as Record<string, unknown>)[field];
+
+    if (condition === null || typeof condition !== "object") {
+      return actual === condition;
+    }
+    if (condition instanceof Date) {
+      return (actual as Date | null)?.getTime() === condition.getTime();
+    }
+
+    const [[operator, operand]] = Object.entries(condition);
+    const actualTime = actual instanceof Date ? actual.getTime() : actual;
+    const operandTime = operand instanceof Date ? operand.getTime() : operand;
+
+    switch (operator) {
+      case "lt":
+        return (
+          actualTime !== null &&
+          (actualTime as number) < (operandTime as number)
+        );
+      case "lte":
+        // Postgres never matches a comparison against NULL — the reason
+        // `restoreOneAttempt` is a no-op for a parent who has never been locked.
+        return (
+          actualTime !== null &&
+          actualTime !== undefined &&
+          (actualTime as number) <= (operandTime as number)
+        );
+      default:
+        throw new Error(`stub does not model the "${operator}" filter`);
+    }
+  });
+}
+
+/** Prisma's P2025 — what a conditional `update` throws when no row matched. */
+function recordNotFound(): Error {
+  const error = new Prisma.PrismaClientKnownRequestError(
+    "No record was found for an update.",
+    { code: "P2025", clientVersion: "test" },
+  );
+  return error;
+}
+
+/**
+ * Seeded lazily from the fixture the test handed `parentFindUnique`, so no call
+ * site has to opt in. Requests keep their own stale snapshot — which is the
+ * point: the stored row is the only thing that accumulates.
+ */
+async function seedRow(): Promise<Parent> {
+  return (
+    storedParent ??
+    ((await db.parentFindUnique.mock.results.at(-1)?.value) as
+      | Parent
+      | undefined) ??
+    parentRow()
+  );
+}
+
 beforeEach(async () => {
   correctPinHash ??= await hashPin(CORRECT_PIN);
   for (const mock of Object.values(db)) mock.mockReset();
   storedParent = undefined;
   db.parentUpdate.mockImplementation(
-    async ({ data }: { data: Record<string, unknown> }) => {
-      // Seeded lazily from the fixture the test handed `parentFindUnique`, so
-      // no call site has to opt in. Requests keep their own stale snapshot —
-      // which is the point: the stored row is the only thing that accumulates.
-      const seed =
-        storedParent ??
-        ((await db.parentFindUnique.mock.results.at(-1)?.value) as
-          | Parent
-          | undefined) ??
-        parentRow();
+    async ({
+      where,
+      data,
+    }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) => {
+      const seed = await seedRow();
+      // `id` is the unique selector; anything else in `where` is a predicate the
+      // write is conditional on, and Prisma throws P2025 when it does not hold.
+      const { id: _id, ...predicate } = where;
+      if (!matchesWhere(seed, predicate)) throw recordNotFound();
       storedParent = applyUpdate(seed, data);
       return storedParent;
+    },
+  );
+  db.parentUpdateMany.mockImplementation(
+    async ({
+      where,
+      data,
+    }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) => {
+      const seed = await seedRow();
+      const { id: _id, ...predicate } = where;
+      if (!matchesWhere(seed, predicate)) return { count: 0 };
+      storedParent = applyUpdate(seed, data);
+      return { count: 1 };
     },
   );
   db.sessionUpdate.mockResolvedValue({ id: "session_1" });
@@ -196,13 +294,42 @@ describe("POST /api/parent/pin", () => {
 
     expect(res.status).toBe(200);
     assertContract(PinStatusResponseSchema, res.body, "POST /api/parent/pin");
-    expect(res.body).toEqual({ data: { hasPin: true } });
+    expect(res.body.data.hasPin).toBe(true);
+    // Nothing else — no hash, no counters, no PIN.
+    expect(Object.keys(res.body.data).sort()).toEqual([
+      "hasPin",
+      "pinVerifiedUntil",
+    ]);
     const { pinHash } = lastParentUpdateData();
     expect(typeof pinHash).toBe("string");
     expect(String(pinHash).startsWith("$argon2id$")).toBe(true);
     expect(String(pinHash)).not.toContain(CORRECT_PIN);
     // Nothing PIN-shaped comes back in the body either.
     expect(res.text).not.toContain(CORRECT_PIN);
+  });
+
+  /**
+   * Load-bearing for onboarding, not a convenience: `POST /api/children` sits
+   * behind `requirePinVerified`, and PIN setup runs one screen before the
+   * first-profile form. Without this grant the first-run flow deadlocks on a gate
+   * the parent satisfied a second earlier.
+   */
+  it("opens the parent-area grant as it stores the first PIN", async () => {
+    db.parentFindUnique.mockResolvedValue(parentRow({ pinHash: null }));
+    const before = Date.now();
+
+    const res = await request(app)
+      .post("/api/parent/pin")
+      .send({ pin: CORRECT_PIN });
+
+    expect(res.status).toBe(200);
+    const grantedUntil = new Date(res.body.data.pinVerifiedUntil).getTime();
+    expect(grantedUntil).toBeGreaterThanOrEqual(before + 14 * 60_000);
+    // Written to the session row, so it is the same grant `/pin/verify` opens.
+    expect(db.sessionUpdate).toHaveBeenCalledWith({
+      where: { id: "session_1" },
+      data: { pinVerifiedUntil: new Date(grantedUntil) },
+    });
   });
 
   it("refuses to replace an existing PIN without the current one", async () => {
@@ -327,22 +454,25 @@ describe("POST /api/parent/pin/verify", () => {
     expect(lockedUntil?.getTime()).toBeLessThanOrEqual(Date.now() + 60_000);
   });
 
-  it("keeps counting past the fifth failure, so each cool-off is longer than the last", async () => {
-    // The counter used to be zeroed as the lockout started, which handed the
-    // attacker a fresh five-per-minute allowance forever: 10,000 PINs in about
-    // 33 hours. It now survives the lockout — only a correct PIN clears it.
+  it("charges a strike per cool-off, so each window is longer than the last", async () => {
+    // The escalation used to be derived from `pinFailedCount`, which had to
+    // survive the lockout for the doubling to work — and that made the window
+    // allowance impossible to restore without also forgiving the escalation.
+    // `pinLockoutStrikes` carries the depth instead: it survives every cool-off
+    // and only a correct PIN clears it.
     db.parentFindUnique.mockResolvedValue(
       parentRow({ pinHash: correctPinHash, pinFailedCount: 4 }),
     );
 
     await request(app).post("/api/parent/pin/verify").send({ pin: WRONG_PIN });
     const firstLockout = storedParent?.pinLockedUntil?.getTime() ?? 0;
-    expect(storedParent?.pinFailedCount).toBe(5);
+    expect(storedParent?.pinLockoutStrikes).toBe(1);
 
-    // The cool-off has passed; the counter has not been forgiven.
+    // The cool-off has been served. The allowance comes back; the strike does not.
     const afterCoolOff = parentRow({
       pinHash: correctPinHash,
       pinFailedCount: 5,
+      pinLockoutStrikes: 1,
       pinLockedUntil: new Date(Date.now() - 1_000),
     });
     db.parentFindUnique.mockResolvedValue(afterCoolOff);
@@ -351,8 +481,8 @@ describe("POST /api/parent/pin/verify", () => {
 
     await request(app).post("/api/parent/pin/verify").send({ pin: WRONG_PIN });
 
-    expect(storedParent?.pinFailedCount).toBe(6);
-    // Sixth failure → double the window, so ~2 minutes rather than ~1.
+    expect(storedParent?.pinLockoutStrikes).toBe(2);
+    // Second strike → double the window, so ~2 minutes rather than ~1.
     expect(storedParent?.pinLockedUntil?.getTime()).toBeGreaterThanOrEqual(
       before + 119_000,
     );
@@ -361,28 +491,70 @@ describe("POST /api/parent/pin/verify", () => {
     );
   });
 
-  it("counts a parallel burst of wrong PINs atomically, so the lockout still trips", async () => {
-    // The regression this guards: every one of these requests reads the same
-    // `pinFailedCount: 0` snapshot in `requireParent`. Computing the next count
-    // from that snapshot means all six write 1 and the account never locks —
-    // a 4-digit PIN falls in a single burst. The write has to be an atomic
-    // `{ increment: 1 }` so the database, not this process, does the counting.
+  it("restores exactly one attempt per served cool-off, not the whole allowance", async () => {
+    // Restoring all five would hand an attacker five guesses per window forever,
+    // which is the failure the doubling exists to prevent. One per window is the
+    // behaviour it was always meant to produce.
+    const afterCoolOff = parentRow({
+      pinHash: correctPinHash,
+      pinFailedCount: 5,
+      pinLockoutStrikes: 1,
+      pinLockedUntil: new Date(Date.now() - 1_000),
+    });
+    db.parentFindUnique.mockResolvedValue(afterCoolOff);
+    storedParent = afterCoolOff;
+
+    const first = await request(app)
+      .post("/api/parent/pin/verify")
+      .send({ pin: WRONG_PIN });
+    const second = await request(app)
+      .post("/api/parent/pin/verify")
+      .send({ pin: WRONG_PIN });
+
+    // One guess got through and re-armed the window; the next was refused.
+    expect(first.status).toBe(403);
+    expect(first.body.error.code).toBe("PIN_INVALID");
+    expect(second.status).toBe(429);
+    expect(second.body.error.code).toBe("PIN_LOCKED");
+  });
+
+  it("refuses a parallel burst beyond the allowance instead of comparing every guess", async () => {
+    // The regression this guards is a check-then-act race, not a counting one.
+    // Every request here reads the same `pinFailedCount: 0` snapshot in
+    // `requireParent`, so a guard that decides from the snapshot lets all twenty
+    // guesses reach `verifyPin` and arms the cool-off twenty times afterwards —
+    // by which point a 4-digit PIN has taken 20 shots from one burst. An atomic
+    // `{ increment: 1 }` fixes the count but not that; the allowance has to be
+    // claimed by the same UPDATE that tests it, which is what `claimAttemptSlot`
+    // does. Exactly five guesses may be compared, however many arrive at once.
+    const BURST = 20;
     db.parentFindUnique.mockResolvedValue(
       parentRow({ pinHash: correctPinHash, pinFailedCount: 0 }),
     );
 
     const responses = await Promise.all(
-      Array.from({ length: 6 }, () =>
+      Array.from({ length: BURST }, () =>
         request(app).post("/api/parent/pin/verify").send({ pin: WRONG_PIN }),
       ),
     );
 
-    for (const res of responses) {
-      expect(res.status).toBe(403);
+    const compared = responses.filter((res) => res.status === 403);
+    const refused = responses.filter((res) => res.status === 429);
+    expect(compared).toHaveLength(5);
+    expect(refused).toHaveLength(BURST - 5);
+    for (const res of compared) {
+      expect(res.body.error.code).toBe("PIN_INVALID");
     }
-    expect(storedParent?.pinFailedCount).toBe(6);
+    for (const res of refused) {
+      expect(res.body.error.code).toBe("PIN_LOCKED");
+    }
+
+    expect(storedParent?.pinFailedCount).toBe(5);
     expect(storedParent?.pinLockedUntil).toBeInstanceOf(Date);
     expect(storedParent?.pinLockedUntil?.getTime()).toBeGreaterThan(Date.now());
+    // One strike for the one window, not one per refused request — a burst must
+    // not fast-forward a legitimate parent to the one-hour cap.
+    expect(storedParent?.pinLockoutStrikes).toBe(1);
   });
 
   it("returns 429 PIN_LOCKED while the cool-off is running, even for the right PIN", async () => {
@@ -416,8 +588,11 @@ describe("POST /api/parent/pin/verify", () => {
       .send({ pin: CORRECT_PIN });
 
     expect(res.status).toBe(200);
+    // Both counters, not just the window one: a correct PIN is the only thing
+    // that forgives the escalation depth.
     expect(lastParentUpdateData()).toEqual({
       pinFailedCount: 0,
+      pinLockoutStrikes: 0,
       pinLockedUntil: null,
     });
   });

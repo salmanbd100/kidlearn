@@ -40,16 +40,10 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
 
   usePreloadNextStep(lesson, state === "playing");
 
-  useEffect(() => {
-    if (
-      lesson.assetFallbacks.videoUrl &&
-      process.env.NODE_ENV !== "production"
-    ) {
-      console.warn(
-        `[kidlearn] lesson ${lesson.id}: playing the English video — no asset for the child's locale`,
-      );
-    }
-  }, [lesson.assetFallbacks.videoUrl, lesson.id]);
+  // A locale fallback used to be logged here as well. It is not a diagnostic this
+  // component needs to emit: `LessonPlayer` already puts `fallback` on the
+  // `step_complete` event, which is the durable record the content-gap report is
+  // built from (FR-I18N-01). A console line was a second, lossier copy of it.
 
   // Autoplay, and a graceful landing if the browser says no. The intro's
   // narration usually unlocked the gesture chain already, but "usually" is not a
@@ -118,9 +112,13 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
           ref={videoRef}
           src={videoUrl}
           poster={videoPosterUrl ?? undefined}
-          // Every one of these is a door the child must not find: native controls
-          // expose a seek bar, and fullscreen, PiP and download all leave the app
-          // for browser chrome there is no obvious way back from (FR-LSN-02).
+          // Every one of these is a door the child must not find (FR-LSN-02).
+          // `controls` is absent, which is the main one: native controls expose a
+          // seek bar, and this step's own overlay is the only transport. The rest
+          // close doors that survive that — PiP and remote playback are reachable
+          // from a long-press menu, and both leave the app for browser chrome there
+          // is no obvious way back from. `controlsList` is kept for the same
+          // reason: it applies to that menu on WebKit, not only to `controls`.
           playsInline
           disablePictureInPicture
           controlsList="nodownload nofullscreen noremoteplayback"

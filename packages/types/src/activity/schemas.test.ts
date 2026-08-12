@@ -7,6 +7,7 @@ import {
   invalidDragDropWrongVersion,
   invalidMatchReusedRightId,
   invalidMatchUnknownLeftId,
+  invalidMatchUnpairedLeftItem,
   invalidPuzzleSlotCount,
   invalidPuzzleSlotOutOfGrid,
   invalidTraceEmptyPathData,
@@ -267,6 +268,29 @@ describe("MatchActivitySchema", () => {
       ],
     });
     expect(result.success).toBe(false);
+  });
+
+  it("rejects a left-hand item that appears in no pair", () => {
+    const result = MatchActivitySchema.safeParse(invalidMatchUnpairedLeftItem);
+    expect(result.success).toBe(false);
+    expect(
+      result.success ? [] : result.error.issues.map((issue) => issue.message),
+    ).toContainEqual(expect.stringContaining('"moon" has no pair'));
+  });
+
+  it("accepts a spare right-hand entry — a distractor is legitimate content", () => {
+    const withDistractor = {
+      ...validMatch,
+      rightSet: [
+        ...validMatch.rightSet,
+        {
+          id: "dusk",
+          label: { en: "Dusk", bn: "সন্ধ্যা" },
+          image: validMatch.rightSet[0].image,
+        },
+      ],
+    };
+    expect(MatchActivitySchema.safeParse(withDistractor).success).toBe(true);
   });
 
   it("rejects a schemaVersion other than 1", () => {

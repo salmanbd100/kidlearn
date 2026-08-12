@@ -36,12 +36,36 @@ const PUBLIC_PATHS: readonly string[] = [PARENT_ROUTES.login];
 /**
  * Pages exempt from the PIN gate.
  *
- * Login and the pre-PIN onboarding steps have to be, or the flow deadlocks: the
- * gate asks for a PIN the parent has not created yet. The first-child step is
- * exempt too — the PIN exists by then, but demanding it one screen after it was
- * chosen is a gate that guards nothing and reads as a bug.
+ * Only the pages reachable *before* a PIN exists. Exempting those is not a
+ * convenience — without it the flow deadlocks, because the gate would ask for a
+ * PIN the parent has not created yet.
+ *
+ * The first-child step is deliberately **not** exempt, though it once was, on the
+ * grounds that demanding a PIN one screen after choosing it guards nothing. That
+ * reasoning was right about the prompt and wrong about the exemption: the prompt is
+ * gone because `POST /api/parent/pin` now opens the grant as it stores the PIN, so
+ * a parent walking the normal path never sees the pad here. What the exemption did
+ * was hide the pad in the one case it is needed — `POST /api/children` is
+ * PIN-gated on the server, so a grant that did not survive the trip leaves the
+ * server refusing a form the client insists is fine.
  */
 const GATE_EXEMPT_PATHS: readonly string[] = [
+  PARENT_ROUTES.login,
+  PARENT_ROUTES.consent,
+  PARENT_ROUTES.pinSetup,
+];
+
+/**
+ * The first-run steps, which stop being destinations once onboarding is finished.
+ *
+ * A separate list from `GATE_EXEMPT_PATHS`, which it used to share. The two
+ * happened to hold the same paths and mean different things — "no PIN can be
+ * demanded here yet" and "there is nothing left to do here" — and the day the
+ * first-child step left one list it silently left the other, stranding a finished
+ * parent on a form they had already completed. Naming both is what stops that
+ * recurring.
+ */
+const ONBOARDING_PATHS: readonly string[] = [
   PARENT_ROUTES.login,
   PARENT_ROUTES.consent,
   PARENT_ROUTES.pinSetup,
@@ -54,6 +78,10 @@ export function isPublicParentPath(pathname: string): boolean {
 
 export function isGateExemptPath(pathname: string): boolean {
   return GATE_EXEMPT_PATHS.includes(pathname);
+}
+
+export function isOnboardingPath(pathname: string): boolean {
+  return ONBOARDING_PATHS.includes(pathname);
 }
 
 /**
@@ -107,5 +135,5 @@ export function resolveParentRedirect(
   }
 
   // Fully onboarded. The finished steps are no longer destinations.
-  return isGateExemptPath(pathname) ? PARENT_ROUTES.children : undefined;
+  return isOnboardingPath(pathname) ? PARENT_ROUTES.children : undefined;
 }

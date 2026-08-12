@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ApiFailure } from "@/lib/api-client";
+import type { ApiFailure, ApiResult } from "@/lib/api-client";
 import { fetchAuthMe, fetchGateStatus, listChildren } from "@/lib/parent-api";
 
 /**
@@ -61,11 +61,25 @@ type ParentGateValue = {
   /** Called after a successful verify, and by the grant-expiry timer. */
   unlock: (pinVerifiedUntil: string) => void;
   /**
-   * Shut the gate again. For any consumer that meets a
-   * `403 PIN_VERIFICATION_REQUIRED`, which is how a lapsed grant announces itself
-   * on a PIN-gated call.
+   * Shut the gate again. Prefer `guard` below, which calls this for you — reach
+   * for `relock` directly only where there is no single call to wrap.
    */
   relock: () => void;
+  /**
+   * Runs a PIN-gated call, shutting the gate if the grant turns out to have
+   * lapsed.
+   *
+   * The expiry timer handles the ordinary case, but it cannot handle every case:
+   * the server is the authority on the grant, and a client clock that drifted, a
+   * tab that slept through its own `setTimeout`, or a sign-out on another device
+   * all end with a live-looking gate in front of an expired one. `403
+   * PIN_VERIFICATION_REQUIRED` is the server saying so, and the only correct
+   * response is the PIN pad rather than an error the parent cannot act on.
+   *
+   * Every caller of a PIN-gated endpoint should wrap it in this. The result is
+   * passed through untouched, so it composes with the existing error mapping.
+   */
+  guard: <T>(call: Promise<ApiResult<T>>) => Promise<ApiResult<T>>;
 };
 
 const ParentSessionContext = createContext<ParentSessionValue | undefined>(
@@ -140,9 +154,17 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
     setError(undefined);
     setProfiles(list.ok ? list.data : undefined);
 
+    // Fail **closed**. A gate whose state could not be read is a shut gate: the
+    // alternative leaves `isLocked` at its initial `false`, so one failed request
+    // renders the whole parent area unlocked — a network blip becoming a bypass.
+    // `hasPin` from `/api/auth/me` is enough to decide that, and it arrived on a
+    // request that did succeed.
     if (gate.ok) {
       setIsLocked(gate.data.hasPin && !gate.data.isPinVerified);
       setGrantExpiresAt(gate.data.pinVerifiedUntil);
+    } else {
+      setIsLocked(me.data.parent.hasPin);
+      setGrantExpiresAt(null);
     }
 
     setStatus("ready");
@@ -183,20 +205,28 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
     [status, parent, profiles, error, load],
   );
 
-  const gateValue = useMemo<ParentGateValue>(
-    () => ({
+  const gateValue = useMemo<ParentGateValue>(() => {
+    const relock = () => {
+      setIsLocked(true);
+      setGrantExpiresAt(null);
+    };
+
+    return {
       isLocked,
       unlock: (pinVerifiedUntil: string) => {
         setIsLocked(false);
         setGrantExpiresAt(pinVerifiedUntil);
       },
-      relock: () => {
-        setIsLocked(true);
-        setGrantExpiresAt(null);
+      relock,
+      guard: async <T,>(call: Promise<ApiResult<T>>) => {
+        const result = await call;
+        if (!result.ok && result.error.code === "PIN_VERIFICATION_REQUIRED") {
+          relock();
+        }
+        return result;
       },
-    }),
-    [isLocked],
-  );
+    };
+  }, [isLocked]);
 
   return (
     <ParentSessionContext.Provider value={sessionValue}>

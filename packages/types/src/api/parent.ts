@@ -29,7 +29,19 @@ import { IsoDateTimeSchema, ok } from "./envelope.js";
  */
 export const CONSENT_VERSION = "2026-06-v1";
 
-export const PinStatusSchema = z.object({ hasPin: z.literal(true) }).strict();
+/**
+ * The answer to `POST /api/parent/pin`.
+ *
+ * Carries the grant the write opened, because choosing a PIN is possession of it
+ * and the very next onboarding screen is PIN-gated (`POST /api/children`). The
+ * client stores nothing but the expiry — the grant itself is the session row.
+ */
+export const PinStatusSchema = z
+  .object({
+    hasPin: z.literal(true),
+    pinVerifiedUntil: IsoDateTimeSchema,
+  })
+  .strict();
 
 /**
  * Whether the parent area is open right now — the answer `GET

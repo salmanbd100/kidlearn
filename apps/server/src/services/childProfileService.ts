@@ -58,20 +58,35 @@ type CharacterReader = {
 };
 
 /**
- * Confirms the requested avatar is one a brand-new profile is allowed to wear.
+ * Confirms the requested avatar is one this profile is allowed to wear.
  *
  * The spec for this file called the flag `isStarter`; the `Character` model
  * (file 06) instead carries `isDefault` — the characters unlocked for everyone
  * from the start — alongside `unlockRule` for the ones earned later (file 24).
  * `status: "published"` is the content-safety guard from `backend.md §4`: a
  * draft or in-review character must never become a child's avatar.
+ *
+ * `childId` is what makes this reusable on the update path. A creation has no
+ * child yet, so only the starters are selectable; an existing profile may also
+ * wear anything it has unlocked, which is a `ChildCharacter` row. That table is
+ * empty until file 24 grants the first unlock, so the two branches behave
+ * identically today — but the *seam* is here, because the alternative is a rule
+ * that silently refuses every character a child earns the day rewards ship.
  */
 async function assertAvatarIsSelectable(
   client: CharacterReader,
   avatarCharacterId: string,
+  childId?: string,
 ): Promise<void> {
+  const unlockedByThisChild =
+    childId === undefined ? [] : [{ unlocks: { some: { childId } } }];
+
   const avatar = await client.character.findFirst({
-    where: { id: avatarCharacterId, isDefault: true, status: "published" },
+    where: {
+      id: avatarCharacterId,
+      status: "published",
+      OR: [{ isDefault: true }, ...unlockedByThisChild],
+    },
   });
   if (!avatar) {
     throw new ApiError(400, "VALIDATION_FAILED", "Unknown avatar character", {
@@ -175,7 +190,9 @@ export async function updateChildProfile(
   input: UpdateChildBody,
 ): Promise<ChildProfile> {
   if (input.avatarCharacterId !== undefined) {
-    await assertAvatarIsSelectable(prisma, input.avatarCharacterId);
+    // Scoped to this child, so an unlocked character is selectable and another
+    // child's unlock is not.
+    await assertAvatarIsSelectable(prisma, input.avatarCharacterId, childId);
   }
   // See the note in `createChildProfile` about naming the Prisma input type.
   const data: Prisma.ChildProfileUncheckedUpdateInput = input;

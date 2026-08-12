@@ -41,7 +41,8 @@
 | **Timestamps** | Content/identity models carry `createdAt @default(now())` and `updatedAt @updatedAt`. Event/ledger rows carry only the relevant event timestamp. |
 | **Enums over free strings** | Closed sets are Postgres enums (`GradeLevel`, `ContentStatus`, …). Open/extensible rule keys (`Badge.ruleType`) stay `String`. |
 | **Locale codes** | `Language` enum values are lowercase `en` / `bn` to match i18next codes end-to-end — no mapping layer. |
-| **i18n = translation tables** | Per-language content lives in child `*Translation` tables keyed `(parentId, language)`, never as JSON blobs of all locales. Pattern: `LessonTranslation`, `ActivityTranslation`, `QuizQuestionTranslation`, `StoryPageTranslation`. |
+| **i18n = translation tables** | Per-language content lives in child `*Translation` tables keyed `(parentId, language)`, never as JSON blobs of all locales. Pattern: `WorldTranslation`, `SubjectTranslation`, `TopicTranslation`, `LessonTranslation`, `ActivityTranslation`, `QuizQuestionTranslation`, `StoryPageTranslation`. |
+| **Display names are translated; the row's own `name`/`title` is the admin label** | `World.name`, `Subject.name`, `Topic.name` and `Lesson.title` are the **internal** label — what the CMS list, an audit log and a slug are built from. They are deliberately not the child-facing string: a tile a Bangla learner reads comes from the matching `*Translation` row, resolved server-side with an `en` fallback exactly as `LessonTranslation.introScript` is. Both exist because they answer different questions, and collapsing them means either an admin list that changes language or a child who cannot read their own curriculum. |
 | **Content-as-data** | Activity/quiz payloads are opaque, **versioned `Json`** columns (`definition` + `schemaVersion Int`). The DB never interprets them; `packages/types` Zod schemas (file 07) own their shape. |
 | **Media linkage is explicit, never polymorphic** | `MediaAsset` is referenced by **named optional FKs from the owning side** (`World.mascotAssetId`, `LessonTranslation.videoAssetId`, …) — full referential integrity + Prisma type safety, no `entityType`+`entityId`. |
 | **Publishing workflow** | Every content root carries `status ContentStatus @default(draft)`. Student-facing queries **always** filter `status = published`. Transition legality is enforced in code (`ALLOWED_TRANSITIONS`, file 32), not a DB table. |
@@ -298,6 +299,8 @@ erDiagram
 - **`World` is delete-restricted** (Prisma default for the required `Lesson.worldId`/`Story.worldId`): you cannot delete a world that still hosts lessons or stories — archive it (`status: archived`) instead.
 - **Grade tags are native enum arrays** (`GradeLevel[]`) on Subject/Topic/Lesson/Story — query with `gradeLevels: { has: child.gradeLevel }`. Chosen over a join table for simpler queries and additive new grades.
 - **A published lesson is only servable in a language if a matching `LessonTranslation` row exists.** The read API (file 12) joins by the child's `preferredLanguage` and falls back to `en`.
+- **Curriculum display names are translated too** (`WorldTranslation`, `SubjectTranslation`, `TopicTranslation`, and `LessonTranslation.title`). This was corrected after review: the read API's response contract already promised a single resolved string picked from the child's language, but the schema only had the untranslated column to give it, so a `bn` learner got English on every tile while the narration inside the lesson was Bangla. The resolution order is `preferredLanguage → en → the row's own name/title`; the last step is what keeps content authored before a translation existed servable instead of nameless.
+- **`Story.title` is not translated yet.** Stories are files 25–26; when they land, follow the same pattern rather than reading `Story.title` directly.
 - **`sortOrder` has no composite-unique** — reordering would collide mid-transaction; the admin API renumbers (file 32). It is indexed for ordered reads.
 - **`CharacterSheet`** (file 36) is reference data for the AI image generator (FR-AI-09) — it keeps recurring characters visually consistent. It is not student-facing content and has no `status`.
 
@@ -311,22 +314,34 @@ erDiagram
 | | language | Language? | null = neutral | 04 |
 | | aiJobId | String? | FK → AIGenerationJob | 34 |
 | | createdAt | DateTime | | 04 |
-| **World** | id / slug / name | String | slug UK | 04 |
+| **World** | id / slug / name | String | slug UK; `name` = admin label | 04 |
 | | palette | Json | theme tokens (FR-WORLD-05) | 04 |
 | | mascotAssetId | String? | FK → MediaAsset | 04 |
 | | status | ContentStatus | @default(draft) | 04 |
-| **Subject** | id / slug / name | String | slug UK | 04 |
+| **WorldTranslation** | id | String | PK | 04 |
+| | worldId | String | FK → World (cascade) | 04 |
+| | language | Language | UK `(worldId, language)` | 04 |
+| | name | String | child-facing world name | 04 |
+| **Subject** | id / slug / name | String | slug UK; `name` = admin label | 04 |
 | | sortOrder | Int | @default(0), indexed | 04 |
 | | gradeLevels | GradeLevel[] | | 04 |
 | | status | ContentStatus | @default(draft) | 04 |
+| **SubjectTranslation** | id | String | PK | 04 |
+| | subjectId | String | FK → Subject (cascade) | 04 |
+| | language | Language | UK `(subjectId, language)` | 04 |
+| | name | String | child-facing subject name | 04 |
 | **Topic** | id | String | PK | 04 |
 | | subjectId | String | FK → Subject (cascade) | 04 |
 | | slug | String | UK `(subjectId, slug)` | 04 |
 | | sortOrder / gradeLevels / status | — | indexed `(subjectId, sortOrder)` | 04 |
+| **TopicTranslation** | id | String | PK | 04 |
+| | topicId | String | FK → Topic (cascade) | 04 |
+| | language | Language | UK `(topicId, language)` | 04 |
+| | name | String | child-facing topic name | 04 |
 | **Lesson** | id | String | PK | 04 |
 | | topicId | String | FK → Topic (cascade) | 04 |
 | | worldId | String | FK → World (restrict) | 04 |
-| | slug / title | String | UK `(topicId, slug)` | 04 |
+| | slug / title | String | UK `(topicId, slug)`; `title` = admin label | 04 |
 | | sortOrder / gradeLevels / status | — | indexed `(topicId, sortOrder)`, `(worldId)` | 04 |
 | | activityId / quizId | String? | FK → Activity / Quiz | 05 |
 | | aiJobId | String? | FK → AIGenerationJob | 34 |
@@ -335,6 +350,7 @@ erDiagram
 | **LessonTranslation** | id | String | PK | 04 |
 | | lessonId | String | FK → Lesson (cascade) | 04 |
 | | language | Language | UK `(lessonId, language)` | 04 |
+| | title | String | child-facing lesson title | 04 |
 | | introScript | String | step-1 spoken greeting (FR-LSN-01) | 04 |
 | | introAudioAssetId / videoAssetId | String? | FK → MediaAsset | 04 |
 | **CharacterSheet** | id / slug / name | String | slug UK | 36 |

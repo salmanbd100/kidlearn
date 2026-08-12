@@ -187,6 +187,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@20.19.43)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@20.19.43)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
 
   packages/types:
     dependencies:
@@ -231,12 +234,24 @@ importers:
       '@kidlearn/config':
         specifier: workspace:*
         version: link:../config
+      '@testing-library/jest-dom':
+        specifier: ^6.9.1
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/react':
         specifier: ^19
         version: 19.2.17
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.17)
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@20.19.43)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1(@noble/hashes@2.2.0)
       react:
         specifier: ^19
         version: 19.2.4
@@ -246,6 +261,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@20.19.43)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@20.19.43)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
 
 packages:
 

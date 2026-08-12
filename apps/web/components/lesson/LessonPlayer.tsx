@@ -5,7 +5,7 @@ import type {
   LessonDetailResponse,
   LessonStep,
 } from "@kidlearn/types";
-import { resumeLessonStep } from "@kidlearn/types";
+import { LESSON_STEPS, resumeLessonStep } from "@kidlearn/types";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
@@ -53,6 +53,11 @@ import { VideoStep } from "./steps/VideoStep";
  * fire-and-forget, no retries, failures logged. Neither ever blocks a step from
  * rendering, and neither is awaited on the path a child is looking at.
  */
+
+/** Whether `step` is at or past `target` in flow order. See `useLessonRecording`. */
+function hasReachedStep(step: LessonStep, target: LessonStep): boolean {
+  return LESSON_STEPS.indexOf(step) >= LESSON_STEPS.indexOf(target);
+}
 
 const STEP_COMPONENTS: Record<
   LessonStep,
@@ -218,9 +223,17 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
  * **Observation starts at the resumed step, not at the reducer's initial state.**
  * `RESUME` arrives as a dispatch, so a lesson resuming at `activity` renders `intro`
  * for one frame first; treating that as a transition would report an `intro` the
- * child never watched. The guard below waits for the resumed step to actually be on
- * screen before it starts comparing — which is a no-op for a fresh lesson, whose
- * resume target *is* `intro`.
+ * child never watched. The guard below waits for the resumed step to be on screen
+ * before it starts comparing — which is a no-op for a fresh lesson, whose resume
+ * target *is* `intro`.
+ *
+ * That wait is `>=` in flow order, not `===`. Equality looks equivalent and fails
+ * shut in the worst possible way: if the step ever moves past the resume target
+ * before this effect arms — a tap landing between paint and effect, or a step that
+ * completes itself — the condition can never be true again, because `currentStep`
+ * only moves forwards. Recording would then be silently disabled for the whole
+ * lesson and the child's progress lost. Arming on "at or past the target" cannot
+ * get stuck, and costs nothing in the ordinary case.
  *
  * The `reward` report is the completion, and it fires on entering `finished` rather
  * than on leaving `quiz`: a child who never taps through the celebration has not
@@ -239,7 +252,7 @@ function useLessonRecording(
       if (
         resumeAt === undefined ||
         state.status !== "playing" ||
-        state.step !== resumeAt
+        !hasReachedStep(state.step, resumeAt)
       ) {
         return;
       }
