@@ -9,6 +9,36 @@
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
 /* ───────────────────────────────────────────────────────────────────────────
+   Activity feedback (FR-ACT-05)
+
+   The "not quite — try again" shake. Here rather than in the shared token
+   contract because it is one game surface's feedback, not a value any parent
+   component reads; and as CSS rather than a Motion transform because the
+   element it lands on already carries dnd-kit's own translate, which a second
+   JS-written transform would fight.
+
+   Transform only, and neutralised by the reduced-motion blocks further down —
+   applied as `motion-safe:animate-wiggle`, so nothing moves for a child who has
+   asked for stillness (design.md §5.2).
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --animate-wiggle: wiggle 400ms var(--ease-standard) 1;
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-6px) rotate(-4deg);
+    }
+    75% {
+      transform: translateX(6px) rotate(4deg);
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    Bangla typography (FR-I18N-01)
 
    Fredoka, Nunito and Inter have no Bengali glyphs — without this, a Bangla

@@ -46,7 +46,7 @@
 | 15 | `15-student-profile-select-and-home.md` | Profile picker, world-themed home, lesson browsing, streak display | FR-AUTH-06, FR-PROF-03, FR-WORLD-01..03, FR-GAM-06 (display) | 12, 13, 14 | 3–4h | ✅ Done |
 | 16 | `16-lesson-player-shell-step-engine.md` | Five-step lesson flow state machine, resume, progress saving | FR-LSN-01..07 (shell), FR-LSN-06..07 | 12, 15 | 3–4h | ✅ Done |
 | 17 | `17-lesson-intro-and-video-steps.md` | Intro greeting step + narrated video step | FR-LSN-01..02, NFR-PERF-02 | 16 | 3–4h | ✅ Done |
-| 18 | `18-activity-engine-and-drag-drop.md` | Generic JSON-driven activity engine + drag-and-drop activity | FR-ACT-01, FR-ACT-05..06 | 07, 16 | 3–4h | ⬜ Not started |
+| 18 | `18-activity-engine-and-drag-drop.md` | Generic JSON-driven activity engine + drag-and-drop activity | FR-ACT-01, FR-ACT-05..06 | 07, 16 | 3–4h | ✅ Done |
 | 19 | `19-trace-letters-numbers-activity.md` | Letter/number tracing activity (touch + mouse) | FR-ACT-02, FR-ACT-05 | 18 | 3–4h | ⬜ Not started |
 | 20 | `20-match-and-puzzle-activities.md` | Match-objects + picture puzzle activities | FR-ACT-03..05 | 18 | 3–4h | ⬜ Not started |
 | 21 | `21-quiz-engine-mcq-picture-selection.md` | JSON-driven quiz engine + MCQ + picture selection formats | FR-QUIZ-01, FR-QUIZ-04..05, FR-QUIZ-07 | 07, 16 | 3–4h | ⬜ Not started |

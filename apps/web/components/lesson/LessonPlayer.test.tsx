@@ -82,6 +82,9 @@ function currentStep(): string | null {
 const ADVANCE_LABEL: Record<string, RegExp> = {
   intro: /Let's go!/,
   video: /Done — next!/,
+  // This lesson has no activity, so file 18's engine never runs — the step shows
+  // the same friendly way onward it gives a child whose activity failed to parse.
+  activity: /Let's go on!/,
 };
 
 /** Taps the step's own advance control, i.e. the step reporting itself complete. */
