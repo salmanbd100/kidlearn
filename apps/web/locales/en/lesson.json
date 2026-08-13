@@ -35,6 +35,10 @@
     "skip": "Let's go on!",
     "empty": "Nothing to play here.",
     "oops": "This game is having a nap.",
+    "trace": {
+      "label": "Trace {{glyph}} with your finger",
+      "progress": "Line {{current}} of {{total}}"
+    },
     "dnd": {
       "instructions": "Press space or enter to pick something up, move it with the arrow keys, then press space or enter to drop it. Press escape to put it back.",
       "roleDescription": "movable",
