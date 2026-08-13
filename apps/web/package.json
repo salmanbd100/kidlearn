@@ -10,8 +10,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
     "@kidlearn/types": "workspace:*",
     "@kidlearn/ui": "workspace:*",
+    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "i18next": "^26.3.6",
     "i18next-browser-languagedetector": "^8.2.1",
@@ -27,6 +29,7 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
