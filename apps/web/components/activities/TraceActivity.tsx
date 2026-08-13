@@ -1,7 +1,7 @@
 "use client";
 
 import type { TraceActivity as TraceDefinition } from "@kidlearn/types";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import type { ActivityRendererProps } from "./registry";
@@ -28,13 +28,29 @@ import { useTraceState } from "./trace/use-trace-state";
  * converted through `toPathUnits`. Payload coordinates are not normalised — the
  * canonical "A" is authored in 0–200 — so a hard-coded `strokeWidth` would be
  * half as thick on one glyph as on another.
+ *
+ * **Every mark that means something is outlined in `foreground`.** The kid
+ * palette is built for fills behind dark text, so sunshine on cream is 1.5:1 and
+ * sky-blue is 2.3:1 — both under the 3:1 WCAG 2.1 AA floor for graphics that
+ * carry meaning (design.md §1.6). The playful fill stays; a hairline of
+ * `foreground` around it is what actually carries the contrast, in every theme
+ * including high-contrast.
  */
 
 const OUTLINE_WIDTH = 11;
 const INK_WIDTH = 7;
 const GUIDE_WIDTH = 2;
-const START_DOT_RADIUS = 5;
-const ARROW_SIZE = 4;
+const ARROW_SIZE = 6;
+
+/** Hairline around the marks that mean something, so their edge clears 3:1. */
+const MARK_EDGE = 0.8;
+
+/**
+ * The start dot is drawn at the tolerance radius, so the thing the child aims at
+ * is exactly the thing that counts as a hit. At the default tolerance that is a
+ * ~64px target at 360px portrait — the kid floor in design.md §7.
+ */
+const MIN_START_DOT_RADIUS = 12;
 
 /** Roughly one hint per quarter of the stroke, none of them on either end. */
 const ARROW_COUNT = 3;
@@ -53,6 +69,7 @@ export function TraceActivity({
   onActivityComplete,
 }: ActivityRendererProps<TraceDefinition>) {
   const { t } = useTranslation(LESSON_NAMESPACE);
+  const instructionsId = useId();
   const {
     strokes,
     frame,
@@ -60,13 +77,16 @@ export function TraceActivity({
     frontier,
     trail,
     isDrawing,
+    tolerance,
     svgRef,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    handleKeyDown,
   } = useTraceState(definition, feedback, onActivityComplete);
 
   const currentStroke = strokes[strokeIndex];
+  const isFinished = strokes.length > 0 && strokeIndex >= strokes.length;
 
   const arrows = useMemo(
     () =>
@@ -78,6 +98,8 @@ export function TraceActivity({
 
   const unit = (length: number) => toPathUnits(length, frame);
   const inkWidth = unit(INK_WIDTH);
+  const markEdge = unit(MARK_EDGE);
+  const startDotRadius = Math.max(tolerance, unit(MIN_START_DOT_RADIUS));
 
   const coveredPoints =
     currentStroke === undefined || frontier < 0
@@ -98,13 +120,21 @@ export function TraceActivity({
       {/*
         The announcement a sighted child gets from the dot moving on. `role="status"`
         rather than an `aria-live` region on the board itself, so it speaks the one
-        thing that changed instead of re-reading the glyph (FR-I18N-01).
+        thing that changed instead of re-reading the glyph (FR-I18N-01). Finishing
+        is its own line, because clamping the stroke count would otherwise repeat
+        the last one and announce nothing at the only moment that matters.
       */}
       <span role="status" className="sr-only">
-        {t("activity.trace.progress", {
-          current: Math.min(strokeIndex + 1, strokes.length),
-          total: strokes.length,
-        })}
+        {isFinished
+          ? t("activity.trace.done", { glyph: definition.glyph })
+          : t("activity.trace.progress", {
+              current: Math.min(strokeIndex + 1, strokes.length),
+              total: strokes.length,
+            })}
+      </span>
+
+      <span id={instructionsId} className="sr-only">
+        {t("activity.trace.keyboard")}
       </span>
 
       {/*
@@ -112,17 +142,28 @@ export function TraceActivity({
         rect on top would need the same geometry for no gain. `touch-none` is
         load-bearing: without it the browser claims the drag as a scroll and the
         page slides out from under the child's finger mid-letter.
+
+        `role="application"`, not `role="img"`: the board is operable, and an
+        `img` would both lie about that and swallow the arrow and space keys a
+        screen-reader user needs to trace with (NFR-A11Y-06). `max-h`/`w-auto`
+        keep the glyph inside the step in landscape, where the engine lays its
+        children out in a row and a percentage height has nothing to resolve
+        against.
       */}
       <svg
         ref={svgRef}
         viewBox={frame.viewBox}
-        role="img"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: the rule reads `svg` as non-interactive from the tag alone; this one is a `role="application"` drawing surface with pointer and key handlers, and removing the tabIndex is what would break NFR-A11Y-06.
+        tabIndex={0}
+        role="application"
         aria-label={t("activity.trace.label", { glyph: definition.glyph })}
-        className="h-full w-full touch-none select-none"
+        aria-describedby={instructionsId}
+        className="h-full max-h-[70vh] w-auto max-w-full touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onKeyDown={handleKeyDown}
       >
         <g fill="none" strokeLinecap="round" strokeLinejoin="round">
           <path
@@ -135,18 +176,23 @@ export function TraceActivity({
             <path
               d={currentStroke.d}
               data-testid="trace-guide"
-              className="stroke-muted-foreground/70"
+              className="stroke-muted-foreground"
               strokeWidth={unit(GUIDE_WIDTH)}
               strokeDasharray={`${unit(GUIDE_DOT)} ${unit(GUIDE_GAP)}`}
             />
           )}
 
+          {/*
+            `success`, not `secondary`: this ink means "done", and the
+            high-contrast theme sets `--secondary` to the same white as the
+            board, which erased every stroke the child had finished.
+          */}
           {strokes.slice(0, strokeIndex).map((stroke) => (
             <path
               key={stroke.id}
               d={stroke.d}
               data-testid="trace-ink"
-              className="stroke-secondary"
+              className="stroke-success"
               strokeWidth={inkWidth}
             />
           ))}
@@ -155,7 +201,7 @@ export function TraceActivity({
             <polyline
               data-testid="trace-progress"
               points={toPolyline(coveredPoints)}
-              className="stroke-secondary"
+              className="stroke-success"
               strokeWidth={inkWidth}
             />
           )}
@@ -180,15 +226,15 @@ export function TraceActivity({
             <circle
               cx={startPoint.x}
               cy={startPoint.y}
-              r={unit(START_DOT_RADIUS)}
-              className="origin-center fill-accent/40 motion-safe:animate-ping"
-              style={{ transformBox: "fill-box" }}
+              r={startDotRadius}
+              className="origin-center fill-accent/40 [transform-box:fill-box] motion-safe:animate-ping"
             />
             <circle
               cx={startPoint.x}
               cy={startPoint.y}
-              r={unit(START_DOT_RADIUS)}
-              className="fill-accent"
+              r={startDotRadius}
+              className="fill-accent stroke-foreground"
+              strokeWidth={markEdge}
             />
           </g>
         )}
@@ -205,7 +251,8 @@ export function TraceActivity({
                 key={arrow.order}
                 data-testid="trace-arrow"
                 d={`M ${-ARROW_SIZE} ${-ARROW_SIZE} L ${ARROW_SIZE} 0 L ${-ARROW_SIZE} ${ARROW_SIZE} Z`}
-                className="fill-primary/70"
+                className="fill-primary stroke-foreground"
+                strokeWidth={MARK_EDGE}
                 transform={`translate(${arrow.x} ${arrow.y}) rotate(${arrow.angle}) scale(${frame.unit})`}
               />
             ))}

@@ -36,8 +36,10 @@
     "empty": "Nothing to play here.",
     "oops": "This game is having a nap.",
     "trace": {
-      "label": "Trace {{glyph}} with your finger",
-      "progress": "Line {{current}} of {{total}}"
+      "label": "Trace the {{glyph}}",
+      "progress": "Line {{current}} of {{total}}",
+      "keyboard": "Draw with your finger, or press space to draw a little at a time.",
+      "done": "You finished the {{glyph}}!"
     },
     "dnd": {
       "instructions": "Press space or enter to pick something up, move it with the arrow keys, then press space or enter to drop it. Press escape to put it back.",

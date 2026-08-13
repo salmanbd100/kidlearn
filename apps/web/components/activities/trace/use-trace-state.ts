@@ -2,6 +2,7 @@
 
 import type { TraceActivity } from "@kidlearn/types";
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useCallback,
@@ -10,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ActivityFeedback } from "../use-activity-feedback";
+import type { ActivityFeedback } from "@/components/activities/use-activity-feedback";
 import {
   type CoverageState,
   createCoverage,
@@ -42,10 +43,24 @@ import {
  * frame only touches state when the covered count or the stroke index actually
  * moved — `updateCoverage` returns its argument unchanged when nothing did, which
  * is what makes that check a pointer comparison (NFR-PERF).
+ *
+ * **One pointer at a time.** A child steadying a tablet rests a palm or a thumb
+ * on the board constantly; without an owning pointer id, that second contact
+ * wipes the trail and its lift ends the stroke the first finger is still drawing.
+ * The gesture therefore belongs to whichever pointer opened it until that same
+ * pointer lifts.
+ *
+ * **A keyboard can trace too (NFR-A11Y-06).** `traceAhead` walks the frontier
+ * forward through the very same coverage rules a finger goes through, so a child
+ * on a switch or a keyboard finishes the glyph, earns the same cheer, and reaches
+ * the same completion — no parallel code path that could drift from the real one.
  */
 
 /** Points sampled per stroke. Fine enough to follow a curve, coarse enough to stay cheap. */
 const SAMPLES_PER_STROKE = 40;
+
+/** Points one key press advances. Kept under `LOOK_AHEAD` so every step lands. */
+const KEYBOARD_STEP = 4;
 
 export interface TraceStroke {
   /**
@@ -71,10 +86,13 @@ export interface TraceState {
   /** The current gesture's path, cleared the moment the finger lifts. */
   trail: readonly Point[];
   isDrawing: boolean;
+  /** How far off the guide still counts, in the payload's own units — the size of the target. */
+  tolerance: number;
   svgRef: RefObject<SVGSVGElement | null>;
   handlePointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   handlePointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
   handlePointerUp: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  handleKeyDown: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
 }
 
 function buildStrokes(definition: TraceActivity): TraceStroke[] {
@@ -111,12 +129,14 @@ export function useTraceState(
   const [isDrawing, setIsDrawing] = useState(false);
 
   const strokeIndexRef = useRef(0);
-  /** Mirrors `isDrawing`, because a move can arrive before the state re-render lands. */
-  const isDrawingRef = useRef(false);
+  /** The pointer that opened the current gesture; `undefined` between gestures. */
+  const activePointerRef = useRef<number | undefined>(undefined);
   const coverageRef = useRef<CoverageState>(createCoverage(0));
   const trailRef = useRef<Point[]>([]);
-  const pendingRef = useRef<{ view: Point; client: Point } | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const pendingRef = useRef<{ view: Point; client: Point } | undefined>(
+    undefined,
+  );
+  const animationFrameRef = useRef<number | undefined>(undefined);
   /** Did this gesture cover anything? Decides whether lifting off earns encouragement. */
   const hasProgressedRef = useRef(false);
   const hasCompletedRef = useRef(false);
@@ -126,7 +146,7 @@ export function useTraceState(
     strokeIndexRef.current = 0;
     coverageRef.current = createCoverage(strokes[0]?.points.length ?? 0);
     trailRef.current = [];
-    isDrawingRef.current = false;
+    activePointerRef.current = undefined;
     hasCompletedRef.current = false;
     setIsDrawing(false);
     setStrokeIndex(0);
@@ -136,7 +156,7 @@ export function useTraceState(
 
   useEffect(
     () => () => {
-      if (animationFrameRef.current !== null) {
+      if (animationFrameRef.current !== undefined) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     },
@@ -165,7 +185,7 @@ export function useTraceState(
    * and the engine takes over for the celebration.
    */
   const finishStroke = useCallback(
-    (anchor: Point) => {
+    (anchor?: Point) => {
       feedback.success(anchor);
       trailRef.current = [];
       setTrail([]);
@@ -186,11 +206,11 @@ export function useTraceState(
   );
 
   const drainPendingMove = useCallback(() => {
-    animationFrameRef.current = null;
+    animationFrameRef.current = undefined;
 
     const pending = pendingRef.current;
-    pendingRef.current = null;
-    if (pending === null) return;
+    pendingRef.current = undefined;
+    if (pending === undefined) return;
 
     const stroke = strokes[strokeIndexRef.current];
     if (stroke === undefined) return;
@@ -222,21 +242,70 @@ export function useTraceState(
       if (view === undefined) return;
 
       pendingRef.current = { view, client };
-      if (animationFrameRef.current !== null) return;
+      if (animationFrameRef.current !== undefined) return;
       animationFrameRef.current = requestAnimationFrame(drainPendingMove);
     },
     [convert, drainPendingMove],
   );
 
+  /**
+   * Walk the frontier forward one key press' worth, feeding each sampled point
+   * through `updateCoverage` exactly as a finger passing over it would.
+   */
+  const traceAhead = useCallback(() => {
+    const stroke = strokes[strokeIndexRef.current];
+    if (stroke === undefined) return;
+
+    let state = coverageRef.current;
+    const target = Math.min(
+      state.frontier + KEYBOARD_STEP,
+      stroke.points.length - 1,
+    );
+    for (let index = Math.max(state.frontier, 0); index <= target; index += 1) {
+      const point = stroke.points[index];
+      if (point === undefined) continue;
+      state = updateCoverage(stroke.points, state, point, tolerance);
+    }
+    if (state === coverageRef.current) return;
+
+    coverageRef.current = state;
+    setFrontier(state.frontier);
+
+    if (isStrokeComplete(state, stroke.points.length)) {
+      // No pointer means no viewport point to burst from; the cheer centres itself.
+      finishStroke();
+    }
+  }, [strokes, tolerance, finishStroke]);
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<SVGSVGElement>) => {
+      if (
+        event.key !== " " &&
+        event.key !== "Enter" &&
+        event.key !== "ArrowRight"
+      ) {
+        return;
+      }
+      // Space scrolls the lesson out from under the child otherwise.
+      event.preventDefault();
+      traceAhead();
+    },
+    [traceAhead],
+  );
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
+      // A second contact — a resting thumb, a steadying palm — is not a new
+      // gesture. The board belongs to the pointer that opened it until it lifts.
+      if (activePointerRef.current !== undefined) return;
+      activePointerRef.current = event.pointerId;
+
       // Capture, so a finger that wanders off the glyph — or off the screen edge
       // — keeps feeding this element instead of silently ending the stroke.
       event.currentTarget.setPointerCapture(event.pointerId);
       hasProgressedRef.current = false;
       trailRef.current = [];
       setTrail([]);
-      isDrawingRef.current = true;
       setIsDrawing(true);
       queueMove(event);
     },
@@ -245,7 +314,7 @@ export function useTraceState(
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
-      if (!isDrawingRef.current) return;
+      if (activePointerRef.current !== event.pointerId) return;
       queueMove(event);
     },
     [queueMove],
@@ -253,19 +322,19 @@ export function useTraceState(
 
   const handlePointerUp = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
-      if (!isDrawingRef.current) return;
+      if (activePointerRef.current !== event.pointerId) return;
 
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      isDrawingRef.current = false;
+      activePointerRef.current = undefined;
       setIsDrawing(false);
 
-      if (animationFrameRef.current !== null) {
+      if (animationFrameRef.current !== undefined) {
         cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
+        animationFrameRef.current = undefined;
       }
-      pendingRef.current = null;
+      pendingRef.current = undefined;
 
       // Coverage survives the lift — the child resumes where they stopped — but
       // the loose trail does not, because everything it earned is already drawn
@@ -293,9 +362,11 @@ export function useTraceState(
     frontier,
     trail,
     isDrawing,
+    tolerance,
     svgRef,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    handleKeyDown,
   };
 }

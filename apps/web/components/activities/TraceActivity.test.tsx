@@ -2,8 +2,17 @@ import {
   type TraceActivity as TraceDefinition,
   validTrace,
 } from "@kidlearn/types";
-import { act, render, renderHook, screen } from "@testing-library/react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
@@ -81,10 +90,14 @@ function installFrameQueue() {
  * it. The cast stands in for a gesture the environment cannot produce, and
  * narrowing is impossible by construction.
  */
-function pointerEvent(x: number, y: number): ReactPointerEvent<SVGSVGElement> {
+function pointerEvent(
+  x: number,
+  y: number,
+  pointerId = 1,
+): ReactPointerEvent<SVGSVGElement> {
   const captured = new Set<number>();
   return {
-    pointerId: 1,
+    pointerId,
     clientX: x,
     clientY: y,
     currentTarget: {
@@ -93,6 +106,14 @@ function pointerEvent(x: number, y: number): ReactPointerEvent<SVGSVGElement> {
       hasPointerCapture: (id: number) => captured.has(id),
     },
   } as unknown as ReactPointerEvent<SVGSVGElement>;
+}
+
+/** Same story as `pointerEvent`: the hook reads a key and cancels the default. */
+function keyEvent(key: string): ReactKeyboardEvent<SVGSVGElement> {
+  return {
+    key,
+    preventDefault: () => {},
+  } as unknown as ReactKeyboardEvent<SVGSVGElement>;
 }
 
 interface TraceHarness {
@@ -366,6 +387,72 @@ describe("useTraceState", () => {
     expect(onActivityComplete).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores a second finger resting on the board mid-stroke", () => {
+    const harness = mountTrace(singleStroke);
+    const points = strokePoints(singleStroke, 0);
+    const [first] = points;
+    if (first === undefined) throw new Error("expected sampled points");
+
+    act(() =>
+      harness.result.current.handlePointerDown(pointerEvent(first.x, first.y)),
+    );
+    harness.frames.flush();
+
+    // A palm lands somewhere else entirely and lifts again.
+    act(() =>
+      harness.result.current.handlePointerDown(pointerEvent(400, 400, 2)),
+    );
+    harness.frames.flush();
+    act(() =>
+      harness.result.current.handlePointerUp(pointerEvent(400, 400, 2)),
+    );
+
+    // The tracing finger is still down and still drawing.
+    expect(harness.result.current.isDrawing).toBe(true);
+    for (const point of points.slice(1)) {
+      act(() =>
+        harness.result.current.handlePointerMove(
+          pointerEvent(point.x, point.y),
+        ),
+      );
+      harness.frames.flush();
+    }
+
+    expect(harness.feedback.success).toHaveBeenCalledTimes(1);
+  });
+
+  it("traces the whole glyph from the keyboard alone (NFR-A11Y-06)", () => {
+    const harness = mountTrace(twoStrokes);
+
+    for (let press = 0; press < 40; press += 1) {
+      act(() => harness.result.current.handleKeyDown(keyEvent(" ")));
+    }
+
+    expect(harness.result.current.strokeIndex).toBe(2);
+    expect(harness.feedback.success).toHaveBeenCalledTimes(2);
+    expect(harness.onActivityComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves the frontier one step per key press, not all at once", () => {
+    const harness = mountTrace(singleStroke);
+
+    act(() => harness.result.current.handleKeyDown(keyEvent(" ")));
+    const afterOne = harness.result.current.frontier;
+    act(() => harness.result.current.handleKeyDown(keyEvent("ArrowRight")));
+
+    expect(afterOne).toBeGreaterThan(0);
+    expect(harness.result.current.frontier).toBeGreaterThan(afterOne);
+    expect(harness.feedback.success).not.toHaveBeenCalled();
+  });
+
+  it("leaves keys it does not own to the rest of the page", () => {
+    const harness = mountTrace(singleStroke);
+
+    act(() => harness.result.current.handleKeyDown(keyEvent("Tab")));
+
+    expect(harness.result.current.frontier).toBe(-1);
+  });
+
   it("widens the tolerance when the payload asks it to", () => {
     const points = strokePoints(singleStroke, 0);
     const offset = points.map((point) => ({ x: point.x + 18, y: point.y }));
@@ -432,7 +519,7 @@ describe("TraceActivity", () => {
     // The glyph itself is the payload's, not the interface's — the instruction
     // wrapped around it is what has to be translated.
     expect(
-      screen.getByRole("img", { name: /আঙুল দিয়ে T আঁকো/ }),
+      screen.getByRole("application", { name: /T আঁকো/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("রেখার মধ্যে");
   });
@@ -441,6 +528,44 @@ describe("TraceActivity", () => {
     renderTrace();
 
     expect(screen.getByRole("status")).toHaveTextContent("Line 1 of 2");
+  });
+
+  it("is reachable and operable without a pointer (NFR-A11Y-06)", () => {
+    renderTrace();
+
+    const board = screen.getByRole("application");
+    expect(board).toHaveAttribute("tabindex", "0");
+    // The keys are named where a screen reader will read them out.
+    expect(
+      screen.getByText(/press space to draw a little at a time/i),
+    ).toBeInTheDocument();
+    expect(board.getAttribute("aria-describedby")).toBeTruthy();
+  });
+
+  it("announces the glyph is finished, not the last stroke again", () => {
+    render(
+      <Providers locale="en">
+        <TraceActivity
+          definition={singleStroke}
+          locale="en"
+          feedback={feedbackSpy()}
+          onActivityComplete={vi.fn()}
+        />
+      </Providers>,
+    );
+
+    const board = screen.getByRole("application");
+    expect(screen.getByRole("status")).toHaveTextContent("Line 1 of 1");
+
+    for (let press = 0; press < 20; press += 1) {
+      fireEvent.keyDown(board, { key: " " });
+    }
+
+    expect(screen.getByTestId("activity-trace")).toHaveAttribute(
+      "data-stroke-index",
+      "1",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/finished/i);
   });
 
   it("shows no error iconography anywhere on the board (FR-ACT-05)", () => {
@@ -455,7 +580,8 @@ describe("TraceActivity", () => {
     renderTrace(validTrace);
 
     // The "A" spans 20–180; a 0 0 100 100 viewBox would cut most of it away.
-    const viewBox = screen.getByRole("img").getAttribute("viewBox") ?? "";
+    const viewBox =
+      screen.getByRole("application").getAttribute("viewBox") ?? "";
     const [minX, minY, width, height] = viewBox.split(" ").map(Number);
     expect(minX).toBeLessThanOrEqual(20);
     expect(minY).toBeLessThanOrEqual(20);
