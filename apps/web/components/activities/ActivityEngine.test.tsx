@@ -2,6 +2,7 @@ import {
   invalidActivityUnknownType,
   invalidDragDropUnmappedItem,
   validDragDrop,
+  validMatch,
   validTrace,
 } from "@kidlearn/types";
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -61,8 +62,14 @@ describe("ActivityEngine", () => {
       expect(screen.getByTestId("activity-drag-drop")).toBeInTheDocument();
     });
 
-    it("renders the placeholder renderer for a type no file has built yet", () => {
+    it("renders the trace renderer for a trace payload", () => {
       renderEngine(validTrace);
+
+      expect(screen.getByTestId("activity-trace")).toBeInTheDocument();
+    });
+
+    it("renders the placeholder renderer for a type no file has built yet", () => {
+      renderEngine(validMatch);
 
       expect(screen.getByTestId("activity-coming-soon")).toBeInTheDocument();
     });
@@ -144,7 +151,7 @@ describe("ActivityEngine", () => {
   describe("completion (FR-ACT-05)", () => {
     it("celebrates before handing the step back, and completes exactly once", () => {
       vi.useFakeTimers();
-      const onComplete = renderEngine(validTrace);
+      const onComplete = renderEngine(validMatch);
 
       fireEvent.click(screen.getByRole("button", { name: /Done!/ }));
 
@@ -160,7 +167,7 @@ describe("ActivityEngine", () => {
 
     it("lets an impatient child tap through the celebration", () => {
       vi.useFakeTimers();
-      const onComplete = renderEngine(validTrace);
+      const onComplete = renderEngine(validMatch);
 
       fireEvent.click(screen.getByRole("button", { name: /Done!/ }));
       fireEvent.click(screen.getByTestId("activity-celebration"));

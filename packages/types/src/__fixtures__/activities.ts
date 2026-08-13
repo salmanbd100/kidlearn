@@ -160,7 +160,13 @@ export const validTrace: TraceActivity = {
   strokeOrder: [0, 1, 2],
 };
 
-/** Bangla digit three — proves the glyph field is not ASCII-only. */
+/**
+ * Bangla digit three — proves the glyph field is not ASCII-only.
+ *
+ * Single-stroke, so it carries no `strokeOrder`, and it widens the default
+ * `tolerance`: two stacked curves are harder to follow than the straight lines
+ * of an "A", and a child who keeps cutting the corner is not making a mistake.
+ */
 export const validTraceBangla: TraceActivity = {
   schemaVersion: 1,
   type: "trace",
@@ -173,6 +179,7 @@ export const validTraceBangla: TraceActivity = {
     { x: 80, y: 100 },
     { x: 60, y: 160 },
   ],
+  tolerance: 16,
 };
 
 /** A single dot gives the renderer no direction to trace in. */

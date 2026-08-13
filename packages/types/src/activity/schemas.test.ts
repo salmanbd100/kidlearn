@@ -219,6 +219,26 @@ describe("TraceActivitySchema", () => {
     );
   });
 
+  // The renderer supplies the default, so a payload stored before `tolerance`
+  // existed must still parse — the field is version-safe only if it is optional.
+  it("parses a trace payload that omits tolerance", () => {
+    const { tolerance, ...withoutTolerance } = validTraceBangla;
+    expect(TraceActivitySchema.safeParse(withoutTolerance).success).toBe(true);
+    expect(tolerance).toBe(16);
+  });
+
+  it("rejects a tolerance of zero — a guide nothing can be within is unplayable", () => {
+    expect(
+      TraceActivitySchema.safeParse({ ...validTrace, tolerance: 0 }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a tolerance so wide the whole glyph counts as on-path", () => {
+    expect(
+      TraceActivitySchema.safeParse({ ...validTrace, tolerance: 80 }).success,
+    ).toBe(false);
+  });
+
   it("rejects fewer than two guide dots", () => {
     expect(
       TraceActivitySchema.safeParse(invalidTraceTooFewGuideDots).success,

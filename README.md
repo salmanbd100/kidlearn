@@ -84,11 +84,22 @@ pnpm install
 ### 2. Start the database
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 docker compose ps          # wait for STATUS = (healthy)
 ```
 
 `docker-compose.yml` runs `postgres:16-alpine` on `localhost:5432` with a named volume, so your data survives restarts. On first boot it also creates `kidlearn_test` alongside `kidlearn` — the database the Vitest suite expects.
+
+If `5432` is already taken on your machine, do not edit the committed compose file — create a gitignored `docker-compose.override.yml`, which Compose loads automatically on top of it:
+
+```yaml
+services:
+  postgres:
+    ports: !override
+      - "127.0.0.1:5433:5432"
+```
+
+`!override` is load-bearing: Compose merges sequences by default, so a plain `ports:` list adds the new mapping while keeping `5432` — binding the container to both and shadowing whatever already held that port. Whichever host port you land on has to appear in **all three** connection strings in step 3.
 
 ### 3. Configure environment
 
@@ -114,6 +125,18 @@ GOOGLE_CLIENT_SECRET=
 ```
 
 The two Google variables reject blank values but are not otherwise checked at boot, so placeholders like `local-dev-client-id` are enough to get the server running. Everything except Google sign-in works with them — the routes behind `requireParent` return `401` until you supply real credentials.
+
+**`apps/web/.env.local`** — optional, and there is no error at boot to tell you it is missing. Copy `apps/web/.env.local.example` if you want it.
+
+```
+MEDIA_ASSET_HOSTS=https://cdn.kidlearn.test
+```
+
+`next.config.ts` turns this comma-separated list of origins into `images.remotePatterns`, and `next/image` **throws** on any host not listed — an `Invalid src prop` error that takes down the whole screen rather than showing one broken image. The seeded activity and quiz payloads come from the canonical fixtures in `packages/types/src/__fixtures__/`, which reference `https://cdn.kidlearn.test`, so without this variable the first lesson containing a drag-and-drop step crashes. Asset urls inside a payload cannot dodge this the way `MediaAsset.url` can: `AssetRefSchema` requires an absolute `https://` url (`packages/types/src/primitives.ts`), so a relative `/dev/…` path is invalid content.
+
+Listing that host stops the crash but does not produce pictures — `.test` is a reserved TLD that never resolves, so each image logs an optimiser warning and renders as a gap. The activities stay playable, because every item and drop target also carries a localised text label. Real artwork arrives by admin upload (file 33) and the AI pipeline (file 36); attaching it is a data change, which is the reason this host list is configuration rather than code.
+
+**Keep all three URLs on the same port.** The server connects with its own `DATABASE_URL` from `apps/server/.env`; the Prisma CLI uses `DIRECT_URL` from `packages/db/.env`. Letting those diverge produces the least helpful failure in the project: `pnpm db:migrate` and `prisma migrate status` report a healthy, fully-migrated database while every request the API makes dies with `PrismaClientInitializationError`, because the CLI and the server are talking to different servers. If sign-in 500s on a checkout where migrations pass, check the ports before anything else.
 
 ### 4. Migrate and seed
 
@@ -173,14 +196,18 @@ pnpm --filter server openapi:write
 ### Managing the database container
 
 ```bash
-docker compose stop      # Pause it, keep the data
-docker compose start     # Resume
-docker compose down      # Remove the container, keep the data (named volume)
-docker compose down -v   # Wipe the data — re-run step 4 afterwards
+docker compose up -d postgres   # Start it (safe to re-run — a no-op if already up)
+docker compose stop             # Pause it, keep the data
+docker compose start            # Resume
+docker compose down             # Remove the container, keep the data (named volume)
+docker compose down -v          # Wipe the data — re-run step 4 afterwards
 docker compose logs -f postgres
+docker compose ps               # Which host port it actually landed on
 ```
 
-Port 5432 has to be free. If a native PostgreSQL already holds it, change the host side of the mapping in `docker-compose.yml` to `5433:5432` and update the port in every connection string.
+`docker compose ps` is the answer to "is the database even running" — it prints the live host→container port mapping, which is what the connection strings have to match. A `PrismaClientInitializationError` from the API when that mapping and `apps/server/.env` disagree looks identical to the database being down.
+
+Port conflicts belong in `docker-compose.override.yml` — see step 2.
 
 ### Production build
 

@@ -142,6 +142,16 @@ export const TraceActivitySchema = z
      * renderer (file 19), not in a schema.
      */
     strokeOrder: z.array(z.number().int().nonnegative()).min(1).optional(),
+    /**
+     * How far a finger may stray from the guide and still count, expressed in a
+     * reference 0–100 glyph space; the renderer scales it to whatever coordinate
+     * range `pathData` actually uses. Optional, and defaulted by the renderer
+     * rather than here, so that every trace payload written before this field
+     * existed keeps parsing (NFR-SCALE-02) — an optional field the schema
+     * declares is not the "extra key on a v1 payload" the versioning rule in
+     * `../primitives` forbids.
+     */
+    tolerance: z.number().positive().max(50).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
