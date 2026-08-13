@@ -13,6 +13,7 @@ import {
   invalidTraceEmptyPathData,
   invalidTraceTooFewGuideDots,
   validDragDrop,
+  validDragDropManyToOne,
   validMatch,
   validPuzzle,
   validTrace,
@@ -119,6 +120,14 @@ describe("primitives", () => {
 describe("DragDropActivitySchema", () => {
   it("parses a valid drag-and-drop payload", () => {
     expect(DragDropActivitySchema.parse(validDragDrop)).toEqual(validDragDrop);
+  });
+
+  // The mirror of "rejects an item mapped to two targets" below: the constraint
+  // runs one way only, and a renderer may not assume the other.
+  it("accepts two items mapped to the same target", () => {
+    expect(DragDropActivitySchema.parse(validDragDropManyToOne)).toEqual(
+      validDragDropManyToOne,
+    );
   });
 
   it("rejects a mapping that references an unknown target", () => {

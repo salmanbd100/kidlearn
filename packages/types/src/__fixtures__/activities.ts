@@ -64,6 +64,60 @@ export const validDragDrop: DragDropActivity = {
   ],
 };
 
+/**
+ * Sorting: four animals into two homes, so two items share each target.
+ *
+ * The schema constrains items — each is mapped exactly once, and every one has a
+ * mapping — but says nothing about how many items may share a `targetId`.
+ * "Put the animals where they live" is the ordinary shape of that freedom, and a
+ * renderer that assumes one item per target loses every answer but the last.
+ */
+export const validDragDropManyToOne: DragDropActivity = {
+  schemaVersion: 1,
+  type: "drag_drop",
+  instructionAudio: audio("put-the-animals-home"),
+  items: [
+    {
+      id: "cow",
+      label: { en: "Cow", bn: "গরু" },
+      image: image("cow", "A cow", "একটি গরু"),
+    },
+    {
+      id: "sheep",
+      label: { en: "Sheep", bn: "ভেড়া" },
+      image: image("sheep", "A sheep", "একটি ভেড়া"),
+    },
+    {
+      id: "fish",
+      label: { en: "Fish", bn: "মাছ" },
+      image: image("fish", "A fish", "একটি মাছ"),
+    },
+    {
+      id: "duck",
+      label: { en: "Duck", bn: "হাঁস" },
+      image: image("duck", "A duck", "একটি হাঁস"),
+    },
+  ],
+  targets: [
+    {
+      id: "farm",
+      label: { en: "Farm", bn: "খামার" },
+      image: image("farm", "A farm", "একটি খামার"),
+    },
+    {
+      id: "pond",
+      label: { en: "Pond", bn: "পুকুর" },
+      image: image("pond", "A pond", "একটি পুকুর"),
+    },
+  ],
+  correctMappings: [
+    { itemId: "cow", targetId: "farm" },
+    { itemId: "sheep", targetId: "farm" },
+    { itemId: "fish", targetId: "pond" },
+    { itemId: "duck", targetId: "pond" },
+  ],
+};
+
 /** `correctMappings` points at a target id that does not exist. */
 export const invalidDragDropUnknownTarget: unknown = {
   ...validDragDrop,

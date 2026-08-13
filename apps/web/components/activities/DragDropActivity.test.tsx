@@ -1,5 +1,5 @@
 import type { DragEndEvent } from "@dnd-kit/core";
-import { validDragDrop } from "@kidlearn/types";
+import { validDragDrop, validDragDropManyToOne } from "@kidlearn/types";
 import { act, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/components/Providers";
@@ -177,6 +177,29 @@ describe("usePlacementState", () => {
     expect(onActivityComplete).toHaveBeenCalledTimes(1);
   });
 
+  it("lets several items share one target, and finishes when all are placed", () => {
+    const feedback = feedbackSpy();
+    const onActivityComplete = vi.fn();
+    const { result } = renderHook(() =>
+      usePlacementState(validDragDropManyToOne, feedback, onActivityComplete),
+    );
+
+    act(() => result.current.handleDragEnd(dragEnd("cow", "farm")));
+    act(() => result.current.handleDragEnd(dragEnd("sheep", "farm")));
+    act(() => result.current.handleDragEnd(dragEnd("fish", "pond")));
+    expect(onActivityComplete).not.toHaveBeenCalled();
+
+    act(() => result.current.handleDragEnd(dragEnd("duck", "pond")));
+
+    expect(result.current.placed).toEqual({
+      cow: "farm",
+      sheep: "farm",
+      fish: "pond",
+      duck: "pond",
+    });
+    expect(onActivityComplete).toHaveBeenCalledTimes(1);
+  });
+
   it("reports completion exactly once, however often it re-renders", () => {
     const feedback = feedbackSpy();
     const onActivityComplete = vi.fn();
@@ -198,11 +221,14 @@ describe("DragDropActivity", () => {
     resetI18nForTests();
   });
 
-  function renderActivity(locale: "en" | "bn" = "en") {
+  function renderActivity(
+    locale: "en" | "bn" = "en",
+    definition = validDragDrop,
+  ) {
     render(
       <Providers locale={locale}>
         <DragDropActivity
-          definition={validDragDrop}
+          definition={definition}
           locale={locale}
           feedback={feedbackSpy()}
           onActivityComplete={vi.fn()}
@@ -216,6 +242,16 @@ describe("DragDropActivity", () => {
 
     expect(screen.getByTestId("activity-item-cow")).toBeInTheDocument();
     expect(screen.getByTestId("activity-item-fish")).toBeInTheDocument();
+    expect(screen.getByTestId("activity-target-farm")).toBeInTheDocument();
+    expect(screen.getByTestId("activity-target-pond")).toBeInTheDocument();
+  });
+
+  it("trays every item of a sorting payload, however few targets it has", () => {
+    renderActivity("en", validDragDropManyToOne);
+
+    for (const id of ["cow", "sheep", "fish", "duck"]) {
+      expect(screen.getByTestId(`activity-item-${id}`)).toBeInTheDocument();
+    }
     expect(screen.getByTestId("activity-target-farm")).toBeInTheDocument();
     expect(screen.getByTestId("activity-target-pond")).toBeInTheDocument();
   });

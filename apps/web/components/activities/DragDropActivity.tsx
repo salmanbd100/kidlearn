@@ -24,7 +24,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
-import { evaluateDrop } from "./evaluate";
+import { evaluateDrop, groupItemsByTarget } from "./evaluate";
 import type { ActivityRendererProps } from "./registry";
 import { usePlacementState, type WiggleRequest } from "./use-placement-state";
 
@@ -80,6 +80,9 @@ const dropTargetVariants = cva(
 
 const IMAGE_PX = 96;
 
+/** Shared so an empty target is not handed a fresh array on every render. */
+const EMPTY_ITEMS: readonly ActivityItem[] = [];
+
 export function DragDropActivity({
   definition,
   locale,
@@ -110,15 +113,10 @@ export function DragDropActivity({
     [definition],
   );
 
-  /** Which item is sitting in each target, so a target can draw its own answer. */
-  const itemByTargetId = useMemo(() => {
-    const byTarget = new Map<string, ActivityItem>();
-    for (const [itemId, targetId] of Object.entries(placed)) {
-      const item = itemById.get(itemId);
-      if (item !== undefined) byTarget.set(targetId, item);
-    }
-    return byTarget;
-  }, [placed, itemById]);
+  const itemsByTargetId = useMemo(
+    () => groupItemsByTarget(definition, placed),
+    [definition, placed],
+  );
 
   const announcements = useMemo<Announcements>(() => {
     const itemLabel = (id: string) => itemById.get(id)?.label[locale] ?? id;
@@ -186,7 +184,7 @@ export function DragDropActivity({
               <DropZone
                 target={target}
                 locale={locale}
-                placedItem={itemByTargetId.get(target.id)}
+                placedItems={itemsByTargetId.get(target.id) ?? EMPTY_ITEMS}
               />
             </li>
           ))}
@@ -276,14 +274,15 @@ function DraggableItem({
 function DropZone({
   target,
   locale,
-  placedItem,
+  placedItems,
 }: {
   target: DropTargetDefinition;
   locale: Locale;
-  placedItem: ActivityItem | undefined;
+  /** Every item that belongs here, not just the most recent one. */
+  placedItems: readonly ActivityItem[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: target.id });
-  const state = placedItem !== undefined ? "filled" : isOver ? "over" : "empty";
+  const state = placedItems.length > 0 ? "filled" : isOver ? "over" : "empty";
 
   return (
     <div
@@ -297,22 +296,29 @@ function DropZone({
         {target.label[locale]}
       </span>
 
-      {placedItem === undefined ? null : (
-        // The answer, locked in. Not a button and not draggable: the child got it
-        // right, and taking it back out again is not a move this activity has.
-        <span
-          data-testid={`activity-placed-${placedItem.id}`}
-          className="flex flex-col items-center gap-1 rounded-lg bg-card px-2 py-1 shadow-sm"
-        >
-          <ItemArt
-            image={placedItem.image}
-            locale={locale}
-            className="size-8"
-          />
-          <span className="font-display text-lg leading-tight text-card-foreground">
-            {placedItem.label[locale]}
-          </span>
-        </span>
+      {placedItems.length === 0 ? null : (
+        // The answers, locked in. Not buttons and not draggable: the child got
+        // them right, and taking one back out again is not a move this activity
+        // has. Wrapping, because a target may hold several — a home the child is
+        // filling up, which is the whole point of a sorting payload.
+        <div className="flex flex-wrap items-center justify-center gap-1">
+          {placedItems.map((placedItem) => (
+            <span
+              key={placedItem.id}
+              data-testid={`activity-placed-${placedItem.id}`}
+              className="flex flex-col items-center gap-1 rounded-lg bg-card px-2 py-1 shadow-sm"
+            >
+              <ItemArt
+                image={placedItem.image}
+                locale={locale}
+                className="size-8"
+              />
+              <span className="font-display text-lg leading-tight text-card-foreground">
+                {placedItem.label[locale]}
+              </span>
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );
