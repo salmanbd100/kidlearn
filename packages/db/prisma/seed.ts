@@ -599,21 +599,28 @@ async function main() {
   //   letter-z-advanced   published    KG2 only (wrong-grade probe)
 
   // ---------- Media assets ----------
-  const jungleMascot = await prisma.mediaAsset.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000401" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000401",
-      url: "https://cdn.kidlearn.test/images/mascot-jungle-monkey.png",
-      kind: "image",
-    },
-  });
-
   // Local paths, not a CDN host that does not resolve. The lesson player is the
   // first screen where a broken media url is indistinguishable from a broken
   // player, so the seeded lesson points at files a developer can actually serve
   // — `apps/web/public/dev/`, which has a README saying what to drop there. The
   // real assets arrive by admin upload (file 33) and the AI pipeline (file 36).
+  //
+  // The mascot below is the reason this rule is not only about the player: a
+  // remote host reaching `next/image` throws `Invalid src prop` unless the origin
+  // is listed in `MEDIA_ASSET_HOSTS`, so an unresolvable CDN url took down the
+  // whole home screen rather than showing one broken image. A relative path skips
+  // `remotePatterns` entirely and degrades to a missing image, which is what a
+  // seeded placeholder should do.
+  const jungleMascot = await prisma.mediaAsset.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000401" },
+    update: { url: "/dev/mascot-jungle-monkey.png" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000401",
+      url: "/dev/mascot-jungle-monkey.png",
+      kind: "image",
+    },
+  });
+
   const letterAVideoEn = await prisma.mediaAsset.upsert({
     where: { id: "00000000-0000-0000-0000-000000000402" },
     update: { url: "/dev/letter-a.en.mp4" },

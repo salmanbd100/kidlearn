@@ -5,11 +5,16 @@ everything in this directory except this README is gitignored, because real
 lesson media arrives by admin upload (file 33) and the AI pipeline (file 36), not
 from the repository.
 
-`packages/db/prisma/seed.ts` points the "Letter A" lesson at the files below, so
-without them the lesson player exercises its missing-asset paths — the friendly
-retry on the video step, the silent-but-walkable intro — rather than playing
-anything. That is a correct code path, but it is not the one you want to look at
-when checking whether the player works.
+`packages/db/prisma/seed.ts` points the "Letter A" lesson and the Jungle world
+mascot at the files below, so without them the lesson player exercises its
+missing-asset paths — the friendly retry on the video step, the
+silent-but-walkable intro — rather than playing anything. That is a correct code
+path, but it is not the one you want to look at when checking whether the player
+works.
+
+Every url here is a relative path on purpose. A remote origin would have to be
+listed in `MEDIA_ASSET_HOSTS` before `next/image` would load it, and an
+unconfigured host is a thrown error rather than a broken image.
 
 | File | Used by | What to drop in |
 |---|---|---|
@@ -17,6 +22,7 @@ when checking whether the player works.
 | `letter-a.bn.mp4` | video step, `bn` child | a second clip, or a copy of the English one |
 | `letter-a.en.jpg` | video poster | any 16:9 still |
 | `letter-a-intro.en.mp3` | intro narration | any short spoken clip |
+| `mascot-jungle-monkey.png` | Jungle world card on the home screen | any square PNG, transparent background reads best |
 
 Public-domain sources that work: the Blender Foundation's open movies
 (<https://mango.blender.org>, <https://peach.blender.org>) for video, and

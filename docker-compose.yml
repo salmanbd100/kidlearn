@@ -9,7 +9,10 @@ services:
       POSTGRES_DB: kidlearn
     ports:
       # host:container — 5432 must be free. If you already run a local Postgres,
-      # change the host side to 5433 and update DATABASE_URL/DIRECT_URL to match.
+      # remap the host side in a gitignored docker-compose.override.yml rather
+      # than here (see the README), and match the new port in all three
+      # connection strings: DATABASE_URL and DIRECT_URL in packages/db/.env, and
+      # DATABASE_URL in apps/server/.env.
       - "5432:5432"
     volumes:
       - kidlearn-pgdata:/var/lib/postgresql/data
