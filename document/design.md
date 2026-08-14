@@ -65,6 +65,7 @@ for decorative/game art.
 | `--brand-sunshine` | Sunshine | `oklch(0.86 0.16 90)` · `#FFC93C` | Highlights, rewards, stars |
 | `--brand-coral` | Coral | `oklch(0.70 0.18 25)` · `#FF6B6B` | Playful alerts, "pop" feedback |
 | `--brand-mint` | Mint | `oklch(0.78 0.14 165)` · `#34D399` | Success, "correct!", growth |
+| `--brand-blossom` | Blossom | `oklch(0.68 0.17 330)` · `#D16CC9` | Game art only — sits between grape and coral so six pair highlights stay distinguishable |
 | `--brand-ink` | Ink | `oklch(0.27 0.05 280)` · `#2B2A4A` | Friendly near-black text |
 | `--brand-cream` | Cream | `oklch(0.99 0.01 95)` · `#FFFDF7` | Warm kid background |
 

@@ -2,8 +2,9 @@
 
 import type { ActivityDefinition, Locale } from "@kidlearn/types";
 import type { ReactNode } from "react";
-import { ComingSoonActivity } from "./ComingSoonActivity";
 import { DragDropActivity } from "./DragDropActivity";
+import { MatchActivity } from "./MatchActivity";
+import { PuzzleActivity } from "./PuzzleActivity";
 import { TraceActivity } from "./TraceActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 
@@ -44,7 +45,8 @@ export function renderActivity({
     case "trace":
       return <TraceActivity definition={definition} {...rest} />;
     case "match":
+      return <MatchActivity definition={definition} {...rest} />;
     case "puzzle":
-      return <ComingSoonActivity definition={definition} {...rest} />;
+      return <PuzzleActivity definition={definition} {...rest} />;
   }
 }

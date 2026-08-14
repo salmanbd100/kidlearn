@@ -39,6 +39,59 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   Matched-pair palette (FR-ACT-03)
+
+   Six hues, because six is the largest number of pairs a match payload may
+   carry and every locked pair needs its own highlight. Declared here rather
+   than in the shared token contract for the same reason the shake above is:
+   this is one game surface's art, not a value a parent component reads.
+
+   Brand hues used directly, which design.md §2.2 permits for decorative game
+   art. They say "this card and that card are the same pair" and nothing else —
+   the line drawn between them and the tick on the card are what say "matched",
+   so no meaning rests on colour alone (design.md §2.3). Blossom joined the
+   palette for this: the brand hues were drawn for interface accents, not for
+   six simultaneously distinguishable game colours, so it was one short.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-pair-1: var(--color-grape);
+  --color-pair-2: var(--color-mint);
+  --color-pair-3: var(--color-coral);
+  --color-pair-4: var(--color-sky);
+  --color-pair-5: var(--color-blossom);
+  --color-pair-6: var(--color-sunshine);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Puzzle completion shine (FR-ACT-04)
+
+   One pass of light across the finished picture — the "look what you made"
+   beat before the engine's celebration takes over. Transform and opacity only,
+   and neutralised by the reduced-motion blocks further down like the shake.
+
+   Capped at `--dur-slow`, and the overlay that carries it is a button, because
+   design.md §5.2 holds this to the same rule as any other celebration: it may
+   not outlast 400ms and a tap must be able to dismiss it.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --animate-shine: shine var(--dur-slow) var(--ease-standard) 1;
+
+  @keyframes shine {
+    0% {
+      opacity: 0;
+      transform: translateX(-100%);
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    Bangla typography (FR-I18N-01)
 
    Fredoka, Nunito and Inter have no Bengali glyphs — without this, a Bangla
