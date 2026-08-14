@@ -66,6 +66,14 @@
       "cancelled": "{{item}} went back."
     }
   },
+  "quiz": {
+    "replay": "Say it again",
+    "progress": "Question {{current}} of {{total}}",
+    "empty": "No questions today.",
+    "optionTried": "already tried",
+    "optionCorrect": "That's it!",
+    "optionPicture": "Picture {{number}}"
+  },
   "exit": {
     "open": "Leave the lesson",
     "title": "Leave the lesson?",

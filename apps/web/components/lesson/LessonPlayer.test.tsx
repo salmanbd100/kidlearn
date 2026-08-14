@@ -85,6 +85,8 @@ const ADVANCE_LABEL: Record<string, RegExp> = {
   // This lesson has no activity, so file 18's engine never runs — the step shows
   // the same friendly way onward it gives a child whose activity failed to parse.
   activity: /Let's go on!/,
+  // Nor a quiz, and file 21's step says the same thing for the same reason.
+  quiz: /Let's go on!/,
 };
 
 /** Taps the step's own advance control, i.e. the step reporting itself complete. */

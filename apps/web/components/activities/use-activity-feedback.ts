@@ -49,6 +49,20 @@ export function retryAudioUrl(locale: Locale, variant: number): string {
   return `${FEEDBACK_AUDIO_DIR}/retry-${locale}-${variant}.mp3`;
 }
 
+/**
+ * The two pools, drawn from. Exported because the quiz engine (file 21) speaks
+ * the same two lines from its own feedback channel: a child who has just heard
+ * this cheer for placing a card must hear it again for answering a question, or
+ * the app has two vocabularies for "yes, that's it".
+ */
+export function randomCheerAudioUrl(): string {
+  return cheerAudioUrl(pick(CHEER_COUNT));
+}
+
+export function randomRetryAudioUrl(locale: Locale): string {
+  return retryAudioUrl(locale, pick(RETRY_COUNT));
+}
+
 /** Spoken on the screen shown when a payload cannot be rendered at all. */
 export function oopsAudioUrl(locale: Locale): string {
   return `${FEEDBACK_AUDIO_DIR}/oops-${locale}.mp3`;
@@ -68,7 +82,7 @@ export function useActivityFeedback(locale: Locale): ActivityFeedbackChannel {
 
   const success = useCallback(
     (anchor?: { x: number; y: number }) => {
-      void play(cheerAudioUrl(pick(CHEER_COUNT)), { interrupt: true });
+      void play(randomCheerAudioUrl(), { interrupt: true });
 
       const canvas = canvasRef.current;
       if (canvas === null || isMotionReduced) return;
@@ -105,7 +119,7 @@ export function useActivityFeedback(locale: Locale): ActivityFeedbackChannel {
   );
 
   const retry = useCallback(() => {
-    void play(retryAudioUrl(locale, pick(RETRY_COUNT)), { interrupt: true });
+    void play(randomRetryAudioUrl(locale), { interrupt: true });
   }, [play, locale]);
 
   const feedback = useMemo<ActivityFeedback>(
