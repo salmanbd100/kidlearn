@@ -5,6 +5,7 @@ import type { DragDropActivity } from "@kidlearn/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { evaluateDrop, isActivityComplete, type PlacedItems } from "./evaluate";
 import type { ActivityFeedback } from "./use-activity-feedback";
+import { useWiggle, type WiggleRequest } from "./use-wiggle";
 
 /**
  * Everything that happens between a child letting go and the activity being over.
@@ -14,23 +15,6 @@ import type { ActivityFeedback } from "./use-activity-feedback";
  * the rules — what a wrong drop does, when the activity is finished — are
  * testable by calling `handleDragEnd` directly. The renderer keeps the markup.
  */
-
-export const WIGGLE_MS = 400;
-
-/**
- * Which item is wiggling, and how many times it has been asked to.
- *
- * The counter is load-bearing. A child who drops the cow in the pond twice is
- * the single most likely thing to happen in this activity, and `itemId` alone
- * would not change between those two attempts — so the state would not update,
- * the class would stay applied without interruption, and the second wrong drop
- * would produce no wiggle at all. The renderer keys the animated element on the
- * count so the animation restarts from the beginning every time.
- */
-export interface WiggleRequest {
-  itemId: string;
-  count: number;
-}
 
 export interface PlacementState {
   placed: PlacedItems;
@@ -48,7 +32,7 @@ export function usePlacementState(
   onActivityComplete: () => void,
 ): PlacementState {
   const [placed, setPlaced] = useState<PlacedItems>({});
-  const [wiggle, setWiggle] = useState<WiggleRequest | undefined>(undefined);
+  const { wiggle, requestWiggle } = useWiggle();
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
@@ -66,22 +50,10 @@ export function usePlacementState(
       }
 
       feedback.retry();
-      setWiggle((current) => ({ itemId, count: (current?.count ?? 0) + 1 }));
+      requestWiggle([itemId]);
     },
-    [definition, feedback],
+    [definition, feedback, requestWiggle],
   );
-
-  useEffect(() => {
-    if (wiggle === undefined) return;
-    const timer = window.setTimeout(
-      () => setWiggle(undefined),
-      // Cleared on a timer rather than on `animationend`: the reduced-motion
-      // reset in globals.css collapses the keyframes to 0.01ms, and a listener
-      // would then unset the state before the browser had painted anything.
-      WIGGLE_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [wiggle]);
 
   // Once, and only once. The effect re-runs on every placement, and a second
   // call would advance the lesson two steps.

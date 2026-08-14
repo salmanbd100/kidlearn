@@ -6,7 +6,8 @@ import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
 import { DragDropActivity } from "./DragDropActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
-import { usePlacementState, WIGGLE_MS } from "./use-placement-state";
+import { usePlacementState } from "./use-placement-state";
+import { WIGGLE_MS } from "./use-wiggle";
 
 /**
  * jsdom cannot perform a drag — there is no layout, so no collision detection
@@ -103,7 +104,7 @@ describe("usePlacementState", () => {
 
     act(() => result.current.handleDragEnd(dragEnd("cow", "pond")));
 
-    expect(result.current.wiggle?.itemId).toBe("cow");
+    expect(result.current.wiggle?.ids).toEqual(["cow"]);
   });
 
   it("wiggles again when the same card is dropped wrong twice", () => {

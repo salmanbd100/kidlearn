@@ -30,7 +30,6 @@
     "replay": "Say it again",
     "tray": "Things to move",
     "targets": "Where they go",
-    "done": "Done!",
     "celebrate": "You did it!",
     "skip": "Let's go on!",
     "empty": "Nothing to play here.",
@@ -40,6 +39,23 @@
       "progress": "Line {{current}} of {{total}}",
       "keyboard": "Draw with your finger, or press space to draw a little at a time.",
       "done": "You finished the {{glyph}}!"
+    },
+    "match": {
+      "firstSet": "First group",
+      "secondSet": "Second group",
+      "picked": "{{item}} is picked. Now tap the one that goes with it.",
+      "progress": "{{matched}} of {{total}} matched",
+      "done": "You matched them all!",
+      "cardMatched": "matched",
+      "keyboard": "Tap a card, then tap the one that goes with it."
+    },
+    "puzzle": {
+      "board": "Where the pieces go",
+      "tray": "Pieces to place",
+      "piece": "Piece {{number}}",
+      "slot": "Space {{number}}",
+      "progress": "{{placed}} of {{total}} pieces in place",
+      "done": "The picture is finished!"
     },
     "dnd": {
       "instructions": "Press space or enter to pick something up, move it with the arrow keys, then press space or enter to drop it. Press escape to put it back.",

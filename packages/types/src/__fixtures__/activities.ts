@@ -197,16 +197,20 @@ export const validMatch: MatchActivity = {
   schemaVersion: 1,
   type: "match",
   instructionAudio: audio("match-the-shadow"),
+  // Per-card audio on one set only, which is the realistic shape: the child taps
+  // a word they cannot read yet and hears it, then taps the picture it belongs to.
   leftSet: [
     {
       id: "sun",
       label: { en: "Sun", bn: "সূর্য" },
       image: image("sun", "The sun", "সূর্য"),
+      audio: audio("word-sun"),
     },
     {
       id: "moon",
       label: { en: "Moon", bn: "চাঁদ" },
       image: image("moon", "The moon", "চাঁদ"),
+      audio: audio("word-moon"),
     },
   ],
   rightSet: [
@@ -259,6 +263,45 @@ export const validPuzzle: PuzzleActivity = {
     { index: 2, row: 1, col: 0 },
     { index: 3, row: 1, col: 1 },
   ],
+};
+
+/**
+ * The Nursery shape: a 3×3 picture with the top row already built.
+ *
+ * Nine pieces is the hardest puzzle the schema allows and far too many for a
+ * three-year-old on their own, so `prePlaced` is how the same artwork serves
+ * both ends of the age range — six pieces here, nine for a Class 1 child.
+ */
+export const validPuzzlePrePlaced: PuzzleActivity = {
+  schemaVersion: 1,
+  type: "puzzle",
+  instructionAudio: audio("build-the-picture"),
+  image: image("tiger", "A tiger", "একটি বাঘ"),
+  grid: { rows: 3, cols: 3 },
+  slots: [
+    { index: 0, row: 0, col: 0 },
+    { index: 1, row: 0, col: 1 },
+    { index: 2, row: 0, col: 2 },
+    { index: 3, row: 1, col: 0 },
+    { index: 4, row: 1, col: 1 },
+    { index: 5, row: 1, col: 2 },
+    { index: 6, row: 2, col: 0 },
+    { index: 7, row: 2, col: 1 },
+    { index: 8, row: 2, col: 2 },
+  ],
+  prePlaced: [0, 1, 2],
+};
+
+/** Slot 9 does not exist on a 3×3 board. */
+export const invalidPuzzlePrePlacedUnknownSlot: unknown = {
+  ...validPuzzlePrePlaced,
+  prePlaced: [0, 9],
+};
+
+/** Every slot pre-placed is a puzzle the child cannot play. */
+export const invalidPuzzleFullyPrePlaced: unknown = {
+  ...validPuzzle,
+  prePlaced: [0, 1, 2, 3],
 };
 
 /** Three slots cannot tile a 2×2 grid. */

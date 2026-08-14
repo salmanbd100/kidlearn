@@ -188,6 +188,16 @@ export const MatchActivitySchema = z
   });
 export type MatchActivity = z.infer<typeof MatchActivitySchema>;
 
+/** One cell of the puzzle grid, and the crop of the image that belongs in it. */
+const PuzzleSlotSchema = z
+  .object({
+    index: z.number().int().nonnegative(),
+    row: z.number().int().nonnegative(),
+    col: z.number().int().nonnegative(),
+  })
+  .strict();
+export type PuzzleSlot = z.infer<typeof PuzzleSlotSchema>;
+
 export const PuzzleActivitySchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -200,15 +210,15 @@ export const PuzzleActivitySchema = z
         cols: z.number().int().min(2).max(4),
       })
       .strict(),
-    slots: z.array(
-      z
-        .object({
-          index: z.number().int().nonnegative(),
-          row: z.number().int().nonnegative(),
-          col: z.number().int().nonnegative(),
-        })
-        .strict(),
-    ),
+    slots: z.array(PuzzleSlotSchema),
+    /**
+     * Slot indexes that start already filled and locked, so a Nursery puzzle can
+     * hand the child two pieces of a 3×3 rather than nine. Optional, and absent
+     * from every payload authored before it existed — an additive field the
+     * schema declares, not the "extra key on a v1 payload" the versioning rule
+     * in `../primitives` forbids (NFR-SCALE-02).
+     */
+    prePlaced: z.array(z.number().int().nonnegative()).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -260,6 +270,37 @@ export const PuzzleActivitySchema = z
       }
       seenCells.add(cell);
     });
+
+    if (value.prePlaced === undefined) return;
+
+    const seenPrePlaced = new Set<number>();
+    value.prePlaced.forEach((index, arrayIndex) => {
+      if (!seenIndexes.has(index)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["prePlaced", arrayIndex],
+          message: `prePlaced references unknown slot index ${index}`,
+        });
+      }
+      if (seenPrePlaced.has(index)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["prePlaced", arrayIndex],
+          message: `duplicate prePlaced slot index ${index}`,
+        });
+      }
+      seenPrePlaced.add(index);
+    });
+
+    // A puzzle that starts finished is a step with nothing in it: the renderer
+    // would fire completion on mount and the child would never touch a piece.
+    if (seenPrePlaced.size >= value.slots.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["prePlaced"],
+        message: "at least one slot must be left for the child to fill",
+      });
+    }
   });
 export type PuzzleActivity = z.infer<typeof PuzzleActivitySchema>;
 

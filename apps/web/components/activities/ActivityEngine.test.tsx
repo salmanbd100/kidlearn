@@ -3,6 +3,7 @@ import {
   invalidDragDropUnmappedItem,
   validDragDrop,
   validMatch,
+  validPuzzle,
   validTrace,
 } from "@kidlearn/types";
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -68,10 +69,16 @@ describe("ActivityEngine", () => {
       expect(screen.getByTestId("activity-trace")).toBeInTheDocument();
     });
 
-    it("renders the placeholder renderer for a type no file has built yet", () => {
+    it("renders the match renderer for a match payload", () => {
       renderEngine(validMatch);
 
-      expect(screen.getByTestId("activity-coming-soon")).toBeInTheDocument();
+      expect(screen.getByTestId("activity-match")).toBeInTheDocument();
+    });
+
+    it("renders the puzzle renderer for a puzzle payload", () => {
+      renderEngine(validPuzzle);
+
+      expect(screen.getByTestId("activity-puzzle")).toBeInTheDocument();
     });
 
     it("shows the oops screen instead of crashing on an unknown type", () => {
@@ -149,11 +156,18 @@ describe("ActivityEngine", () => {
   });
 
   describe("completion (FR-ACT-05)", () => {
+    /** Both pairs of `validMatch`, tapped the way a child would. */
+    function matchEveryPair() {
+      for (const id of ["sun", "day", "moon", "night"]) {
+        fireEvent.click(screen.getByTestId(`match-card-${id}`));
+      }
+    }
+
     it("celebrates before handing the step back, and completes exactly once", () => {
       vi.useFakeTimers();
       const onComplete = renderEngine(validMatch);
 
-      fireEvent.click(screen.getByRole("button", { name: /Done!/ }));
+      matchEveryPair();
 
       expect(screen.getByTestId("activity-celebration")).toBeInTheDocument();
       expect(onComplete).not.toHaveBeenCalled();
@@ -169,7 +183,7 @@ describe("ActivityEngine", () => {
       vi.useFakeTimers();
       const onComplete = renderEngine(validMatch);
 
-      fireEvent.click(screen.getByRole("button", { name: /Done!/ }));
+      matchEveryPair();
       fireEvent.click(screen.getByTestId("activity-celebration"));
 
       expect(onComplete).toHaveBeenCalledTimes(1);

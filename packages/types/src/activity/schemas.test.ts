@@ -8,6 +8,8 @@ import {
   invalidMatchReusedRightId,
   invalidMatchUnknownLeftId,
   invalidMatchUnpairedLeftItem,
+  invalidPuzzleFullyPrePlaced,
+  invalidPuzzlePrePlacedUnknownSlot,
   invalidPuzzleSlotCount,
   invalidPuzzleSlotOutOfGrid,
   invalidTraceEmptyPathData,
@@ -16,6 +18,7 @@ import {
   validDragDropManyToOne,
   validMatch,
   validPuzzle,
+  validPuzzlePrePlaced,
   validTrace,
   validTraceBangla,
 } from "../__fixtures__/activities.js";
@@ -372,6 +375,35 @@ describe("PuzzleActivitySchema", () => {
     expect(
       PuzzleActivitySchema.safeParse({ ...validPuzzle, schemaVersion: 2 })
         .success,
+    ).toBe(false);
+  });
+
+  it("parses a payload that starts some slots pre-placed", () => {
+    expect(PuzzleActivitySchema.parse(validPuzzlePrePlaced)).toEqual(
+      validPuzzlePrePlaced,
+    );
+  });
+
+  it("keeps parsing a payload authored before prePlaced existed", () => {
+    expect(PuzzleActivitySchema.parse(validPuzzle).prePlaced).toBeUndefined();
+  });
+
+  it("rejects a prePlaced index the board has no slot for", () => {
+    expect(
+      PuzzleActivitySchema.safeParse(invalidPuzzlePrePlacedUnknownSlot).success,
+    ).toBe(false);
+  });
+
+  it("rejects the same slot pre-placed twice", () => {
+    expect(
+      PuzzleActivitySchema.safeParse({ ...validPuzzle, prePlaced: [1, 1] })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects a puzzle that starts already finished", () => {
+    expect(
+      PuzzleActivitySchema.safeParse(invalidPuzzleFullyPrePlaced).success,
     ).toBe(false);
   });
 });

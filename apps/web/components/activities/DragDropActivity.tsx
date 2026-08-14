@@ -3,13 +3,8 @@
 import {
   type Announcements,
   DndContext,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
   useDraggable,
   useDroppable,
-  useSensor,
-  useSensors,
 } from "@dnd-kit/core";
 import type {
   ActivityItem,
@@ -26,7 +21,9 @@ import { useTranslation } from "react-i18next";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import { evaluateDrop, groupItemsByTarget } from "./evaluate";
 import type { ActivityRendererProps } from "./registry";
-import { usePlacementState, type WiggleRequest } from "./use-placement-state";
+import { useActivitySensors } from "./use-activity-sensors";
+import { usePlacementState } from "./use-placement-state";
+import { isWiggling, type WiggleRequest } from "./use-wiggle";
 
 /**
  * Put each thing where it belongs (FR-ACT-01).
@@ -42,11 +39,8 @@ import { usePlacementState, type WiggleRequest } from "./use-placement-state";
  * 400ms while an encouraging voice plays. There is no counter, no cross, and no
  * ceiling on attempts (FR-ACT-05).
  *
- * **Mouse and touch are separate sensors on purpose.** A single pointer sensor
- * would apply one activation rule to both, and the two need opposite ones: a
- * mouse should start dragging almost immediately (4px), while a finger resting
- * on a card must not — hence the 100ms hold with an 8px tolerance, which is what
- * lets a three-year-old tap, scroll and mis-touch without launching a drag.
+ * How a drag starts — and why mouse and touch are tuned apart — lives in
+ * `use-activity-sensors.ts`, shared with the puzzle board.
  */
 
 const itemCardVariants = cva(
@@ -96,13 +90,7 @@ export function DragDropActivity({
     onActivityComplete,
   );
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 100, tolerance: 8 },
-    }),
-    useSensor(KeyboardSensor),
-  );
+  const sensors = useActivitySensors();
 
   const itemById = useMemo(
     () => new Map(definition.items.map((item) => [item.id, item])),
@@ -206,7 +194,7 @@ export function DragDropActivity({
                 item={item}
                 locale={locale}
                 roleDescription={t("activity.dnd.roleDescription")}
-                wiggle={wiggle?.itemId === item.id ? wiggle : undefined}
+                wiggle={isWiggling(wiggle, item.id) ? wiggle : undefined}
               />
             </li>
           ))}
