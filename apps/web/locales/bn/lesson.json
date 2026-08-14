@@ -66,6 +66,14 @@
       "cancelled": "{{item}} ফিরে গেছে।"
     }
   },
+  "quiz": {
+    "replay": "আবার বলো",
+    "progress": "{{total}}টির মধ্যে {{current}} নম্বর প্রশ্ন",
+    "empty": "আজ কোনো প্রশ্ন নেই।",
+    "optionTried": "আগে চেষ্টা করা হয়েছে",
+    "optionCorrect": "এটাই ঠিক!",
+    "optionPicture": "{{number}} নম্বর ছবি"
+  },
   "exit": {
     "open": "পাঠ থেকে বেরোও",
     "title": "পাঠ ছেড়ে যাবে?",
