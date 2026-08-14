@@ -65,12 +65,14 @@ function prepareQuestions(questions: QuizEngineProps["questions"]): {
       });
       continue;
     }
+    // Read before the guard narrows the union away: every format the schema
+    // carries is playable today, so inside the branch `parsed.data` is `never`
+    // and has no `type` to report. Keeping the branch is the point — a fifth
+    // format added to the schema must be dropped from the quiz, not rendered
+    // blank at a child.
+    const format = parsed.data.type;
     if (!isPlayableQuestion(parsed.data)) {
-      skipped.push({
-        id: question.id,
-        reason: "unsupported",
-        detail: parsed.data.type,
-      });
+      skipped.push({ id: question.id, reason: "unsupported", detail: format });
       continue;
     }
     playable.push({ id: question.id, definition: parsed.data });

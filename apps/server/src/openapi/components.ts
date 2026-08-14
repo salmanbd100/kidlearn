@@ -31,6 +31,8 @@ import {
   PinGrantResponseSchema,
   PinStatusResponseSchema,
   QuizQuestionSchema,
+  QuizResponsesResponseSchema,
+  QuizScoreSchema,
   ServiceIdentityResponseSchema,
   SessionEventRecordSchema,
   SessionEventResponseSchema,
@@ -57,6 +59,7 @@ import {
 } from "../schemas/parent.js";
 import {
   LessonStepBodySchema,
+  QuizResponsesBodySchema,
   SessionEventBodySchema,
 } from "../schemas/progress.js";
 import {
@@ -104,6 +107,7 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   DeleteAccountBody: DeleteAccountSchema,
   LessonStepBody: LessonStepBodySchema,
   SessionEventBody: SessionEventBodySchema,
+  QuizResponsesBody: QuizResponsesBodySchema,
 
   // --- Health -------------------------------------------------------------
   ServiceIdentityResponse: ServiceIdentityResponseSchema,
@@ -156,6 +160,8 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   LessonProgressResponse: LessonProgressResponseSchema,
   SessionEventRecord: SessionEventRecordSchema,
   SessionEventResponse: SessionEventResponseSchema,
+  QuizScore: QuizScoreSchema,
+  QuizResponsesResponse: QuizResponsesResponseSchema,
 
   // --- Versioned content payloads -----------------------------------------
   // Registered so the activity and quiz JSONB contracts are readable from the

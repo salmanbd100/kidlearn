@@ -12,12 +12,14 @@
  */
 import {
   LessonStepReportSchema,
+  QuizResponsesSubmitSchema,
   SessionEventReportSchema,
 } from "@kidlearn/types";
 import { z } from "zod";
 
 export {
   LessonStepReportSchema as LessonStepBodySchema,
+  QuizResponsesSubmitSchema as QuizResponsesBodySchema,
   SessionEventReportSchema as SessionEventBodySchema,
 };
 
@@ -28,5 +30,13 @@ export {
  */
 export const LessonIdParamsSchema = z.object({ id: z.string().uuid() });
 
+/**
+ * Named `quizId` rather than `id` because the path segment is: the quiz is not
+ * the resource `/api/progress` is otherwise about, and calling both `id` in one
+ * router is how a handler ends up reading the wrong one.
+ */
+export const QuizIdParamsSchema = z.object({ quizId: z.string().uuid() });
+
 export type LessonStepBody = z.infer<typeof LessonStepReportSchema>;
 export type SessionEventBody = z.infer<typeof SessionEventReportSchema>;
+export type QuizResponsesBody = z.infer<typeof QuizResponsesSubmitSchema>;

@@ -48,9 +48,25 @@ const LESSON_NOT_FOUND_RESPONSE = errorResponse(
   ["NOT_FOUND"],
 );
 
+/**
+ * A quiz carries a status but no grade tags, so it is visible exactly when a
+ * lesson the child can see points at it — which is why every clause of the lesson
+ * `404` above applies here too, plus the quiz's own status.
+ */
+const QUIZ_NOT_FOUND_RESPONSE = errorResponse(
+  "No such quiz, **or** it is not published, **or** no lesson this child can see points at it — the lesson is unpublished, its world is unpublished, or it is not tagged for this child's grade. All of them are the same `404`, for the reason the lesson `404` gives: a `403` would confirm the row exists (spec §7.3.4). A quiz is reached *through* its lesson because it has no grade tags of its own; resolving it by id alone would let a child post answers into another grade's content.",
+  ["NOT_FOUND"],
+);
+
 const LESSON_ID_PARAM = pathParam(
   "id",
   "The lesson id. Must be a uuid, matching `/api/content/lessons/{id}`.",
+  { type: "string", format: "uuid" },
+);
+
+const QUIZ_ID_PARAM = pathParam(
+  "quizId",
+  "The quiz id, as served in `LessonDetail.quiz.id`. Must be a uuid.",
   { type: "string", format: "uuid" },
 );
 
@@ -156,6 +172,43 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "401": UNAUTHORIZED_RESPONSE,
         "403": NO_ACTIVE_CHILD_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/progress/quizzes/{quizId}/responses",
+    operation: {
+      tags: ["Progress"],
+      summary: "Submit a finished quiz and score the lesson",
+      description: [
+        `Stores one \`QuizResponse\` row per answered question and writes the resulting percentage onto the lesson's \`LessonProgress.score\` (FR-QUIZ-08). ${AUTHORITATIVE}`,
+        "",
+        "**The whole quiz is posted once, after the last question** — not one call per answer. A child answers a handful of questions in about ninety seconds, and a round trip between each is a chance for the celebration to sit waiting on a network that is not there. The player posts this alongside the score screen and never blocks on it: a failure here loses a record, and a child who is stuck mid-lesson loses the lesson.",
+        "",
+        '**`isCorrect` means the *first* attempt was correct, not that the child eventually got there.** A quiz has no fail state — the child stays on a question, retrying among the options still available, until it is right (spec §5.7) — so "answered correctly in the end" is a constant `true` and worth nothing. `attempts` carries how hard it was.',
+        "",
+        "**The score is computed over the quiz, not over the submission.** `totalQuestions` is how many questions the quiz has, so posting only the questions that went well cannot raise the percentage. A question the player dropped as unrenderable therefore scores as missed, which is the fail-closed direction. The other end of that is the `400` on a repeated `questionId`: without it a submission could count more correct answers than the quiz has questions.",
+        "",
+        "**A replay never lowers `LessonProgress.score`.** The stored value is the child's best across every attempt. The `score` in *this* response is what this attempt earned, which may be lower than the row now holds — the three numbers here describe the submission, so that they agree with one another.",
+        "",
+        "`200`, not `201`: the rows are a side effect of scoring, and what comes back is the score rather than a resource a caller could go and read.",
+      ].join("\n"),
+      parameters: [QUIZ_ID_PARAM],
+      requestBody: jsonRequestBody("QuizResponsesBody"),
+      responses: {
+        "200": jsonResponse(
+          "What this attempt was worth. Nothing here is shown to the child — the score screen draws its stars from the answers it already holds.",
+          "QuizResponsesResponse",
+        ),
+        "400": errorResponse(
+          "Zod rejected the body — an empty `responses` array, more than ten of them, the same `questionId` twice, `attempts` below 1, an answer that is neither an option id nor a `{ pairs }` object, or an unknown key — **or** a `questionId` that belongs to some other quiz. The second is a `400` and not a `404` on purpose: the quiz named in the path was found and is this child's to answer, so the request is malformed rather than the resource missing. Nothing is stored either way; the whole submission is rejected.",
+          ["VALIDATION_FAILED"],
+        ),
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "404": QUIZ_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },

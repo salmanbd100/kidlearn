@@ -2,6 +2,8 @@
 
 import type { QuizQuestionDefinition } from "@kidlearn/types";
 import type { ReactNode } from "react";
+import { DragAnswerQuestion } from "./DragAnswerQuestion";
+import { MatchPairQuestion } from "./MatchPairQuestion";
 import { McqQuestion } from "./McqQuestion";
 import { PictureSelectQuestion } from "./PictureSelectQuestion";
 import type { PlayableQuestion, QuestionProps } from "./types";
@@ -12,12 +14,13 @@ import type { PlayableQuestion, QuestionProps } from "./types";
  * The same shape as `activities/registry.tsx`, for the same reasons: a `switch`
  * rather than a lookup table, so the discriminated union narrows for free and
  * the compiler — not a runtime cast — is what guarantees each format is handed a
- * definition it understands. Widening `PlayableQuestion` in file 22 stops this
- * compiling until the two new cases are written.
+ * definition it understands.
  *
- * `isPlayableQuestion` is the other half of the contract: the engine asks it
- * *before* a question joins the session, so a format this file cannot render is
- * dropped rather than reached and rendered blank.
+ * All four formats are rendered now, so `isPlayableQuestion` answers `true` for
+ * every member of the union. It stays — and stays exhaustive rather than
+ * `return true` — because it is the gate the engine asks *before* a question
+ * joins the session, and a fifth format added to the schema must be dropped from
+ * the quiz rather than reached and rendered blank.
  */
 
 export function isPlayableQuestion(
@@ -26,6 +29,8 @@ export function isPlayableQuestion(
   switch (definition.type) {
     case "mcq":
     case "picture_select":
+    case "match_pair":
+    case "drag_answer":
       return true;
     default:
       return false;
@@ -41,5 +46,9 @@ export function renderQuestion({
       return <McqQuestion definition={definition} {...rest} />;
     case "picture_select":
       return <PictureSelectQuestion definition={definition} {...rest} />;
+    case "match_pair":
+      return <MatchPairQuestion definition={definition} {...rest} />;
+    case "drag_answer":
+      return <DragAnswerQuestion definition={definition} {...rest} />;
   }
 }

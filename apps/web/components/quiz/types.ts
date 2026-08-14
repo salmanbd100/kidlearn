@@ -1,52 +1,45 @@
 import type {
+  DragAnswerQuestion,
   Locale,
+  MatchPairQuestion,
   McqQuestion,
   PictureSelectQuestion,
+  QuizAnswerValue,
+  QuizResponseRecord,
 } from "@kidlearn/types";
 import type { QuestionFeedback } from "./use-question-feedback";
 
 /**
- * The contracts the quiz engine, its question formats and file 22's submission
- * API are all written against (FR-QUIZ-07).
+ * The contracts the quiz engine and its four question formats are written
+ * against (FR-QUIZ-07).
  *
- * Fixed here rather than inside the engine because the records this file
- * produces are the request body file 22 posts: the shape has to be settled
- * before the thing that consumes it exists, or the engine gets rewritten around
- * whatever the endpoint turned out to want.
+ * The answer shapes themselves are **not** declared here: they are the request
+ * body `POST /api/progress/quizzes/:quizId/responses` validates with, so they
+ * live in `@kidlearn/types` and are re-exported below. A second declaration of
+ * the same shape on the client is a second thing to keep in step, and the one
+ * that drifts is always the one the server does not check.
  */
 
-/** The formats this file ships. File 22 widens it with the other two. */
-export type PlayableQuestion = McqQuestion | PictureSelectQuestion;
+export type { QuizAnswerValue };
+
+/** Every format the registry can render. */
+export type PlayableQuestion =
+  | McqQuestion
+  | PictureSelectQuestion
+  | MatchPairQuestion
+  | DragAnswerQuestion;
 
 /**
- * One answer, as the child gave it.
+ * One answered question, as the engine accumulates it and the endpoint stores it.
  *
- * A bare option id covers every pick-one format (`mcq`, `picture_select`, and
- * `drag_answer` when it lands). The `pairs` variant is `match_pair`'s, declared
- * now so that the record below is the same shape in both files rather than
- * something file 22 has to widen after the fact.
+ * `isCorrect` is **true only when the first attempt was correct**, and that is
+ * what the score is computed from. A quiz here has no fail state: a child stays
+ * on a question, retrying among the options still available, until they get it
+ * right (§5.7). So "did they answer correctly in the end" is a constant `true`
+ * and worth nothing — the only thing that carries information is whether they
+ * knew it straight away. `attempts` carries how hard it was.
  */
-export type QuizAnswerValue =
-  | string
-  | { pairs: { leftId: string; rightId: string }[] };
-
-export interface QuizAnswerRecord {
-  questionId: string;
-  /** The committed answer, which is always the correct one — see `isCorrect`. */
-  answer: QuizAnswerValue;
-  /**
-   * **True only when the first attempt was correct**, and this is what scoring
-   * and coins are computed from (file 22).
-   *
-   * A quiz here has no fail state: a child stays on a question, retrying among
-   * the options still available, until they get it right (§5.7). So "did they
-   * answer correctly in the end" is a constant `true` and worth nothing — the
-   * only thing that carries information is whether they knew it straight away.
-   */
-  isCorrect: boolean;
-  /** Taps on this question until it was answered correctly. Always ≥ 1. */
-  attempts: number;
-}
+export type QuizAnswerRecord = QuizResponseRecord;
 
 export interface QuestionProps<T extends PlayableQuestion = PlayableQuestion> {
   definition: T;

@@ -4,6 +4,8 @@ import {
   LESSON_STEPS,
   type LessonStep,
   type LessonStepReport,
+  type QuizResponsesSubmit,
+  type QuizScoreResponse,
   type SessionEventReport,
 } from "@kidlearn/types";
 import { ApiError } from "../lib/errors.js";
@@ -193,4 +195,117 @@ export async function recordSessionEvent(
   return prisma.sessionEvent.create({
     data: { childId: child.id, type: event.type, payload },
   });
+}
+
+/**
+ * FR-QUIZ-08 — stores one `QuizResponse` per answered question and scores the
+ * lesson from them.
+ *
+ * The quiz is resolved *through its lesson*, not by id: `Quiz` carries a status
+ * but no grade tags, so a quiz is visible exactly when some lesson the child can
+ * see points at it. Reading it any other way would let a child post answers into
+ * a quiz belonging to a grade or a world they have no access to — the same
+ * probing hole `requireVisibleLessonId` closes, and answered with the same 404.
+ *
+ * **Scoring is over the quiz, not over the submission.** A client that posts
+ * three of four records would otherwise score 100% for skipping the question it
+ * got wrong, so the denominator is how many questions the quiz has.
+ *
+ * Serializable with one retry, like `reportLessonStep` and for the same reason:
+ * the best-score guard is a read-then-write, and two submissions racing under
+ * READ COMMITTED would lose the higher one.
+ */
+export async function recordQuizResponses(
+  child: ChildProfile,
+  quizId: string,
+  submit: QuizResponsesSubmit,
+): Promise<QuizScoreResponse> {
+  const lesson = await prisma.lesson.findFirst({
+    where: {
+      quizId,
+      ...publishedForChild(child),
+      world: publishedRelation,
+      quiz: publishedRelation,
+    },
+    select: {
+      id: true,
+      quiz: { select: { questions: { select: { id: true } } } },
+    },
+  });
+  // `quiz` is nullable on the row even though the filter above cannot match
+  // without one, so the narrowing is the compiler's, not a second guard.
+  if (lesson === null || lesson.quiz === null) {
+    throw ApiError.notFound("Quiz not found");
+  }
+
+  const known = new Set(lesson.quiz.questions.map((question) => question.id));
+  const foreign = submit.responses.find(
+    (response) => !known.has(response.questionId),
+  );
+  if (foreign !== undefined) {
+    throw new ApiError(
+      400,
+      "VALIDATION_FAILED",
+      `questionId ${foreign.questionId} does not belong to quiz ${quizId}`,
+    );
+  }
+
+  const totalQuestions = lesson.quiz.questions.length;
+  const correctCount = submit.responses.filter(
+    (response) => response.isCorrect,
+  ).length;
+  const score = Math.round((100 * correctCount) / totalQuestions);
+
+  try {
+    await recordQuizResponsesOnce(child.id, lesson.id, submit, score);
+  } catch (error) {
+    if (!isSerializationFailure(error)) throw error;
+    await recordQuizResponsesOnce(child.id, lesson.id, submit, score);
+  }
+
+  return { lessonId: lesson.id, score, correctCount, totalQuestions };
+}
+
+function recordQuizResponsesOnce(
+  childId: string,
+  lessonId: string,
+  submit: QuizResponsesSubmit,
+  score: number,
+): Promise<void> {
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.quizResponse.createMany({
+        data: submit.responses.map((response) => ({
+          childId,
+          questionId: response.questionId,
+          // Zod parsed this into a string or a `{ pairs }` object, both of which
+          // are valid JSON — but `InputJsonValue` is a recursive type Prisma
+          // cannot infer a union into, so the boundary is asserted here.
+          answer: response.answer as Prisma.InputJsonValue,
+          isCorrect: response.isCorrect,
+          attempts: response.attempts,
+        })),
+      });
+
+      const existing = await tx.lessonProgress.findUnique({
+        where: { childId_lessonId: { childId, lessonId } },
+      });
+
+      if (existing === null) {
+        await tx.lessonProgress.create({ data: { childId, lessonId, score } });
+        return;
+      }
+
+      // A replay keeps the child's best. Lowering it would make a second, more
+      // tired run erase what they did on the first — and the row is what a
+      // parent's report reads (file 29).
+      if (score > (existing.score ?? -1)) {
+        await tx.lessonProgress.update({
+          where: { id: existing.id },
+          data: { score },
+        });
+      }
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }

@@ -1,6 +1,7 @@
 import {
   invalidMcqBadCorrectId,
   invalidQuizUnknownType,
+  validDragAnswer,
   validMatchPair,
   validMcq,
   validPictureSelect,
@@ -104,16 +105,15 @@ describe("QuizEngine", () => {
       error.mockRestore();
     });
 
-    it("skips a format no renderer implements yet", () => {
-      const error = vi.spyOn(console, "error").mockImplementation(() => {});
-      renderEngine([
-        { id: "later", definition: validMatchPair },
-        { id: "q1", definition: validMcq },
-      ]);
+    it.each([
+      ["mcq", validMcq, "quiz-mcq"],
+      ["picture_select", validPictureSelect, "quiz-picture-select"],
+      ["match_pair", validMatchPair, "quiz-match-pair"],
+      ["drag_answer", validDragAnswer, "quiz-drag-answer"],
+    ])("renders a %s question from its payload", (_type, definition, testId) => {
+      renderEngine([{ id: "q1", definition }]);
 
-      expect(screen.getByTestId("quiz-mcq")).toBeInTheDocument();
-      expect(error).toHaveBeenCalled();
-      error.mockRestore();
+      expect(screen.getByTestId(testId)).toBeInTheDocument();
     });
 
     it("finishes with nothing when no question can be asked", () => {

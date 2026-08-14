@@ -72,7 +72,31 @@
     "empty": "No questions today.",
     "optionTried": "already tried",
     "optionCorrect": "That's it!",
-    "optionPicture": "Picture {{number}}"
+    "optionPicture": "Picture {{number}}",
+    "match": {
+      "firstSet": "First group",
+      "secondSet": "Second group",
+      "picked": "{{item}} is picked. Now tap the one that goes with it.",
+      "progress": "{{matched}} of {{total}} matched",
+      "done": "You matched them all!",
+      "cardMatched": "matched",
+      "keyboard": "Tap a card, then tap the one that goes with it."
+    },
+    "drag": {
+      "blank": "the gap",
+      "tray": "Words to move",
+      "instructions": "Press space or enter to pick a word up, move it with the arrow keys, then press space or enter to drop it. Press escape to put it back.",
+      "roleDescription": "movable",
+      "pickedUp": "Holding {{item}}.",
+      "over": "{{item}} is over {{target}}.",
+      "dropped": "{{item}} is in {{target}}!",
+      "cancelled": "{{item}} went back."
+    },
+    "score": {
+      "title": "You did it!",
+      "announce": "You finished all the questions!",
+      "done": "Yay!"
+    }
   },
   "exit": {
     "open": "Leave the lesson",
