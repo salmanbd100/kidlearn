@@ -21,6 +21,7 @@ import type { ChildProfile, LessonProgress, Parent } from "@kidlearn/db";
 import {
   LessonProgressReadResponseSchema,
   LessonProgressResponseSchema,
+  QuizResponsesResponseSchema,
   SessionEventResponseSchema,
 } from "@kidlearn/types";
 import request from "supertest";
@@ -29,8 +30,12 @@ import { assertContract } from "../openapi/assert-contract.js";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 const MISSING_ID = "99999999-9999-4999-8999-999999999999";
+const QUIZ_ID = "44444444-4444-4444-8444-444444444444";
 const CHILD_ID = "child_1";
 const CLIENT_TS = "2026-08-10T09:00:00.000Z";
+
+/** Four questions, so a three-correct run scores a round 75. */
+const QUESTION_IDS = ["q_1", "q_2", "q_3", "q_4"] as const;
 
 type ProgressRow = {
   id: string;
@@ -51,6 +56,14 @@ type EventRow = {
   payload: unknown;
 };
 
+type QuizResponseRow = {
+  childId: string;
+  questionId: string;
+  answer: unknown;
+  isCorrect: boolean;
+  attempts: number;
+};
+
 /**
  * An in-memory store, not a queue of canned answers.
  *
@@ -60,6 +73,7 @@ type EventRow = {
 const store = vi.hoisted(() => ({
   progressRow: null as unknown,
   events: [] as unknown[],
+  quizResponses: [] as unknown[],
   transactionOptions: [] as unknown[],
 }));
 
@@ -71,6 +85,7 @@ const db = vi.hoisted(() => ({
   progressCreate: vi.fn(),
   progressUpdate: vi.fn(),
   sessionEventCreate: vi.fn(),
+  quizResponseCreateMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -85,6 +100,7 @@ vi.mock("../lib/prisma.js", () => ({
       update: db.progressUpdate,
     },
     sessionEvent: { create: db.sessionEventCreate },
+    quizResponse: { createMany: db.quizResponseCreateMany },
     $transaction: db.transaction,
   },
 }));
@@ -165,25 +181,35 @@ function currentRow(): ProgressRow {
 beforeEach(() => {
   store.progressRow = null;
   store.events = [];
+  store.quizResponses = [];
   store.transactionOptions = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
-  // The lesson is visible unless a test says otherwise.
-  db.lessonFindFirst.mockResolvedValue({ id: LESSON_ID });
+  // The lesson is visible unless a test says otherwise. The `quiz` half is what
+  // the quiz-submission query selects; the step and event services read only
+  // `id`, so carrying it here costs them nothing.
+  db.lessonFindFirst.mockResolvedValue({
+    id: LESSON_ID,
+    quiz: { questions: QUESTION_IDS.map((id) => ({ id })) },
+  });
 
   db.progressFindUnique.mockImplementation(async () => store.progressRow);
 
+  // Column defaults first, then whatever the caller supplied — the quiz endpoint
+  // creates a row with a `score` and no `currentStep`, the step endpoint the
+  // other way round, and a stub that pinned either would be asserting its own
+  // script rather than the schema's defaults.
   db.progressCreate.mockImplementation(async ({ data }: { data: unknown }) => {
-    const input = data as Omit<
-      ProgressRow,
-      "id" | "score" | "timeSpentSec" | "updatedAt"
-    >;
     const row: ProgressRow = {
       id: "progress_1",
-      ...input,
+      childId: CHILD_ID,
+      lessonId: LESSON_ID,
+      currentStep: "intro",
+      completedAt: null,
       score: null,
       timeSpentSec: 0,
       updatedAt: new Date("2026-08-10T09:00:00.000Z"),
+      ...(data as Partial<ProgressRow>),
     };
     store.progressRow = row;
     return row;
@@ -209,6 +235,14 @@ beforeEach(() => {
     },
   );
 
+  db.quizResponseCreateMany.mockImplementation(
+    async ({ data }: { data: unknown }) => {
+      const rows = data as QuizResponseRow[];
+      store.quizResponses.push(...rows);
+      return { count: rows.length };
+    },
+  );
+
   // Runs the real callback against the in-memory store, and records the options
   // so the isolation level can be asserted (Rule 4).
   db.transaction.mockImplementation(
@@ -223,6 +257,7 @@ beforeEach(() => {
           create: db.progressCreate,
           update: db.progressUpdate,
         },
+        quizResponse: { createMany: db.quizResponseCreateMany },
       });
     },
   );
@@ -599,6 +634,268 @@ describe("POST /api/progress/events", () => {
   });
 });
 
+describe("POST /api/progress/quizzes/:quizId/responses", () => {
+  /** Three of the four right on the first go — 75%. */
+  function answers(overrides: Partial<Record<string, boolean>> = {}) {
+    return QUESTION_IDS.map((questionId, index) => ({
+      questionId,
+      answer: "apple",
+      isCorrect: overrides[questionId] ?? index < 3,
+      attempts: (overrides[questionId] ?? index < 3) ? 1 : 2,
+    }));
+  }
+
+  function submit(responses: unknown[], quizId = QUIZ_ID) {
+    return request(app)
+      .post(`/api/progress/quizzes/${quizId}/responses`)
+      .send({ responses });
+  }
+
+  function storedResponses(): QuizResponseRow[] {
+    return store.quizResponses as QuizResponseRow[];
+  }
+
+  it("returns 401 UNAUTHORIZED when the request carries no session", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+
+    const res = await submit(answers());
+
+    expect(res.status).toBe(401);
+    expect(store.quizResponses).toHaveLength(0);
+  });
+
+  it("returns 403 FORBIDDEN when the session has no active child profile", async () => {
+    signInAs(null);
+
+    const res = await submit(answers());
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(db.lessonFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-uuid quiz id before touching the database", async () => {
+    signInAs(childProfile());
+
+    const res = await submit(answers(), "quiz-one");
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+    expect(db.lessonFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("stores one row per answer and answers with the score", async () => {
+    signInAs(childProfile());
+
+    const res = await submit(answers());
+
+    expect(res.status).toBe(200);
+    assertContract(
+      QuizResponsesResponseSchema,
+      res.body,
+      "POST /api/progress/quizzes/{quizId}/responses",
+    );
+    expect(res.body.data).toEqual({
+      lessonId: LESSON_ID,
+      score: 75,
+      correctCount: 3,
+      totalQuestions: 4,
+    });
+    expect(storedResponses()).toHaveLength(4);
+  });
+
+  it("keeps the attempt count each answer took (FR-QUIZ-08)", async () => {
+    signInAs(childProfile());
+
+    await submit([
+      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+      {
+        questionId: "q_2",
+        answer: { pairs: [{ leftId: "dog", rightId: "woof" }] },
+        isCorrect: false,
+        attempts: 3,
+      },
+    ]);
+
+    // `isCorrect` alone cannot tell a walkover from a struggle — this is the
+    // column that can.
+    expect(storedResponses()).toEqual([
+      expect.objectContaining({ questionId: "q_1", attempts: 1 }),
+      expect.objectContaining({ questionId: "q_2", attempts: 3 }),
+    ]);
+  });
+
+  it("stores a match_pair answer as the pair set the child ended with", async () => {
+    signInAs(childProfile());
+    const pairs = [
+      { leftId: "dog", rightId: "woof" },
+      { leftId: "cat", rightId: "meow" },
+    ];
+
+    await submit([
+      { questionId: "q_1", answer: { pairs }, isCorrect: true, attempts: 1 },
+    ]);
+
+    expect(storedResponses()[0].answer).toEqual({ pairs });
+  });
+
+  it("writes the score onto the lesson's progress row", async () => {
+    signInAs(childProfile());
+
+    await submit(answers());
+
+    expect(currentRow()).toMatchObject({
+      childId: CHILD_ID,
+      lessonId: LESSON_ID,
+      score: 75,
+    });
+  });
+
+  it("keeps the higher score when a weaker replay is submitted", async () => {
+    signInAs(childProfile());
+    await submit(answers());
+
+    const res = await submit(
+      answers({ q_1: false, q_2: false, q_3: false, q_4: false }),
+    );
+
+    // The reply describes the attempt; the row keeps the child's best. A second,
+    // more tired run must not erase what they did on the first.
+    expect(res.body.data.score).toBe(0);
+    expect(currentRow().score).toBe(75);
+  });
+
+  it("raises the score when a replay goes better", async () => {
+    signInAs(childProfile());
+    await submit(answers({ q_1: false, q_2: false, q_3: false, q_4: false }));
+
+    await submit(answers({ q_4: true }));
+
+    expect(currentRow().score).toBe(100);
+  });
+
+  it("scores over the quiz, not over what was submitted", async () => {
+    signInAs(childProfile());
+
+    // One of four, and it was right. A denominator taken from the submission
+    // would score this 100% for skipping the three that went badly.
+    const res = await submit([
+      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+    ]);
+
+    expect(res.body.data).toMatchObject({
+      score: 25,
+      correctCount: 1,
+      totalQuestions: 4,
+    });
+  });
+
+  it("rejects a questionId belonging to another quiz and stores nothing", async () => {
+    signInAs(childProfile());
+
+    const res = await submit([
+      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+      {
+        questionId: "someone_elses_question",
+        answer: "apple",
+        isCorrect: true,
+        attempts: 1,
+      },
+    ]);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+    // The whole submission is rejected — a partial write would score the quiz
+    // from a set of answers nobody asked for.
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(store.quizResponses).toHaveLength(0);
+  });
+
+  it("rejects one question answered twice and stores nothing", async () => {
+    signInAs(childProfile());
+
+    // Four questions, five records, every one of them the same correct answer.
+    // Counted as sent, that is 125% — and five rows against one question in the
+    // accuracy report file 29 reads.
+    const res = await submit(
+      Array.from({ length: 5 }, () => ({
+        questionId: "q_1",
+        answer: "apple",
+        isCorrect: true,
+        attempts: 1,
+      })),
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+    expect(db.lessonFindFirst).not.toHaveBeenCalled();
+    expect(store.quizResponses).toHaveLength(0);
+  });
+
+  it("rejects an empty submission", async () => {
+    signInAs(childProfile());
+
+    const res = await submit([]);
+
+    expect(res.status).toBe(400);
+    expect(db.lessonFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects attempts below one", async () => {
+    signInAs(childProfile());
+
+    const res = await submit([
+      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 0 },
+    ]);
+
+    expect(res.status).toBe(400);
+    expect(store.quizResponses).toHaveLength(0);
+  });
+
+  it("stores the rows under the session's child, not one named in the request", async () => {
+    signInAs(childProfile());
+
+    await submit(answers());
+
+    expect(storedResponses().every((row) => row.childId === CHILD_ID)).toBe(
+      true,
+    );
+  });
+
+  it("writes the rows and the score inside one Serializable transaction", async () => {
+    signInAs(childProfile());
+
+    await submit(answers());
+
+    // Both the best-score read-then-write and the row insert have to survive two
+    // submissions racing. Whether Postgres honours the level needs a real
+    // database; that it is asked for is testable.
+    expect(store.transactionOptions).toEqual([
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ]);
+  });
+
+  it("retries once when Postgres aborts the transaction as a serialization failure", async () => {
+    signInAs(childProfile());
+    let attempts = 0;
+    db.transaction.mockImplementation(async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Prisma.PrismaClientKnownRequestError("write conflict", {
+          code: "P2034",
+          clientVersion: "6",
+        });
+      }
+      return undefined;
+    });
+
+    const res = await submit(answers());
+
+    expect(res.status).toBe(200);
+    expect(attempts).toBe(2);
+  });
+});
+
 /**
  * The content-safety half (`backend.md §4`). A stub cannot show that a draft
  * lesson stayed out of the progress table, so the `where` clause that keeps it out
@@ -660,8 +957,15 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
       lessonId: MISSING_ID,
       clientTs: CLIENT_TS,
     });
+    const quiz = await request(app)
+      .post(`/api/progress/quizzes/${MISSING_ID}/responses`)
+      .send({
+        responses: [
+          { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+        ],
+      });
 
-    for (const res of [step, read, event]) {
+    for (const res of [step, read, event, quiz]) {
       // 403 would confirm the row exists, which is what a probe is after.
       expect(res.status).toBe(404);
       expect(res.body.error.code).toBe("NOT_FOUND");
@@ -669,6 +973,36 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
     expect(db.transaction).not.toHaveBeenCalled();
     expect(db.sessionEventCreate).not.toHaveBeenCalled();
     expect(store.progressRow).toBeNull();
+    expect(store.quizResponses).toHaveLength(0);
+  });
+
+  it("reaches a quiz only through a lesson the child can see", async () => {
+    signInAs(childProfile());
+
+    await request(app)
+      .post(`/api/progress/quizzes/${QUIZ_ID}/responses`)
+      .send({
+        responses: [
+          { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+        ],
+      });
+
+    // A `Quiz` carries a status but no grade tags, so resolving it by id alone
+    // would let a child answer another grade's content. Every clause of the
+    // lesson gate above applies, plus the quiz's own status.
+    expect(db.lessonFindFirst).toHaveBeenCalledWith({
+      where: {
+        quizId: QUIZ_ID,
+        status: "published",
+        gradeLevels: { has: "NURSERY" },
+        world: { is: { status: "published" } },
+        quiz: { is: { status: "published" } },
+      },
+      select: {
+        id: true,
+        quiz: { select: { questions: { select: { id: true } } } },
+      },
+    });
   });
 
   it("never sends a status other than published to Prisma", async () => {

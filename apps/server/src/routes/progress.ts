@@ -2,6 +2,8 @@ import type { LessonProgress } from "@kidlearn/db";
 import type {
   LessonProgressResponse,
   LessonStepReport,
+  QuizResponsesSubmit,
+  QuizScoreResponse,
   SessionEventRecordResponse,
   SessionEventReport,
 } from "@kidlearn/types";
@@ -12,10 +14,13 @@ import { validate } from "../middleware/validate.js";
 import {
   LessonIdParamsSchema,
   LessonStepBodySchema,
+  QuizIdParamsSchema,
+  QuizResponsesBodySchema,
   SessionEventBodySchema,
 } from "../schemas/progress.js";
 import {
   getLessonProgress,
+  recordQuizResponses,
   recordSessionEvent,
   reportLessonStep,
 } from "../services/lessonProgressService.js";
@@ -43,6 +48,11 @@ export const progressRouter = Router();
  */
 function lessonIdParam(req: Request): string {
   return req.params.id as string;
+}
+
+/** The same narrowing, for routes guarded by `QuizIdParamsSchema`. */
+function quizIdParam(req: Request): string {
+  return req.params.quizId as string;
 }
 
 /**
@@ -125,6 +135,28 @@ progressRouter.post(
         },
       };
       res.status(201).json(body);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * 200 rather than 201: the rows are a side effect of scoring, and what a caller
+ * is given back is the score — not a resource it could go and read.
+ */
+progressRouter.post(
+  "/quizzes/:quizId/responses",
+  validate({ params: QuizIdParamsSchema, body: QuizResponsesBodySchema }),
+  async (req, res, next) => {
+    try {
+      const score = await recordQuizResponses(
+        activeChild(req),
+        quizIdParam(req),
+        req.body as QuizResponsesSubmit,
+      );
+      const body: SuccessEnvelope<QuizScoreResponse> = { data: score };
+      res.json(body);
     } catch (error) {
       next(error);
     }

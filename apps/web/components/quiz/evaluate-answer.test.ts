@@ -42,19 +42,75 @@ describe("evaluateAnswer", () => {
     });
   });
 
-  describe("the formats file 22 owns", () => {
-    it("refuses to mark a drag_answer rather than guessing at it", () => {
-      expect(() => evaluateAnswer(validDragAnswer, "blue")).toThrow(
-        /drag_answer/,
+  describe("drag_answer (FR-QUIZ-03)", () => {
+    it("accepts the option the payload names as correct", () => {
+      expect(evaluateAnswer(validDragAnswer, "blue")).toBe(true);
+    });
+
+    it("rejects the other option in the tray", () => {
+      expect(evaluateAnswer(validDragAnswer, "green")).toBe(false);
+    });
+
+    it("rejects an id that is not in the tray at all", () => {
+      expect(evaluateAnswer(validDragAnswer, "purple")).toBe(false);
+    });
+  });
+
+  describe("match_pair (FR-QUIZ-02)", () => {
+    const bothPairs = [
+      { leftId: "dog", rightId: "woof" },
+      { leftId: "cat", rightId: "meow" },
+    ];
+
+    it("accepts every pair matched", () => {
+      expect(evaluateAnswer(validMatchPair, { pairs: bothPairs })).toBe(true);
+    });
+
+    it("accepts the pairs in any order", () => {
+      expect(
+        evaluateAnswer(validMatchPair, { pairs: [...bothPairs].reverse() }),
+      ).toBe(true);
+    });
+
+    it("accepts a pair whose sides arrive the other way round", () => {
+      // Which column the child tapped first is not part of the answer.
+      expect(
+        evaluateAnswer(validMatchPair, {
+          pairs: [
+            { leftId: "woof", rightId: "dog" },
+            { leftId: "meow", rightId: "cat" },
+          ],
+        }),
+      ).toBe(true);
+    });
+
+    it("rejects a half-finished set", () => {
+      expect(evaluateAnswer(validMatchPair, { pairs: [bothPairs[0]] })).toBe(
+        false,
       );
     });
 
-    it("refuses to mark a match_pair rather than guessing at it", () => {
-      expect(() =>
+    it("rejects a set containing a pair that does not go together", () => {
+      expect(
         evaluateAnswer(validMatchPair, {
-          pairs: [{ leftId: "dog", rightId: "woof" }],
+          pairs: [
+            { leftId: "dog", rightId: "meow" },
+            { leftId: "cat", rightId: "woof" },
+          ],
         }),
-      ).toThrow(/match_pair/);
+      ).toBe(false);
+    });
+
+    it("rejects one right pair sent twice in place of the missing one", () => {
+      expect(
+        evaluateAnswer(validMatchPair, {
+          pairs: [bothPairs[0], bothPairs[0]],
+        }),
+      ).toBe(false);
+    });
+
+    it("rejects a pick-one answer handed to a pairing question", () => {
+      expect(evaluateAnswer(validMatchPair, "dog")).toBe(false);
     });
   });
 });

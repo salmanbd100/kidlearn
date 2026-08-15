@@ -68,3 +68,30 @@ export type SessionEventRecordResponse = z.infer<
 export const SessionEventResponseSchema = ok(
   z.object({ event: SessionEventRecordSchema }).strict(),
 );
+
+/**
+ * What a submitted quiz was worth (FR-QUIZ-08).
+ *
+ * Every number here is the server's arithmetic over the records it was sent, and
+ * none of it is what the child sees: the score screen draws its stars from the
+ * records it already holds, so this response exists for the parent dashboard
+ * (file 29) and for file 23's reward grants — not to tell a four-year-old they
+ * got 75%.
+ *
+ * All three describe **this attempt**, not the stored row. `LessonProgress.score`
+ * keeps the child's best across replays, so a weaker second run answers with its
+ * own lower `score` while the row it wrote to is unchanged. Reporting the attempt
+ * is what makes the three numbers agree with each other.
+ */
+export const QuizScoreSchema = z
+  .object({
+    lessonId: z.string(),
+    score: z.number().int().min(0).max(100),
+    correctCount: z.number().int().min(0),
+    totalQuestions: z.number().int().min(1),
+  })
+  .strict();
+
+export type QuizScoreResponse = z.infer<typeof QuizScoreSchema>;
+
+export const QuizResponsesResponseSchema = ok(QuizScoreSchema);

@@ -2,6 +2,8 @@ import type {
   LessonProgressResponse,
   LessonStep,
   LessonStepReport,
+  QuizResponseRecord,
+  QuizScoreResponse,
   SessionEventRecordResponse,
   SessionEventReport,
 } from "@kidlearn/types";
@@ -76,5 +78,30 @@ export function sendSessionEvent(
         `[kidlearn] session event ${event.type} not recorded: ${result.error.code}`,
       );
     }
+  });
+}
+
+/**
+ * FR-QUIZ-08 — posts the whole finished quiz, once.
+ *
+ * The score comes back but is not what the child is shown: the score screen
+ * draws its stars from the same records this sends, which is what lets the
+ * celebration render before — and regardless of whether — this resolves. The
+ * caller is expected to fire it alongside that screen and never to block on it
+ * (see `QuizStep`).
+ *
+ * `retries: 0` for the reason `sendSessionEvent` gives, plus one of its own: by
+ * the time a retry landed the child would be in the reward step, and a duplicate
+ * that *did* succeed would write a second set of `QuizResponse` rows for one
+ * sitting.
+ */
+export function submitQuizResponses(
+  quizId: string,
+  responses: readonly QuizResponseRecord[],
+): Promise<ApiResult<QuizScoreResponse>> {
+  return apiFetch(`/api/progress/quizzes/${quizId}/responses`, {
+    method: "POST",
+    body: JSON.stringify({ responses }),
+    retries: 0,
   });
 }

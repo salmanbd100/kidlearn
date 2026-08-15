@@ -462,6 +462,9 @@ model QuizResponse {
   question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
   answer     Json
   isCorrect  Boolean
+  // Taps until the question was answered right. `isCorrect` is only ever "the
+  // first one was", so without this a struggle and a walkover are the same row.
+  attempts   Int          @default(1)
   answeredAt DateTime     @default(now())
 
   @@index([childId, answeredAt])

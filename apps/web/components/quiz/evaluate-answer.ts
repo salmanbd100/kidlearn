@@ -2,8 +2,7 @@ import type { QuizQuestionDefinition } from "@kidlearn/types";
 import type { QuizAnswerValue } from "./types";
 
 /**
- * What counts as a right answer, for every quiz format that has one
- * (FR-QUIZ-01, FR-QUIZ-04).
+ * What counts as a right answer, for every quiz format (FR-QUIZ-01..04).
  *
  * The same split as `activities/evaluate.ts`: the question components decide
  * what an answer *looks* like, this decides what an answer *means*. No React, no
@@ -17,14 +16,45 @@ export function evaluateAnswer(
   switch (question.type) {
     case "mcq":
     case "picture_select":
-      return answer === question.correctOptionId;
     case "drag_answer":
+      return answer === question.correctOptionId;
     case "match_pair":
-      // Unreachable from the app: the registry renders neither format yet, and
-      // the engine drops a question it cannot render before a child ever sees
-      // it. Throwing rather than returning `false` — silently marking every
-      // answer wrong would trap a child on a question with no way out, which is
-      // worse than a crash an engineer can see.
-      throw new Error(`evaluateAnswer: ${question.type} arrives with file 22`);
+      return isMatchComplete(question.correctPairs, answer);
   }
+}
+
+/**
+ * True only when the answer is *every* correct pair and nothing else.
+ *
+ * Order-agnostic within a pair, because which column a child tapped first is not
+ * part of the answer: `usePairing` normalises a tap-tap into left-then-right, but
+ * an answer replayed from a stored row need not have been. Order *between* pairs
+ * is likewise irrelevant — a set, compared as one.
+ */
+function isMatchComplete(
+  correctPairs: readonly { leftId: string; rightId: string }[],
+  answer: QuizAnswerValue,
+): boolean {
+  // A pick-one answer handed to a pairing question: wrong, not a crash. The
+  // engine keys each question's component by id, so a stale commit from the
+  // previous question is the shape that would arrive here.
+  if (typeof answer === "string") return false;
+
+  const key = (leftId: string, rightId: string) => `${leftId}::${rightId}`;
+  const correct = new Set(
+    correctPairs.map((pair) => key(pair.leftId, pair.rightId)),
+  );
+
+  // Matched against the answer key set rather than counted, so the same pair
+  // sent twice cannot stand in for one that is missing.
+  const matched = new Set<string>();
+  for (const pair of answer.pairs) {
+    const forwards = key(pair.leftId, pair.rightId);
+    const backwards = key(pair.rightId, pair.leftId);
+    if (correct.has(forwards)) matched.add(forwards);
+    else if (correct.has(backwards)) matched.add(backwards);
+    else return false;
+  }
+
+  return matched.size === correctPairs.length;
 }

@@ -121,3 +121,90 @@ export const SessionEventReportSchema = z
   .strict();
 
 export type SessionEventReport = z.infer<typeof SessionEventReportSchema>;
+
+/**
+ * One answer, in the shape the format that produced it gives it (FR-QUIZ-08).
+ *
+ * A bare option id covers every pick-one format — `mcq`, `picture_select` and
+ * `drag_answer`. `match_pair` is the one format whose answer is not a single
+ * choice, so it sends the whole set of pairs the child ended up with. The union
+ * is the wire contract for `QuizResponse.answer`, which is `Json` on the row.
+ */
+export const QuizAnswerValueSchema = z.union([
+  z.string().min(1),
+  z
+    .object({
+      pairs: z
+        .array(
+          z
+            .object({ leftId: z.string().min(1), rightId: z.string().min(1) })
+            .strict(),
+        )
+        .min(1),
+    })
+    .strict(),
+]);
+
+export type QuizAnswerValue = z.infer<typeof QuizAnswerValueSchema>;
+
+/**
+ * One question, as the child answered it.
+ *
+ * `answer` is the *committed* answer, which is always the correct one: a quiz
+ * here has no fail state, so a child stays on a question until they get it right
+ * (§5.7). What carries information is `isCorrect` — **true only when the first
+ * attempt was right** — and `attempts`, the taps it took. Scoring reads the
+ * former; a parent's report (file 29) reads the latter.
+ *
+ * The `attempts` ceiling is a sanity bound, not a rule the player enforces: a
+ * three-year-old drumming on a four-option question cannot exceed it, and a
+ * client claiming a thousand tries is reporting something that did not happen.
+ */
+export const QuizResponseRecordSchema = z
+  .object({
+    questionId: z.string().min(1),
+    answer: QuizAnswerValueSchema,
+    isCorrect: z.boolean(),
+    attempts: z.number().int().min(1).max(50),
+  })
+  .strict();
+
+export type QuizResponseRecord = z.infer<typeof QuizResponseRecordSchema>;
+
+/**
+ * `POST /api/progress/quizzes/:quizId/responses` — the whole quiz, once.
+ *
+ * Posted after the last question rather than per answer: a child answers four
+ * questions in ninety seconds on a connection that may not be there, and four
+ * round trips inside a celebration is four chances to make the screen wait. The
+ * `max(10)` mirrors the fact that a lesson quiz is a handful of questions —
+ * a payload larger than that is not a quiz this player produced.
+ *
+ * **One record per question, and the uniqueness is load-bearing.** Scoring
+ * divides the correct records by how many questions the quiz *has*, so a
+ * question sent twice is a percentage above 100 stored against the child — the
+ * mirror image of the under-reporting the quiz-wide denominator exists to
+ * prevent. The engine cannot produce one (a commit advances the question), which
+ * is exactly why the rule belongs here rather than in the player: what would
+ * send it is a client the player did not write.
+ */
+export const QuizResponsesSubmitSchema = z
+  .object({
+    responses: z.array(QuizResponseRecordSchema).min(1).max(10),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.responses.forEach((response, index) => {
+      if (seen.has(response.questionId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["responses", index, "questionId"],
+          message: `duplicate questionId "${response.questionId}"`,
+        });
+      }
+      seen.add(response.questionId);
+    });
+  });
+
+export type QuizResponsesSubmit = z.infer<typeof QuizResponsesSubmitSchema>;
