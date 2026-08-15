@@ -15,10 +15,16 @@
  *    and against the same clause `routes/content.test.ts` asserts.
  *  - **Rule 4, name what the stub cannot prove.** The Serializable isolation level
  *    that makes the read-then-write safe is asserted as the argument passed to
- *    `$transaction`; whether Postgres honours it needs a real database.
+ *    `$transaction`; whether Postgres honours it needs a real database. So is the
+ *    unique index the reward grants rely on: the stubbed `createMany` *emulates*
+ *    `skipDuplicates`, which proves the service's arithmetic and nothing about
+ *    Postgres — so `schema.prisma` is read and the constraint asserted directly.
  */
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { ChildProfile, LessonProgress, Parent } from "@kidlearn/db";
 import {
+  LessonCompletionResponseSchema,
   LessonProgressReadResponseSchema,
   LessonProgressResponseSchema,
   QuizResponsesResponseSchema,
@@ -62,18 +68,30 @@ type QuizResponseRow = {
   answer: unknown;
   isCorrect: boolean;
   attempts: number;
+  answeredAt: Date;
+};
+
+type LedgerRow = {
+  childId: string;
+  rewardType: "star" | "coin" | "badge";
+  amount: number;
+  sourceType: string;
+  sourceId: string | null;
 };
 
 /**
  * An in-memory store, not a queue of canned answers.
  *
- * `progressRow` is carried between requests, so "advance", "no regress" and "do not
- * re-stamp `completedAt`" are each a *second* request reading what the first wrote.
+ * `progressRows` is carried between requests, so "advance", "no regress" and "do
+ * not re-stamp `completedAt`" are each a *second* request reading what the first
+ * wrote. Keyed by lesson rather than a single row, because two lessons finished
+ * on one day is exactly the case the daily reward grant is about.
  */
 const store = vi.hoisted(() => ({
-  progressRow: null as unknown,
+  progressRows: [] as unknown[],
   events: [] as unknown[],
   quizResponses: [] as unknown[],
+  ledger: [] as unknown[],
   transactionOptions: [] as unknown[],
 }));
 
@@ -81,11 +99,16 @@ const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
   childFindFirst: vi.fn(),
   lessonFindFirst: vi.fn(),
+  lessonFindUnique: vi.fn(),
   progressFindUnique: vi.fn(),
   progressCreate: vi.fn(),
   progressUpdate: vi.fn(),
   sessionEventCreate: vi.fn(),
   quizResponseCreateMany: vi.fn(),
+  quizResponseFindMany: vi.fn(),
+  ledgerFindMany: vi.fn(),
+  ledgerCreateMany: vi.fn(),
+  ledgerGroupBy: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -93,14 +116,22 @@ vi.mock("../lib/prisma.js", () => ({
   prisma: {
     parent: { findUnique: db.parentFindUnique },
     childProfile: { findFirst: db.childFindFirst },
-    lesson: { findFirst: db.lessonFindFirst },
+    lesson: { findFirst: db.lessonFindFirst, findUnique: db.lessonFindUnique },
     lessonProgress: {
       findUnique: db.progressFindUnique,
       create: db.progressCreate,
       update: db.progressUpdate,
     },
     sessionEvent: { create: db.sessionEventCreate },
-    quizResponse: { createMany: db.quizResponseCreateMany },
+    quizResponse: {
+      createMany: db.quizResponseCreateMany,
+      findMany: db.quizResponseFindMany,
+    },
+    rewardLedger: {
+      findMany: db.ledgerFindMany,
+      createMany: db.ledgerCreateMany,
+      groupBy: db.ledgerGroupBy,
+    },
     $transaction: db.transaction,
   },
 }));
@@ -172,16 +203,26 @@ function postStep(step: string, completed: boolean, lessonId = LESSON_ID) {
     .send({ step, completed });
 }
 
-function currentRow(): ProgressRow {
-  const row = store.progressRow as ProgressRow | null;
-  if (row === null) throw new Error("no LessonProgress row was written");
+function progressRows(): ProgressRow[] {
+  return store.progressRows as ProgressRow[];
+}
+
+/** The row for `LESSON_ID`, which is the lesson almost every test uses. */
+function currentRow(lessonId = LESSON_ID): ProgressRow {
+  const row = progressRows().find(
+    (candidate) => candidate.lessonId === lessonId,
+  );
+  if (row === undefined) {
+    throw new Error(`no LessonProgress row was written for ${lessonId}`);
+  }
   return row;
 }
 
 beforeEach(() => {
-  store.progressRow = null;
+  store.progressRows = [];
   store.events = [];
   store.quizResponses = [];
+  store.ledger = [];
   store.transactionOptions = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
@@ -193,7 +234,27 @@ beforeEach(() => {
     quiz: { questions: QUESTION_IDS.map((id) => ({ id })) },
   });
 
-  db.progressFindUnique.mockImplementation(async () => store.progressRow);
+  // The reward service reads the lesson by id — visibility was settled by the
+  // step report before it ran — and needs the quiz's own status.
+  db.lessonFindUnique.mockResolvedValue({
+    quiz: {
+      status: "published",
+      questions: QUESTION_IDS.map((id) => ({ id })),
+    },
+  });
+
+  db.progressFindUnique.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: { childId_lessonId: { childId: string; lessonId: string } };
+    }) =>
+      progressRows().find(
+        (row) =>
+          row.childId === where.childId_lessonId.childId &&
+          row.lessonId === where.childId_lessonId.lessonId,
+      ) ?? null,
+  );
 
   // Column defaults first, then whatever the caller supplied — the quiz endpoint
   // creates a row with a `score` and no `currentStep`, the step endpoint the
@@ -201,7 +262,7 @@ beforeEach(() => {
   // script rather than the schema's defaults.
   db.progressCreate.mockImplementation(async ({ data }: { data: unknown }) => {
     const row: ProgressRow = {
-      id: "progress_1",
+      id: `progress_${progressRows().length + 1}`,
       childId: CHILD_ID,
       lessonId: LESSON_ID,
       currentStep: "intro",
@@ -211,15 +272,21 @@ beforeEach(() => {
       updatedAt: new Date("2026-08-10T09:00:00.000Z"),
       ...(data as Partial<ProgressRow>),
     };
-    store.progressRow = row;
+    store.progressRows.push(row);
     return row;
   });
 
-  db.progressUpdate.mockImplementation(async ({ data }: { data: unknown }) => {
-    const row = { ...currentRow(), ...(data as Partial<ProgressRow>) };
-    store.progressRow = row;
-    return row;
-  });
+  db.progressUpdate.mockImplementation(
+    async ({ where, data }: { where: { id: string }; data: unknown }) => {
+      const index = progressRows().findIndex((row) => row.id === where.id);
+      const row = {
+        ...progressRows()[index],
+        ...(data as Partial<ProgressRow>),
+      };
+      store.progressRows[index] = row;
+      return row;
+    },
+  );
 
   db.sessionEventCreate.mockImplementation(
     async ({ data }: { data: unknown }) => {
@@ -237,9 +304,98 @@ beforeEach(() => {
 
   db.quizResponseCreateMany.mockImplementation(
     async ({ data }: { data: unknown }) => {
-      const rows = data as QuizResponseRow[];
+      const rows = (data as Omit<QuizResponseRow, "answeredAt">[]).map(
+        (row, index) => ({
+          ...row,
+          // The column default. Ordered so that a replay's rows sort after the
+          // first run's, which is what makes "latest response per question"
+          // mean anything in the reward service.
+          answeredAt: new Date(
+            Date.UTC(2026, 7, 10, 9, 0, store.quizResponses.length + index),
+          ),
+        }),
+      );
       store.quizResponses.push(...rows);
       return { count: rows.length };
+    },
+  );
+
+  db.quizResponseFindMany.mockImplementation(
+    async ({
+      where,
+      orderBy,
+    }: {
+      where: { childId: string; questionId: { in: string[] } };
+      orderBy: { answeredAt: "asc" | "desc" };
+    }) => {
+      const rows = (store.quizResponses as QuizResponseRow[])
+        .filter(
+          (row) =>
+            row.childId === where.childId &&
+            where.questionId.in.includes(row.questionId),
+        )
+        .sort(
+          (a, b) =>
+            (orderBy.answeredAt === "desc" ? -1 : 1) *
+            (a.answeredAt.getTime() - b.answeredAt.getTime()),
+        );
+      return rows;
+    },
+  );
+
+  db.ledgerFindMany.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: { childId: string; sourceId: { in: string[] } };
+    }) =>
+      (store.ledger as LedgerRow[]).filter(
+        (row) =>
+          row.childId === where.childId &&
+          row.sourceId !== null &&
+          where.sourceId.in.includes(row.sourceId),
+      ),
+  );
+
+  // `skipDuplicates` is *emulated* here, so nothing in this file proves the
+  // database enforces it — that is what the `schema.prisma` assertion at the
+  // bottom is for (Rule 4). What this does prove is the service's arithmetic:
+  // that it reports as earned only what it actually inserted.
+  db.ledgerCreateMany.mockImplementation(
+    async ({
+      data,
+      skipDuplicates,
+    }: {
+      data: LedgerRow[];
+      skipDuplicates?: boolean;
+    }) => {
+      const key = (row: LedgerRow) =>
+        `${row.childId}|${row.rewardType}|${row.sourceType}|${row.sourceId}`;
+      const existing = new Set((store.ledger as LedgerRow[]).map(key));
+      const rows = skipDuplicates
+        ? data.filter((row) => !existing.has(key(row)))
+        : data;
+      store.ledger.push(...rows);
+      return { count: rows.length };
+    },
+  );
+
+  db.ledgerGroupBy.mockImplementation(
+    async ({ where }: { where: { childId: string } }) => {
+      const totals = new Map<string, { sum: number; count: number }>();
+      for (const row of store.ledger as LedgerRow[]) {
+        if (row.childId !== where.childId) continue;
+        const entry = totals.get(row.rewardType) ?? { sum: 0, count: 0 };
+        totals.set(row.rewardType, {
+          sum: entry.sum + row.amount,
+          count: entry.count + 1,
+        });
+      }
+      return [...totals].map(([rewardType, entry]) => ({
+        rewardType,
+        _sum: { amount: entry.sum },
+        _count: { _all: entry.count },
+      }));
     },
   );
 
@@ -252,12 +408,21 @@ beforeEach(() => {
     ): Promise<unknown> => {
       store.transactionOptions.push(options);
       return callback({
+        lesson: { findUnique: db.lessonFindUnique },
         lessonProgress: {
           findUnique: db.progressFindUnique,
           create: db.progressCreate,
           update: db.progressUpdate,
         },
-        quizResponse: { createMany: db.quizResponseCreateMany },
+        quizResponse: {
+          createMany: db.quizResponseCreateMany,
+          findMany: db.quizResponseFindMany,
+        },
+        rewardLedger: {
+          findMany: db.ledgerFindMany,
+          createMany: db.ledgerCreateMany,
+          groupBy: db.ledgerGroupBy,
+        },
       });
     },
   );
@@ -426,6 +591,272 @@ describe("POST /api/progress/lessons/:id/step", () => {
 
     expect(res.status).toBe(200);
     expect(attempts).toBe(2);
+  });
+});
+
+describe("POST /api/progress/lessons/:id/complete", () => {
+  function complete(lessonId = LESSON_ID) {
+    return request(app).post(`/api/progress/lessons/${lessonId}/complete`);
+  }
+
+  /** Three of the four right on the first go, as the quiz endpoint would store. */
+  function answerTheQuiz(correct = 3) {
+    return request(app)
+      .post(`/api/progress/quizzes/${QUIZ_ID}/responses`)
+      .send({
+        responses: QUESTION_IDS.map((questionId, index) => ({
+          questionId,
+          answer: "apple",
+          isCorrect: index < correct,
+          attempts: index < correct ? 1 : 2,
+        })),
+      });
+  }
+
+  function ledger(): LedgerRow[] {
+    return store.ledger as LedgerRow[];
+  }
+
+  it("returns 401 UNAUTHORIZED when the request carries no session", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+
+    const res = await complete();
+
+    expect(res.status).toBe(401);
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("returns 403 FORBIDDEN when the session has no active child profile", async () => {
+    signInAs(null);
+
+    const res = await complete();
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("returns 404 and grants nothing for a lesson the child cannot see", async () => {
+    signInAs(childProfile());
+    db.lessonFindFirst.mockResolvedValue(null);
+
+    const res = await complete(MISSING_ID);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe("NOT_FOUND");
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("grants the lesson star and the day's coins on a first completion", async () => {
+    signInAs(childProfile());
+
+    const res = await complete();
+
+    expect(res.status).toBe(200);
+    assertContract(
+      LessonCompletionResponseSchema,
+      res.body,
+      "POST /api/progress/lessons/{id}/complete",
+    );
+    // No quiz was answered, so no quiz star and no answer coins — 2 stars for
+    // the lesson, 5 coins for being the first thing done today.
+    expect(res.body.data).toEqual({
+      starsEarned: 2,
+      coinsEarned: 5,
+      newBadges: [],
+      totals: { stars: 2, coins: 5 },
+    });
+  });
+
+  it("adds the quiz star and two coins per correct answer (FR-GAM-01..02)", async () => {
+    signInAs(childProfile());
+    await answerTheQuiz(3);
+
+    const res = await complete();
+
+    // 2 + 1 stars; 6 coins for three correct answers, plus 5 for the day.
+    expect(res.body.data).toMatchObject({ starsEarned: 3, coinsEarned: 11 });
+    expect(res.body.data.totals).toEqual({ stars: 3, coins: 11 });
+  });
+
+  it("counts correct answers from the stored responses, not from the request", async () => {
+    signInAs(childProfile());
+    await answerTheQuiz(1);
+
+    // The request has no body at all — there is nothing a client could inflate.
+    const res = await complete().send({ correctCount: 99, coinsEarned: 500 });
+
+    expect(res.body.data.coinsEarned).toBe(7);
+  });
+
+  it("counts the latest response to each question, so a replay cannot inflate it", async () => {
+    signInAs(childProfile());
+    await answerTheQuiz(4);
+    // A second, worse run appends new rows for the same questions.
+    await answerTheQuiz(1);
+
+    const res = await complete();
+
+    // One correct on the latest attempt → 2 coins, not 8.
+    expect(res.body.data.coinsEarned).toBe(2 + 5);
+  });
+
+  it("writes one traceable ledger row per grant (FR-GAM-07)", async () => {
+    signInAs(childProfile());
+    await answerTheQuiz(2);
+
+    await complete();
+
+    expect(ledger()).toEqual([
+      {
+        childId: CHILD_ID,
+        rewardType: "star",
+        amount: 2,
+        sourceType: "lesson_completion",
+        sourceId: LESSON_ID,
+      },
+      {
+        childId: CHILD_ID,
+        rewardType: "star",
+        amount: 1,
+        sourceType: "quiz_completion",
+        sourceId: LESSON_ID,
+      },
+      {
+        childId: CHILD_ID,
+        rewardType: "coin",
+        amount: 4,
+        sourceType: "quiz_correct_answers",
+        sourceId: LESSON_ID,
+      },
+      {
+        childId: CHILD_ID,
+        rewardType: "coin",
+        amount: 5,
+        sourceType: "daily_activity",
+        // The local date, so "once a day" is the same uniqueness as "once a
+        // lesson" — matched loosely because the suite runs on whatever day it
+        // runs on.
+        sourceId: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      },
+    ]);
+  });
+
+  it("grants nothing the second time the same lesson is completed", async () => {
+    signInAs(childProfile());
+    await answerTheQuiz(3);
+    const first = await complete();
+    const rowsAfterFirst = ledger().length;
+
+    const second = await complete();
+
+    // A four-year-old who liked a lesson will play it five more times. A balance
+    // that counted that would measure re-watching, not learning.
+    expect(second.status).toBe(200);
+    expect(second.body.data).toEqual({
+      starsEarned: 0,
+      coinsEarned: 0,
+      newBadges: [],
+      totals: first.body.data.totals,
+    });
+    expect(ledger()).toHaveLength(rowsAfterFirst);
+  });
+
+  it("grants the daily coins once across two different lessons the same day", async () => {
+    signInAs(childProfile());
+    const OTHER_LESSON = "55555555-5555-4555-8555-555555555555";
+    await complete();
+
+    db.lessonFindFirst.mockResolvedValue({ id: OTHER_LESSON, quiz: null });
+    db.lessonFindUnique.mockResolvedValue({ quiz: null });
+    const res = await complete(OTHER_LESSON);
+
+    // The second lesson still pays its own 2 stars; the day is already bought.
+    expect(res.body.data).toMatchObject({ starsEarned: 2, coinsEarned: 0 });
+    expect(
+      ledger().filter((row) => row.sourceType === "daily_activity"),
+    ).toHaveLength(1);
+  });
+
+  it("stamps completedAt once and never moves it", async () => {
+    signInAs(childProfile());
+    await complete();
+    const firstCompletion = currentRow().completedAt;
+
+    await complete();
+
+    expect(currentRow().currentStep).toBe("reward");
+    expect(firstCompletion).toBeInstanceOf(Date);
+    expect(currentRow().completedAt).toEqual(firstCompletion);
+  });
+
+  it("grants no quiz star for a lesson whose quiz is not published", async () => {
+    signInAs(childProfile());
+    db.lessonFindUnique.mockResolvedValue({
+      quiz: {
+        status: "in_review",
+        questions: QUESTION_IDS.map((id) => ({ id })),
+      },
+    });
+    await answerTheQuiz(4);
+
+    const res = await complete();
+
+    // An in-review quiz is not served, so it cannot be what a star was for.
+    expect(res.body.data.starsEarned).toBe(2);
+    expect(ledger().some((row) => row.sourceType === "quiz_completion")).toBe(
+      false,
+    );
+  });
+
+  it("grants inside a Serializable transaction", async () => {
+    signInAs(childProfile());
+
+    await complete();
+
+    // Two: the step report that marks the lesson finished, then the grant. Both
+    // are read-then-write, and the grant's read is what decides the number the
+    // child is shown — under READ COMMITTED two taps would both celebrate the
+    // same stars even though the index let only one row through.
+    expect(store.transactionOptions).toEqual([
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ]);
+  });
+
+  it("grants for the session's child, not one named in the request", async () => {
+    signInAs(childProfile());
+
+    await complete().send({ childId: "someone_else" });
+
+    expect(ledger().every((row) => row.childId === CHILD_ID)).toBe(true);
+  });
+
+  it("retries a Serializable abort rather than answering 500 mid-celebration", async () => {
+    signInAs(childProfile());
+    const grantTransaction = db.transaction.getMockImplementation();
+    if (grantTransaction === undefined) throw new Error("no transaction stub");
+    // The step report commits, then the grant loses the race exactly once —
+    // which is what the isolation level does to the second of two taps.
+    let calls = 0;
+    db.transaction.mockImplementation(async (...args: unknown[]) => {
+      calls += 1;
+      if (calls === 2) {
+        throw new Prisma.PrismaClientKnownRequestError("write conflict", {
+          code: "P2034",
+          clientVersion: "6.19.3",
+        });
+      }
+      return grantTransaction(...args);
+    });
+
+    const res = await complete();
+
+    // Three, not two: the step report, the abort, and the grant that retried.
+    expect(calls).toBe(3);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ starsEarned: 2, coinsEarned: 5 });
+    expect(ledger()).toHaveLength(2);
   });
 });
 
@@ -972,7 +1403,7 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
     }
     expect(db.transaction).not.toHaveBeenCalled();
     expect(db.sessionEventCreate).not.toHaveBeenCalled();
-    expect(store.progressRow).toBeNull();
+    expect(store.progressRows).toHaveLength(0);
     expect(store.quizResponses).toHaveLength(0);
   });
 
@@ -1048,3 +1479,52 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
     expect(currentRow().childId).toBe(CHILD_ID);
   });
 });
+
+/**
+ * The two guarantees the rewards engine rests on that a stubbed Prisma client
+ * cannot demonstrate (Rule 4). Replace the first with a real double-insert once
+ * the test-database harness exists; the second is a source-level property and
+ * stays useful either way.
+ */
+describe("reward grant contract (FR-GAM-07..08)", () => {
+  const serverSrc = new URL("../", import.meta.url);
+
+  it("declares the unique index the idempotency guard is", () => {
+    const schema = readFileSync(
+      new URL("../../../../packages/db/prisma/schema.prisma", import.meta.url),
+      "utf8",
+    );
+
+    // Without it, `skipDuplicates` skips nothing and every replay pays out
+    // again — the emulation in this file's stub would keep passing regardless.
+    expect(schema).toContain(
+      "@@unique([childId, rewardType, sourceType, sourceId])",
+    );
+  });
+
+  it("writes RewardLedger rows from one service and nowhere else (FR-GAM-08)", () => {
+    const files = readdirRecursive(new URL("./", serverSrc)).filter(
+      (path) => path.endsWith(".ts") && !path.endsWith(".test.ts"),
+    );
+
+    const writers = files.filter((path) =>
+      /rewardLedger\.(create|createMany|update|updateMany|upsert|delete)/.test(
+        readFileSync(path, "utf8"),
+      ),
+    );
+
+    // A second writer is how a purchase path gets built by accident: any route
+    // that could insert a row could be handed an amount from a request body.
+    expect(writers.map((path) => path.split("/src/")[1])).toEqual([
+      "services/rewardService.ts",
+    ]);
+  });
+});
+
+function readdirRecursive(dir: URL): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? readdirRecursive(new URL(`${entry.name}/`, dir))
+      : [fileURLToPath(new URL(entry.name, dir))],
+  );
+}

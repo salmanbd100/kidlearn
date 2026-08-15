@@ -2,11 +2,12 @@
  * Child-profile domain logic (FR-PROF-01..07). No Express types cross this
  * boundary — every function here is callable from a test without an HTTP layer.
  */
-// `Prisma` is a value import, not a type-only one: the isolation level and the
-// known-request-error class below are runtime members of the namespace.
+// `Prisma` is a value import, not a type-only one: the isolation level below is
+// a runtime member of the namespace.
 import { type ChildProfile, Prisma } from "@kidlearn/db";
 import { ApiError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
+import { withSerializationRetry } from "../lib/serializable-retry.js";
 import type { CreateChildBody, UpdateChildBody } from "../schemas/children.js";
 
 /** FR-PROF-01 — a household may hold at most five learner profiles. */
@@ -95,14 +96,6 @@ async function assertAvatarIsSelectable(
   }
 }
 
-/** Postgres aborted a Serializable transaction rather than let it interleave. */
-function isSerializationFailure(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2034"
-  );
-}
-
 /**
  * Creates a profile, enforcing the five-per-parent cap.
  *
@@ -111,22 +104,14 @@ function isSerializationFailure(error: unknown): boolean {
  * under which two concurrent creates both count four and both commit, producing
  * exactly the sixth profile the transaction is supposed to prevent. Serializable
  * is what actually makes the cap hold — the loser aborts with P2034 having
- * written nothing, and the retry below re-counts under the winner's row and
- * either succeeds honestly or reports the limit.
- *
- * One retry, not a loop: a second serialization failure means genuine sustained
- * contention on a single parent's five profiles, which is not a real user.
+ * written nothing, and `withSerializationRetry` re-counts under the winner's row
+ * and either succeeds honestly or reports the limit.
  */
 export async function createChildProfile(
   parentId: string,
   input: CreateChildBody,
 ): Promise<ChildProfile> {
-  try {
-    return await createChildProfileOnce(parentId, input);
-  } catch (error) {
-    if (!isSerializationFailure(error)) throw error;
-    return createChildProfileOnce(parentId, input);
-  }
+  return withSerializationRetry(() => createChildProfileOnce(parentId, input));
 }
 
 function createChildProfileOnce(

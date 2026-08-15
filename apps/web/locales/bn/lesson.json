@@ -98,6 +98,25 @@
       "done": "ইয়ে!"
     }
   },
+  "reward": {
+    "loading": "তোমার পুরস্কার গোনা হচ্ছে…",
+    "title": "তুমি পেরেছ!",
+    "announce": {
+      "nothing": "তুমি পেরেছ! তুমি পুরো পাঠটা শেষ করেছ।",
+      "stars": "তুমি পেরেছ! তুমি {{stars}} পেয়েছ।",
+      "coins": "তুমি পেরেছ! তুমি {{coins}} পেয়েছ।",
+      "both": "তুমি পেরেছ! তুমি {{stars}} আর {{coins}} পেয়েছ।",
+      "starCount_one": "{{count}}টি তারা",
+      "starCount_other": "{{count}}টি তারা",
+      "coinCount_one": "{{count}}টি কয়েন",
+      "coinCount_other": "{{count}}টি কয়েন"
+    },
+    "totalStars_one": "সব মিলিয়ে {{count}}টি তারা",
+    "totalStars_other": "সব মিলিয়ে {{count}}টি তারা",
+    "totalCoins_one": "সব মিলিয়ে {{count}}টি কয়েন",
+    "totalCoins_other": "সব মিলিয়ে {{count}}টি কয়েন",
+    "done": "হয়ে গেছে!"
+  },
   "exit": {
     "open": "পাঠ থেকে বেরোও",
     "title": "পাঠ ছেড়ে যাবে?",

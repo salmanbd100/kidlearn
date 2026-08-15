@@ -13,6 +13,9 @@ const progress = vi.hoisted(() => ({
   getLessonProgress: vi.fn(),
   reportStep: vi.fn(),
   sendSessionEvent: vi.fn(),
+  // `RewardStep` calls this on mount (file 23), so it is reached whenever the
+  // player walks as far as the celebration.
+  completeLesson: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -87,6 +90,8 @@ const ADVANCE_LABEL: Record<string, RegExp> = {
   activity: /Let's go on!/,
   // Nor a quiz, and file 21's step says the same thing for the same reason.
   quiz: /Let's go on!/,
+  // File 23's celebration. It appears once the completion call has answered.
+  reward: /Done!/,
 };
 
 /** Taps the step's own advance control, i.e. the step reporting itself complete. */
@@ -95,6 +100,24 @@ function completeStep() {
   fireEvent.click(
     screen.getByRole("button", { name: ADVANCE_LABEL[step] ?? "Next" }),
   );
+}
+
+/**
+ * Taps through all five steps to the finish screen.
+ *
+ * Driven by which step is on screen rather than by a fixed count of writes: the
+ * reward step reports itself through a different call from the other four (file
+ * 23), so counting `reportStep` would stall on the last one.
+ */
+async function walkTheLesson() {
+  for (const step of ["intro", "video", "activity", "quiz"] as const) {
+    completeStep();
+    await waitFor(() => expect(currentStep()).not.toBe(step));
+  }
+  // The celebration's button appears once the completion call has answered.
+  await screen.findByRole("button", { name: ADVANCE_LABEL.reward });
+  completeStep();
+  await screen.findByRole("heading", { name: "All done!" });
 }
 
 function eventsOfType(type: string): unknown[] {
@@ -127,6 +150,18 @@ describe("LessonPlayer", () => {
           currentStep: "intro",
           completedAt: null,
         },
+      },
+    });
+
+    // `RewardStep` finishes the lesson itself (file 23). Its answer is what the
+    // celebration renders; none of the tests here are about the numbers.
+    progress.completeLesson.mockResolvedValue({
+      ok: true,
+      data: {
+        starsEarned: 2,
+        coinsEarned: 5,
+        newBadges: [],
+        totals: { stars: 2, coins: 5 },
       },
     });
   });
@@ -180,42 +215,33 @@ describe("LessonPlayer", () => {
     ).toBeInTheDocument();
   });
 
-  it("posts one step report per step, and marks only the reward complete", async () => {
+  it("posts one step report per step, and finishes through the completion endpoint", async () => {
     renderPlayer();
     await waitFor(() => expect(currentStep()).toBe("intro"));
 
-    for (let i = 0; i < 5; i += 1) {
-      completeStep();
-      // Each tap must settle before the next: the report is what proves it did.
-      await waitFor(() =>
-        expect(progress.reportStep).toHaveBeenCalledTimes(i + 1),
-      );
-    }
+    await walkTheLesson();
 
+    // Four reports, not five: the reward step no longer reports itself here.
+    // `RewardStep` calls the completion endpoint on mount instead, which does
+    // that same report *and* writes the grants (file 23).
     expect(progress.reportStep.mock.calls.map(([, report]) => report)).toEqual([
       { step: "intro", completed: false },
       { step: "video", completed: false },
       { step: "activity", completed: false },
       { step: "quiz", completed: false },
-      // Only the last step finishes a lesson (FR-LSN-06).
-      { step: "reward", completed: true },
     ]);
     for (const [lessonId] of progress.reportStep.mock.calls) {
       expect(lessonId).toBe(LESSON_ID);
     }
+    expect(progress.completeLesson).toHaveBeenCalledTimes(1);
+    expect(progress.completeLesson).toHaveBeenCalledWith(LESSON_ID);
   });
 
   it("emits lesson_start, five step_completes and lesson_complete (FR-LSN-07)", async () => {
     renderPlayer();
     await waitFor(() => expect(currentStep()).toBe("intro"));
 
-    for (let i = 0; i < 5; i += 1) {
-      completeStep();
-      // Each tap must settle before the next: the report is what proves it did.
-      await waitFor(() =>
-        expect(progress.reportStep).toHaveBeenCalledTimes(i + 1),
-      );
-    }
+    await walkTheLesson();
 
     expect(
       progress.sendSessionEvent.mock.calls.map(([event]) => event),
@@ -309,6 +335,17 @@ describe("resuming (FR-LSN-06)", () => {
           currentStep: "video",
           completedAt: null,
         },
+      },
+    });
+
+    // Reached by the case that resumes straight onto the celebration.
+    progress.completeLesson.mockResolvedValue({
+      ok: true,
+      data: {
+        starsEarned: 2,
+        coinsEarned: 5,
+        newBadges: [],
+        totals: { stars: 2, coins: 5 },
       },
     });
   });
@@ -413,6 +450,18 @@ describe("leaving (FR-LSN-06, Pillar A)", () => {
         },
       },
     });
+
+    // `RewardStep` finishes the lesson itself (file 23). Its answer is what the
+    // celebration renders; none of the tests here are about the numbers.
+    progress.completeLesson.mockResolvedValue({
+      ok: true,
+      data: {
+        starsEarned: 2,
+        coinsEarned: 5,
+        newBadges: [],
+        totals: { stars: 2, coins: 5 },
+      },
+    });
   });
 
   it("always asks before leaving", async () => {
@@ -469,13 +518,7 @@ describe("leaving (FR-LSN-06, Pillar A)", () => {
   it("goes back to the world from the finish screen", async () => {
     renderPlayer();
     await waitFor(() => expect(currentStep()).toBe("intro"));
-    for (let i = 0; i < 5; i += 1) {
-      completeStep();
-      // Each tap must settle before the next: the report is what proves it did.
-      await waitFor(() =>
-        expect(progress.reportStep).toHaveBeenCalledTimes(i + 1),
-      );
-    }
+    await walkTheLesson();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Back to the world" }),

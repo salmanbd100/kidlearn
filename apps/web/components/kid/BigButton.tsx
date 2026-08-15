@@ -15,7 +15,8 @@ import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
  * label out loud for a pre-reader who cannot read it (`audioSrc`).
  *
  * Geometry is the accessibility contract, not decoration — `md` is a 64×64px
- * hit area and `lg` an 80px-tall full-width bar (NFR-A11Y-02, design.md §7).
+ * hit area, `lg` an 80px-tall full-width bar, and `xl` a 96px one
+ * (NFR-A11Y-02, design.md §7).
  */
 
 const bigButtonVariants = cva("gap-3", {
@@ -23,6 +24,11 @@ const bigButtonVariants = cva("gap-3", {
     size: {
       md: "min-h-16 min-w-16",
       lg: "min-h-20 w-full",
+      /**
+       * 96px — the one button on a screen that has no other action and no way
+       * back, so it is sized to be found without looking (file 23's "Done!").
+       */
+      xl: "min-h-24 w-full text-2xl",
     },
     /**
      * "Your turn now" — the cue that a step has finished saying its piece

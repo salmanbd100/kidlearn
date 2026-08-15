@@ -52,6 +52,11 @@ import { VideoStep } from "./steps/VideoStep";
  * progress — retried, and idempotent server-side. `sendSessionEvent` is analytics —
  * fire-and-forget, no retries, failures logged. Neither ever blocks a step from
  * rendering, and neither is awaited on the path a child is looking at.
+ *
+ * **The last step reports itself.** `RewardStep` calls the completion endpoint on
+ * mount, because the rewards it renders are that call's answer (file 23). So this
+ * file reports the first four steps and the analytics events, and never the
+ * reward step.
  */
 
 /** Whether `step` is at or past `target` in flow order. See `useLessonRecording`. */
@@ -289,7 +294,12 @@ function useLessonRecording(
     }
 
     if (before.status === "playing" && state.status === "finished") {
-      void reportStep(lessonId, { step: "reward", completed: true });
+      // No `reportStep` here any more: `RewardStep` calls the completion
+      // endpoint on mount, which performs this same reward-step report *and*
+      // writes the grants (file 23). Completion therefore lands when the child
+      // reaches the celebration rather than when they leave it — the numbers on
+      // that screen are the server's answer, and there is nowhere else to ask.
+      // The two analytics events still belong here, at the end of the flow.
       sendSessionEvent({ type: "step_complete", lessonId, step: "reward" });
       sendSessionEvent({ type: "lesson_complete", lessonId });
     }

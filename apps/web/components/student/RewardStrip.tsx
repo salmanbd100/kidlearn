@@ -46,8 +46,8 @@ const chipVariants = cva(
  * the parent theme, which never renders this strip.
  */
 const REWARD_ICON_CLASS = {
-  star: "fill-sunshine text-sunshine",
-  coin: "fill-sunshine text-sunshine",
+  star: "fill-accent text-accent",
+  coin: "fill-accent text-accent",
   flame: "fill-coral text-coral",
 } as const;
 

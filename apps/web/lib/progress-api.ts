@@ -1,9 +1,11 @@
 import type {
+  LessonCompletionResponse,
   LessonProgressResponse,
   LessonStep,
   LessonStepReport,
   QuizResponseRecord,
   QuizScoreResponse,
+  RewardSummaryResponse,
   SessionEventRecordResponse,
   SessionEventReport,
 } from "@kidlearn/types";
@@ -45,6 +47,31 @@ export function reportStep(
     // A step report is a write. Retrying it on a 5xx is safe — the endpoint is
     // idempotent by construction, since `currentStep` never moves backwards.
   });
+}
+
+/**
+ * FR-LSN-05 — finishes the lesson and asks what it was worth.
+ *
+ * **Replaces** `reportStep(lessonId, { step: "reward", completed: true })`: this
+ * endpoint performs that same step report itself, and adds the grants. There is
+ * no body, and nothing here computes a reward — stars and coins are the server's
+ * arithmetic over rows it holds, which is what leaves no client-side surface for
+ * a reward to be claimed through (FR-GAM-08).
+ *
+ * Retries are left at the default. A replay grants nothing, so a retry that
+ * lands twice costs a duplicate request and never a duplicate star.
+ */
+export function completeLesson(
+  lessonId: string,
+): Promise<ApiResult<LessonCompletionResponse>> {
+  return apiFetch(`/api/progress/lessons/${lessonId}/complete`, {
+    method: "POST",
+  });
+}
+
+/** FR-GAM-06 — the active child's running totals, for the home screen strip. */
+export function getRewardsSummary(): Promise<ApiResult<RewardSummaryResponse>> {
+  return apiFetch("/api/me/rewards/summary");
 }
 
 /**

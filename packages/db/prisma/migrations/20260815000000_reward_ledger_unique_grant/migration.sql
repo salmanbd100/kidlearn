@@ -1,0 +1,28 @@
+-- File 23 — the idempotency guard on RewardLedger (FR-GAM-01..02, FR-GAM-07).
+--
+-- A lesson is replayable, and a child who liked it will replay it. Without this
+-- index every replay would grant its stars and coins again, so a balance would
+-- measure how many times a lesson was re-watched rather than what was learned.
+-- The guard is structural rather than a check in the service: an INSERT that
+-- would duplicate a grant cannot succeed, whichever code path reaches it and
+-- however two requests interleave.
+--
+-- It is also what makes "the first activity of the day" expressible at all. That
+-- grant carries the local date (in APP_TIMEZONE) as its sourceId, so "once per
+-- day" is the same uniqueness as "once per lesson" and needs no separate query
+-- to be correct under a race.
+--
+-- Postgres treats NULL as distinct in a unique index, so a row with a NULL
+-- sourceId is unconstrained by this. `services/rewardService.ts` therefore sets
+-- a sourceId always — the type in GrantSpec is `string`, not `string | null`.
+--
+-- Additive only. It creates no rows and rewrites none; on a database with an
+-- existing duplicate grant it would fail rather than silently drop one, which is
+-- the right direction — no such rows exist, since nothing has written to this
+-- table before this file.
+--
+-- Written by hand, matching the offline convention of the earlier migrations in
+-- this directory; it has not been applied to any database.
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RewardLedger_childId_rewardType_sourceType_sourceId_key" ON "RewardLedger"("childId", "rewardType", "sourceType", "sourceId");

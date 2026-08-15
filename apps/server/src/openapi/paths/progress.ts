@@ -142,6 +142,43 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
   },
   {
     method: "post",
+    path: "/api/progress/lessons/{id}/complete",
+    operation: {
+      tags: ["Progress"],
+      summary: "Finish a lesson and grant what it was worth",
+      description: [
+        `Marks the lesson complete and writes the reward grants for it, then answers with what was just earned and the child's running totals (FR-LSN-05, FR-GAM-01..02, FR-GAM-07). ${AUTHORITATIVE}`,
+        "",
+        "**There is no request body, and that is the contract.** Nothing a client could send would be believed: how many answers were right is read from the child's stored `QuizResponse` rows, and every amount is a constant in `services/rewardService.ts`. No endpoint in this API accepts a reward type, a reward amount or a source — rewards are earned, and there is no purchase path anywhere (FR-GAM-08).",
+        "",
+        "**Replaying a finished lesson grants nothing.** The second call answers `starsEarned: 0`, `coinsEarned: 0` and unchanged `totals`, and writes no ledger row. The guard is a unique index on `(childId, rewardType, sourceType, sourceId)` rather than a check in application code, so it holds under two taps racing each other and for any code path added later. A client must not read two zeros as a failure: it means *already done*, and the celebration is owed either way.",
+        "",
+        "What is granted on a first completion: **2 stars** for the lesson, **1 star** if its quiz was attempted at all (attempted, not passed — a quiz here has no fail state), **2 coins per correct answer**, and **5 coins** for the first lesson finished today. Correctness is counted from the *latest* response to each question, so a replay cannot inflate it.",
+        "",
+        '"Today" is a calendar day in the deployment\'s `APP_TIMEZONE`, not UTC — the daily grant is keyed on that local date, so a child playing before dawn is not handed a second one.',
+        "",
+        'This call **replaces** `POST /api/progress/lessons/{id}/step` with `{ step: "reward", completed: true }`; it performs that same step report itself, with the same write-once `completedAt`. Sending both is harmless but redundant.',
+        "",
+        "`newBadges` is always an empty array today. Badge rules arrive in file 24, which fills it; it is in the contract now so the celebration can be built against a shape that will not change.",
+        "",
+        "`200`, not `201`: a replay creates nothing at all, so there is no resource this reliably creates.",
+      ].join("\n"),
+      parameters: [LESSON_ID_PARAM],
+      responses: {
+        "200": jsonResponse(
+          "What this call granted, and what the child now has in total.",
+          "LessonCompletionResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "404": LESSON_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
     path: "/api/progress/events",
     operation: {
       tags: ["Progress"],
