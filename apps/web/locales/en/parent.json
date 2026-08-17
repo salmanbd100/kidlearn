@@ -66,6 +66,8 @@
     "avatarHint": "Your child will see this character on every screen.",
     "avatarChoose": "Choose {{name}}",
     "avatarEmpty": "No avatars are available right now. Please try again in a moment.",
+    "avatarLocked": "{{name}} — keep learning to unlock",
+    "avatarLockedHeading": "Still to earn",
     "create": "Create profile",
     "save": "Save changes",
     "saving": "Saving…",

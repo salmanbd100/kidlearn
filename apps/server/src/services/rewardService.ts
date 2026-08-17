@@ -1,9 +1,19 @@
 import { Prisma, type RewardType } from "@kidlearn/db";
+import type {
+  CompletionStreakResponse,
+  NewBadgeResponse,
+  NewCharacterResponse,
+} from "@kidlearn/types";
 import { env } from "../lib/env.js";
 import { localDateIn } from "../lib/local-date.js";
 import { prisma } from "../lib/prisma.js";
 import { isPublished } from "../lib/published-for-child.js";
 import { withSerializationRetry } from "../lib/serializable-retry.js";
+import {
+  findNewlyEarnedBadges,
+  unlockCharacters,
+} from "./achievementService.js";
+import { updateStreakForActivity } from "./streakService.js";
 
 /**
  * Stars and coins (FR-GAM-01, FR-GAM-02, FR-GAM-07).
@@ -46,7 +56,8 @@ export type GrantSource =
   | "lesson_completion"
   | "quiz_completion"
   | "quiz_correct_answers"
-  | "daily_activity";
+  | "daily_activity"
+  | "badge_unlock";
 
 export interface GrantSpec {
   rewardType: Extract<RewardType, "star" | "coin">;
@@ -138,11 +149,18 @@ export interface CompletionRewards {
   /** Stars actually written by this call. `0` on a replay. */
   starsEarned: number;
   coinsEarned: number;
+  /** Badges this call unlocked. Empty on a replay (FR-GAM-04). */
+  newBadges: NewBadgeResponse[];
+  /** Avatar characters this call unlocked. Empty on a replay (FR-GAM-05). */
+  newCharacters: NewCharacterResponse[];
+  /** The streak as it stands after this activity (FR-GAM-06). */
+  streak: CompletionStreakResponse;
   totals: RewardTotals;
 }
 
 export interface RewardSummary extends RewardTotals {
   badgeCount: number;
+  currentStreak: number;
 }
 
 /**
@@ -241,6 +259,43 @@ function grantLessonCompletionOnce(
         });
       }
 
+      // The order of the next three steps is load-bearing (file 24 §8): the
+      // streak has to be current before a `streak_days` badge is evaluated, and
+      // the badge has to be in the ledger before a `{ badges: n }` character is.
+      // Reversed, a child would be told about their three-day streak today and
+      // handed the badge for it tomorrow.
+      const streak = await updateStreakForActivity(tx, childId, localDate);
+
+      const newBadges = await findNewlyEarnedBadges(
+        tx,
+        childId,
+        streak.current,
+      );
+      if (newBadges.length > 0) {
+        await tx.rewardLedger.createMany({
+          // `amount: 1` because the ledger is one table — a badge is a thing you
+          // have or do not. `sourceId` is the slug rather than the id so the row
+          // stays readable in a report, and it is set for the reason `GrantSpec`
+          // gives: a NULL would sit outside the unique index entirely.
+          data: newBadges.map((badge) => ({
+            childId,
+            rewardType: "badge" as const,
+            amount: 1,
+            sourceType: "badge_unlock" satisfies GrantSource,
+            sourceId: badge.slug,
+            badgeId: badge.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      const totals = await readTotals(tx, childId);
+      const newCharacters = await unlockCharacters(tx, childId, {
+        stars: totals.stars,
+        coins: totals.coins,
+        badges: totals.badgeCount,
+      });
+
       const sumOf = (rewardType: RewardType): number =>
         fresh
           .filter((spec) => spec.rewardType === rewardType)
@@ -249,7 +304,12 @@ function grantLessonCompletionOnce(
       return {
         starsEarned: sumOf("star"),
         coinsEarned: sumOf("coin"),
-        totals: await readTotals(tx, childId),
+        newBadges,
+        newCharacters,
+        // `longest` is left out of the response deliberately — see
+        // `CompletionStreakSchema`.
+        streak: { current: streak.current, milestone: streak.milestone },
+        totals: { stars: totals.stars, coins: totals.coins },
       };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -319,33 +379,19 @@ async function readQuizOutcome(
   };
 }
 
+/**
+ * Every balance in one read.
+ *
+ * `badgeCount` is a row count rather than a sum of `amount`, for the reason
+ * `getRewardSummary` gives — and it is read here rather than derived from
+ * `newBadges` because a character unlock rule counts what the child *has*, not
+ * what they just got.
+ */
 async function readTotals(
   tx: LedgerReader,
   childId: string,
-): Promise<RewardTotals> {
+): Promise<RewardTotals & { badgeCount: number }> {
   const sums = await tx.rewardLedger.groupBy({
-    by: ["rewardType"],
-    where: { childId },
-    _sum: { amount: true },
-  });
-
-  const totalOf = (rewardType: RewardType): number =>
-    sums.find((row) => row.rewardType === rewardType)?._sum.amount ?? 0;
-
-  return { stars: totalOf("star"), coins: totalOf("coin") };
-}
-
-/**
- * FR-GAM-06 — what the child has, for the strip on the home screen.
- *
- * `badgeCount` counts badge rows rather than summing them: a badge is a thing
- * you have or do not, and its `amount` is a 1 that exists only because the ledger
- * is one table. File 24 writes those rows; until then this is honestly zero.
- */
-export async function getRewardSummary(
-  childId: string,
-): Promise<RewardSummary> {
-  const sums = await prisma.rewardLedger.groupBy({
     by: ["rewardType"],
     where: { childId },
     _sum: { amount: true },
@@ -360,4 +406,27 @@ export async function getRewardSummary(
     coins: row("coin")?._sum.amount ?? 0,
     badgeCount: row("badge")?._count._all ?? 0,
   };
+}
+
+/**
+ * FR-GAM-06 — what the child has, for the strip on the home screen.
+ *
+ * `badgeCount` counts badge rows rather than summing them: a badge is a thing
+ * you have or do not, and its `amount` is a 1 that exists only because the ledger
+ * is one table.
+ *
+ * `currentStreak` is read rather than recomputed. Nothing in a read path may
+ * advance a streak — the day it counts is the day something was *finished*, and
+ * a child opening the home screen at midnight has not learned anything yet.
+ */
+export async function getRewardSummary(
+  childId: string,
+): Promise<RewardSummary> {
+  const totals = await readTotals(prisma, childId);
+  const streak = await prisma.streak.findUnique({
+    where: { childId },
+    select: { current: true },
+  });
+
+  return { ...totals, currentStreak: streak?.current ?? 0 };
 }

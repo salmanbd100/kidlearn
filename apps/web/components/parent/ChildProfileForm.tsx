@@ -1,10 +1,6 @@
 "use client";
 
-import type {
-  AvatarCharacterResponse,
-  ChildProfileCreate,
-  ChildProfileResponse,
-} from "@kidlearn/types";
+import type { ChildProfileCreate, ChildProfileResponse } from "@kidlearn/types";
 import {
   ChildProfileCreateSchema,
   MAX_CHILD_AGE,
@@ -18,13 +14,13 @@ import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ApiFailure, ApiResult } from "@/lib/api-client";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { listAvatars } from "@/lib/parent-api";
+import { listAvatars, listChildCharacters } from "@/lib/parent-api";
 import {
   childWriteErrorKey,
   type FieldErrors,
   toFieldErrors,
 } from "@/lib/parent-errors";
-import { AvatarPicker } from "./AvatarPicker";
+import { AvatarPicker, type AvatarPickerOption } from "./AvatarPicker";
 
 /**
  * Create or edit a learner profile (FR-PROF-02).
@@ -116,17 +112,32 @@ export function ChildProfileForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<ApiFailure | undefined>();
   const [isSaving, setIsSaving] = useState(false);
-  const [avatars, setAvatars] = useState<AvatarCharacterResponse[]>([]);
+  const [avatars, setAvatars] = useState<AvatarPickerOption[]>([]);
+  const childId = initial?.id;
 
   useEffect(() => {
     let isCurrent = true;
-    void listAvatars().then((result) => {
+
+    // A profile that does not exist yet has nothing unlocked to show, so
+    // creation reads the starter set and editing reads this child's own list —
+    // which carries the earned characters as well as the locked ones
+    // (FR-GAM-05). Both answer the same question the update route enforces.
+    const load =
+      childId === undefined
+        ? listAvatars()
+        : listChildCharacters(childId).then((result) =>
+            result.ok
+              ? { ok: true as const, data: result.data.characters }
+              : result,
+          );
+
+    void load.then((result) => {
       if (isCurrent && result.ok) setAvatars(result.data);
     });
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [childId]);
 
   /** Clears a field's error as soon as it changes, never adds one mid-typing. */
   const update = <TKey extends keyof FormValues>(

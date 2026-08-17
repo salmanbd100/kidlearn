@@ -77,6 +77,31 @@ export const AvatarCharacterSchema = z
 export type AvatarCharacterResponse = z.infer<typeof AvatarCharacterSchema>;
 
 /**
+ * A character as one particular child sees it (FR-GAM-05).
+ *
+ * The whole published set is returned, locked ones included, because that *is*
+ * the progression: a picker showing only what a child already has cannot show
+ * them what there is to earn. The client renders a locked entry as a silhouette
+ * and refuses to select it — never as an error, and never as an absence.
+ *
+ * `isUnlocked` is `true` for every `isDefault` character (those are the starter
+ * set, available from the first day) and for anything this child has earned. It
+ * is exactly the condition `PATCH /api/children/{id}` enforces on
+ * `avatarCharacterId`, so this list can never offer an avatar the write route
+ * would then reject.
+ *
+ * The wire name is `isUnlocked` rather than `unlocked` to keep it consistent
+ * with `isDefault` beside it and with the `is`-prefix rule for booleans
+ * (`general.md §4`).
+ */
+export const CharacterUnlockSchema = AvatarCharacterSchema.extend({
+  isDefault: z.boolean(),
+  isUnlocked: z.boolean(),
+}).strict();
+
+export type CharacterUnlockResponse = z.infer<typeof CharacterUnlockSchema>;
+
+/**
  * The child-profile write contracts.
  *
  * These are request schemas, which `backend.md §7` normally keeps next to the
@@ -130,4 +155,8 @@ export const ChildProfileListResponseSchema = ok(z.array(ChildProfileSchema));
 export const ActiveChildResponseSchema = ok(ActiveChildSchema);
 export const AvatarCharacterListResponseSchema = ok(
   z.array(AvatarCharacterSchema),
+);
+/** Alphabetical by name, so the picker's order is stable as characters unlock. */
+export const CharacterUnlockListResponseSchema = ok(
+  z.object({ characters: z.array(CharacterUnlockSchema) }).strict(),
 );

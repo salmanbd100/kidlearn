@@ -9,9 +9,15 @@ import { Providers } from "@/components/Providers";
 import type { ApiResult } from "@/lib/api-client";
 import { resetI18nForTests } from "@/lib/i18n";
 
-const api = vi.hoisted(() => ({ listAvatars: vi.fn() }));
+const api = vi.hoisted(() => ({
+  listAvatars: vi.fn(),
+  listChildCharacters: vi.fn(),
+}));
 
-vi.mock("@/lib/parent-api", () => ({ listAvatars: api.listAvatars }));
+vi.mock("@/lib/parent-api", () => ({
+  listAvatars: api.listAvatars,
+  listChildCharacters: api.listChildCharacters,
+}));
 
 const { ChildProfileForm } = await import("./ChildProfileForm");
 
@@ -105,6 +111,19 @@ describe("ChildProfileForm", () => {
     resetI18nForTests();
     api.listAvatars.mockReset();
     api.listAvatars.mockResolvedValue({ ok: true, data: AVATARS });
+    // The edit form reads the per-child list instead, because only that one
+    // knows which earned characters this child may now wear (FR-GAM-05).
+    api.listChildCharacters.mockReset();
+    api.listChildCharacters.mockResolvedValue({
+      ok: true,
+      data: {
+        characters: AVATARS.map((avatar) => ({
+          ...avatar,
+          isDefault: true,
+          isUnlocked: true,
+        })),
+      },
+    });
   });
 
   it("refuses to submit without a first name", async () => {
@@ -224,6 +243,95 @@ describe("ChildProfileForm", () => {
     expect(
       screen.getByRole("radio", { name: "Choose Ollie the Owl" }),
     ).toBeChecked();
+  });
+
+  /**
+   * The avatar picker's two sources (FR-GAM-05). A new profile has nothing
+   * unlocked to show, so creation reads the starter set; an existing one reads
+   * its own list, which is the only one that knows what has been earned.
+   */
+  describe("where the avatars come from", () => {
+    it("reads the starter set when creating a profile", async () => {
+      await renderForm();
+
+      expect(api.listAvatars).toHaveBeenCalledTimes(1);
+      expect(api.listChildCharacters).not.toHaveBeenCalled();
+    });
+
+    it("reads this child's own list when editing", async () => {
+      await renderForm({ initial: child() });
+
+      expect(api.listChildCharacters).toHaveBeenCalledWith("child_1");
+      expect(api.listAvatars).not.toHaveBeenCalled();
+    });
+
+    it("shows a locked character as an unselectable silhouette", async () => {
+      api.listChildCharacters.mockResolvedValue({
+        ok: true,
+        data: {
+          characters: [
+            { ...AVATARS[0], isDefault: true, isUnlocked: true },
+            {
+              id: "char_monkey",
+              slug: "mia-the-monkey",
+              name: "Mia the Monkey",
+              imageUrl: null,
+              isDefault: false,
+              isUnlocked: false,
+            },
+          ],
+        },
+      });
+
+      await renderForm({ initial: child() });
+
+      // Shown, not hidden — a picker listing only what a child already has
+      // cannot show them what there is to earn.
+      expect(
+        screen.getByRole("button", {
+          name: "Mia the Monkey — keep learning to unlock",
+        }),
+      ).toBeInTheDocument();
+      // But not a choice: it is outside the radio group entirely, so a keyboard
+      // user never arrows onto an option that refuses to take.
+      expect(
+        screen.queryByRole("radio", { name: "Choose Mia the Monkey" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("plays a gentle line rather than an error when a locked one is tapped", async () => {
+      api.listChildCharacters.mockResolvedValue({
+        ok: true,
+        data: {
+          characters: [
+            { ...AVATARS[0], isDefault: true, isUnlocked: true },
+            {
+              id: "char_monkey",
+              slug: "mia-the-monkey",
+              name: "Mia the Monkey",
+              imageUrl: null,
+              isDefault: false,
+              isUnlocked: false,
+            },
+          ],
+        },
+      });
+      const { onSubmit } = await renderForm({ initial: child() });
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Mia the Monkey — keep learning to unlock",
+        }),
+      );
+
+      // No error text, no selection change, and nothing submitted: a locked
+      // character is something to look forward to, not a mistake.
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("radio", { name: "Choose Leo the Lion" }),
+      ).toBeChecked();
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
   });
 
   it("clears a field's error as soon as the field changes", async () => {

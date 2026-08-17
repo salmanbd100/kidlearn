@@ -121,7 +121,9 @@ progressRouter.post(
  * does not already know better. How many answers were right is read from the
  * stored responses and the amounts are constants in `services/rewardService.ts`,
  * which is the whole of FR-GAM-08 — a request that cannot name a reward cannot
- * buy one.
+ * buy one. The same holds for everything file 24 added to the response: badges,
+ * character unlocks and the streak are all decided from rows the server counted,
+ * against a calendar day in `APP_TIMEZONE` rather than a device clock.
  *
  * `200`, not `201`: the ledger rows are a consequence of finishing, and a replay
  * writes none at all, so there is no resource this call reliably creates.
@@ -135,9 +137,7 @@ progressRouter.post(
         activeChild(req),
         lessonIdParam(req),
       );
-      const body: SuccessEnvelope<LessonCompletionResponse> = {
-        data: { ...rewards, newBadges: [] },
-      };
+      const body: SuccessEnvelope<LessonCompletionResponse> = { data: rewards };
       res.json(body);
     } catch (error) {
       next(error);

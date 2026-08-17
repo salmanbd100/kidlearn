@@ -487,84 +487,113 @@ async function main() {
     });
   }
 
+  // ---------- Earned characters (file 24, FR-GAM-05) ----------
+  // `isDefault: false` and a real `unlockRule`, which is what separates these
+  // from the starter set above: they appear in the picker as locked silhouettes
+  // and become selectable when the child's ledger totals meet the criteria.
+  //
+  // The three shapes the engine understands, one each, so a developer can see
+  // all of them fire without inventing content. Every key a rule names must be
+  // met — `{ stars: 10 }` is ten stars and nothing else.
+  const UNLOCKABLE_CHARACTERS = [
+    {
+      slug: "mia-the-monkey",
+      name: "Mia the Monkey",
+      unlockRule: { stars: 10 },
+    },
+    {
+      slug: "ollie-the-octopus",
+      name: "Ollie the Octopus",
+      unlockRule: { coins: 50 },
+    },
+    {
+      slug: "zara-the-zebra",
+      name: "Zara the Zebra",
+      unlockRule: { badges: 2 },
+    },
+  ];
+
+  for (const { slug, name, unlockRule } of UNLOCKABLE_CHARACTERS) {
+    await prisma.character.upsert({
+      where: { slug },
+      // The rule is owned on update, for the reason the badge block below gives.
+      update: { unlockRule, isDefault: false },
+      create: { slug, name, isDefault: false, status: "published", unlockRule },
+    });
+  }
+
   // ---------- Six FR-GAM-04 Badges ----------
-  await prisma.badge.upsert({
-    where: { slug: "alphabet-hero" },
-    update: {},
-    create: {
+  /**
+   * `ruleType` and `rule` are owned on **update**, unlike almost every other
+   * upsert in this file.
+   *
+   * The reason is the same one `LessonTranslation.title` gives: these rows were
+   * seeded before the engine existed, and two of them named a `ruleType` the
+   * engine has no evaluator for (`lessons_completed_in_subject`). With
+   * `update: {}` a re-seed would leave those rows in place, evaluating false
+   * forever while looking correct on a fresh database. `name` and `description`
+   * are deliberately *not* owned — those are copy an admin may have edited
+   * (file 33), and a rule is not.
+   *
+   * `topicSlug: "numbers"` and `"animals"` name topics no seed has created yet.
+   * That is intentional and safe: a topic with nothing published in it counts as
+   * zero, so the badge simply never fires until the curriculum exists.
+   */
+  const MVP_BADGES = [
+    {
       slug: "alphabet-hero",
       name: "Alphabet Hero",
       description: "Complete all letters in the Alphabet topic",
       ruleType: "lessons_completed_in_topic",
-      rule: { topicSlug: "alphabet", count: 26 },
-      status: "published",
+      // `"all"`, not 26: publishing a twenty-seventh letter lesson must move the
+      // goalposts without anyone re-authoring this row.
+      rule: { topicSlug: "alphabet", count: "all" },
     },
-  });
-
-  await prisma.badge.upsert({
-    where: { slug: "math-champion" },
-    update: {},
-    create: {
+    {
       slug: "math-champion",
       name: "Math Champion",
-      description: "Complete all lessons in Mathematics",
-      ruleType: "lessons_completed_in_subject",
-      rule: { subjectSlug: "mathematics", count: 20 },
-      status: "published",
+      description: "Complete every lesson in the Numbers topic",
+      ruleType: "lessons_completed_in_topic",
+      rule: { topicSlug: "numbers", count: "all" },
     },
-  });
-
-  await prisma.badge.upsert({
-    where: { slug: "reading-star" },
-    update: {},
-    create: {
+    {
       slug: "reading-star",
       name: "Reading Star",
       description: "Finish 10 stories",
       ruleType: "stories_completed",
       rule: { count: 10 },
-      status: "published",
     },
-  });
-
-  await prisma.badge.upsert({
-    where: { slug: "animal-expert" },
-    update: {},
-    create: {
+    {
       slug: "animal-expert",
       name: "Animal Expert",
-      description: "Complete all lessons in Science",
-      ruleType: "lessons_completed_in_subject",
-      rule: { subjectSlug: "science", count: 15 },
-      status: "published",
+      // Honestly measured: 20 *questions* answered right, not 20 lessons opened.
+      description: "Identify 20 animals correctly",
+      ruleType: "quiz_correct_in_topic",
+      rule: { topicSlug: "animals", count: 20 },
     },
-  });
-
-  await prisma.badge.upsert({
-    where: { slug: "streak-starter" },
-    update: {},
-    create: {
+    {
       slug: "streak-starter",
       name: "Streak Starter",
       description: "Learn 3 days in a row",
       ruleType: "streak_days",
       rule: { days: 3 },
-      status: "published",
     },
-  });
-
-  await prisma.badge.upsert({
-    where: { slug: "week-warrior" },
-    update: {},
-    create: {
+    {
       slug: "week-warrior",
       name: "Week Warrior",
       description: "Learn 7 days in a row",
       ruleType: "streak_days",
       rule: { days: 7 },
-      status: "published",
     },
-  });
+  ];
+
+  for (const badge of MVP_BADGES) {
+    await prisma.badge.upsert({
+      where: { slug: badge.slug },
+      update: { ruleType: badge.ruleType, rule: badge.rule },
+      create: { ...badge, status: "published" },
+    });
+  }
 
   // ---------- Assign Default Character to Child Profile ----------
   const ChildProfileUpdate = await prisma.childProfile.update({

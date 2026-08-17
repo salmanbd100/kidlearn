@@ -5,10 +5,13 @@ import {
   AuthMeSchema,
   AvatarCharacterListResponseSchema,
   AvatarCharacterSchema,
+  CharacterUnlockListResponseSchema,
+  CharacterUnlockSchema,
   ChildProfileListResponseSchema,
   ChildProfileResponseSchema,
   ChildProfileSchema,
   ChildStatsSchema,
+  CompletionStreakSchema,
   ConsentRecordResponseSchema,
   DeletedResponseSchema,
   DeletionRequestResponseSchema,
@@ -29,6 +32,8 @@ import {
   LessonQuizQuestionSchema,
   LessonQuizSchema,
   MediaSummarySchema,
+  NewBadgeSchema,
+  NewCharacterSchema,
   ParentSummarySchema,
   PinGrantResponseSchema,
   PinStatusResponseSchema,
@@ -140,6 +145,8 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   // --- Characters ---------------------------------------------------------
   AvatarCharacter: AvatarCharacterSchema,
   AvatarCharacterListResponse: AvatarCharacterListResponseSchema,
+  CharacterUnlock: CharacterUnlockSchema,
+  CharacterUnlockListResponse: CharacterUnlockListResponseSchema,
 
   // --- Content ------------------------------------------------------------
   MediaSummary: MediaSummarySchema,
@@ -172,6 +179,9 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   // Response shapes only, and there is no request shape to register: no
   // endpoint accepts a reward amount or type (FR-GAM-08).
   RewardTotals: RewardTotalsSchema,
+  NewBadge: NewBadgeSchema,
+  NewCharacter: NewCharacterSchema,
+  CompletionStreak: CompletionStreakSchema,
   LessonCompletion: LessonCompletionSchema,
   LessonCompletionResponse: LessonCompletionResponseSchema,
   RewardSummary: RewardSummarySchema,
@@ -231,7 +241,7 @@ export const TAGS = [
   {
     name: "Characters",
     description:
-      "Avatar characters. At MVP only the published starter set is readable, which is what the child-profile form picks from; earned characters and their unlock rules arrive in file 24.",
+      "Avatar characters. `GET /api/characters` lists the published starter set a brand-new profile picks from; the per-child lists additionally carry the characters that must be *earned*, flagged with whether that child has unlocked them yet (FR-GAM-05). Unlock rules are `Character.unlockRule` JSONB read against the child's ledger totals — nothing about an unlock is decided or reported by a client.",
   },
   {
     name: "Content",
@@ -246,7 +256,7 @@ export const TAGS = [
   {
     name: "Rewards",
     description:
-      "Stars and coins. Balances are `SUM(amount)` aggregates over the append-only `RewardLedger`, never stored counters, and every grant is written by one server-side service from constants it holds itself. **No endpoint anywhere in this API accepts a reward amount or a reward type** — rewards are earned, and there is no purchase path (FR-GAM-08). Replaying a lesson grants nothing: a unique index on `(childId, rewardType, sourceType, sourceId)` makes that structural rather than a check somebody could forget.",
+      "Stars, coins, badges and streaks. Balances are `SUM(amount)` aggregates over the append-only `RewardLedger`, never stored counters, and every grant is written by one server-side service from constants it holds itself. **No endpoint anywhere in this API accepts a reward amount or a reward type** — rewards are earned, and there is no purchase path (FR-GAM-08). Replaying a lesson grants nothing: a unique index on `(childId, rewardType, sourceType, sourceId)` makes that structural rather than a check somebody could forget.\n\nBadges are data, not code: a `Badge` row carries a `ruleType` and a `rule` JSONB blob that a server-side engine interprets, so a new milestone is an admin writing a row (FR-GAM-04). Streaks are consecutive **local** days — a calendar day in the deployment's `APP_TIMEZONE`, never a device clock — with at least one completion in them (FR-GAM-06).",
   },
 ];
 

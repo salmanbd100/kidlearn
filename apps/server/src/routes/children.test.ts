@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs";
 import { type ChildProfile, type Parent, Prisma } from "@kidlearn/db";
 import {
   ActiveChildResponseSchema,
+  CharacterUnlockListResponseSchema,
   ChildProfileListResponseSchema,
   ChildProfileResponseSchema,
   DeletedResponseSchema,
@@ -22,7 +23,13 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../openapi/assert-contract.js";
 
-type CharacterRow = { id: string; isDefault: boolean; status: string };
+type CharacterRow = {
+  id: string;
+  slug: string;
+  name: string;
+  isDefault: boolean;
+  status: string;
+};
 type SessionRow = {
   id: string;
   userId: string;
@@ -49,6 +56,7 @@ const db = vi.hoisted(() => ({
   childUpdate: vi.fn(),
   childDelete: vi.fn(),
   characterFindFirst: vi.fn(),
+  characterFindMany: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionUpdateMany: vi.fn(),
   transaction: vi.fn(),
@@ -66,7 +74,10 @@ vi.mock("../lib/prisma.js", () => {
       update: db.childUpdate,
       delete: db.childDelete,
     },
-    character: { findFirst: db.characterFindFirst },
+    character: {
+      findFirst: db.characterFindFirst,
+      findMany: db.characterFindMany,
+    },
     session: { update: db.sessionUpdate, updateMany: db.sessionUpdateMany },
     // Interactive transaction: the callback gets the same stubbed client, so
     // `tx.childProfile.count` and the real client's spy are one and the same.
@@ -146,9 +157,27 @@ const FIXTURES = new Map([
  * both `isDefault` and `status`.
  */
 const CHARACTERS: CharacterRow[] = [
-  { id: "character_default", isDefault: true, status: "published" },
-  { id: "character_unlockable", isDefault: false, status: "published" },
-  { id: "character_draft", isDefault: true, status: "draft" },
+  {
+    id: "character_default",
+    slug: "leo-the-lion",
+    name: "Leo the Lion",
+    isDefault: true,
+    status: "published",
+  },
+  {
+    id: "character_unlockable",
+    slug: "mia-the-monkey",
+    name: "Mia the Monkey",
+    isDefault: false,
+    status: "published",
+  },
+  {
+    id: "character_draft",
+    slug: "nia-the-newt",
+    name: "Nia the Newt",
+    isDefault: true,
+    status: "draft",
+  },
 ];
 
 const VALID_BODY = {
@@ -292,6 +321,33 @@ beforeEach(() => {
         }) ?? null
       );
     },
+  );
+
+  // The per-child character list (file 24). The status gate is applied here, as
+  // Postgres would, so a draft character can be shown to have stayed out of the
+  // response rather than only out of the `where` clause (Rule 3).
+  db.characterFindMany.mockImplementation(
+    async ({
+      where,
+      select,
+    }: {
+      where: { status: string };
+      select: { unlocks: { where: { childId: string } } };
+    }) =>
+      CHARACTERS.filter((character) => character.status === where.status)
+        .map((character) => ({
+          id: character.id,
+          slug: character.slug,
+          name: character.name,
+          isDefault: character.isDefault,
+          asset: null,
+          unlocks: state.unlocks.filter(
+            (unlock) =>
+              unlock.childId === select.unlocks.where.childId &&
+              unlock.characterId === character.id,
+          ),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
   );
 
   db.childFindFirst.mockImplementation(
@@ -949,6 +1005,142 @@ describe("PATCH /api/children/:id", () => {
     expect(res.body).toEqual(NOT_FOUND_ENVELOPE);
     expect(state.children[0].firstName).toBe("Ayaan");
     expect(db.childUpdate).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The list the avatar picker draws from (FR-GAM-05, FR-PROF-02).
+ *
+ * These tests pair with the `PATCH` ones above deliberately: the two must agree
+ * about which characters a child may wear, or the picker offers an avatar the
+ * write route then rejects.
+ */
+describe("GET /api/children/:id/characters", () => {
+  it("returns every published character, locked ones included", async () => {
+    const child = seedChild(PARENT_A);
+
+    const res = await authedAgentFor(PARENT_A).get(
+      `/api/children/${child.id}/characters`,
+    );
+
+    expect(res.status).toBe(200);
+    assertContract(
+      CharacterUnlockListResponseSchema,
+      res.body,
+      "GET /api/children/{id}/characters",
+    );
+    // A picker showing only what a child already has cannot show them what
+    // there is to earn.
+    expect(res.body.data.characters).toEqual([
+      {
+        id: "character_default",
+        slug: "leo-the-lion",
+        name: "Leo the Lion",
+        imageUrl: null,
+        isDefault: true,
+        isUnlocked: true,
+      },
+      {
+        id: "character_unlockable",
+        slug: "mia-the-monkey",
+        name: "Mia the Monkey",
+        imageUrl: null,
+        isDefault: false,
+        isUnlocked: false,
+      },
+    ]);
+  });
+
+  it("flags a character this child has unlocked", async () => {
+    const child = seedChild(PARENT_A);
+    state.unlocks.push({
+      childId: child.id,
+      characterId: "character_unlockable",
+    });
+
+    const res = await authedAgentFor(PARENT_A).get(
+      `/api/children/${child.id}/characters`,
+    );
+
+    // Exactly the character `PATCH` accepts three tests above — the agreement
+    // between the two is the point of this endpoint existing.
+    expect(res.body.data.characters[1]).toMatchObject({
+      id: "character_unlockable",
+      isUnlocked: true,
+    });
+  });
+
+  it("does not flag another child's unlock", async () => {
+    const mine = seedChild(PARENT_A);
+    const sibling = seedChild(PARENT_A);
+    state.unlocks.push({
+      childId: sibling.id,
+      characterId: "character_unlockable",
+    });
+
+    const res = await authedAgentFor(PARENT_A).get(
+      `/api/children/${mine.id}/characters`,
+    );
+
+    expect(res.body.data.characters[1].isUnlocked).toBe(false);
+  });
+
+  it("never lists an unpublished character (backend.md §4)", async () => {
+    const child = seedChild(PARENT_A);
+    state.unlocks.push({ childId: child.id, characterId: "character_draft" });
+
+    const res = await authedAgentFor(PARENT_A).get(
+      `/api/children/${child.id}/characters`,
+    );
+
+    // An unlock is not a publication, so a draft character stays out of the
+    // picker even for a child who somehow holds a row for it.
+    expect(
+      res.body.data.characters.some(
+        (character: { id: string }) => character.id === "character_draft",
+      ),
+    ).toBe(false);
+    expect(db.characterFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: "published" } }),
+    );
+  });
+
+  it("answers 404 for another parent's child", async () => {
+    const child = seedChild(PARENT_A);
+
+    const res = await authedAgentFor(PARENT_B).get(
+      `/api/children/${child.id}/characters`,
+    );
+
+    // 404 rather than 403, like every other route on this router: a 403 would
+    // confirm the profile exists (NFR-SAFE-02).
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual(NOT_FOUND_ENVELOPE);
+    expect(db.characterFindMany).not.toHaveBeenCalled();
+  });
+
+  it("requires a session", async () => {
+    const child = seedChild(PARENT_A);
+
+    const res = await anonymousAgent().get(
+      `/api/children/${child.id}/characters`,
+    );
+
+    expect(res.status).toBe(401);
+    expect(db.characterFindMany).not.toHaveBeenCalled();
+  });
+
+  it("is reachable without a live PIN grant, like the reads beside it", async () => {
+    const child = seedChild(PARENT_A);
+    const session = state.sessions.get(PARENT_A.sessionId);
+    if (session === undefined) throw new Error("no session fixture");
+    session.pinVerifiedUntil = null;
+
+    const res = await authedAgentFor(PARENT_A).get(
+      `/api/children/${child.id}/characters`,
+    );
+
+    expect(res.status).toBe(200);
   });
 });
 

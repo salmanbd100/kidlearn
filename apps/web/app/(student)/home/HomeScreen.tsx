@@ -24,12 +24,14 @@ import { StudentStatus } from "../StudentGuard";
  * literal. Adding Space World is a row in the database (FR-WORLD-05), and the
  * test for that property asserts the styling comes from the response.
  *
- * The counters are display-only. Stars and coins are read from
- * `GET /api/me/rewards/summary` — live ledger aggregates (file 23) rather than the
- * zeros the profile still carries — and are rendered exactly as sent; nothing here
- * can change a number, which is the client half of progress being
- * server-authoritative (spec §7). The streak stays on the profile until file 24
- * computes it.
+ * The counters are display-only. Every one of them is read from
+ * `GET /api/me/rewards/summary` — live ledger aggregates and the stored streak
+ * (files 23–24) rather than the zeros the profile still carries — and rendered
+ * exactly as sent; nothing here can change a number, which is the client half of
+ * progress being server-authoritative (spec §7). There is deliberately no date
+ * arithmetic anywhere on this screen: which local day it is, and whether the
+ * streak survived the night, are the server's to decide, because a device clock
+ * is something a five-year-old can change in Settings (FR-GAM-06).
  *
  * A failed summary read leaves the profile's own figures on screen rather than
  * blanking the strip. A child who cannot see today's coins has lost nothing they
@@ -87,6 +89,7 @@ export function HomeScreen() {
           stars: rewards.stars,
           coins: rewards.coins,
           badges: rewards.badgeCount,
+          currentStreak: rewards.currentStreak,
         };
 
   return (

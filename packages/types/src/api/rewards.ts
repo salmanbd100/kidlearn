@@ -22,19 +22,71 @@ export const RewardTotalsSchema = z
 export type RewardTotalsResponse = z.infer<typeof RewardTotalsSchema>;
 
 /**
- * The badges a completion just unlocked.
+ * One badge a completion just unlocked (FR-GAM-04).
  *
- * Always empty today: badge rules arrive in file 24, which widens this schema
- * and fills the array. It is in the contract now, and typed as an array of
- * nothing rather than left out, so a client can render the whole celebration
- * against a shape that will not change under it — and so the day badges exist,
- * this schema *has* to be widened deliberately rather than quietly starting to
- * carry objects nobody documented.
+ * `iconUrl` is `null` until the badge artwork lands, exactly as `imageUrl` is on
+ * a character: the celebration draws a placeholder keyed on `slug` meanwhile, so
+ * the art is a data change rather than a schema change.
  */
-// `.max(0)` is redundant against an item type of `never` and is here for the
-// generated document, where `maxItems: 0` reads as "always empty" and the
-// converted `never` (`items: { not: {} }`) does not.
-export const NewBadgesSchema = z.array(z.never()).max(0);
+export const NewBadgeSchema = z
+  .object({
+    id: z.string(),
+    slug: z.string(),
+    name: z.string(),
+    iconUrl: z.string().nullable(),
+  })
+  .strict();
+
+export type NewBadgeResponse = z.infer<typeof NewBadgeSchema>;
+
+/** One avatar character a completion just unlocked (FR-GAM-05). */
+export const NewCharacterSchema = z
+  .object({
+    id: z.string(),
+    slug: z.string(),
+    name: z.string(),
+    imageUrl: z.string().nullable(),
+  })
+  .strict();
+
+export type NewCharacterResponse = z.infer<typeof NewCharacterSchema>;
+
+/**
+ * The two consecutive-day counts that get their own celebration (FR-GAM-06).
+ *
+ * A closed set rather than "every multiple of n": the day a streak first reaches
+ * three and the day it first reaches seven are the two the product promises a
+ * party for, and a client can therefore branch on the literal.
+ */
+export const STREAK_MILESTONE_DAYS = [3, 7] as const;
+
+/**
+ * `3` or `7` on the update that *reaches* that length, `null` on every other
+ * update — including later days of the same streak, and including a second
+ * completion on the milestone day itself. A milestone is a moment, not a state.
+ */
+export const StreakMilestoneSchema = z
+  .union([z.literal(3), z.literal(7)])
+  .nullable();
+
+export type StreakMilestone = z.infer<typeof StreakMilestoneSchema>;
+
+/**
+ * The streak as the celebration needs it: how long it now is, and whether this
+ * completion is the one that earned the flame.
+ *
+ * `longest` is deliberately absent. It is a parent-report figure (files 29–30),
+ * and a child's celebration comparing today against their best week would be a
+ * way of telling a four-year-old they used to do better.
+ */
+export const CompletionStreakSchema = z
+  .object({
+    current: z.number().int().nonnegative(),
+    milestone: StreakMilestoneSchema,
+  })
+  .strict();
+
+export type CompletionStreakResponse = z.infer<typeof CompletionStreakSchema>;
 
 /**
  * The answer to `POST /api/progress/lessons/{id}/complete`.
@@ -44,12 +96,18 @@ export const NewBadgesSchema = z.array(z.never()).max(0);
  * answers with two zeros and unchanged totals, which is correct and is also why
  * the celebration must not treat zero as a failure: it means "you already did
  * this one", and a four-year-old is owed the same fireworks either way.
+ *
+ * `newBadges` and `newCharacters` follow the same rule and for the same reason:
+ * they carry what *this* call unlocked, so a replay sends two empty arrays
+ * rather than re-announcing a badge the child was given last week.
  */
 export const LessonCompletionSchema = z
   .object({
     starsEarned: z.number().int().nonnegative(),
     coinsEarned: z.number().int().nonnegative(),
-    newBadges: NewBadgesSchema,
+    newBadges: z.array(NewBadgeSchema),
+    newCharacters: z.array(NewCharacterSchema),
+    streak: CompletionStreakSchema,
     totals: RewardTotalsSchema,
   })
   .strict();
@@ -64,10 +122,16 @@ export const LessonCompletionResponseSchema = ok(LessonCompletionSchema);
  *
  * `badgeCount` rather than the badges themselves: the strip shows a number, and
  * a list of badge rows on every home-screen render would be a payload nobody
- * reads. The gallery that does read them is file 24's.
+ * reads.
+ *
+ * `currentStreak` is the live `Streak.current`, computed server-side against a
+ * calendar day in the deployment's `APP_TIMEZONE`. The strip renders it and
+ * nothing else — there is no client-side day arithmetic anywhere, because a
+ * device clock is something a child can change.
  */
 export const RewardSummarySchema = RewardTotalsSchema.extend({
   badgeCount: z.number().int().nonnegative(),
+  currentStreak: z.number().int().nonnegative(),
 }).strict();
 
 export type RewardSummaryResponse = z.infer<typeof RewardSummarySchema>;

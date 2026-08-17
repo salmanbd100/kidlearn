@@ -32,7 +32,11 @@ import {
 } from "@kidlearn/types";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { localDateIn } from "../lib/local-date.js";
 import { assertContract } from "../openapi/assert-contract.js";
+
+/** The zone `lib/env.ts` defaults to, which the suite runs under. */
+const APP_TIMEZONE = "Asia/Dhaka";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 const MISSING_ID = "99999999-9999-4999-8999-999999999999";
@@ -77,7 +81,47 @@ type LedgerRow = {
   amount: number;
   sourceType: string;
   sourceId: string | null;
+  badgeId?: string | null;
 };
+
+type StreakRow = {
+  childId: string;
+  current: number;
+  longest: number;
+  lastActivityDate: Date | null;
+};
+
+type BadgeRow = {
+  id: string;
+  slug: string;
+  name: string;
+  ruleType: string;
+  rule: unknown;
+  iconAsset: { url: string } | null;
+};
+
+type CharacterRow = {
+  id: string;
+  slug: string;
+  name: string;
+  isDefault: boolean;
+  unlockRule: unknown;
+  asset: { url: string } | null;
+};
+
+type ChildCharacterRow = { childId: string; characterId: string };
+
+/** The `yyyy-MM-dd` local date `rewardService` will key today's grants on. */
+function localToday(): string {
+  return localDateIn(APP_TIMEZONE, new Date());
+}
+
+/** `n` days before today, as the `@db.Date` column stores it: midnight UTC. */
+function daysAgoAsDateColumn(days: number): Date {
+  const date = new Date(`${localToday()}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - days);
+  return date;
+}
 
 /**
  * An in-memory store, not a queue of canned answers.
@@ -93,6 +137,12 @@ const store = vi.hoisted(() => ({
   quizResponses: [] as unknown[],
   ledger: [] as unknown[],
   transactionOptions: [] as unknown[],
+  /** One row per child, as `Streak.childId @unique` enforces. */
+  streaks: [] as unknown[],
+  /** The published badge catalogue this run evaluates against. */
+  badges: [] as unknown[],
+  characters: [] as unknown[],
+  childCharacters: [] as unknown[],
 }));
 
 const db = vi.hoisted(() => ({
@@ -100,7 +150,9 @@ const db = vi.hoisted(() => ({
   childFindFirst: vi.fn(),
   lessonFindFirst: vi.fn(),
   lessonFindUnique: vi.fn(),
+  lessonFindMany: vi.fn(),
   progressFindUnique: vi.fn(),
+  progressFindMany: vi.fn(),
   progressCreate: vi.fn(),
   progressUpdate: vi.fn(),
   sessionEventCreate: vi.fn(),
@@ -109,6 +161,12 @@ const db = vi.hoisted(() => ({
   ledgerFindMany: vi.fn(),
   ledgerCreateMany: vi.fn(),
   ledgerGroupBy: vi.fn(),
+  streakFindUnique: vi.fn(),
+  streakUpsert: vi.fn(),
+  badgeFindMany: vi.fn(),
+  characterFindMany: vi.fn(),
+  childCharacterFindMany: vi.fn(),
+  childCharacterCreateMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -116,9 +174,14 @@ vi.mock("../lib/prisma.js", () => ({
   prisma: {
     parent: { findUnique: db.parentFindUnique },
     childProfile: { findFirst: db.childFindFirst },
-    lesson: { findFirst: db.lessonFindFirst, findUnique: db.lessonFindUnique },
+    lesson: {
+      findFirst: db.lessonFindFirst,
+      findUnique: db.lessonFindUnique,
+      findMany: db.lessonFindMany,
+    },
     lessonProgress: {
       findUnique: db.progressFindUnique,
+      findMany: db.progressFindMany,
       create: db.progressCreate,
       update: db.progressUpdate,
     },
@@ -131,6 +194,13 @@ vi.mock("../lib/prisma.js", () => ({
       findMany: db.ledgerFindMany,
       createMany: db.ledgerCreateMany,
       groupBy: db.ledgerGroupBy,
+    },
+    streak: { findUnique: db.streakFindUnique, upsert: db.streakUpsert },
+    badge: { findMany: db.badgeFindMany },
+    character: { findMany: db.characterFindMany },
+    childCharacter: {
+      findMany: db.childCharacterFindMany,
+      createMany: db.childCharacterCreateMany,
     },
     $transaction: db.transaction,
   },
@@ -224,6 +294,10 @@ beforeEach(() => {
   store.quizResponses = [];
   store.ledger = [];
   store.transactionOptions = [];
+  store.streaks = [];
+  store.badges = [];
+  store.characters = [];
+  store.childCharacters = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
   // The lesson is visible unless a test says otherwise. The `quiz` half is what
@@ -343,18 +417,40 @@ beforeEach(() => {
     },
   );
 
+  // Three callers, three `where` shapes — the reward grant asks by `sourceId`,
+  // the badge engine by `rewardType`, and the story fact by `sourceType`. Filtered
+  // generically rather than per caller so the stub stays a store rather than
+  // becoming a script (Rule 1).
   db.ledgerFindMany.mockImplementation(
     async ({
       where,
     }: {
-      where: { childId: string; sourceId: { in: string[] } };
+      where: {
+        childId: string;
+        rewardType?: string;
+        sourceType?: string;
+        sourceId?: { in: string[] };
+      };
     }) =>
-      (store.ledger as LedgerRow[]).filter(
-        (row) =>
-          row.childId === where.childId &&
-          row.sourceId !== null &&
-          where.sourceId.in.includes(row.sourceId),
-      ),
+      (store.ledger as LedgerRow[]).filter((row) => {
+        if (row.childId !== where.childId) return false;
+        if (
+          where.rewardType !== undefined &&
+          row.rewardType !== where.rewardType
+        )
+          return false;
+        if (
+          where.sourceType !== undefined &&
+          row.sourceType !== where.sourceType
+        )
+          return false;
+        if (where.sourceId !== undefined) {
+          // Postgres treats a NULL as outside an `IN`, and so does this.
+          if (row.sourceId === null) return false;
+          if (!where.sourceId.in.includes(row.sourceId)) return false;
+        }
+        return true;
+      }),
   );
 
   // `skipDuplicates` is *emulated* here, so nothing in this file proves the
@@ -399,6 +495,90 @@ beforeEach(() => {
     },
   );
 
+  // --- Streaks, badges and characters (file 24) ---------------------------
+  //
+  // The catalogues start empty, so the reward tests above stay about stars and
+  // coins; a test that cares seeds `store.badges` / `store.characters` itself.
+  // The streak store is a real row that carries between requests, which is the
+  // only way "a second lesson today changes nothing" can be tested at all.
+
+  db.streakFindUnique.mockImplementation(
+    async ({ where }: { where: { childId: string } }) =>
+      (store.streaks as StreakRow[]).find(
+        (row) => row.childId === where.childId,
+      ) ?? null,
+  );
+
+  db.streakUpsert.mockImplementation(
+    async ({
+      where,
+      create,
+      update,
+    }: {
+      where: { childId: string };
+      create: StreakRow;
+      update: Omit<StreakRow, "childId">;
+    }) => {
+      const index = (store.streaks as StreakRow[]).findIndex(
+        (row) => row.childId === where.childId,
+      );
+      if (index === -1) {
+        store.streaks.push({ ...create });
+        return create;
+      }
+      const row = { ...(store.streaks[index] as StreakRow), ...update };
+      store.streaks[index] = row;
+      return row;
+    },
+  );
+
+  db.badgeFindMany.mockImplementation(async () => store.badges as BadgeRow[]);
+
+  db.characterFindMany.mockImplementation(
+    async ({ where }: { where: { isDefault?: boolean } }) =>
+      (store.characters as CharacterRow[]).filter((row) =>
+        where.isDefault === undefined
+          ? true
+          : row.isDefault === where.isDefault,
+      ),
+  );
+
+  db.childCharacterFindMany.mockImplementation(
+    async ({ where }: { where: { childId: string } }) =>
+      (store.childCharacters as ChildCharacterRow[]).filter(
+        (row) => row.childId === where.childId,
+      ),
+  );
+
+  // `skipDuplicates` emulated, exactly as the ledger's is — and proving the same
+  // amount about Postgres, which is none (Rule 4: the unique pair is asserted
+  // against `schema.prisma` at the bottom of this file).
+  db.childCharacterCreateMany.mockImplementation(
+    async ({
+      data,
+      skipDuplicates,
+    }: {
+      data: ChildCharacterRow[];
+      skipDuplicates?: boolean;
+    }) => {
+      const key = (row: ChildCharacterRow) =>
+        `${row.childId}|${row.characterId}`;
+      const existing = new Set(
+        (store.childCharacters as ChildCharacterRow[]).map(key),
+      );
+      const rows = skipDuplicates
+        ? data.filter((row) => !existing.has(key(row)))
+        : data;
+      store.childCharacters.push(...rows);
+      return { count: rows.length };
+    },
+  );
+
+  // The badge fact loader only runs when a candidate rule names a topic, and no
+  // suite here seeds curriculum for one — an empty answer is the honest zero.
+  db.lessonFindMany.mockResolvedValue([]);
+  db.progressFindMany.mockResolvedValue([]);
+
   // Runs the real callback against the in-memory store, and records the options
   // so the isolation level can be asserted (Rule 4).
   db.transaction.mockImplementation(
@@ -408,9 +588,13 @@ beforeEach(() => {
     ): Promise<unknown> => {
       store.transactionOptions.push(options);
       return callback({
-        lesson: { findUnique: db.lessonFindUnique },
+        lesson: {
+          findUnique: db.lessonFindUnique,
+          findMany: db.lessonFindMany,
+        },
         lessonProgress: {
           findUnique: db.progressFindUnique,
+          findMany: db.progressFindMany,
           create: db.progressCreate,
           update: db.progressUpdate,
         },
@@ -422,6 +606,13 @@ beforeEach(() => {
           findMany: db.ledgerFindMany,
           createMany: db.ledgerCreateMany,
           groupBy: db.ledgerGroupBy,
+        },
+        streak: { findUnique: db.streakFindUnique, upsert: db.streakUpsert },
+        badge: { findMany: db.badgeFindMany },
+        character: { findMany: db.characterFindMany },
+        childCharacter: {
+          findMany: db.childCharacterFindMany,
+          createMany: db.childCharacterCreateMany,
         },
       });
     },
@@ -664,6 +855,10 @@ describe("POST /api/progress/lessons/:id/complete", () => {
       starsEarned: 2,
       coinsEarned: 5,
       newBadges: [],
+      newCharacters: [],
+      // The child's first day of learning, so the streak opens at one and no
+      // milestone has been reached.
+      streak: { current: 1, milestone: null },
       totals: { stars: 2, coins: 5 },
     });
   });
@@ -757,6 +952,9 @@ describe("POST /api/progress/lessons/:id/complete", () => {
       starsEarned: 0,
       coinsEarned: 0,
       newBadges: [],
+      newCharacters: [],
+      // Same day, so the streak stands still and the milestone is not re-fired.
+      streak: { current: 1, milestone: null },
       totals: first.body.data.totals,
     });
     expect(ledger()).toHaveLength(rowsAfterFirst);
@@ -857,6 +1055,311 @@ describe("POST /api/progress/lessons/:id/complete", () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ starsEarned: 2, coinsEarned: 5 });
     expect(ledger()).toHaveLength(2);
+  });
+});
+
+/**
+ * Streaks, badges and character unlocks, through the endpoint that produces them
+ * (FR-GAM-04..06).
+ *
+ * The streak fixture is a seeded `Streak` row with `lastActivityDate` set to
+ * yesterday rather than any attempt to travel in time: "completing on day three"
+ * is a property of the stored row, and faking the clock would test the fake.
+ */
+describe("POST /api/progress/lessons/:id/complete — achievements", () => {
+  function complete(lessonId = LESSON_ID) {
+    return request(app).post(`/api/progress/lessons/${lessonId}/complete`);
+  }
+
+  function ledger(): LedgerRow[] {
+    return store.ledger as LedgerRow[];
+  }
+
+  function streakRow(): StreakRow {
+    const row = (store.streaks as StreakRow[])[0];
+    if (row === undefined) throw new Error("no Streak row was written");
+    return row;
+  }
+
+  /** Seeds the child mid-streak: `current` days, last active `daysAgo` days ago. */
+  function seedStreak(current: number, longest: number, daysAgo: number) {
+    store.streaks = [
+      {
+        childId: CHILD_ID,
+        current,
+        longest,
+        lastActivityDate: daysAgoAsDateColumn(daysAgo),
+      },
+    ];
+  }
+
+  const STREAK_STARTER: BadgeRow = {
+    id: "badge_streak_starter",
+    slug: "streak-starter",
+    name: "Streak Starter",
+    ruleType: "streak_days",
+    rule: { days: 3 },
+    iconAsset: null,
+  };
+
+  describe("streaks (FR-GAM-06)", () => {
+    it("opens a streak at one on a child's first completion", async () => {
+      signInAs(childProfile());
+
+      const res = await complete();
+
+      expect(res.body.data.streak).toEqual({ current: 1, milestone: null });
+      expect(streakRow()).toMatchObject({ current: 1, longest: 1 });
+    });
+
+    it("does not move the streak on a second lesson the same day", async () => {
+      signInAs(childProfile());
+      const OTHER_LESSON = "55555555-5555-4555-8555-555555555555";
+      await complete();
+
+      db.lessonFindFirst.mockResolvedValue({ id: OTHER_LESSON, quiz: null });
+      db.lessonFindUnique.mockResolvedValue({ quiz: null });
+      const res = await complete(OTHER_LESSON);
+
+      // A child who finishes four lessons in an afternoon has learned on one day.
+      expect(res.body.data.streak).toEqual({ current: 1, milestone: null });
+      expect(streakRow().current).toBe(1);
+    });
+
+    it("extends the streak when the last activity was yesterday", async () => {
+      signInAs(childProfile());
+      seedStreak(1, 1, 1);
+
+      const res = await complete();
+
+      expect(res.body.data.streak).toEqual({ current: 2, milestone: null });
+      expect(streakRow()).toMatchObject({ current: 2, longest: 2 });
+    });
+
+    it("resets to one after a gap while keeping the longest run on record", async () => {
+      signInAs(childProfile());
+      seedStreak(9, 9, 3);
+
+      const res = await complete();
+
+      // The streak is broken; what the child once did is not.
+      expect(res.body.data.streak.current).toBe(1);
+      expect(streakRow()).toMatchObject({ current: 1, longest: 9 });
+    });
+  });
+
+  describe("badges (FR-GAM-04)", () => {
+    it("grants streak-starter on the third consecutive day, with milestone 3", async () => {
+      signInAs(childProfile());
+      seedStreak(2, 2, 1);
+      store.badges = [STREAK_STARTER];
+
+      const res = await complete();
+
+      assertContract(
+        LessonCompletionResponseSchema,
+        res.body,
+        "POST /api/progress/lessons/{id}/complete",
+      );
+      expect(res.body.data.streak).toEqual({ current: 3, milestone: 3 });
+      expect(res.body.data.newBadges).toEqual([
+        {
+          id: "badge_streak_starter",
+          slug: "streak-starter",
+          name: "Streak Starter",
+          iconUrl: null,
+        },
+      ]);
+    });
+
+    it("writes the badge as a traceable ledger row", async () => {
+      signInAs(childProfile());
+      seedStreak(2, 2, 1);
+      store.badges = [STREAK_STARTER];
+
+      await complete();
+
+      expect(ledger().find((row) => row.rewardType === "badge")).toEqual({
+        childId: CHILD_ID,
+        rewardType: "badge",
+        // `1` because the ledger is one table — a badge is had, not accumulated.
+        amount: 1,
+        sourceType: "badge_unlock",
+        sourceId: "streak-starter",
+        badgeId: "badge_streak_starter",
+      });
+    });
+
+    it("grants the same badge only once, however often the lesson is replayed", async () => {
+      signInAs(childProfile());
+      seedStreak(2, 2, 1);
+      store.badges = [STREAK_STARTER];
+      await complete();
+      const rowsAfterFirst = ledger().length;
+
+      const second = await complete();
+
+      expect(second.body.data.newBadges).toEqual([]);
+      expect(second.body.data.streak).toEqual({ current: 3, milestone: null });
+      expect(ledger()).toHaveLength(rowsAfterFirst);
+    });
+
+    it("evaluates the streak rule after the streak has advanced", async () => {
+      signInAs(childProfile());
+      // Two days on the row; the badge needs three, and the third is *this* call.
+      // Evaluated before the update, the child would be told about their streak
+      // today and handed the badge for it tomorrow.
+      seedStreak(2, 2, 1);
+      store.badges = [STREAK_STARTER];
+
+      const res = await complete();
+
+      expect(res.body.data.newBadges).toHaveLength(1);
+    });
+
+    it("does not grant a badge whose rule is not met", async () => {
+      signInAs(childProfile());
+      store.badges = [
+        {
+          ...STREAK_STARTER,
+          id: "badge_week",
+          slug: "week-warrior",
+          rule: { days: 7 },
+        },
+      ];
+
+      const res = await complete();
+
+      expect(res.body.data.newBadges).toEqual([]);
+      expect(ledger().some((row) => row.rewardType === "badge")).toBe(false);
+    });
+
+    it("survives a badge row with an unknown ruleType", async () => {
+      signInAs(childProfile());
+      store.badges = [
+        {
+          ...STREAK_STARTER,
+          id: "badge_nonsense",
+          slug: "tuesday-champion",
+          ruleType: "lessons_completed_on_a_tuesday",
+          rule: { count: 1 },
+        },
+        STREAK_STARTER,
+      ];
+      seedStreak(2, 2, 1);
+
+      const res = await complete();
+
+      // A bad CMS row must never turn a child's celebration into a 500 — and it
+      // must not stop the badges beside it being granted either.
+      expect(res.status).toBe(200);
+      expect(
+        res.body.data.newBadges.map((badge: { slug: string }) => badge.slug),
+      ).toEqual(["streak-starter"]);
+    });
+
+    it("survives a badge row whose rule payload is malformed", async () => {
+      signInAs(childProfile());
+      store.badges = [{ ...STREAK_STARTER, rule: { days: "three" } }];
+      seedStreak(2, 2, 1);
+
+      const res = await complete();
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.newBadges).toEqual([]);
+    });
+  });
+
+  describe("character unlocks (FR-GAM-05)", () => {
+    const MIA: CharacterRow = {
+      id: "character_mia",
+      slug: "mia-the-monkey",
+      name: "Mia the Monkey",
+      isDefault: false,
+      unlockRule: { stars: 2 },
+      asset: null,
+    };
+
+    it("unlocks a character whose criteria the new totals meet", async () => {
+      signInAs(childProfile());
+      store.characters = [MIA];
+
+      const res = await complete();
+
+      // 2 stars for the lesson is exactly the rule.
+      expect(res.body.data.newCharacters).toEqual([
+        {
+          id: "character_mia",
+          slug: "mia-the-monkey",
+          name: "Mia the Monkey",
+          imageUrl: null,
+        },
+      ]);
+      expect(store.childCharacters).toEqual([
+        { childId: CHILD_ID, characterId: "character_mia" },
+      ]);
+    });
+
+    it("leaves a character locked until its criteria are met", async () => {
+      signInAs(childProfile());
+      store.characters = [{ ...MIA, unlockRule: { stars: 100 } }];
+
+      const res = await complete();
+
+      expect(res.body.data.newCharacters).toEqual([]);
+      expect(store.childCharacters).toHaveLength(0);
+    });
+
+    it("counts a badge granted a moment earlier in the same transaction", async () => {
+      signInAs(childProfile());
+      seedStreak(2, 2, 1);
+      store.badges = [STREAK_STARTER];
+      store.characters = [{ ...MIA, unlockRule: { badges: 1 } }];
+
+      const res = await complete();
+
+      // The ordering rule's other half: characters are evaluated after badges,
+      // so `{ badges: 1 }` sees the row written a few lines above it.
+      expect(res.body.data.newCharacters).toHaveLength(1);
+    });
+
+    it("never unlocks a starter character, which every child already has", async () => {
+      signInAs(childProfile());
+      store.characters = [{ ...MIA, isDefault: true, unlockRule: {} }];
+
+      const res = await complete();
+
+      expect(res.body.data.newCharacters).toEqual([]);
+      expect(store.childCharacters).toHaveLength(0);
+    });
+
+    it("creates exactly one ChildCharacter row across repeated completions", async () => {
+      signInAs(childProfile());
+      store.characters = [MIA];
+      await complete();
+
+      const second = await complete();
+
+      expect(second.body.data.newCharacters).toEqual([]);
+      expect(store.childCharacters).toHaveLength(1);
+    });
+  });
+
+  it("does all of it inside the one Serializable transaction the grants use", async () => {
+    signInAs(childProfile());
+    seedStreak(2, 2, 1);
+    store.badges = [STREAK_STARTER];
+    store.characters = [];
+
+    await complete();
+
+    // Two, not five: the step report, then one transaction covering the grants,
+    // the streak, the badges and the characters. A badge visible without the
+    // star that earned it is a state no reader should ever be able to observe.
+    expect(store.transactionOptions).toEqual([
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ]);
   });
 });
 
@@ -1500,6 +2003,11 @@ describe("reward grant contract (FR-GAM-07..08)", () => {
     expect(schema).toContain(
       "@@unique([childId, rewardType, sourceType, sourceId])",
     );
+    // The character unlock's equivalent, and emulated by the same stub trick.
+    expect(schema).toContain("@@unique([childId, characterId])");
+    // One streak per child. Without it, `upsert` could write a second row and a
+    // child would carry two streaks that alternate depending on read order.
+    expect(schema).toContain("childId          String       @unique");
   });
 
   it("writes RewardLedger rows from one service and nowhere else (FR-GAM-08)", () => {

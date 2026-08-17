@@ -72,11 +72,27 @@ function completion(overrides: Record<string, unknown> = {}) {
       starsEarned: 3,
       coinsEarned: 11,
       newBadges: [],
+      newCharacters: [],
+      streak: { current: 1, milestone: null },
       totals: { stars: 12, coins: 47 },
       ...overrides,
     },
   };
 }
+
+const STREAK_STARTER = {
+  id: "badge_1",
+  slug: "streak-starter",
+  name: "Streak Starter",
+  iconUrl: null,
+};
+
+const MIA = {
+  id: "character_1",
+  slug: "mia-the-monkey",
+  name: "Mia the Monkey",
+  imageUrl: null,
+};
 
 function renderStep() {
   const onComplete = vi.fn();
@@ -93,11 +109,21 @@ function renderStep() {
  *
  * Once per phase, because each phase's timer is scheduled by the effect that
  * runs *after* the previous one fired — draining the queue in one go would stop
- * at the first handover.
+ * at the first handover. Six iterations covers the longest run (stars, coins,
+ * badges, characters, streak, mascot); a shorter celebration simply has no
+ * pending timer left to fire.
  */
 async function settle() {
   await act(async () => {});
-  for (const _phase of ["stars", "coins", "mascot"]) {
+  for (let phase = 0; phase < 6; phase += 1) {
+    act(() => vi.runOnlyPendingTimers());
+  }
+}
+
+/** Stops after `count` handovers, so a mid-sequence phase can be inspected. */
+async function settleTo(count: number) {
+  await act(async () => {});
+  for (let phase = 0; phase < count; phase += 1) {
     act(() => vi.runOnlyPendingTimers());
   }
 }
@@ -294,6 +320,74 @@ describe("RewardStep", () => {
       expect(announcement()).not.toMatch(/\b0\b/);
     });
 
+    it("names a badge rather than saying one arrived", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          starsEarned: 2,
+          coinsEarned: 0,
+          newBadges: [STREAK_STARTER],
+        }),
+      );
+      renderStep();
+      await settle();
+
+      // "You unlocked a new badge" tells a child who cannot see the screen
+      // nothing about *which*.
+      expect(announcement()).toBe(
+        "You did it! You got 2 stars. You unlocked a new badge: Streak Starter.",
+      );
+    });
+
+    it("joins two unlocks into one readable list", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          starsEarned: 0,
+          coinsEarned: 0,
+          newBadges: [
+            STREAK_STARTER,
+            { ...STREAK_STARTER, id: "badge_2", name: "Week Warrior" },
+          ],
+        }),
+      );
+      renderStep();
+      await settle();
+
+      expect(announcement()).toContain(
+        "You unlocked new badges: Streak Starter and Week Warrior.",
+      );
+    });
+
+    it("names a new character and the streak it was earned alongside", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          starsEarned: 2,
+          coinsEarned: 5,
+          newCharacters: [MIA],
+          streak: { current: 3, milestone: 3 },
+        }),
+      );
+      renderStep();
+      await settle();
+
+      expect(announcement()).toBe(
+        "You did it! You got 2 stars and 5 coins. A new friend joined you: Mia the Monkey. You have learned 3 days in a row!",
+      );
+    });
+
+    it("says nothing about a streak that reached no milestone", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          starsEarned: 2,
+          coinsEarned: 0,
+          streak: { current: 5, milestone: null },
+        }),
+      );
+      renderStep();
+      await settle();
+
+      expect(announcement()).toBe("You did it! You got 2 stars.");
+    });
+
     it("says the same warm thing when the request failed", async () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       progress.completeLesson.mockResolvedValue({
@@ -307,6 +401,142 @@ describe("RewardStep", () => {
       // who cannot see the screen is owed the same sentence as one who can.
       expect(announcement()).toBe("You did it! You finished the whole lesson.");
       warn.mockRestore();
+    });
+  });
+
+  /**
+   * The phases file 24 adds. Each is *skipped* when it has nothing to show, so
+   * the ordinary completion — which is most of them — is no longer than it was.
+   */
+  describe("badges, characters and streaks", () => {
+    it("skips every unlock phase when nothing was unlocked", async () => {
+      renderStep();
+      await settle();
+
+      expect(screen.queryByTestId("badge-reveal")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("character-reveal")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("streak-celebration"),
+      ).not.toBeInTheDocument();
+      // Straight to the end, so a replay is not padded with empty screens.
+      expect(screen.getByTestId("reward-mascot")).toBeInTheDocument();
+    });
+
+    it("reveals a card per badge the server granted (FR-GAM-04)", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          newBadges: [
+            STREAK_STARTER,
+            { ...STREAK_STARTER, id: "badge_2", name: "Week Warrior" },
+          ],
+        }),
+      );
+      renderStep();
+      // stars → coins → badges.
+      await settleTo(2);
+
+      const cards = screen.getAllByTestId("badge-reveal");
+      expect(cards).toHaveLength(2);
+      expect(cards[0]).toHaveTextContent("Streak Starter");
+      expect(cards[1]).toHaveTextContent("Week Warrior");
+    });
+
+    it("reveals a card per character the server unlocked (FR-GAM-05)", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({ newCharacters: [MIA] }),
+      );
+      renderStep();
+      await settleTo(2);
+
+      expect(screen.getByTestId("character-reveal")).toHaveTextContent(
+        "Mia the Monkey",
+      );
+    });
+
+    it("plays the streak celebration only when the server flags a milestone", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({ streak: { current: 3, milestone: 3 } }),
+      );
+      renderStep();
+      await settleTo(2);
+
+      expect(screen.getByTestId("streak-celebration")).toHaveTextContent(
+        "3 days in a row!",
+      );
+    });
+
+    it("plays no streak celebration on a day that reached no milestone", async () => {
+      // Day four of a run. The flame is for the moment a streak is *reached*;
+      // one that played every day after would stop meaning anything by day five.
+      progress.completeLesson.mockResolvedValue(
+        completion({ streak: { current: 4, milestone: null } }),
+      );
+      renderStep();
+      await settle();
+
+      expect(
+        screen.queryByTestId("streak-celebration"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("runs badges, then characters, then the streak, then the mascot", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          newBadges: [STREAK_STARTER],
+          newCharacters: [MIA],
+          streak: { current: 3, milestone: 3 },
+        }),
+      );
+      renderStep();
+
+      await settleTo(2);
+      expect(screen.getByTestId("badge-reveal")).toBeInTheDocument();
+
+      await settleTo(1);
+      expect(screen.getByTestId("character-reveal")).toBeInTheDocument();
+      expect(screen.queryByTestId("badge-reveal")).not.toBeInTheDocument();
+
+      await settleTo(1);
+      expect(screen.getByTestId("streak-celebration")).toBeInTheDocument();
+
+      await settleTo(1);
+      expect(screen.getByTestId("reward-mascot")).toBeInTheDocument();
+    });
+
+    it("plays the unlock and streak clips in order", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          newBadges: [STREAK_STARTER],
+          streak: { current: 7, milestone: 7 },
+        }),
+      );
+      renderStep();
+      await settle();
+
+      const played = audio.play.mock.calls.map(([url]) => url);
+      expect(played).toEqual([
+        expect.stringMatching(/^\/audio\/feedback\/cheer-\d\.mp3$/),
+        "/audio/feedback/coin-1.mp3",
+        "/audio/feedback/unlock-1.mp3",
+        "/audio/feedback/streak-en.mp3",
+        "/audio/feedback/celebration-en.mp3",
+      ]);
+    });
+
+    it("offers Done throughout, however many phases there are", async () => {
+      progress.completeLesson.mockResolvedValue(
+        completion({
+          newBadges: [STREAK_STARTER],
+          newCharacters: [MIA],
+          streak: { current: 3, milestone: 3 },
+        }),
+      );
+      renderStep();
+      await settleTo(2);
+
+      // A child who wants out mid-celebration must never be held on a screen
+      // with no way off it.
+      fireEvent.click(screen.getByRole("button", { name: "Done!" }));
     });
   });
 

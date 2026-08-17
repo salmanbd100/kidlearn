@@ -109,12 +109,24 @@
       "starCount_one": "{{count}} star",
       "starCount_other": "{{count}} stars",
       "coinCount_one": "{{count}} coin",
-      "coinCount_other": "{{count}} coins"
+      "coinCount_other": "{{count}} coins",
+      "badges_one": "You unlocked a new badge: {{names}}.",
+      "badges_other": "You unlocked new badges: {{names}}.",
+      "characters_one": "A new friend joined you: {{names}}.",
+      "characters_other": "New friends joined you: {{names}}.",
+      "streak_one": "You have learned {{count}} day in a row!",
+      "streak_other": "You have learned {{count}} days in a row!",
+      "nameList": "{{first}} and {{last}}",
+      "nameSeparator": ", "
     },
     "totalStars_one": "{{count}} star altogether",
     "totalStars_other": "{{count}} stars altogether",
     "totalCoins_one": "{{count}} coin altogether",
     "totalCoins_other": "{{count}} coins altogether",
+    "badgeCaption": "New badge!",
+    "characterCaption": "New friend!",
+    "streakMilestone_one": "{{count}} day in a row!",
+    "streakMilestone_other": "{{count}} days in a row!",
     "done": "Done!"
   },
   "exit": {
