@@ -1,5 +1,6 @@
 import type {
   AvatarCharacterResponse,
+  CharacterUnlockResponse,
   ChildProfileCreate,
   ChildProfileResponse,
   ChildProfileUpdate,
@@ -96,6 +97,21 @@ export function verifyPin(
 /** The starter avatars a profile may wear. Ids are `Character` row ids. */
 export function listAvatars(): Promise<ApiResult<AvatarCharacterResponse[]>> {
   return apiFetch<AvatarCharacterResponse[]>("/api/characters");
+}
+
+/**
+ * FR-GAM-05 — the avatars for one existing child, locked ones included.
+ *
+ * `listAvatars` above cannot answer this: it lists the starter set with no child
+ * in scope, so a character this child has *earned* never appears in it, while
+ * `PATCH /api/children/{id}` would have accepted it. The edit form uses this one
+ * and the create form uses that one, because a profile that does not exist yet
+ * has nothing unlocked to show.
+ */
+export function listChildCharacters(
+  childId: string,
+): Promise<ApiResult<{ characters: CharacterUnlockResponse[] }>> {
+  return apiFetch(`/api/children/${childId}/characters`);
 }
 
 /**

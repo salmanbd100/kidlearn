@@ -161,6 +161,8 @@ describe("LessonPlayer", () => {
         starsEarned: 2,
         coinsEarned: 5,
         newBadges: [],
+        newCharacters: [],
+        streak: { current: 1, milestone: null },
         totals: { stars: 2, coins: 5 },
       },
     });
@@ -345,6 +347,8 @@ describe("resuming (FR-LSN-06)", () => {
         starsEarned: 2,
         coinsEarned: 5,
         newBadges: [],
+        newCharacters: [],
+        streak: { current: 1, milestone: null },
         totals: { stars: 2, coins: 5 },
       },
     });
@@ -459,6 +463,8 @@ describe("leaving (FR-LSN-06, Pillar A)", () => {
         starsEarned: 2,
         coinsEarned: 5,
         newBadges: [],
+        newCharacters: [],
+        streak: { current: 1, milestone: null },
         totals: { stars: 2, coins: 5 },
       },
     });

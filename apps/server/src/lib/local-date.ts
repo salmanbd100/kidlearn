@@ -13,6 +13,34 @@
  * — `en-CA` does today, and a locale's format is not a contract.
  */
 
+/**
+ * The calendar day before `localDate`, as `yyyy-MM-dd`.
+ *
+ * Arithmetic on the date string rather than on an instant, so it has no timezone
+ * of its own to be wrong about. Subtracting 24 hours from a `Date` would give
+ * the wrong answer on a spring-forward day in any zone that observes DST —
+ * `Asia/Dhaka` does not, but "the streak breaks once a year in March" is not a
+ * bug anyone would find quickly.
+ */
+export function previousLocalDate(localDate: string): string {
+  const [year, month, day] = localDate.split("-").map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  utc.setUTCDate(utc.getUTCDate() - 1);
+  return utc.toISOString().slice(0, 10);
+}
+
+/**
+ * A `yyyy-MM-dd` local date as the instant Postgres stores in a `@db.Date`
+ * column: midnight UTC on that day.
+ *
+ * The column holds no time and no zone, and Prisma round-trips it as a `Date` at
+ * UTC midnight — so this and `localDateIn("UTC", …)` are the two halves of one
+ * conversion and must stay paired.
+ */
+export function localDateToUtcMidnight(localDate: string): Date {
+  return new Date(`${localDate}T00:00:00.000Z`);
+}
+
 /** `yyyy-MM-dd` for `instant` as seen in `timeZone`. */
 export function localDateIn(timeZone: string, instant: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {

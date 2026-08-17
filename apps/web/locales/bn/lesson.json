@@ -109,12 +109,24 @@
       "starCount_one": "{{count}}টি তারা",
       "starCount_other": "{{count}}টি তারা",
       "coinCount_one": "{{count}}টি কয়েন",
-      "coinCount_other": "{{count}}টি কয়েন"
+      "coinCount_other": "{{count}}টি কয়েন",
+      "badges_one": "তুমি নতুন ব্যাজ পেয়েছ: {{names}}।",
+      "badges_other": "তুমি নতুন ব্যাজ পেয়েছ: {{names}}।",
+      "characters_one": "নতুন বন্ধু এসেছে: {{names}}।",
+      "characters_other": "নতুন বন্ধুরা এসেছে: {{names}}।",
+      "streak_one": "তুমি টানা {{count}} দিন শিখেছ!",
+      "streak_other": "তুমি টানা {{count}} দিন শিখেছ!",
+      "nameList": "{{first}} এবং {{last}}",
+      "nameSeparator": ", "
     },
     "totalStars_one": "সব মিলিয়ে {{count}}টি তারা",
     "totalStars_other": "সব মিলিয়ে {{count}}টি তারা",
     "totalCoins_one": "সব মিলিয়ে {{count}}টি কয়েন",
     "totalCoins_other": "সব মিলিয়ে {{count}}টি কয়েন",
+    "badgeCaption": "নতুন ব্যাজ!",
+    "characterCaption": "নতুন বন্ধু!",
+    "streakMilestone_one": "টানা {{count}} দিন!",
+    "streakMilestone_other": "টানা {{count}} দিন!",
     "done": "হয়ে গেছে!"
   },
   "exit": {

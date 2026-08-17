@@ -135,6 +135,39 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     },
   },
   {
+    method: "get",
+    path: "/api/children/{id}/characters",
+    operation: {
+      tags: ["Characters"],
+      summary:
+        "List every character, flagged with what this child has unlocked",
+      description: [
+        "What the parent's avatar picker offers for one child (FR-GAM-05, FR-PROF-02).",
+        "",
+        "**`GET /api/characters` cannot answer this.** That endpoint lists the starter set with no child in scope, so a character this child has *earned* never appears in it — while `PATCH /api/children/{id}` would have accepted it. This is the same condition that write route enforces, which is what keeps the two ends of `avatarCharacterId` in agreement.",
+        "",
+        "**Locked characters are in the list, and that is the point.** A picker showing only what a child already has cannot show them what there is to earn, so the whole published set comes back and `isUnlocked` says which of them may be worn. `isUnlocked` is `true` for every `isDefault` character and for anything this child has earned.",
+        "",
+        "Not PIN-gated, matching the other reads on this router. The write it feeds is.",
+        "",
+        "Identical in shape to `GET /api/me/characters`, which answers the same question for the *student* session; this one takes a child id because a parent may hold five profiles and none of them active.",
+        "",
+        "Unpublished characters never appear (`backend.md §4`), and `imageUrl` is `null` until the illustrated character sheet lands (design.md §9).",
+      ].join("\n"),
+      parameters: [CHILD_ID_PARAM],
+      responses: {
+        "200": jsonResponse(
+          "Every published character, alphabetically by name so the picker's order stays stable as characters unlock.",
+          "CharacterUnlockListResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "404": CHILD_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
     method: "patch",
     path: "/api/children/{id}",
     operation: {

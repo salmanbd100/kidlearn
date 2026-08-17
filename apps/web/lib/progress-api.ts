@@ -1,4 +1,5 @@
 import type {
+  CharacterUnlockResponse,
   LessonCompletionResponse,
   LessonProgressResponse,
   LessonStep,
@@ -72,6 +73,20 @@ export function completeLesson(
 /** FR-GAM-06 — the active child's running totals, for the home screen strip. */
 export function getRewardsSummary(): Promise<ApiResult<RewardSummaryResponse>> {
   return apiFetch("/api/me/rewards/summary");
+}
+
+/**
+ * FR-GAM-05 — every published character, flagged with what this child has.
+ *
+ * The locked ones come back too, on purpose: a picker showing only what a child
+ * already has cannot show them what there is to earn. Nothing here decides which
+ * is which — `isUnlocked` is the server's, computed from the same rule the
+ * profile-update route enforces.
+ */
+export function getMyCharacters(): Promise<
+  ApiResult<{ characters: CharacterUnlockResponse[] }>
+> {
+  return apiFetch("/api/me/characters");
 }
 
 /**

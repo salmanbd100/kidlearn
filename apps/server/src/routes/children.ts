@@ -1,3 +1,4 @@
+import type { CharacterUnlockResponse } from "@kidlearn/types";
 import { Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
 import { loadOwnedChild, ownedChild } from "../middleware/load-owned-child.js";
@@ -12,6 +13,7 @@ import {
   type UpdateChildBody,
   UpdateChildBodySchema,
 } from "../schemas/children.js";
+import { listCharactersForChild } from "../services/achievementService.js";
 import {
   activateChildProfile,
   type ChildProfileDto,
@@ -100,6 +102,36 @@ childrenRouter.get(
       data: toChildProfileDto(ownedChild(req)),
     };
     res.json(payload);
+  },
+);
+
+/**
+ * FR-GAM-05 — the avatars this child may wear, and the ones still to earn.
+ *
+ * The parent's edit form needs this and `GET /api/characters` cannot answer it:
+ * that endpoint lists the starter set with no child in scope, so a character the
+ * child has *unlocked* never appears in it — and `PATCH /:id` would have accepted
+ * it. The two ends of `avatarCharacterId` agree again here, because this is the
+ * same condition `assertAvatarIsSelectable` applies.
+ *
+ * Not PIN-gated, matching the reads beside it: it is a list of characters, and
+ * the write it feeds is gated.
+ */
+childrenRouter.get(
+  "/:id/characters",
+  validate({ params: ChildIdParamsSchema }),
+  loadOwnedChild,
+  async (req, res, next) => {
+    try {
+      const characters = await listCharactersForChild(ownedChild(req).id);
+
+      const payload: SuccessEnvelope<{
+        characters: CharacterUnlockResponse[];
+      }> = { data: { characters } };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
   },
 );
 

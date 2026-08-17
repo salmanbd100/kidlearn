@@ -1,7 +1,11 @@
-import type { RewardSummaryResponse } from "@kidlearn/types";
+import type {
+  CharacterUnlockResponse,
+  RewardSummaryResponse,
+} from "@kidlearn/types";
 import { Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
 import { activeChild } from "../middleware/require-active-child.js";
+import { listCharactersForChild } from "../services/achievementService.js";
 import { getRewardSummary } from "../services/rewardService.js";
 
 /**
@@ -20,6 +24,26 @@ meRouter.get("/rewards/summary", async (req, res, next) => {
   try {
     const summary = await getRewardSummary(activeChild(req).id);
     const body: SuccessEnvelope<RewardSummaryResponse> = { data: summary };
+    res.json(body);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * FR-GAM-05 — every published character, flagged with whether this child has it.
+ *
+ * The locked ones are part of the answer, not an omission: the picker draws them
+ * as silhouettes so a child can see what there is to earn. Which of them are
+ * unlocked is the session's active profile's business and nobody else's, which
+ * is why this is on `/api/me` rather than taking a child id.
+ */
+meRouter.get("/characters", async (req, res, next) => {
+  try {
+    const characters = await listCharactersForChild(activeChild(req).id);
+    const body: SuccessEnvelope<{ characters: CharacterUnlockResponse[] }> = {
+      data: { characters },
+    };
     res.json(body);
   } catch (error) {
     next(error);

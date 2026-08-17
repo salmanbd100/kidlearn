@@ -10,11 +10,13 @@ import { useTranslation } from "react-i18next";
 import { useAudio } from "@/components/AudioProvider";
 import { randomCheerAudioUrl } from "@/components/activities/use-activity-feedback";
 import { BigButton } from "@/components/kid/BigButton";
+import { BadgeReveal } from "@/components/rewards/BadgeReveal";
 import {
   COIN_COUNT_DURATION_MS,
   CoinCountUp,
 } from "@/components/rewards/CoinCountUp";
 import { STAR_STAGGER_MS, StarBurst } from "@/components/rewards/StarBurst";
+import { StreakCelebration } from "@/components/rewards/StreakCelebration";
 import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import { toLocale } from "@/lib/locale";
@@ -47,9 +49,31 @@ const STAR_PHASE_TAIL_MS = 600;
 /** The coin phase lasts exactly as long as the count it is waiting for. */
 const COIN_PHASE_MS = COIN_COUNT_DURATION_MS;
 
-/** Phases run on a timer rather than gating each other, so a slow frame or a
- *  paused tab cannot leave the celebration half-finished. */
-type Phase = "loading" | "stars" | "coins" | "mascot";
+/** Long enough to look at a new badge or character and hear its name. */
+const UNLOCK_PHASE_MS = 2200;
+
+/** The flame burst, plus a beat to read the line under it. */
+const STREAK_PHASE_MS = 2000;
+
+/**
+ * Phases run on a timer rather than gating each other, so a slow frame or a
+ * paused tab cannot leave the celebration half-finished.
+ *
+ * The order is fixed — stars, coins, badges, characters, streak, mascot — and
+ * every phase with nothing to show is *skipped*, not held empty. A replay that
+ * granted nothing therefore lands straight on the mascot, and a lesson that
+ * unlocked a badge and crossed a three-day streak plays all six.
+ */
+const PHASES = [
+  "stars",
+  "coins",
+  "badges",
+  "characters",
+  "streak",
+  "mascot",
+] as const;
+
+type Phase = "loading" | (typeof PHASES)[number];
 
 const MASCOT_PX = 240;
 
@@ -57,7 +81,43 @@ function celebrationAudioUrl(locale: string): string {
   return `/audio/feedback/celebration-${locale}.mp3`;
 }
 
+function streakAudioUrl(locale: string): string {
+  return `/audio/feedback/streak-${locale}.mp3`;
+}
+
 const COIN_AUDIO_URL = "/audio/feedback/coin-1.mp3";
+const UNLOCK_AUDIO_URL = "/audio/feedback/unlock-1.mp3";
+
+/**
+ * Which phases this particular completion plays, and how long each holds.
+ *
+ * Derived from the response rather than stored in state, so the "skip what is
+ * empty" rule lives in exactly one place. A completion that granted nothing
+ * still plays stars → coins → mascot: zero is *already done*, and the child is
+ * owed the sequence either way.
+ */
+function buildSchedule(
+  rewards: LessonCompletionResponse | undefined,
+): ReadonlyArray<{ phase: Phase; holdMs: number }> {
+  const starCount = rewards?.starsEarned ?? 0;
+
+  return PHASES.filter((phase) => {
+    if (phase === "badges") return (rewards?.newBadges.length ?? 0) > 0;
+    if (phase === "characters") return (rewards?.newCharacters.length ?? 0) > 0;
+    if (phase === "streak") return rewards?.streak.milestone != null;
+    return true;
+  }).map((phase) => ({
+    phase,
+    holdMs:
+      phase === "stars"
+        ? starCount * STAR_STAGGER_MS + STAR_PHASE_TAIL_MS
+        : phase === "coins"
+          ? COIN_PHASE_MS
+          : phase === "streak"
+            ? STREAK_PHASE_MS
+            : UNLOCK_PHASE_MS,
+  }));
+}
 
 export function RewardStep({ lesson, onComplete }: LessonStepProps) {
   const { t, i18n } = useTranslation(LESSON_NAMESPACE);
@@ -94,33 +154,45 @@ export function RewardStep({ lesson, onComplete }: LessonStepProps) {
 
   const starCount = rewards?.starsEarned ?? 0;
   const coinCount = rewards?.coinsEarned ?? 0;
+  const newBadges = rewards?.newBadges ?? [];
+  const newCharacters = rewards?.newCharacters ?? [];
+  const milestone = rewards?.streak.milestone ?? null;
 
-  // One cheer as the stars land, then the mascot's own line at the end. Two
-  // clips and not one per star: the audio channel is single-voice by design, so
-  // a cheer per star would only ever interrupt itself (`AudioProvider`).
+  /**
+   * One clip per phase, and never one per item: the audio channel is
+   * single-voice by design, so a cheer per star or a chime per badge would only
+   * ever interrupt itself (`AudioProvider`).
+   */
   useEffect(() => {
-    if (phase !== "stars") return;
-    void play(randomCheerAudioUrl(), { interrupt: true });
+    if (phase === "loading") return;
 
-    const toCoins = setTimeout(
-      () => setPhase("coins"),
-      starCount * STAR_STAGGER_MS + STAR_PHASE_TAIL_MS,
+    const clip =
+      phase === "stars"
+        ? randomCheerAudioUrl()
+        : phase === "coins"
+          ? coinCount > 0
+            ? COIN_AUDIO_URL
+            : undefined
+          : phase === "badges" || phase === "characters"
+            ? UNLOCK_AUDIO_URL
+            : phase === "streak"
+              ? streakAudioUrl(locale)
+              : celebrationAudioUrl(locale);
+    if (clip !== undefined) void play(clip, { interrupt: true });
+
+    const schedule = buildSchedule(rewards);
+    const index = schedule.findIndex((entry) => entry.phase === phase);
+    const next = schedule[index + 1];
+    // The mascot is terminal — nothing is scheduled after it, so the child
+    // decides when the screen ends.
+    if (next === undefined) return;
+
+    const advance = setTimeout(
+      () => setPhase(next.phase),
+      schedule[index].holdMs,
     );
-    return () => clearTimeout(toCoins);
-  }, [phase, starCount, play]);
-
-  useEffect(() => {
-    if (phase !== "coins") return;
-    if (coinCount > 0) void play(COIN_AUDIO_URL, { interrupt: true });
-
-    const toMascot = setTimeout(() => setPhase("mascot"), COIN_PHASE_MS);
-    return () => clearTimeout(toMascot);
-  }, [phase, coinCount, play]);
-
-  useEffect(() => {
-    if (phase !== "mascot") return;
-    void play(celebrationAudioUrl(locale), { interrupt: true });
-  }, [phase, locale, play]);
+    return () => clearTimeout(advance);
+  }, [phase, coinCount, locale, play, rewards]);
 
   if (phase === "loading") {
     return (
@@ -153,7 +225,7 @@ export function RewardStep({ lesson, onComplete }: LessonStepProps) {
         neither is something a screen reader can usefully follow.
       */}
       <span role="status" className="sr-only">
-        {announce(t, starCount, coinCount)}
+        {announce(t, starCount, coinCount, newBadges, newCharacters, milestone)}
       </span>
 
       <h2 className="font-display text-4xl text-foreground sm:text-5xl">
@@ -165,6 +237,39 @@ export function RewardStep({ lesson, onComplete }: LessonStepProps) {
       {phase === "stars" ? null : (
         <CoinCountUp from={0} to={coinCount} durationMs={COIN_PHASE_MS} />
       )}
+
+      {/* A reveal is a moment, so the cards live only for their own phase —
+          otherwise a lesson that unlocked two badges, a character and a streak
+          would leave a portrait phone scrolling past its own celebration. */}
+      {phase === "badges" ? (
+        <div className="flex flex-wrap items-start justify-center gap-6">
+          {newBadges.map((badge) => (
+            <BadgeReveal
+              key={badge.id}
+              kind="badge"
+              name={badge.name}
+              imageUrl={badge.iconUrl}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {phase === "characters" ? (
+        <div className="flex flex-wrap items-start justify-center gap-6">
+          {newCharacters.map((character) => (
+            <BadgeReveal
+              key={character.id}
+              kind="character"
+              name={character.name}
+              imageUrl={character.imageUrl}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {phase === "streak" && milestone !== null ? (
+        <StreakCelebration milestone={milestone} />
+      ) : null}
 
       {phase === "mascot" ? (
         <MascotCheer url={lesson.world.mascot?.url} />
@@ -193,16 +298,61 @@ export function RewardStep({ lesson, onComplete }: LessonStepProps) {
  * because i18next can only pluralise on a single `count`, so the two figures
  * come in as already-translated fragments.
  */
-function announce(t: TFunction, starCount: number, coinCount: number): string {
+function announce(
+  t: TFunction,
+  starCount: number,
+  coinCount: number,
+  newBadges: LessonCompletionResponse["newBadges"],
+  newCharacters: LessonCompletionResponse["newCharacters"],
+  milestone: LessonCompletionResponse["streak"]["milestone"],
+): string {
   const stars = t("reward.announce.starCount", { count: starCount });
   const coins = t("reward.announce.coinCount", { count: coinCount });
 
-  if (starCount > 0 && coinCount > 0) {
-    return t("reward.announce.both", { stars, coins });
-  }
-  if (starCount > 0) return t("reward.announce.stars", { stars });
-  if (coinCount > 0) return t("reward.announce.coins", { coins });
-  return t("reward.announce.nothing");
+  const earned =
+    starCount > 0 && coinCount > 0
+      ? t("reward.announce.both", { stars, coins })
+      : starCount > 0
+        ? t("reward.announce.stars", { stars })
+        : coinCount > 0
+          ? t("reward.announce.coins", { coins })
+          : t("reward.announce.nothing");
+
+  // Appended to the same sentence rather than announced by each card, because a
+  // live region that changes six times reads as six interruptions. The unlocks
+  // are named — "a new badge" tells a child who cannot see the screen nothing.
+  const unlocks = [
+    newBadges.length > 0
+      ? t("reward.announce.badges", {
+          names: names(t, newBadges),
+          count: newBadges.length,
+        })
+      : undefined,
+    newCharacters.length > 0
+      ? t("reward.announce.characters", {
+          names: names(t, newCharacters),
+          count: newCharacters.length,
+        })
+      : undefined,
+    milestone === null
+      ? undefined
+      : t("reward.announce.streak", { count: milestone }),
+  ].filter((sentence): sentence is string => sentence !== undefined);
+
+  return [earned, ...unlocks].join(" ");
+}
+
+/** "Leo", or "Leo and Mia" — joined through i18next, because the conjunction
+ *  and the separator are both language-specific. */
+function names(t: TFunction, items: ReadonlyArray<{ name: string }>): string {
+  if (items.length === 1) return items[0].name;
+  return t("reward.announce.nameList", {
+    first: items
+      .slice(0, -1)
+      .map((item) => item.name)
+      .join(t("reward.announce.nameSeparator")),
+    last: items[items.length - 1].name,
+  });
 }
 
 /**
