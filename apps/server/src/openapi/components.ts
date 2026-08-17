@@ -17,6 +17,8 @@ import {
   GateStatusSchema,
   HealthResponseSchema,
   LessonActivitySchema,
+  LessonCompletionResponseSchema,
+  LessonCompletionSchema,
   LessonDetailResponseSchema,
   LessonDetailSchema,
   LessonListItemSchema,
@@ -33,6 +35,9 @@ import {
   QuizQuestionSchema,
   QuizResponsesResponseSchema,
   QuizScoreSchema,
+  RewardSummaryResponseSchema,
+  RewardSummarySchema,
+  RewardTotalsSchema,
   ServiceIdentityResponseSchema,
   SessionEventRecordSchema,
   SessionEventResponseSchema,
@@ -163,6 +168,15 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   QuizScore: QuizScoreSchema,
   QuizResponsesResponse: QuizResponsesResponseSchema,
 
+  // --- Rewards ------------------------------------------------------------
+  // Response shapes only, and there is no request shape to register: no
+  // endpoint accepts a reward amount or type (FR-GAM-08).
+  RewardTotals: RewardTotalsSchema,
+  LessonCompletion: LessonCompletionSchema,
+  LessonCompletionResponse: LessonCompletionResponseSchema,
+  RewardSummary: RewardSummarySchema,
+  RewardSummaryResponse: RewardSummaryResponseSchema,
+
   // --- Versioned content payloads -----------------------------------------
   // Registered so the activity and quiz JSONB contracts are readable from the
   // spec alone. This is what files 18–22 build their engines against, and it is
@@ -228,6 +242,11 @@ export const TAGS = [
     name: "Progress",
     description:
       "What a child has done: their position in a lesson, and the append-only event log learning time is derived from. The client reports events; the server decides what they mean and when they happened (spec §7, FR-TIME-06). Every write is scoped to the session's active child and to lessons that child can actually see.",
+  },
+  {
+    name: "Rewards",
+    description:
+      "Stars and coins. Balances are `SUM(amount)` aggregates over the append-only `RewardLedger`, never stored counters, and every grant is written by one server-side service from constants it holds itself. **No endpoint anywhere in this API accepts a reward amount or a reward type** — rewards are earned, and there is no purchase path (FR-GAM-08). Replaying a lesson grants nothing: a unique index on `(childId, rewardType, sourceType, sourceId)` makes that structural rather than a check somebody could forget.",
   },
 ];
 

@@ -1,5 +1,6 @@
 import type { LessonProgress } from "@kidlearn/db";
 import type {
+  LessonCompletionResponse,
   LessonProgressResponse,
   LessonStepReport,
   QuizResponsesSubmit,
@@ -19,6 +20,7 @@ import {
   SessionEventBodySchema,
 } from "../schemas/progress.js";
 import {
+  completeLesson,
   getLessonProgress,
   recordQuizResponses,
   recordSessionEvent,
@@ -104,6 +106,37 @@ progressRouter.post(
       );
       const body: SuccessEnvelope<{ progress: LessonProgressResponse }> = {
         data: { progress: toResponse(progress) },
+      };
+      res.json(body);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * FR-LSN-05 — finishes the lesson and pays for it.
+ *
+ * No body: there is nothing a client could tell this endpoint that the server
+ * does not already know better. How many answers were right is read from the
+ * stored responses and the amounts are constants in `services/rewardService.ts`,
+ * which is the whole of FR-GAM-08 — a request that cannot name a reward cannot
+ * buy one.
+ *
+ * `200`, not `201`: the ledger rows are a consequence of finishing, and a replay
+ * writes none at all, so there is no resource this call reliably creates.
+ */
+progressRouter.post(
+  "/lessons/:id/complete",
+  validate({ params: LessonIdParamsSchema }),
+  async (req, res, next) => {
+    try {
+      const rewards = await completeLesson(
+        activeChild(req),
+        lessonIdParam(req),
+      );
+      const body: SuccessEnvelope<LessonCompletionResponse> = {
+        data: { ...rewards, newBadges: [] },
       };
       res.json(body);
     } catch (error) {

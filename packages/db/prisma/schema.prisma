@@ -489,12 +489,13 @@ model RewardLedger {
   child      ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
   rewardType RewardType
   amount     Int // stars/coins granted; 1 for badge rows
-  sourceType String // "lesson_completion" | "quiz_answer" | "story_completion" | "daily_activity" | ...
-  sourceId   String? // id of the lesson/quiz/story that triggered the grant
+  sourceType String // "lesson_completion" | "quiz_completion" | "quiz_correct_answers" | "story_completion" | "daily_activity" | ...
+  sourceId   String? // id of the lesson/quiz/story that triggered the grant, or the local date for a once-a-day grant
   badgeId    String?
   badge      Badge?       @relation(fields: [badgeId], references: [id])
   createdAt  DateTime     @default(now())
 
+  @@unique([childId, rewardType, sourceType, sourceId])
   @@index([childId, createdAt])
 }
 

@@ -1,6 +1,9 @@
 "use client";
 
-import type { WorldSummaryResponse } from "@kidlearn/types";
+import type {
+  RewardSummaryResponse,
+  WorldSummaryResponse,
+} from "@kidlearn/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,6 +12,7 @@ import { WorldCard } from "@/components/student/WorldCard";
 import { useActiveChild } from "@/lib/active-child";
 import { listWorlds } from "@/lib/content-api";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
+import { getRewardsSummary } from "@/lib/progress-api";
 import { useScreenNarration } from "@/lib/use-screen-narration";
 import { StudentStatus } from "../StudentGuard";
 
@@ -20,14 +24,24 @@ import { StudentStatus } from "../StudentGuard";
  * literal. Adding Space World is a row in the database (FR-WORLD-05), and the
  * test for that property asserts the styling comes from the response.
  *
- * The counters are display-only. `stats` arrives on the active child's profile
- * and is rendered exactly as sent; nothing here can change a number, which is the
- * client half of progress being server-authoritative (spec §7).
+ * The counters are display-only. Stars and coins are read from
+ * `GET /api/me/rewards/summary` — live ledger aggregates (file 23) rather than the
+ * zeros the profile still carries — and are rendered exactly as sent; nothing here
+ * can change a number, which is the client half of progress being
+ * server-authoritative (spec §7). The streak stays on the profile until file 24
+ * computes it.
+ *
+ * A failed summary read leaves the profile's own figures on screen rather than
+ * blanking the strip. A child who cannot see today's coins has lost nothing they
+ * earned; a home screen that will not draw is the app not opening.
  */
 export function HomeScreen() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
   const { child } = useActiveChild();
+  const [rewards, setRewards] = useState<RewardSummaryResponse | undefined>(
+    undefined,
+  );
   const [worlds, setWorlds] = useState<WorldSummaryResponse[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -52,6 +66,10 @@ export function HomeScreen() {
       }
       setStatus("error");
     });
+    void getRewardsSummary().then((result) => {
+      if (isCurrent && result.ok) setRewards(result.data);
+    });
+
     return () => {
       isCurrent = false;
     };
@@ -61,6 +79,16 @@ export function HomeScreen() {
   // is for the frame between a profile switch and the guard's redirect.
   if (child === undefined) return null;
 
+  const stats =
+    rewards === undefined
+      ? child.stats
+      : {
+          ...child.stats,
+          stars: rewards.stars,
+          coins: rewards.coins,
+          badges: rewards.badgeCount,
+        };
+
   return (
     <main className="flex flex-1 flex-col gap-6 p-6">
       <header className="flex flex-col gap-4">
@@ -69,7 +97,7 @@ export function HomeScreen() {
         <h1 className="pr-14 font-display text-2xl text-foreground sm:text-3xl">
           {t("home.greeting", { name: child.firstName })}
         </h1>
-        <RewardStrip stats={child.stats} />
+        <RewardStrip stats={stats} />
       </header>
 
       {status === "error" ? (

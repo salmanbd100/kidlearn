@@ -98,6 +98,25 @@
       "done": "Yay!"
     }
   },
+  "reward": {
+    "loading": "Counting up your prizes…",
+    "title": "You did it!",
+    "announce": {
+      "nothing": "You did it! You finished the whole lesson.",
+      "stars": "You did it! You got {{stars}}.",
+      "coins": "You did it! You got {{coins}}.",
+      "both": "You did it! You got {{stars}} and {{coins}}.",
+      "starCount_one": "{{count}} star",
+      "starCount_other": "{{count}} stars",
+      "coinCount_one": "{{count}} coin",
+      "coinCount_other": "{{count}} coins"
+    },
+    "totalStars_one": "{{count}} star altogether",
+    "totalStars_other": "{{count}} stars altogether",
+    "totalCoins_one": "{{count}} coin altogether",
+    "totalCoins_other": "{{count}} coins altogether",
+    "done": "Done!"
+  },
   "exit": {
     "open": "Leave the lesson",
     "title": "Leave the lesson?",

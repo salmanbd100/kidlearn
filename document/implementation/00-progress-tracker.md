@@ -51,7 +51,7 @@
 | 20 | `20-match-and-puzzle-activities.md` | Match-objects + picture puzzle activities | FR-ACT-03..05 | 18 | 3–4h | ✅ Done |
 | 21 | `21-quiz-engine-mcq-picture-selection.md` | JSON-driven quiz engine + MCQ + picture selection formats | FR-QUIZ-01, FR-QUIZ-04..05, FR-QUIZ-07 | 07, 16 | 3–4h | ✅ Done |
 | 22 | `22-quiz-match-drag-and-scoring.md` | Match-pair + drag-answer formats, scoring, response recording | FR-QUIZ-02..03, FR-QUIZ-06, FR-QUIZ-08 | 21 | 3–4h | ✅ Done |
-| 23 | `23-rewards-engine-and-celebration.md` | Server-side stars/coins grants, reward ledger, celebration screen | FR-LSN-05, FR-GAM-01..02, FR-GAM-07..08 | 06, 16, 22 | 3–4h | ⬜ Not started |
+| 23 | `23-rewards-engine-and-celebration.md` | Server-side stars/coins grants, reward ledger, celebration screen | FR-LSN-05, FR-GAM-01..02, FR-GAM-07..08 | 06, 16, 22 | 3–4h | ✅ Done |
 | 24 | `24-badges-characters-streaks.md` | Badge milestone engine, character unlocks, learning streaks | FR-GAM-04..06 | 23 | 3–4h | ⬜ Not started |
 | 25 | `25-story-library.md` | Story read API + library browsing UI | FR-STORY-01, FR-STORY-04..05, FR-STORY-08 | 05, 08, 13 | 3–4h | ⬜ Not started |
 | 26 | `26-story-reader.md` | Page-by-page narrated story reader + completion reward | FR-STORY-02..03, FR-STORY-06..07 | 23, 25 | 3–4h | ⬜ Not started |

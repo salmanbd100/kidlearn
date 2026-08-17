@@ -4,6 +4,7 @@ import { requireParent } from "../middleware/require-parent.js";
 import { charactersRouter } from "./characters.js";
 import { childrenRouter } from "./children.js";
 import { contentRouter } from "./content.js";
+import { meRouter } from "./me.js";
 import { parentRouter } from "./parent.js";
 import { progressRouter } from "./progress.js";
 
@@ -36,3 +37,8 @@ apiRouter.use("/content", requireParent, requireActiveChild, contentRouter);
 // belongs to the *active* child, resolved server-side, so no request body can name
 // whose progress is being written.
 apiRouter.use("/progress", requireParent, requireActiveChild, progressRouter);
+
+// What the active child has earned (file 23). Same guards again, and the same
+// consequence: "me" is the session's child, so nothing on these paths names whose
+// rewards are being read.
+apiRouter.use("/me", requireParent, requireActiveChild, meRouter);

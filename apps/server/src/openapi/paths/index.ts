@@ -4,6 +4,7 @@ import { CHARACTERS_ROUTES } from "./characters.js";
 import { CHILDREN_ROUTES } from "./children.js";
 import { CONTENT_ROUTES } from "./content.js";
 import { HEALTH_ROUTES } from "./health.js";
+import { ME_ROUTES } from "./me.js";
 import { PARENT_ROUTES } from "./parent.js";
 import { PROGRESS_ROUTES } from "./progress.js";
 
@@ -23,6 +24,7 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...CHARACTERS_ROUTES,
   ...CONTENT_ROUTES,
   ...PROGRESS_ROUTES,
+  ...ME_ROUTES,
 ];
 
 /**

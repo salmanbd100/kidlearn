@@ -14,6 +14,11 @@ import {
   publishedForChild,
   publishedRelation,
 } from "../lib/published-for-child.js";
+import { withSerializationRetry } from "../lib/serializable-retry.js";
+import {
+  type CompletionRewards,
+  grantLessonCompletion,
+} from "./rewardService.js";
 
 /**
  * Per-child lesson progress and the lesson player's event log (FR-LSN-06..07).
@@ -42,14 +47,6 @@ function stepIndex(step: LessonStep): number {
 /** The later of two steps in flow order. */
 function laterStep(a: LessonStep, b: LessonStep): LessonStep {
   return stepIndex(a) >= stepIndex(b) ? a : b;
-}
-
-/** Postgres aborted a Serializable transaction rather than let it interleave. */
-function isSerializationFailure(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2034"
-  );
 }
 
 /**
@@ -120,12 +117,9 @@ export async function reportLessonStep(
 ): Promise<LessonProgress> {
   const visibleLessonId = await requireVisibleLessonId(child, lessonId);
 
-  try {
-    return await reportLessonStepOnce(child.id, visibleLessonId, report);
-  } catch (error) {
-    if (!isSerializationFailure(error)) throw error;
-    return reportLessonStepOnce(child.id, visibleLessonId, report);
-  }
+  return withSerializationRetry(() =>
+    reportLessonStepOnce(child.id, visibleLessonId, report),
+  );
 }
 
 function reportLessonStepOnce(
@@ -161,6 +155,34 @@ function reportLessonStepOnce(
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+}
+
+/**
+ * FR-LSN-05 — the whole of finishing a lesson: mark it done, then pay for it.
+ *
+ * Two steps rather than one transaction, and the split is the reason
+ * `rewardService` owns its own: marking progress and granting rewards fail
+ * independently and are separately idempotent. A grant that could not be written
+ * must not un-finish a lesson the child finished, and a replay repeats both
+ * halves harmlessly — `completedAt` is stamped once, and every grant is unique on
+ * `(childId, rewardType, sourceType, sourceId)`.
+ *
+ * `reportLessonStep` does the marking, rather than a second copy of the upsert
+ * here: this *is* a reward-step report, so it inherits the monotonic guard, the
+ * write-once `completedAt` and the serialization retry unchanged. It also runs
+ * the visibility check, so nothing below can grant a reward for a lesson the
+ * child cannot see.
+ */
+export async function completeLesson(
+  child: ChildProfile,
+  lessonId: string,
+): Promise<CompletionRewards> {
+  const progress = await reportLessonStep(child, lessonId, {
+    step: "reward",
+    completed: true,
+  });
+
+  return grantLessonCompletion(child.id, progress.lessonId);
 }
 
 /**
@@ -256,12 +278,9 @@ export async function recordQuizResponses(
   ).length;
   const score = Math.round((100 * correctCount) / totalQuestions);
 
-  try {
-    await recordQuizResponsesOnce(child.id, lesson.id, submit, score);
-  } catch (error) {
-    if (!isSerializationFailure(error)) throw error;
-    await recordQuizResponsesOnce(child.id, lesson.id, submit, score);
-  }
+  await withSerializationRetry(() =>
+    recordQuizResponsesOnce(child.id, lesson.id, submit, score),
+  );
 
   return { lessonId: lesson.id, score, correctCount, totalQuestions };
 }

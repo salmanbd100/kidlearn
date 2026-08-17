@@ -26,3 +26,4 @@ export * from "./errors.js";
 export * from "./health.js";
 export * from "./parent.js";
 export * from "./progress.js";
+export * from "./rewards.js";
