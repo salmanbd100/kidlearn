@@ -17,6 +17,7 @@ import {
   type WorldSummary,
   type WorldTopicLessons,
 } from "../services/contentService.js";
+import { storiesRouter } from "./stories.js";
 
 /**
  * The student-facing curriculum read API.
@@ -27,6 +28,14 @@ import {
  * `services/contentService.ts` (`backend.md §2`).
  */
 export const contentRouter = Router();
+
+// The Story Library (file 25). Nested here rather than mounted on `apiRouter` so
+// stories inherit this surface's guards instead of repeating them — the reason
+// `routes/index.ts` puts them on the mount in the first place. Its routes are
+// declared in `openapi/paths/stories.ts` and listed separately in the coverage
+// test's `MOUNTS`, which walks a router's own registrations and cannot see through
+// a nested mount.
+contentRouter.use("/stories", storiesRouter);
 
 /**
  * Reads the `:id` path parameter on routes guarded by

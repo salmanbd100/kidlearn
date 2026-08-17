@@ -12,6 +12,14 @@
     "open": "Go to {{name}}",
     "empty": "New worlds are coming soon!"
   },
+  "stories": {
+    "title": "Story Time",
+    "back": "Back",
+    "pick": "Pick a story!",
+    "open": "Read {{title}}",
+    "openCompleted": "Read {{title}} again — you finished this one",
+    "empty": "New stories are coming soon!"
+  },
   "world": {
     "back": "Back",
     "open": "Play {{title}}",

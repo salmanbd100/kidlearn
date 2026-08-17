@@ -23,7 +23,7 @@ import { type Locale, toLocale } from "./locale";
  * prompt is also on screen as text and an icon.
  */
 
-export type ScreenNarrationKey = "selectProfile" | "home" | "world";
+export type ScreenNarrationKey = "selectProfile" | "home" | "world" | "stories";
 
 export function screenNarrationUrl(
   key: ScreenNarrationKey,

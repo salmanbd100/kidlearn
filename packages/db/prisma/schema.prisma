@@ -129,6 +129,7 @@ model MediaAsset {
   activityPromptAudios   ActivityTranslation[]     @relation("ActivityPromptAudio")
   quizQuestionAudios     QuizQuestionTranslation[] @relation("QuizQuestionAudio")
   storyCovers            Story[]                   @relation("StoryCover")
+  storyTitleNarrations   StoryTranslation[]        @relation("StoryTitleNarration")
   storyPageIllustrations StoryPage[]               @relation("StoryPageIllustration")
   storyPageNarrations    StoryPageTranslation[]    @relation("StoryPageNarration")
   badgeIcons             Badge[]                   @relation("BadgeIcon")
@@ -348,19 +349,48 @@ model QuizQuestionTranslation {
 }
 
 model Story {
-  id           String        @id @default(uuid())
-  slug         String        @unique
-  title        String
+  id    String @id @default(uuid())
+  slug  String @unique
+  // The admin label, not the child-facing name — see `StoryTranslation`.
+  title String
+
+  // The authoring label for the moral (FR-STORY-03), same relationship to
+  // `StoryTranslation.moral` as `title` has to the translated title.
   theme        String
   worldId      String
-  world        World         @relation(fields: [worldId], references: [id])
+  world        World              @relation(fields: [worldId], references: [id])
   gradeLevels  GradeLevel[]
   coverAssetId String?
-  coverAsset   MediaAsset?   @relation("StoryCover", fields: [coverAssetId], references: [id])
-  status       ContentStatus @default(draft)
+  coverAsset   MediaAsset?        @relation("StoryCover", fields: [coverAssetId], references: [id])
+  status       ContentStatus      @default(draft)
   pages        StoryPage[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  translations StoryTranslation[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+// The child-facing story title and moral, per locale (file 25, FR-STORY-05).
+//
+// Added by file 25 for the reason `document/database-design.md` recorded when file
+// 05 settled the schema: `Story.title` and `Story.theme` are admin labels, and a
+// library screen that read them directly would show a Bangla learner English
+// covers over Bangla page text — the same defect the curriculum name translations
+// fixed for lesson tiles.
+//
+// `titleAudioAsset` is what makes a cover tappable for a pre-reader: the title
+// read aloud in their language. Nullable because the voice pipeline (file 36)
+// records it, and a story is publishable before its narration exists.
+model StoryTranslation {
+  id                String      @id @default(uuid())
+  storyId           String
+  story             Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  language          Language
+  title             String
+  moral             String?
+  titleAudioAssetId String?
+  titleAudioAsset   MediaAsset? @relation("StoryTitleNarration", fields: [titleAudioAssetId], references: [id])
+
+  @@unique([storyId, language])
 }
 
 model StoryPage {

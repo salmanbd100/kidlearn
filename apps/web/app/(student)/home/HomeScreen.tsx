@@ -4,9 +4,11 @@ import type {
   RewardSummaryResponse,
   WorldSummaryResponse,
 } from "@kidlearn/types";
+import { BookOpen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { IconTile } from "@/components/kid/IconTile";
 import { RewardStrip } from "@/components/student/RewardStrip";
 import { WorldCard } from "@/components/student/WorldCard";
 import { useActiveChild } from "@/lib/active-child";
@@ -102,6 +104,23 @@ export function HomeScreen() {
         </h1>
         <RewardStrip stats={stats} />
       </header>
+
+      {/* Outside every status branch, and above the worlds rather than inside
+          them: the story library is reachable at any time and is not part of any
+          lesson flow (FR-STORY-01), so a failed curriculum read must not take it
+          off the screen. */}
+      {/* Wrapped rather than dropped straight into the column: `IconTile` is
+          square and sizes itself, and a bare flex child would stretch to the full
+          width and take that much height with it — a tile taller than the world
+          cards, pushing them off the first screen. */}
+      <div>
+        <IconTile
+          label={t("stories.title")}
+          icon={<BookOpen aria-hidden="true" />}
+          size="lg"
+          onPress={() => router.push("/stories")}
+        />
+      </div>
 
       {status === "error" ? (
         <StudentStatus tone="alert">{t("status.error")}</StudentStatus>

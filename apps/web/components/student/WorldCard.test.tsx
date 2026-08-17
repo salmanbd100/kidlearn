@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
-import { WorldCard, worldGradientStyle } from "./WorldCard";
+import { worldGradientStyle } from "@/lib/worlds";
+import { WorldCard } from "./WorldCard";
 
 /**
  * FR-WORLD-05 is the whole point of this component: a world looks the way it does

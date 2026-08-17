@@ -5,10 +5,10 @@ import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
 import { motion } from "motion/react";
 import Image from "next/image";
-import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
+import { worldGradientStyle } from "@/lib/worlds";
 
 /**
  * A themed world, drawn entirely from the row that describes it (FR-WORLD-05).
@@ -31,24 +31,6 @@ const worldCardVariants = cva(
 );
 
 const MASCOT_PX = 160;
-
-/**
- * The gradient a world paints itself with, or `undefined` when the row carries no
- * usable colours — in which case the card keeps the theme's own card surface
- * rather than rendering a broken `linear-gradient(...)` string.
- *
- * `palette` is free-form JSONB (`{ primary, secondary, bg }` in the seed), so the
- * two keys are read defensively: a world saved with only `primary` still renders.
- */
-export function worldGradientStyle(
-  palette: WorldSummaryResponse["palette"],
-): CSSProperties | undefined {
-  const from = palette.primary;
-  if (typeof from !== "string" || from.length === 0) return undefined;
-
-  const to = typeof palette.secondary === "string" ? palette.secondary : from;
-  return { backgroundImage: `linear-gradient(160deg, ${from}, ${to})` };
-}
 
 export interface WorldCardProps {
   world: WorldSummaryResponse;

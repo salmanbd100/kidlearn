@@ -191,6 +191,7 @@ model StoryPageTranslation {
 These models grow later; the consolidated final shape lives in **`document/database-design.md`**. Tracked here for alignment:
 
 - **`aiJobId String?`** (+ relation to `AIGenerationJob`) added to **`Activity`**, **`Quiz`**, **`QuizQuestion`**, and **`Story`** — **file 34** (links AI-generated rows to their generation job; the AI-publish guard `assertAiPublishable` in file 37 reads it).
+- **`StoryTranslation`** (`storyId`, `language`, `title`, `moral?`, `titleAudioAssetId?`, UK `(storyId, language)`, cascade on `Story`) — **file 25**. `Story.title` and `Story.theme` stay as they are and keep their meaning: the admin label, and the authoring label for the moral. This is the child-facing pair beside them, resolved `preferredLanguage → en` like every other translation (FR-STORY-05).
 - **`StoryPage.illustrationPrompt String?`** — **file 35** (the prompt the AI image generator in file 36 consumes; no public URL until a generated illustration is approved).
 - **Quiz `definition` convention:** AI-generated picture questions use the literal placeholder URL `pending://image` for option images until an admin attaches a real asset; approval is blocked (409) while any `pending://` placeholder remains (file 37). This is a payload convention, not a column.
 

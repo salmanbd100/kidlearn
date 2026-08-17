@@ -57,7 +57,15 @@ export type GrantSource =
   | "quiz_completion"
   | "quiz_correct_answers"
   | "daily_activity"
-  | "badge_unlock";
+  | "badge_unlock"
+  /**
+   * Written by file 26 when a child finishes a story (FR-STORY-07). Already read
+   * in two places before the grant exists — `achievementService` counts these rows
+   * for the story badges, and `storyService` derives a cover's `completed` flag
+   * from them — so the value belongs in this union now rather than as a string
+   * literal in three files that could disagree.
+   */
+  | "story_completion";
 
 export interface GrantSpec {
   rewardType: Extract<RewardType, "star" | "coin">;

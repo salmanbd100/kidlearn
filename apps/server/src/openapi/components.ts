@@ -46,6 +46,11 @@ import {
   ServiceIdentityResponseSchema,
   SessionEventRecordSchema,
   SessionEventResponseSchema,
+  StoryDetailResponseSchema,
+  StoryDetailSchema,
+  StoryListResponseSchema,
+  StoryPageSchema,
+  StorySummarySchema,
   SubjectListResponseSchema,
   SubjectSummarySchema,
   TopicListResponseSchema,
@@ -166,6 +171,13 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   LessonListResponse: LessonListResponseSchema,
   LessonDetailResponse: LessonDetailResponseSchema,
 
+  // --- Stories ------------------------------------------------------------
+  StorySummary: StorySummarySchema,
+  StoryPage: StoryPageSchema,
+  StoryDetail: StoryDetailSchema,
+  StoryListResponse: StoryListResponseSchema,
+  StoryDetailResponse: StoryDetailResponseSchema,
+
   // --- Progress -----------------------------------------------------------
   LessonProgress: LessonProgressSchema,
   LessonProgressReadResponse: LessonProgressReadResponseSchema,
@@ -247,6 +259,11 @@ export const TAGS = [
     name: "Content",
     description:
       "The student-facing curriculum. Every response is filtered to `status = published` and the active child's grade, with text resolved to their language — all of it server-side, from the child record, never from request input.",
+  },
+  {
+    name: "Stories",
+    description:
+      "The Story Library — reachable from the main menu at any time and never nested inside a lesson (FR-STORY-01). Filtered and localised exactly like the curriculum: `status = published`, the child's grade, their language with an English fallback, all decided server-side. A story's `world` travels as the full world row, so a cover themes itself from the same `palette` a world tile does (FR-STORY-04). Replays are unlimited and free (FR-STORY-06) — `completed` marks a cover, it never locks one.",
   },
   {
     name: "Progress",

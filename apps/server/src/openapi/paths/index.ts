@@ -7,6 +7,7 @@ import { HEALTH_ROUTES } from "./health.js";
 import { ME_ROUTES } from "./me.js";
 import { PARENT_ROUTES } from "./parent.js";
 import { PROGRESS_ROUTES } from "./progress.js";
+import { STORIES_ROUTES } from "./stories.js";
 
 /**
  * The registry: every documented operation, one entry per route.
@@ -23,6 +24,7 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...CHILDREN_ROUTES,
   ...CHARACTERS_ROUTES,
   ...CONTENT_ROUTES,
+  ...STORIES_ROUTES,
   ...PROGRESS_ROUTES,
   ...ME_ROUTES,
 ];
