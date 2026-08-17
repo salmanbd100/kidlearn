@@ -1,5 +1,6 @@
 import type {
   LessonDetailResponse,
+  StorySummaryResponse,
   WorldSummaryResponse,
   WorldTopicLessonsResponse,
 } from "@kidlearn/types";
@@ -67,4 +68,20 @@ export function getLesson(
     `/api/content/lessons/${lessonId}`,
     { onColdStart: options.onColdStart },
   );
+}
+
+/**
+ * The child's whole story library, in one request (FR-STORY-01, FR-STORY-08).
+ *
+ * Twenty covers is a small enough list to send at once, and the alternative —
+ * paging a library a child browses by looking at it — would mean a cover that
+ * exists but cannot be found. `completed` and the world's palette arrive with each
+ * story, so the grid needs nothing else to draw itself.
+ */
+export function listStories(
+  options: ContentFetchOptions = {},
+): Promise<ApiResult<{ stories: StorySummaryResponse[] }>> {
+  return apiFetch<{ stories: StorySummaryResponse[] }>("/api/content/stories", {
+    onColdStart: options.onColdStart,
+  });
 }

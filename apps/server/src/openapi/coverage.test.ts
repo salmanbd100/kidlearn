@@ -9,6 +9,7 @@ import { apiRouter } from "../routes/index.js";
 import { meRouter } from "../routes/me.js";
 import { parentRouter } from "../routes/parent.js";
 import { progressRouter } from "../routes/progress.js";
+import { storiesRouter } from "../routes/stories.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
 
@@ -47,6 +48,15 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     file: "paths/characters.ts",
   },
   { prefix: "/api/content", router: contentRouter, file: "paths/content.ts" },
+  // Nested inside `contentRouter` rather than mounted on `apiRouter`, so it
+  // inherits that surface's guards. The walk below reads a router's own
+  // registrations and cannot see through a nested mount, which is exactly why the
+  // stories router is listed here in its own right.
+  {
+    prefix: "/api/content/stories",
+    router: storiesRouter,
+    file: "paths/stories.ts",
+  },
   {
     prefix: "/api/progress",
     router: progressRouter,
@@ -55,8 +65,17 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   { prefix: "/api/me", router: meRouter, file: "paths/me.ts" },
 ];
 
-/** How many routers `routes/index.ts` mounts under `/api`. */
-const EXPECTED_API_MOUNTS = 6;
+/**
+ * How many routers are reachable under `/api`, at any depth: the six
+ * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`.
+ *
+ * Counted through the whole tree rather than one level down, because a router
+ * nested inside a resource router is invisible to both of the diffs above — the
+ * walk reads a router's own registrations only, so its routes would simply not
+ * appear and "documents every route the server serves" would pass on a surface it
+ * never saw.
+ */
+const EXPECTED_ROUTERS_UNDER_API = 7;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally
@@ -164,25 +183,32 @@ describe("openapi coverage", () => {
     ).toEqual([]);
   });
 
-  it("notices a newly mounted router under /api", () => {
+  it("notices a newly mounted router under /api, however deeply nested", () => {
     // The prefix map above is hand-maintained, so it cannot see a router someone
-    // mounts on `apiRouter` without touching this file. This count is what turns
-    // that blind spot into a failure with a clear cause.
+    // mounts without touching this file. This count is what turns that blind spot
+    // into a failure with a clear cause.
     //
     // Counting layers would be wrong: `apiRouter.use("/content", requireParent,
     // requireActiveChild, contentRouter)` registers one layer per handler. Only a
     // mounted Router has a `stack` of its own, so that is what identifies one.
-    const mountCount = (
-      apiRouter as unknown as { stack: RouteLayer[] }
-    ).stack.filter((layer) => {
-      const handle = layer.handle as { stack?: unknown } | undefined;
-      return !layer.route && Array.isArray(handle?.stack);
-    }).length;
+    function countRouters(router: Router): number {
+      const stack = (router as unknown as { stack: RouteLayer[] }).stack;
+      let count = 0;
+      for (const layer of stack) {
+        if (layer.route) continue;
+        const handle = layer.handle as { stack?: unknown } | undefined;
+        if (!Array.isArray(handle?.stack)) continue;
+        // A nested router counts itself and whatever it mounts in turn, which is
+        // how `storiesRouter` on `contentRouter` reaches this total.
+        count += 1 + countRouters(layer.handle as Router);
+      }
+      return count;
+    }
 
     expect(
-      mountCount,
-      "A router was mounted on apiRouter without being added to MOUNTS in this file. Add it there (and document its routes) so its endpoints are covered.",
-    ).toBe(EXPECTED_API_MOUNTS);
+      countRouters(apiRouter),
+      "A router was mounted under /api without being added to MOUNTS in this file. Add it there with its full prefix (and document its routes) so its endpoints are covered.",
+    ).toBe(EXPECTED_ROUTERS_UNDER_API);
   });
 
   it("registers no duplicate operations", () => {

@@ -1,5 +1,6 @@
 import { validDragDrop, validMcq, validPictureSelect } from "@kidlearn/types";
 import { type Prisma, PrismaClient } from "@prisma/client";
+import { seedStories } from "./seed-stories.js";
 
 const prisma = new PrismaClient();
 
@@ -876,6 +877,11 @@ async function main() {
       worldId: jungle.id,
     },
   });
+
+  // File 25 — the dev story library. Last, because the fixtures resolve their
+  // world by slug and both worlds are created above. Also runnable on its own as
+  // `pnpm --filter @kidlearn/db seed:stories`.
+  await seedStories(prisma);
 }
 
 main()

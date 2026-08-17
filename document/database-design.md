@@ -41,7 +41,7 @@
 | **Timestamps** | Content/identity models carry `createdAt @default(now())` and `updatedAt @updatedAt`. Event/ledger rows carry only the relevant event timestamp. |
 | **Enums over free strings** | Closed sets are Postgres enums (`GradeLevel`, `ContentStatus`, …). Open/extensible rule keys (`Badge.ruleType`) stay `String`. |
 | **Locale codes** | `Language` enum values are lowercase `en` / `bn` to match i18next codes end-to-end — no mapping layer. |
-| **i18n = translation tables** | Per-language content lives in child `*Translation` tables keyed `(parentId, language)`, never as JSON blobs of all locales. Pattern: `WorldTranslation`, `SubjectTranslation`, `TopicTranslation`, `LessonTranslation`, `ActivityTranslation`, `QuizQuestionTranslation`, `StoryPageTranslation`. |
+| **i18n = translation tables** | Per-language content lives in child `*Translation` tables keyed `(parentId, language)`, never as JSON blobs of all locales. Pattern: `WorldTranslation`, `SubjectTranslation`, `TopicTranslation`, `LessonTranslation`, `ActivityTranslation`, `QuizQuestionTranslation`, `StoryTranslation`, `StoryPageTranslation`. |
 | **Display names are translated; the row's own `name`/`title` is the admin label** | `World.name`, `Subject.name`, `Topic.name` and `Lesson.title` are the **internal** label — what the CMS list, an audit log and a slug are built from. They are deliberately not the child-facing string: a tile a Bangla learner reads comes from the matching `*Translation` row, resolved server-side with an `en` fallback exactly as `LessonTranslation.introScript` is. Both exist because they answer different questions, and collapsing them means either an admin list that changes language or a child who cannot read their own curriculum. |
 | **Content-as-data** | Activity/quiz payloads are opaque, **versioned `Json`** columns (`definition` + `schemaVersion Int`). The DB never interprets them; `packages/types` Zod schemas (file 07) own their shape. |
 | **Media linkage is explicit, never polymorphic** | `MediaAsset` is referenced by **named optional FKs from the owning side** (`World.mascotAssetId`, `LessonTranslation.videoAssetId`, …) — full referential integrity + Prisma type safety, no `entityType`+`entityId`. |
@@ -300,7 +300,7 @@ erDiagram
 - **Grade tags are native enum arrays** (`GradeLevel[]`) on Subject/Topic/Lesson/Story — query with `gradeLevels: { has: child.gradeLevel }`. Chosen over a join table for simpler queries and additive new grades.
 - **A published lesson is only servable in a language if a matching `LessonTranslation` row exists.** The read API (file 12) joins by the child's `preferredLanguage` and falls back to `en`.
 - **Curriculum display names are translated too** (`WorldTranslation`, `SubjectTranslation`, `TopicTranslation`, and `LessonTranslation.title`). This was corrected after review: the read API's response contract already promised a single resolved string picked from the child's language, but the schema only had the untranslated column to give it, so a `bn` learner got English on every tile while the narration inside the lesson was Bangla. The resolution order is `preferredLanguage → en → the row's own name/title`; the last step is what keeps content authored before a translation existed servable instead of nameless.
-- **`Story.title` is not translated yet.** Stories are files 25–26; when they land, follow the same pattern rather than reading `Story.title` directly.
+- **`Story.title` is translated too**, by `StoryTranslation` — added by file 25 when the story read API landed, following the pattern this note asked for. Same split and same resolution order as the curriculum names: `Story.title`/`Story.theme` stay as the admin label and the authoring label for the moral, and the child reads `StoryTranslation.title`/`.moral`. `moral` is nullable and does **not** fall back to `theme` — an admin note is not a sentence to read to a child.
 - **`sortOrder` has no composite-unique** — reordering would collide mid-transaction; the admin API renumbers (file 32). It is indexed for ordered reads.
 - **`CharacterSheet`** (file 36) is reference data for the AI image generator (FR-AI-09) — it keeps recurring characters visually consistent. It is not student-facing content and has no `status`.
 
@@ -367,6 +367,7 @@ erDiagram
     Activity ||--o{ ActivityTranslation : "per language"
     Quiz ||--o{ QuizQuestion : "ordered 3-5"
     QuizQuestion ||--o{ QuizQuestionTranslation : "per language"
+    Story ||--o{ StoryTranslation : "per language"
     Story ||--o{ StoryPage : "ordered pages"
     StoryPage ||--o{ StoryPageTranslation : "per language"
 
@@ -410,13 +411,22 @@ erDiagram
     Story {
         string id PK
         string slug UK
-        string title
-        string theme "moral (FR-STORY-03)"
+        string title "admin label"
+        string theme "moral authoring label (FR-STORY-03)"
         string worldId FK
         GradeLevel gradeLevels "array"
         string coverAssetId FK
         ContentStatus status
         string aiJobId FK "file 34"
+    }
+    StoryTranslation {
+        string id PK
+        string storyId FK
+        Language language
+        string title "child-facing"
+        string moral "child-facing, nullable"
+        string titleAudioAssetId FK "file 36"
+        string uniq "(storyId, language)"
     }
     StoryPage {
         string id PK
@@ -456,6 +466,7 @@ erDiagram
 | | `aiJobId String?` | FK → AIGenerationJob | 34 |
 | **QuizQuestionTranslation** | `questionId`, `language`, `audioAssetId?` | UK `(questionId, language)`, cascade on QuizQuestion | 05 |
 | **Story** | `slug UK`, `title`, `theme`, `worldId`, `gradeLevels[]`, `coverAssetId?`, `status` | worldId restrict | 05 |
+| **StoryTranslation** | `storyId`, `language`, `title`, `moral?`, `titleAudioAssetId?` | UK `(storyId, language)`, cascade on Story | 25 |
 | | `aiJobId String?` | FK → AIGenerationJob | 34 |
 | **StoryPage** | `storyId`, `sortOrder`, `illustrationAssetId?` | UK `(storyId, sortOrder)`, cascade on Story | 05 |
 | | `illustrationPrompt String?` | AI image prompt | 35 |
@@ -684,13 +695,14 @@ The schema is built additively. Each migration is named and owned by one file:
 | 5 | `activity_quiz_story_schema` (05) | `ActivityType`, `QuizQuestionFormat`; `Activity(+Translation)`, `Quiz`, `QuizQuestion(+Translation)`, `Story`, `StoryPage(+Translation)`; FK-upgrade `Lesson.activityId/quizId` |
 | 6 | `progress_gamification_schema` (06) | 7 enums; `LessonProgress`, `QuizResponse`, `Badge`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`, `AIGenerationJob`; `ChildProfile.avatarCharacterId` FK |
 | 7 | `session_event_step_complete` (16) | `SessionEventType.step_complete` — the per-step marker file 06's enum omitted |
-| 8 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]` |
-| 9 | `admin_auth_link` (31) | `AdminUser.authUserId` |
-| 10 | `content_audit_fields` (32) | `updatedBy String?` on `World`/`Subject`/`Topic`/`Lesson` |
-| 11 | `ai_job_linkage` (34) | `aiJobId String?` on `Lesson`, `Quiz`, `QuizQuestion`, `Story`, `Activity`, `MediaAsset` |
-| 12 | `storypage_illustration_prompt` (35) | `StoryPage.illustrationPrompt String?` |
-| 13 | `character_sheets` (36) | `CharacterSheet` model |
-| 14 | `ai_job_review_note` (37) | `AIGenerationJob.reviewNote String?` |
+| 8 | `story_translations` (25) | `StoryTranslation` model — the child-facing story title, moral and title narration the `Story.title` note in §6 deferred to files 25–26 |
+| 9 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]` |
+| 10 | `admin_auth_link` (31) | `AdminUser.authUserId` |
+| 11 | `content_audit_fields` (32) | `updatedBy String?` on `World`/`Subject`/`Topic`/`Lesson` |
+| 12 | `ai_job_linkage` (34) | `aiJobId String?` on `Lesson`, `Quiz`, `QuizQuestion`, `Story`, `Activity`, `MediaAsset` |
+| 13 | `storypage_illustration_prompt` (35) | `StoryPage.illustrationPrompt String?` |
+| 14 | `character_sheets` (36) | `CharacterSheet` model |
+| 15 | `ai_job_review_note` (37) | `AIGenerationJob.reviewNote String?` |
 
 > **Ordering note:** files 04–06 (core content/progress) are authored before the auth-detail and AI-pipeline files in implementation sequence, but several migrations interleave. The exact `prisma migrate` order is the file number order above; the **end state** is what this document describes. Confirm migration names when running `pnpm db:migrate`.
 

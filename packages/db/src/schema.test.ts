@@ -100,6 +100,7 @@ describe("content translations cascade with their parent row", () => {
     ["LessonTranslation", "lesson"],
     ["ActivityTranslation", "activity"],
     ["QuizQuestionTranslation", "question"],
+    ["StoryTranslation", "story"],
     ["StoryPageTranslation", "storyPage"],
   ])("cascades %s from its owner", (model, relation) => {
     // An orphaned translation is unreachable content that still counts against
@@ -114,6 +115,7 @@ describe("content translations cascade with their parent row", () => {
     ["LessonTranslation", "lessonId, language"],
     ["ActivityTranslation", "activityId, language"],
     ["QuizQuestionTranslation", "questionId, language"],
+    ["StoryTranslation", "storyId, language"],
     ["StoryPageTranslation", "storyPageId, language"],
   ])("holds one %s row per language", (model, key) => {
     // Two `en` rows for one lesson makes `pickLocale` non-deterministic — the
@@ -161,6 +163,7 @@ describe("child-facing curriculum names are translatable (FR-I18N-01)", () => {
     ["SubjectTranslation", "name"],
     ["TopicTranslation", "name"],
     ["LessonTranslation", "title"],
+    ["StoryTranslation", "title"],
   ])("declares %s.%s as required text", (model, column) => {
     const line = field(model, column);
     expect(line).toMatch(/\bString\b/);
@@ -176,6 +179,15 @@ describe("child-facing curriculum names are translatable (FR-I18N-01)", () => {
     expect(field("Subject", "name")).toMatch(/\bString\b/);
     expect(field("Topic", "name")).toMatch(/\bString\b/);
     expect(field("Lesson", "title")).toMatch(/\bString\b/);
+    expect(field("Story", "title")).toMatch(/\bString\b/);
+  });
+
+  it("keeps a story's moral translatable and its authoring label required", () => {
+    // `Story.theme` is the authoring label for the moral (FR-STORY-03) and is
+    // always present; the translated one is optional because a story is
+    // publishable before every locale has been written.
+    expect(field("Story", "theme")).not.toContain("String?");
+    expect(field("StoryTranslation", "moral")).toContain("String?");
   });
 });
 

@@ -23,6 +23,12 @@ unconfigured host is a thrown error rather than a broken image.
 | `letter-a.en.jpg` | video poster | any 16:9 still |
 | `letter-a-intro.en.mp3` | intro narration | any short spoken clip |
 | `mascot-jungle-monkey.png` | Jungle world card on the home screen | any square PNG, transparent background reads best |
+| `story-sharing-monkey.png` | story cover in the library grid | any square-ish illustration |
+| `story-sharing-monkey.title.{en,bn}.mp3` | cover tapped once — the title read aloud | any two short spoken clips |
+| `story-sharing-monkey.1.{en,bn}.mp3` | page 1 narration | any short spoken clip |
+| `story-dot-counts-the-fish.png` | second story cover | as above |
+| `story-dot-counts-the-fish.title.en.mp3` | second cover's title, English only | any short spoken clip |
+| `story-dot-counts-the-fish.1.en.mp3` | page 1 narration, English only | any short spoken clip |
 
 Public-domain sources that work: the Blender Foundation's open movies
 (<https://mango.blender.org>, <https://peach.blender.org>) for video, and
@@ -32,3 +38,9 @@ see the player's states, and a long file makes reaching `ended` tedious.
 Deliberately *no* Bangla poster or narration is seeded, so a `bn` child on this
 lesson exercises the English fallback and the `assetFallbacks` flags the player
 reports (FR-I18N-01).
+
+`dot-counts-the-fish` is the story-side version of the same idea: no Bangla title
+narration, no Bangla page audio and no Bangla moral, so a `bn` child reads Bangla
+text while hearing the English recording (FR-STORY-05). Only the first page of
+each story has narration listed — the reader (file 26) has to work without it, and
+a silent page is the state to check that against.
