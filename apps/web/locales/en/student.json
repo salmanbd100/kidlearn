@@ -20,6 +20,25 @@
     "openCompleted": "Read {{title}} again — you finished this one",
     "empty": "New stories are coming soon!"
   },
+  "reader": {
+    "exit": "Back to the stories",
+    "page": "Page {{current}} of {{total}}",
+    "next": "Next page",
+    "previous": "Page before",
+    "finishStory": "Finish the story",
+    "replay": "Hear this page again",
+    "autoAdvanceOn": "The pages turn by themselves",
+    "autoAdvanceOff": "You turn the pages",
+    "notFound": "That story is having a rest.",
+    "empty": "This story has no pages yet!",
+    "finish": {
+      "title": "The End!",
+      "earned": "You got {{stars}} and {{coins}}!",
+      "readAgainReward": "You read it again — lovely!",
+      "again": "Read it again",
+      "more": "More stories"
+    }
+  },
   "world": {
     "back": "Back",
     "open": "Play {{title}}",

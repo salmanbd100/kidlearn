@@ -32,6 +32,7 @@ import {
   LessonQuizQuestionSchema,
   LessonQuizSchema,
   MediaSummarySchema,
+  NarrationTimingsSchema,
   NewBadgeSchema,
   NewCharacterSchema,
   ParentSummarySchema,
@@ -46,6 +47,8 @@ import {
   ServiceIdentityResponseSchema,
   SessionEventRecordSchema,
   SessionEventResponseSchema,
+  StoryCompletionResponseSchema,
+  StoryCompletionSchema,
   StoryDetailResponseSchema,
   StoryDetailSchema,
   StoryListResponseSchema,
@@ -173,6 +176,7 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
 
   // --- Stories ------------------------------------------------------------
   StorySummary: StorySummarySchema,
+  NarrationTimings: NarrationTimingsSchema,
   StoryPage: StoryPageSchema,
   StoryDetail: StoryDetailSchema,
   StoryListResponse: StoryListResponseSchema,
@@ -198,6 +202,8 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   LessonCompletionResponse: LessonCompletionResponseSchema,
   RewardSummary: RewardSummarySchema,
   RewardSummaryResponse: RewardSummaryResponseSchema,
+  StoryCompletion: StoryCompletionSchema,
+  StoryCompletionResponse: StoryCompletionResponseSchema,
 
   // --- Versioned content payloads -----------------------------------------
   // Registered so the activity and quiz JSONB contracts are readable from the

@@ -178,16 +178,27 @@ function pageRow(sortOrder: number, overrides: Record<string, unknown> = {}) {
         language: "en",
         text: `English page ${sortOrder}.`,
         narrationAudioAsset: { url: `/dev/sharing-monkey-${sortOrder}.en.mp3` },
+        // What every MVP row holds: the voice pipeline (file 36) produces spans.
+        narrationTimings: null,
       },
       {
         language: "bn",
         text: `বাংলা পাতা ${sortOrder}।`,
         narrationAudioAsset: null,
+        narrationTimings: null,
       },
     ],
     ...overrides,
   };
 }
+
+const ENGLISH_TIMINGS = {
+  unit: "word",
+  spans: [
+    { start: 0, end: 7, tMs: 0 },
+    { start: 8, end: 12, tMs: 420 },
+  ],
+};
 
 /**
  * The ledger as state. `completeStory` writes the row file 26 will write; nothing
@@ -531,6 +542,124 @@ describe("GET /api/content/stories/:id", () => {
     expect(res.body.data.story.pages[0]).toMatchObject({
       text: "বাংলা পাতা 1।",
       narrationUrl: "/dev/sharing-monkey-1.en.mp3",
+    });
+  });
+
+  it("serves no timings for a recording that has none (every MVP page)", async () => {
+    signInAs(childProfile());
+    db.storyFindFirst.mockResolvedValue({
+      ...storyRow(),
+      pages: [pageRow(1)],
+    });
+
+    const res = await request(app).get(
+      `/api/content/stories/${SHARING_MONKEY_ID}`,
+    );
+
+    // `null`, not an omitted key: the reader renders plain text from one
+    // component rather than branching onto a second reading screen.
+    expect(res.body.data.story.pages[0].narrationTimings).toBeNull();
+  });
+
+  it("takes the narration timings from the same row the clip came from", async () => {
+    signInAs(childProfile({ preferredLanguage: "bn" }));
+    db.storyFindFirst.mockResolvedValue({
+      ...storyRow(),
+      pages: [
+        pageRow(1, {
+          translations: [
+            {
+              language: "en",
+              text: "English page 1.",
+              narrationAudioAsset: { url: "/dev/sharing-monkey-1.en.mp3" },
+              narrationTimings: ENGLISH_TIMINGS,
+            },
+            {
+              language: "bn",
+              text: "বাংলা পাতা ১।",
+              narrationAudioAsset: null,
+              narrationTimings: null,
+            },
+          ],
+        }),
+      ],
+    });
+
+    const res = await request(app).get(
+      `/api/content/stories/${SHARING_MONKEY_ID}`,
+    );
+
+    // Bangla text, English narration — and therefore *English* spans, because a
+    // span is a character offset into the text the recording reads. Resolving the
+    // two independently would highlight English offsets over Bangla text.
+    expect(res.body.data.story.pages[0]).toMatchObject({
+      text: "বাংলা পাতা ১।",
+      narrationUrl: "/dev/sharing-monkey-1.en.mp3",
+      narrationTimings: ENGLISH_TIMINGS,
+    });
+  });
+
+  it("drops malformed timings rather than serving a blob the reader cannot read", async () => {
+    signInAs(childProfile());
+    db.storyFindFirst.mockResolvedValue({
+      ...storyRow(),
+      pages: [
+        pageRow(1, {
+          translations: [
+            {
+              language: "en",
+              text: "English page 1.",
+              narrationAudioAsset: { url: "/dev/sharing-monkey-1.en.mp3" },
+              // A pipeline bug, or an admin's hand-edit: `unit` is unknown and
+              // the span has no end. JSONB accepts anything; the API must not.
+              narrationTimings: { unit: "syllable", spans: [{ start: 0 }] },
+            },
+          ],
+        }),
+      ],
+    });
+
+    const res = await request(app).get(
+      `/api/content/stories/${SHARING_MONKEY_ID}`,
+    );
+
+    assertContract(
+      StoryDetailResponseSchema,
+      res.body,
+      "GET /api/content/stories/{id}",
+    );
+    // The page still reads — an unhighlighted story beats a reader that throws.
+    expect(res.body.data.story.pages[0]).toMatchObject({
+      narrationUrl: "/dev/sharing-monkey-1.en.mp3",
+      narrationTimings: null,
+    });
+  });
+
+  it("speaks the moral in whichever locale recorded it (FR-STORY-03)", async () => {
+    signInAs(childProfile({ preferredLanguage: "bn" }));
+    db.storyFindFirst.mockResolvedValue({
+      ...storyRow({
+        translations: [
+          {
+            ...bilingualTranslations()[0],
+            moralAudioAsset: { url: "/dev/sharing-monkey-moral.en.mp3" },
+          },
+          { ...bilingualTranslations()[1], moralAudioAsset: null },
+        ],
+      }),
+      pages: [pageRow(1)],
+    });
+
+    const res = await request(app).get(
+      `/api/content/stories/${SHARING_MONKEY_ID}`,
+    );
+
+    // Bangla moral, English recording. The moral is the one line of a story that
+    // is otherwise only text, so an English voice-over beats silence for a child
+    // who cannot read either language.
+    expect(res.body.data.story).toMatchObject({
+      moral: "ভাগ করে নিলে খেলা আরও ভালো হয়",
+      moralAudioUrl: "/dev/sharing-monkey-moral.en.mp3",
     });
   });
 

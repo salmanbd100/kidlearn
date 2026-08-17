@@ -54,7 +54,7 @@
 | 23 | `23-rewards-engine-and-celebration.md` | Server-side stars/coins grants, reward ledger, celebration screen | FR-LSN-05, FR-GAM-01..02, FR-GAM-07..08 | 06, 16, 22 | 3–4h | ✅ Done |
 | 24 | `24-badges-characters-streaks.md` | Badge milestone engine, character unlocks, learning streaks | FR-GAM-04..06 | 23 | 3–4h | ✅ Done |
 | 25 | `25-story-library.md` | Story read API + library browsing UI | FR-STORY-01, FR-STORY-04..05, FR-STORY-08 | 05, 08, 13 | 3–4h | ✅ Done |
-| 26 | `26-story-reader.md` | Page-by-page narrated story reader + completion reward | FR-STORY-02..03, FR-STORY-06..07 | 23, 25 | 3–4h | ⬜ Not started |
+| 26 | `26-story-reader.md` | Page-by-page narrated story reader + completion reward | FR-STORY-02..03, FR-STORY-06..07 | 23, 25 | 3–4h | ✅ Done |
 | 27 | `27-learning-time-tracking.md` | Server-side session heartbeats + learning time aggregation | FR-TIME-06, FR-DASH-02 (data), FR-LSN-07 | 06, 09, 16 | 3–4h | ⬜ Not started |
 | 28 | `28-screen-time-controls.md` | Daily limits, access windows, friendly lockout enforcement | FR-TIME-01..05 | 14, 27 | 3–4h | ⬜ Not started |
 | 29 | `29-parent-dashboard.md` | Per-child summary, subject progress, recent activity | FR-DASH-01..04 | 14, 23, 27 | 3–4h | ⬜ Not started |

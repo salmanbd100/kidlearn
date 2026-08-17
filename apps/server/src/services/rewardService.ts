@@ -3,6 +3,7 @@ import type {
   CompletionStreakResponse,
   NewBadgeResponse,
   NewCharacterResponse,
+  StoryCompletionResponse,
 } from "@kidlearn/types";
 import { env } from "../lib/env.js";
 import { localDateIn } from "../lib/local-date.js";
@@ -48,6 +49,13 @@ export const REWARD_RULES = {
   quizCompletionStars: 1,
   coinsPerCorrectAnswer: 2,
   firstActivityOfDayCoins: 5,
+  /**
+   * Finishing a story (FR-STORY-07). Deliberately smaller than a lesson: a story
+   * is read for its own sake, and a reward large enough to compete with a lesson
+   * would turn page-turning into the cheaper way to earn.
+   */
+  storyCompletionStars: 1,
+  storyCompletionCoins: 5,
 } as const;
 
 /** The reward sources this file grants. `sourceType` is a free-text column on
@@ -318,6 +326,81 @@ function grantLessonCompletionOnce(
         // `CompletionStreakSchema`.
         streak: { current: streak.current, milestone: streak.milestone },
         totals: { stars: totals.stars, coins: totals.coins },
+      };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+}
+
+/**
+ * Pays for finishing a story, once per story per child (FR-STORY-07).
+ *
+ * The caller has already established that the child may read this story
+ * (`requireVisibleStoryId`); nothing here re-checks visibility.
+ *
+ * **Replays are free and unlimited (FR-STORY-06).** A second finish answers
+ * `alreadyCompleted: true` with `granted: null` and writes nothing — the endpoint
+ * stays callable, it simply never pays twice. `alreadyCompleted` is derived from
+ * how many rows this call *inserted*, not from the read above it: under two taps
+ * racing each other, the loser inserts nothing and must say so, and only the
+ * insert count knows that.
+ *
+ * Serializable and retried for the reason `grantLessonCompletion` gives — the
+ * unique index protects the ledger, the isolation level protects the number the
+ * child is shown, and the retry keeps the loser of that race off a 500.
+ *
+ * No streak, badge or character work here, unlike a lesson completion. Those all
+ * hang off finishing a *lesson*; a story writes its ledger rows and file 24's
+ * milestone engine counts them the next time it runs (`storyService` reads the
+ * same rows for a cover's `completed` flag).
+ */
+export async function grantStoryCompletion(
+  childId: string,
+  storyId: string,
+): Promise<StoryCompletionResponse> {
+  return withSerializationRetry(() =>
+    grantStoryCompletionOnce(childId, storyId),
+  );
+}
+
+function grantStoryCompletionOnce(
+  childId: string,
+  storyId: string,
+): Promise<StoryCompletionResponse> {
+  const specs: GrantSpec[] = [
+    {
+      rewardType: "star",
+      amount: REWARD_RULES.storyCompletionStars,
+      sourceType: "story_completion",
+      sourceId: storyId,
+    },
+    {
+      rewardType: "coin",
+      amount: REWARD_RULES.storyCompletionCoins,
+      sourceType: "story_completion",
+      sourceId: storyId,
+    },
+  ];
+
+  return prisma.$transaction(
+    async (tx) => {
+      const written = await tx.rewardLedger.createMany({
+        data: specs.map((spec) => ({ childId, ...spec })),
+        // The unique index is the idempotency guard; this keeps the losing side
+        // of a double tap a no-op rather than a 500 at the end of a story.
+        skipDuplicates: true,
+      });
+
+      if (written.count === 0) {
+        return { alreadyCompleted: true, granted: null };
+      }
+
+      return {
+        alreadyCompleted: false,
+        granted: {
+          stars: REWARD_RULES.storyCompletionStars,
+          coins: REWARD_RULES.storyCompletionCoins,
+        },
       };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

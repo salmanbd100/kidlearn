@@ -64,6 +64,18 @@ const LESSON_ID_PARAM = pathParam(
   { type: "string", format: "uuid" },
 );
 
+const STORY_ID_PARAM = pathParam(
+  "id",
+  "The story id. Must be a uuid, matching `/api/content/stories/{id}`.",
+  { type: "string", format: "uuid" },
+);
+
+/** The story equivalent of the lesson `404`, and identical in reasoning. */
+const STORY_NOT_FOUND_RESPONSE = errorResponse(
+  "No such story, **or** it is not published, **or** its world is not published, **or** it is not tagged for this child's grade. All four are the same `404`, matching `GET /api/content/stories/{id}` exactly — a `403` would confirm the row exists (spec §7.3.4). The agreement is load-bearing here: a story the content API will not open must not be one a child can be paid for finishing.",
+  ["NOT_FOUND"],
+);
+
 const QUIZ_ID_PARAM = pathParam(
   "quizId",
   "The quiz id, as served in `LessonDetail.quiz.id`. Must be a uuid.",
@@ -179,6 +191,39 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "401": UNAUTHORIZED_RESPONSE,
         "403": NO_ACTIVE_CHILD_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/progress/stories/{id}/complete",
+    operation: {
+      tags: ["Progress"],
+      summary: "Finish a story and grant what it was worth",
+      description: [
+        `Writes the reward grant for finishing a story and answers with what this call granted (FR-STORY-07). ${AUTHORITATIVE}`,
+        "",
+        "**Once per story per child, and reading again is free (FR-STORY-06).** The first finish grants **1 star + 5 coins**; every later one answers `alreadyCompleted: true` with `granted: null` and writes no ledger row. The endpoint stays callable on every reading — a reader must not withhold the call, or hide the ending, because the child has read the story before. `granted: null` is *already done*, not a failure.",
+        "",
+        "The guard is the ledger's unique index on `(childId, rewardType, sourceType, sourceId)`, not a check in application code, so two taps racing each other cannot both pay out; `alreadyCompleted` is derived from what this call actually inserted, which is what makes the loser of that race answer honestly.",
+        "",
+        "**There is no request body.** The amounts are constants in `services/rewardService.ts`; no endpoint in this API accepts a reward type, amount or source (FR-GAM-08).",
+        "",
+        "Deliberately smaller than a lesson completion: no streak, no badge and no character announcement. Those hang off finishing a lesson. A story writes its ledger rows here, and the milestone engine counts them the next time it runs — which is also where the library screen's `completed` checkmark comes from, so the badge on the cover and the balance in the reward strip cannot disagree.",
+        "",
+        "`200`, not `201`: a replay creates nothing at all.",
+      ].join("\n"),
+      parameters: [STORY_ID_PARAM],
+      responses: {
+        "200": jsonResponse(
+          "Whether this reading had already been paid for, and what it granted if not.",
+          "StoryCompletionResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "404": STORY_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
