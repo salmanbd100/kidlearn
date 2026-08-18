@@ -138,6 +138,12 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
     StoryCompletionResponse | undefined
   >(undefined);
   const [elapsedMs, setElapsedMs] = useState(0);
+  /**
+   * When the clip now on screen started. Held in state rather than in the
+   * highlight effect's closure so that every page turn and every replay restarts
+   * the follow-along clock instead of it counting on from the first timed page.
+   */
+  const [narrationStartedAt, setNarrationStartedAt] = useState(0);
 
   const page = story.pages[state.pageIndex];
   const narrationUrl = page?.narrationUrl ?? null;
@@ -169,24 +175,44 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
     [cancelPendingAdvance],
   );
 
-  // Narration follows the page. The cleanup is what makes a fast run of taps
-  // leave one voice playing rather than five.
+  /**
+   * Starts a clip and re-arms the hold that turns the page after it. Shared by
+   * the page effect and the speaker button so that both move the highlight's
+   * clock — a replay that left it running would highlight the end of the
+   * sentence while the voice is back at the start of it.
+   */
+  const playNarration = useCallback(
+    (url: string) => {
+      setElapsedMs(0);
+      setNarrationStartedAt(performance.now());
+      void play(url, {
+        interrupt: true,
+        onFinished: () => {
+          advanceTimer.current = setTimeout(() => {
+            advanceTimer.current = undefined;
+            dispatch({ type: "NARRATION_ENDED" });
+          }, AUTO_ADVANCE_HOLD_MS);
+        },
+      });
+    },
+    [play],
+  );
+
+  // Narration follows the page — keyed on the page itself, not on its url, so a
+  // story that reuses a recording still restarts it. The cleanup is what makes a
+  // fast run of taps leave one voice playing rather than five, and what silences
+  // the last page on the way to the ending: `FinishScreen` interrupts only when
+  // there is a moral recorded, and there is none until file 36.
   useEffect(() => {
-    if (!isReading || narrationUrl === null) return;
+    if (!isReading || page === undefined || page.narrationUrl === null) return;
 
-    setElapsedMs(0);
-    void play(narrationUrl, {
-      interrupt: true,
-      onFinished: () => {
-        advanceTimer.current = setTimeout(() => {
-          advanceTimer.current = undefined;
-          dispatch({ type: "NARRATION_ENDED" });
-        }, AUTO_ADVANCE_HOLD_MS);
-      },
-    });
+    playNarration(page.narrationUrl);
 
-    return cancelPendingAdvance;
-  }, [play, narrationUrl, isReading, cancelPendingAdvance]);
+    return () => {
+      cancelPendingAdvance();
+      stop();
+    };
+  }, [page, isReading, playNarration, cancelPendingAdvance, stop]);
 
   // Stop the voice on the way out. `AudioProvider` does this on its own unmount
   // too, but a child usually leaves the reader without leaving the app.
@@ -197,7 +223,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
    *
    * Runs only for a page that actually carries timings — none of them, until the
    * voice pipeline (file 36) produces some — so the ordinary reading path has no
-   * interval at all. It counts from when playback started rather than reading the
+   * interval at all. It counts from `narrationStartedAt` rather than reading the
    * element's `currentTime`, which the shared audio channel does not expose; the
    * drift across one page of narration is well under what a word-level highlight
    * would show, and swapping in the real clock later is a change to this effect
@@ -206,13 +232,12 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   const hasTimings = page?.narrationTimings != null;
   useEffect(() => {
     if (!isReading || !hasTimings) return;
-    const startedAt = performance.now();
     const tick = setInterval(
-      () => setElapsedMs(performance.now() - startedAt),
+      () => setElapsedMs(performance.now() - narrationStartedAt),
       HIGHLIGHT_TICK_MS,
     );
     return () => clearInterval(tick);
-  }, [isReading, hasTimings]);
+  }, [isReading, hasTimings, narrationStartedAt]);
 
   const storyId = story.id;
   const hasRequestedCompletion = useRef(false);
@@ -348,16 +373,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
               // pending advance is cancelled and then re-armed by the clip's own
               // `onFinished` rather than being dropped.
               cancelPendingAdvance();
-              setElapsedMs(0);
-              void play(narrationUrl, {
-                interrupt: true,
-                onFinished: () => {
-                  advanceTimer.current = setTimeout(() => {
-                    advanceTimer.current = undefined;
-                    dispatch({ type: "NARRATION_ENDED" });
-                  }, AUTO_ADVANCE_HOLD_MS);
-                },
-              });
+              playNarration(narrationUrl);
             }}
           >
             <Volume2 aria-hidden="true" className="size-8" />

@@ -25,6 +25,12 @@ import { STUDENT_NAMESPACE } from "@/lib/i18n";
  * `null` on every reading after the first; the screen then says the warm thing
  * ("you have read this one before") instead of announcing zero stars. Zero earned
  * is *already done*.
+ *
+ * **Three states, not two.** Until the completion call answers there is nothing
+ * true to say about the reward, so the line is simply absent — and stays absent
+ * if the call failed. Collapsing "still asking" into "already read" would tell a
+ * child who has just earned their first stars that they had read this one before,
+ * announce it, and then change its mind.
  */
 
 export interface FinishScreenProps {
@@ -52,6 +58,17 @@ export function FinishScreen({
   }, [play, moralAudioUrl]);
 
   const granted = completion?.granted ?? null;
+  /** Nothing true to say about the reward yet — see the file header. */
+  const isRewardUnknown = completion === undefined;
+
+  const rewardSentence = isRewardUnknown
+    ? null
+    : granted === null
+      ? t("reader.finish.readAgainReward")
+      : t("reader.finish.earned", {
+          stars: t("rewards.stars", { count: granted.stars }),
+          coins: t("rewards.coins", { count: granted.coins }),
+        });
 
   return (
     <section
@@ -61,16 +78,7 @@ export function FinishScreen({
       {/* One announcement for the whole screen: the moral, then the reward, in
           the order they are read. */}
       <span role="status" className="sr-only">
-        {[
-          t("reader.finish.title"),
-          moral,
-          granted === null
-            ? t("reader.finish.readAgainReward")
-            : t("reader.finish.earned", {
-                stars: t("rewards.stars", { count: granted.stars }),
-                coins: t("rewards.coins", { count: granted.coins }),
-              }),
-        ]
+        {[t("reader.finish.title"), moral, rewardSentence]
           .filter((line): line is string => line !== null)
           .join(" ")}
       </span>
@@ -90,26 +98,28 @@ export function FinishScreen({
 
       {/* Everything below is `aria-hidden`: the sentence above already said it,
           and two icons plus two numbers read aloud say nothing. */}
-      <p
-        aria-hidden="true"
-        data-testid="story-reward"
-        className="flex items-center gap-6 font-display text-foreground text-xl"
-      >
-        {granted === null ? (
-          t("reader.finish.readAgainReward")
-        ) : (
-          <>
-            <span className="inline-flex items-center gap-2">
-              <Star className="size-8 fill-accent text-accent" />
-              {granted.stars}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <Coins className="size-8 fill-accent text-accent" />
-              {granted.coins}
-            </span>
-          </>
-        )}
-      </p>
+      {isRewardUnknown ? null : (
+        <p
+          aria-hidden="true"
+          data-testid="story-reward"
+          className="flex items-center gap-6 font-display text-foreground text-xl"
+        >
+          {granted === null ? (
+            t("reader.finish.readAgainReward")
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-2">
+                <Star className="size-8 fill-accent text-accent" />
+                {granted.stars}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Coins className="size-8 fill-accent text-accent" />
+                {granted.coins}
+              </span>
+            </>
+          )}
+        </p>
+      )}
 
       <div className="flex w-full max-w-md flex-col items-stretch gap-4 landscape:max-w-2xl landscape:flex-row">
         <BigButton

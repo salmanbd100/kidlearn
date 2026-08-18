@@ -255,6 +255,91 @@ describe("auto-advance", () => {
   });
 });
 
+describe("the follow-along highlight", () => {
+  /** Two timed words per page, the second reached five seconds in. */
+  function timedStory(): StoryDetailResponse {
+    return story({
+      pages: [1, 2].map((pageNumber) => ({
+        pageNumber,
+        illustrationUrl: null,
+        text: `English page ${pageNumber}.`,
+        narrationUrl: `/dev/sharing-monkey-${pageNumber}.en.mp3`,
+        narrationTimings: {
+          unit: "word" as const,
+          spans: [
+            { start: 0, end: 7, tMs: 0 },
+            { start: 8, end: 12, tMs: 5000 },
+          ],
+        },
+      })),
+    });
+  }
+
+  function highlighted(): string[] {
+    return [...document.querySelectorAll("[data-active='true']")].map(
+      (node) => node.textContent ?? "",
+    );
+  }
+
+  /** The clock the highlight reads, so a page can be dwelt on deterministically. */
+  let now = 0;
+
+  beforeEach(() => {
+    now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    content.getStory.mockResolvedValue({
+      ok: true,
+      data: { story: timedStory() },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function tick() {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+  }
+
+  it("follows the narration through the page", async () => {
+    await renderReader();
+    await tick();
+    expect(highlighted()).toEqual(["English"]);
+
+    now = 9000;
+    await tick();
+
+    expect(highlighted()).toEqual(["page"]);
+  });
+
+  it("starts again from the first word on the next page", async () => {
+    await renderReader();
+    now = 9000;
+    await tick();
+
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }));
+    await waitFor(() => expect(currentPage()).toBe("2"));
+    await tick();
+
+    // Nine seconds into the story is zero seconds into page two. A clock carried
+    // over from page one lights the last word of every page as it opens.
+    expect(highlighted()).toEqual(["English"]);
+  });
+
+  it("starts again from the first word on a replay", async () => {
+    await renderReader();
+    now = 9000;
+    await tick();
+
+    fireEvent.click(screen.getByRole("button", { name: /hear this page/i }));
+    await tick();
+
+    expect(highlighted()).toEqual(["English"]);
+  });
+});
+
 describe("finishing", () => {
   async function readToTheEnd() {
     await renderReader();
@@ -274,6 +359,32 @@ describe("finishing", () => {
       expect(screen.getByTestId("story-reward")).toHaveTextContent("1"),
     );
     expect(screen.getByTestId("story-reward")).toHaveTextContent("5");
+  });
+
+  it("silences the page's narration on the way to the ending", async () => {
+    await renderReader();
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }));
+    await waitFor(() => expect(currentPage()).toBe("2"));
+    audio.stop.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: /finish the story/i }));
+    await screen.findByTestId("story-finish");
+
+    // A child taps "finish" mid-sentence. `FinishScreen` interrupts only when a
+    // moral recording exists — and there is none until file 36 — so without this
+    // the last page reads itself out over the ending.
+    expect(audio.stop).toHaveBeenCalled();
+  });
+
+  it("says nothing about the reward until the completion call answers", async () => {
+    progress.completeStory.mockReturnValue(new Promise(() => {}));
+
+    await readToTheEnd();
+
+    expect(screen.getByTestId("story-moral")).toBeInTheDocument();
+    // "You read it again" is untrue of a first finish. Silence is the only
+    // honest placeholder while the answer is still in flight.
+    expect(screen.queryByTestId("story-reward")).not.toBeInTheDocument();
   });
 
   it("reads the moral aloud (FR-STORY-03)", async () => {
