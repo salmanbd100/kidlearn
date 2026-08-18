@@ -55,3 +55,62 @@ export function localDateIn(timeZone: string, instant: Date): string {
 
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
+
+/**
+ * The instant `localDate` begins in `timeZone` — i.e. local midnight, as UTC.
+ *
+ * The inverse of `localDateIn`, and the other half of every "per period" query in
+ * this codebase: learning time (file 27) selects `SessionEvent` rows between two
+ * of these, and the rows are stored UTC.
+ *
+ * `Intl` again rather than `date-fns-tz`, for the reason at the top of this file
+ * and one more: inverting a zone offset is the only thing a library would be doing
+ * here, and it is eight lines with the ICU data Node already ships.
+ */
+export function localDayStartUtc(timeZone: string, localDate: string): Date {
+  const wallClockAsUtc = new Date(`${localDate}T00:00:00.000Z`).getTime();
+
+  // Reading the wall clock as UTC overshoots by exactly the zone's offset, so the
+  // first guess is that instant minus the offset *there*. Re-resolving at the
+  // guess is what handles a DST transition falling between the two: an offset is
+  // constant either side of a transition, so one correction converges.
+  const guess = wallClockAsUtc - zoneOffsetMs(timeZone, wallClockAsUtc);
+  return new Date(wallClockAsUtc - zoneOffsetMs(timeZone, guess));
+}
+
+/**
+ * How far ahead of UTC `timeZone` is at `instant`, in milliseconds. Positive east
+ * of Greenwich.
+ *
+ * Derived by formatting the instant into that zone's wall clock and reading the
+ * result back as though it were UTC; the difference is the offset. Second
+ * resolution, which is all any real zone has ever needed.
+ */
+function zoneOffsetMs(timeZone: string, instant: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    // `hour12: false` renders midnight as hour 24 on some ICU builds; `h23` is
+    // the cycle that does not.
+    hourCycle: "h23",
+  }).formatToParts(new Date(instant));
+
+  const value = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((part) => part.type === type)?.value ?? "0");
+
+  const wallClockAsUtc = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+    value("second"),
+  );
+
+  return wallClockAsUtc - Math.floor(instant / 1000) * 1000;
+}

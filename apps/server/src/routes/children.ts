@@ -1,11 +1,14 @@
-import type { CharacterUnlockResponse } from "@kidlearn/types";
+import type {
+  CharacterUnlockResponse,
+  LearningTimeResponse,
+} from "@kidlearn/types";
 import { Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
 import { loadOwnedChild, ownedChild } from "../middleware/load-owned-child.js";
 import { requireConsent } from "../middleware/require-consent.js";
 import { authContext, requireParent } from "../middleware/require-parent.js";
 import { requirePinVerified } from "../middleware/require-pin-verified.js";
-import { validate } from "../middleware/validate.js";
+import { validate, validatedQuery } from "../middleware/validate.js";
 import {
   ChildIdParamsSchema,
   type CreateChildBody,
@@ -13,6 +16,10 @@ import {
   type UpdateChildBody,
   UpdateChildBodySchema,
 } from "../schemas/children.js";
+import {
+  type LearningTimeQuery,
+  LearningTimeQuerySchema,
+} from "../schemas/events.js";
 import { listCharactersForChild } from "../services/achievementService.js";
 import {
   activateChildProfile,
@@ -23,6 +30,7 @@ import {
   toChildProfileDto,
   updateChildProfile,
 } from "../services/childProfileService.js";
+import { getLearningMinutes } from "../services/learningTimeService.js";
 
 /**
  * `/api/children` — the parent's own learner profiles (FR-PROF-01..07).
@@ -128,6 +136,42 @@ childrenRouter.get(
       const payload: SuccessEnvelope<{
         characters: CharacterUnlockResponse[];
       }> = { data: { characters } };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * FR-DASH-02 — how long this child has actually learned, in one window.
+ *
+ * On this router rather than one of its own because the resource *is* a child's:
+ * the ownership guard, the 404 for somebody else's profile and the id parameter are
+ * already here, and `GET /:id/characters` above set the precedent for a read about
+ * a child that is not the profile row itself.
+ *
+ * **Every minute here is derived server-side from `SessionEvent` rows the server
+ * timestamped** (FR-TIME-06). There is no counter a client increments and no field
+ * anywhere that carries a duration, so a child cannot shorten a figure by
+ * refreshing and a parent cannot be shown a number the device made up.
+ *
+ * Not PIN-gated, matching the other reads on this router. It reports minutes and
+ * nothing about what was learned; the dashboard that renders it (file 29) is behind
+ * the client-side gate FR-AUTH-04 asks for.
+ */
+childrenRouter.get(
+  "/:id/learning-time",
+  validate({ params: ChildIdParamsSchema, query: LearningTimeQuerySchema }),
+  loadOwnedChild,
+  async (req, res, next) => {
+    try {
+      const { range } = validatedQuery<LearningTimeQuery>(res);
+      const learningTime = await getLearningMinutes(ownedChild(req).id, range);
+
+      const payload: SuccessEnvelope<LearningTimeResponse> = {
+        data: learningTime,
+      };
       res.json(payload);
     } catch (error) {
       next(error);

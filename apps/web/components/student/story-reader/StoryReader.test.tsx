@@ -22,6 +22,14 @@ const STORY_ID = "55555555-5555-4555-8555-555555555555";
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const content = vi.hoisted(() => ({ getStory: vi.fn() }));
 const progress = vi.hoisted(() => ({ completeStory: vi.fn() }));
+/**
+ * Mocked so the reader's presence signal (file 27) does not make real requests
+ * from a jsdom test, and so the two story milestones are assertable.
+ */
+const heartbeat = vi.hoisted(() => ({
+  useHeartbeat: () => ({ minutesToday: null }),
+  trackEvent: vi.fn(),
+}));
 /** Captures each clip's `onFinished` so a test can end the narration itself. */
 const audio = vi.hoisted(() => ({
   play: vi.fn(),
@@ -32,6 +40,7 @@ const audio = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/lib/content-api", () => content);
 vi.mock("@/lib/progress-api", () => progress);
+vi.mock("@/lib/use-heartbeat", () => heartbeat);
 vi.mock("@/components/AudioProvider", () => ({
   useAudio: () => audio,
   AudioProvider: ({ children }: { children: ReactNode }) => children,
@@ -107,6 +116,7 @@ beforeEach(() => {
     ok: true,
     data: { story: story() },
   });
+  heartbeat.trackEvent.mockReset();
   progress.completeStory.mockReset().mockResolvedValue({
     ok: true,
     data: { alreadyCompleted: false, granted: { stars: 1, coins: 5 } },
@@ -411,6 +421,18 @@ describe("finishing", () => {
     // reader does not ask a second time either.
     expect(progress.completeStory).toHaveBeenCalledTimes(1);
     expect(progress.completeStory).toHaveBeenCalledWith(STORY_ID);
+  });
+
+  it("reports the reading's two milestones for the time aggregation (FR-LSN-07)", async () => {
+    await readToTheEnd();
+
+    // `story_start` on mount and `story_complete` at the ending. These keep a
+    // sitting alive between heartbeats and mark what it was spent on; neither
+    // carries a timestamp, because the server stamps the row (FR-TIME-06).
+    expect(heartbeat.trackEvent.mock.calls).toEqual([
+      ["story_start", STORY_ID],
+      ["story_complete", STORY_ID],
+    ]);
   });
 
   it("does not promise the reward again at the end of a re-read", async () => {
