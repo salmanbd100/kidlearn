@@ -37,6 +37,15 @@ export const LessonIdParamsSchema = z.object({ id: z.string().uuid() });
  */
 export const QuizIdParamsSchema = z.object({ quizId: z.string().uuid() });
 
+/**
+ * The reader's story id (file 26). Structurally identical to
+ * `LessonIdParamsSchema` and declared separately anyway: the two happen to agree
+ * today, and a shared alias would make a future change to one silently change the
+ * other. It must match `/api/content/stories/:id` for the reason the lesson
+ * schema gives — a story openable but uncompletable is worse than either.
+ */
+export const StoryIdParamsSchema = z.object({ id: z.string().uuid() });
+
 export type LessonStepBody = z.infer<typeof LessonStepReportSchema>;
 export type SessionEventBody = z.infer<typeof SessionEventReportSchema>;
 export type QuizResponsesBody = z.infer<typeof QuizResponsesSubmitSchema>;

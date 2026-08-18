@@ -117,6 +117,33 @@ export type LessonCompletionResponse = z.infer<typeof LessonCompletionSchema>;
 export const LessonCompletionResponseSchema = ok(LessonCompletionSchema);
 
 /**
+ * The answer to `POST /api/progress/stories/{id}/complete` (FR-STORY-07).
+ *
+ * **`granted` is what *this* call wrote, and `null` means it wrote nothing.** A
+ * story pays out once per child; every later reading answers
+ * `{ alreadyCompleted: true, granted: null }` and is free (FR-STORY-06). The
+ * finish screen must therefore not read `null` as a failure — it means *you have
+ * read this one before*, and the child is owed the same ending either way.
+ *
+ * Smaller than a lesson's response on purpose. A story has no quiz to score, no
+ * step flow to close, and — deliberately — no streak or badge announcement:
+ * finishing a story writes ledger rows, and file 24's milestone engine reads them
+ * on the next lesson completion rather than turning a bedtime story into a
+ * six-phase celebration.
+ */
+export const StoryCompletionSchema = z
+  .object({
+    alreadyCompleted: z.boolean(),
+    /** `{ stars: 1, coins: 5 }` on the first finish, `null` on every replay. */
+    granted: RewardTotalsSchema.nullable(),
+  })
+  .strict();
+
+export type StoryCompletionResponse = z.infer<typeof StoryCompletionSchema>;
+
+export const StoryCompletionResponseSchema = ok(StoryCompletionSchema);
+
+/**
  * The running totals behind the reward strip on the child's home screen
  * (FR-GAM-06).
  *

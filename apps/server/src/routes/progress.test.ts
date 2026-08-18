@@ -29,6 +29,7 @@ import {
   LessonProgressResponseSchema,
   QuizResponsesResponseSchema,
   SessionEventResponseSchema,
+  StoryCompletionResponseSchema,
 } from "@kidlearn/types";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +40,7 @@ import { assertContract } from "../openapi/assert-contract.js";
 const APP_TIMEZONE = "Asia/Dhaka";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
+const STORY_ID = "55555555-5555-4555-8555-555555555555";
 const MISSING_ID = "99999999-9999-4999-8999-999999999999";
 const QUIZ_ID = "44444444-4444-4444-8444-444444444444";
 const CHILD_ID = "child_1";
@@ -148,6 +150,7 @@ const store = vi.hoisted(() => ({
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
   childFindFirst: vi.fn(),
+  storyFindFirst: vi.fn(),
   lessonFindFirst: vi.fn(),
   lessonFindUnique: vi.fn(),
   lessonFindMany: vi.fn(),
@@ -174,6 +177,7 @@ vi.mock("../lib/prisma.js", () => ({
   prisma: {
     parent: { findUnique: db.parentFindUnique },
     childProfile: { findFirst: db.childFindFirst },
+    story: { findFirst: db.storyFindFirst },
     lesson: {
       findFirst: db.lessonFindFirst,
       findUnique: db.lessonFindUnique,
@@ -307,6 +311,11 @@ beforeEach(() => {
     id: LESSON_ID,
     quiz: { questions: QUESTION_IDS.map((id) => ({ id })) },
   });
+
+  // The story the reader finishes is visible unless a test says otherwise. Only
+  // its id is selected — the completion endpoint needs the row to exist and
+  // nothing from it (file 26).
+  db.storyFindFirst.mockResolvedValue({ id: STORY_ID });
 
   // The reward service reads the lesson by id — visibility was settled by the
   // step report before it ran — and needs the quiz's own status.
@@ -1827,6 +1836,174 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
 
     expect(res.status).toBe(200);
     expect(attempts).toBe(2);
+  });
+});
+
+describe("POST /api/progress/stories/:id/complete", () => {
+  function finish(storyId = STORY_ID) {
+    return request(app).post(`/api/progress/stories/${storyId}/complete`);
+  }
+
+  function ledger(): LedgerRow[] {
+    return store.ledger as LedgerRow[];
+  }
+
+  it("returns 401 UNAUTHORIZED when the request carries no session", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+
+    const res = await finish();
+
+    expect(res.status).toBe(401);
+    expect(db.storyFindFirst).not.toHaveBeenCalled();
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("returns 403 FORBIDDEN when the session has no active child profile", async () => {
+    signInAs(null);
+
+    const res = await finish();
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("rejects a malformed story id at the boundary before querying", async () => {
+    signInAs(childProfile());
+
+    const res = await finish("not-a-uuid");
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+    expect(db.storyFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("grants 1 star and 5 coins the first time a story is finished (FR-STORY-07)", async () => {
+    signInAs(childProfile());
+
+    const res = await finish();
+
+    expect(res.status).toBe(200);
+    assertContract(
+      StoryCompletionResponseSchema,
+      res.body,
+      "POST /api/progress/stories/{id}/complete",
+    );
+    expect(res.body.data).toEqual({
+      alreadyCompleted: false,
+      granted: { stars: 1, coins: 5 },
+    });
+    expect(ledger()).toEqual([
+      {
+        childId: CHILD_ID,
+        rewardType: "star",
+        amount: 1,
+        sourceType: "story_completion",
+        sourceId: STORY_ID,
+      },
+      {
+        childId: CHILD_ID,
+        rewardType: "coin",
+        amount: 5,
+        sourceType: "story_completion",
+        sourceId: STORY_ID,
+      },
+    ]);
+  });
+
+  it("grants nothing on a second reading, and says so rather than failing (FR-STORY-06)", async () => {
+    signInAs(childProfile());
+    await finish();
+
+    const res = await finish();
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ alreadyCompleted: true, granted: null });
+    // Two rows, not four: reading again is free and unlimited, and the endpoint
+    // stays callable every time rather than being withheld by the client.
+    expect(ledger()).toHaveLength(2);
+  });
+
+  it("keeps one child's completion out of another's ledger", async () => {
+    signInAs(childProfile());
+    await finish();
+
+    signInAs(childProfile({ id: "child_2" }));
+    const res = await finish();
+
+    expect(res.body.data.granted).toEqual({ stars: 1, coins: 5 });
+    expect(ledger().filter((row) => row.childId === "child_2")).toHaveLength(2);
+  });
+
+  it("pays for each story separately", async () => {
+    signInAs(childProfile());
+    await finish();
+
+    db.storyFindFirst.mockResolvedValue({ id: MISSING_ID });
+    const res = await finish(MISSING_ID);
+
+    expect(res.body.data.alreadyCompleted).toBe(false);
+    expect(ledger()).toHaveLength(4);
+  });
+
+  it("returns 404 and grants nothing for a story the child cannot see", async () => {
+    signInAs(childProfile());
+    db.storyFindFirst.mockResolvedValue(null);
+
+    const res = await finish(MISSING_ID);
+
+    // Not 403: an unpublished or wrong-grade story must be indistinguishable
+    // from one that was never written (NFR-SAFE-02) — and a draft that paid out
+    // would be a star farm for anyone who could guess a uuid.
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe("NOT_FOUND");
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("gates the story on the same clause the content API reads it with", async () => {
+    signInAs(childProfile({ gradeLevel: "KG1" }));
+
+    await finish();
+
+    // Asserted rather than demonstrated, for the reason the file header gives
+    // (`general.md §5`, rule 2) — and asserted to be the *same* clause
+    // `stories.test.ts` requires, because the two disagreeing is the failure
+    // mode: a story the reader cannot open but can be paid for finishing.
+    expect(db.storyFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: STORY_ID,
+        status: "published",
+        gradeLevels: { has: "KG1" },
+        world: { is: { status: "published" } },
+      },
+      select: { id: true },
+    });
+  });
+
+  it("writes the grant under Serializable isolation", async () => {
+    signInAs(childProfile());
+
+    await finish();
+
+    // Rule 4: whether Postgres honours it needs a real database. What is
+    // assertable here is that the service asked for it — two taps arriving
+    // together must not both be told they earned the star.
+    expect(store.transactionOptions).toContainEqual({
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+  });
+
+  it("does not advance the streak or evaluate badges", async () => {
+    signInAs(childProfile());
+
+    await finish();
+
+    // Finishing a story pays its own small reward and nothing else: file 24's
+    // milestone engine counts these rows the next time a *lesson* completes, so
+    // a bedtime story does not turn into a six-phase celebration.
+    expect(db.streakUpsert).not.toHaveBeenCalled();
+    expect(db.badgeFindMany).not.toHaveBeenCalled();
+    expect(db.childCharacterCreateMany).not.toHaveBeenCalled();
   });
 });
 

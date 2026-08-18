@@ -7,6 +7,7 @@ import type {
   QuizScoreResponse,
   SessionEventRecordResponse,
   SessionEventReport,
+  StoryCompletionResponse,
 } from "@kidlearn/types";
 import { type Request, Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
@@ -18,6 +19,7 @@ import {
   QuizIdParamsSchema,
   QuizResponsesBodySchema,
   SessionEventBodySchema,
+  StoryIdParamsSchema,
 } from "../schemas/progress.js";
 import {
   completeLesson,
@@ -26,6 +28,7 @@ import {
   recordSessionEvent,
   reportLessonStep,
 } from "../services/lessonProgressService.js";
+import { completeStory } from "../services/storyProgressService.js";
 
 /**
  * Where the lesson player writes what a child has done (FR-LSN-06..07).
@@ -55,6 +58,16 @@ function lessonIdParam(req: Request): string {
 /** The same narrowing, for routes guarded by `QuizIdParamsSchema`. */
 function quizIdParam(req: Request): string {
   return req.params.quizId as string;
+}
+
+/**
+ * The same narrowing again, for `StoryIdParamsSchema`. Named rather than reusing
+ * `lessonIdParam`: the two read the same path segment and mean different rows,
+ * and a handler calling `lessonIdParam` to fetch a story is exactly the confusion
+ * a shared helper invites.
+ */
+function storyIdParam(req: Request): string {
+  return req.params.id as string;
 }
 
 /**
@@ -138,6 +151,38 @@ progressRouter.post(
         lessonIdParam(req),
       );
       const body: SuccessEnvelope<LessonCompletionResponse> = { data: rewards };
+      res.json(body);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * FR-STORY-06..07 — finishes a story and pays for it, once.
+ *
+ * Mounted here rather than on `/api/content/stories` because it is a write about
+ * what a child has *done*, which is what this surface is; the content router is a
+ * read-only view of the catalogue.
+ *
+ * No body, for the same reason the lesson completion has none: the amounts are
+ * constants in `services/rewardService.ts` and there is nothing a client could
+ * send that would be believed (FR-GAM-08). A replay answers
+ * `alreadyCompleted: true` and writes nothing — reading again is free and
+ * unlimited (FR-STORY-06), and this endpoint stays callable every time.
+ */
+progressRouter.post(
+  "/stories/:id/complete",
+  validate({ params: StoryIdParamsSchema }),
+  async (req, res, next) => {
+    try {
+      const completion = await completeStory(
+        activeChild(req),
+        storyIdParam(req),
+      );
+      const body: SuccessEnvelope<StoryCompletionResponse> = {
+        data: completion,
+      };
       res.json(body);
     } catch (error) {
       next(error);

@@ -130,6 +130,7 @@ model MediaAsset {
   quizQuestionAudios     QuizQuestionTranslation[] @relation("QuizQuestionAudio")
   storyCovers            Story[]                   @relation("StoryCover")
   storyTitleNarrations   StoryTranslation[]        @relation("StoryTitleNarration")
+  storyMoralNarrations   StoryTranslation[]        @relation("StoryMoralNarration")
   storyPageIllustrations StoryPage[]               @relation("StoryPageIllustration")
   storyPageNarrations    StoryPageTranslation[]    @relation("StoryPageNarration")
   badgeIcons             Badge[]                   @relation("BadgeIcon")
@@ -390,6 +391,13 @@ model StoryTranslation {
   titleAudioAssetId String?
   titleAudioAsset   MediaAsset? @relation("StoryTitleNarration", fields: [titleAudioAssetId], references: [id])
 
+  // The moral read aloud, for the reader's finish screen (file 26, FR-STORY-03).
+  // Added because the moral is the one line of a story that is *only* text: the
+  // pages have narration and the cover has its title spoken, so without this the
+  // lesson of the story is the single thing a pre-reader cannot receive.
+  moralAudioAssetId String?
+  moralAudioAsset   MediaAsset? @relation("StoryMoralNarration", fields: [moralAudioAssetId], references: [id])
+
   @@unique([storyId, language])
 }
 
@@ -413,6 +421,16 @@ model StoryPageTranslation {
   text                  String
   narrationAudioAssetId String?
   narrationAudioAsset   MediaAsset? @relation("StoryPageNarration", fields: [narrationAudioAssetId], references: [id])
+
+  // Follow-along highlight timings for the recording above (file 26,
+  // FR-STORY-02): `{ unit, spans: [{ start, end, tMs }] }`, validated against
+  // `NarrationTimingsSchema` before it is served.
+  //
+  // On the translation row rather than on `MediaAsset` because the spans are
+  // character offsets into *this row's* `text` — an asset shared between two
+  // rows would carry offsets that only fit one of them. Null everywhere until
+  // the voice pipeline (file 36) produces them; the reader renders plain text.
+  narrationTimings      Json?
 
   @@unique([storyPageId, language])
 }

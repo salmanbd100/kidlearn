@@ -59,6 +59,46 @@ export const StorySummarySchema = z
   })
   .strict();
 
+/**
+ * One highlightable run of `StoryPage.text`, as character offsets into it plus
+ * the moment the narration reaches it.
+ *
+ * Offsets rather than pre-split tokens because the text is served whole: a client
+ * that had to re-tokenise it to line spans up would have to agree with whatever
+ * split the voice pipeline used, in two languages, one of which does not put
+ * spaces where English does.
+ */
+export const NarrationSpanSchema = z
+  .object({
+    /** Inclusive character offset into the page's `text`. */
+    start: z.number().int().nonnegative(),
+    /** Exclusive character offset. */
+    end: z.number().int().nonnegative(),
+    /** Milliseconds from the start of the narration clip. */
+    tMs: z.number().int().nonnegative(),
+  })
+  .strict();
+
+/**
+ * Word- or sentence-level narration timing, for the reader's follow-along
+ * highlight (FR-STORY-02).
+ *
+ * **Always `null` in MVP content.** The render path ships now and the data lands
+ * with the voice pipeline (file 36), so the reader has one component that
+ * highlights when it is given timings and renders plain text when it is not —
+ * rather than a second reading screen written later.
+ */
+export const NarrationTimingsSchema = z
+  .object({
+    unit: z.enum(["word", "sentence"]),
+    /** In playback order. An empty array is treated exactly as `null`. */
+    spans: z.array(NarrationSpanSchema),
+  })
+  .strict();
+
+export type NarrationSpan = z.infer<typeof NarrationSpanSchema>;
+export type NarrationTimings = z.infer<typeof NarrationTimingsSchema>;
+
 export const StoryPageSchema = z
   .object({
     /**
@@ -77,6 +117,14 @@ export const StoryPageSchema = z
      * (file 26) then shows the page without narration rather than blocking on it.
      */
     narrationUrl: z.string().nullable(),
+    /**
+     * Timing metadata for `narrationUrl`, when the recording has any.
+     *
+     * Resolved from the *same* translation row `narrationUrl` came from, never
+     * from the other locale: spans are character offsets into one language's
+     * text, and English offsets over Bangla text would highlight nonsense.
+     */
+    narrationTimings: NarrationTimingsSchema.nullable(),
   })
   .strict();
 
@@ -91,6 +139,15 @@ export const StoryDetailSchema = z
      * `Story.theme` is an authoring label and is not served to a child.
      */
     moral: z.string().nullable(),
+    /**
+     * The moral read aloud, for the reader's finish screen (FR-STORY-03).
+     *
+     * Falls back independently of `moral`, exactly as `titleAudioUrl` does on a
+     * cover: a moral translated into Bangla but recorded only in English is still
+     * better spoken than silent, and the moral is the one line of a story a
+     * pre-reader could otherwise never receive. `null` until file 36 records it.
+     */
+    moralAudioUrl: z.string().nullable(),
     world: WorldSummarySchema,
     coverImageUrl: z.string().nullable(),
     /** Which locale supplied `title` and `moral`; pages resolve independently. */

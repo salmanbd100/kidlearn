@@ -1,5 +1,6 @@
 import type {
   LessonDetailResponse,
+  StoryDetailResponse,
   StorySummaryResponse,
   WorldSummaryResponse,
   WorldTopicLessonsResponse,
@@ -84,4 +85,23 @@ export function listStories(
   return apiFetch<{ stories: StorySummaryResponse[] }>("/api/content/stories", {
     onColdStart: options.onColdStart,
   });
+}
+
+/**
+ * One story and every one of its pages, in a single request (FR-STORY-02).
+ *
+ * All of it at once for the reason the lesson detail gives: a child turns a page
+ * in well under a second, and a request per page would put a stall between the
+ * picture and the sentence that goes with it. A story is a handful of pages of
+ * text and a handful of image urls — small enough to send whole, and small enough
+ * that the pictures are then the browser's problem rather than the reader's.
+ */
+export function getStory(
+  storyId: string,
+  options: ContentFetchOptions = {},
+): Promise<ApiResult<{ story: StoryDetailResponse }>> {
+  return apiFetch<{ story: StoryDetailResponse }>(
+    `/api/content/stories/${storyId}`,
+    { onColdStart: options.onColdStart },
+  );
 }

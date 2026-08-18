@@ -9,6 +9,7 @@ import type {
   RewardSummaryResponse,
   SessionEventRecordResponse,
   SessionEventReport,
+  StoryCompletionResponse,
 } from "@kidlearn/types";
 import { type ApiResult, apiFetch } from "./api-client";
 
@@ -66,6 +67,27 @@ export function completeLesson(
   lessonId: string,
 ): Promise<ApiResult<LessonCompletionResponse>> {
   return apiFetch(`/api/progress/lessons/${lessonId}/complete`, {
+    method: "POST",
+  });
+}
+
+/**
+ * FR-STORY-07 — reports that a story was read to the end, and asks what it was
+ * worth.
+ *
+ * Called on every finish, including the tenth reading of a favourite: replays are
+ * free and unlimited (FR-STORY-06), and the server answers `alreadyCompleted:
+ * true` with `granted: null` rather than an error. A caller must not read that as
+ * a failure — it means *already done*, and the ending is owed either way.
+ *
+ * Retries are left at the default for the reason `completeLesson` gives: a replay
+ * grants nothing, so a retry that lands twice costs a request and never a
+ * duplicate star.
+ */
+export function completeStory(
+  storyId: string,
+): Promise<ApiResult<StoryCompletionResponse>> {
+  return apiFetch(`/api/progress/stories/${storyId}/complete`, {
     method: "POST",
   });
 }

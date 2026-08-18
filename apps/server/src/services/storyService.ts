@@ -1,8 +1,10 @@
 import type { ChildProfile, MediaAsset, Prisma } from "@kidlearn/db";
 import type {
+  NarrationTimings,
   StoryDetailResponse,
   StorySummaryResponse,
 } from "@kidlearn/types";
+import { NarrationTimingsSchema } from "@kidlearn/types";
 import { ApiError } from "../lib/errors.js";
 import { type Lang, pickLocale, toLocaleMap } from "../lib/locale.js";
 import { prisma } from "../lib/prisma.js";
@@ -56,6 +58,7 @@ type StoryTranslationRow = {
   title: string;
   moral: string | null;
   titleAudioAsset?: { url: string } | null;
+  moralAudioAsset?: { url: string } | null;
 };
 
 /**
@@ -87,6 +90,22 @@ function toPalette(value: Prisma.JsonValue): Record<string, string> {
     if (typeof colour === "string") palette[token] = colour;
   }
   return palette;
+}
+
+/**
+ * `StoryPageTranslation.narrationTimings` narrowed by validation rather than by an
+ * `as` cast, exactly as `toPalette` narrows a palette: the column is free-form
+ * JSONB written by the voice pipeline (file 36), and a malformed blob must render
+ * as an unhighlighted page rather than as a reader that throws mid-story.
+ *
+ * An empty `spans` array collapses to `null` so the client has one "no timings"
+ * case to handle instead of two.
+ */
+function toNarrationTimings(value: Prisma.JsonValue): NarrationTimings | null {
+  if (value === null || value === undefined) return null;
+  const parsed = NarrationTimingsSchema.safeParse(value);
+  if (!parsed.success || parsed.data.spans.length === 0) return null;
+  return parsed.data;
 }
 
 /**
@@ -197,6 +216,36 @@ export async function listStoriesForChild(
 }
 
 /**
+ * Resolves a story the child is actually allowed to be reading, or throws 404.
+ *
+ * Exported so that the completion endpoint (file 26) gates on *this* clause
+ * rather than on a copy of it. The two must agree by construction: a story
+ * `GET /api/content/stories/:id` will not serve must not be one a child can be
+ * paid for finishing, or an unpublished draft becomes a star farm for anyone who
+ * can guess a uuid.
+ *
+ * **404, not 403**, for the reason `getStoryForChild` gives — a 403 would confirm
+ * the row exists (NFR-SAFE-02).
+ */
+export async function requireVisibleStoryId(
+  child: ChildProfile,
+  storyId: string,
+): Promise<string> {
+  const story = await prisma.story.findFirst({
+    where: {
+      id: storyId,
+      ...publishedForChild(child),
+      world: publishedRelation,
+    },
+    select: { id: true },
+  });
+  if (!story) {
+    throw ApiError.notFound("Story not found");
+  }
+  return story.id;
+}
+
+/**
  * One story and all of its pages, for the reader (file 26).
  *
  * A story that is not published, or not tagged for this child's grade, returns
@@ -226,7 +275,9 @@ export async function getStoryForChild(
       include: {
         coverAsset: true,
         world: { include: { mascotAsset: true, translations: true } },
-        translations: { include: { titleAudioAsset: true } },
+        translations: {
+          include: { titleAudioAsset: true, moralAudioAsset: true },
+        },
         pages: {
           orderBy: { sortOrder: "asc" },
           include: {
@@ -261,24 +312,46 @@ export async function getStoryForChild(
       toLocaleMap(story.translations, (row) => row.moral),
       language,
     ).value,
+    // Falls back on its own, as the cover's title narration does: a moral
+    // translated into Bangla but recorded only in English is still better spoken
+    // than silent (FR-STORY-03).
+    moralAudioUrl: pickLocale(
+      toLocaleMap(story.translations, (row) => row.moralAudioAsset?.url),
+      language,
+    ).value,
     world: toWorldSummary(story.world, language),
     coverImageUrl: story.coverAsset?.url ?? null,
     locale: title.locale,
     // `sortOrder` is the stored ordering; `pageNumber` is 1-based and contiguous,
     // so a gap left by a deleted page cannot become a page the reader skips.
-    pages: story.pages.map((page, index) => ({
-      pageNumber: index + 1,
-      illustrationUrl: page.illustrationAsset?.url ?? null,
-      text:
-        pickLocale(
-          toLocaleMap(page.translations, (row) => row.text),
-          language,
-        ).value ?? "",
-      narrationUrl: pickLocale(
-        toLocaleMap(page.translations, (row) => row.narrationAudioAsset?.url),
+    pages: story.pages.map((page, index) => {
+      // The clip and its timings are picked as one value, not as two independent
+      // fallbacks: a span is a character offset into one locale's text, so
+      // English spans laid over Bangla narration would highlight nonsense.
+      const narration = pickLocale(
+        toLocaleMap(page.translations, (row) =>
+          row.narrationAudioAsset === null
+            ? null
+            : {
+                url: row.narrationAudioAsset.url,
+                timings: toNarrationTimings(row.narrationTimings),
+              },
+        ),
         language,
-      ).value,
-    })),
+      );
+
+      return {
+        pageNumber: index + 1,
+        illustrationUrl: page.illustrationAsset?.url ?? null,
+        text:
+          pickLocale(
+            toLocaleMap(page.translations, (row) => row.text),
+            language,
+          ).value ?? "",
+        narrationUrl: narration.value?.url ?? null,
+        narrationTimings: narration.value?.timings ?? null,
+      };
+    }),
     completed: completion !== null,
   };
 }
