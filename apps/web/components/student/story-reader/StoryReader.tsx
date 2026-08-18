@@ -66,6 +66,16 @@ const SWIPE_THRESHOLD_PX = 50;
 /** How often the follow-along highlight re-reads its position. */
 const HIGHLIGHT_TICK_MS = 100;
 
+/**
+ * What the server would answer for any reading after the first (FR-STORY-06).
+ * Written here rather than asked for: the reader posts the completion once per
+ * mount, so the second ending has no reply of its own to show.
+ */
+const REPLAY_COMPLETION: StoryCompletionResponse = {
+  alreadyCompleted: true,
+  granted: null,
+};
+
 type LoadState =
   | { status: "loading" }
   | { status: "ready"; story: StoryDetailResponse }
@@ -144,6 +154,13 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
    * the follow-along clock instead of it counting on from the first timed page.
    */
   const [narrationStartedAt, setNarrationStartedAt] = useState(0);
+  /**
+   * Set the moment the child asks for the story again, and never cleared. The
+   * grant `completion` holds belongs to the reading that earned it; showing it a
+   * second time would promise stars that were not paid. It also outranks a reply
+   * that lands after the replay has begun.
+   */
+  const [isReplay, setIsReplay] = useState(false);
 
   const page = story.pages[state.pageIndex];
   const narrationUrl = page?.narrationUrl ?? null;
@@ -286,8 +303,11 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
       <FinishScreen
         moral={story.moral}
         moralAudioUrl={story.moralAudioUrl}
-        completion={completion}
-        onReadAgain={() => act({ type: "READ_AGAIN" })}
+        completion={isReplay ? REPLAY_COMPLETION : completion}
+        onReadAgain={() => {
+          setIsReplay(true);
+          act({ type: "READ_AGAIN" });
+        }}
         onMoreStories={backToLibrary}
       />
     );

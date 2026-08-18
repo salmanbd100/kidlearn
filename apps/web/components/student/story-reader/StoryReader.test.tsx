@@ -413,6 +413,26 @@ describe("finishing", () => {
     expect(progress.completeStory).toHaveBeenCalledWith(STORY_ID);
   });
 
+  it("does not promise the reward again at the end of a re-read", async () => {
+    await readToTheEnd();
+    await waitFor(() =>
+      expect(screen.getByTestId("story-reward")).toHaveTextContent("1"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /read it again/i }));
+    await waitFor(() => expect(currentPage()).toBe("1"));
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }));
+    await waitFor(() => expect(currentPage()).toBe("2"));
+    fireEvent.click(screen.getByRole("button", { name: /finish the story/i }));
+    await screen.findByTestId("story-finish");
+
+    // The stars were paid for the first reading. Showing them again would have a
+    // child counting on a balance that never moved.
+    expect(screen.getByTestId("story-reward")).toHaveTextContent(
+      /read it again/i,
+    );
+  });
+
   it("restarts at page one on Read again", async () => {
     await readToTheEnd();
 
