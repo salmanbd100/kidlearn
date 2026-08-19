@@ -50,6 +50,10 @@ import {
   RewardSummaryResponseSchema,
   RewardSummarySchema,
   RewardTotalsSchema,
+  ScreenTimeSettingResponseSchema,
+  ScreenTimeSettingSchema,
+  ScreenTimeStatusResponseSchema,
+  ScreenTimeStatusSchema,
   ServiceIdentityResponseSchema,
   SessionEventRecordSchema,
   SessionEventResponseSchema,
@@ -87,6 +91,7 @@ import {
   QuizResponsesBodySchema,
   SessionEventBodySchema,
 } from "../schemas/progress.js";
+import { ScreenTimeBodySchema } from "../schemas/screen-time.js";
 import {
   buildComponentSchemas,
   type JsonSchemaObject,
@@ -134,6 +139,7 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ActivityEventBody: ActivityEventBodySchema,
   SessionEventBody: SessionEventBodySchema,
   QuizResponsesBody: QuizResponsesBodySchema,
+  ScreenTimeBody: ScreenTimeBodySchema,
 
   // --- Health -------------------------------------------------------------
   ServiceIdentityResponse: ServiceIdentityResponseSchema,
@@ -208,6 +214,12 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ActivityEventResponse: ActivityEventResponseSchema,
   LearningTime: LearningTimeSchema,
   LearningTimeReadResponse: LearningTimeReadResponseSchema,
+
+  // --- Screen time --------------------------------------------------------
+  ScreenTimeSetting: ScreenTimeSettingSchema,
+  ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
+  ScreenTimeStatus: ScreenTimeStatusSchema,
+  ScreenTimeStatusResponse: ScreenTimeStatusResponseSchema,
 
   // --- Rewards ------------------------------------------------------------
   // Response shapes only, and there is no request shape to register: no
@@ -298,6 +310,11 @@ export const TAGS = [
     name: "Learning Time",
     description:
       "Where time comes from, and what it adds up to (FR-TIME-06, FR-DASH-02). The student surfaces post a heartbeat every 30 seconds while their tab is visible plus a milestone event now and then; nothing they send carries a timestamp, a duration or a total. The server stamps every row, drops a beat arriving under 20 seconds after the last, and derives minutes from the density of what it stored — so a refresh, a closed tab, cleared storage or an edited client state cannot lower a recorded minute. Aggregation is one service function shared by the heartbeat's own `minutesToday`, the parent dashboard and the weekly report, so a screen-time limit and a dashboard can never disagree about how long a child has been learning.",
+  },
+  {
+    name: "Screen Time",
+    description:
+      "Parental limits on *starting* new content (FR-TIME-01..05): a daily allowance and an access window, both per child and both owned by the parent. The policy is written behind the PIN gate on `/api/children/{id}/screen-time`; the student surface reads its own verdict from `/api/screen-time/status` without one, because a five-year-old must never meet a PIN pad on their own home screen.\n\n**Enforcement is server-side and happens at the start of content, not during it.** `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` answer `423 Locked` when the gate is shut; step, completion and event endpoints never do, so a lesson already under way can always be finished (FR-TIME-03) and its time keeps being recorded (FR-TIME-06). A lesson with an incomplete `LessonProgress` row written in the past 30 minutes is exempt from its own gate — resuming is not starting — while replaying a finished one is a new start and is gated, as is picking up one abandoned longer ago than that.\n\nThe minutes a limit is compared against are the same server-derived figure the parent dashboard shows, from one shared function, so a limit and a dashboard can never disagree about how long a child has been learning.",
   },
   {
     name: "Rewards",

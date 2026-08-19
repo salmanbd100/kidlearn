@@ -1,5 +1,6 @@
 import { type Request, Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
+import { enforceScreenTime } from "../middleware/enforce-screen-time.js";
 import { activeChild } from "../middleware/require-active-child.js";
 import { validate } from "../middleware/validate.js";
 import { ContentIdParamsSchema } from "../schemas/content.js";
@@ -127,6 +128,11 @@ contentRouter.get(
 contentRouter.get(
   "/lessons/:id",
   validate({ params: ContentIdParamsSchema }),
+  // The lesson-start gate (FR-TIME-02..04). After `validate` so the id is a
+  // narrowed string by the time the exemption looks for progress against it, and
+  // on this route rather than the world/topic lists: a blocked child should meet
+  // the mascot when they tap a lesson, not a wall of errors while browsing.
+  enforceScreenTime("lesson"),
   async (req, res, next) => {
     try {
       const lesson = await getLessonForChild(

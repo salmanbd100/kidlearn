@@ -40,15 +40,26 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
  * One beat fires immediately on mount (and again on becoming visible), so a short
  * visit is worth its 30-second interval instead of nothing.
  *
+ * **`enabled` is the same rule as visibility, one level up.** A visible tab that
+ * is showing a loading spinner or the screen-time lock screen has no child
+ * *learning* in front of it either, and the heartbeat endpoint is deliberately
+ * ungated — so a caller that mounts this above its own ready state would bill a
+ * child for staring at "time's up". Pass `enabled` whenever the hook cannot be
+ * mounted on the learning surface itself.
+ *
  * **No retries, ever.** A beat that failed has already been superseded by the next
  * tick 30 seconds later, and a queue of stale retries would report a child's
  * timeline out of order. `minutesToday` simply keeps its previous value until a
  * beat lands — `null` until the first one does.
  */
-export function useHeartbeat(): { minutesToday: number | null } {
+export function useHeartbeat({ enabled = true }: { enabled?: boolean } = {}): {
+  minutesToday: number | null;
+} {
   const [minutesToday, setMinutesToday] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
+
     let isCurrent = true;
     let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -92,7 +103,7 @@ export function useHeartbeat(): { minutesToday: number | null } {
       stop();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [enabled]);
 
   return { minutesToday };
 }

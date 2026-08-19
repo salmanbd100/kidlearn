@@ -102,6 +102,23 @@
     "cancel": "Keep profile",
     "close": "Close"
   },
+  "screenTime": {
+    "title": "Screen time for {{name}}",
+    "subtitle": "Set how long {{name}} can learn each day, and when the app is open.",
+    "limit": "Daily learning limit",
+    "limitHint": "Once {{name}} reaches the limit, new lessons and stories wait until tomorrow. A lesson already started can always be finished.",
+    "limitOff": "Off",
+    "limitMinutes": "{{count}} min",
+    "window": "Access window",
+    "windowToggle": "Only allow learning between set times",
+    "windowHint": "Outside these times {{name}} sees a friendly \"see you later\" screen. An end time earlier than the start runs overnight.",
+    "windowStart": "From",
+    "windowEnd": "Until",
+    "windowSame": "The two times are the same, so no window is applied.",
+    "saved": "Screen time saved.",
+    "loading": "Loading screen time…",
+    "open": "Screen time for {{name}}"
+  },
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "network": "We can't reach KidLearn right now. Please check your connection.",

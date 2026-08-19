@@ -10,12 +10,14 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { IconTile } from "@/components/kid/IconTile";
 import { RewardStrip } from "@/components/student/RewardStrip";
+import { ScreenTimeLock } from "@/components/student/ScreenTimeLock";
 import { WorldCard } from "@/components/student/WorldCard";
 import { useActiveChild } from "@/lib/active-child";
 import { listWorlds } from "@/lib/content-api";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { getRewardsSummary } from "@/lib/progress-api";
 import { useScreenNarration } from "@/lib/use-screen-narration";
+import { useScreenTimeGate } from "@/lib/use-screen-time-gate";
 import { StudentStatus } from "../StudentGuard";
 
 /**
@@ -38,6 +40,13 @@ import { StudentStatus } from "../StudentGuard";
  * A failed summary read leaves the profile's own figures on screen rather than
  * blanking the strip. A child who cannot see today's coins has lost nothing they
  * earned; a home screen that will not draw is the app not opening.
+ *
+ * The screen-time gate (FR-TIME-02, FR-TIME-04) is checked here rather than only
+ * at the content endpoints, and it is checked twice: once on load, so a blocked
+ * child never sees a board of lessons they cannot open, and again on each tap, so
+ * a limit reached while they were choosing is caught before the navigation. The
+ * server still refuses at the endpoint either way — this is about what a
+ * five-year-old is shown, not about who decides.
  */
 export function HomeScreen() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
@@ -53,6 +62,7 @@ export function HomeScreen() {
   const [isWakingUp, setIsWakingUp] = useState(false);
 
   useScreenNarration("home");
+  const screenTime = useScreenTimeGate();
 
   useEffect(() => {
     let isCurrent = true;
@@ -82,6 +92,18 @@ export function HomeScreen() {
   // `StudentGuard` does not render this screen without a child, so the fallback
   // is for the frame between a profile switch and the guard's redirect.
   if (child === undefined) return null;
+
+  // Before anything else on the page: the mascot screen replaces the home screen
+  // rather than sitting on top of it, so there is no board of lessons behind it
+  // for a child to keep tapping at.
+  if (screenTime.block != null) {
+    return (
+      <ScreenTimeLock
+        reason={screenTime.block}
+        windowStart={screenTime.windowStart}
+      />
+    );
+  }
 
   const stats =
     rewards === undefined
@@ -118,7 +140,9 @@ export function HomeScreen() {
           label={t("stories.title")}
           icon={<BookOpen aria-hidden="true" />}
           size="lg"
-          onPress={() => router.push("/stories")}
+          onPress={() => {
+            void screenTime.guardStart(() => router.push("/stories"));
+          }}
         />
       </div>
 
@@ -142,7 +166,11 @@ export function HomeScreen() {
               <li key={world.id} className="contents">
                 <WorldCard
                   world={world}
-                  onPress={() => router.push(`/world/${world.id}`)}
+                  onPress={() => {
+                    void screenTime.guardStart(() =>
+                      router.push(`/world/${world.id}`),
+                    );
+                  }}
                 />
               </li>
             ))}

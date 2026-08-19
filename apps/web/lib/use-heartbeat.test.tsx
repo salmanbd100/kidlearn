@@ -65,6 +65,51 @@ describe("useHeartbeat", () => {
     expect(init.body).toBeUndefined();
   });
 
+  /**
+   * The lock screen case. `/api/events/heartbeat` is deliberately never screen-time
+   * gated, so a caller that keeps beating through a state where no lesson is on
+   * screen would bill a child for sitting on "time's up".
+   */
+  it("does not beat while disabled", async () => {
+    renderHook(() => useHeartbeat({ enabled: false }));
+
+    expect(heartbeatCalls()).toHaveLength(0);
+
+    await act(async () => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(heartbeatCalls()).toHaveLength(0);
+  });
+
+  it("starts beating when enabled flips on", async () => {
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => useHeartbeat({ enabled }),
+      { initialProps: { enabled: false } },
+    );
+    expect(heartbeatCalls()).toHaveLength(0);
+
+    await act(async () => {
+      rerender({ enabled: true });
+    });
+    expect(heartbeatCalls()).toHaveLength(1);
+  });
+
+  it("stops beating when enabled flips off", async () => {
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => useHeartbeat({ enabled }),
+      { initialProps: { enabled: true } },
+    );
+    expect(heartbeatCalls()).toHaveLength(1);
+
+    await act(async () => {
+      rerender({ enabled: false });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(heartbeatCalls()).toHaveLength(1);
+  });
+
   it("beats again every 30 seconds", async () => {
     renderHook(() => useHeartbeat());
 

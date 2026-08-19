@@ -20,7 +20,7 @@
 | 7 — Time & Dashboards | 27–30 | Learning time, screen time, parent dashboard, reports |
 | 8 — Admin CMS | 31–33 | Admin auth, curriculum management, media + editors |
 | 9 — AI Pipeline | 34–37 | Generators, audio/images, review queue |
-| 10 — Launch | 38 | Zero-cost deployment |
+| 10 — Launch | 38–38a | Zero-cost deployment, custom domain |
 
 ---
 
@@ -56,7 +56,7 @@
 | 25 | `25-story-library.md` | Story read API + library browsing UI | FR-STORY-01, FR-STORY-04..05, FR-STORY-08 | 05, 08, 13 | 3–4h | ✅ Done |
 | 26 | `26-story-reader.md` | Page-by-page narrated story reader + completion reward | FR-STORY-02..03, FR-STORY-06..07 | 23, 25 | 3–4h | ✅ Done |
 | 27 | `27-learning-time-tracking.md` | Server-side session heartbeats + learning time aggregation | FR-TIME-06, FR-DASH-02 (data), FR-LSN-07 | 06, 09, 16 | 3–4h | ✅ Done |
-| 28 | `28-screen-time-controls.md` | Daily limits, access windows, friendly lockout enforcement | FR-TIME-01..05 | 14, 27 | 3–4h | ⬜ Not started |
+| 28 | `28-screen-time-controls.md` | Daily limits, access windows, friendly lockout enforcement | FR-TIME-01..05 | 14, 27 | 3–4h | ✅ Done |
 | 29 | `29-parent-dashboard.md` | Per-child summary, subject progress, recent activity | FR-DASH-01..04 | 14, 23, 27 | 3–4h | ⬜ Not started |
 | 30 | `30-weekly-reports.md` | Weekly report generation job + report history UI | FR-DASH-05..06 | 29 | 3–4h | ⬜ Not started |
 | 31 | `31-admin-auth-cms-foundation.md` | Admin auth, CMS layout, role guard, basic usage analytics | §4.3, FR-CMS-01 (shell), FR-CMS-07 (basic) | 08, 13 | 3–4h | ⬜ Not started |
@@ -67,6 +67,7 @@
 | 36 | `36-ai-audio-and-image-generation.md` | ElevenLabs narration (EN/BN) + image generation + character consistency | FR-AI-04..06, FR-AI-09, FR-I18N-05 | 33, 34 | 3–4h | ⬜ Not started |
 | 37 | `37-ai-review-queue.md` | Human review queue: approve / edit-then-approve / reject | FR-AI-07, FR-CMS-05..06 | 35, 36 | 3–4h | ⬜ Not started |
 | 38 | `38-deployment-zero-cost-launch.md` | Vercel + Render/Fly + Supabase + Cloudinary deployment, cold-start UX | §9, NFR-PERF-04 | 16, 29, 37 | 3–4h | ⬜ Not started |
+| 38a | `38a-custom-domain-and-same-site-cookies.md` | `kidlearn.net` + `api.kidlearn.net`, dropping file 38's `SameSite=None` cookie workaround | §9 | 38 | 1–2h | ⬜ Not started |
 
 ---
 

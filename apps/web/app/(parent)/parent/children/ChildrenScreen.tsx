@@ -84,6 +84,7 @@ export function ChildrenScreen() {
               child={child}
               avatars={avatars}
               editHref={`/parent/children/${child.id}/edit`}
+              screenTimeHref={`/parent/children/${child.id}/screen-time`}
               onDeleteRequest={() => setPendingDeletion(child)}
             />
           ))}

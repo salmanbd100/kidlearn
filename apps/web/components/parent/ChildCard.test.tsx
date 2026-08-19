@@ -52,6 +52,7 @@ function renderCard(profile: ChildProfileResponse, locale: "en" | "bn" = "en") {
           child={profile}
           avatars={AVATARS}
           editHref="/parent/children/child_1/edit"
+          screenTimeHref="/parent/children/child_1/screen-time"
           onDeleteRequest={vi.fn()}
         />
       </ul>
@@ -89,5 +90,16 @@ describe("ChildCard", () => {
     expect(
       screen.getByRole("button", { name: "Delete Nadia" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Screen time for Nadia" }),
+    ).toBeInTheDocument();
+  });
+
+  it("links to this child's screen-time settings (FR-TIME-05)", () => {
+    renderCard(child());
+
+    expect(
+      screen.getByRole("link", { name: "Screen time for Ayaan" }),
+    ).toHaveAttribute("href", "/parent/children/child_1/screen-time");
   });
 });

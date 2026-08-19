@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  ScreenTimeBlockCode,
   StoryCompletionResponse,
   StoryDetailResponse,
 } from "@kidlearn/types";
@@ -20,9 +21,11 @@ import {
 import { useTranslation } from "react-i18next";
 import { StudentStatus } from "@/app/(student)/StudentGuard";
 import { useAudio } from "@/components/AudioProvider";
+import { ScreenTimeLock } from "@/components/student/ScreenTimeLock";
 import { getStory } from "@/lib/content-api";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { completeStory } from "@/lib/progress-api";
+import { isScreenTimeBlock, windowStartFromError } from "@/lib/screen-time-api";
 import { trackEvent, useHeartbeat } from "@/lib/use-heartbeat";
 import { FinishScreen } from "./FinishScreen";
 import {
@@ -81,6 +84,16 @@ type LoadState =
   | { status: "loading" }
   | { status: "ready"; story: StoryDetailResponse }
   | { status: "gone" }
+  /**
+   * The parental screen-time gate refused this start (FR-TIME-02, FR-TIME-04).
+   * Only opening a story can land here — every page arrives in this one response,
+   * so a story already open is never interrupted mid-reading.
+   */
+  | {
+      status: "blocked";
+      reason: ScreenTimeBlockCode;
+      windowStart: string | null;
+    }
   | { status: "error" };
 
 export function StoryReader({ storyId }: { storyId: string }) {
@@ -99,6 +112,14 @@ export function StoryReader({ storyId }: { storyId: string }) {
       if (!isCurrent) return;
       setIsWakingUp(false);
       if (!result.ok) {
+        if (isScreenTimeBlock(result.error)) {
+          setLoad({
+            status: "blocked",
+            reason: result.error.code,
+            windowStart: windowStartFromError(result.error) ?? null,
+          });
+          return;
+        }
         // A story unpublished while the child was on the library screen is a
         // `404` — a book that was put away, not a failure to apologise for.
         setLoad({
@@ -123,6 +144,11 @@ export function StoryReader({ storyId }: { storyId: string }) {
   }
   if (load.status === "gone") {
     return <StudentStatus tone="status">{t("reader.notFound")}</StudentStatus>;
+  }
+  if (load.status === "blocked") {
+    return (
+      <ScreenTimeLock reason={load.reason} windowStart={load.windowStart} />
+    );
   }
   if (load.status === "error") {
     return <StudentStatus tone="alert">{t("status.error")}</StudentStatus>;

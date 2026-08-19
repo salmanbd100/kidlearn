@@ -200,6 +200,10 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "401": UNAUTHORIZED_RESPONSE,
         "403": NO_ACTIVE_CHILD_RESPONSE,
         "404": contentNotFound("lesson"),
+        "423": errorResponse(
+          "The parental screen-time gate is shut (FR-TIME-02..04). `TIME_LIMIT_REACHED` — today's allowance is used up; `OUTSIDE_WINDOW` — the clock is outside the access window the parent set, and `error.details.windowStart` is the time to come back at. `error.details` also carries `minutesToday` and `dailyLimitMinutes`.\n\n**A lesson already under way is exempt** (FR-TIME-03): if this child has a `LessonProgress` row for *this* lesson with no `completedAt` that was last written within the past 30 minutes, the gate is skipped and the lesson is served, even across a refresh. Replaying a lesson that was already finished counts as a new start and is gated like one, and so does resuming one abandoned longer ago than that — the exemption is for the child who is mid-lesson now, not a standing pass earned by half-starting something.\n\n`423` rather than `403` on purpose: the request is well-formed and the caller is who they say they are — the resource is unavailable for a reason that passes on its own, and a `403` would be indistinguishable from the PIN gate's. `POST /api/progress/lessons/{id}/step` is never gated, so a lesson in progress can always be finished.",
+          ["TIME_LIMIT_REACHED", "OUTSIDE_WINDOW"],
+        ),
         "500": errorResponse(
           "Either an unexpected error, or a **published** activity or quiz question whose JSONB fails validation against `@kidlearn/types`. The latter is a server-side content bug rather than a client error, so it is logged with the offending row id and answered with a fixed message carrying no part of the payload.",
           ["INTERNAL"],

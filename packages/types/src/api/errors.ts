@@ -29,6 +29,13 @@ export const ERROR_CODES = [
   "PIN_LOCKED",
   /** COPPA consent has not been recorded for this parent yet. */
   "CONSENT_REQUIRED",
+  /**
+   * Today's parental screen-time allowance is used up (FR-TIME-02). A `423` on a
+   * content-start endpoint; the student surface turns it into a mascot screen.
+   */
+  "TIME_LIMIT_REACHED",
+  /** The clock is outside the parent's allowed access window (FR-TIME-04). */
+  "OUTSIDE_WINDOW",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

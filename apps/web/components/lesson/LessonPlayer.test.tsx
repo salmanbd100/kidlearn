@@ -25,8 +25,12 @@ vi.mock("@/lib/progress-api", () => progress);
 // request; the beats themselves are covered by `lib/use-heartbeat.test.tsx`.
 // The player reports its milestones through `sendSessionEvent`, not `trackEvent`,
 // so only the hook is stubbed here.
+const heartbeat = vi.hoisted(() => ({ useHeartbeat: vi.fn() }));
 vi.mock("@/lib/use-heartbeat", () => ({
-  useHeartbeat: () => ({ minutesToday: null }),
+  useHeartbeat: (options?: { enabled?: boolean }) => {
+    heartbeat.useHeartbeat(options);
+    return { minutesToday: null };
+  },
 }));
 
 const { LessonPlayer } = await import("./LessonPlayer");
@@ -139,6 +143,7 @@ describe("LessonPlayer", () => {
     router.push.mockReset();
     router.replace.mockReset();
     content.getLesson.mockReset();
+    heartbeat.useHeartbeat.mockReset();
     for (const fn of Object.values(progress)) fn.mockReset();
 
     content.getLesson.mockResolvedValue({
@@ -575,6 +580,66 @@ describe("a lesson that is not there", () => {
 
     expect(
       await screen.findByText("Let's try that again."),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * FR-TIME-02 — a screen-time block is never a raw error. The mascot screen is
+   * what a child meets, and nothing is recorded against a lesson that never
+   * opened.
+   */
+  it("shows the mascot time-up screen on a 423 TIME_LIMIT_REACHED", async () => {
+    content.getLesson.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "TIME_LIMIT_REACHED",
+        message: "limit reached",
+        status: 423,
+        details: {
+          minutesToday: 40,
+          dailyLimitMinutes: 30,
+          windowStart: null,
+          windowEnd: null,
+        },
+      },
+    });
+    renderPlayer();
+
+    expect(
+      await screen.findByRole("heading", { name: "Time's up for today!" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Let's try that again.")).not.toBeInTheDocument();
+    expect(progress.reportStep).not.toHaveBeenCalled();
+    expect(progress.sendSessionEvent).not.toHaveBeenCalled();
+    // The heartbeat endpoint is never screen-time gated, so a player still
+    // beating here would bill the child for sitting on the refusal.
+    expect(heartbeat.useHeartbeat).toHaveBeenLastCalledWith({ enabled: false });
+  });
+
+  it("names the window start on a 423 OUTSIDE_WINDOW (FR-TIME-04)", async () => {
+    content.getLesson.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "OUTSIDE_WINDOW",
+        message: "outside window",
+        status: 423,
+        details: {
+          minutesToday: 0,
+          dailyLimitMinutes: null,
+          windowStart: "08:00",
+          windowEnd: "19:00",
+        },
+      },
+    });
+    renderPlayer();
+
+    const expected = new Intl.DateTimeFormat("en", {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(1970, 0, 1, 8, 0));
+
+    expect(
+      await screen.findByRole("heading", { name: `See you at ${expected}!` }),
     ).toBeInTheDocument();
   });
 });

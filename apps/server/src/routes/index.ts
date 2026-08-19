@@ -8,6 +8,7 @@ import { eventsRouter } from "./events.js";
 import { meRouter } from "./me.js";
 import { parentRouter } from "./parent.js";
 import { progressRouter } from "./progress.js";
+import { screenTimeRouter } from "./screen-time.js";
 
 /**
  * Aggregates every `/api/*` resource router. Later implementation files mount
@@ -48,3 +49,15 @@ apiRouter.use("/events", requireParent, requireActiveChild, eventsRouter);
 // consequence: "me" is the session's child, so nothing on these paths names whose
 // rewards are being read.
 apiRouter.use("/me", requireParent, requireActiveChild, meRouter);
+
+// Whether the active child may start something new (file 28). A student-surface
+// read behind the same guards, and deliberately not PIN-gated: the home screen
+// checks it before every tile tap, so a blocked child meets a mascot rather than
+// a parental gate. The settings it reflects are written on `/api/children/:id`,
+// which is PIN-gated.
+apiRouter.use(
+  "/screen-time",
+  requireParent,
+  requireActiveChild,
+  screenTimeRouter,
+);
