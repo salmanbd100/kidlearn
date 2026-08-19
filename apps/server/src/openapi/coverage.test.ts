@@ -4,6 +4,7 @@ import { authRouter } from "../routes/auth.js";
 import { charactersRouter } from "../routes/characters.js";
 import { childrenRouter } from "../routes/children.js";
 import { contentRouter } from "../routes/content.js";
+import { eventsRouter } from "../routes/events.js";
 import { healthRouter } from "../routes/health.js";
 import { apiRouter } from "../routes/index.js";
 import { meRouter } from "../routes/me.js";
@@ -62,11 +63,12 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     router: progressRouter,
     file: "paths/progress.ts",
   },
+  { prefix: "/api/events", router: eventsRouter, file: "paths/events.ts" },
   { prefix: "/api/me", router: meRouter, file: "paths/me.ts" },
 ];
 
 /**
- * How many routers are reachable under `/api`, at any depth: the six
+ * How many routers are reachable under `/api`, at any depth: the seven
  * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`.
  *
  * Counted through the whole tree rather than one level down, because a router
@@ -75,7 +77,7 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
  * appear and "documents every route the server serves" would pass on a surface it
  * never saw.
  */
-const EXPECTED_ROUTERS_UNDER_API = 7;
+const EXPECTED_ROUTERS_UNDER_API = 8;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally

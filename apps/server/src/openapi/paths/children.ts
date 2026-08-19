@@ -8,7 +8,7 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
-import { pathParam, type RouteDoc } from "../route-doc.js";
+import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
  * `routes/children.ts` — `requireParent` guards the whole router.
@@ -61,6 +61,12 @@ const PIN_GATE_RESPONSE = errorResponse(
 const CHILD_ID_PARAM = pathParam(
   "id",
   "The child profile id. Validated as a non-empty string rather than a uuid, so a malformed id yields the same `404` as an unknown one.",
+);
+
+const LEARNING_TIME_RANGE_PARAM = queryParam(
+  "range",
+  "Which window to measure. `today` is a calendar day in the deployment's `APP_TIMEZONE`, `week` starts Monday, `month` is the calendar month. Required — there is no default, because a silent one would leave the returned `from`/`to` as the only clue about which window was actually measured.",
+  { type: "string", enum: ["today", "week", "month"] },
 );
 
 export const CHILDREN_ROUTES: RouteDoc[] = [
@@ -161,6 +167,41 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
           "CharacterUnlockListResponse",
         ),
         "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "404": CHILD_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/children/{id}/learning-time",
+    operation: {
+      tags: ["Learning Time"],
+      summary: "How long this child has learned in one window",
+      description: [
+        "Minutes of actual learning time for one child (FR-DASH-02), for the parent dashboard.",
+        "",
+        "**The figure is derived, not stored.** It comes from the density of the `SessionEvent` rows the server timestamped: events closer together than 90 seconds belong to one sitting, a longer gap starts a new one, and each sitting is credited its span plus the 30-second interval its last event stands for. No client increments a counter and no request anywhere carries a duration, so a child cannot shorten this by refreshing and a device cannot inflate it (FR-TIME-06).",
+        "",
+        "**`from` and `to` are the window's own edges, not the moment it was asked for.** `[from, to)` is a whole calendar period in the deployment's `APP_TIMEZONE`, so `to` for `today` is the coming local midnight rather than now. A caller charting the period therefore has its bounds without recomputing them in a zone it has no way to know. `week` starts Monday; `month` is the calendar month.",
+        "",
+        "A sitting that crosses midnight is split by whichever window is queried, and each half is credited its own tail — a known over-count of one 30-second interval per crossing. Accepted deliberately: the alternative, attributing a whole sitting to the day it began, makes a lesson finished at 00:20 vanish from the day a parent watched it happen.",
+        "",
+        "One timezone for the whole deployment, from `APP_TIMEZONE`. A per-parent timezone is post-MVP.",
+        "",
+        "Not PIN-gated, matching the other reads on this router: it reports minutes and nothing about what was learned, and the dashboard rendering it sits behind the client-side parental gate (FR-AUTH-04).",
+      ].join("\n"),
+      parameters: [CHILD_ID_PARAM, LEARNING_TIME_RANGE_PARAM],
+      responses: {
+        "200": jsonResponse(
+          "Minutes learned in the window, with the window's own bounds.",
+          "LearningTimeReadResponse",
+        ),
+        "400": errorResponse(
+          "`range` is missing, is not one of `today` / `week` / `month`, or an unknown query parameter was sent (the schema is strict).",
+          ["VALIDATION_FAILED"],
+        ),
         "401": UNAUTHORIZED_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,

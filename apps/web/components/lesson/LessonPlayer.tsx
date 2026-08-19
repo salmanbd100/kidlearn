@@ -19,6 +19,7 @@ import {
   reportStep,
   sendSessionEvent,
 } from "@/lib/progress-api";
+import { useHeartbeat } from "@/lib/use-heartbeat";
 import { stepAssetFallback } from "./asset-fallback";
 import { ExitConfirm } from "./ExitConfirm";
 import {
@@ -87,6 +88,12 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [isWakingUp, setIsWakingUp] = useState(false);
   const [state, dispatch] = useReducer(lessonReducer, initialLessonState);
+  // FR-TIME-06 — the presence signal learning time is derived from. Mounted on the
+  // player rather than on the student layout: this is a learning surface, and the
+  // home screen and profile picker are not. It measures nothing locally, so there
+  // is no total here for a refresh to reset; the returned figure is unused until
+  // file 28 enforces a limit against it.
+  useHeartbeat();
 
   useEffect(() => {
     let isCurrent = true;

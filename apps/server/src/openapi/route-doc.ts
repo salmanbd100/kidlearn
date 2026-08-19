@@ -32,3 +32,12 @@ export function pathParam(
 ): JsonSchemaObject {
   return { name, in: "path", required: true, description, schema };
 }
+
+/** A required query parameter. */
+export function queryParam(
+  name: string,
+  description: string,
+  schema: JsonSchemaObject,
+): JsonSchemaObject {
+  return { name, in: "query", required: true, description, schema };
+}

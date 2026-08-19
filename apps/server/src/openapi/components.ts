@@ -1,6 +1,8 @@
 import {
   ActiveChildResponseSchema,
   ActivityDefinitionSchema,
+  ActivityEventResponseSchema,
+  ActivityEventSchema,
   AuthMeResponseSchema,
   AuthMeSchema,
   AvatarCharacterListResponseSchema,
@@ -19,6 +21,10 @@ import {
   GateStatusResponseSchema,
   GateStatusSchema,
   HealthResponseSchema,
+  HeartbeatResponseSchema,
+  HeartbeatSchema,
+  LearningTimeReadResponseSchema,
+  LearningTimeSchema,
   LessonActivitySchema,
   LessonCompletionResponseSchema,
   LessonCompletionSchema,
@@ -69,6 +75,7 @@ import {
   CreateChildBodySchema,
   UpdateChildBodySchema,
 } from "../schemas/children.js";
+import { ActivityEventBodySchema } from "../schemas/events.js";
 import {
   ConsentSchema,
   DeleteAccountSchema,
@@ -124,6 +131,7 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ConsentBody: ConsentSchema,
   DeleteAccountBody: DeleteAccountSchema,
   LessonStepBody: LessonStepBodySchema,
+  ActivityEventBody: ActivityEventBodySchema,
   SessionEventBody: SessionEventBodySchema,
   QuizResponsesBody: QuizResponsesBodySchema,
 
@@ -190,6 +198,16 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   SessionEventResponse: SessionEventResponseSchema,
   QuizScore: QuizScoreSchema,
   QuizResponsesResponse: QuizResponsesResponseSchema,
+
+  // --- Learning time ------------------------------------------------------
+  // No request shape for the heartbeat: it has no body, which is the contract
+  // (FR-TIME-06).
+  Heartbeat: HeartbeatSchema,
+  HeartbeatResponse: HeartbeatResponseSchema,
+  ActivityEvent: ActivityEventSchema,
+  ActivityEventResponse: ActivityEventResponseSchema,
+  LearningTime: LearningTimeSchema,
+  LearningTimeReadResponse: LearningTimeReadResponseSchema,
 
   // --- Rewards ------------------------------------------------------------
   // Response shapes only, and there is no request shape to register: no
@@ -275,6 +293,11 @@ export const TAGS = [
     name: "Progress",
     description:
       "What a child has done: their position in a lesson, and the append-only event log learning time is derived from. The client reports events; the server decides what they mean and when they happened (spec §7, FR-TIME-06). Every write is scoped to the session's active child and to lessons that child can actually see.",
+  },
+  {
+    name: "Learning Time",
+    description:
+      "Where time comes from, and what it adds up to (FR-TIME-06, FR-DASH-02). The student surfaces post a heartbeat every 30 seconds while their tab is visible plus a milestone event now and then; nothing they send carries a timestamp, a duration or a total. The server stamps every row, drops a beat arriving under 20 seconds after the last, and derives minutes from the density of what it stored — so a refresh, a closed tab, cleared storage or an edited client state cannot lower a recorded minute. Aggregation is one service function shared by the heartbeat's own `minutesToday`, the parent dashboard and the weekly report, so a screen-time limit and a dashboard can never disagree about how long a child has been learning.",
   },
   {
     name: "Rewards",

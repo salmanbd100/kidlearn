@@ -21,6 +21,13 @@ const progress = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/lib/content-api", () => content);
 vi.mock("@/lib/progress-api", () => progress);
+// The player's presence signal (file 27). Stubbed so the suite makes no real
+// request; the beats themselves are covered by `lib/use-heartbeat.test.tsx`.
+// The player reports its milestones through `sendSessionEvent`, not `trackEvent`,
+// so only the hook is stubbed here.
+vi.mock("@/lib/use-heartbeat", () => ({
+  useHeartbeat: () => ({ minutesToday: null }),
+}));
 
 const { LessonPlayer } = await import("./LessonPlayer");
 

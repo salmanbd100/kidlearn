@@ -23,6 +23,7 @@ import { useAudio } from "@/components/AudioProvider";
 import { getStory } from "@/lib/content-api";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { completeStory } from "@/lib/progress-api";
+import { trackEvent, useHeartbeat } from "@/lib/use-heartbeat";
 import { FinishScreen } from "./FinishScreen";
 import {
   initialReaderState,
@@ -139,6 +140,11 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
   const { play, stop } = useAudio();
+  // Mounted here rather than on `StoryReader` so the beats start when there is a
+  // story on screen — the loading and "put away" states are not reading time
+  // (FR-TIME-06). Nothing on this screen renders the returned total; it is the
+  // student session's own figure, which file 28 will check a limit against.
+  useHeartbeat();
   const [state, dispatch] = useReducer(
     readerReducer,
     story.pages.length,
@@ -162,10 +168,18 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
    */
   const [isReplay, setIsReplay] = useState(false);
 
+  const storyId = story.id;
   const page = story.pages[state.pageIndex];
   const narrationUrl = page?.narrationUrl ?? null;
   const isReading = state.phase === "reading";
   const isLastPage = state.pageIndex === story.pages.length - 1;
+
+  // FR-LSN-07 — the reading began. Once per mount, matching `lesson_start` in the
+  // player: a "Read again" is the same sitting continuing, and the milestone the
+  // time aggregation needs is the one that says this child opened this book.
+  useEffect(() => {
+    trackEvent("story_start", storyId);
+  }, [storyId]);
 
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -256,16 +270,12 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
     return () => clearInterval(tick);
   }, [isReading, hasTimings, narrationStartedAt]);
 
-  const storyId = story.id;
   const hasRequestedCompletion = useRef(false);
   useEffect(() => {
     if (!state.completionRequested || hasRequestedCompletion.current) return;
     hasRequestedCompletion.current = true;
 
-    // File 27 adds the `story_start` / `story_complete` SessionEvents and the
-    // screen-time heartbeat around this call. Nothing is reported from here yet:
-    // the events endpoint accepts only the three lesson-flow types today, so a
-    // story event posted now would be a 400 on a screen a child is looking at.
+    trackEvent("story_complete", storyId);
 
     void completeStory(storyId).then((result) => {
       if (!result.ok) {

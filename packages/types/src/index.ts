@@ -18,6 +18,9 @@ export * from "./activity/schemas.js";
 // HTTP request/response contracts (file 12a). Shared with `apps/web` so the
 // client never redeclares a response shape.
 export * from "./api/index.js";
+// Server-derived learning time (file 27): the activity-event and range
+// vocabulary both halves of the wire share.
+export * from "./learning-time.js";
 export * from "./primitives.js";
 // The lesson-flow vocabulary (file 16): step order, resume arithmetic, and the
 // two request contracts the player posts. Shared because the reducer in

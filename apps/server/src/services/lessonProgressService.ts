@@ -58,8 +58,12 @@ function laterStep(a: LessonStep, b: LessonStep): LessonStep {
  * `contentService`: a published lesson in a draft world is not visible, so it must
  * not be recordable either, or a child could hold progress in a lesson that
  * `GET /api/content/lessons/:id` 404s.
+ *
+ * Exported for the same reason `storyService.requireVisibleStoryId` is: file 27's
+ * activity events gate on *this* clause rather than on a copy of it, so the two
+ * event endpoints cannot disagree about which lessons exist for a child.
  */
-async function requireVisibleLessonId(
+export async function requireVisibleLessonId(
   child: ChildProfile,
   lessonId: string,
 ): Promise<string> {
