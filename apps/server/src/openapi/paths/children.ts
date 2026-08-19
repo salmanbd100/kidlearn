@@ -209,6 +209,77 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     },
   },
   {
+    method: "get",
+    path: "/api/children/{id}/screen-time",
+    operation: {
+      tags: ["Screen Time"],
+      summary: "Read this child's daily limit and access window",
+      description: [
+        "The policy behind FR-TIME-01/04/05, as the parent's settings form reads it back.",
+        "",
+        '**A child with no policy gets all-nulls, not a `404`.** "No limits set" is a decision, not a missing resource, so the form has no "not configured yet" branch and the shape it renders is the shape it submits.',
+        "",
+        "**PIN-gated, unlike every other read on this router.** The other `GET`s here feed screens a child may legitimately be looking at — the profile picker, an avatar list. This one is the control a child would most like to change, so both verbs sit behind the parental gate (FR-AUTH-04, FR-TIME-05). The student surface reads its own allowance from `GET /api/screen-time/status`, which is scoped to the session's active child.",
+        "",
+        "Times are `\"HH:MM\"` in the deployment's `APP_TIMEZONE`, round-tripping the exact strings the write accepted. A window is a wall-clock fact about a household's evening, so it is never sent as a timestamp — a timestamp would carry a date and a zone that mean nothing here.",
+      ].join("\n"),
+      parameters: [CHILD_ID_PARAM],
+      responses: {
+        "200": jsonResponse(
+          "The stored policy, or all-nulls for a child who has none.",
+          "ScreenTimeSettingResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": PIN_GATE_RESPONSE,
+        "404": CHILD_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "patch",
+    path: "/api/children/{id}/screen-time",
+    operation: {
+      tags: ["Screen Time"],
+      summary: "Set this child's daily limit and access window",
+      description: [
+        "Stores the whole policy (FR-TIME-01, FR-TIME-04). PIN-gated (FR-AUTH-04, FR-TIME-05).",
+        "",
+        '**`PATCH` by verb, total by body.** All three fields are required and nullable, so switching something off is a value the parent sends rather than a key they omit — a partial body would make "clear the window" and "leave the window alone" the same request.',
+        "",
+        "**Upserts on the child.** There is at most one policy per child by construction, so calling this twice updates one row rather than creating a second, and a parent's first save is not a different code path from their tenth.",
+        "",
+        "`dailyLimitMinutes` is `null` (off) or one of `15`, `30`, `45`, `60`, `90` — a closed set, because an arbitrary number invites a 7-minute allowance, which is a child cut off mid-lesson every day.",
+        "",
+        "**`windowStart` and `windowEnd` must be set or cleared together**, and the rule is a Zod refinement with no JSON Schema equivalent — so the schema below cannot show it. Half a window is not a rule the enforcement code could act on, and it is rejected as `400 VALIDATION_FAILED` rather than stored and interpreted later.",
+        "",
+        "A window whose start equals its end is accepted and treated as **no window at all**. It is what a parent gets by dragging both inputs together, it expresses nothing, and the only other reading — open for zero minutes — locks a child out of the app all day from a slip they could not diagnose.",
+        "",
+        "`windowStart` later than `windowEnd` is legal and wraps midnight: `20:00`–`07:00` allows 21:30 and 06:30 and refuses noon.",
+      ].join("\n"),
+      parameters: [CHILD_ID_PARAM],
+      requestBody: jsonRequestBody(
+        "ScreenTimeBody",
+        "Every field is required and nullable. The two window ends must be **both set or both null** — a refinement JSON Schema cannot express, so it is not visible in the schema below.",
+      ),
+      responses: {
+        "200": jsonResponse(
+          "The stored policy, read back in the same format it was sent.",
+          "ScreenTimeSettingResponse",
+        ),
+        "400": errorResponse(
+          'Zod rejected the body — a limit outside the offered set, a malformed `"HH:MM"`, a half-set window, an unknown key (the schema is strict), or a missing field — or the path parameter.',
+          ["VALIDATION_FAILED"],
+        ),
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": PIN_GATE_RESPONSE,
+        "404": CHILD_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
     method: "patch",
     path: "/api/children/{id}",
     operation: {

@@ -39,6 +39,21 @@ export function childWriteErrorKey(failure: ApiFailure): ParentMessageKey {
   }
 }
 
+/**
+ * The message for a failed screen-time write (file 28).
+ *
+ * Not `childWriteErrorKey`: that one maps `409` onto the five-profile cap, which
+ * this route cannot produce, and a mapping that claims an impossible cause is
+ * worse than the generic message. The only code with a screen-specific meaning
+ * here is `404` — the profile was deleted on another device while this form was
+ * open.
+ */
+export function screenTimeErrorKey(failure: ApiFailure): ParentMessageKey {
+  return failure.code === "NOT_FOUND"
+    ? "errors.notFound"
+    : generalErrorKey(failure);
+}
+
 /** The fallback message for any failure with no screen-specific meaning. */
 export function generalErrorKey(failure: ApiFailure): ParentMessageKey {
   return failure.code === "NETWORK_ERROR" ? "errors.network" : "errors.generic";

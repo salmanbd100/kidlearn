@@ -28,4 +28,5 @@ export * from "./learning-time.js";
 export * from "./parent.js";
 export * from "./progress.js";
 export * from "./rewards.js";
+export * from "./screen-time.js";
 export * from "./stories.js";

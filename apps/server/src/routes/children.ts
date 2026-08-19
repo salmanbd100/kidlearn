@@ -1,6 +1,7 @@
 import type {
   CharacterUnlockResponse,
   LearningTimeResponse,
+  ScreenTimeSettingResponse,
 } from "@kidlearn/types";
 import { Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
@@ -20,6 +21,10 @@ import {
   type LearningTimeQuery,
   LearningTimeQuerySchema,
 } from "../schemas/events.js";
+import {
+  type ScreenTimeBody,
+  ScreenTimeBodySchema,
+} from "../schemas/screen-time.js";
 import { listCharactersForChild } from "../services/achievementService.js";
 import {
   activateChildProfile,
@@ -31,6 +36,11 @@ import {
   updateChildProfile,
 } from "../services/childProfileService.js";
 import { getLearningMinutes } from "../services/learningTimeService.js";
+import {
+  getScreenTimeSetting,
+  saveScreenTimeSetting,
+  toScreenTimeSettingResponse,
+} from "../services/screenTimeService.js";
 
 /**
  * `/api/children` — the parent's own learner profiles (FR-PROF-01..07).
@@ -171,6 +181,74 @@ childrenRouter.get(
 
       const payload: SuccessEnvelope<LearningTimeResponse> = {
         data: learningTime,
+      };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * FR-TIME-01/04/05 — this child's daily limit and access window.
+ *
+ * On this router for the reason `/:id/learning-time` gives: the resource is a
+ * child's, and the ownership guard, the 404 for somebody else's profile and the id
+ * parameter are already here.
+ *
+ * **PIN-gated, unlike the reads beside it.** Every other `GET` on this router
+ * feeds a screen a child may legitimately be looking at — the profile picker, an
+ * avatar list. This one is the control a child would most like to change, so both
+ * verbs sit behind the parental gate (FR-AUTH-04, FR-TIME-05). The student surface
+ * reads its own allowance from `GET /api/screen-time/status`, which is scoped to
+ * the session's active child and reveals nothing about anyone else's.
+ *
+ * A child with no row gets all-nulls rather than a 404: "no limits set" is a
+ * policy, not a missing resource, and the form has no "not configured yet" branch
+ * as a result.
+ */
+childrenRouter.get(
+  "/:id/screen-time",
+  requirePinVerified,
+  validate({ params: ChildIdParamsSchema }),
+  loadOwnedChild,
+  async (req, res, next) => {
+    try {
+      const setting = await getScreenTimeSetting(ownedChild(req).id);
+
+      const payload: SuccessEnvelope<ScreenTimeSettingResponse> = {
+        data: toScreenTimeSettingResponse(setting),
+      };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Replaces the whole policy (FR-TIME-01, FR-TIME-04).
+ *
+ * `PATCH` by HTTP verb but total by body: all three fields are required and
+ * nullable, so switching something off is a value the parent sends rather than a
+ * key they omit. A partial body would make "clear the window" and "leave the
+ * window alone" the same request.
+ *
+ * Upserts on the unique `childId`, so a parent's first save and their tenth are
+ * one code path and a child can never end up with two policies.
+ */
+childrenRouter.patch(
+  "/:id/screen-time",
+  requirePinVerified,
+  validate({ params: ChildIdParamsSchema, body: ScreenTimeBodySchema }),
+  loadOwnedChild,
+  async (req, res, next) => {
+    try {
+      const body: ScreenTimeBody = req.body;
+      const setting = await saveScreenTimeSetting(ownedChild(req).id, body);
+
+      const payload: SuccessEnvelope<ScreenTimeSettingResponse> = {
+        data: setting,
       };
       res.json(payload);
     } catch (error) {

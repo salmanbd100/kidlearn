@@ -517,6 +517,39 @@ describe("stories that cannot be read", () => {
     expect(await screen.findByText(/having a rest/i)).toBeInTheDocument();
   });
 
+  /**
+   * FR-TIME-02, FR-TIME-04 — a screen-time block opens the mascot screen, never a
+   * raw error. There is no in-progress exemption for a story: every page arrives
+   * in this one response, so only *opening* one can be refused.
+   */
+  it("shows the mascot screen on a 423, not an error", async () => {
+    content.getStory.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "TIME_LIMIT_REACHED",
+        message: "limit reached",
+        status: 423,
+        details: {
+          minutesToday: 45,
+          dailyLimitMinutes: 30,
+          windowStart: null,
+          windowEnd: null,
+        },
+      },
+    });
+
+    render(
+      <Providers locale="en">
+        <StoryReader storyId={STORY_ID} />
+      </Providers>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Time's up for today!" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/having a rest/i)).not.toBeInTheDocument();
+  });
+
   it("shows a friendly line for a story with no pages", async () => {
     content.getStory.mockResolvedValue({
       ok: true,

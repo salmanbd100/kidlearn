@@ -8,6 +8,7 @@ import { HEALTH_ROUTES } from "./health.js";
 import { ME_ROUTES } from "./me.js";
 import { PARENT_ROUTES } from "./parent.js";
 import { PROGRESS_ROUTES } from "./progress.js";
+import { SCREEN_TIME_ROUTES } from "./screen-time.js";
 import { STORIES_ROUTES } from "./stories.js";
 
 /**
@@ -29,6 +30,7 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...PROGRESS_ROUTES,
   ...EVENTS_ROUTES,
   ...ME_ROUTES,
+  ...SCREEN_TIME_ROUTES,
 ];
 
 /**
