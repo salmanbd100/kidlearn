@@ -21,6 +21,7 @@
 export * from "./auth.js";
 export * from "./children.js";
 export * from "./content.js";
+export * from "./dashboard.js";
 export * from "./envelope.js";
 export * from "./errors.js";
 export * from "./health.js";

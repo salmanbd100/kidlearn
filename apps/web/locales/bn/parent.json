@@ -91,7 +91,8 @@
     "edit": "{{name}}-এর তথ্য সম্পাদনা",
     "delete": "{{name}}-এর প্রোফাইল মুছুন",
     "meta": "বয়স {{age}} · {{grade}} · {{language}}",
-    "loading": "প্রোফাইল লোড হচ্ছে…"
+    "loading": "প্রোফাইল লোড হচ্ছে…",
+    "backToDashboard": "অগ্রগতি"
   },
   "delete": {
     "title": "{{name}}-এর প্রোফাইল মুছে ফেলবেন?",
@@ -118,6 +119,31 @@
     "saved": "স্ক্রিন টাইম সংরক্ষিত হয়েছে।",
     "loading": "স্ক্রিন টাইম লোড হচ্ছে…",
     "open": "{{name}}-এর স্ক্রিন টাইম"
+  },
+  "dashboard": {
+    "title": "{{name}}-এর অগ্রগতি",
+    "subtitle": "শেখার সময়, বিষয় এবং সম্প্রতি যা শেষ হয়েছে।",
+    "switcherLabel": "একজন শিশু বেছে নিন",
+    "loading": "অগ্রগতি লোড হচ্ছে…",
+    "waking": "KidLearn জেগে উঠছে — কিছুক্ষণ বিরতির পর এতে অল্প সময় লাগে।",
+    "manageChildren": "শিশুদের পরিচালনা",
+    "today": "আজ",
+    "week": "এই সপ্তাহ",
+    "month": "এই মাস",
+    "noTimeYet": "এখনও কিছু নয়",
+    "durationMinutes": "{{count}} মিন",
+    "durationHours": "{{count}} ঘণ্টা",
+    "durationHoursMinutes": "{{hours}} ঘণ্টা {{minutes}} মিন",
+    "subjectsTitle": "বিষয়",
+    "subjectsEmpty": "এই শ্রেণির জন্য এখনও কোনও পাঠ প্রস্তুত নয়। নতুন বিষয় প্রকাশিত হলে এখানে দেখা যাবে।",
+    "subjectCount": "{{total}}-এর মধ্যে {{completed}} · {{percent}}%",
+    "strongest": "সবচেয়ে ভালো",
+    "needsPractice": "অভ্যাস দরকার",
+    "activityTitle": "সাম্প্রতিক কার্যক্রম",
+    "activityEmpty": "এখনও কোনও অভিযান নেই — {{name}}-এর অগ্রগতি এখানে দেখা যাবে!",
+    "activityLesson": "পাঠ শেষ",
+    "activityStory": "গল্প পড়া হয়েছে",
+    "activityBadge": "ব্যাজ অর্জিত"
   },
   "errors": {
     "generic": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।",

@@ -5,7 +5,7 @@ import type {
   ChildProfileResponse,
 } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
-import { Plus } from "lucide-react";
+import { ChartColumn, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,7 @@ import { ChildCard } from "@/components/parent/ChildCard";
 import { DeleteChildDialog } from "@/components/parent/DeleteChildDialog";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { deleteChild, listAvatars } from "@/lib/parent-api";
+import { PARENT_ROUTES } from "@/lib/parent-redirect";
 
 /** FR-PROF-01 — a household may hold at most five learner profiles. */
 const MAX_CHILDREN = 5;
@@ -71,7 +72,17 @@ export function ChildrenScreen() {
             {t("children.subtitle")}
           </p>
         </div>
-        <LanguageSwitch size="default" />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The only way back to the dashboard from here — the parent area has
+              no persistent nav chrome yet (design.md §6). */}
+          <Button asChild variant="ghost">
+            <Link href={PARENT_ROUTES.dashboard}>
+              <ChartColumn aria-hidden="true" />
+              {t("children.backToDashboard")}
+            </Link>
+          </Button>
+          <LanguageSwitch size="default" />
+        </div>
       </header>
 
       {items.length === 0 ? (
