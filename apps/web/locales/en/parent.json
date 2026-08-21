@@ -91,7 +91,8 @@
     "edit": "Edit {{name}}",
     "delete": "Delete {{name}}",
     "meta": "Age {{age}} · {{grade}} · {{language}}",
-    "loading": "Loading profiles…"
+    "loading": "Loading profiles…",
+    "backToDashboard": "Progress"
   },
   "delete": {
     "title": "Delete {{name}}'s profile?",
@@ -118,6 +119,31 @@
     "saved": "Screen time saved.",
     "loading": "Loading screen time…",
     "open": "Screen time for {{name}}"
+  },
+  "dashboard": {
+    "title": "{{name}}'s progress",
+    "subtitle": "Learning time, subjects and everything finished lately.",
+    "switcherLabel": "Choose a child",
+    "loading": "Loading progress…",
+    "waking": "Waking KidLearn up — this takes a few seconds after a quiet spell.",
+    "manageChildren": "Manage children",
+    "today": "Today",
+    "week": "This week",
+    "month": "This month",
+    "noTimeYet": "Nothing yet",
+    "durationMinutes": "{{count}}m",
+    "durationHours": "{{count}}h",
+    "durationHoursMinutes": "{{hours}}h {{minutes}}m",
+    "subjectsTitle": "Subjects",
+    "subjectsEmpty": "No lessons are ready for this grade yet. New subjects appear here as they are published.",
+    "subjectCount": "{{completed}} of {{total}} · {{percent}}%",
+    "strongest": "Strongest",
+    "needsPractice": "Needs practice",
+    "activityTitle": "Recent activity",
+    "activityEmpty": "No adventures yet — {{name}}'s progress will appear here!",
+    "activityLesson": "Lesson finished",
+    "activityStory": "Story read",
+    "activityBadge": "Badge earned"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

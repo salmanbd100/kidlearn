@@ -1,5 +1,6 @@
 import type {
   CharacterUnlockResponse,
+  DashboardData,
   LearningTimeResponse,
   ScreenTimeSettingResponse,
 } from "@kidlearn/types";
@@ -35,6 +36,7 @@ import {
   toChildProfileDto,
   updateChildProfile,
 } from "../services/childProfileService.js";
+import { getDashboardSummary } from "../services/dashboardService.js";
 import { getLearningMinutes } from "../services/learningTimeService.js";
 import {
   getScreenTimeSetting,
@@ -182,6 +184,46 @@ childrenRouter.get(
       const payload: SuccessEnvelope<LearningTimeResponse> = {
         data: learningTime,
       };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * FR-DASH-01..04 — the whole parent dashboard for one child, in one request.
+ *
+ * On this router for the reason `/:id/learning-time` gives: the resource is a
+ * child's, and the ownership guard, the 404 for somebody else's profile and the id
+ * parameter are already here. (A deviation from the implementation file, which
+ * suggested a router of its own — that would have meant a second mount point for
+ * `/api/children` and a second copy of `requireParent`, for one route.)
+ *
+ * **One endpoint rather than four.** Minutes, subject progress and the activity
+ * feed are read together every time the screen opens, and four PIN-gated calls
+ * would be four chances for a lapsed grant to leave half a dashboard rendered.
+ *
+ * **PIN-gated**, unlike `/:id/learning-time` beside it. That route reports minutes
+ * and nothing else; this one reports what a child has and has not learned, which
+ * is the household's private record and exactly what FR-AUTH-04 puts the parental
+ * gate in front of. It is also the screen a child would most like to edit the
+ * story of.
+ *
+ * Every figure is derived server-side: minutes from `SessionEvent` density
+ * (FR-TIME-06), completion from `LessonProgress`, the feed from `LessonProgress`
+ * and `RewardLedger`. Nothing here can be moved by a request.
+ */
+childrenRouter.get(
+  "/:id/dashboard",
+  requirePinVerified,
+  validate({ params: ChildIdParamsSchema }),
+  loadOwnedChild,
+  async (req, res, next) => {
+    try {
+      const summary = await getDashboardSummary(ownedChild(req));
+
+      const payload: SuccessEnvelope<DashboardData> = { data: summary };
       res.json(payload);
     } catch (error) {
       next(error);

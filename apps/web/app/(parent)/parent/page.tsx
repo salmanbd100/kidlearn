@@ -1,16 +1,30 @@
-import { redirect } from "next/navigation";
-import { PARENT_ROUTES } from "@/lib/parent-redirect";
+import { DashboardScreen } from "./DashboardScreen";
 
 /**
- * `/parent` — where the Google callback lands.
+ * `/parent` — the dashboard, and where the Google callback lands
+ * (`PARENT_POST_LOGIN_PATH`, default `/parent`).
  *
- * The server owns that destination (`PARENT_POST_LOGIN_PATH`, default `/parent`),
- * so this route has to exist. It has no screen of its own: everything about where a
- * parent belongs depends on their onboarding state, which only the client can read
- * (see `../context/parent-session.tsx`). So it forwards to the profile list and
- * lets `ParentGuard` do the deciding from there — a signed-out visitor is bounced
- * on to login, a half-onboarded one to the step they stopped at.
+ * It used to forward to the profile list, because there was no dashboard to show.
+ * Now there is, and `ParentGuard` still does the deciding for anyone who has not
+ * finished onboarding — a signed-out visitor is bounced to login, a half-onboarded
+ * one to the step they stopped at.
+ *
+ * `searchParams` is a Promise in Next.js 16 — synchronous access was removed, not
+ * just deprecated (see `apps/web/AGENTS.md`). Reading `?child=` here rather than
+ * with `useSearchParams` below keeps the client component free of routing concerns
+ * and needs no Suspense boundary: it receives an id, not a route.
  */
-export default function ParentIndexPage() {
-  redirect(PARENT_ROUTES.children);
+export default async function ParentDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { child } = await searchParams;
+  // A repeated `?child=a&child=b` arrives as an array. The first wins rather than
+  // the request being rejected — a malformed query parameter is not worth an error
+  // screen, and `DashboardScreen` falls back to the first profile for an id it
+  // cannot match anyway.
+  const selectedChildId = Array.isArray(child) ? child[0] : child;
+
+  return <DashboardScreen selectedChildId={selectedChildId} />;
 }

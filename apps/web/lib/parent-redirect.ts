@@ -15,6 +15,8 @@ export const PARENT_ROUTES = {
   consent: "/parent/onboarding/consent",
   pinSetup: "/parent/onboarding/pin",
   firstChild: "/parent/onboarding/child",
+  /** The progress dashboard, and where the Google callback lands (file 29). */
+  dashboard: "/parent",
   children: "/parent/children",
 } as const;
 
@@ -96,8 +98,10 @@ export function isOnboardingPath(pathname: string): boolean {
  *  4. No children yet → the first-profile form, which is what completes
  *     onboarding (FR-PROF-01).
  *  5. Otherwise, an already-onboarded parent sitting on login or an onboarding
- *     step is sent forward to the profile list rather than shown a step they have
- *     finished.
+ *     step is sent forward to the dashboard rather than shown a step they have
+ *     finished. That destination was the profile list until file 29 gave `/parent`
+ *     a screen of its own — a parent signing back in wants to see how their child
+ *     is doing, not a list of profiles they are not editing.
  *
  * `childCount === undefined` means the list has not loaded. That returns
  * `undefined` (render, don't redirect) rather than guessing: guessing "no
@@ -135,5 +139,5 @@ export function resolveParentRedirect(
   }
 
   // Fully onboarded. The finished steps are no longer destinations.
-  return isOnboardingPath(pathname) ? PARENT_ROUTES.children : undefined;
+  return isOnboardingPath(pathname) ? PARENT_ROUTES.dashboard : undefined;
 }

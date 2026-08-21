@@ -205,28 +205,44 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
     [status, parent, profiles, error, load],
   );
 
-  const gateValue = useMemo<ParentGateValue>(() => {
-    const relock = () => {
-      setIsLocked(true);
-      setGrantExpiresAt(null);
-    };
+  /**
+   * The three gate actions are stable across a lock/unlock, and must be.
+   *
+   * They were built inside the `gateValue` memo, so every one of them was a new
+   * closure each time `isLocked` flipped — and a screen that fetches inside
+   * `useEffect(..., [childId, guard])` therefore re-ran that effect the moment a
+   * grant lapsed, threw away the figures it had already rendered and replaced
+   * them with the error from a request that could only 403. `PinGate` overlays
+   * the page rather than replacing it precisely so that a parent still has their
+   * screen when they unlock; an unstable `guard` was undoing that.
+   *
+   * Only `isLocked` belongs in the memo below, because only `isLocked` changes.
+   */
+  const relock = useCallback(() => {
+    setIsLocked(true);
+    setGrantExpiresAt(null);
+  }, []);
 
-    return {
-      isLocked,
-      unlock: (pinVerifiedUntil: string) => {
-        setIsLocked(false);
-        setGrantExpiresAt(pinVerifiedUntil);
-      },
-      relock,
-      guard: async <T,>(call: Promise<ApiResult<T>>) => {
-        const result = await call;
-        if (!result.ok && result.error.code === "PIN_VERIFICATION_REQUIRED") {
-          relock();
-        }
-        return result;
-      },
-    };
-  }, [isLocked]);
+  const unlock = useCallback((pinVerifiedUntil: string) => {
+    setIsLocked(false);
+    setGrantExpiresAt(pinVerifiedUntil);
+  }, []);
+
+  const guard = useCallback(
+    async <T,>(call: Promise<ApiResult<T>>) => {
+      const result = await call;
+      if (!result.ok && result.error.code === "PIN_VERIFICATION_REQUIRED") {
+        relock();
+      }
+      return result;
+    },
+    [relock],
+  );
+
+  const gateValue = useMemo<ParentGateValue>(
+    () => ({ isLocked, unlock, relock, guard }),
+    [isLocked, unlock, relock, guard],
+  );
 
   return (
     <ParentSessionContext.Provider value={sessionValue}>

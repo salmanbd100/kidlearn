@@ -33,6 +33,7 @@ const ALL_PATHS = [
   PARENT_ROUTES.consent,
   PARENT_ROUTES.pinSetup,
   PARENT_ROUTES.firstChild,
+  PARENT_ROUTES.dashboard,
   PARENT_ROUTES.children,
   "/parent/children/new",
   "/parent/children/abc/edit",
@@ -128,7 +129,10 @@ describe("resolveParentRedirect — no profiles yet", () => {
 describe("resolveParentRedirect — fully onboarded", () => {
   const onboarded = { parent: parent(), childCount: 2 };
 
-  it("renders the profile list and everything under it", () => {
+  it("renders the dashboard, the profile list and everything under it", () => {
+    expect(
+      resolveParentRedirect(onboarded, PARENT_ROUTES.dashboard),
+    ).toBeUndefined();
     expect(
       resolveParentRedirect(onboarded, PARENT_ROUTES.children),
     ).toBeUndefined();
@@ -147,8 +151,10 @@ describe("resolveParentRedirect — fully onboarded", () => {
       PARENT_ROUTES.pinSetup,
       PARENT_ROUTES.firstChild,
     ]) {
+      // The dashboard, not the profile list: a parent signing back in wants to
+      // see how their child is doing (file 29).
       expect(resolveParentRedirect(onboarded, path)).toBe(
-        PARENT_ROUTES.children,
+        PARENT_ROUTES.dashboard,
       );
     }
   });
@@ -184,6 +190,7 @@ describe("gate exemptions", () => {
   });
 
   it("does not exempt the profile list or its sub-pages", () => {
+    expect(isGateExemptPath(PARENT_ROUTES.dashboard)).toBe(false);
     expect(isGateExemptPath(PARENT_ROUTES.children)).toBe(false);
     expect(isGateExemptPath("/parent/children/new")).toBe(false);
   });
@@ -197,6 +204,7 @@ describe("gate exemptions", () => {
   it("keeps the onboarding list separate from the exempt list", () => {
     expect(isOnboardingPath(PARENT_ROUTES.firstChild)).toBe(true);
     expect(isGateExemptPath(PARENT_ROUTES.firstChild)).toBe(false);
+    expect(isOnboardingPath(PARENT_ROUTES.dashboard)).toBe(false);
     expect(isOnboardingPath(PARENT_ROUTES.children)).toBe(false);
   });
 });
