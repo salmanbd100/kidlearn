@@ -58,7 +58,7 @@
 | 27 | `27-learning-time-tracking.md` | Server-side session heartbeats + learning time aggregation | FR-TIME-06, FR-DASH-02 (data), FR-LSN-07 | 06, 09, 16 | 3–4h | ✅ Done |
 | 28 | `28-screen-time-controls.md` | Daily limits, access windows, friendly lockout enforcement | FR-TIME-01..05 | 14, 27 | 3–4h | ✅ Done |
 | 29 | `29-parent-dashboard.md` | Per-child summary, subject progress, recent activity | FR-DASH-01..04 | 14, 23, 27 | 3–4h | ✅ Done |
-| 30 | `30-weekly-reports.md` | Weekly report generation job + report history UI | FR-DASH-05..06 | 29 | 3–4h | ⬜ Not started |
+| 30 | `30-weekly-reports.md` | Weekly report generation job + report history UI | FR-DASH-05..06 | 29 | 3–4h | ✅ Done |
 | 31 | `31-admin-auth-cms-foundation.md` | Admin auth, CMS layout, role guard, basic usage analytics | §4.3, FR-CMS-01 (shell), FR-CMS-07 (basic) | 08, 13 | 3–4h | ⬜ Not started |
 | 32 | `32-admin-curriculum-management.md` | CRUD for subjects/topics/lessons/worlds, ordering, publish workflow | FR-CURR-04, FR-CMS-01, FR-CMS-06 | 31 | 3–4h | ⬜ Not started |
 | 33 | `33-admin-media-upload-and-editors.md` | Media upload (Cloudinary), quiz/activity/badge editors, lesson preview | FR-CMS-02..04, FR-GAM-04 (admin) | 32 | 3–4h | ⬜ Not started |

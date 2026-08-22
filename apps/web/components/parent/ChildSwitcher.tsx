@@ -27,15 +27,26 @@ import { PARENT_ROUTES } from "@/lib/parent-redirect";
  * `GET /api/characters` to turn an `avatarCharacterId` into a slug. This screen
  * makes exactly one data call besides the child list it already has, and a second
  * request for a decoration on a two-item switcher is not worth it.
+ *
+ * `basePath` is what lets the weekly report screen (file 30) reuse this instead of
+ * growing a near-identical copy: the switcher's whole behaviour is "same page,
+ * different `?child=`", and the page is the only part that differs. It defaults to
+ * the dashboard, so the caller that predates it says nothing.
+ *
+ * Only `?child=` is carried across. A screen with further state in the query — the
+ * report screen's `?week=` — deliberately loses it on a switch: a week another
+ * child has no report for is not a state worth preserving into their tab.
  */
 export interface ChildSwitcherProps {
   profiles: readonly ChildProfileResponse[];
   selectedChildId: string;
+  basePath?: string;
 }
 
 export function ChildSwitcher({
   profiles,
   selectedChildId,
+  basePath = PARENT_ROUTES.dashboard,
 }: ChildSwitcherProps) {
   const { t } = useTranslation(PARENT_NAMESPACE);
 
@@ -52,7 +63,7 @@ export function ChildSwitcher({
           return (
             <li key={child.id}>
               <Link
-                href={`${PARENT_ROUTES.dashboard}?child=${encodeURIComponent(child.id)}`}
+                href={`${basePath}?child=${encodeURIComponent(child.id)}`}
                 aria-current={isSelected ? "page" : undefined}
                 className={cn(
                   // 44px minimum touch target on a parent surface (design.md §7).

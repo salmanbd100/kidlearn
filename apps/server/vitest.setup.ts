@@ -16,3 +16,6 @@ process.env.BETTER_AUTH_URL ??= "http://localhost:4000";
 process.env.BETTER_AUTH_SECRET ??= "test-secret-at-least-32-chars-long!!";
 process.env.GOOGLE_CLIENT_ID ??= "test-google-client-id";
 process.env.GOOGLE_CLIENT_SECRET ??= "test-google-client-secret";
+// File 30 — `/api/admin/jobs/*` authenticates with this shared secret, and
+// env.ts requires it at boot. `routes/jobs.test.ts` asserts against this value.
+process.env.CRON_SECRET ??= "test-cron-secret-value";

@@ -245,6 +245,16 @@ model Lesson {
   activity     Activity?           @relation(fields: [activityId], references: [id])
   quizId       String?
   quiz         Quiz?               @relation(fields: [quizId], references: [id])
+  // File 30 — what a child meets for the first time in this lesson, as prefixed
+  // tokens: `letter:A`, `word:apple`, `number:7`. The weekly report unions these
+  // across the lessons a child *first completed* inside the week, which is what
+  // makes "new letters this week" answerable without a second history table.
+  //
+  // A denormalised list rather than a join table: the aggregator only ever reads
+  // the whole array, an unknown prefix is ignored rather than fatal, and a
+  // `letter:A` typed twice across two lessons is deduped in the report. The admin
+  // lesson editor (file 32) is what fills this in beyond the seeds.
+  conceptsIntroduced String[]      @default([])
   translations LessonTranslation[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
@@ -500,6 +510,10 @@ model LessonProgress {
   updatedAt    DateTime     @updatedAt
 
   @@unique([childId, lessonId])
+  // File 30 — the weekly report selects one child's completions inside a
+  // `[weekStart, weekEnd)` window. Without this the same query is a scan of the
+  // child's whole history, once per report generated.
+  @@index([childId, completedAt])
 }
 
 model QuizResponse {

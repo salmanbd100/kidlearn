@@ -2,7 +2,7 @@
 
 import type { DashboardData } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
-import { Users } from "lucide-react";
+import { CalendarRange, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -143,12 +143,26 @@ export function DashboardScreen({
         />
       )}
 
-      <Button asChild variant="outline" className="self-start">
-        <Link href={PARENT_ROUTES.children}>
-          <Users aria-hidden="true" />
-          {t("dashboard.manageChildren")}
-        </Link>
-      </Button>
+      {/* Wrapped rather than a fixed row: two labels at +40% text length overflow
+          a 360px phone side by side (design.md §6, §1). */}
+      <div className="flex flex-wrap gap-3">
+        <Button asChild variant="outline">
+          {/* The child is carried across, so the report opens for whoever the
+              parent is looking at rather than resetting to the first profile. */}
+          <Link
+            href={`${PARENT_ROUTES.reports}?child=${encodeURIComponent(child.id)}`}
+          >
+            <CalendarRange aria-hidden="true" />
+            {t("reports.open")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={PARENT_ROUTES.children}>
+            <Users aria-hidden="true" />
+            {t("dashboard.manageChildren")}
+          </Link>
+        </Button>
+      </div>
     </main>
   );
 }

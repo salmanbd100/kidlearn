@@ -15,7 +15,7 @@ import {
   publishedRelationForChild,
 } from "../lib/published-for-child.js";
 import { getLearningMinutes } from "./learningTimeService.js";
-import type { GrantSource } from "./rewardService.js";
+import { STORY_COMPLETION } from "./rewardService.js";
 
 /**
  * The parent dashboard, in one read (FR-DASH-01..04).
@@ -54,9 +54,6 @@ import type { GrantSource } from "./rewardService.js";
  * a curriculum position but a review state, and an unreviewed world's titles are
  * no more the parent's to read than the child's.
  */
-
-/** The story-completion ledger rows, named through the closed grant union. */
-const STORY_COMPLETION: GrantSource = "story_completion";
 
 /**
  * How many ledger rows to read for a feed capped at `RECENT_ACTIVITY_LIMIT`.

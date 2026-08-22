@@ -151,14 +151,39 @@ describe("openapi document", () => {
     expect(schemas).toHaveProperty("QuizQuestion");
   });
 
-  it("describes the session cookie as the only security scheme", () => {
+  it("describes the session cookie and the job secret, and nothing else", () => {
+    // Two schemes since file 30, and the pair is the point: everything a human
+    // reaches is the cookie, and the one bearer token belongs to a scheduler that
+    // has nobody to sign in as. A third scheme appearing here without a reason in
+    // `components.ts` is a credential nobody decided to add.
     expect(document.components.securitySchemes).toEqual({
       sessionCookie: expect.objectContaining({
         type: "apiKey",
         in: "cookie",
         name: "better-auth.session_token",
       }),
+      cronSecret: expect.objectContaining({ type: "http", scheme: "bearer" }),
     });
+  });
+
+  it("applies the session cookie by default and the job secret only to jobs", () => {
+    // The default is what an operation gets by saying nothing, so an operation
+    // that forgot its `security` override is documented as cookie-authenticated —
+    // wrong in the safe direction for a reader, and worth pinning either way.
+    expect(document.security).toEqual([{ sessionCookie: [] }]);
+
+    const jobOperations = Object.entries(document.paths).filter(([path]) =>
+      path.startsWith("/api/admin/jobs/"),
+    );
+    expect(jobOperations.length).toBeGreaterThan(0);
+
+    for (const [, pathItem] of jobOperations) {
+      for (const operation of Object.values(pathItem)) {
+        expect((operation as { security?: unknown }).security).toEqual([
+          { cronSecret: [] },
+        ]);
+      }
+    }
   });
 });
 
