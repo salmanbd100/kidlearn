@@ -583,14 +583,14 @@ erDiagram
 - **Balances are aggregates, not counters.** Stars/coins = `SUM(RewardLedger.amount)` filtered by `rewardType`. Rows are written only by server reward logic (file 23) — no purchase path exists (FR-GAM-08 satisfied by construction).
 - **Learning time = event-sourced.** There is **no `LearningTime` table**; minutes (today/week/month) are aggregated from `SessionEvent` rows server-side (file 27) in `APP_TIMEZONE`, so a client refresh can't bypass a limit (FR-TIME-06). This realizes spec §8's "SessionEvent / LearningTime" entity as events + aggregation.
 - **Date-only / time-only native types** keep math timezone-stable: `Streak.lastActivityDate @db.Date`, `WeeklyReport.weekStart @db.Date`, `ScreenTimeSetting.windowStart/windowEnd @db.Time(0)`.
-- **`WeeklyReport.metrics` carries the structured payload** (active days, minutes, new letters/words/numbers, lessons/stories completed, quiz accuracy, badges, plus `noteKey`+`noteParams` for i18n). `note String?` is only the rendered **English fallback** (file 30) — there are no separate `noteKey`/`noteParams` columns.
+- **`WeeklyReport.metrics` carries the structured payload** (active days, minutes, new letters/words/numbers, lessons/stories completed, quiz accuracy **and the first-attempt count it averages** — `quizFirstAttempts`, added by file 30 so `selectNote`'s "≥90% over ≥10 questions" rule stays derivable from a stored row — badges, plus `noteKey`+`noteParams` for i18n). `note String?` is only the rendered **English fallback** (file 30) — there are no separate `noteKey`/`noteParams` columns.
 - **`Badge`/`Character` survive child deletion** — they are shared content; only the child-owned join/ledger rows cascade away.
 
 ### Entity reference — Domain D (uniques & cascades)
 
 | Model | Unique | Cascades on `ChildProfile` delete | File |
 |---|---|---|---|
-| LessonProgress | `(childId, lessonId)` | ✅ | 06 |
+| LessonProgress | `(childId, lessonId)` (indexed `(childId, completedAt)`) | ✅ | 06, 30 |
 | QuizResponse | — (indexed `(childId, answeredAt)`) | ✅ | 06 |
 | RewardLedger | — (indexed `(childId, createdAt)`) | ✅ | 06 |
 | ChildCharacter | `(childId, characterId)` | ✅ | 06 |
@@ -696,7 +696,7 @@ The schema is built additively. Each migration is named and owned by one file:
 | 6 | `progress_gamification_schema` (06) | 7 enums; `LessonProgress`, `QuizResponse`, `Badge`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`, `AIGenerationJob`; `ChildProfile.avatarCharacterId` FK |
 | 7 | `session_event_step_complete` (16) | `SessionEventType.step_complete` — the per-step marker file 06's enum omitted |
 | 8 | `story_translations` (25) | `StoryTranslation` model — the child-facing story title, moral and title narration the `Story.title` note in §6 deferred to files 25–26 |
-| 9 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]` |
+| 9 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]`; index `LessonProgress(childId, completedAt)` — the weekly report selects one child's completions inside a seven-day window, which the `(childId, lessonId)` unique cannot serve |
 | 10 | `admin_auth_link` (31) | `AdminUser.authUserId` |
 | 11 | `content_audit_fields` (32) | `updatedBy String?` on `World`/`Subject`/`Topic`/`Lesson` |
 | 12 | `ai_job_linkage` (34) | `aiJobId String?` on `Lesson`, `Quiz`, `QuizQuestion`, `Story`, `Activity`, `MediaAsset` |

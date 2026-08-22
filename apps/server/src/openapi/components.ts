@@ -53,6 +53,7 @@ import {
   QuizQuestionSchema,
   QuizResponsesResponseSchema,
   QuizScoreSchema,
+  ReportNoteKeySchema,
   RewardSummaryResponseSchema,
   RewardSummarySchema,
   RewardTotalsSchema,
@@ -75,6 +76,13 @@ import {
   TopicListResponseSchema,
   TopicSummarySchema,
   ValidationDetailsSchema,
+  WeeklyReportBadgeSchema,
+  WeeklyReportJobResponseSchema,
+  WeeklyReportJobResultSchema,
+  WeeklyReportListResponseSchema,
+  WeeklyReportListSchema,
+  WeeklyReportMetricsSchema,
+  WeeklyReportSchema,
   WorldLessonsResponseSchema,
   WorldListResponseSchema,
   WorldSummarySchema,
@@ -231,6 +239,19 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   DashboardSummary: DashboardSummarySchema,
   DashboardSummaryResponse: DashboardSummaryResponseSchema,
 
+  // --- Weekly reports -----------------------------------------------------
+  // Response shapes only. Neither endpoint takes a body: the report list is a
+  // read, and the job derives its week from the server clock rather than from a
+  // parameter a mis-configured scheduler could get wrong.
+  ReportNoteKey: ReportNoteKeySchema,
+  WeeklyReportBadge: WeeklyReportBadgeSchema,
+  WeeklyReportMetrics: WeeklyReportMetricsSchema,
+  WeeklyReport: WeeklyReportSchema,
+  WeeklyReportList: WeeklyReportListSchema,
+  WeeklyReportListResponse: WeeklyReportListResponseSchema,
+  WeeklyReportJobResult: WeeklyReportJobResultSchema,
+  WeeklyReportJobResponse: WeeklyReportJobResponseSchema,
+
   // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,
   ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
@@ -275,6 +296,21 @@ export const SECURITY_SCHEMES = {
     name: "better-auth.session_token",
     description:
       "better-auth session cookie, set by the Google OAuth callback and sent automatically by the browser. Because Swagger UI is served from this same origin, signing in at `/api/auth/google` is enough to make **Try it out** work on every authenticated operation below — there is no token to paste. Named `__Secure-better-auth.session_token` in production.",
+  },
+  /**
+   * The shared secret on `/api/admin/jobs/*` (file 30).
+   *
+   * The only credential in this API that is not a session, and it exists because
+   * its caller is a scheduler: cron-job.org has no browser to hold a cookie and
+   * nobody to complete an OAuth round trip. Registered as a scheme of its own
+   * rather than folded into `sessionCookie`, so the operations that use it say so
+   * in the document instead of appearing to accept a login they would refuse.
+   */
+  cronSecret: {
+    type: "http",
+    scheme: "bearer",
+    description:
+      "`Authorization: Bearer <CRON_SECRET>`. A static shared secret from the server's environment, not a token anyone signs in for. **Try it out** in this page will not work for these operations unless you paste the secret yourself.",
   },
 } as const;
 
@@ -331,6 +367,16 @@ export const TAGS = [
     name: "Dashboard",
     description:
       "What the parent dashboard renders for one child (FR-DASH-01..04): learning minutes for three windows, per-subject completion, and the recent-activity feed — all in one request, because the screen reads them together and four PIN-gated calls would be four chances for a lapsed grant to leave half a dashboard on screen.\n\nEvery figure is the server's. Minutes come from the same `getLearningMinutes` a screen-time limit is checked against, so a dashboard and a limit can never disagree; completion comes from `LessonProgress`; the feed from `LessonProgress` and `RewardLedger`. Nothing a client sends contributes to any of them (FR-TIME-06, spec §7).\n\n**Titles arrive in both locales**, unlike every other localised response in this API. The reader is the parent, their dashboard language is an i18next choice the server never sees, and there is no parent language column — so resolving to the *child's* language here would show an English-reading parent Bangla lesson titles inside English chrome.",
+  },
+  {
+    name: "Reports",
+    description:
+      "The weekly progress report (FR-DASH-05..06): one persisted row per child per week, holding active days, learning minutes, the letters, words and numbers met for the first time, lessons and stories finished, first-attempt quiz accuracy, badges earned, and an encouraging note.\n\n**A stored snapshot, not a live query.** The figures are computed once the week has ended and read back verbatim, so content unpublished in October cannot quietly rewrite August. Regeneration for a week *replaces* its row — the unique index on `(childId, weekStart)` is what makes the history structurally incapable of holding a duplicate week, however many times either trigger fires.\n\n**Two triggers, because the free tier has no worker.** The list endpoint fills in the last completed week for the child being viewed; `POST /api/admin/jobs/weekly-reports` does it for everybody on an external schedule. Both are the same idempotent upsert.\n\n**The note is a key, not a sentence** — the client renders it through i18next, which is what makes it readable in Bangla. It is chosen by a deterministic ordered rule list, not generated; the stored `key + params` shape is what would let an LLM be swapped in behind it later without a migration.",
+  },
+  {
+    name: "Jobs",
+    description:
+      "Work an external scheduler triggers, authenticated by a shared secret rather than a session — the caller is cron-job.org, which has nobody to sign in as (see the `cronSecret` scheme). Every job here only ever **recomputes** something the server already owns, and none of them read per-child data out: with a static credential sitting in a third party's configuration field, there is no human for a response to be scoped to.",
   },
   {
     name: "Screen Time",

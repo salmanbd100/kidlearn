@@ -18,6 +18,10 @@ export * from "./activity/schemas.js";
 // HTTP request/response contracts (file 12a). Shared with `apps/web` so the
 // client never redeclares a response shape.
 export * from "./api/index.js";
+// The concept-token prefixes stored on a lesson (file 30): written by the admin
+// editor, bucketed by the report aggregator, rendered as chips by the parent
+// screen — one vocabulary, three consumers.
+export * from "./concepts.js";
 // Server-derived learning time (file 27): the activity-event and range
 // vocabulary both halves of the wire share.
 export * from "./learning-time.js";

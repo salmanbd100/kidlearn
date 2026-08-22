@@ -75,6 +75,16 @@ export type GrantSource =
    */
   | "story_completion";
 
+/**
+ * The story-completion `sourceType`, as a value.
+ *
+ * Exported because two readers filter the ledger by it — the dashboard's activity
+ * feed and the weekly report's story count — and both had their own copy of the
+ * same annotated constant. The union above closes the set of spellings; this
+ * closes the set of copies.
+ */
+export const STORY_COMPLETION: GrantSource = "story_completion";
+
 export interface GrantSpec {
   rewardType: Extract<RewardType, "star" | "coin">;
   amount: number;

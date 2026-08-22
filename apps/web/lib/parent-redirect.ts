@@ -17,6 +17,8 @@ export const PARENT_ROUTES = {
   firstChild: "/parent/onboarding/child",
   /** The progress dashboard, and where the Google callback lands (file 29). */
   dashboard: "/parent",
+  /** The weekly report card and its history (file 30, FR-DASH-05..06). */
+  reports: "/parent/reports",
   children: "/parent/children",
 } as const;
 

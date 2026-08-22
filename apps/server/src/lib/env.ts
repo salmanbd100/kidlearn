@@ -43,6 +43,19 @@ const EnvSchema = z.object({
     .string()
     .default("Asia/Dhaka")
     .refine(isKnownTimeZone, "must be an IANA timezone name, e.g. Asia/Dhaka"),
+  /**
+   * Shared secret for `/api/admin/jobs/*` (file 30).
+   *
+   * Required, not optional. An optional secret would make the weekly-report job
+   * open to anyone the moment a deployment forgot the variable, and the failure
+   * would be silent — the job would keep working. Failing at boot is the only
+   * version of this that cannot be missed.
+   *
+   * 16 characters is a floor rather than a policy: this is the *whole* of the
+   * authorisation on those routes, so a memorable string is not an option.
+   * Generate with `openssl rand -base64 32`.
+   */
+  CRON_SECRET: z.string().min(16),
   // --- API documentation --------- //
   ENABLE_API_DOCS: z
     .enum(["true", "false"])

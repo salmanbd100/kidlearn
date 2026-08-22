@@ -3,6 +3,7 @@ import type {
   DashboardData,
   LearningTimeResponse,
   ScreenTimeSettingResponse,
+  WeeklyReportList,
 } from "@kidlearn/types";
 import { Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
@@ -43,6 +44,7 @@ import {
   saveScreenTimeSetting,
   toScreenTimeSettingResponse,
 } from "../services/screenTimeService.js";
+import { getWeeklyReports } from "../services/weeklyReportService.js";
 
 /**
  * `/api/children` — the parent's own learner profiles (FR-PROF-01..07).
@@ -224,6 +226,52 @@ childrenRouter.get(
       const summary = await getDashboardSummary(ownedChild(req));
 
       const payload: SuccessEnvelope<DashboardData> = { data: summary };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * FR-DASH-05..06 — this child's weekly reports, newest first.
+ *
+ * On this router for the reason `/:id/dashboard` gives, and a deviation from the
+ * implementation file's suggested `routes/reports.ts` for the same reason: the
+ * resource is a child's, and the ownership guard, the 404 for somebody else's
+ * profile and the id parameter are already here. A router of its own would have
+ * meant a second `/api/children` mount point and a second copy of `requireParent`
+ * for one route.
+ *
+ * **Generation happens here, on read.** If the most recently finished week has no
+ * row, it is aggregated before the list is returned — the free tier has no worker
+ * and no queue, so the first parent to look is one of the two triggers (the other
+ * is `POST /api/admin/jobs/weekly-reports`). Both are upserts on
+ * `(childId, weekStart)`, so neither can duplicate a week however often they run,
+ * and neither reaches back past the week the profile was created. One week of
+ * catch-up per request, deliberately: a parent returning after a long gap gets last
+ * week's card immediately rather than waiting on a dozen aggregations, and the cron
+ * job fills the older holes.
+ *
+ * **PIN-gated**, like `/:id/dashboard` and for the same reason: a report says what
+ * a child did and did not learn, which is the household's private record and
+ * exactly what FR-AUTH-04 puts the parental gate in front of.
+ *
+ * `GET` rather than `POST`, though it may write: what it writes is derived from
+ * rows the server already holds, it is idempotent, and it is invisible to the
+ * caller — the response is the same list either way. A `POST` would push the
+ * decision "does last week exist yet" into every client.
+ */
+childrenRouter.get(
+  "/:id/reports",
+  requirePinVerified,
+  validate({ params: ChildIdParamsSchema }),
+  loadOwnedChild,
+  async (req, res, next) => {
+    try {
+      const reports = await getWeeklyReports(ownedChild(req));
+
+      const payload: SuccessEnvelope<WeeklyReportList> = { data: reports };
       res.json(payload);
     } catch (error) {
       next(error);

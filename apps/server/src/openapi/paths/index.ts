@@ -5,6 +5,7 @@ import { CHILDREN_ROUTES } from "./children.js";
 import { CONTENT_ROUTES } from "./content.js";
 import { EVENTS_ROUTES } from "./events.js";
 import { HEALTH_ROUTES } from "./health.js";
+import { JOBS_ROUTES } from "./jobs.js";
 import { ME_ROUTES } from "./me.js";
 import { PARENT_ROUTES } from "./parent.js";
 import { PROGRESS_ROUTES } from "./progress.js";
@@ -31,6 +32,7 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...EVENTS_ROUTES,
   ...ME_ROUTES,
   ...SCREEN_TIME_ROUTES,
+  ...JOBS_ROUTES,
 ];
 
 /**

@@ -5,6 +5,7 @@ import { charactersRouter } from "./characters.js";
 import { childrenRouter } from "./children.js";
 import { contentRouter } from "./content.js";
 import { eventsRouter } from "./events.js";
+import { jobsRouter } from "./jobs.js";
 import { meRouter } from "./me.js";
 import { parentRouter } from "./parent.js";
 import { progressRouter } from "./progress.js";
@@ -61,3 +62,9 @@ apiRouter.use(
   requireActiveChild,
   screenTimeRouter,
 );
+
+// Scheduled work (file 30). Not a parent surface and not the admin CMS: the whole
+// router authenticates with a shared secret because its caller is cron-job.org,
+// which has no session to hold. See `middleware/require-cron-secret.ts` for why
+// that is the only workable credential here and what it constrains these routes to.
+apiRouter.use("/admin/jobs", jobsRouter);

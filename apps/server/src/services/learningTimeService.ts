@@ -7,7 +7,13 @@ import type {
   LearningTimeResponse,
 } from "@kidlearn/types";
 import { env } from "../lib/env.js";
-import { localDateIn, localDayStartUtc } from "../lib/local-date.js";
+import {
+  addLocalDays,
+  localDateIn,
+  localDayStartUtc,
+  localWeekBounds,
+  mondayOfLocalWeek,
+} from "../lib/local-date.js";
 import { prisma } from "../lib/prisma.js";
 import { requireVisibleLessonId } from "./lessonProgressService.js";
 import { requireVisibleStoryId } from "./storyService.js";
@@ -129,17 +135,10 @@ export function learningTimeWindow(
   }
 
   if (range === "week") {
-    // `getUTCDay()` on the date string read as UTC midnight: the string carries no
-    // zone of its own, which is what makes this arithmetic independent of both the
-    // server's clock and DST (the same reason `previousLocalDate` works this way).
-    const weekday = new Date(`${today}T00:00:00.000Z`).getUTCDay();
-    // Monday start (FR-DASH-02): Sunday is day 0 and is the *end* of its week, so
-    // it walks back six days rather than none.
-    const monday = addLocalDays(today, -((weekday + 6) % 7));
-    return {
-      from: localDayStartUtc(timeZone, monday),
-      to: localDayStartUtc(timeZone, addLocalDays(monday, 7)),
-    };
+    // Monday start (FR-DASH-02), and the bounds themselves from
+    // `lib/local-date.ts` so this window and the weekly report (file 30) cannot
+    // disagree about which seven days a week is.
+    return localWeekBounds(timeZone, mondayOfLocalWeek(today));
   }
 
   const [year, month] = today.split("-").map(Number);
@@ -149,14 +148,6 @@ export function learningTimeWindow(
     from: localDayStartUtc(timeZone, `${year}-${pad(month)}-01`),
     to: localDayStartUtc(timeZone, `${nextMonth}-01`),
   };
-}
-
-/** `days` either side of a `yyyy-MM-dd`, as a `yyyy-MM-dd`. */
-function addLocalDays(localDate: string, days: number): string {
-  const [year, month, day] = localDate.split("-").map(Number);
-  const shifted = new Date(Date.UTC(year, month - 1, day));
-  shifted.setUTCDate(shifted.getUTCDate() + days);
-  return shifted.toISOString().slice(0, 10);
 }
 
 function pad(month: number): string {

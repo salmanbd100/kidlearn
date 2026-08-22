@@ -198,9 +198,18 @@ async function main() {
     { topic: alphabet.id, en: "Alphabet", bn: "বর্ণমালা" },
   ]);
 
+  /**
+   * `conceptsIntroduced` is owned on **update** as well as create, for the reason
+   * `title` is below: the `weekly_report_concepts` migration backfills every
+   * existing row with an empty array, so with `update: {}` a re-seed would leave
+   * the demo lessons teaching nothing and every weekly report counting zero new
+   * letters. The tokens are the honest content of each lesson, not filler — an
+   * unrecognised prefix is ignored by the aggregator, a wrong one is a lie in a
+   * parent's report.
+   */
   const lessonA = await prisma.lesson.upsert({
     where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a" } },
-    update: {},
+    update: { conceptsIntroduced: ["letter:A", "word:apple", "word:ant"] },
     create: {
       slug: "letter-a",
       title: "Letter A",
@@ -209,6 +218,7 @@ async function main() {
       status: "draft",
       topicId: alphabet.id,
       worldId: jungle.id,
+      conceptsIntroduced: ["letter:A", "word:apple", "word:ant"],
     },
   });
 
@@ -766,7 +776,11 @@ async function main() {
   // ---------- Lessons ----------
   const letterASounds = await prisma.lesson.upsert({
     where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a-sounds" } },
-    update: {},
+    // Shares `letter:A` with the draft `letter-a` lesson on purpose: the report's
+    // dedupe is what stops a child who finished both being credited two letters.
+    update: {
+      conceptsIntroduced: ["letter:A", "word:apple", "word:alligator"],
+    },
     create: {
       slug: "letter-a-sounds",
       title: "The Letter A",
@@ -777,6 +791,7 @@ async function main() {
       worldId: jungle.id,
       activityId: dragTheAnimalHome.id,
       quizId: letterASoundsQuiz.id,
+      conceptsIntroduced: ["letter:A", "word:apple", "word:alligator"],
     },
   });
 
@@ -818,7 +833,9 @@ async function main() {
     where: {
       topicId_slug: { topicId: alphabet.id, slug: "letter-a-practice" },
     },
-    update: {},
+    // Practice, not new ground: it revisits `letter:A` and introduces nothing, so
+    // an empty array is the honest value rather than a repeat of the lesson above.
+    update: { conceptsIntroduced: [] },
     create: {
       slug: "letter-a-practice",
       title: "Practise the Letter A",
@@ -828,6 +845,7 @@ async function main() {
       topicId: alphabet.id,
       worldId: jungle.id,
       activityId: dragTheAnimalHome.id,
+      conceptsIntroduced: [],
     },
   });
 
@@ -849,7 +867,7 @@ async function main() {
   // Awaiting human review — must never reach a child (§7.3.4).
   await prisma.lesson.upsert({
     where: { topicId_slug: { topicId: alphabet.id, slug: "letter-c" } },
-    update: {},
+    update: { conceptsIntroduced: ["letter:C", "word:cat"] },
     create: {
       slug: "letter-c",
       title: "The Letter C",
@@ -858,6 +876,7 @@ async function main() {
       status: "in_review",
       topicId: alphabet.id,
       worldId: jungle.id,
+      conceptsIntroduced: ["letter:C", "word:cat"],
     },
   });
 
@@ -866,7 +885,7 @@ async function main() {
     where: {
       topicId_slug: { topicId: alphabet.id, slug: "letter-z-advanced" },
     },
-    update: {},
+    update: { conceptsIntroduced: ["letter:Z", "word:zebra"] },
     create: {
       slug: "letter-z-advanced",
       title: "The Letter Z",
@@ -875,6 +894,7 @@ async function main() {
       status: "published",
       topicId: alphabet.id,
       worldId: jungle.id,
+      conceptsIntroduced: ["letter:Z", "word:zebra"],
     },
   });
 
