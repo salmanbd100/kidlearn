@@ -13,6 +13,13 @@ const operations = Object.entries(document.paths).flatMap(([path, pathItem]) =>
   })),
 );
 
+/** Operations better-auth serves, which this repo documents but does not shape. */
+const EXTERNAL_OPERATION_IDS = new Set(
+  EXTERNAL_ROUTE_DOCS.map(
+    ({ method, path }) => `${method.toUpperCase()} ${path}`,
+  ),
+);
+
 /** Collects every `$ref` string anywhere in the document. */
 function collectRefs(node: unknown, found: string[] = []): string[] {
   if (Array.isArray(node)) {
@@ -98,7 +105,12 @@ describe("openapi document", () => {
       "GET /api/auth/callback/google",
       "GET /api/auth/google",
       "GET /health",
+      // The admin credential endpoints (file 31). Public because they *are* the
+      // sign-in: `sign-in/email` is where an admin session comes from, and
+      // `sign-up/email` is disabled for every caller regardless.
+      "POST /api/auth/sign-in/email",
       "POST /api/auth/sign-in/social",
+      "POST /api/auth/sign-up/email",
     ]);
   });
 
@@ -110,16 +122,19 @@ describe("openapi document", () => {
       >;
 
       for (const [status, response] of Object.entries(responses)) {
-        // 302s carry no body; better-auth's hand-written operations use their own
-        // shapes because they are not ours to envelope.
-        const isOurs = !id.startsWith("POST /api/auth/sign-in");
+        // 302s carry no body; better-auth's own operations use their own error
+        // shapes because they are not ours to envelope. Derived from the registry
+        // rather than matched on a path prefix, so documenting another better-auth
+        // endpoint (file 31 added the two credential ones) does not mean editing
+        // an exclusion list here as well.
         if (!status.startsWith("4") && !status.startsWith("5")) continue;
-        if (!isOurs) continue;
-
-        const ref = response.content?.["application/json"]?.schema?.$ref;
-        expect(ref, `${id} → ${status} does not reference ErrorEnvelope`).toBe(
-          "#/components/schemas/ErrorEnvelope",
-        );
+        if (!EXTERNAL_OPERATION_IDS.has(id)) {
+          const ref = response.content?.["application/json"]?.schema?.$ref;
+          expect(
+            ref,
+            `${id} → ${status} does not reference ErrorEnvelope`,
+          ).toBe("#/components/schemas/ErrorEnvelope");
+        }
       }
     }
   });

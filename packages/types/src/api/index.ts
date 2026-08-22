@@ -18,6 +18,7 @@
  *    compile-time check on the server side that the mirror still matches.
  */
 
+export * from "./admin.js";
 export * from "./auth.js";
 export * from "./children.js";
 export * from "./content.js";
