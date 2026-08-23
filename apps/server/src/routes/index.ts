@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireActiveChild } from "../middleware/require-active-child.js";
 import { requireParent } from "../middleware/require-parent.js";
+import { adminRouter } from "./admin/index.js";
 import { charactersRouter } from "./characters.js";
 import { childrenRouter } from "./children.js";
 import { contentRouter } from "./content.js";
@@ -68,3 +69,12 @@ apiRouter.use(
 // which has no session to hold. See `middleware/require-cron-secret.ts` for why
 // that is the only workable credential here and what it constrains these routes to.
 apiRouter.use("/admin/jobs", jobsRouter);
+
+// The admin CMS (file 31). Mounted *after* `/admin/jobs` on purpose: Express
+// matches in registration order, and this router applies `requireAdmin` to
+// everything under it, so mounting it first would put a session guard in front of
+// the scheduler's paths and break the weekly-report job.
+//
+// The guard lives on the router rather than here, so files 32–37 inherit it by
+// construction wherever they add a path.
+apiRouter.use("/admin", adminRouter);

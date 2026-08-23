@@ -87,11 +87,74 @@ export const AUTH_ROUTES: RouteDoc[] = [
  *
  * Hand-written and deliberately **excluded from `coverage.test.ts`**: they are
  * not registrations on any router this repo owns, so the coverage walk cannot see
- * them and must not expect to. Only the four that `apps/web` will actually call
- * are documented — better-auth serves more, and its own `openAPI()` plugin is the
+ * them and must not expect to. Only the ones `apps/web` will actually call are
+ * documented — better-auth serves more, and its own `openAPI()` plugin is the
  * place to look for the full list if that ever becomes necessary.
  */
 export const BETTER_AUTH_ROUTES: RouteDoc[] = [
+  {
+    method: "post",
+    path: "/api/auth/sign-in/email",
+    operation: {
+      tags: ["Admin"],
+      summary: "Admin sign-in (better-auth)",
+      description: [
+        "Owned by better-auth. The **only** password login in this API, and it exists for administrators (file 31, spec §4.3) — no parent surface offers a password field, and a Google-authenticated parent has no `credential` account for it to match.",
+        "",
+        "On success it sets the same session cookie the Google flow sets. What makes the session an *admin* session is not this call but the `AdminUser` row `requireAdmin` looks up; signing in here without one gets a `403` from every `/api/admin/*` path.",
+        "",
+        "`401` for both a wrong password and an unknown email, deliberately: distinguishing them would confirm which addresses are administrators.",
+      ].join("\n"),
+      security: [],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                email: { type: "string", format: "email" },
+                password: { type: "string", minLength: 12 },
+              },
+              required: ["email", "password"],
+            },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "The session cookie is set; the body carries the user.",
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+        "401": {
+          description:
+            "Wrong password, or no credential account for that email. The two are indistinguishable on purpose.",
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/auth/sign-up/email",
+    operation: {
+      tags: ["Admin"],
+      summary: "Password sign-up — disabled",
+      description: [
+        "Documented so it is on the record as **closed**, not because anything calls it. better-auth is configured with `emailAndPassword.disableSignUp`, so this answers `400 EMAIL_PASSWORD_SIGN_UP_DISABLED` for every request.",
+        "",
+        "That is what keeps the shared `user` table safe: nobody can mint an administrator identity over HTTP. Admins exist only because `pnpm --filter server seed:admin` created them, and re-running that seed is how a forgotten password is recovered — there is no self-service reset, so the login page offers neither a signup nor a forgot-password affordance. A signed-in admin can change their own password via better-auth's `POST /api/auth/change-password`.",
+      ].join("\n"),
+      security: [],
+      responses: {
+        "400": {
+          description:
+            "Always. Password sign-up is disabled for every caller, administrator or not.",
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+      },
+    },
+  },
   {
     method: "post",
     path: "/api/auth/sign-in/social",

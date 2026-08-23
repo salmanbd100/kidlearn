@@ -3,6 +3,8 @@ import {
   ActivityDefinitionSchema,
   ActivityEventResponseSchema,
   ActivityEventSchema,
+  AdminIdentityResponseSchema,
+  AdminIdentitySchema,
   AuthMeResponseSchema,
   AuthMeSchema,
   AvatarCharacterListResponseSchema,
@@ -50,6 +52,8 @@ import {
   ParentSummarySchema,
   PinGrantResponseSchema,
   PinStatusResponseSchema,
+  PlatformOverviewResponseSchema,
+  PlatformOverviewSchema,
   QuizQuestionSchema,
   QuizResponsesResponseSchema,
   QuizScoreSchema,
@@ -252,6 +256,15 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   WeeklyReportJobResult: WeeklyReportJobResultSchema,
   WeeklyReportJobResponse: WeeklyReportJobResponseSchema,
 
+  // --- Admin CMS ----------------------------------------------------------
+  // Response shapes only. Neither endpoint takes a body or a parameter: the
+  // identity call reads the session, and the counters derive both of their
+  // windows from the server clock (FR-CMS-01, FR-CMS-07).
+  AdminIdentity: AdminIdentitySchema,
+  AdminIdentityResponse: AdminIdentityResponseSchema,
+  PlatformOverview: PlatformOverviewSchema,
+  PlatformOverviewResponse: PlatformOverviewResponseSchema,
+
   // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,
   ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
@@ -377,6 +390,11 @@ export const TAGS = [
     name: "Jobs",
     description:
       "Work an external scheduler triggers, authenticated by a shared secret rather than a session — the caller is cron-job.org, which has nobody to sign in as (see the `cronSecret` scheme). Every job here only ever **recomputes** something the server already owns, and none of them read per-child data out: with a static credential sitting in a third party's configuration field, there is no human for a response to be scoped to.",
+  },
+  {
+    name: "Admin",
+    description:
+      "The administrator surface (spec §4.3, FR-CMS-01). A **separate principal** from a parent, not a parent with extra rights: an admin has no children, no PIN and no consent record, and nothing on these paths takes a parent or child id.\n\nAdmins and parents share one better-auth instance and one `user` table — one session store, one cookie, one CORS configuration — so what separates them is a domain row rather than infrastructure: an `AdminUser` exists for an admin's identity and never for a Google sign-in, and `Parent` provisioning requires a Google account. Each side's guard therefore rejects the other's session with a `403`, in both directions.\n\nThere is **no self-service signup**. `POST /api/auth/sign-up/email` is disabled for everybody, so the only way an admin exists is `pnpm --filter server seed:admin`, and re-running that seed is how a forgotten password is recovered — there is no self-service reset flow. A signed-in admin can change their own password through better-auth's `POST /api/auth/change-password`, undocumented here because `apps/web` does not call it. Rate limiting on the login route lands with file 38.\n\nAnalytics here is platform-wide aggregate only (FR-CMS-07, basic tier) — no response names a household, and detailed analytics are Phase 2.",
   },
   {
     name: "Screen Time",

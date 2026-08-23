@@ -117,6 +117,22 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 - All fonts use `next/font` (self-hosted, no layout shift). No external font `<link>` tags. **[REVIEW]**
 - Every user-facing string is routed through `i18next`. No hard-coded text in components, not even in development stubs. See `document/design.md §10` for copy voice guidelines. **[REVIEW]**
 
+#### Recorded exception — the `(admin)` CMS is English-only
+
+**Status: active as of 2026-08-22 (file 31).** FR-I18N covers the child and parent
+surfaces, which are the ones a family reads. The CMS is an internal tool used by
+the team, so strings in `app/(admin)/`, `components/admin/` and
+`lib/admin-routes.ts` stay hard-coded English rather than wiring a fourth i18next
+namespace — the alternative is a Bangla translation of "AI Queue" that nobody has
+asked for.
+
+This is bounded to the `(admin)` surface. A string on any `(student)` or `(parent)`
+path is not covered by it, whichever directory the component lives in.
+
+**Exit condition:** the day a reviewer outside the team is onboarded.
+`lib/admin-routes.ts` holds the nav labels, so it and the screens under
+`app/(admin)/` are what change; delete this section then.
+
 ---
 
 ## 4. Frontend Testing
@@ -142,7 +158,7 @@ Before considering frontend work complete:
 - [ ] Semantic tokens only — no raw hex, brand hue names, or Tailwind color literals
 - [ ] No theme branching in JavaScript — `data-theme` on the layout boundary only
 - [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components
-- [ ] All user-facing strings via `i18next`
+- [ ] All user-facing strings via `i18next` (except the `(admin)` CMS — see §3)
 - [ ] Images via `next/image`, fonts via `next/font`
 - [ ] Touch targets: ≥64px on kid surfaces, ≥44px on parent surfaces (`document/design.md §7`)
 - [ ] Motion respects `prefers-reduced-motion`; animates only `transform` and `opacity` (`document/design.md §5`)

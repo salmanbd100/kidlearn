@@ -59,7 +59,7 @@
 | 28 | `28-screen-time-controls.md` | Daily limits, access windows, friendly lockout enforcement | FR-TIME-01..05 | 14, 27 | 3–4h | ✅ Done |
 | 29 | `29-parent-dashboard.md` | Per-child summary, subject progress, recent activity | FR-DASH-01..04 | 14, 23, 27 | 3–4h | ✅ Done |
 | 30 | `30-weekly-reports.md` | Weekly report generation job + report history UI | FR-DASH-05..06 | 29 | 3–4h | ✅ Done |
-| 31 | `31-admin-auth-cms-foundation.md` | Admin auth, CMS layout, role guard, basic usage analytics | §4.3, FR-CMS-01 (shell), FR-CMS-07 (basic) | 08, 13 | 3–4h | ⬜ Not started |
+| 31 | `31-admin-auth-cms-foundation.md` | Admin auth, CMS layout, role guard, basic usage analytics | §4.3, FR-CMS-01 (shell), FR-CMS-07 (basic) | 08, 13 | 3–4h | ✅ Done |
 | 32 | `32-admin-curriculum-management.md` | CRUD for subjects/topics/lessons/worlds, ordering, publish workflow | FR-CURR-04, FR-CMS-01, FR-CMS-06 | 31 | 3–4h | ⬜ Not started |
 | 33 | `33-admin-media-upload-and-editors.md` | Media upload (Cloudinary), quiz/activity/badge editors, lesson preview | FR-CMS-02..04, FR-GAM-04 (admin) | 32 | 3–4h | ⬜ Not started |
 | 34 | `34-ai-pipeline-foundation-lesson-generator.md` | AI job model/API, Claude integration, AI lesson generator, audit log | FR-AI-01, FR-AI-08 | 07, 31 | 3–4h | ⬜ Not started |

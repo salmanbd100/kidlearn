@@ -66,15 +66,29 @@ model Parent {
 }
 
 model AdminUser {
-  id        String            @id @default(uuid())
-  email     String            @unique
-  name      String
-  role      String            @default("admin")
-  // No passwordHash: admin credentials live on the better-auth `User` row.
-  // File 31 adds `authUserId String? @unique` (+ relation to User) to link them.
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  aiReviews AIGenerationJob[]
+  id         String            @id @default(uuid())
+  email      String            @unique
+  name       String
+  role       String            @default("admin")
+  // No passwordHash: admin credentials live on the better-auth `User` row
+  // (provider `credential`), reached through `authUserId`. File 31 shares the one
+  // better-auth instance with parents rather than standing up a second identity
+  // store — see the note at the top of apps/server/src/lib/auth.ts.
+  //
+  // Nullable, because this row is what *makes* somebody an admin (spec §4.3) and
+  // it is written before the credential user exists: the seed script creates the
+  // link. A row with no link cannot sign in, which is the correct state for a
+  // revoked admin whose review history must survive.
+  //
+  // `SetNull` rather than `Cascade`: deleting the identity must not delete the
+  // AdminUser row, because `AIGenerationJob.reviewer` points at it and an audit
+  // trail that loses its reviewer is worse than one naming a disabled account
+  // (FR-AI-08). Re-running the seed re-links it.
+  authUserId String?           @unique
+  authUser   User?             @relation(fields: [authUserId], references: [id], onDelete: SetNull)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  aiReviews  AIGenerationJob[]
 }
 
 model ChildProfile {
@@ -230,21 +244,21 @@ model TopicTranslation {
 }
 
 model Lesson {
-  id           String              @id @default(uuid())
-  topicId      String
-  topic        Topic               @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  worldId      String
-  world        World               @relation(fields: [worldId], references: [id])
-  slug         String
+  id                 String              @id @default(uuid())
+  topicId            String
+  topic              Topic               @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  worldId            String
+  world              World               @relation(fields: [worldId], references: [id])
+  slug               String
   // The admin label — see `LessonTranslation.title` for what a child reads.
-  title        String
-  sortOrder    Int                 @default(0)
-  gradeLevels  GradeLevel[]
-  status       ContentStatus       @default(draft)
-  activityId   String?
-  activity     Activity?           @relation(fields: [activityId], references: [id])
-  quizId       String?
-  quiz         Quiz?               @relation(fields: [quizId], references: [id])
+  title              String
+  sortOrder          Int                 @default(0)
+  gradeLevels        GradeLevel[]
+  status             ContentStatus       @default(draft)
+  activityId         String?
+  activity           Activity?           @relation(fields: [activityId], references: [id])
+  quizId             String?
+  quiz               Quiz?               @relation(fields: [quizId], references: [id])
   // File 30 — what a child meets for the first time in this lesson, as prefixed
   // tokens: `letter:A`, `word:apple`, `number:7`. The weekly report unions these
   // across the lessons a child *first completed* inside the week, which is what
@@ -254,11 +268,11 @@ model Lesson {
   // the whole array, an unknown prefix is ignored rather than fatal, and a
   // `letter:A` typed twice across two lessons is deduped in the report. The admin
   // lesson editor (file 32) is what fills this in beyond the seeds.
-  conceptsIntroduced String[]      @default([])
-  translations LessonTranslation[]
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  progress     LessonProgress[]
+  conceptsIntroduced String[]            @default([])
+  translations       LessonTranslation[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  progress           LessonProgress[]
 
   @@unique([topicId, slug])
   @@index([topicId, sortOrder])
@@ -440,7 +454,7 @@ model StoryPageTranslation {
   // character offsets into *this row's* `text` — an asset shared between two
   // rows would carry offsets that only fit one of them. Null everywhere until
   // the voice pipeline (file 36) produces them; the reader renders plain text.
-  narrationTimings      Json?
+  narrationTimings Json?
 
   @@unique([storyPageId, language])
 }
@@ -613,6 +627,9 @@ model SessionEvent {
   payload    Json?
 
   @@index([childId, occurredAt])
+  // File 31 — the admin DAU count is the first query here with no `childId` to
+  // narrow on, so the composite index above cannot serve its day window.
+  @@index([occurredAt])
 }
 
 model WeeklyReport {
@@ -659,18 +676,24 @@ model AIGenerationJob {
 // when the profile is activated (file 11). `Verification` is unused at MVP but
 // the adapter requires it to exist.
 model User {
-  id            String    @id
+  id            String     @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean    @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   sessions      Session[]
   accounts      Account[]
-  // Hand-added (not CLI-generated): the back-reference for Parent.userId.
-  // Keep it when re-running the better-auth CLI.
+  // Hand-added (not CLI-generated): the back-references for Parent.userId and
+  // AdminUser.authUserId. Keep them when re-running the better-auth CLI.
+  //
+  // Both are optional and at most one is ever set: a Google sign-in provisions a
+  // Parent and never an AdminUser, and the admin seed script provisions an
+  // AdminUser and never a Parent. That disjointness is what keeps the two
+  // principals separate (spec §4.3) while sharing one session store.
   parent        Parent?
+  adminUser     AdminUser?
 
   @@unique([email])
   @@map("user")
