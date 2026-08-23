@@ -3,6 +3,7 @@ import { Router } from "express";
 import type { SuccessEnvelope } from "../../lib/errors.js";
 import { adminContext, requireAdmin } from "../../middleware/require-admin.js";
 import { getPlatformOverview } from "../../services/adminAnalyticsService.js";
+import { adminContentRouter } from "./content.js";
 
 /**
  * `/api/admin` — the administrator surface (spec §4.3, FR-CMS-01).
@@ -19,6 +20,12 @@ import { getPlatformOverview } from "../../services/adminAnalyticsService.js";
 export const adminRouter = Router();
 
 adminRouter.use(requireAdmin);
+
+// File 32 — CRUD over the curriculum hierarchy. A nested router rather than
+// paths on this one, because it registers four resources' worth of operations
+// and the OpenAPI coverage walk reads a router's own registrations: giving it its
+// own mount is what lets `coverage.test.ts` see it with the right prefix.
+adminRouter.use("/content", adminContentRouter);
 
 /**
  * Who am I. Consumed by `AdminGuard` on the web side to decide between the CMS

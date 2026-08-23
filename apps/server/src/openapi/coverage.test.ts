@@ -1,5 +1,6 @@
 import type { Router } from "express";
 import { describe, expect, it } from "vitest";
+import { adminContentRouter } from "../routes/admin/content.js";
 import { adminRouter } from "../routes/admin/index.js";
 import { authRouter } from "../routes/auth.js";
 import { charactersRouter } from "../routes/characters.js";
@@ -75,11 +76,20 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   },
   { prefix: "/api/admin/jobs", router: jobsRouter, file: "paths/jobs.ts" },
   { prefix: "/api/admin", router: adminRouter, file: "paths/admin.ts" },
+  // Nested inside `adminRouter`, for the same reason `storiesRouter` is nested
+  // inside `contentRouter`: it inherits that surface's `requireAdmin` guard, and
+  // the walk below cannot see through a nested mount.
+  {
+    prefix: "/api/admin/content",
+    router: adminContentRouter,
+    file: "paths/admin-content.ts",
+  },
 ];
 
 /**
  * How many routers are reachable under `/api`, at any depth: the ten
- * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`.
+ * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter` and
+ * `adminContentRouter` nested on `adminRouter`.
  *
  * Counted through the whole tree rather than one level down, because a router
  * nested inside a resource router is invisible to both of the diffs above — the
@@ -87,7 +97,7 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
  * appear and "documents every route the server serves" would pass on a surface it
  * never saw.
  */
-const EXPECTED_ROUTERS_UNDER_API = 11;
+const EXPECTED_ROUTERS_UNDER_API = 12;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally

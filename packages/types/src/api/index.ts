@@ -19,6 +19,7 @@
  */
 
 export * from "./admin.js";
+export * from "./admin-content.js";
 export * from "./auth.js";
 export * from "./children.js";
 export * from "./content.js";
