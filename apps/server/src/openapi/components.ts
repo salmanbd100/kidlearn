@@ -5,6 +5,18 @@ import {
   ActivityEventSchema,
   AdminIdentityResponseSchema,
   AdminIdentitySchema,
+  AdminLessonListResponseSchema,
+  AdminLessonResponseSchema,
+  AdminLessonSchema,
+  AdminSubjectListResponseSchema,
+  AdminSubjectResponseSchema,
+  AdminSubjectSchema,
+  AdminTopicListResponseSchema,
+  AdminTopicResponseSchema,
+  AdminTopicSchema,
+  AdminWorldListResponseSchema,
+  AdminWorldResponseSchema,
+  AdminWorldSchema,
   AuthMeResponseSchema,
   AuthMeSchema,
   AvatarCharacterListResponseSchema,
@@ -57,6 +69,7 @@ import {
   QuizQuestionSchema,
   QuizResponsesResponseSchema,
   QuizScoreSchema,
+  ReorderedIdsResponseSchema,
   ReportNoteKeySchema,
   RewardSummaryResponseSchema,
   RewardSummarySchema,
@@ -93,6 +106,18 @@ import {
   WorldTopicLessonsSchema,
 } from "@kidlearn/types";
 import type { ZodTypeAny } from "zod";
+import {
+  LessonCreateSchema,
+  LessonUpdateSchema,
+  ReorderSchema,
+  SubjectCreateSchema,
+  SubjectUpdateSchema,
+  TopicCreateSchema,
+  TopicUpdateSchema,
+  TransitionSchema,
+  WorldCreateSchema,
+  WorldUpdateSchema,
+} from "../schemas/admin-content.js";
 import {
   CreateChildBodySchema,
   UpdateChildBodySchema,
@@ -265,6 +290,35 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   PlatformOverview: PlatformOverviewSchema,
   PlatformOverviewResponse: PlatformOverviewResponseSchema,
 
+  // --- Admin CMS: the curriculum hierarchy (file 32) -----------------------
+  // Both halves of every contract. The request schemas are the objects
+  // `validate()` runs at the boundary, so a `.strict()` body that rejects
+  // `status` is rejecting it in the published document too — which is the point
+  // (FR-CMS-06).
+  AdminWorldCreateBody: WorldCreateSchema,
+  AdminWorldUpdateBody: WorldUpdateSchema,
+  AdminSubjectCreateBody: SubjectCreateSchema,
+  AdminSubjectUpdateBody: SubjectUpdateSchema,
+  AdminTopicCreateBody: TopicCreateSchema,
+  AdminTopicUpdateBody: TopicUpdateSchema,
+  AdminLessonCreateBody: LessonCreateSchema,
+  AdminLessonUpdateBody: LessonUpdateSchema,
+  ContentTransitionBody: TransitionSchema,
+  ContentReorderBody: ReorderSchema,
+  AdminWorld: AdminWorldSchema,
+  AdminWorldResponse: AdminWorldResponseSchema,
+  AdminWorldListResponse: AdminWorldListResponseSchema,
+  AdminSubject: AdminSubjectSchema,
+  AdminSubjectResponse: AdminSubjectResponseSchema,
+  AdminSubjectListResponse: AdminSubjectListResponseSchema,
+  AdminTopic: AdminTopicSchema,
+  AdminTopicResponse: AdminTopicResponseSchema,
+  AdminTopicListResponse: AdminTopicListResponseSchema,
+  AdminLesson: AdminLessonSchema,
+  AdminLessonResponse: AdminLessonResponseSchema,
+  AdminLessonListResponse: AdminLessonListResponseSchema,
+  ReorderedIdsResponse: ReorderedIdsResponseSchema,
+
   // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,
   ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
@@ -395,6 +449,11 @@ export const TAGS = [
     name: "Admin",
     description:
       "The administrator surface (spec §4.3, FR-CMS-01). A **separate principal** from a parent, not a parent with extra rights: an admin has no children, no PIN and no consent record, and nothing on these paths takes a parent or child id.\n\nAdmins and parents share one better-auth instance and one `user` table — one session store, one cookie, one CORS configuration — so what separates them is a domain row rather than infrastructure: an `AdminUser` exists for an admin's identity and never for a Google sign-in, and `Parent` provisioning requires a Google account. Each side's guard therefore rejects the other's session with a `403`, in both directions.\n\nThere is **no self-service signup**. `POST /api/auth/sign-up/email` is disabled for everybody, so the only way an admin exists is `pnpm --filter server seed:admin`, and re-running that seed is how a forgotten password is recovered — there is no self-service reset flow. A signed-in admin can change their own password through better-auth's `POST /api/auth/change-password`, undocumented here because `apps/web` does not call it. Rate limiting on the login route lands with file 38.\n\nAnalytics here is platform-wide aggregate only (FR-CMS-07, basic tier) — no response names a household, and detailed analytics are Phase 2.",
+  },
+  {
+    name: "Admin CMS",
+    description:
+      "Content management: the curriculum hierarchy — worlds, subjects, topics, lessons — and the workflow that decides what a child can see (file 32, FR-CURR-04, FR-CMS-01, FR-CMS-06).\n\n**The mirror image of the `Content` tag.** Those endpoints return `status = published` rows with text resolved to one child's language; these return every row in every status, with both locales, and the ids an editor needs. The safety property is not that this API is careful — it is that the *student* API filters, so the only thing that makes content visible here is writing `published` to the column.\n\n**`status` changes on one path only.** Create and edit bodies are `.strict()` with no `status` key, so `POST /{id}/transition` is the sole door, and behind it is a matrix in which `published` is reachable from `approved` and nowhere else. Rejected work cannot be published by undoing the rejection; it goes back through `draft → in_review → approved`. An illegal hop is a `409` carrying `INVALID_TRANSITION` and the legal alternatives.\n\n**Publishing takes effect at once** — no staging flag, no cache, no queue — and so does unpublishing, which returns a row to `draft` while keeping it and the progress recorded against it.\n\nOrdering is a separate operation for the same reason status is: `PATCH /{resource}/reorder` writes a whole sibling set at once, because one row's position is a claim about its siblings'. Every write here stamps `updatedBy` with the acting administrator.",
   },
   {
     name: "Screen Time",

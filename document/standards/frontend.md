@@ -87,6 +87,22 @@ Everything public is exported from `src/index.ts`. Individual `primitives/*` are
 - Push the client boundary as far down the tree as possible. A single interactive button must not force its entire parent subtree to become a Client Component. Extract the interactive element into its own file and mark only that file with `'use client'`. **[REVIEW]**
 - Never fetch data in a Client Component. Fetch in Server Components or Server Actions and pass data as props. **[REVIEW]**
 
+#### Recorded exception — the `(admin)` CMS fetches in the browser
+
+**Status: active as of 2026-08-22 (file 31), widened to the curriculum tree in
+file 32.** The admin session cookie belongs to the API origin, not the Next
+server, so a Server Component calling `/api/admin/*` sends no credentials and
+gets a `401` — see the comment at the head of `lib/admin-api.ts`. Server-side
+fetching is not merely inconvenient here; it cannot authenticate.
+
+The CMS screens therefore hold their own data: `AnalyticsScreen`,
+`CurriculumScreen` and the components under `app/(admin)/`. Each `page.tsx`
+stays a Server Component and the `'use client'` boundary sits on the screen, so
+the rest of the rule above still binds.
+
+This is bounded to `app/(admin)/`. A `(student)` or `(parent)` route has a
+session the Next server can read and gets no exception.
+
 ### File naming in `app/`
 
 Next.js App Router reserves specific filenames: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `template.tsx`, `route.ts`. Only use these names for their intended purpose. All other component files in the `app/` tree are PascalCase (`LessonCard.tsx`).
@@ -157,7 +173,7 @@ Before considering frontend work complete:
 - [ ] Variants built with `cva` + `cn()` — no ad-hoc `className` concatenation
 - [ ] Semantic tokens only — no raw hex, brand hue names, or Tailwind color literals
 - [ ] No theme branching in JavaScript — `data-theme` on the layout boundary only
-- [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components
+- [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components (except the `(admin)` CMS — see §2)
 - [ ] All user-facing strings via `i18next` (except the `(admin)` CMS — see §3)
 - [ ] Images via `next/image`, fonts via `next/font`
 - [ ] Touch targets: ≥64px on kid surfaces, ≥44px on parent surfaces (`document/design.md §7`)

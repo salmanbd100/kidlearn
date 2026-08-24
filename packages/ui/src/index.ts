@@ -19,3 +19,9 @@ export {
 } from "./primitives/dialog";
 export { Input, type InputProps, inputVariants } from "./primitives/input";
 export { Label, type LabelProps, labelVariants } from "./primitives/label";
+export { Select, type SelectProps, selectVariants } from "./primitives/select";
+export {
+  Textarea,
+  type TextareaProps,
+  textareaVariants,
+} from "./primitives/textarea";

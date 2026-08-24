@@ -163,6 +163,11 @@ model World {
   status        ContentStatus      @default(draft)
   lessons       Lesson[]
   translations  WorldTranslation[]
+  // File 32 — the `AdminUser.id` that last created, edited, reordered or
+  // transitioned this row. Not a foreign key: an audit stamp must outlive the
+  // account that made it, and the only delete behaviours a FK could offer here
+  // erase that fact or make a revoked admin undeletable.
+  updatedBy     String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   stories       Story[]
@@ -195,6 +200,8 @@ model Subject {
   status       ContentStatus        @default(draft)
   topics       Topic[]
   translations SubjectTranslation[]
+  // Who last touched this row — see `World.updatedBy`.
+  updatedBy    String?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
@@ -225,6 +232,8 @@ model Topic {
   status       ContentStatus      @default(draft)
   lessons      Lesson[]
   translations TopicTranslation[]
+  // Who last touched this row — see `World.updatedBy`.
+  updatedBy    String?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -270,6 +279,8 @@ model Lesson {
   // lesson editor (file 32) is what fills this in beyond the seeds.
   conceptsIntroduced String[]            @default([])
   translations       LessonTranslation[]
+  // Who last touched this row — see `World.updatedBy`.
+  updatedBy          String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   progress           LessonProgress[]

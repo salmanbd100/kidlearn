@@ -162,6 +162,20 @@ import { Button } from "@kidlearn/ui";
 - **No unexplained abbreviations.** `id`, `url`, `api`, `db` are universally understood and permitted. `qty`, `usr`, `btn`, `cfg` are not. **[REVIEW]**
 - **Zod schemas are PascalCase** so each schema reads as a pair with the type inferred from it — `McqQuestionSchema` declares `McqQuestion`. A camelCase schema next to a PascalCase type makes the pairing hard to scan, and a Zod schema is a type declaration in practice. **[REVIEW]**
 - **Boolean variables and props use an `is`, `has`, or `can` prefix.** `isPublished`, `hasChildren`, `canRetry`. A prop named `published` is ambiguous; `isPublished` is not. **[REVIEW]**
+
+  #### Recorded exception — verb-phrase option booleans
+
+  **Status: active as of 2026-08-24 (file 32).** A name that opens with an
+  imperative verb — `includeArchived`, `showDrafts`, `skipCache`, `forceRefresh` —
+  states the action a caller is requesting, not a predicate about a thing. The
+  ambiguity this rule exists to remove is not present: `published` could be a
+  status, a date or a flag, whereas `includeArchived` can only be an instruction.
+  Prefixing it produces `isArchivedIncluded`, which reads worse and, where the
+  name is an HTTP query parameter, worsens the API surface too.
+
+  Bounded to names whose first word is a verb. An adjective or past participle
+  (`published`, `enabled`, `attempted`) is still covered by the rule and still
+  takes a prefix.
 - **Route group directories** follow Next.js App Router convention: parentheses notation, lowercase — `(student)`, `(parent)`, `(admin)`. **[REVIEW]**
 
 ---

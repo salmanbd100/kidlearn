@@ -1,5 +1,5 @@
-import { AdminSectionPlaceholder } from "@/components/admin/AdminSectionPlaceholder";
+import { CurriculumScreen } from "./CurriculumScreen";
 
 export default function AdminCurriculumPage() {
-  return <AdminSectionPlaceholder title="Curriculum" arrivesIn="32" />;
+  return <CurriculumScreen />;
 }
