@@ -109,6 +109,47 @@ function fillSubjectForm() {
   fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
 }
 
+describe("editing a published row", () => {
+  /**
+   * The button has to agree with the server, which refuses a `PATCH` on a
+   * published row with a `409`. Offering an edit that cannot succeed is the
+   * failure mode the shared matrix exists to prevent, and `isContentEditable` is
+   * the same predicate both sides read.
+   */
+  async function renderWithStatus(status: string) {
+    api.fetchSubjects.mockResolvedValue(ok([{ ...SUBJECT, status }]));
+    await renderScreen();
+    fireEvent.click(screen.getByRole("button", { name: /^Letters/ }));
+  }
+
+  it("disables Edit and says how to proceed", async () => {
+    await renderWithStatus("published");
+
+    expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
+    expect(
+      screen.getByText(/Published content cannot be edited/),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves Edit enabled at every other status", async () => {
+    await renderWithStatus("approved");
+
+    expect(screen.getByRole("button", { name: "Edit" })).toBeEnabled();
+    expect(
+      screen.queryByText(/Published content cannot be edited/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers Withdraw to draft, so the refusal has a way out on screen", async () => {
+    // The hint tells an admin to withdraw; the button that does it comes from
+    // the shared matrix. If `published → draft` ever left the matrix, the hint
+    // would describe an action the screen does not offer.
+    await renderWithStatus("published");
+
+    expect(screen.getByRole("button", { name: /draft/i })).toBeInTheDocument();
+  });
+});
+
 describe("CurriculumScreen messages", () => {
   it("reports a success as a status banner, not an alert", async () => {
     api.createContent.mockResolvedValue(ok({}));

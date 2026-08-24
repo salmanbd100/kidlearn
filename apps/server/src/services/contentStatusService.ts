@@ -2,6 +2,7 @@ import type { ContentStatus } from "@kidlearn/db";
 import {
   ALLOWED_CONTENT_TRANSITIONS,
   CONTENT_STATUSES,
+  isContentEditable,
   nextContentStatuses,
 } from "@kidlearn/types";
 import { ApiError } from "../lib/errors.js";
@@ -92,4 +93,28 @@ export function assertTransition(from: ContentStatus, to: ContentStatus): void {
     to,
     allowed: nextStatuses(from),
   });
+}
+
+/**
+ * Throws unless the row's content may be rewritten — see `isContentEditable`
+ * for why `published` refuses one.
+ *
+ * `409` for the same reason `assertTransition` uses it: the body is well formed
+ * and it is the state the row happens to be in that refuses, which may not be
+ * true a moment later. `details.code` is `EDIT_REQUIRES_UNPUBLISH` so a client
+ * can tell it from `DUPLICATE_SLUG` on the same status code, and `allowed`
+ * carries the hops that clear the way rather than leaving an admin to guess that
+ * withdrawing is the first of them.
+ */
+export function assertEditable(status: ContentStatus): void {
+  if (isContentEditable(status)) return;
+
+  throw ApiError.conflict(
+    "A published row cannot be edited — withdraw it to draft first",
+    {
+      code: "EDIT_REQUIRES_UNPUBLISH",
+      status,
+      allowed: nextStatuses(status),
+    },
+  );
 }

@@ -14,6 +14,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ALLOWED_TRANSITIONS,
+  assertEditable,
   assertTransition,
   CONTENT_STATUS_VALUES,
   canTransition,
@@ -132,6 +133,42 @@ describe("assertTransition", () => {
 
   it("throws on a self-transition", () => {
     expect(() => assertTransition("published", "published")).toThrow();
+  });
+});
+
+describe("assertEditable", () => {
+  it.each(
+    CONTENT_STATUS_VALUES.filter((status) => status !== "published"),
+  )("allows an edit at %s", (status) => {
+    expect(() => assertEditable(status)).not.toThrow();
+  });
+
+  it("refuses an edit to a published row with a 409 that names the way out", () => {
+    // The whole point of the guard: the matrix never sees an edit, because an
+    // edit does not move the status, so a `PATCH` on a live lesson would reach a
+    // child without passing a reviewer again.
+    try {
+      assertEditable("published");
+      expect.unreachable("assertEditable should have thrown");
+    } catch (error) {
+      expect(error).toMatchObject({
+        statusCode: 409,
+        code: "CONFLICT",
+        details: {
+          code: "EDIT_REQUIRES_UNPUBLISH",
+          status: "published",
+          allowed: ALLOWED_TRANSITIONS.published,
+        },
+      });
+    }
+  });
+
+  it("offers draft as a way out, so the refusal is actionable", () => {
+    // `allowed` is what the CMS turns into a Withdraw button. If `published`
+    // ever lost its hop to `draft`, a published row would become uneditable with
+    // no path back, and this asserts against that rather than against the
+    // matrix's current shape being merely non-empty.
+    expect(ALLOWED_TRANSITIONS.published).toContain("draft");
   });
 });
 

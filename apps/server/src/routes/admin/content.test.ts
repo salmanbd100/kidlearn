@@ -567,6 +567,162 @@ describe("PATCH cannot change status", () => {
   });
 });
 
+describe("a published row refuses an edit", () => {
+  /**
+   * The gap this closes: the transition matrix guards the *act* of publishing,
+   * and an edit does not move the status, so nothing in the matrix ever sees a
+   * `PATCH` on a live row. Without the guard, rewriting a published lesson's
+   * title and intro script puts words in front of a five-year-old that no
+   * reviewer approved — and it is the path file 37's AI-generated edits would
+   * take.
+   */
+  beforeEach(() => {
+    seed(store.subjects, { id: SUBJECT_ID, slug: "letters", name: "Letters" });
+    seed(store.topics, {
+      id: TOPIC_ID,
+      subjectId: SUBJECT_ID,
+      slug: "vowels",
+      name: "Vowels",
+    });
+  });
+
+  function seedLesson(status: string) {
+    store.lessons = [];
+    seed(store.lessons, {
+      id: LESSON_ID,
+      topicId: TOPIC_ID,
+      worldId: WORLD_ID,
+      slug: "letter-a",
+      title: "Letter A",
+      status,
+    });
+  }
+
+  it("returns 409 EDIT_REQUIRES_UNPUBLISH and leaves the content untouched", async () => {
+    seedLesson("published");
+
+    const res = await request(app)
+      .patch(`${BASE}/lessons/${LESSON_ID}`)
+      .send({
+        title: "Letter A, rewritten",
+        translations: lessonTranslations("Letter A, rewritten"),
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toMatchObject({
+      code: "EDIT_REQUIRES_UNPUBLISH",
+      status: "published",
+      allowed: ["draft", "archived"],
+    });
+
+    // The refusal has to be a refusal, not a partial write: the row keeps both
+    // its title and its audit stamp.
+    expect(store.lessons[0]).toMatchObject({
+      title: "Letter A",
+      status: "published",
+      updatedBy: null,
+    });
+  });
+
+  it("refuses on every resource, not only lessons", async () => {
+    store.worlds = [];
+    seed(store.worlds, {
+      id: WORLD_ID,
+      slug: "space",
+      name: "Space",
+      status: "published",
+    });
+    store.subjects[0].status = "published";
+    store.topics[0].status = "published";
+    seedLesson("published");
+
+    const attempts = [
+      request(app)
+        .patch(`${BASE}/worlds/${WORLD_ID}`)
+        .send({ name: "Deep space" }),
+      request(app)
+        .patch(`${BASE}/subjects/${SUBJECT_ID}`)
+        .send({ name: "Reading" }),
+      request(app)
+        .patch(`${BASE}/topics/${TOPIC_ID}`)
+        .send({ name: "Long vowels" }),
+      request(app)
+        .patch(`${BASE}/lessons/${LESSON_ID}`)
+        .send({ title: "Letter B" }),
+    ];
+
+    for (const res of await Promise.all(attempts)) {
+      expect(res.status).toBe(409);
+      expect(res.body.error.details.code).toBe("EDIT_REQUIRES_UNPUBLISH");
+    }
+  });
+
+  it.each([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "archived",
+  ])("allows the edit at %s", async (status) => {
+    seedLesson(status);
+
+    const res = await request(app)
+      .patch(`${BASE}/lessons/${LESSON_ID}`)
+      .send({ title: "Letter A revised" });
+
+    expect(res.status).toBe(200);
+    expect(store.lessons[0].title).toBe("Letter A revised");
+  });
+
+  it("lets the edit through once the row is withdrawn to draft", async () => {
+    // The documented way out, end to end: withdraw, edit, and the content is
+    // back in the review queue rather than live.
+    seedLesson("published");
+
+    const withdrawn = await request(app)
+      .post(`${BASE}/lessons/${LESSON_ID}/transition`)
+      .send({ to: "draft" });
+    expect(withdrawn.status).toBe(200);
+
+    const edited = await request(app)
+      .patch(`${BASE}/lessons/${LESSON_ID}`)
+      .send({ title: "Letter A, rewritten" });
+
+    expect(edited.status).toBe(200);
+    expect(store.lessons[0]).toMatchObject({
+      title: "Letter A, rewritten",
+      status: "draft",
+    });
+  });
+
+  it("checks the status the row actually holds, inside a Serializable transaction", async () => {
+    // Bound 4 of the stub exception again: a stub cannot race an edit against a
+    // publish, so what is asserted is the isolation level that makes the read
+    // and the write indivisible. A `published` check made before the transaction
+    // could be stale by the time the edit lands.
+    seedLesson("draft");
+    store.isolationLevels = [];
+
+    await request(app)
+      .patch(`${BASE}/lessons/${LESSON_ID}`)
+      .send({ title: "Letter A revised" });
+
+    expect(store.isolationLevels).toContain(
+      Prisma.TransactionIsolationLevel.Serializable,
+    );
+  });
+
+  it("still returns 404 for an id that does not exist", async () => {
+    // The guard reads the status to apply itself, and that read is now the
+    // source of the 404 — it must not turn a missing row into a 409.
+    const res = await request(app)
+      .patch(`${BASE}/lessons/ffffffff-0000-4000-8000-000000000009`)
+      .send({ title: "Nothing" });
+
+    expect(res.status).toBe(404);
+  });
+});
+
 describe("PATCH /api/admin/content/topics/:id", () => {
   const OPERATION = "PATCH /api/admin/content/topics/{id}";
 

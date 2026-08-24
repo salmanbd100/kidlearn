@@ -55,6 +55,19 @@ const SLUG_CONFLICT_RESPONSE = errorResponse(
 );
 
 /**
+ * An edit has two ways to conflict, and `error.details.code` is what tells them
+ * apart on one status code.
+ */
+const EDIT_CONFLICT_RESPONSE = errorResponse(
+  [
+    'Either the slug is taken (`code: "DUPLICATE_SLUG"` — unique per model for worlds and subjects, unique *within a parent* for topics and lessons), or the row is `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
+    "",
+    "**A published row refuses an edit.** The transition matrix guards the act of publishing, not the content that stays published afterwards, so without this a `PATCH` could rewrite a live lesson and reach a child without passing a reviewer again. Withdraw first — `published → draft` — then edit, then come back through `draft → in_review → approved → published`. `allowed` carries those first hops so a client can offer the withdrawal rather than only reporting the refusal.",
+  ].join("\n"),
+  ["CONFLICT"],
+);
+
+/**
  * The one paragraph that has to appear on every create and edit operation, and
  * the reason this file exists as a generator rather than four copies.
  */
@@ -319,6 +332,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
         description: [
           `Partial edit. ${AT_LEAST_ONE_FIELD}`,
           "",
+          "**A `published` row refuses an edit** with a `409` — withdraw it to `draft` first. See that response below for why.",
+          "",
           NO_STATUS_IN_BODY,
           "",
           "`translations`, if present, must carry **both** locales. A partial translation write is what produces content that falls back to English part-way through a Bangla learner's session (FR-I18N-01), and the CMS form submits the pair together in any case.",
@@ -335,7 +350,7 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
           "400": VALIDATION_RESPONSE,
           ...GUARD_RESPONSES,
           "404": NOT_FOUND_RESPONSE,
-          "409": SLUG_CONFLICT_RESPONSE,
+          "409": EDIT_CONFLICT_RESPONSE,
         },
       },
     },

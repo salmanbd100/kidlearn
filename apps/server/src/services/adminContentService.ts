@@ -23,7 +23,7 @@ import type {
   WorldCreateBody,
   WorldUpdateBody,
 } from "../schemas/admin-content.js";
-import { assertTransition } from "./contentStatusService.js";
+import { assertEditable, assertTransition } from "./contentStatusService.js";
 
 /**
  * The curriculum hierarchy as admins write it (file 32, FR-CURR-04, FR-CMS-01).
@@ -40,6 +40,12 @@ import { assertTransition } from "./contentStatusService.js";
  * `published`, the next student request returns the row. The inverse holds too —
  * `published → draft` withdraws it from every student response at once, without
  * deleting the row or the progress hanging off it.
+ *
+ * **A published row refuses an edit.** Every `update*` here runs through
+ * `editWithinTransaction`, which applies `assertEditable` to the status the row
+ * actually holds. The matrix guards the act of publishing; this guards the
+ * content that stays published, which the matrix never sees because an edit does
+ * not move the status. Withdraw to `draft` first.
  *
  * **Every write stamps `updatedBy`** with the acting `AdminUser.id`
  * (requirement 6). It is a parameter rather than something read off a request,
@@ -212,8 +218,6 @@ export async function updateWorld(
   input: WorldUpdateBody,
   adminId: string,
 ): Promise<AdminWorldDto> {
-  await getWorld(id);
-
   // Named rather than inlined, for the reason `createChildProfileOnce` gives:
   // Prisma's update input is an XOR of a checked and an unchecked shape, and an
   // inline literal carrying both a scalar foreign key (`mascotAssetId`) and a
@@ -231,8 +235,10 @@ export async function updateWorld(
     }),
   };
 
-  const row = await asSlugConflict("world", () =>
-    prisma.world.update({ where: { id }, data, select: worldSelect }),
+  const row = await editWithinTransaction("worlds", id, (tx) =>
+    asSlugConflict("world", () =>
+      tx.world.update({ where: { id }, data, select: worldSelect }),
+    ),
   );
   return toAdminWorld(row);
 }
@@ -317,8 +323,6 @@ export async function updateSubject(
   input: SubjectUpdateBody,
   adminId: string,
 ): Promise<AdminSubjectDto> {
-  await getSubject(id);
-
   const data: Prisma.SubjectUncheckedUpdateInput = {
     ...pick(input, ["slug", "name", "gradeLevels"]),
     updatedBy: adminId,
@@ -331,8 +335,10 @@ export async function updateSubject(
     }),
   };
 
-  const row = await asSlugConflict("subject", () =>
-    prisma.subject.update({ where: { id }, data, select: subjectSelect }),
+  const row = await editWithinTransaction("subjects", id, (tx) =>
+    asSlugConflict("subject", () =>
+      tx.subject.update({ where: { id }, data, select: subjectSelect }),
+    ),
   );
   return toAdminSubject(row);
 }
@@ -415,8 +421,6 @@ export async function updateTopic(
   input: TopicUpdateBody,
   adminId: string,
 ): Promise<AdminTopicDto> {
-  await getTopic(id);
-
   const data: Prisma.TopicUncheckedUpdateInput = {
     ...pick(input, ["slug", "name", "gradeLevels"]),
     updatedBy: adminId,
@@ -429,8 +433,10 @@ export async function updateTopic(
     }),
   };
 
-  const row = await asSlugConflict("topic", () =>
-    prisma.topic.update({ where: { id }, data, select: topicSelect }),
+  const row = await editWithinTransaction("topics", id, (tx) =>
+    asSlugConflict("topic", () =>
+      tx.topic.update({ where: { id }, data, select: topicSelect }),
+    ),
   );
   return toAdminTopic(row);
 }
@@ -569,47 +575,48 @@ export async function updateLesson(
   input: LessonUpdateBody,
   adminId: string,
 ): Promise<AdminLessonDto> {
-  await getLesson(id);
-  if (input.worldId) await assertParentExists("world", input.worldId);
-
   const translations = input.translations;
 
-  const row = await asSlugConflict("lesson", () =>
-    prisma.lesson.update({
-      where: { id },
-      data: {
-        ...pick(input, [
-          "slug",
-          "title",
-          "worldId",
-          "gradeLevels",
-          "conceptsIntroduced",
-        ]),
-        ...optionalNullable("activityId", input.activityId),
-        ...optionalNullable("quizId", input.quizId),
-        updatedBy: adminId,
-        ...(translations === undefined
-          ? {}
-          : {
-              translations: {
-                upsert: LANGUAGES.map((language) => {
-                  const write = {
-                    title: translations[language].title,
-                    introScript: translations[language].introScript,
-                    videoAssetId: translations[language].videoAssetId ?? null,
-                  };
-                  return {
-                    where: { lessonId_language: { lessonId: id, language } },
-                    create: { language, ...write },
-                    update: write,
-                  };
-                }),
-              },
-            }),
-      },
-      select: lessonSelect,
-    }),
-  );
+  const row = await editWithinTransaction("lessons", id, async (tx) => {
+    if (input.worldId) await assertParentExists("world", input.worldId);
+
+    return asSlugConflict("lesson", () =>
+      tx.lesson.update({
+        where: { id },
+        data: {
+          ...pick(input, [
+            "slug",
+            "title",
+            "worldId",
+            "gradeLevels",
+            "conceptsIntroduced",
+          ]),
+          ...optionalNullable("activityId", input.activityId),
+          ...optionalNullable("quizId", input.quizId),
+          updatedBy: adminId,
+          ...(translations === undefined
+            ? {}
+            : {
+                translations: {
+                  upsert: LANGUAGES.map((language) => {
+                    const write = {
+                      title: translations[language].title,
+                      introScript: translations[language].introScript,
+                      videoAssetId: translations[language].videoAssetId ?? null,
+                    };
+                    return {
+                      where: { lessonId_language: { lessonId: id, language } },
+                      create: { language, ...write },
+                      update: write,
+                    };
+                  }),
+                },
+              }),
+        },
+        select: lessonSelect,
+      }),
+    );
+  });
   return toAdminLesson(row);
 }
 
@@ -705,6 +712,34 @@ async function writeStatus(
   else if (resource === "subjects") await tx.subject.update(args);
   else if (resource === "topics") await tx.topic.update(args);
   else await tx.lesson.update(args);
+}
+
+/**
+ * Runs one edit against the status the row actually holds.
+ *
+ * Serializable and read-then-write for the reason `transitionContent` gives, and
+ * the interleaving it rules out is the one that matters most here: a `published`
+ * check made before the transaction can be true when it is read and stale when
+ * the edit lands, which is precisely how a rewrite reaches a live lesson. The
+ * loser of the race retries and is refused.
+ *
+ * `readStatus` also supplies the `404`, so this replaces the existence check the
+ * edit functions would otherwise make in a separate query.
+ */
+async function editWithinTransaction<T>(
+  resource: ContentResource,
+  id: string,
+  write: (tx: ContentWriter) => Promise<T>,
+): Promise<T> {
+  return withSerializationRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        assertEditable(await readStatus(tx, resource, id));
+        return write(tx);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
 }
 
 // --- Reordering -----------------------------------------------------------

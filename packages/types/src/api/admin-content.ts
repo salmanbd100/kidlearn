@@ -122,6 +122,28 @@ export function nextContentStatuses(
 }
 
 /**
+ * Whether a row's content may be rewritten at its current status.
+ *
+ * The matrix above guards the *act* of publishing; this guards the content that
+ * stays published afterwards. Without it a `PATCH` rewriting a live lesson's
+ * title and intro script reaches a five-year-old without passing a reviewer
+ * again — the matrix never sees the edit, because the status never moved.
+ *
+ * Withdrawing first (`published → draft`) is the door instead: the removal from
+ * students is explicit rather than a side effect of an edit, and the rewrite
+ * comes back through `draft → in_review → approved → published`. That is more
+ * clicks, and the clicks are the point — file 37 layers AI-generated edits on
+ * this same API, where "an edit is not a publish" stops being true by inspection.
+ *
+ * Shared with the CMS for the reason `ALLOWED_CONTENT_TRANSITIONS` is: the Edit
+ * button and the server's refusal come from one definition, so the client cannot
+ * offer an edit the server will reject.
+ */
+export function isContentEditable(status: ContentStatusValue): boolean {
+  return status !== "published";
+}
+
+/**
  * The audit stamp on every curriculum row (requirement 6).
  *
  * `updatedBy` is the acting `AdminUser.id`, or `null` for a row written by a seed
