@@ -1,5 +1,6 @@
 import type {
   LessonDetailResponse,
+  Locale,
   StoryDetailResponse,
   StorySummaryResponse,
   WorldSummaryResponse,
@@ -40,7 +41,7 @@ export interface ContentFetchOptions {
  */
 export interface LessonPreviewOptions {
   isPreview?: boolean;
-  language?: "en" | "bn";
+  language?: Locale;
 }
 
 /** The themed worlds the home screen renders (FR-WORLD-01..03, FR-WORLD-05). */

@@ -74,6 +74,25 @@ export function emptyOption(index: number): OptionDraft {
   };
 }
 
+/**
+ * The next option to append to `options`.
+ *
+ * `offset` is where this column's numbering starts — a `match_pair`'s right
+ * column begins past the left one, so numbering a new option by `options.length`
+ * alone would remint an id the column already holds and hand the author a
+ * duplicate-id error for pressing Add. Anything still taken is skipped, so the
+ * result stays unique after options have been removed too.
+ */
+export function nextOption(
+  options: OptionDraft[],
+  offset: number,
+): OptionDraft {
+  const taken = new Set(options.map((option) => option.id));
+  let index = offset + options.length;
+  while (taken.has(`option-${index + 1}`)) index += 1;
+  return emptyOption(index);
+}
+
 /** How many options each format needs before it can possibly validate. */
 export const MINIMUM_OPTIONS: Record<QuizQuestionType, number> = {
   mcq: 3,
@@ -112,13 +131,22 @@ export function emptyQuestionDraft(format: QuizQuestionType): QuestionDraft {
 
 // --- Compiling ------------------------------------------------------------
 
-/** A `LocalizedAudio` pair, present only when *both* locales are filled. */
+/**
+ * A `LocalizedAudio`, or `undefined` when *neither* locale is filled.
+ *
+ * Half-filled emits the half that exists, for the reason `localizedText` does:
+ * `audio` is optional on an option, so dropping the whole pair would discard the
+ * clip the author just picked and leave Save enabled with nothing to explain it.
+ * Emitting the half makes the schema name the locale that is missing.
+ */
 function localizedAudio(urls: LocalizedDraft) {
-  if (LOCALES.some((locale) => urls[locale] === "")) return undefined;
-  return {
-    en: { kind: "audio", url: urls.en },
-    bn: { kind: "audio", url: urls.bn },
-  };
+  if (LOCALES.every((locale) => urls[locale] === "")) return undefined;
+  return Object.fromEntries(
+    LOCALES.filter((locale) => urls[locale] !== "").map((locale) => [
+      locale,
+      { kind: "audio", url: urls[locale] },
+    ]),
+  );
 }
 
 /**
@@ -240,6 +268,11 @@ export function knownQuestionPaths(draft: QuestionDraft): string[] {
       `${field}.${index}.text`,
       `${field}.${index}.image.alt`,
       ...LOCALES.map((locale) => `${field}.${index}.image.alt.${locale}`),
+      `${field}.${index}.audio`,
+      ...LOCALES.flatMap((locale) => [
+        `${field}.${index}.audio.${locale}`,
+        `${field}.${index}.audio.${locale}.url`,
+      ]),
     ]);
 
   const base = [

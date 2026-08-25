@@ -1,4 +1,9 @@
-import type { ActivityDefinition, ActivityType, Locale } from "@kidlearn/types";
+import type {
+  ActivityDefinition,
+  ActivityType,
+  Locale,
+  PuzzleSlot,
+} from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 
 /**
@@ -105,12 +110,22 @@ export function emptyActivityDraft(type: ActivityType): ActivityDraft {
 
 // --- Compiling ------------------------------------------------------------
 
+/**
+ * A `LocalizedAudio`, or `undefined` when *neither* locale is filled.
+ *
+ * Half-filled emits the half that exists, for the reason `localizedText` does:
+ * `audio` is optional on an item, so dropping the whole pair would discard the
+ * clip the author just picked and leave Save enabled with nothing to explain it.
+ * Emitting the half makes the schema name the locale that is missing.
+ */
 function localizedAudio(urls: LocalizedDraft) {
-  if (LOCALES.some((locale) => urls[locale] === "")) return undefined;
-  return {
-    en: { kind: "audio", url: urls.en },
-    bn: { kind: "audio", url: urls.bn },
-  };
+  if (LOCALES.every((locale) => urls[locale] === "")) return undefined;
+  return Object.fromEntries(
+    LOCALES.filter((locale) => urls[locale] !== "").map((locale) => [
+      locale,
+      { kind: "audio", url: urls[locale] },
+    ]),
+  );
 }
 
 /**
@@ -174,7 +189,7 @@ function compileItem(item: ItemDraft, isImageRequired: boolean) {
  * requires exactly `rows × cols` of them, each cell used once. Generated rather
  * than authored — see the file header.
  */
-export function puzzleSlots(rows: number, cols: number) {
+export function puzzleSlots(rows: number, cols: number): PuzzleSlot[] {
   return Array.from({ length: rows * cols }, (_unused, index) => ({
     index,
     row: Math.floor(index / cols),
@@ -267,6 +282,11 @@ export function knownActivityPaths(draft: ActivityDraft): string[] {
       ...LOCALES.map((locale) => `${field}.${index}.label.${locale}`),
       `${field}.${index}.image.alt`,
       ...LOCALES.map((locale) => `${field}.${index}.image.alt.${locale}`),
+      `${field}.${index}.audio`,
+      ...LOCALES.flatMap((locale) => [
+        `${field}.${index}.audio.${locale}`,
+        `${field}.${index}.audio.${locale}.url`,
+      ]),
     ]);
 
   const base = [

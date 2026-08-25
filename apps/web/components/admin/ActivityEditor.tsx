@@ -5,6 +5,7 @@ import { ACTIVITY_SCHEMAS, ACTIVITY_TYPES, LOCALES } from "@kidlearn/types";
 import { Button, Input, Label, Select } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { ActivityEngine } from "@/components/activities/ActivityEngine";
+import { optionValue } from "@/lib/select-option";
 import {
   type ActivityDraft,
   compileActivity,
@@ -103,7 +104,13 @@ export function ActivityEditor({
             value={draft.type}
             disabled={isBusy}
             onChange={(event) =>
-              update({ type: event.target.value as ActivityType })
+              update({
+                type: optionValue(
+                  ACTIVITY_TYPES,
+                  event.target.value,
+                  draft.type,
+                ),
+              })
             }
           >
             {ACTIVITY_TYPES.map((type) => (

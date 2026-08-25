@@ -9,15 +9,16 @@ import {
 import { Button, Input, Label, Select } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { QuizEngine } from "@/components/quiz/QuizEngine";
+import { optionValue } from "@/lib/select-option";
 import { MediaPicker } from "./MediaPicker";
 import { type IssueMap, toIssueMap } from "./payload-issues";
 import {
   compileQuestion,
-  emptyOption,
   emptyQuestionDraft,
   knownQuestionPaths,
   MAXIMUM_OPTIONS,
   MINIMUM_OPTIONS,
+  nextOption,
   type OptionDraft,
   type QuestionDraft,
 } from "./quiz-draft";
@@ -142,7 +143,13 @@ export function QuizQuestionEditor({
             value={draft.format}
             disabled={isBusy}
             onChange={(event) =>
-              changeFormat(event.target.value as QuizQuestionType)
+              changeFormat(
+                optionValue(
+                  QUIZ_QUESTION_TYPES,
+                  event.target.value,
+                  draft.format,
+                ),
+              )
             }
           >
             {QUIZ_QUESTION_TYPES.map((format) => (
@@ -235,6 +242,7 @@ export function QuizQuestionEditor({
               format={draft.format}
               issues={issues}
               isBusy={isBusy}
+              idOffset={draft.leftColumn.length}
               onChange={(rightColumn) => update({ rightColumn })}
             />
             <Fieldset
@@ -479,6 +487,7 @@ function OptionList({
   format,
   issues,
   isBusy,
+  idOffset = 0,
   onChange,
 }: {
   field: "options" | "leftColumn" | "rightColumn";
@@ -487,6 +496,8 @@ function OptionList({
   format: QuizQuestionType;
   issues: IssueMap;
   isBusy: boolean;
+  /** Where this column's option numbering starts. See `nextOption`. */
+  idOffset?: number;
   onChange: (options: OptionDraft[]) => void;
 }) {
   function replace(index: number, change: Partial<OptionDraft>) {
@@ -568,7 +579,7 @@ function OptionList({
           size="sm"
           variant="outline"
           disabled={isBusy || options.length >= MAXIMUM_OPTIONS[format]}
-          onClick={() => onChange([...options, emptyOption(options.length)])}
+          onClick={() => onChange([...options, nextOption(options, idOffset)])}
         >
           Add option
         </Button>

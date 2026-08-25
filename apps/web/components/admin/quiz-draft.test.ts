@@ -11,6 +11,7 @@ import {
   compileQuestion,
   draftFromDefinition,
   emptyQuestionDraft,
+  nextOption,
   type OptionDraft,
   type QuestionDraft,
 } from "./quiz-draft";
@@ -111,15 +112,51 @@ describe("compileQuestion", () => {
     expect(compiled.options[0].image).toEqual({ kind: "image", url: "" });
   });
 
-  it("omits prompt audio until both locales are chosen", () => {
-    // A half-filled pair must not compile to a one-sided `LocalizedAudio`, which
-    // would be a shape the schema has no field to complain about.
+  it("omits audio only when neither locale is chosen", () => {
     const draft = filledMcqDraft();
+    draft.promptAudio.en = "";
     draft.promptAudio.bn = "";
 
     const compiled = compileQuestion(draft) as Record<string, unknown>;
 
     expect(compiled).not.toHaveProperty("promptAudio");
+  });
+
+  it("keeps a half-filled audio pair so the schema names the missing locale", () => {
+    // Dropping the pair would discard the clip the author just picked, silently
+    // and with Save still enabled. Emitting the half puts the issue at
+    // `promptAudio.bn`, which `knownQuestionPaths` renders against the field.
+    const draft = filledMcqDraft();
+    draft.promptAudio.bn = "";
+
+    const compiled = compileQuestion(draft) as Record<string, unknown>;
+
+    expect(compiled.promptAudio).toEqual({
+      en: { kind: "audio", url: draft.promptAudio.en },
+    });
+    expect(safeParseQuizQuestion(compiled).success).toBe(false);
+  });
+
+  it("numbers a new right-column option past the left column", () => {
+    // The right column starts where the left one ends, so numbering a new option
+    // by its own length alone reminted an id the column already held — every Add
+    // on that column produced a duplicate-id error the author had to fix by hand.
+    const draft = emptyQuestionDraft("match_pair");
+
+    const added = nextOption(draft.rightColumn, draft.leftColumn.length);
+
+    expect(draft.rightColumn.map((option) => option.id)).not.toContain(
+      added.id,
+    );
+  });
+
+  it("skips an id that is still taken after an option was removed", () => {
+    const draft = emptyQuestionDraft("match_pair");
+    const shortened = draft.rightColumn.slice(0, 1);
+
+    const added = nextOption(shortened, draft.leftColumn.length);
+
+    expect(shortened.map((option) => option.id)).not.toContain(added.id);
   });
 
   it("builds match pairs from the per-left-option choices", () => {

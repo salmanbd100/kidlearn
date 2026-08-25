@@ -13,6 +13,7 @@ import {
   signMediaUpload,
   uploadToCloudinary,
 } from "@/lib/admin-api";
+import { optionValue } from "@/lib/select-option";
 
 /**
  * Sign → upload → register, as one form (FR-CMS-02).
@@ -119,7 +120,7 @@ export function UploadDialog({
           value={kind}
           disabled={isBusy}
           onChange={(event) => {
-            setKind(event.target.value as AssetKind);
+            setKind(optionValue(ASSET_KINDS, event.target.value, kind));
             setLanguage("");
           }}
         >
@@ -139,7 +140,9 @@ export function UploadDialog({
             value={language}
             disabled={isBusy}
             aria-describedby="upload-language-hint"
-            onChange={(event) => setLanguage(event.target.value as Locale | "")}
+            onChange={(event) =>
+              setLanguage(optionValue(LOCALES, event.target.value, ""))
+            }
           >
             <option value="">Not set</option>
             {LOCALES.map((one) => (

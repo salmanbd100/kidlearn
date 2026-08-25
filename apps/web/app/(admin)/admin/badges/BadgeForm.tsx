@@ -6,6 +6,7 @@ import { Button, Input, Label, Select, Textarea } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
 import { MediaPicker } from "@/components/admin/MediaPicker";
 import type { ContentDraft } from "@/lib/admin-api";
+import { optionValue } from "@/lib/select-option";
 
 /**
  * The guided badge form (FR-GAM-04).
@@ -62,7 +63,10 @@ export function BadgeForm({
   const [slug, setSlug] = useState(existing?.slug ?? "");
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
-  const [iconUrl, setIconUrl] = useState("");
+  // Seeded from the url the API resolves, not from the id: `MediaPicker`
+  // identifies an asset by url, so an unseeded field would report a badge that
+  // has an icon as "Not set".
+  const [iconUrl, setIconUrl] = useState(existing?.iconUrl ?? "");
   const [iconAssetId, setIconAssetId] = useState(existing?.iconAssetId ?? "");
   const [ruleType, setRuleType] = useState<BadgeRuleType>(
     existing?.ruleType ?? "lessons_completed_in_topic",
@@ -151,7 +155,9 @@ export function BadgeForm({
             value={ruleType}
             disabled={isBusy}
             onChange={(event) =>
-              setRuleType(event.target.value as BadgeRuleType)
+              setRuleType(
+                optionValue(BADGE_RULE_TYPES, event.target.value, ruleType),
+              )
             }
           >
             {BADGE_RULE_TYPES.map((type) => (

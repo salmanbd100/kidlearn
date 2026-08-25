@@ -4,6 +4,7 @@ import type {
   LessonAssetFallbacks,
   LessonDetailResponse,
   LessonStep,
+  Locale,
   ScreenTimeBlockCode,
 } from "@kidlearn/types";
 import { LESSON_STEPS, resumeLessonStep } from "@kidlearn/types";
@@ -111,7 +112,7 @@ export interface LessonPlayerProps {
   /** Administrator preview: unpublished content, a banner, and no writes. */
   isPreview?: boolean;
   /** Which locale to preview in. Ignored outside preview — a child has a profile. */
-  previewLanguage?: "en" | "bn";
+  previewLanguage?: Locale;
 }
 
 export function LessonPlayer({
@@ -300,13 +301,14 @@ export function LessonPlayer({
  * interface language of the tool (`frontend.md §3`).
  */
 function PreviewBanner() {
+  const { t } = useTranslation(LESSON_NAMESPACE);
   return (
     <p
       role="status"
       data-theme="parent"
       className="fixed inset-x-0 top-0 z-50 bg-foreground px-3 py-1.5 text-center font-ui font-semibold text-background text-xs uppercase tracking-wide"
     >
-      Preview — nothing here is recorded
+      {t("preview.banner")}
     </p>
   );
 }

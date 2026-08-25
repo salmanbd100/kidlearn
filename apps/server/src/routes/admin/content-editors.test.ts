@@ -339,7 +339,7 @@ function seedActivity(status = "draft"): Row {
   return row;
 }
 
-function seedBadge(status = "draft"): Row {
+function seedBadge(status = "draft", icon?: { id: string; url: string }): Row {
   const row: Row = {
     id: BADGE_ID,
     slug: "alphabet-champion",
@@ -347,7 +347,10 @@ function seedBadge(status = "draft"): Row {
     description: null,
     ruleType: "lessons_completed_in_topic",
     rule: { topicSlug: "alphabet", count: "all" },
-    iconAssetId: null,
+    iconAssetId: icon?.id ?? null,
+    // The stub returns whole rows and ignores `select`, so the relation the
+    // service reads `iconUrl` from is seeded as a nested object here.
+    iconAsset: icon === undefined ? null : { url: icon.url },
     status,
   };
   store.badges.push(row);
@@ -610,6 +613,61 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
   });
 });
 
+describe("PATCH /api/admin/content/quizzes/:quizId", () => {
+  it("renames a draft quiz", async () => {
+    seedQuiz();
+
+    const res = await request(app)
+      .patch(`${BASE}/quizzes/${QUIZ_ID}`)
+      .send({ title: "Letters quiz, revised" });
+
+    expect(res.status).toBe(200);
+    assertContract(
+      AdminQuizResponseSchema,
+      res.body,
+      "PATCH /api/admin/content/quizzes/{quizId}",
+    );
+    expect(res.body.data.title).toBe("Letters quiz, revised");
+  });
+
+  it("refuses to rename a published quiz", async () => {
+    seedQuiz(QUIZ_ID, "published");
+
+    const res = await request(app)
+      .patch(`${BASE}/quizzes/${QUIZ_ID}`)
+      .send({ title: "Letters quiz, revised" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("EDIT_REQUIRES_UNPUBLISH");
+    expect(store.quizzes[0].title).toBe("Letters quiz");
+  });
+
+  it("reads the status and writes the title in one Serializable transaction", async () => {
+    // The check and the write must not straddle two transactions: a publish
+    // committing between them would let a rename land on a published quiz.
+    seedQuiz();
+    store.isolationLevels.length = 0;
+
+    await request(app)
+      .patch(`${BASE}/quizzes/${QUIZ_ID}`)
+      .send({ title: "Letters quiz, revised" });
+
+    expect(store.isolationLevels).toEqual([
+      Prisma.TransactionIsolationLevel.Serializable,
+    ]);
+  });
+
+  it("404s for a quiz that does not exist", async () => {
+    const res = await request(app)
+      .patch(`${BASE}/quizzes/${QUIZ_ID}`)
+      .send({ title: "Letters quiz, revised" });
+
+    expect(res.status).toBe(404);
+    // Not "No such quizze" — the message names the resource in the singular.
+    expect(res.body.error.message).toBe("No such quiz");
+  });
+});
+
 describe("PATCH /api/admin/content/quizzes/:quizId/questions/:id", () => {
   beforeEach(async () => {
     seedQuiz();
@@ -626,6 +684,11 @@ describe("PATCH /api/admin/content/quizzes/:quizId/questions/:id", () => {
       .send({ format: "picture_select", definition: validPictureSelect });
 
     expect(res.status).toBe(200);
+    assertContract(
+      AdminQuizQuestionResponseSchema,
+      res.body,
+      "PATCH /api/admin/content/quizzes/{quizId}/questions/{id}",
+    );
     expect(res.body.data.format).toBe("picture_select");
     expect(res.body.data.sortOrder).toBe(0);
   });
@@ -751,6 +814,43 @@ describe("activities", () => {
     expect(other.body.data).toEqual([]);
   });
 
+  it("returns one activity with its payload", async () => {
+    seedActivity();
+
+    const res = await request(app).get(`${BASE}/activities/${ACTIVITY_ID}`);
+
+    expect(res.status).toBe(200);
+    assertContract(
+      AdminActivityResponseSchema,
+      res.body,
+      "GET /api/admin/content/activities/{id}",
+    );
+    expect(res.body.data.definition).toEqual(validDragDrop);
+  });
+
+  it("404s for an activity that does not exist", async () => {
+    const res = await request(app).get(`${BASE}/activities/${ACTIVITY_ID}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toBe("No such activity");
+  });
+
+  it("rewrites a draft activity's payload", async () => {
+    seedActivity();
+
+    const res = await request(app)
+      .patch(`${BASE}/activities/${ACTIVITY_ID}`)
+      .send({ type: "drag_drop", definition: validDragDrop });
+
+    expect(res.status).toBe(200);
+    assertContract(
+      AdminActivityResponseSchema,
+      res.body,
+      "PATCH /api/admin/content/activities/{id}",
+    );
+    expect(res.body.data.type).toBe("drag_drop");
+  });
+
   it("refuses to rewrite a published activity", async () => {
     seedActivity("published");
 
@@ -853,10 +953,46 @@ describe("badges", () => {
       .send({ ruleType: "streak_days", rule: { days: 5 } });
 
     expect(res.status).toBe(200);
+    assertContract(
+      AdminBadgeResponseSchema,
+      res.body,
+      "PATCH /api/admin/content/badges/{id}",
+    );
     expect(res.body.data).toMatchObject({
       ruleType: "streak_days",
       rule: { days: 5 },
     });
+  });
+
+  it("returns one badge, with the url of the icon it points at", async () => {
+    // `iconUrl` is what the editor's media picker matches on: without it the
+    // form reports a badge that has an icon as "Not set".
+    seedBadge("draft", {
+      id: "cccccccc-0000-4000-8000-000000000001",
+      url: "https://res.cloudinary.com/test-cloud/image/upload/badge.png",
+    });
+
+    const res = await request(app).get(`${BASE}/badges/${BADGE_ID}`);
+
+    expect(res.status).toBe(200);
+    assertContract(
+      AdminBadgeResponseSchema,
+      res.body,
+      "GET /api/admin/content/badges/{id}",
+    );
+    expect(res.body.data).toMatchObject({
+      iconAssetId: "cccccccc-0000-4000-8000-000000000001",
+      iconUrl: "https://res.cloudinary.com/test-cloud/image/upload/badge.png",
+    });
+  });
+
+  it("reports no icon as a null url rather than omitting it", async () => {
+    seedBadge();
+
+    const res = await request(app).get(`${BASE}/badges/${BADGE_ID}`);
+
+    expect(res.body.data.iconAssetId).toBeNull();
+    expect(res.body.data.iconUrl).toBeNull();
   });
 
   it("lists badges by slug", async () => {
@@ -893,6 +1029,11 @@ describe("transitions", () => {
         .post(`${BASE}/quizzes/${QUIZ_ID}/transition`)
         .send({ to });
       expect(hop.status).toBe(200);
+      assertContract(
+        AdminQuizResponseSchema,
+        hop.body,
+        "POST /api/admin/content/quizzes/{quizId}/transition",
+      );
     }
     expect(store.quizzes[0].status).toBe("published");
   });

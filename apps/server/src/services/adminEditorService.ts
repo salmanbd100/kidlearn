@@ -140,7 +140,8 @@ function asBadgeRule(value: Prisma.JsonValue): BadgeRule {
 }
 
 /** Archived rows are hidden from admin lists by default, matching file 32. */
-const NOT_ARCHIVED = { status: { not: "archived" as ContentStatus } };
+const ARCHIVED: ContentStatus = "archived";
+const NOT_ARCHIVED = { status: { not: ARCHIVED } };
 
 function visibility(includeArchived: boolean) {
   return includeArchived ? {} : NOT_ARCHIVED;
@@ -261,41 +262,35 @@ export async function getQuizSummary(quizId: string): Promise<AdminQuizDto> {
   return toAdminQuiz(row);
 }
 
+/**
+ * Renames a quiz (FR-CMS-03).
+ *
+ * Read-then-write inside one Serializable transaction, for the reason file 32's
+ * `editWithinTransaction` gives: two admins, one publishing and one editing, must
+ * not both see `draft` and both succeed. Checking editability in a transaction of
+ * its own would commit the read before the update began, which is exactly the
+ * staleness Serializable is here to prevent.
+ */
 export async function updateQuiz(
   quizId: string,
   input: QuizUpdateBody,
 ): Promise<AdminQuizDto> {
-  await editableQuiz(quizId);
-  const row = await prisma.quiz.update({
-    where: { id: quizId },
-    data: { ...(input.title === undefined ? {} : { title: input.title }) },
-    select: quizSelect,
-  });
-  return toAdminQuiz(row);
-}
-
-/**
- * Reads a quiz's status inside a Serializable transaction and refuses the write
- * if it is published.
- *
- * Read-then-write rather than a conditional update, for the reason file 32's
- * `editWithinTransaction` gives: two admins, one publishing and one editing, must
- * not both see `draft` and both succeed. The loser aborts, retries and is refused.
- */
-async function editableQuiz(quizId: string): Promise<void> {
-  await withSerializationRetry(() =>
+  const row = await withSerializationRetry(() =>
     prisma.$transaction(
       async (tx) => {
-        const quiz = await tx.quiz.findUnique({
+        assertEditable(await readEditorStatus(tx, "quizzes", quizId));
+        return tx.quiz.update({
           where: { id: quizId },
-          select: { status: true },
+          data: {
+            ...(input.title === undefined ? {} : { title: input.title }),
+          },
+          select: quizSelect,
         });
-        if (!quiz) throw ApiError.notFound("No such quiz");
-        assertEditable(quiz.status);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),
   );
+  return toAdminQuiz(row);
 }
 
 /**
@@ -587,6 +582,7 @@ export type AdminBadgeDto = {
   ruleType: BadgeRuleType;
   rule: BadgeRule;
   iconAssetId: string | null;
+  iconUrl: string | null;
   status: ContentStatus;
 };
 
@@ -598,6 +594,7 @@ const badgeSelect = {
   ruleType: true,
   rule: true,
   iconAssetId: true,
+  iconAsset: { select: { url: true } },
   status: true,
 } satisfies Prisma.BadgeSelect;
 
@@ -620,6 +617,7 @@ function toAdminBadge(row: BadgeRow): AdminBadgeDto {
     ruleType: row.ruleType as BadgeRuleType,
     rule: asBadgeRule(row.rule),
     iconAssetId: row.iconAssetId,
+    iconUrl: row.iconAsset?.url ?? null,
     status: row.status,
   };
 }
@@ -803,9 +801,16 @@ async function readEditorStatus(
       ? tx.activity.findUnique({ where: { id }, select })
       : tx.badge.findUnique({ where: { id }, select }));
 
-  if (!row) throw ApiError.notFound(`No such ${resource.slice(0, -1)}`);
+  if (!row) throw ApiError.notFound(`No such ${SINGULAR[resource]}`);
   return row.status;
 }
+
+/** `"quizzes".slice(0, -1)` is `"quizze"` — the names are spelled out instead. */
+const SINGULAR: Record<EditorResource, string> = {
+  quizzes: "quiz",
+  activities: "activity",
+  badges: "badge",
+};
 
 async function writeEditorStatus(
   tx: EditorWriter,

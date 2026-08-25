@@ -17,6 +17,7 @@ import {
   updateBadge,
   updateContent,
 } from "@/lib/admin-api";
+import { optionValue } from "@/lib/select-option";
 
 /**
  * Points an owning row's foreign key at one asset (FR-CMS-02, requirement 3).
@@ -130,7 +131,7 @@ export function AttachDialog({
           value={target ?? ""}
           disabled={isBusy}
           onChange={(event) => {
-            setTarget(event.target.value as Target);
+            setTarget(optionValue(available, event.target.value, undefined));
             setRowId("");
           }}
         >
@@ -149,7 +150,9 @@ export function AttachDialog({
             id="attach-locale"
             value={locale}
             disabled={isBusy}
-            onChange={(event) => setLocale(event.target.value as Locale)}
+            onChange={(event) =>
+              setLocale(optionValue(LOCALES, event.target.value, locale))
+            }
           >
             {LOCALES.map((one) => (
               <option key={one} value={one}>

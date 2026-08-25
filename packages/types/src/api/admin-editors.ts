@@ -124,6 +124,14 @@ export const AdminBadgeSchema = z
     ruleType: BadgeRuleTypeSchema,
     rule: BadgeRuleSchema,
     iconAssetId: z.string().nullable(),
+    /**
+     * The icon's delivery url, resolved from `iconAssetId`.
+     *
+     * Sent alongside the id because the editor's media picker identifies an asset
+     * by url: without it, opening a badge that has an icon renders the picker as
+     * "Not set" and invites the author to re-pick what is already there.
+     */
+    iconUrl: z.string().nullable(),
     status: ContentStatusSchema,
   })
   .strict();
