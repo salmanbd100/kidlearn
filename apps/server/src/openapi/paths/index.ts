@@ -1,6 +1,8 @@
 import type { RouteDoc } from "../route-doc.js";
 import { ADMIN_ROUTES } from "./admin.js";
 import { ADMIN_CONTENT_ROUTES } from "./admin-content.js";
+import { ADMIN_EDITOR_ROUTES } from "./admin-editors.js";
+import { ADMIN_MEDIA_ROUTES } from "./admin-media.js";
 import { AUTH_ROUTES, BETTER_AUTH_ROUTES } from "./auth.js";
 import { CHARACTERS_ROUTES } from "./characters.js";
 import { CHILDREN_ROUTES } from "./children.js";
@@ -37,6 +39,8 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...JOBS_ROUTES,
   ...ADMIN_ROUTES,
   ...ADMIN_CONTENT_ROUTES,
+  ...ADMIN_EDITOR_ROUTES,
+  ...ADMIN_MEDIA_ROUTES,
 ];
 
 /**

@@ -311,3 +311,15 @@ export const ActivityDefinitionSchema = z.union([
   PuzzleActivitySchema,
 ]);
 export type ActivityDefinition = z.infer<typeof ActivityDefinitionSchema>;
+
+/**
+ * The union, indexed by the `type` literal each member carries. See
+ * `QUIZ_QUESTION_SCHEMAS` in `../quiz/schemas` for why anything that already knows
+ * the type must parse with the member rather than the union.
+ */
+export const ACTIVITY_SCHEMAS = {
+  drag_drop: DragDropActivitySchema,
+  trace: TraceActivitySchema,
+  match: MatchActivitySchema,
+  puzzle: PuzzleActivitySchema,
+} satisfies Record<ActivityType, z.ZodTypeAny>;

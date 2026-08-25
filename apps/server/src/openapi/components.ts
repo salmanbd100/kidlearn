@@ -3,11 +3,24 @@ import {
   ActivityDefinitionSchema,
   ActivityEventResponseSchema,
   ActivityEventSchema,
+  AdminActivityListResponseSchema,
+  AdminActivityResponseSchema,
+  AdminActivitySchema,
+  AdminBadgeListResponseSchema,
+  AdminBadgeResponseSchema,
+  AdminBadgeSchema,
   AdminIdentityResponseSchema,
   AdminIdentitySchema,
   AdminLessonListResponseSchema,
   AdminLessonResponseSchema,
   AdminLessonSchema,
+  AdminQuizDetailResponseSchema,
+  AdminQuizDetailSchema,
+  AdminQuizListResponseSchema,
+  AdminQuizQuestionResponseSchema,
+  AdminQuizQuestionSchema,
+  AdminQuizResponseSchema,
+  AdminQuizSchema,
   AdminSubjectListResponseSchema,
   AdminSubjectResponseSchema,
   AdminSubjectSchema,
@@ -57,6 +70,9 @@ import {
   LessonQuizQuestionSchema,
   LessonQuizSchema,
   LocalizedLabelSchema,
+  MediaAssetListResponseSchema,
+  MediaAssetResponseSchema,
+  MediaAssetSchema,
   MediaSummarySchema,
   NarrationTimingsSchema,
   NewBadgeSchema,
@@ -66,6 +82,8 @@ import {
   PinStatusResponseSchema,
   PlatformOverviewResponseSchema,
   PlatformOverviewSchema,
+  QuestionDeletedResponseSchema,
+  QuestionDeletedSchema,
   QuizQuestionSchema,
   QuizResponsesResponseSchema,
   QuizScoreSchema,
@@ -92,6 +110,8 @@ import {
   SubjectSummarySchema,
   TopicListResponseSchema,
   TopicSummarySchema,
+  UploadSignatureResponseSchema,
+  UploadSignatureSchema,
   ValidationDetailsSchema,
   WeeklyReportBadgeSchema,
   WeeklyReportJobResponseSchema,
@@ -118,6 +138,18 @@ import {
   WorldCreateSchema,
   WorldUpdateSchema,
 } from "../schemas/admin-content.js";
+import {
+  ActivityUpsertSchema,
+  BadgeCreateSchema,
+  BadgeUpdateSchema,
+  QuestionUpsertSchema,
+  QuizCreateSchema,
+  QuizUpdateSchema,
+} from "../schemas/admin-editors.js";
+import {
+  RegisterAssetSchema,
+  SignUploadSchema,
+} from "../schemas/admin-media.js";
 import {
   CreateChildBodySchema,
   UpdateChildBodySchema,
@@ -318,6 +350,47 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AdminLessonResponse: AdminLessonResponseSchema,
   AdminLessonListResponse: AdminLessonListResponseSchema,
   ReorderedIdsResponse: ReorderedIdsResponseSchema,
+
+  // --- Admin CMS: the media library (file 33, FR-CMS-02) -------------------
+  // The request halves are the objects `validate()` runs, so the `.strict()`
+  // bodies documented here are the ones that reject an unknown key. The
+  // Cloudinary-host rule on `url` is a Zod `.refine()` and is therefore invisible
+  // in the schema — it is written out in the operation's description instead.
+  MediaSignUploadBody: SignUploadSchema,
+  MediaRegisterAssetBody: RegisterAssetSchema,
+  MediaAsset: MediaAssetSchema,
+  MediaAssetResponse: MediaAssetResponseSchema,
+  MediaAssetListResponse: MediaAssetListResponseSchema,
+  UploadSignature: UploadSignatureSchema,
+  UploadSignatureResponse: UploadSignatureResponseSchema,
+
+  // --- Admin CMS: the guided editors (file 33, FR-CMS-03, FR-GAM-04) -------
+  // `definition` and `rule` are untyped in the request bodies on purpose — the
+  // server parses each against the one member of the shared union its sibling
+  // enum names, which is what turns a wrong payload into an issue naming the
+  // field rather than one saying "Invalid input". The response schemas carry the
+  // real unions, so a route test's `assertContract` proves the round trip.
+  AdminQuizCreateBody: QuizCreateSchema,
+  AdminQuizUpdateBody: QuizUpdateSchema,
+  AdminQuizQuestionBody: QuestionUpsertSchema,
+  AdminActivityBody: ActivityUpsertSchema,
+  AdminBadgeCreateBody: BadgeCreateSchema,
+  AdminBadgeUpdateBody: BadgeUpdateSchema,
+  AdminQuiz: AdminQuizSchema,
+  AdminQuizResponse: AdminQuizResponseSchema,
+  AdminQuizListResponse: AdminQuizListResponseSchema,
+  AdminQuizDetail: AdminQuizDetailSchema,
+  AdminQuizDetailResponse: AdminQuizDetailResponseSchema,
+  AdminQuizQuestion: AdminQuizQuestionSchema,
+  AdminQuizQuestionResponse: AdminQuizQuestionResponseSchema,
+  QuestionDeleted: QuestionDeletedSchema,
+  QuestionDeletedResponse: QuestionDeletedResponseSchema,
+  AdminActivity: AdminActivitySchema,
+  AdminActivityResponse: AdminActivityResponseSchema,
+  AdminActivityListResponse: AdminActivityListResponseSchema,
+  AdminBadge: AdminBadgeSchema,
+  AdminBadgeResponse: AdminBadgeResponseSchema,
+  AdminBadgeListResponse: AdminBadgeListResponseSchema,
 
   // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,

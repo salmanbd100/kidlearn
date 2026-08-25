@@ -1,7 +1,9 @@
 import type { Router } from "express";
 import { describe, expect, it } from "vitest";
 import { adminContentRouter } from "../routes/admin/content.js";
+import { adminContentEditorsRouter } from "../routes/admin/content-editors.js";
 import { adminRouter } from "../routes/admin/index.js";
+import { adminMediaRouter } from "../routes/admin/media.js";
 import { authRouter } from "../routes/auth.js";
 import { charactersRouter } from "../routes/characters.js";
 import { childrenRouter } from "../routes/children.js";
@@ -84,12 +86,27 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     router: adminContentRouter,
     file: "paths/admin-content.ts",
   },
+  // File 33 — a second router at the same mount path as the one above, carrying
+  // the quiz/activity/badge editors. Two entries rather than one because the walk
+  // reads a router's own registrations, and this is what gives each surface its
+  // own registry file in the failure message.
+  {
+    prefix: "/api/admin/content",
+    router: adminContentEditorsRouter,
+    file: "paths/admin-editors.ts",
+  },
+  {
+    prefix: "/api/admin/media",
+    router: adminMediaRouter,
+    file: "paths/admin-media.ts",
+  },
 ];
 
 /**
  * How many routers are reachable under `/api`, at any depth: the ten
- * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter` and
- * `adminContentRouter` nested on `adminRouter`.
+ * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`, and
+ * `adminContentRouter`, `adminContentEditorsRouter` and `adminMediaRouter` nested
+ * on `adminRouter` (file 33 added the last two).
  *
  * Counted through the whole tree rather than one level down, because a router
  * nested inside a resource router is invisible to both of the diffs above — the
@@ -97,7 +114,7 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
  * appear and "documents every route the server serves" would pass on a surface it
  * never saw.
  */
-const EXPECTED_ROUTERS_UNDER_API = 12;
+const EXPECTED_ROUTERS_UNDER_API = 14;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally

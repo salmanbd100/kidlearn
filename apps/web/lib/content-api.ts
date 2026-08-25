@@ -29,6 +29,20 @@ export interface ContentFetchOptions {
   onColdStart?: () => void;
 }
 
+/**
+ * The administrator preview (file 33, FR-CMS-04) — the **only** query parameters
+ * anywhere on this API, and they are not an exception to the rule above.
+ *
+ * `preview=1` requests the mode; it does not grant it. The server ignores it
+ * entirely unless an `AdminUser` row backs the session, so a child or a parent
+ * sending it sees exactly what they see without it. `language` exists only because
+ * a preview has no child row to read a locale from.
+ */
+export interface LessonPreviewOptions {
+  isPreview?: boolean;
+  language?: "en" | "bn";
+}
+
 /** The themed worlds the home screen renders (FR-WORLD-01..03, FR-WORLD-05). */
 export function listWorlds(
   options: ContentFetchOptions = {},
@@ -63,10 +77,14 @@ export function listWorldLessons(
  */
 export function getLesson(
   lessonId: string,
-  options: ContentFetchOptions = {},
+  options: ContentFetchOptions & LessonPreviewOptions = {},
 ): Promise<ApiResult<{ lesson: LessonDetailResponse }>> {
+  const query = options.isPreview
+    ? `?preview=1&lang=${options.language ?? "en"}`
+    : "";
+
   return apiFetch<{ lesson: LessonDetailResponse }>(
-    `/api/content/lessons/${lessonId}`,
+    `/api/content/lessons/${lessonId}${query}`,
     { onColdStart: options.onColdStart },
   );
 }

@@ -19,3 +19,9 @@ process.env.GOOGLE_CLIENT_SECRET ??= "test-google-client-secret";
 // File 30 — `/api/admin/jobs/*` authenticates with this shared secret, and
 // env.ts requires it at boot. `routes/jobs.test.ts` asserts against this value.
 process.env.CRON_SECRET ??= "test-cron-secret-value";
+// File 33 — Cloudinary. Dummy values: no test uploads anything, but env.ts
+// requires all three at boot. `routes/admin/media.test.ts` asserts a signature
+// reproduced from this secret, so changing it changes that expectation too.
+process.env.CLOUDINARY_CLOUD_NAME ??= "test-cloud";
+process.env.CLOUDINARY_API_KEY ??= "test-api-key";
+process.env.CLOUDINARY_API_SECRET ??= "test-api-secret";

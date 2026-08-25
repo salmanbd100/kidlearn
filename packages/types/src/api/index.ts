@@ -20,6 +20,8 @@
 
 export * from "./admin.js";
 export * from "./admin-content.js";
+export * from "./admin-editors.js";
+export * from "./admin-media.js";
 export * from "./auth.js";
 export * from "./children.js";
 export * from "./content.js";

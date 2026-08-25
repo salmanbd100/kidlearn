@@ -29,6 +29,9 @@ importers:
       better-auth:
         specifier: ^1.6.25
         version: 1.6.25(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(next@16.2.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(prisma@6.19.3(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.8(@types/node@20.19.43)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@20.19.43)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)))
+      cloudinary:
+        specifier: ^2
+        version: 2.10.1
       cors:
         specifier: ^2.8.6
         version: 2.8.6
@@ -1657,6 +1660,10 @@ packages:
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
 
+  cloudinary@2.10.1:
+    resolution: {integrity: sha512-0aqF/sGwm2dSM/Xse87EI5OpKcuX/hwoPPdUDTdUal6GMPKevtElcI3spcaeuzJJbcLkY3vJaF22q0u50VO5Lw==}
+    engines: {node: '>=9'}
+
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
@@ -2111,6 +2118,9 @@ packages:
   lightningcss@1.32.0:
     resolution: {integrity: sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ==}
     engines: {node: '>= 12.0.0'}
+
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
   lru-cache@11.5.1:
     resolution: {integrity: sha512-RPimw/7aMdv2oqRrxKwvZXcPfwBrn/JZ2xYcY9Hus/6LaS3VOAKVWKWgNLCFSiOm1ESXinjsDlidVU7JlnCN2A==}
@@ -3924,6 +3934,10 @@ snapshots:
 
   client-only@0.0.1: {}
 
+  cloudinary@2.10.1:
+    dependencies:
+      lodash: 4.18.1
+
   clsx@2.1.1: {}
 
   colorette@2.0.20: {}
@@ -4366,6 +4380,8 @@ snapshots:
       lightningcss-linux-x64-musl: 1.32.0
       lightningcss-win32-arm64-msvc: 1.32.0
       lightningcss-win32-x64-msvc: 1.32.0
+
+  lodash@4.18.1: {}
 
   lru-cache@11.5.1: {}
 

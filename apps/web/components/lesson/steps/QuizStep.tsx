@@ -31,8 +31,12 @@ import type { LessonStepProps } from "./lesson-step-props";
  *
  * **The locale is the child's, not `lesson.locale`** — see `ActivityStep` for
  * why. Question payloads carry both languages and have nothing to fall back from.
+ *
+ * **In an administrator preview nothing is submitted** (file 33, FR-CMS-04): the
+ * score screen still renders from the records in hand, and no `QuizResponse` row
+ * is written for a child who does not exist.
  */
-export function QuizStep({ lesson, onComplete }: LessonStepProps) {
+export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
   const { t, i18n } = useTranslation(LESSON_NAMESPACE);
   const locale = toLocale(i18n.resolvedLanguage);
   const [finishedRecords, setFinishedRecords] = useState<
@@ -53,6 +57,11 @@ export function QuizStep({ lesson, onComplete }: LessonStepProps) {
 
       setFinishedRecords(records);
 
+      // An administrator preview scores on screen and records nothing
+      // (file 33, FR-CMS-04). There is no child for a `QuizResponse` row to
+      // belong to, and the endpoint would refuse an admin session anyway.
+      if (isPreview) return;
+
       void submitQuizResponses(quizId, records).then((result) => {
         if (!result.ok) {
           console.warn(
@@ -61,7 +70,7 @@ export function QuizStep({ lesson, onComplete }: LessonStepProps) {
         }
       });
     },
-    [quizId, onComplete],
+    [quizId, onComplete, isPreview],
   );
 
   return (

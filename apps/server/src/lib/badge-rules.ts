@@ -1,3 +1,11 @@
+import {
+  BADGE_RULE_SCHEMAS,
+  type BadgeRuleType,
+  LessonsCompletedInTopicRuleSchema,
+  QuizCorrectInTopicRuleSchema,
+  StoriesCompletedRuleSchema,
+  StreakDaysRuleSchema,
+} from "@kidlearn/types";
 import { z } from "zod";
 import { logger } from "./logger.js";
 
@@ -41,28 +49,13 @@ export interface BadgeFacts {
 }
 
 /**
- * `"all"` means "every published lesson in the topic", so a badge does not need
- * re-authoring when the twenty-seventh letter lesson is published.
+ * The rule payload shapes, from `@kidlearn/types`.
+ *
+ * Imported rather than declared here, because the CMS's guided form (file 33)
+ * builds a payload against the same shapes and the admin API validates one with
+ * them. Three parties, one definition — see `types/src/badges.ts` for why a
+ * second copy is how a badge nobody can earn gets authored.
  */
-const LessonsCompletedInTopicSchema = z
-  .object({
-    topicSlug: z.string().min(1),
-    count: z.union([z.number().int().positive(), z.literal("all")]),
-  })
-  .strict();
-
-const StoriesCompletedSchema = z
-  .object({ count: z.number().int().positive() })
-  .strict();
-
-const StreakDaysSchema = z
-  .object({ days: z.number().int().positive() })
-  .strict();
-
-const QuizCorrectInTopicSchema = z
-  .object({ topicSlug: z.string().min(1), count: z.number().int().positive() })
-  .strict();
-
 type Evaluator = (rule: unknown, facts: BadgeFacts) => boolean;
 
 /**
@@ -87,10 +80,16 @@ function parsed<TRule>(
   return evaluate(result.data);
 }
 
-export const BADGE_RULE_EVALUATORS: Record<string, Evaluator> = {
+/**
+ * One evaluator per rule type. Keyed by the shared union rather than `string`, so
+ * a type added to `BADGE_RULE_TYPES` without an evaluator here fails
+ * `pnpm typecheck` — the admin API would otherwise happily author a badge that
+ * `evaluateBadgeRule` warns about and nobody can earn.
+ */
+export const BADGE_RULE_EVALUATORS: Record<BadgeRuleType, Evaluator> = {
   lessons_completed_in_topic: (rule, facts) =>
     parsed(
-      LessonsCompletedInTopicSchema,
+      LessonsCompletedInTopicRuleSchema,
       "lessons_completed_in_topic",
       rule,
       ({ topicSlug, count }) => {
@@ -106,7 +105,7 @@ export const BADGE_RULE_EVALUATORS: Record<string, Evaluator> = {
 
   stories_completed: (rule, facts) =>
     parsed(
-      StoriesCompletedSchema,
+      StoriesCompletedRuleSchema,
       "stories_completed",
       rule,
       ({ count }) => facts.storiesCompleted >= count,
@@ -114,7 +113,7 @@ export const BADGE_RULE_EVALUATORS: Record<string, Evaluator> = {
 
   streak_days: (rule, facts) =>
     parsed(
-      StreakDaysSchema,
+      StreakDaysRuleSchema,
       "streak_days",
       rule,
       ({ days }) => facts.streakCurrent >= days,
@@ -122,7 +121,7 @@ export const BADGE_RULE_EVALUATORS: Record<string, Evaluator> = {
 
   quiz_correct_in_topic: (rule, facts) =>
     parsed(
-      QuizCorrectInTopicSchema,
+      QuizCorrectInTopicRuleSchema,
       "quiz_correct_in_topic",
       rule,
       ({ topicSlug, count }) =>
@@ -130,12 +129,22 @@ export const BADGE_RULE_EVALUATORS: Record<string, Evaluator> = {
     ),
 };
 
+function isBadgeRuleType(value: string): value is BadgeRuleType {
+  return value in BADGE_RULE_SCHEMAS;
+}
+
 export function evaluateBadgeRule(
   ruleType: string,
   rule: unknown,
   facts: BadgeFacts,
 ): boolean {
-  const evaluator = BADGE_RULE_EVALUATORS[ruleType];
+  // The column is a plain `String`, so a row can name a type this build does not
+  // know — a seed from a later version, or a hand-written row. Looked up through
+  // the shared table rather than narrowed, and an absence warns rather than
+  // throws (see the file docstring).
+  const evaluator = isBadgeRuleType(ruleType)
+    ? BADGE_RULE_EVALUATORS[ruleType]
+    : undefined;
   if (evaluator === undefined) {
     logger.warn(
       { ruleType },
