@@ -1,4 +1,9 @@
-import type { ChildProfile, MediaAsset, Prisma } from "@kidlearn/db";
+import type {
+  ChildProfile,
+  ContentStatus,
+  MediaAsset,
+  Prisma,
+} from "@kidlearn/db";
 import {
   type LessonAssetFallbacks,
   safeParseActivityDefinition,
@@ -479,12 +484,61 @@ export async function getLessonForChild(
   lessonId: string,
   log: ContentLogger,
 ): Promise<LessonDetail> {
-  const lesson = await prisma.lesson.findFirst({
-    where: {
-      id: lessonId,
-      ...publishedForChild(child),
-      world: publishedRelation,
-    },
+  const lesson = await findLessonRow({
+    id: lessonId,
+    ...publishedForChild(child),
+    world: publishedRelation,
+  });
+  if (!lesson) {
+    throw ApiError.notFound("Lesson not found");
+  }
+  return toLessonDetail(lesson, child.preferredLanguage, log, {
+    isPreview: false,
+  });
+}
+
+/**
+ * The same payload with **no status gate at all**, for the admin preview
+ * (FR-CMS-04).
+ *
+ * Only reachable through `middleware/admin-lesson-preview.ts`, which resolves an
+ * `AdminUser` row from the session before it calls this — the `?preview=1` query
+ * parameter requests the mode and never grants it. Nothing on the student path can
+ * reach this function.
+ *
+ * Three differences from the child version, all of them the point of a preview:
+ *
+ *  - **No `status` and no `gradeLevels` filter**, so a draft lesson in a draft
+ *    world tagged for another grade renders.
+ *  - **Unpublished activities and quizzes are included** rather than omitted. A
+ *    reviewer looking at a lesson whose activity is still in review needs to see
+ *    the activity — that is what they are reviewing.
+ *  - **The locale is a parameter**, because there is no child row to read one
+ *    from. An admin previews each language deliberately.
+ *
+ * Corrupt JSONB is still a `500`: the editors validate a definition against the
+ * shared schema on save, so a payload that cannot be parsed is a real fault worth
+ * surfacing rather than hiding behind an empty step.
+ */
+export async function getLessonForPreview(
+  lessonId: string,
+  language: Lang,
+  log: ContentLogger,
+): Promise<LessonDetail> {
+  const lesson = await findLessonRow({ id: lessonId });
+  if (!lesson) {
+    throw ApiError.notFound("Lesson not found");
+  }
+  return toLessonDetail(lesson, language, log, { isPreview: true });
+}
+
+/**
+ * The one lesson read both callers share, so the two cannot drift about which
+ * relations a lesson payload is built from. Only the `where` differs.
+ */
+function findLessonRow(where: Prisma.LessonWhereInput) {
+  return prisma.lesson.findFirst({
+    where,
     include: {
       world: { include: { mascotAsset: true, translations: true } },
       translations: {
@@ -498,11 +552,28 @@ export async function getLessonForChild(
       quiz: { include: { questions: { orderBy: { sortOrder: "asc" } } } },
     },
   });
-  if (!lesson) {
-    throw ApiError.notFound("Lesson not found");
-  }
+}
 
-  const language = child.preferredLanguage;
+type LessonRow = NonNullable<Awaited<ReturnType<typeof findLessonRow>>>;
+
+/**
+ * Turns one lesson row into the payload the player renders.
+ *
+ * `isPreview` changes exactly one thing: whether the nullable `activity` and
+ * `quiz` edges are gated on their own `status`. Everything else — locale
+ * resolution, fallback reporting, the discriminator check, the corrupt-JSONB `500`
+ * — is identical, which is what makes the preview a preview rather than a second
+ * renderer that can disagree with the real one.
+ */
+function toLessonDetail(
+  lesson: LessonRow,
+  language: Lang,
+  log: ContentLogger,
+  options: { isPreview: boolean },
+): LessonDetail {
+  const isVisible = (row: { status: ContentStatus } | null): boolean =>
+    options.isPreview || isPublished(row);
+
   const title = pickLocale(
     toLocaleMap(lesson.translations, (row) => row.title),
     language,
@@ -528,13 +599,13 @@ export async function getLessonForChild(
   // lesson's video and intro are published content in their own right, and a
   // lesson with neither attached is a shape the player already handles. The
   // pairing is an authoring mistake though, so it is logged with both ids.
-  if (lesson.activity && !isPublished(lesson.activity)) {
+  if (lesson.activity && !isVisible(lesson.activity)) {
     log.warn(
       { lessonId: lesson.id, activityId: lesson.activity.id },
       "published lesson references an unpublished activity — omitting it",
     );
   }
-  if (lesson.quiz && !isPublished(lesson.quiz)) {
+  if (lesson.quiz && !isVisible(lesson.quiz)) {
     log.warn(
       { lessonId: lesson.id, quizId: lesson.quiz.id },
       "published lesson references an unpublished quiz — omitting it",
@@ -542,7 +613,7 @@ export async function getLessonForChild(
   }
 
   let activity: LessonDetail["activity"] = null;
-  if (lesson.activity && isPublished(lesson.activity)) {
+  if (lesson.activity && isVisible(lesson.activity)) {
     const parsed = safeParseActivityDefinition(lesson.activity.definition);
     if (!parsed.success) {
       log.error(
@@ -566,7 +637,7 @@ export async function getLessonForChild(
   }
 
   let quiz: LessonDetail["quiz"] = null;
-  if (lesson.quiz && isPublished(lesson.quiz)) {
+  if (lesson.quiz && isVisible(lesson.quiz)) {
     const questions = [];
     for (const question of lesson.quiz.questions) {
       const parsed = safeParseQuizQuestion(question.definition);

@@ -144,5 +144,8 @@
   "loading": "Getting your lesson…",
   "waking": "Waking up…",
   "error": "Let's try that again.",
-  "notFound": "That lesson is closed."
+  "notFound": "That lesson is closed.",
+  "preview": {
+    "banner": "Preview — nothing here is recorded"
+  }
 }

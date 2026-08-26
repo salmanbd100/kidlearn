@@ -1,14 +1,26 @@
 import type {
+  AdminActivity,
+  AdminBadge,
   AdminIdentity,
   AdminLesson,
+  AdminQuiz,
+  AdminQuizDetail,
+  AdminQuizQuestion,
   AdminSubject,
   AdminTopic,
   AdminWorld,
+  AssetKind,
   ContentResourceName,
   ContentStatusValue,
+  EditorContentResourceName,
+  Locale,
+  MediaAsset,
   OrderableContentResourceName,
   PlatformOverview,
+  QuestionDeleted,
+  QuizQuestionType,
   ReorderedIds,
+  UploadSignature,
 } from "@kidlearn/types";
 import { type ApiResult, apiBaseUrl, apiFetch } from "./api-client";
 
@@ -232,5 +244,272 @@ export function reorderContent(
       ...(parentId ? { parentId } : {}),
       ...(includeArchived ? { includeArchived } : {}),
     }),
+  });
+}
+
+// --- Media library (file 33, FR-CMS-02) -----------------------------------
+
+/**
+ * The three-step upload, as three functions.
+ *
+ * **No file byte goes through `apps/server`.** `signMediaUpload` asks our API for
+ * a signature, `uploadToCloudinary` posts the file straight to Cloudinary, and
+ * `registerMediaAsset` tells our API the delivery URL that came back. The server
+ * has no disk and sleeps on its free tier, so proxying a lesson video through it
+ * would be a request that times out against a memory ceiling nobody can raise.
+ *
+ * The visible cost is that an upload can half-fail. That trade is deliberate: a
+ * file at Cloudinary with no row is an orphan, which costs storage and is
+ * collectable; a row pointing at nothing is content a child cannot play.
+ */
+
+const MEDIA_BASE = "/api/admin/media";
+
+export function fetchMediaAssets(
+  filters: { kind?: AssetKind; language?: Locale } = {},
+): Promise<ApiResult<MediaAsset[]>> {
+  return apiFetch<MediaAsset[]>(`${MEDIA_BASE}${listQuery(filters)}`);
+}
+
+/**
+ * `retries: 0`. A signature carries a timestamp Cloudinary expires, and replaying
+ * the request would hand back a second credential for an upload that may already
+ * be under way with the first.
+ */
+export function signMediaUpload(
+  kind: AssetKind,
+): Promise<ApiResult<UploadSignature>> {
+  return apiFetch<UploadSignature>(`${MEDIA_BASE}/sign`, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify({ kind }),
+  });
+}
+
+export function registerMediaAsset(input: {
+  url: string;
+  kind: AssetKind;
+  language: Locale | null;
+}): Promise<ApiResult<MediaAsset>> {
+  return apiFetch<MediaAsset>(MEDIA_BASE, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Posts the file to Cloudinary and resolves with the delivery URL.
+ *
+ * **`XMLHttpRequest`, not `fetch`** — the one place in this app that is true.
+ * `fetch` cannot report request-body progress, and a parent uploading a 40 MB
+ * video needs a bar rather than a spinner that might mean anything.
+ *
+ * Deliberately **not** `apiFetch`: this request does not go to our API, carries no
+ * session cookie, and answers with Cloudinary's own JSON rather than a `{ data }`
+ * envelope. Sending credentials to a third-party host would be the bug, not a
+ * convenience.
+ *
+ * Only the signed fields plus the file and `api_key` are sent. Cloudinary verifies
+ * the signature over exactly the parameters it was computed from, so adding a
+ * signed field here without adding it server-side is what produces
+ * `Invalid Signature`.
+ */
+export function uploadToCloudinary(
+  file: File,
+  signature: UploadSignature,
+  onProgress?: (percent: number) => void,
+): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  const form = new FormData();
+  form.set("file", file);
+  form.set("api_key", signature.apiKey);
+  form.set("timestamp", String(signature.timestamp));
+  form.set("folder", signature.folder);
+  form.set("signature", signature.signature);
+
+  return new Promise((resolve) => {
+    const request = new XMLHttpRequest();
+    request.open(
+      "POST",
+      `https://api.cloudinary.com/v1_1/${signature.cloudName}/auto/upload`,
+    );
+
+    request.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      onProgress?.(Math.round((event.loaded / event.total) * 100));
+    });
+
+    request.addEventListener("load", () => {
+      if (request.status < 200 || request.status >= 300) {
+        resolve({
+          ok: false,
+          message: `Cloudinary refused the upload (${request.status}).`,
+        });
+        return;
+      }
+      // Verified external boundary: Cloudinary's documented upload response. The
+      // URL is re-checked server-side against our own delivery host before any
+      // row is written, so a malformed value here cannot become content.
+      const body = JSON.parse(request.responseText) as { secure_url?: unknown };
+      if (typeof body.secure_url !== "string") {
+        resolve({ ok: false, message: "Cloudinary returned no secure URL." });
+        return;
+      }
+      resolve({ ok: true, url: body.secure_url });
+    });
+
+    request.addEventListener("error", () =>
+      resolve({ ok: false, message: "The upload could not reach Cloudinary." }),
+    );
+    request.addEventListener("abort", () =>
+      resolve({ ok: false, message: "The upload was cancelled." }),
+    );
+
+    request.send(form);
+  });
+}
+
+// --- Guided editors (file 33, FR-CMS-03, FR-GAM-04) -----------------------
+
+/**
+ * `/api/admin/content/{quizzes,activities,badges}`.
+ *
+ * `definition` and `rule` are sent as `unknown`, matching the server's boundary:
+ * the shape is decided by the sibling `format` / `type` / `ruleType`, and the
+ * editor has already validated it against the very same shared schema before
+ * enabling Save. Declaring a narrower type here would mean a second, weaker copy
+ * of that decision on the client.
+ */
+
+export function fetchQuiz(quizId: string): Promise<ApiResult<AdminQuizDetail>> {
+  return apiFetch<AdminQuizDetail>(`${CONTENT_BASE}/quizzes/${quizId}`);
+}
+
+export function fetchQuizzes(
+  options: ListOptions = {},
+): Promise<ApiResult<AdminQuiz[]>> {
+  return apiFetch<AdminQuiz[]>(`${CONTENT_BASE}/quizzes${listQuery(options)}`);
+}
+
+export function createQuiz(
+  title: string | null,
+): Promise<ApiResult<AdminQuiz>> {
+  return apiFetch<AdminQuiz>(`${CONTENT_BASE}/quizzes`, {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export function createQuestion(
+  quizId: string,
+  body: { format: QuizQuestionType; definition: unknown },
+): Promise<ApiResult<AdminQuizQuestion>> {
+  return apiFetch<AdminQuizQuestion>(
+    `${CONTENT_BASE}/quizzes/${quizId}/questions`,
+    { method: "POST", retries: 0, body: JSON.stringify(body) },
+  );
+}
+
+export function replaceQuestion(
+  quizId: string,
+  questionId: string,
+  body: { format: QuizQuestionType; definition: unknown },
+): Promise<ApiResult<AdminQuizQuestion>> {
+  return apiFetch<AdminQuizQuestion>(
+    `${CONTENT_BASE}/quizzes/${quizId}/questions/${questionId}`,
+    { method: "PATCH", retries: 0, body: JSON.stringify(body) },
+  );
+}
+
+/**
+ * `retries: 0` and a body worth reading. A delete renumbers the survivors, so a
+ * replay would be judged against a list that has already moved, and the response
+ * is what the editor settles its order against rather than guessing.
+ */
+export function deleteQuestion(
+  quizId: string,
+  questionId: string,
+): Promise<ApiResult<QuestionDeleted>> {
+  return apiFetch<QuestionDeleted>(
+    `${CONTENT_BASE}/quizzes/${quizId}/questions/${questionId}`,
+    { method: "DELETE", retries: 0 },
+  );
+}
+
+export function fetchActivity(id: string): Promise<ApiResult<AdminActivity>> {
+  return apiFetch<AdminActivity>(`${CONTENT_BASE}/activities/${id}`);
+}
+
+export function fetchActivities(
+  options: ListOptions = {},
+): Promise<ApiResult<AdminActivity[]>> {
+  return apiFetch<AdminActivity[]>(
+    `${CONTENT_BASE}/activities${listQuery(options)}`,
+  );
+}
+
+export function createActivity(body: {
+  type: string;
+  definition: unknown;
+}): Promise<ApiResult<AdminActivity>> {
+  return apiFetch<AdminActivity>(`${CONTENT_BASE}/activities`, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateActivity(
+  id: string,
+  body: { type: string; definition: unknown },
+): Promise<ApiResult<AdminActivity>> {
+  return apiFetch<AdminActivity>(`${CONTENT_BASE}/activities/${id}`, {
+    method: "PATCH",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchBadges(
+  options: ListOptions = {},
+): Promise<ApiResult<AdminBadge[]>> {
+  return apiFetch<AdminBadge[]>(`${CONTENT_BASE}/badges${listQuery(options)}`);
+}
+
+export function createBadge(
+  body: ContentDraft,
+): Promise<ApiResult<AdminBadge>> {
+  return apiFetch<AdminBadge>(`${CONTENT_BASE}/badges`, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateBadge(
+  id: string,
+  body: ContentDraft,
+): Promise<ApiResult<AdminBadge>> {
+  return apiFetch<AdminBadge>(`${CONTENT_BASE}/badges/${id}`, {
+    method: "PATCH",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * The transition door for the editor resources, separate from
+ * `transitionContent` only because the resource unions are separate — see
+ * `EDITOR_CONTENT_RESOURCES` for why. `retries: 0` for the same reason.
+ */
+export function transitionEditorContent<TResult>(
+  resource: EditorContentResourceName,
+  id: string,
+  to: ContentStatusValue,
+): Promise<ApiResult<TResult>> {
+  return apiFetch<TResult>(`${CONTENT_BASE}/${resource}/${id}/transition`, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify({ to }),
   });
 }

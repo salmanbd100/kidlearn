@@ -160,3 +160,29 @@ export const QuizQuestionSchema = z.union([
   PictureSelectQuestionSchema,
 ]);
 export type QuizQuestionDefinition = z.infer<typeof QuizQuestionSchema>;
+
+/**
+ * The union, indexed by the `type` literal each member carries.
+ *
+ * **Parse with the member, not the union, wherever the type is already known.**
+ * Zod reports a failed `z.union` as one `invalid_union` issue at the root, so
+ * `flatten()` yields `{ _errors: ["Invalid input"] }` — a message no author can act
+ * on and no form field can display. Parsing against `QUIZ_QUESTION_SCHEMAS.mcq`
+ * instead yields `prompt.bn: Required`, which is the field that is actually wrong.
+ *
+ * It also makes the column/payload agreement check structural: the member carries
+ * `type` as a literal, so a `match_pair` payload submitted as `mcq` fails on that
+ * literal rather than needing a hand-written comparison.
+ *
+ * Shared rather than declared on each side, because both the admin API
+ * (`adminEditorService`) and the CMS editor pick a schema this way, and the pair
+ * disagreeing would mean an author allowed to save something the server refuses.
+ * `satisfies` rather than an annotation, so indexing keeps the member type and
+ * `z.infer` still narrows.
+ */
+export const QUIZ_QUESTION_SCHEMAS = {
+  mcq: McqQuestionSchema,
+  match_pair: MatchPairQuestionSchema,
+  drag_answer: DragAnswerQuestionSchema,
+  picture_select: PictureSelectQuestionSchema,
+} satisfies Record<QuizQuestionType, z.ZodTypeAny>;

@@ -18,10 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@kidlearn/ui";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type ContentDraft,
   createContent,
+  createQuiz,
   fetchLessons,
   fetchSubjects,
   fetchTopics,
@@ -30,6 +32,7 @@ import {
   transitionContent,
   updateContent,
 } from "@/lib/admin-api";
+import { ADMIN_ROUTES } from "@/lib/admin-routes";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 import { ContentForm } from "./ContentForm";
 import { LessonForm } from "./LessonForm";
@@ -140,6 +143,11 @@ export function CurriculumScreen() {
     () => lessons.filter((lesson) => lesson.topicId === selectedTopicId),
     [lessons, selectedTopicId],
   );
+
+  const selectedLesson =
+    selectedWorldId === undefined
+      ? lessons.find((lesson) => lesson.id === selectedLessonId)
+      : undefined;
 
   const selected = useSelection({
     worlds,
@@ -422,6 +430,14 @@ export function CurriculumScreen() {
             }
           />
 
+          {selectedLesson ? (
+            <LessonPartLinks
+              lesson={selectedLesson}
+              isBusy={isBusy}
+              onCreateQuiz={() => void createQuizFor(selectedLesson)}
+            />
+          ) : null}
+
           <p className="text-muted-foreground text-xs">
             Last changed by {selected.row.updatedBy ?? "a seed"} on{" "}
             {new Date(selected.row.updatedAt).toLocaleDateString("en-GB")}.
@@ -495,6 +511,45 @@ export function CurriculumScreen() {
     </div>
   );
 
+  /**
+   * Creates an empty quiz and points the lesson at it, in that order.
+   *
+   * Two requests because they are two resources: a quiz exists in its own right and
+   * publishes on its own schedule, and `Lesson.quizId` is the pointer. Doing it here
+   * rather than making the admin create a quiz and paste its id is the difference
+   * between a workflow and a scavenger hunt — but the id is still shown on the
+   * lesson form, because an existing quiz can be shared by two lessons.
+   */
+  async function createQuizFor(lesson: AdminLesson) {
+    setIsBusy(true);
+    clearMessages();
+
+    const created = await createQuiz(lesson.title);
+    if (!created.ok) {
+      setError(created.error.message);
+      setIsBusy(false);
+      return;
+    }
+
+    const linked = await updateContent("lessons", lesson.id, {
+      quizId: created.data.id,
+    });
+    if (!linked.ok) {
+      // The quiz exists and is reachable from the quizzes list; only the pointer
+      // failed. Saying so is more useful than "that did not work", because the
+      // recovery is to paste the id rather than to start again.
+      setError(
+        `The quiz was created but could not be linked: ${linked.error.message}`,
+      );
+      setIsBusy(false);
+      return;
+    }
+
+    await load();
+    setNotice("Quiz created and linked. Add its questions next.");
+    setIsBusy(false);
+  }
+
   async function submit(
     state: DialogState,
     draft: ContentDraft,
@@ -565,6 +620,71 @@ function useSelection(input: {
 
     return undefined;
   }, [input]);
+}
+
+/**
+ * The three things an admin does with a selected lesson that are not edits to the
+ * lesson row: preview it, and open the quiz and activity it points at.
+ *
+ * **Preview opens in a new tab**, because it is the real student player at full
+ * bleed and losing the CMS tree behind it is how a reviewer loses their place. It
+ * is offered whatever the lesson's status — that is the point of it (FR-CMS-04).
+ */
+function LessonPartLinks({
+  lesson,
+  isBusy,
+  onCreateQuiz,
+}: {
+  lesson: AdminLesson;
+  isBusy: boolean;
+  onCreateQuiz: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button asChild variant="outline">
+        <Link
+          href={`/lesson/${lesson.id}?preview=1`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Preview
+        </Link>
+      </Button>
+
+      {lesson.quizId ? (
+        <Button asChild variant="outline">
+          <Link href={`${ADMIN_ROUTES.curriculum}/quiz/${lesson.quizId}`}>
+            Edit quiz
+          </Link>
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={isBusy}
+          onClick={onCreateQuiz}
+        >
+          Create quiz
+        </Button>
+      )}
+
+      {lesson.activityId ? (
+        <Button asChild variant="outline">
+          <Link
+            href={`${ADMIN_ROUTES.curriculum}/activity/${lesson.activityId}`}
+          >
+            Edit activity
+          </Link>
+        </Button>
+      ) : (
+        <Button asChild variant="outline">
+          <Link href={`${ADMIN_ROUTES.curriculum}/activity/new`}>
+            New activity
+          </Link>
+        </Button>
+      )}
+    </div>
+  );
 }
 
 function toColumnItem(row: {

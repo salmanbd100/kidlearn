@@ -41,6 +41,11 @@ import type { LessonStepProps } from "./lesson-step-props";
  *
  * **Nothing on this screen is computed here.** Stars and coins arrive from the
  * server; this file renders what it is told (FR-GAM-08).
+ *
+ * **In an administrator preview it writes nothing** (file 33, FR-CMS-04). The
+ * celebration plays with nothing earned, which is the same shape a replay produces
+ * — so previewing a lesson cannot stamp a completion against a child who does not
+ * exist.
  */
 
 /** Held after the last star lands, before the coins start climbing. */
@@ -119,7 +124,7 @@ function buildSchedule(
   }));
 }
 
-export function RewardStep({ lesson, onComplete }: LessonStepProps) {
+export function RewardStep({ lesson, onComplete, isPreview }: LessonStepProps) {
   const { t, i18n } = useTranslation(LESSON_NAMESPACE);
   const locale = toLocale(i18n.resolvedLanguage);
   const { play } = useAudio();
@@ -131,6 +136,15 @@ export function RewardStep({ lesson, onComplete }: LessonStepProps) {
 
   useEffect(() => {
     let isCurrent = true;
+
+    // An administrator preview celebrates without finishing anything: no
+    // `completedAt`, no grants, no ledger row (FR-CMS-04). The screen still plays
+    // — with nothing earned, which is a shape it already renders for a replay.
+    if (isPreview) {
+      setRewards(undefined);
+      setPhase("stars");
+      return;
+    }
 
     void completeLesson(lessonId).then((result) => {
       if (!isCurrent) return;
@@ -150,7 +164,7 @@ export function RewardStep({ lesson, onComplete }: LessonStepProps) {
     return () => {
       isCurrent = false;
     };
-  }, [lessonId]);
+  }, [lessonId, isPreview]);
 
   const starCount = rewards?.starsEarned ?? 0;
   const coinCount = rewards?.coinsEarned ?? 0;

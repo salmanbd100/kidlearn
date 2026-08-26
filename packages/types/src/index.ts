@@ -18,6 +18,9 @@ export * from "./activity/schemas.js";
 // HTTP request/response contracts (file 12a). Shared with `apps/web` so the
 // client never redeclares a response shape.
 export * from "./api/index.js";
+// Badge rules as data (file 24 engine, file 33 CMS form): one definition of what
+// `streak_days` takes, read by the evaluator, the admin API and the form.
+export * from "./badges.js";
 // The concept-token prefixes stored on a lesson (file 30): written by the admin
 // editor, bucketed by the report aggregator, rendered as chips by the parent
 // screen — one vocabulary, three consumers.

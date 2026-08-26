@@ -56,6 +56,22 @@ const EnvSchema = z.object({
    * Generate with `openssl rand -base64 32`.
    */
   CRON_SECRET: z.string().min(16),
+  /**
+   * Cloudinary, the media host (file 33, FR-CMS-02).
+   *
+   * All three required, on the same reasoning as `CRON_SECRET`: an optional
+   * credential would let a deployment boot with a media library that answers
+   * `500` the first time an admin picks a file, and the cause would be a missing
+   * variable nobody looked for. The CMS is not usable without them, so the
+   * failure belongs at boot.
+   *
+   * `CLOUDINARY_API_SECRET` never leaves the server. It signs the upload
+   * parameters the browser then posts *directly* to Cloudinary — the file itself
+   * never transits this process (`services/mediaService.ts`).
+   */
+  CLOUDINARY_CLOUD_NAME: z.string().min(1),
+  CLOUDINARY_API_KEY: z.string().min(1),
+  CLOUDINARY_API_SECRET: z.string().min(1),
   // --- API documentation --------- //
   ENABLE_API_DOCS: z
     .enum(["true", "false"])

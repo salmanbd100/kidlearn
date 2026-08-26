@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { adminLessonPreview } from "../middleware/admin-lesson-preview.js";
 import { requireActiveChild } from "../middleware/require-active-child.js";
 import { requireParent } from "../middleware/require-parent.js";
 import { adminRouter } from "./admin/index.js";
@@ -34,7 +35,20 @@ apiRouter.use("/characters", charactersRouter);
 // Curriculum reads (file 12). The two guards are mounted here rather than
 // inside `content.ts` so that every current and future `/api/content/*` path is
 // covered by construction — a new route added there cannot forget them.
-apiRouter.use("/content", requireParent, requireActiveChild, contentRouter);
+// `adminLessonPreview` sits *in front of* the two guards, and only because it has
+// to: an admin session satisfies neither of them, so a `?preview=1` branch inside
+// the lesson handler could never run (file 33, FR-CMS-04). It intercepts exactly
+// `GET /lessons/:id?preview=1` from a session an `AdminUser` row backs, and calls
+// `next()` for everything else — including a parent who typed the parameter
+// themselves, who then meets the ordinary route and its `404`. See that file for
+// why the query parameter requests the mode and never grants it.
+apiRouter.use(
+  "/content",
+  adminLessonPreview,
+  requireParent,
+  requireActiveChild,
+  contentRouter,
+);
 
 // Lesson progress and the player's event log (file 16). Same guards as
 // `/api/content/*`, for the same reason and with the same consequence: progress

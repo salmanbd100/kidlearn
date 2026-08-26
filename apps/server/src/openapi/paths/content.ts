@@ -189,8 +189,34 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "`activity.definition` and each `quiz.questions[].definition` are the versioned JSONB payloads, passed through **whole** — see the `ActivityDefinition` and `QuizQuestion` schemas. They are the one exception to locale resolution: they embed `LocalizedText`, and the engines pick the locale themselves via `@kidlearn/types`.",
         "",
         "`activity` or `quiz` is `null` when the lesson has none, **and also** when it references one that is not itself published. A published lesson whose activity is still in review is a normal state of the authoring workflow: the activity is omitted and logged, not served, and not treated as an error.",
+        "",
+        "### Administrator preview (`?preview=1`, FR-CMS-04)",
+        "",
+        "With `preview=1` **and a session an `AdminUser` row backs**, the `status` and grade filters are skipped, and unpublished activities and quizzes are included rather than omitted — a reviewer looking at a lesson whose activity is still in review needs to see the activity. The response shape is identical, which is the point: the CMS mounts the real student player against it.",
+        "",
+        "**The parameter requests the mode; the session grants it.** Sent by a child, a parent, or nobody at all, it is ignored entirely and a draft lesson still answers `404`. Preview also takes `lang`, because there is no child row to read a locale from.",
+        "",
+        "Nothing is written in preview. Every endpoint that records progress, an event or screen time is behind the parent and active-child guards, which an admin session cannot pass at all.",
       ].join("\n"),
-      parameters: [CONTENT_ID_PARAM("lesson")],
+      parameters: [
+        CONTENT_ID_PARAM("lesson"),
+        {
+          name: "preview",
+          in: "query",
+          required: false,
+          description:
+            "`1` to request administrator preview. Ignored unless the session belongs to an administrator — see the description above.",
+          schema: { type: "string", enum: ["1"] },
+        },
+        {
+          name: "lang",
+          in: "query",
+          required: false,
+          description:
+            "Which locale to render an administrator preview in. Ignored outside preview, where the locale comes from the child's profile. An unrecognised value previews in English rather than failing.",
+          schema: { type: "string", enum: ["en", "bn"] },
+        },
+      ],
       responses: {
         "200": jsonResponse(
           "The lesson, its world, and its activity and quiz payloads.",

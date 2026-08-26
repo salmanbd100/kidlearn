@@ -4,6 +4,7 @@ import type {
   LessonAssetFallbacks,
   LessonDetailResponse,
   LessonStep,
+  Locale,
   ScreenTimeBlockCode,
 } from "@kidlearn/types";
 import { LESSON_STEPS, resumeLessonStep } from "@kidlearn/types";
@@ -61,6 +62,15 @@ import { VideoStep } from "./steps/VideoStep";
  * mount, because the rewards it renders are that call's answer (file 23). So this
  * file reports the first four steps and the analytics events, and never the
  * reward step.
+ *
+ * **Preview mode records nothing** (file 33, FR-CMS-04). An administrator opening
+ * `?preview=1` gets the real player against unpublished content, with a banner and
+ * with every write suppressed: no progress read, no step report, no session event,
+ * no heartbeat, and — through `isPreview` on the step props — no completion and no
+ * quiz submission from the two steps that write for themselves. The guarantee does
+ * not rest on this: `/api/progress`, `/api/events` and `/api/me` are all behind
+ * `requireParent` + `requireActiveChild`, which an admin session cannot pass. This
+ * is what stops the console filling with 403s while a reviewer works.
  */
 
 /** Whether `step` is at or past `target` in flow order. See `useLessonRecording`. */
@@ -97,7 +107,19 @@ type LoadState =
     }
   | { status: "error" };
 
-export function LessonPlayer({ lessonId }: { lessonId: string }) {
+export interface LessonPlayerProps {
+  lessonId: string;
+  /** Administrator preview: unpublished content, a banner, and no writes. */
+  isPreview?: boolean;
+  /** Which locale to preview in. Ignored outside preview — a child has a profile. */
+  previewLanguage?: Locale;
+}
+
+export function LessonPlayer({
+  lessonId,
+  isPreview = false,
+  previewLanguage,
+}: LessonPlayerProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const router = useRouter();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
@@ -114,20 +136,26 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
   // keep recording), so beating through the `blocked` state would bill a child for
   // sitting on "time's up" — the reader avoids it by mounting the hook inside
   // `ReadingSurface`.
-  useHeartbeat({ enabled: load.status === "ready" });
+  useHeartbeat({ enabled: load.status === "ready" && !isPreview });
 
   useEffect(() => {
     let isCurrent = true;
 
     // In parallel: the lesson and the saved position are independent reads behind
     // the same two guards, so neither has a reason to wait for the other.
+    //
+    // A preview reads only the lesson. There is no child whose progress could be
+    // saved, and asking would be a guaranteed `403` — so a preview always starts
+    // at `intro`, which is also what a reviewer wants.
     void Promise.all([
       getLesson(lessonId, {
+        isPreview,
+        ...(previewLanguage ? { language: previewLanguage } : {}),
         onColdStart: () => {
           if (isCurrent) setIsWakingUp(true);
         },
       }),
-      getLessonProgress(lessonId),
+      isPreview ? Promise.resolve(null) : getLessonProgress(lessonId),
     ]).then(([lessonResult, progressResult]) => {
       if (!isCurrent) return;
       setIsWakingUp(false);
@@ -151,7 +179,7 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
 
       // A failed progress read is not fatal. Starting over is worse than resuming,
       // and far better than refusing to open a lesson the child asked for.
-      const saved = progressResult.ok ? progressResult.data.progress : null;
+      const saved = progressResult?.ok ? progressResult.data.progress : null;
       // `currentStep` is the last step *finished*, so the target is its successor.
       // A finished lesson has no successor to `reward` and replays from `intro`
       // (FR-LSN-06) — the server's completion record is untouched by the replay.
@@ -163,7 +191,7 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
     return () => {
       isCurrent = false;
     };
-  }, [lessonId]);
+  }, [lessonId, isPreview, previewLanguage]);
 
   const resumeAt = load.status === "ready" ? load.resumeAt : undefined;
 
@@ -173,14 +201,16 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
     if (resumeAt === undefined || hasStarted.current) return;
     hasStarted.current = true;
 
-    sendSessionEvent({ type: "lesson_start", lessonId });
+    if (!isPreview) sendSessionEvent({ type: "lesson_start", lessonId });
     dispatch({ type: "RESUME", step: resumeAt });
-  }, [resumeAt, lessonId]);
+  }, [resumeAt, lessonId, isPreview]);
 
   useLessonRecording(
     state,
     lessonId,
-    resumeAt,
+    // A preview never arms the recorder: passing `undefined` here is what keeps
+    // the effect below in its "not started" branch for the whole session.
+    isPreview ? undefined : resumeAt,
     load.status === "ready" ? load.lesson.assetFallbacks : undefined,
   );
 
@@ -227,6 +257,8 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
 
   return (
     <>
+      {isPreview ? <PreviewBanner /> : null}
+
       <StepContainer
         step={state.step}
         // The intro puts the mascot centre stage and talks through it (file 17),
@@ -240,6 +272,7 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
       >
         <StepComponent
           lesson={lesson}
+          isPreview={isPreview}
           onComplete={() => dispatch({ type: "STEP_COMPLETE" })}
         />
       </StepContainer>
@@ -255,6 +288,28 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
         }}
       />
     </>
+  );
+}
+
+/**
+ * The "this is not a child's session" strip (FR-CMS-04).
+ *
+ * Fixed to the top and outside the theme swap the player sits in, so it reads as
+ * chrome rather than as part of the lesson — an admin must never be in doubt about
+ * whether what they are looking at is live. English only, like the rest of the
+ * CMS: a reviewer previewing a Bangla lesson still wants the banner in the
+ * interface language of the tool (`frontend.md §3`).
+ */
+function PreviewBanner() {
+  const { t } = useTranslation(LESSON_NAMESPACE);
+  return (
+    <p
+      role="status"
+      data-theme="parent"
+      className="fixed inset-x-0 top-0 z-50 bg-foreground px-3 py-1.5 text-center font-ui font-semibold text-background text-xs uppercase tracking-wide"
+    >
+      {t("preview.banner")}
+    </p>
   );
 }
 

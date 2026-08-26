@@ -4,6 +4,8 @@ import type { SuccessEnvelope } from "../../lib/errors.js";
 import { adminContext, requireAdmin } from "../../middleware/require-admin.js";
 import { getPlatformOverview } from "../../services/adminAnalyticsService.js";
 import { adminContentRouter } from "./content.js";
+import { adminContentEditorsRouter } from "./content-editors.js";
+import { adminMediaRouter } from "./media.js";
 
 /**
  * `/api/admin` — the administrator surface (spec §4.3, FR-CMS-01).
@@ -26,6 +28,16 @@ adminRouter.use(requireAdmin);
 // and the OpenAPI coverage walk reads a router's own registrations: giving it its
 // own mount is what lets `coverage.test.ts` see it with the right prefix.
 adminRouter.use("/content", adminContentRouter);
+
+// File 33 — the guided editors for quizzes, activities and badges. A second
+// router at the same mount path rather than more paths on the one above, so the
+// OpenAPI coverage walk can see and document the two surfaces separately; Express
+// consults both in registration order, so the split is invisible to a client.
+adminRouter.use("/content", adminContentEditorsRouter);
+
+// File 33 — the media library (FR-CMS-02). Its own mount for the same reason:
+// `coverage.test.ts` reads a router's own registrations and needs the prefix.
+adminRouter.use("/media", adminMediaRouter);
 
 /**
  * Who am I. Consumed by `AdminGuard` on the web side to decide between the CMS
