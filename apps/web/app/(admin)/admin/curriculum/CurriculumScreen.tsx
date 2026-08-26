@@ -35,6 +35,7 @@ import {
 import { ADMIN_ROUTES } from "@/lib/admin-routes";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 import { ContentForm } from "./ContentForm";
+import { GenerateLessonDialog } from "./GenerateLessonDialog";
 import { LessonForm } from "./LessonForm";
 import { StatusChip } from "./StatusChip";
 import { TransitionButtons } from "./TransitionButtons";
@@ -89,6 +90,11 @@ export function CurriculumScreen() {
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
   const [dialog, setDialog] = useState<DialogState>({ kind: "closed" });
+  // Its own flag rather than a `DialogState` variant: the generator is not a form
+  // over a resource — it has no row to edit, its own submit path, and its own
+  // dialog — so folding it into that union would mean guarding every branch that
+  // reads `dialog.resource`.
+  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
 
   /** Both channels are stale the moment a new intent starts. */
   function clearMessages() {
@@ -278,6 +284,16 @@ export function CurriculumScreen() {
             onClick={() => void load()}
           >
             Refresh
+          </Button>
+          <Button
+            type="button"
+            disabled={isBusy}
+            onClick={() => {
+              clearMessages();
+              setIsGenerateOpen(true);
+            }}
+          >
+            Generate lesson
           </Button>
         </div>
       </header>
@@ -508,6 +524,27 @@ export function CurriculumScreen() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* File 34 — the AI Lesson Generator (FR-AI-01). Everything it creates is a
+          draft in the review queue, which is why success here is a notice and a
+          reload rather than a jump into an editor. */}
+      <GenerateLessonDialog
+        // Keyed on the selection so the dialog opens on whatever is in view.
+        // Its subject and topic are initial state, and an unkeyed instance would
+        // keep the first pair it was mounted with for the rest of the session.
+        key={`${selectedSubjectId ?? ""}:${selectedTopicId ?? ""}`}
+        isOpen={isGenerateOpen}
+        onOpenChange={setIsGenerateOpen}
+        subjects={subjects}
+        topics={topics}
+        worlds={worlds}
+        subjectId={selectedSubjectId}
+        topicId={selectedTopicId}
+        onGenerated={(message) => {
+          void load();
+          setNotice(message);
+        }}
+      />
     </div>
   );
 

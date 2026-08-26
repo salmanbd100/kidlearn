@@ -72,6 +72,21 @@ const EnvSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().min(1),
   CLOUDINARY_API_KEY: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
+  /**
+   * The Claude API, behind every generator in files 34–36 (FR-AI-01..03).
+   *
+   * Required on the same reasoning as `CRON_SECRET` and the Cloudinary triple: an
+   * optional key would let a deployment boot with an AI Queue that answers `500`
+   * the first time an admin asks for a lesson, and the cause would be a variable
+   * nobody looked for.
+   *
+   * `ANTHROPIC_MODEL` has a default because the model is a tuning knob rather
+   * than a credential — pinning a newer or cheaper one is a config change, not a
+   * deployment. The default is the latest Sonnet-class model per the tracker's
+   * Shared Technical Decisions.
+   */
+  ANTHROPIC_API_KEY: z.string().min(1),
+  ANTHROPIC_MODEL: z.string().min(1).default("claude-sonnet-5"),
   // --- API documentation --------- //
   ENABLE_API_DOCS: z
     .enum(["true", "false"])

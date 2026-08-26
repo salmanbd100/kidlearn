@@ -17,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@kidlearn/db": "workspace:*",
     "@kidlearn/types": "workspace:*",
     "argon2": "^0.45.1",

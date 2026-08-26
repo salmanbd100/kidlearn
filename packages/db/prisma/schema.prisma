@@ -135,6 +135,9 @@ model MediaAsset {
   url                    String
   kind                   MediaKind
   language               Language?
+  // The job that generated this row — see `Lesson.aiJobId` (file 34).
+  aiJobId                String?
+  aiJob                  AIGenerationJob?          @relation(fields: [aiJobId], references: [id])
   createdAt              DateTime                  @default(now())
   worldMascots           World[]                   @relation("WorldMascot")
   lessonIntroAudios      LessonTranslation[]       @relation("LessonIntroAudio")
@@ -281,6 +284,16 @@ model Lesson {
   translations       LessonTranslation[]
   // Who last touched this row — see `World.updatedBy`.
   updatedBy          String?
+  // File 34 — the `AIGenerationJob` that generated this row, NULL when a person
+  // authored it. Nullable and additive: every row written before the AI pipeline
+  // existed keeps NULL, which is exactly what "human-authored" means here.
+  //
+  // The link exists so file 37 can refuse to publish generated content no
+  // administrator has approved (FR-AI-07). This file only writes the column; the
+  // guard that reads it lands with the review queue. Six models carry it — the
+  // six a generator can create.
+  aiJobId            String?
+  aiJob              AIGenerationJob?    @relation(fields: [aiJobId], references: [id])
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   progress           LessonProgress[]
@@ -334,6 +347,9 @@ model Activity {
   status        ContentStatus         @default(draft)
   translations  ActivityTranslation[]
   lessons       Lesson[]
+  // The job that generated this row — see `Lesson.aiJobId` (file 34).
+  aiJobId       String?
+  aiJob         AIGenerationJob?      @relation(fields: [aiJobId], references: [id])
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -350,13 +366,16 @@ model ActivityTranslation {
 }
 
 model Quiz {
-  id        String         @id @default(uuid())
+  id        String           @id @default(uuid())
   title     String?
-  status    ContentStatus  @default(draft)
+  status    ContentStatus    @default(draft)
   questions QuizQuestion[]
   lessons   Lesson[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  // The job that generated this row — see `Lesson.aiJobId` (file 34).
+  aiJobId   String?
+  aiJob     AIGenerationJob? @relation(fields: [aiJobId], references: [id])
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
 
 model QuizQuestion {
@@ -367,6 +386,9 @@ model QuizQuestion {
   definition    Json
   schemaVersion Int                       @default(1)
   sortOrder     Int
+  // The job that generated this row — see `Lesson.aiJobId` (file 34).
+  aiJobId       String?
+  aiJob         AIGenerationJob?          @relation(fields: [aiJobId], references: [id])
   translations  QuizQuestionTranslation[]
   responses     QuizResponse[]
 
@@ -401,6 +423,9 @@ model Story {
   status       ContentStatus      @default(draft)
   pages        StoryPage[]
   translations StoryTranslation[]
+  // The job that generated this row — see `Lesson.aiJobId` (file 34).
+  aiJobId      String?
+  aiJob        AIGenerationJob?   @relation(fields: [aiJobId], references: [id])
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 }
@@ -667,6 +692,16 @@ model AIGenerationJob {
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
   reviewedAt DateTime?
+
+  // The draft rows this job created (file 34). Six collections rather than a
+  // polymorphic table, because a foreign key is the only version of this the
+  // database can enforce — and file 37's publish guard has to trust it.
+  lessons       Lesson[]
+  quizzes       Quiz[]
+  quizQuestions QuizQuestion[]
+  stories       Story[]
+  activities    Activity[]
+  mediaAssets   MediaAsset[]
 
   @@index([status, createdAt])
 }
