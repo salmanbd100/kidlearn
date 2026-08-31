@@ -52,6 +52,8 @@ import {
   ErrorEnvelopeSchema,
   GateStatusResponseSchema,
   GateStatusSchema,
+  GenerationJobRefResponseSchema,
+  GenerationJobRefSchema,
   HealthResponseSchema,
   HeartbeatResponseSchema,
   HeartbeatSchema,
@@ -126,6 +128,7 @@ import {
   WorldTopicLessonsSchema,
 } from "@kidlearn/types";
 import type { ZodTypeAny } from "zod";
+import { GenerateLessonSchema } from "../schemas/admin-ai.js";
 import {
   LessonCreateSchema,
   LessonUpdateSchema,
@@ -392,6 +395,14 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AdminBadgeResponse: AdminBadgeResponseSchema,
   AdminBadgeListResponse: AdminBadgeListResponseSchema,
 
+  // --- Admin AI: the generation pipeline (file 34, FR-AI-01, FR-AI-08) -----
+  // Request and response both. The response is deliberately two fields — see the
+  // operation description for why a generation answers with a job rather than
+  // with the lesson it wrote.
+  AiGenerateLessonBody: GenerateLessonSchema,
+  GenerationJobRef: GenerationJobRefSchema,
+  GenerationJobRefResponse: GenerationJobRefResponseSchema,
+
   // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,
   ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
@@ -527,6 +538,11 @@ export const TAGS = [
     name: "Admin CMS",
     description:
       "Content management: the curriculum hierarchy — worlds, subjects, topics, lessons — and the workflow that decides what a child can see (file 32, FR-CURR-04, FR-CMS-01, FR-CMS-06).\n\n**The mirror image of the `Content` tag.** Those endpoints return `status = published` rows with text resolved to one child's language; these return every row in every status, with both locales, and the ids an editor needs. The safety property is not that this API is careful — it is that the *student* API filters, so the only thing that makes content visible here is writing `published` to the column.\n\n**`status` changes on one path only.** Create and edit bodies are `.strict()` with no `status` key, so `POST /{id}/transition` is the sole door, and behind it is a matrix in which `published` is reachable from `approved` and nowhere else. Rejected work cannot be published by undoing the rejection; it goes back through `draft → in_review → approved`. An illegal hop is a `409` carrying `INVALID_TRANSITION` and the legal alternatives.\n\n**Publishing takes effect at once** — no staging flag, no cache, no queue — and so does unpublishing, which returns a row to `draft` while keeping it and the progress recorded against it.\n\nOrdering is a separate operation for the same reason status is: `PATCH /{resource}/reorder` writes a whole sibling set at once, because one row's position is a claim about its siblings'. Every write here stamps `updatedBy` with the acting administrator.",
+  },
+  {
+    name: "Admin AI",
+    description:
+      "AI content generation (files 34–37, FR-AI-01..08). An administrator describes what they want; a Claude call writes it; the result lands in the review queue as **draft** rows and a job row, and stops there.\n\n**No endpoint on this surface can publish, and it is the schema rather than the code that guarantees it.** Every generated row takes the `draft` default on its `status` column, and status moves on one path only — `POST /api/admin/content/{resource}/{id}/transition`, behind which `published` is reachable from `approved` and nowhere else. A child therefore cannot see generated content until a person has read it (FR-AI-07).\n\n**Every generation is auditable.** The `AIGenerationJob` row keeps the exact system and user prompts the model saw, both verbatim attempts — a schema failure buys exactly one retry, with the validation errors fed back — and the tokens all of it cost, successful or not (FR-AI-08).\n\n**The model is never asked for prose.** It answers by calling a tool whose `input_schema` is generated from the same Zod objects the renderer draws from and the admin editors validate against, so there is no free text to parse and no second description of a payload shape to drift (FR-AI-03).\n\nGeneration is awaited inside the request: this deployment has no worker and no queue, so a background job would be a promise it could not keep. The reply is a job reference in any case, which is what makes a queue a later change nobody has to notice.",
   },
   {
     name: "Screen Time",

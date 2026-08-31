@@ -1,5 +1,6 @@
 import type { RouteDoc } from "../route-doc.js";
 import { ADMIN_ROUTES } from "./admin.js";
+import { ADMIN_AI_ROUTES } from "./admin-ai.js";
 import { ADMIN_CONTENT_ROUTES } from "./admin-content.js";
 import { ADMIN_EDITOR_ROUTES } from "./admin-editors.js";
 import { ADMIN_MEDIA_ROUTES } from "./admin-media.js";
@@ -41,6 +42,7 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...ADMIN_CONTENT_ROUTES,
   ...ADMIN_EDITOR_ROUTES,
   ...ADMIN_MEDIA_ROUTES,
+  ...ADMIN_AI_ROUTES,
 ];
 
 /**

@@ -19,6 +19,7 @@
  */
 
 export * from "./admin.js";
+export * from "./admin-ai.js";
 export * from "./admin-content.js";
 export * from "./admin-editors.js";
 export * from "./admin-media.js";

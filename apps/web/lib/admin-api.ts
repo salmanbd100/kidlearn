@@ -13,6 +13,8 @@ import type {
   ContentResourceName,
   ContentStatusValue,
   EditorContentResourceName,
+  GenerationJobRef,
+  GradeLevelValue,
   Locale,
   MediaAsset,
   OrderableContentResourceName,
@@ -512,4 +514,35 @@ export function transitionEditorContent<TResult>(
     retries: 0,
     body: JSON.stringify({ to }),
   });
+}
+
+// --- AI generation (file 34, FR-AI-01) -------------------------------------
+
+/**
+ * Ask for a draft lesson. Answers with a job to look up, never with the lesson.
+ *
+ * `retries: 0`, and this is the call it matters most on. A generation is
+ * expensive and not idempotent — replaying one that the API was slow to answer
+ * would bill twice and leave two draft lessons in the same topic for a reviewer
+ * to tell apart. It is also long: `apiFetch`'s cold-start retry exists for a
+ * sleeping free-tier API, and a request that takes half a minute because a model
+ * is writing is not a request that failed.
+ */
+export function generateLesson(
+  body: GenerateLessonRequest,
+): Promise<ApiResult<GenerationJobRef>> {
+  return apiFetch<GenerationJobRef>("/api/admin/ai/generate/lesson", {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export interface GenerateLessonRequest {
+  gradeLevel: GradeLevelValue;
+  subjectId: string;
+  topicId: string;
+  worldId?: string;
+  lessonFocus: string;
+  languages: Locale[];
 }

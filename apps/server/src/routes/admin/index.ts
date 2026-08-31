@@ -3,6 +3,7 @@ import { Router } from "express";
 import type { SuccessEnvelope } from "../../lib/errors.js";
 import { adminContext, requireAdmin } from "../../middleware/require-admin.js";
 import { getPlatformOverview } from "../../services/adminAnalyticsService.js";
+import { adminAiRouter } from "./ai.js";
 import { adminContentRouter } from "./content.js";
 import { adminContentEditorsRouter } from "./content-editors.js";
 import { adminMediaRouter } from "./media.js";
@@ -38,6 +39,11 @@ adminRouter.use("/content", adminContentEditorsRouter);
 // File 33 — the media library (FR-CMS-02). Its own mount for the same reason:
 // `coverage.test.ts` reads a router's own registrations and needs the prefix.
 adminRouter.use("/media", adminMediaRouter);
+
+// File 34 — the AI generation pipeline (FR-AI-01, FR-AI-08). Its own mount, same
+// reason again. Nothing under it can publish: a generator writes drafts and a job
+// row, and the review queue that can change that arrives with file 37.
+adminRouter.use("/ai", adminAiRouter);
 
 /**
  * Who am I. Consumed by `AdminGuard` on the web side to decide between the CMS

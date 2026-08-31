@@ -25,3 +25,6 @@ process.env.CRON_SECRET ??= "test-cron-secret-value";
 process.env.CLOUDINARY_CLOUD_NAME ??= "test-cloud";
 process.env.CLOUDINARY_API_KEY ??= "test-api-key";
 process.env.CLOUDINARY_API_SECRET ??= "test-api-secret";
+// File 34 — the Claude API. A dummy key: every AI test stubs the client module,
+// so nothing here reaches Anthropic, but env.ts requires the variable at boot.
+process.env.ANTHROPIC_API_KEY ??= "test-anthropic-key";

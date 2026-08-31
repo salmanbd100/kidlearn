@@ -1,5 +1,6 @@
 import type { Router } from "express";
 import { describe, expect, it } from "vitest";
+import { adminAiRouter } from "../routes/admin/ai.js";
 import { adminContentRouter } from "../routes/admin/content.js";
 import { adminContentEditorsRouter } from "../routes/admin/content-editors.js";
 import { adminRouter } from "../routes/admin/index.js";
@@ -100,13 +101,19 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     router: adminMediaRouter,
     file: "paths/admin-media.ts",
   },
+  {
+    prefix: "/api/admin/ai",
+    router: adminAiRouter,
+    file: "paths/admin-ai.ts",
+  },
 ];
 
 /**
  * How many routers are reachable under `/api`, at any depth: the ten
  * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`, and
- * `adminContentRouter`, `adminContentEditorsRouter` and `adminMediaRouter` nested
- * on `adminRouter` (file 33 added the last two).
+ * `adminContentRouter`, `adminContentEditorsRouter`, `adminMediaRouter` and
+ * `adminAiRouter` nested on `adminRouter` (file 33 added the middle two, file 34
+ * the last).
  *
  * Counted through the whole tree rather than one level down, because a router
  * nested inside a resource router is invisible to both of the diffs above — the
@@ -114,7 +121,7 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
  * appear and "documents every route the server serves" would pass on a surface it
  * never saw.
  */
-const EXPECTED_ROUTERS_UNDER_API = 14;
+const EXPECTED_ROUTERS_UNDER_API = 15;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally
