@@ -1,5 +1,7 @@
 import type { GradeLevel } from "@kidlearn/db";
 import type { Locale } from "@kidlearn/types";
+import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
+import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
 /**
  * The prompts behind the AI Lesson Generator (FR-AI-01).
@@ -29,34 +31,6 @@ Hard rules:
 - Multilingual: every child-facing string must be provided in EVERY requested language with
   natural, native-quality phrasing — never a literal word-for-word translation.
 - Output ONLY by calling the provided tool with JSON conforming exactly to its schema.`;
-
-/**
- * The host every generated audio and image reference points at until file 36
- * records the real thing.
- *
- * The quiz payload contract requires `promptAudio` in both locales, and a text
- * model cannot record audio — so *something* has to fill the field. A reserved
- * `.invalid` host (RFC 2606) is the honest something: it is guaranteed never to
- * resolve, so a placeholder that somehow survived review would fail loudly on the
- * first play instead of fetching whatever now lives at a plausible-looking CDN
- * path the model invented.
- *
- * `generators/lesson.ts` rewrites every URL to this prefix after parsing rather
- * than trusting the instruction below, so a model that ignores it still cannot
- * put a third-party address into a row.
- */
-export const PLACEHOLDER_ASSET_HOST = "https://placeholder.kidlearn.invalid";
-
-const GRADE_LABELS: Record<GradeLevel, string> = {
-  NURSERY: "Nursery (ages 3–4)",
-  KG1: "KG-1 (ages 4–5)",
-  KG2: "KG-2 (ages 5–6)",
-};
-
-const LOCALE_LABELS: Record<Locale, string> = {
-  en: "English",
-  bn: "Bangla",
-};
 
 export interface LessonPromptInput {
   gradeLevel: GradeLevel;

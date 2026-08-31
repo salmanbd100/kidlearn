@@ -2,6 +2,7 @@
 
 import { LOCALES, type Locale } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
+import { LOCALE_LABELS } from "@/lib/admin-labels";
 
 /**
  * The English / Bangla switch every content form carries (FR-I18N-01).
@@ -27,8 +28,6 @@ import { Button } from "@kidlearn/ui";
  * invalid field in, silently. The forms validate both locales themselves and
  * switch `active` to the one at fault — which is why this is controlled.
  */
-const LABELS: Record<Locale, string> = { en: "English", bn: "Bangla" };
-
 export function LocaleTabs({
   active,
   onActiveChange,
@@ -49,7 +48,7 @@ export function LocaleTabs({
             variant={locale === active ? "default" : "outline"}
             onClick={() => onActiveChange(locale)}
           >
-            {LABELS[locale]}
+            {LOCALE_LABELS[locale]}
           </Button>
         ))}
       </div>
@@ -62,5 +61,3 @@ export function LocaleTabs({
     </div>
   );
 }
-
-export { LABELS as LOCALE_LABELS };

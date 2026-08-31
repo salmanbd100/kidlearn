@@ -22,6 +22,7 @@ import {
 } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
 import { generateLesson } from "@/lib/admin-api";
+import { GRADE_LABELS, LOCALE_LABELS } from "@/lib/admin-labels";
 
 /**
  * "Write this lesson for me" — the admin end of the AI Lesson Generator
@@ -46,14 +47,6 @@ import { generateLesson } from "@/lib/admin-api";
  * minute — see `lib/admin-api.ts` — so the submit button carries the wait rather
  * than a spinner that could be mistaken for a hung page.
  */
-
-const GRADE_LABELS: Record<GradeLevelValue, string> = {
-  NURSERY: "Nursery",
-  KG1: "KG-1",
-  KG2: "KG-2",
-};
-
-const LOCALE_LABELS: Record<Locale, string> = { en: "English", bn: "Bangla" };
 
 export interface GenerateLessonDialogProps {
   isOpen: boolean;

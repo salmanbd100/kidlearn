@@ -468,6 +468,16 @@ model StoryPage {
   sortOrder           Int
   illustrationAssetId String?
   illustrationAsset   MediaAsset?            @relation("StoryPageIllustration", fields: [illustrationAssetId], references: [id])
+  // File 35 — the English scene description the story generator wrote for this
+  // page, which file 36's image pipeline draws from and then attaches the result
+  // to `illustrationAssetId`. Kept as a column rather than left in the job's
+  // `rawOutput` because it survives editing: a reviewer who rewrites a page's
+  // text has to be able to rewrite the picture brief with it, and a value only a
+  // JSONB audit record holds is not editable content.
+  //
+  // Nullable: every hand-authored page has none, and a generated page keeps its
+  // prompt after the illustration exists so the picture can be redrawn.
+  illustrationPrompt  String?
   translations        StoryPageTranslation[]
 
   @@unique([storyId, sortOrder])

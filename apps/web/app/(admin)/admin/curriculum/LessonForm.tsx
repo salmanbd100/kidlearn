@@ -10,8 +10,9 @@ import { LOCALES } from "@kidlearn/types";
 import { Button, Input, Label, Select, Textarea } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
 import type { ContentDraft } from "@/lib/admin-api";
+import { LOCALE_LABELS } from "@/lib/admin-labels";
 import { GradeLevelPicker } from "./GradeLevelPicker";
-import { LOCALE_LABELS, LocaleTabs } from "./LocaleTabs";
+import { LocaleTabs } from "./LocaleTabs";
 
 /**
  * The lesson editor (FR-CMS-01) — title and intro script per locale, a world, one

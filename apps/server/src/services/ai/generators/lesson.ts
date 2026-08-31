@@ -2,11 +2,12 @@ import type { GradeLevel, Prisma } from "@kidlearn/db";
 import { type Locale, safeParseQuizQuestion } from "@kidlearn/types";
 import { ApiError } from "../../../lib/errors.js";
 import { prisma } from "../../../lib/prisma.js";
+import { slugify } from "../../../lib/slug.js";
 import { generateStructured } from "../claude.js";
+import { withPlaceholderAssets } from "../placeholder-assets.js";
 import {
   buildLessonUserPrompt,
   KIDLEARN_SYSTEM_PROMPT,
-  PLACEHOLDER_ASSET_HOST,
 } from "../prompts/lesson.js";
 import { runGenerationJob } from "../run-generation-job.js";
 import {
@@ -246,48 +247,6 @@ async function persistLesson({
   return { lessonId: lesson.id, quizId: quiz.id, questionIds };
 }
 
-/**
- * Rewrites every asset URL in a question onto the reserved placeholder host.
- *
- * The model is told to use that host, and this does not trust it to. A generated
- * URL that pointed at a real CDN would be a third-party address inside a row a
- * lesson later plays, and it would look plausible enough to survive a review that
- * was reading the words rather than the links. The path is kept, so file 36 can
- * still see what each clip was meant to be.
- *
- * Takes and returns `unknown` rather than being generic: the value is rebuilt key
- * by key, so a `T` in and a `T` out would be an assertion no branch here checks.
- * The caller re-parses the result against the shared union, which is what makes
- * the shape true rather than declared.
- */
-function withPlaceholderAssets(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => withPlaceholderAssets(item));
-  }
-  if (!isRecord(value)) return value;
-
-  const entries = Object.entries(value).map(([key, child]) =>
-    key === "url" && typeof child === "string"
-      ? [key, toPlaceholderUrl(child)]
-      : [key, withPlaceholderAssets(child)],
-  );
-  return Object.fromEntries(entries);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function toPlaceholderUrl(url: string): string {
-  try {
-    return `${PLACEHOLDER_ASSET_HOST}${new URL(url).pathname}`;
-  } catch {
-    // Unreachable through the schema, which rejects a non-URL — but a fallback
-    // that produced something invalid would turn a bad link into a failed job.
-    return `${PLACEHOLDER_ASSET_HOST}/asset`;
-  }
-}
-
 /** Slugified focus, suffixed until it is free within the topic. */
 async function uniqueSlug(
   tx: Prisma.TransactionClient,
@@ -305,15 +264,6 @@ async function uniqueSlug(
     if (!taken) return candidate;
   }
   throw new Error(`Could not find a free slug for "${title}" in this topic`);
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
 }
 
 async function nextLessonSortOrder(

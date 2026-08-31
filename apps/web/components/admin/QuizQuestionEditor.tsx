@@ -9,6 +9,7 @@ import {
 import { Button, Input, Label, Select } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { QuizEngine } from "@/components/quiz/QuizEngine";
+import { LOCALE_LABELS } from "@/lib/admin-labels";
 import { optionValue } from "@/lib/select-option";
 import { MediaPicker } from "./MediaPicker";
 import { type IssueMap, toIssueMap } from "./payload-issues";
@@ -53,11 +54,6 @@ const FORMAT_LABELS: Record<QuizQuestionType, string> = {
   picture_select: "Pick the picture",
   match_pair: "Match the pairs",
   drag_answer: "Drag into the sentence",
-};
-
-const LOCALE_LABELS: Record<Locale, string> = {
-  en: "English",
-  bn: "Bangla",
 };
 
 export interface QuizQuestionEditorProps {

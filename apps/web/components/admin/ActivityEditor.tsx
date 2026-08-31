@@ -5,6 +5,7 @@ import { ACTIVITY_SCHEMAS, ACTIVITY_TYPES, LOCALES } from "@kidlearn/types";
 import { Button, Input, Label, Select } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { ActivityEngine } from "@/components/activities/ActivityEngine";
+import { LOCALE_LABELS } from "@/lib/admin-labels";
 import { optionValue } from "@/lib/select-option";
 import {
   type ActivityDraft,
@@ -38,11 +39,6 @@ const TYPE_LABELS: Record<ActivityType, string> = {
   trace: "Trace a glyph",
   match: "Match the pairs",
   puzzle: "Picture puzzle",
-};
-
-const LOCALE_LABELS: Record<Locale, string> = {
-  en: "English",
-  bn: "Bangla",
 };
 
 const GRID_SIZES = [2, 3, 4] as const;

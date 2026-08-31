@@ -36,6 +36,7 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 import { ContentForm } from "./ContentForm";
 import { GenerateLessonDialog } from "./GenerateLessonDialog";
+import { GenerateQuizButton } from "./GenerateQuizButton";
 import { LessonForm } from "./LessonForm";
 import { StatusChip } from "./StatusChip";
 import { TransitionButtons } from "./TransitionButtons";
@@ -451,6 +452,15 @@ export function CurriculumScreen() {
               lesson={selectedLesson}
               isBusy={isBusy}
               onCreateQuiz={() => void createQuizFor(selectedLesson)}
+              onQuizGenerated={(message) => {
+                void load();
+                setError(undefined);
+                setNotice(message);
+              }}
+              onQuizError={(message) => {
+                setNotice(undefined);
+                setError(message);
+              }}
             />
           ) : null}
 
@@ -671,10 +681,14 @@ function LessonPartLinks({
   lesson,
   isBusy,
   onCreateQuiz,
+  onQuizGenerated,
+  onQuizError,
 }: {
   lesson: AdminLesson;
   isBusy: boolean;
   onCreateQuiz: () => void;
+  onQuizGenerated: (message: string) => void;
+  onQuizError: (message: string) => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -704,6 +718,15 @@ function LessonPartLinks({
           Create quiz
         </Button>
       )}
+
+      {/* File 35 — the AI Quiz Generator (FR-AI-03). It creates the quiz itself
+          when the lesson has none, so it does not wait on "Create quiz". */}
+      <GenerateQuizButton
+        lessonId={lesson.id}
+        isBusy={isBusy}
+        onGenerated={onQuizGenerated}
+        onError={onQuizError}
+      />
 
       {lesson.activityId ? (
         <Button asChild variant="outline">
