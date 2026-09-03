@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchWorlds } from "@/lib/admin-api";
 import { ADMIN_ROUTES } from "@/lib/admin-routes";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
+import { StoryMediaPanel } from "./StoryMediaPanel";
 
 /**
  * `/admin/stories` — the story section (file 35, FR-AI-02).
@@ -112,6 +113,8 @@ export function StoriesScreen() {
           . Nothing here is visible to a child until it is published.
         </p>
       </section>
+
+      <StoryMediaPanel />
 
       <GenerateStoryDialog
         isOpen={isGenerateOpen}

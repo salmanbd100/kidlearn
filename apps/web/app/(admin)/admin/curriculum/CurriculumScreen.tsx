@@ -20,6 +20,7 @@ import {
 } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { GenerateNarrationButton } from "@/components/admin/GenerateNarrationButton";
 import {
   type ContentDraft,
   createContent,
@@ -723,6 +724,17 @@ function LessonPartLinks({
           when the lesson has none, so it does not wait on "Create quiz". */}
       <GenerateQuizButton
         lessonId={lesson.id}
+        isBusy={isBusy}
+        onGenerated={onQuizGenerated}
+        onError={onQuizError}
+      />
+
+      {/* File 36 — narration for the lesson's intro scripts (FR-AI-04). Beside
+          the quiz generator rather than in the lesson form, for the same reason:
+          there is no id to narrate against until the lesson has been saved. */}
+      <GenerateNarrationButton
+        entity="lesson"
+        id={lesson.id}
         isBusy={isBusy}
         onGenerated={onQuizGenerated}
         onError={onQuizError}

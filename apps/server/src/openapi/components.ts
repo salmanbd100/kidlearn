@@ -34,6 +34,11 @@ import {
   AuthMeSchema,
   AvatarCharacterListResponseSchema,
   AvatarCharacterSchema,
+  BatchGenerationRefResponseSchema,
+  BatchGenerationRefSchema,
+  CharacterSheetListResponseSchema,
+  CharacterSheetResponseSchema,
+  CharacterSheetSchema,
   CharacterUnlockListResponseSchema,
   CharacterUnlockSchema,
   ChildProfileListResponseSchema,
@@ -84,6 +89,8 @@ import {
   PinStatusResponseSchema,
   PlatformOverviewResponseSchema,
   PlatformOverviewSchema,
+  PromotedCharacterSheetsResponseSchema,
+  PromotedCharacterSheetsSchema,
   QuestionDeletedResponseSchema,
   QuestionDeletedSchema,
   QuizQuestionSchema,
@@ -129,13 +136,18 @@ import {
 } from "@kidlearn/types";
 import type { ZodTypeAny } from "zod";
 import {
+  GenerateIllustrationsSchema,
   GenerateLessonSchema,
+  GenerateNarrationSchema,
   GenerateQuizSchema,
   GenerateStorySchema,
 } from "../schemas/admin-ai.js";
 import {
+  CharacterSheetCreateSchema,
+  CharacterSheetUpdateSchema,
   LessonCreateSchema,
   LessonUpdateSchema,
+  PromoteJobCharactersSchema,
   ReorderSchema,
   SubjectCreateSchema,
   SubjectUpdateSchema,
@@ -358,6 +370,19 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AdminLessonListResponse: AdminLessonListResponseSchema,
   ReorderedIdsResponse: ReorderedIdsResponseSchema,
 
+  // --- Admin CMS: character sheets (file 36, FR-AI-09) ---------------------
+  // Prompt input, not content — which is why no schema here carries a `status`.
+  // Nothing student-facing reads the table, so there is nothing for the
+  // publishing workflow to protect. See `paths/admin-content.ts`.
+  AdminCharacterSheetCreateBody: CharacterSheetCreateSchema,
+  AdminCharacterSheetUpdateBody: CharacterSheetUpdateSchema,
+  AdminPromoteJobCharactersBody: PromoteJobCharactersSchema,
+  CharacterSheet: CharacterSheetSchema,
+  CharacterSheetResponse: CharacterSheetResponseSchema,
+  CharacterSheetListResponse: CharacterSheetListResponseSchema,
+  PromotedCharacterSheets: PromotedCharacterSheetsSchema,
+  PromotedCharacterSheetsResponse: PromotedCharacterSheetsResponseSchema,
+
   // --- Admin CMS: the media library (file 33, FR-CMS-02) -------------------
   // The request halves are the objects `validate()` runs, so the `.strict()`
   // bodies documented here are the ones that reject an unknown key. The
@@ -411,6 +436,13 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AiGenerateQuizBody: GenerateQuizSchema,
   GenerationJobRef: GenerationJobRefSchema,
   GenerationJobRefResponse: GenerationJobRefResponseSchema,
+  // File 36 — the two media generators. A different response schema, because one
+  // click there creates *n* jobs and reports how many pairs it skipped; see the
+  // operation descriptions for why `skipped` is half the answer.
+  AiGenerateNarrationBody: GenerateNarrationSchema,
+  AiGenerateIllustrationsBody: GenerateIllustrationsSchema,
+  BatchGenerationRef: BatchGenerationRefSchema,
+  BatchGenerationRefResponse: BatchGenerationRefResponseSchema,
 
   // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,

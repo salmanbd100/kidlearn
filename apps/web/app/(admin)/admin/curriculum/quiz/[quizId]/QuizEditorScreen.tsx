@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
+import { GenerateNarrationButton } from "@/components/admin/GenerateNarrationButton";
 import { QuizQuestionEditor } from "@/components/admin/QuizQuestionEditor";
 import {
   draftFromDefinition,
@@ -127,10 +128,29 @@ export function QuizEditorScreen({ quizId }: { quizId: string }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="ghost">
             <Link href={ADMIN_ROUTES.curriculum}>Back</Link>
           </Button>
+
+          {/* File 36 — prompt narration per question per locale (FR-AI-04,
+              FR-QUIZ-05). Offered whatever the quiz's status: recording a clip
+              changes nothing a child can reach, since the audio is attached on
+              approval and not here. */}
+          <GenerateNarrationButton
+            entity="quiz"
+            id={quizId}
+            isBusy={isBusy}
+            onGenerated={(message) => {
+              setError(undefined);
+              setNotice(message);
+            }}
+            onError={(message) => {
+              setNotice(undefined);
+              setError(message);
+            }}
+          />
+
           <Button
             type="button"
             disabled={!isEditable || isBusy}

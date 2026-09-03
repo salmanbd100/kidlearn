@@ -10,6 +10,8 @@ import type {
   AdminTopic,
   AdminWorld,
   AssetKind,
+  BatchGenerationRef,
+  CharacterSheet,
   ContentResourceName,
   ContentStatusValue,
   EditorContentResourceName,
@@ -17,8 +19,10 @@ import type {
   GradeLevelValue,
   Locale,
   MediaAsset,
+  NarrationEntity,
   OrderableContentResourceName,
   PlatformOverview,
+  PromotedCharacterSheets,
   QuestionDeleted,
   QuizQuestionType,
   ReorderedIds,
@@ -593,4 +597,104 @@ export interface GenerateQuizRequest {
   lessonId: string;
   count?: number;
   languages: Locale[];
+}
+
+/**
+ * Ask for the missing narration on a lesson, story or quiz (file 36, FR-AI-04).
+ *
+ * `retries: 0` for the reason the text generators give, doubled: one click here
+ * is *n* provider calls, so a replay of a request the API was slow to answer
+ * could bill an entire story twice. It is also the longest request in the CMS —
+ * sixteen clips is sixteen sequential text-to-speech calls.
+ *
+ * A `429` here means today's audio budget is spent. `error.details` carries
+ * `{ bucket, cap, used, pending }`, so a caller can say how much is left rather
+ * than only that there is none.
+ */
+export function generateNarration(
+  body: GenerateNarrationRequest,
+): Promise<ApiResult<BatchGenerationRef>> {
+  return apiFetch<BatchGenerationRef>("/api/admin/ai/generate/narration", {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export interface GenerateNarrationRequest {
+  entity: NarrationEntity;
+  id: string;
+}
+
+/**
+ * Ask for the missing illustrations on a story (file 36, FR-AI-05, FR-AI-09).
+ *
+ * `retries: 0`, as above. No prompt and no page list: the briefs are already on
+ * the pages and the character sheets are applied server-side, which is what makes
+ * the same rabbit appear on every page.
+ */
+export function generateIllustrations(
+  storyId: string,
+): Promise<ApiResult<BatchGenerationRef>> {
+  return apiFetch<BatchGenerationRef>("/api/admin/ai/generate/illustrations", {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify({ storyId }),
+  });
+}
+
+// --- Character sheets (file 36, FR-AI-09) ---------------------------------
+
+const CHARACTER_SHEET_BASE = `${CONTENT_BASE}/character-sheets`;
+
+/**
+ * `worldId` narrows to that world **plus the world-less sheets** — the set the
+ * illustration generator applies to a story set there.
+ */
+export function fetchCharacterSheets(
+  filters: { worldId?: string } = {},
+): Promise<ApiResult<CharacterSheet[]>> {
+  return apiFetch<CharacterSheet[]>(
+    `${CHARACTER_SHEET_BASE}${listQuery(filters)}`,
+  );
+}
+
+export function createCharacterSheet(body: {
+  name: string;
+  description: string;
+  worldId: string | null;
+}): Promise<ApiResult<CharacterSheet>> {
+  return apiFetch<CharacterSheet>(CHARACTER_SHEET_BASE, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** `slug` is deliberately absent — see the endpoint's description for why. */
+export function updateCharacterSheet(
+  id: string,
+  body: { name?: string; description?: string; worldId?: string | null },
+): Promise<ApiResult<CharacterSheet>> {
+  return apiFetch<CharacterSheet>(`${CHARACTER_SHEET_BASE}/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Promote a story generation's cast into sheets.
+ *
+ * `retries: 0`: it creates rows, and a replay would be a second import of a cast
+ * whose slugs the first import has just taken — harmless in outcome, since an
+ * existing slug is skipped, but it would report `skipped` where the admin expects
+ * `created` and read as a failure.
+ */
+export function promoteJobCharacters(
+  jobId: string,
+): Promise<ApiResult<PromotedCharacterSheets>> {
+  return apiFetch<PromotedCharacterSheets>(`${CHARACTER_SHEET_BASE}/from-job`, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify({ jobId }),
+  });
 }

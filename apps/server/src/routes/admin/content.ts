@@ -12,8 +12,13 @@ import {
   AdminLessonListQuerySchema,
   type AdminTopicListQuery,
   AdminTopicListQuerySchema,
+  CharacterSheetCreateSchema,
+  type CharacterSheetListQuery,
+  CharacterSheetListQuerySchema,
+  CharacterSheetUpdateSchema,
   LessonCreateSchema,
   LessonUpdateSchema,
+  PromoteJobCharactersSchema,
   ReorderSchema,
   SubjectCreateSchema,
   SubjectUpdateSchema,
@@ -46,6 +51,14 @@ import {
   updateTopic,
   updateWorld,
 } from "../../services/adminContentService.js";
+import {
+  type CharacterSheetDto,
+  createCharacterSheet,
+  listCharacterSheets,
+  type PromotedCharacterSheets,
+  promoteJobCharacters,
+  updateCharacterSheet,
+} from "../../services/characterSheetService.js";
 
 /**
  * `/api/admin/content/*` — CRUD over the curriculum hierarchy (file 32,
@@ -315,4 +328,94 @@ mountResource(
   "lessons",
   { create: LessonCreateSchema, update: LessonUpdateSchema },
   { create: createLesson, read: getLesson, update: updateLesson },
+);
+
+// --- Character sheets (file 36, FR-AI-09) ---------------------------------
+
+/**
+ * Character sheets live on this router rather than getting their own mount, and
+ * outside `mountResource`.
+ *
+ * They opt out of all four rules that helper encodes: no publishing workflow (a
+ * sheet is never student-facing, so it has no `status`), no ordering, no
+ * translations, and no `updatedBy` audit stamp. Running them through it would mean
+ * teaching it about a resource that wants none of it.
+ *
+ * `/from-job` is registered before `/:id` for the reason `reorder` is above it:
+ * Express matches in registration order and a literal segment would otherwise be
+ * read as an id — though here the methods differ, so the ordering is insurance
+ * rather than a fix.
+ */
+adminContentRouter.get(
+  "/character-sheets",
+  validate({ query: CharacterSheetListQuerySchema }),
+  async (_req, res, next) => {
+    try {
+      const query = validatedQuery<CharacterSheetListQuery>(res);
+
+      const payload: SuccessEnvelope<CharacterSheetDto[]> = {
+        data: await listCharacterSheets(query),
+      };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminContentRouter.post(
+  "/character-sheets",
+  validate({ body: CharacterSheetCreateSchema }),
+  async (req, res, next) => {
+    try {
+      const created = await createCharacterSheet(req.body);
+
+      const payload: SuccessEnvelope<CharacterSheetDto> = { data: created };
+      res.status(201).json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Promotes a story generation's cast into sheets.
+ *
+ * `201` even when every character was skipped: the request was well formed and the
+ * outcome is in the body, and a `200`/`201` split on "did anything get created"
+ * would make an idempotent re-import look like a different kind of event.
+ */
+adminContentRouter.post(
+  "/character-sheets/from-job",
+  validate({ body: PromoteJobCharactersSchema }),
+  async (req, res, next) => {
+    try {
+      const result = await promoteJobCharacters(req.body.jobId);
+
+      const payload: SuccessEnvelope<PromotedCharacterSheets> = {
+        data: result,
+      };
+      res.status(201).json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminContentRouter.patch(
+  "/character-sheets/:id",
+  validate({
+    params: AdminContentIdParamsSchema,
+    body: CharacterSheetUpdateSchema,
+  }),
+  async (req, res, next) => {
+    try {
+      const updated = await updateCharacterSheet(idParam(req), req.body);
+
+      const payload: SuccessEnvelope<CharacterSheetDto> = { data: updated };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
 );
