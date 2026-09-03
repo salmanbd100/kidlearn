@@ -87,6 +87,50 @@ const EnvSchema = z.object({
    */
   ANTHROPIC_API_KEY: z.string().min(1),
   ANTHROPIC_MODEL: z.string().min(1).default("claude-sonnet-5"),
+  /**
+   * ElevenLabs, the narration voice (file 36, FR-AI-04, FR-I18N-05).
+   *
+   * All three required, on the same reasoning as the Claude key — but the two
+   * voice ids deserve their own note. They are not a tuning knob with a sensible
+   * default: an id is account-specific, and a wrong or missing one produces
+   * *audible* damage rather than an error a deployment notices. A Bangla page
+   * narrated by an English voice is a clip that plays, uploads, and passes review
+   * unless somebody listens to it in the right language.
+   *
+   * Which voices they name is an administrator's decision, documented in
+   * `.env.example` — child-friendly means warm, slow and unhurried, and the
+   * Bangla one has to be a voice the multilingual model actually speaks Bangla
+   * well in.
+   */
+  ELEVENLABS_API_KEY: z.string().min(1),
+  ELEVENLABS_VOICE_ID_EN: z.string().min(1),
+  ELEVENLABS_VOICE_ID_BN: z.string().min(1),
+  /**
+   * Gemini, the illustration model (file 36, FR-AI-05).
+   *
+   * `GEMINI_IMAGE_MODEL` has a default for the reason `ANTHROPIC_MODEL` does —
+   * the model is config, not a credential — and the default is the current
+   * image-capable Flash snapshot.
+   */
+  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-2.5-flash-image"),
+  /**
+   * How many generation jobs a single `APP_TIMEZONE` day may create, per cost
+   * bucket (file 36).
+   *
+   * These exist because the batch endpoints turn one click into *n* provider
+   * calls: "generate narration" on a story is two clips a page, and a misclick on
+   * a long story is a bill. The caps are a floor under that, not a quota system —
+   * they are counted across the whole deployment rather than per admin, because
+   * what is being protected is a shared free tier.
+   *
+   * Three buckets rather than one total, because the three cost wildly different
+   * amounts per call and one shared ceiling would let a morning of audio work
+   * block the afternoon's lesson writing.
+   */
+  AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(50),
+  AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(200),
+  AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
   // --- API documentation --------- //
   ENABLE_API_DOCS: z
     .enum(["true", "false"])

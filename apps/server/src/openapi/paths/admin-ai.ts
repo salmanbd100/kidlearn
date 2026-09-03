@@ -9,19 +9,52 @@ import {
 import type { RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/admin/ai.ts` — the AI generation pipeline (files 34–35, FR-AI-01..03,
- * FR-AI-08).
+ * `routes/admin/ai.ts` — the AI generation pipeline (files 34–36, FR-AI-01..06,
+ * FR-AI-08, FR-AI-09).
  *
- * All three operations answer with the same `GenerationJobRefResponse`, and every
- * one of them can answer `202` with `status: "failed"`. That is not an oversight in
- * the status codes: a generation that produced nothing usable is not a bad request,
- * the job row exists and holds both attempts, and a client's next step — open the
- * job — is the same either way.
+ * The three text operations answer with the same `GenerationJobRefResponse`, and
+ * every one of them can answer `202` with `status: "failed"`. That is not an
+ * oversight in the status codes: a generation that produced nothing usable is not
+ * a bad request, the job row exists and holds both attempts, and a client's next
+ * step — open the job — is the same either way.
+ *
+ * The two media operations added by file 36 answer with `BatchGenerationRefResponse`
+ * instead, because one click there creates *n* jobs — one per clip or picture,
+ * since one clip is what a reviewer approves. They report `skipped` and `failed`
+ * alongside: the first so a re-run on finished work reads as "nothing left to do"
+ * rather than as five silent failures, the second so a batch that generated
+ * nothing usable does not read as one that worked.
+ *
+ * **Every operation here can answer `429`.** Three independent daily ceilings —
+ * text, audio, image — counted from `AIGenerationJob` rows created since midnight
+ * in `APP_TIMEZONE`. They exist because the batch endpoints turn one click into
+ * many provider calls; see `RATE_LIMITED_RESPONSE` below.
  */
 
 const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   "Authenticated, but not an administrator. Every signed-in *parent* lands here — see `GET /api/admin/me` for why a valid session is not enough.",
   ["FORBIDDEN"],
+);
+
+/**
+ * The `429` every generation operation shares (file 36).
+ *
+ * Deployment-wide rather than per administrator: what is being protected is a
+ * shared free tier, so a second admin's budget is the same budget.
+ */
+const RATE_LIMITED_RESPONSE = errorResponse(
+  [
+    'Today\'s generation cap for this operation\'s cost bucket is used up. `error.details` carries `{ bucket, cap, used, pending }` — the arithmetic, not just the verdict, so a client can say "40 of 50 used, this needs 16" rather than "try again tomorrow".',
+    "",
+    "**Three independent ceilings, not one budget.** `text` covers the lesson, story and quiz operations; `audio` covers narration; `image` covers illustrations. The three cost wildly different amounts per call, and one shared ceiling would let a morning of narration work block the afternoon's lesson writing. Defaults are 50 / 200 / 100 per day (`AI_TEXT_JOBS_PER_DAY`, `AI_AUDIO_JOBS_PER_DAY`, `AI_IMAGE_JOBS_PER_DAY`).",
+    "",
+    "**The day is the calendar day in the deployment's `APP_TIMEZONE`** — the same day the reward grant and the streak roll-over use — so the counter resets at *local* midnight, not UTC.",
+    "",
+    "**A batch is refused whole rather than started and truncated.** Sixteen clips with three left in the budget is not thirteen clips of progress; it is a story narrated on five pages and silent on three, which has already been paid for and still has to be finished tomorrow.",
+    "",
+    "Counted deployment-wide, not per administrator: the free tier being protected is shared.",
+  ].join("\n"),
+  ["RATE_LIMITED"],
 );
 
 const GENERATE_LESSON_DESCRIPTION = [
@@ -78,6 +111,46 @@ const GENERATE_QUIZ_DESCRIPTION = [
   "**Exactly `count` questions using at least three distinct formats** — both Zod refinements, invisible below, retried once with the errors fed back.",
 ].join("\n");
 
+const GENERATE_NARRATION_DESCRIPTION = [
+  "Records the **missing** narration for one lesson, story or quiz, one job per `(target, locale)` pair (FR-AI-04, FR-I18N-05).",
+  "",
+  "**What counts as missing is the absence of a foreign key**, not a flag: `LessonTranslation.introAudioAssetId`, `StoryPageTranslation.narrationAudioAssetId`, `QuizQuestionTranslation.audioAssetId`. So re-running this on a half-narrated story asks for the half that is silent and nothing else, and running it on finished work creates no jobs at all.",
+  "",
+  '**The body carries no language, deliberately.** The locales are computed from what actually has text and no audio, so a caller cannot ask for a Bangla clip on a page with no Bangla text, nor re-record an existing clip by naming its language. Anything narrower than "the missing narration" is a way to produce a story that is half narrated and looks finished.',
+  "",
+  "**The foreign key is NOT set here, and that is the whole design.** Each job records the clip, a `MediaAsset` row carrying `aiJobId`, and which `(targetTable, targetId, locale)` it was recorded *for* — then stops on `awaiting_review`. An administrator listens first; the attachment happens on approval in file 37 (FR-CMS-05, FR-AI-07). Until then no student query can reach the audio, because nothing points at it. Setting the key at generation time would put an unreviewed voice — possibly the wrong voice for the language — into a lesson a five-year-old plays.",
+  "",
+  "**`targetId` is the id on the *parent* side of the translation row's unique key** — the lesson, the story page, the question — not the translation row's own id. `(targetId, locale)` is `@@unique([lessonId, language])` and its two siblings, so the pair addresses the row whether or not it exists yet. It does not always: a `QuizQuestionTranslation` is created only when a question gains audio.",
+  "",
+  "**One job per clip, not one per batch**, because one clip is what a reviewer approves. A single job covering sixteen clips could only be approved wholesale, and one bad take would send fifteen good ones back through the model.",
+  "",
+  "**A pair whose clip is already in the review queue is skipped too.** Its foreign key is still null, but generating a second clip would bill twice and hand the reviewer two takes when they asked for one. Jobs that `failed` or were `rejected` do not block a retry — neither left a usable clip.",
+  "",
+  "**Each narration asset carries `language` = its own locale** (FR-I18N-05). An asset with a null language is a clip nobody can tell the language of, and a Bangla learner could be served the English one.",
+  "",
+  "**Where the words come from, per entity.** `lesson`: `LessonTranslation.introScript`. `story`: each `StoryPageTranslation.text`, pages in reading order. `quiz`: each question's `definition.prompt[locale]` — the JSONB payload, since `QuizQuestionTranslation` holds an audio key and nothing else.",
+  "",
+  "`202` with an empty `jobIds` and a non-zero `skipped` is the ordinary result of re-running the action; nothing was wrong with the request.",
+].join("\n");
+
+const GENERATE_ILLUSTRATIONS_DESCRIPTION = [
+  "Draws the missing illustrations for one story, one job per page (FR-AI-05), with recurring characters held stable by `CharacterSheet` rows (FR-AI-09).",
+  "",
+  'A page is a candidate when it carries an `illustrationPrompt` — the English scene brief `POST /generate/story` wrote — and has no `illustrationAssetId` yet. A hand-authored page with no brief is not a candidate at all rather than a skipped one: there is nothing to draw from, so counting it as "already had a picture" would say something untrue.',
+  "",
+  "**Every prompt in a batch carries the same character block, and that is the point.** The applicable sheets are read once per story and prepended verbatim to every page, so page 3's rabbit and page 7's rabbit are described to the model in identical words. An image model is stateless — it remembers nothing about the picture it drew a second ago — so this repetition *is* the consistency mechanism. Selecting sheets per page, by which characters a brief happens to name, was the alternative and is worse: a brief saying \"the rabbit finds a carrot\" without naming Nibbles would silently lose its sheet and come back as a different rabbit.",
+  "",
+  "**The applicable sheets are the story world's plus the world-less ones**, ordered world-scoped first then by slug. The order is fixed rather than left to the database because two prompts differing only in the order of two descriptions is a difference an image model can act on. `GET /api/admin/content/character-sheets?worldId=` returns exactly this set.",
+  "",
+  "**A fixed style prefix comes first in every prompt** — soft rounded cartoon, bright colours, thick outlines, friendly expressions, **no text in the image**. The last of those is load-bearing: an image model asked for a classroom will render a blackboard of misspelled pseudo-English, which for a child learning to read is worse than no picture. Every word a child sees comes from a translation row instead, so it can be translated and narrated (FR-I18N-01).",
+  "",
+  "**The foreign key is NOT set here.** Same rule as narration: the `MediaAsset` row carries `aiJobId`, the job records which `StoryPage` it was drawn for, and `StoryPage.illustrationAssetId` is written on approval in file 37 (FR-CMS-05, FR-AI-07). `illustrationPrompt` is kept afterwards, so a page can be redrawn.",
+  "",
+  "**Illustration assets carry `language: null`.** A picture has no language, and stamping one would hide it from the other locale's media filter.",
+  "",
+  "The job's `input` holds the **resolved** prompt verbatim, not the brief plus a note that sheets were applied: a reviewer looking at a rabbit that came back wrong needs the words the model actually saw, and the sheet may have been edited since (FR-AI-08).",
+].join("\n");
+
 export const ADMIN_AI_ROUTES: RouteDoc[] = [
   {
     method: "post",
@@ -103,6 +176,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
           "The topic does not belong to the named subject, or `worldId` was omitted for a topic that has no lessons to inherit one from.",
           ["CONFLICT"],
         ),
+        "429": RATE_LIMITED_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -124,6 +198,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
         "401": UNAUTHORIZED_RESPONSE,
         "403": ADMIN_FORBIDDEN_RESPONSE,
         "404": errorResponse("No such world.", ["NOT_FOUND"]),
+        "429": RATE_LIMITED_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -149,6 +224,53 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
           "The lesson's quiz is `published`, so a generated question would be live the moment it was written. `details.code` is `QUIZ_PUBLISHED`; withdraw the quiz to `draft` and try again. Refused before the generation, so no job row is created — unless the quiz was published *during* it, in which case the write is refused instead, nothing is appended, and `details.jobId` names the failed job holding what the model wrote.",
           ["CONFLICT"],
         ),
+        "429": RATE_LIMITED_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/admin/ai/generate/narration",
+    operation: {
+      tags: ["Admin AI"],
+      summary: "Record the missing narration for a lesson, story or quiz",
+      description: GENERATE_NARRATION_DESCRIPTION,
+      requestBody: jsonRequestBody("AiGenerateNarrationBody"),
+      responses: {
+        "202": jsonResponse(
+          "`jobIds` is one job per clip started; `skipped` counts pairs that already had audio, already had a clip in the queue, or had no text to read; `failed` counts how many of `jobIds` produced nothing usable. All three may be zero.\n\n**`failed` is why a batch cannot be read from `jobIds` alone.** The single-job operations answer with a `status`; a batch has one per job, and without this count a revoked provider key on a sixteen-clip story is indistinguishable from sixteen clips recorded. The failed jobs are still listed — they exist and hold their own error — and are the ones to open first.",
+          "BatchGenerationRefResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "404": errorResponse("No lesson, story or quiz with that id.", [
+          "NOT_FOUND",
+        ]),
+        "429": RATE_LIMITED_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/admin/ai/generate/illustrations",
+    operation: {
+      tags: ["Admin AI"],
+      summary: "Draw the missing illustrations for a story",
+      description: GENERATE_ILLUSTRATIONS_DESCRIPTION,
+      requestBody: jsonRequestBody("AiGenerateIllustrationsBody"),
+      responses: {
+        "202": jsonResponse(
+          "`jobIds` is one job per page started; `skipped` counts pages that already had an illustration or already had one in the queue; `failed` counts how many of `jobIds` produced no picture. See the narration operation for why a batch reports `failed` separately.",
+          "BatchGenerationRefResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "404": errorResponse("No story with that id.", ["NOT_FOUND"]),
+        "429": RATE_LIMITED_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },

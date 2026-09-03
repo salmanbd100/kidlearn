@@ -279,3 +279,82 @@ export const ReorderSchema = z
   .strict();
 
 export type ReorderBody = z.infer<typeof ReorderSchema>;
+
+// --- Character sheets (file 36, FR-AI-09) ---------------------------------
+
+/**
+ * A recurring character's stable visual description.
+ *
+ * **`description` is prompt text, not notes**, which is why the floor is 20
+ * characters rather than 1: "a rabbit" contributes nothing an image model can draw
+ * consistently from, and a sheet that adds nothing makes the drift it was created
+ * to stop look like the feature working. The ceiling is generous — colours,
+ * clothing, size and distinguishing features are four sentences, not one.
+ *
+ * `slug` is optional on create and absent from the update body. It is how an
+ * import recognises a character it has already saved, so a slug that could change
+ * would let the same mascot be imported twice under two names. Omitted, it is
+ * derived from `name` and suffixed until free.
+ *
+ * `worldId` is explicitly nullable rather than optional-and-absent, matching
+ * `RegisterAssetSchema.language`: a character used across every world is a fact
+ * worth recording, not a gap.
+ *
+ * No `status` and no `sortOrder`, for a different reason from the curriculum
+ * bodies above — a sheet has neither. It is never student-facing, so there is
+ * nothing to publish, and it is never listed in an order an admin chose.
+ */
+export const CharacterSheetCreateSchema = z
+  .object({
+    slug: SlugSchema.optional(),
+    name: AdminLabelSchema,
+    worldId: z.string().uuid().nullable().default(null),
+    description: z.string().min(20).max(2000),
+  })
+  .strict();
+
+export type CharacterSheetCreateBody = z.infer<
+  typeof CharacterSheetCreateSchema
+>;
+
+export const CharacterSheetUpdateSchema = atLeastOneField(
+  CharacterSheetCreateSchema.omit({ slug: true }).partial().strict(),
+);
+
+export type CharacterSheetUpdateBody = z.infer<
+  typeof CharacterSheetUpdateSchema
+>;
+
+/**
+ * `?worldId=` narrows the list to that world **plus the world-less sheets**, not
+ * to an exact match — it is the set the illustration generator applies to a story
+ * set there, and a filter that answered differently would show an admin a cast
+ * their pictures do not use.
+ *
+ * Restated in the operation's OpenAPI description: JSON Schema cannot say what a
+ * filter means.
+ */
+export const CharacterSheetListQuerySchema = z
+  .object({ worldId: z.string().uuid().optional() })
+  .strict();
+
+export type CharacterSheetListQuery = z.infer<
+  typeof CharacterSheetListQuerySchema
+>;
+
+/**
+ * Promote a story generation's cast into sheets — the "Save as character sheet"
+ * action (FR-AI-09).
+ *
+ * Just the job id. Which characters it describes, and which world they belong to,
+ * are read from the job's own audit record and the story it wrote: a body that
+ * could name the characters would be a way to write a description the model never
+ * produced while the row still claimed a job as its provenance.
+ */
+export const PromoteJobCharactersSchema = z
+  .object({ jobId: z.string().uuid() })
+  .strict();
+
+export type PromoteJobCharactersBody = z.infer<
+  typeof PromoteJobCharactersSchema
+>;

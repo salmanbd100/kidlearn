@@ -267,3 +267,61 @@ export const ReorderedIdsSchema = z
 
 export const ReorderedIdsResponseSchema = ok(ReorderedIdsSchema);
 export type ReorderedIds = z.infer<typeof ReorderedIdsSchema>;
+
+/**
+ * A character sheet — the stable visual description of one recurring character
+ * (file 36, FR-AI-09).
+ *
+ * **No `status`, unlike every other payload in this file.** A sheet is prompt
+ * input, never student-facing: nothing in `api/content.ts` or `api/stories.ts`
+ * reads it, so there is nothing for a publishing workflow to protect. Adding one
+ * would imply a review step that does not exist and a child-visible state that
+ * cannot happen.
+ *
+ * `description` is the text prepended verbatim to every illustration prompt the
+ * character appears in, which is why editing one changes every picture drawn from
+ * then on and none drawn before.
+ */
+export const CharacterSheetSchema = z
+  .object({
+    id: z.string(),
+    /** Stable and not editable — it is how an import recognises a saved character. */
+    slug: z.string(),
+    name: z.string(),
+    /** `null` for a character used across every world — a narrator, a child. */
+    worldId: z.string().nullable(),
+    description: z.string(),
+    createdAt: IsoDateTimeSchema,
+    updatedAt: IsoDateTimeSchema,
+  })
+  .strict();
+
+export type CharacterSheet = z.infer<typeof CharacterSheetSchema>;
+
+/**
+ * The result of promoting a story generation's cast into sheets.
+ *
+ * `skipped` counts characters whose slug already had a sheet. Nothing is
+ * overwritten: the second story set in a world describes the same mascot in
+ * slightly different words, and taking the newer wording would change how it is
+ * drawn in every story already using it — which is the drift the table exists to
+ * prevent.
+ */
+export const PromotedCharacterSheetsSchema = z
+  .object({
+    created: z.array(CharacterSheetSchema),
+    skipped: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export type PromotedCharacterSheets = z.infer<
+  typeof PromotedCharacterSheetsSchema
+>;
+
+export const CharacterSheetResponseSchema = ok(CharacterSheetSchema);
+export const CharacterSheetListResponseSchema = ok(
+  z.array(CharacterSheetSchema),
+);
+export const PromotedCharacterSheetsResponseSchema = ok(
+  PromotedCharacterSheetsSchema,
+);

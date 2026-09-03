@@ -28,3 +28,11 @@ process.env.CLOUDINARY_API_SECRET ??= "test-api-secret";
 // File 34 — the Claude API. A dummy key: every AI test stubs the client module,
 // so nothing here reaches Anthropic, but env.ts requires the variable at boot.
 process.env.ANTHROPIC_API_KEY ??= "test-anthropic-key";
+// File 36 — ElevenLabs and Gemini. Dummy values: every audio and image test stubs
+// `fetch` or the SDK module, so nothing here reaches a provider, but env.ts
+// requires all four at boot. `services/ai/elevenlabs.test.ts` asserts the request
+// URL contains the voice id below, so changing one changes that expectation too.
+process.env.ELEVENLABS_API_KEY ??= "test-elevenlabs-key";
+process.env.ELEVENLABS_VOICE_ID_EN ??= "test-voice-en";
+process.env.ELEVENLABS_VOICE_ID_BN ??= "test-voice-bn";
+process.env.GEMINI_API_KEY ??= "test-gemini-key";

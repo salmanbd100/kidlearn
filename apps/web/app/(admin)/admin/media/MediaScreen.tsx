@@ -16,9 +16,11 @@ import {
   DialogTitle,
 } from "@kidlearn/ui";
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { fetchMediaAssets } from "@/lib/admin-api";
 import { AttachDialog } from "./AttachDialog";
+import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";
 
 /**
@@ -37,6 +39,15 @@ import { UploadDialog } from "./UploadDialog";
  * worlds, lessons, stories, badges and characters, so a delete button would be a
  * button that breaks content silently. Retiring an asset is unlinking it from its
  * owners, which the curriculum screens do.
+ *
+ * **Two tabs since file 36.** Character sheets are not assets — they are the prompt
+ * text that makes generated illustrations consistent (FR-AI-09) — but this is the
+ * page an author comes to about pictures, so they live here rather than in a corner
+ * of the curriculum tree.
+ *
+ * `videoWorkflow` arrives as a prop rather than being imported: it is static prose
+ * and renders on the server, so passing it through keeps it out of this client
+ * bundle (`frontend.md §2`).
  */
 
 const KIND_LABELS: Record<AssetKind, string> = {
@@ -55,7 +66,10 @@ type DialogState =
   | { kind: "upload" }
   | { kind: "attach"; asset: MediaAsset };
 
-export function MediaScreen() {
+type Tab = "library" | "characters";
+
+export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
+  const [tab, setTab] = useState<Tab>("library");
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [kind, setKind] = useState<AssetKind>();
   const [language, setLanguage] = useState<Locale>();
@@ -82,8 +96,9 @@ export function MediaScreen() {
   }, [kind, language]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // Only the library tab reads assets; the characters tab holds its own data.
+    if (tab === "library") void load();
+  }, [load, tab]);
 
   async function handleCopy(asset: MediaAsset) {
     try {
@@ -96,41 +111,76 @@ export function MediaScreen() {
     }
   }
 
+  const header = (
+    <div className="flex flex-col gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="font-semibold text-foreground text-xl">Media</h1>
+          <p className="text-muted-foreground text-xs">
+            {tab === "library"
+              ? "Files upload straight to Cloudinary — they never pass through the API."
+              : "The visual descriptions that keep recurring characters recognisable."}
+          </p>
+        </div>
+
+        {tab === "library" ? (
+          <Button
+            type="button"
+            onClick={() => {
+              setNotice(undefined);
+              setDialog({ kind: "upload" });
+            }}
+          >
+            Upload
+          </Button>
+        ) : null}
+      </header>
+
+      <div className="flex gap-2">
+        <FilterChip
+          isActive={tab === "library"}
+          onClick={() => setTab("library")}
+        >
+          Library
+        </FilterChip>
+        <FilterChip
+          isActive={tab === "characters"}
+          onClick={() => setTab("characters")}
+        >
+          Characters
+        </FilterChip>
+      </div>
+    </div>
+  );
+
+  if (tab === "characters") {
+    return (
+      <div className="flex flex-col gap-5">
+        {header}
+        <CharactersTab />
+      </div>
+    );
+  }
+
   if (status === "error") {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <h1 className="font-semibold text-foreground text-xl">Media</h1>
+      <div className="flex flex-col gap-5">
+        {header}
         <p className="text-muted-foreground text-sm">
           The media library could not be loaded.
         </p>
-        <Button type="button" variant="outline" onClick={() => void load()}>
-          Try again
-        </Button>
+        <div>
+          <Button type="button" variant="outline" onClick={() => void load()}>
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-semibold text-foreground text-xl">Media</h1>
-          <p className="text-muted-foreground text-xs">
-            Files upload straight to Cloudinary — they never pass through the
-            API.
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          onClick={() => {
-            setNotice(undefined);
-            setDialog({ kind: "upload" });
-          }}
-        >
-          Upload
-        </Button>
-      </header>
+      {header}
 
       <div className="flex flex-wrap gap-2">
         <FilterChip
@@ -227,6 +277,8 @@ export function MediaScreen() {
           ))}
         </ul>
       )}
+
+      {videoWorkflow}
 
       <Dialog
         open={dialog.kind !== "closed"}

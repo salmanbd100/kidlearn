@@ -1,6 +1,7 @@
 /**
  * `/api/admin/content/*` — curriculum CRUD, the publishing workflow and
- * reordering (file 32, FR-CURR-04, FR-CMS-01, FR-CMS-06).
+ * reordering (file 32, FR-CURR-04, FR-CMS-01, FR-CMS-06), plus the character
+ * sheets file 36 mounted alongside them (FR-AI-09).
  *
  * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
@@ -36,6 +37,9 @@ import {
   AdminTopicResponseSchema,
   AdminWorldListResponseSchema,
   AdminWorldResponseSchema,
+  CharacterSheetListResponseSchema,
+  CharacterSheetResponseSchema,
+  PromotedCharacterSheetsResponseSchema,
   ReorderedIdsResponseSchema,
 } from "@kidlearn/types";
 import request from "supertest";
@@ -73,6 +77,18 @@ const store = vi.hoisted(() => ({
   subjects: [] as Row[],
   topics: [] as Row[],
   lessons: [] as Row[],
+  // File 36 — character sheets, and the two tables the "save as character sheet"
+  // action reads a generation out of.
+  characterSheets: [] as Row[],
+  /**
+   * Makes the next *n* slug lookups miss a row that is really there, which is the
+   * only way to reach the check-then-act window from outside: the service looks a
+   * slug up and then writes it, and a race is the check passing before the write
+   * hits the unique index.
+   */
+  slugCheckMisses: 0,
+  stories: [] as Row[],
+  jobs: [] as Row[],
   /** Isolation levels `$transaction` was called with, for bound 4 above. */
   isolationLevels: [] as Array<string | undefined>,
 }));
@@ -233,6 +249,89 @@ vi.mock("../../lib/prisma.js", async () => {
     subject: table(() => store.subjects, ["slug"]),
     topic: table(() => store.topics, ["subjectId", "slug"]),
     lesson: table(() => store.lessons, ["topicId", "slug"]),
+    /**
+     * Character sheets (file 36). Its own stub rather than `table()`, because the
+     * service looks a sheet up **by slug** — that read is how an import
+     * recognises a character it has already saved, so a stub that only answered
+     * on `id` would make every skip test pass for the wrong reason.
+     */
+    characterSheet: {
+      findUnique: async ({
+        where,
+      }: {
+        where: { id?: string; slug?: string };
+      }) =>
+        store.characterSheets.find((row) => {
+          if (where.slug === undefined) return row.id === where.id;
+          if (row.slug !== where.slug) return false;
+          if (store.slugCheckMisses > 0) {
+            store.slugCheckMisses -= 1;
+            return false;
+          }
+          return true;
+        }) ?? null,
+
+      findMany: async ({
+        where,
+      }: {
+        where: { OR?: Array<{ worldId: string | null }> };
+      }) => {
+        const wanted = where.OR?.map((clause) => clause.worldId);
+        return store.characterSheets
+          .filter(
+            (row) => !wanted || wanted.includes(row.worldId as string | null),
+          )
+          .sort((left, right) =>
+            String(left.slug).localeCompare(String(right.slug)),
+          );
+      },
+
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        // `CharacterSheet_slug_key` enforced here, because the service's
+        // `findUnique`-then-`create` is check-then-act: the only way a test can
+        // reach the code that handles a lost race is for the stub to raise the
+        // same P2002 the index would.
+        if (store.characterSheets.some((row) => row.slug === data.slug)) {
+          throw new Prisma.PrismaClientKnownRequestError(
+            "Unique constraint failed on the fields: (`slug`)",
+            { code: "P2002", clientVersion: "test" },
+          );
+        }
+
+        const row: Row = {
+          id: `sheet-${store.characterSheets.length + 1}`,
+          worldId: null,
+          createdAt: new Date("2026-09-03T00:00:00.000Z"),
+          updatedAt: new Date("2026-09-03T00:00:00.000Z"),
+          ...data,
+        };
+        store.characterSheets.push(row);
+        return row;
+      },
+
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: Record<string, unknown>;
+      }) => {
+        const row = store.characterSheets.find((one) => one.id === where.id);
+        if (!row) throw new Error(`no sheet ${where.id}`);
+        Object.assign(row, data, {
+          updatedAt: new Date("2026-09-04T00:00:00.000Z"),
+        });
+        return row;
+      },
+    },
+    story: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        store.stories.find((row) => row.id === where.id) ?? null,
+    },
+    aIGenerationJob: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        store.jobs.find((row) => row.id === where.id) ?? null,
+    },
     // Present so a stray parent-provisioning read fails loudly: no admin route
     // may create a Parent row.
     parent: { findUnique: vi.fn(), upsert: vi.fn() },
@@ -310,6 +409,10 @@ beforeEach(() => {
   store.subjects = [];
   store.topics = [];
   store.lessons = [];
+  store.characterSheets = [];
+  store.slugCheckMisses = 0;
+  store.stories = [];
+  store.jobs = [];
   store.isolationLevels = [];
   db.adminFindUnique.mockReset();
   db.adminFindUnique.mockImplementation(
@@ -1510,5 +1613,425 @@ describe("what the stub cannot prove — asserted against schema.prisma", () => 
   it("declares the updatedBy column every write in this file stamps", () => {
     const auditedModels = schema.match(/updatedBy\s+String\?/g) ?? [];
     expect(auditedModels).toHaveLength(4);
+  });
+});
+
+/**
+ * Character sheets (file 36, FR-AI-09).
+ *
+ * They live on this router but outside the four-resource machinery above, so
+ * their tests are separate: no publishing workflow, no ordering, no
+ * translations, no `updatedBy`.
+ */
+describe("POST /api/admin/content/character-sheets", () => {
+  const SHEET_BASE = `${BASE}/character-sheets`;
+
+  const RABBIT = {
+    name: "Nibbles",
+    worldId: WORLD_ID,
+    description:
+      "A small white rabbit with one grey ear, wearing a red scarf, knee-high to a child.",
+  };
+
+  beforeEach(() => {
+    seed(store.worlds, { id: WORLD_ID, slug: "jungle", name: "Jungle" });
+  });
+
+  it("401s an unauthenticated create", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+
+    const res = await request(app).post(SHEET_BASE).send(RABBIT);
+
+    expect(res.status).toBe(401);
+    expect(store.characterSheets).toHaveLength(0);
+  });
+
+  it("403s a signed-in parent", async () => {
+    mockSession(PARENT_USER_ID);
+
+    const res = await request(app).post(SHEET_BASE).send(RABBIT);
+
+    expect(res.status).toBe(403);
+    expect(store.characterSheets).toHaveLength(0);
+  });
+
+  it("201s with the stored sheet", async () => {
+    const res = await request(app).post(SHEET_BASE).send(RABBIT);
+
+    expect(res.status).toBe(201);
+    assertContract(
+      CharacterSheetResponseSchema,
+      res.body,
+      "POST /api/admin/content/character-sheets",
+    );
+    expect(res.body.data).toMatchObject({
+      slug: "nibbles",
+      name: "Nibbles",
+      worldId: WORLD_ID,
+      description: RABBIT.description,
+    });
+  });
+
+  it("derives the slug from the name and suffixes a collision", async () => {
+    await request(app).post(SHEET_BASE).send(RABBIT);
+
+    const second = await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, worldId: null });
+
+    expect(second.status).toBe(201);
+    expect(second.body.data.slug).toBe("nibbles-2");
+  });
+
+  it("409s an explicitly supplied slug that is taken", async () => {
+    await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, slug: "nibbles" });
+
+    const res = await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, slug: "nibbles" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("CONFLICT");
+  });
+
+  it("409s rather than 500s when the slug is taken between the check and the write", async () => {
+    // `assertSlugFree` is check-then-act, so two admins saving the same slug at
+    // once both pass it and the loser hits the unique index. Unwrapped, Prisma's
+    // P2002 reaches the error handler as an undocumented `500`; this endpoint
+    // documents `409` and that is what a race should read as.
+    await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, slug: "nibbles" });
+    store.slugCheckMisses = 1;
+
+    const res = await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, slug: "nibbles" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toMatchObject({ code: "DUPLICATE_SLUG" });
+    expect(store.characterSheets).toHaveLength(1);
+  });
+
+  it("stores a world-less sheet as null rather than omitting the column", async () => {
+    // A character used across every world is a fact worth recording, not a gap.
+    const res = await request(app)
+      .post(SHEET_BASE)
+      .send({ name: "The Narrator", description: RABBIT.description });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.worldId).toBeNull();
+  });
+
+  it("400s a description too short to draw consistently from", async () => {
+    // "a rabbit" contributes nothing an image model can be consistent about, and
+    // a sheet that adds nothing makes the drift it exists to stop look like the
+    // feature working.
+    const res = await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, description: "a rabbit" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+    expect(store.characterSheets).toHaveLength(0);
+  });
+
+  it("400s a status the caller tried to smuggle in", async () => {
+    // A sheet has no status at all — it is prompt input, never student-facing —
+    // so `.strict()` rejects the key rather than storing a meaningless column.
+    const res = await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, status: "published" });
+
+    expect(res.status).toBe(400);
+    expect(store.characterSheets).toHaveLength(0);
+  });
+
+  it("404s a worldId that names no world", async () => {
+    const res = await request(app)
+      .post(SHEET_BASE)
+      .send({ ...RABBIT, worldId: SUBJECT_ID });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe("NOT_FOUND");
+  });
+});
+
+describe("GET /api/admin/content/character-sheets", () => {
+  const SHEET_BASE = `${BASE}/character-sheets`;
+
+  beforeEach(() => {
+    store.characterSheets.push(
+      {
+        id: "sheet-jungle",
+        slug: "nibbles",
+        name: "Nibbles",
+        worldId: WORLD_ID,
+        description: "A small white rabbit with one grey ear and a red scarf.",
+        createdAt: new Date("2026-09-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+      },
+      {
+        id: "sheet-global",
+        slug: "the-narrator",
+        name: "The Narrator",
+        worldId: null,
+        description: "A warm grandmotherly figure in a soft blue shawl.",
+        createdAt: new Date("2026-09-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+      },
+      {
+        id: "sheet-ocean",
+        slug: "shelly",
+        name: "Shelly",
+        worldId: SUBJECT_ID,
+        description: "A small green turtle with a bright blue patterned shell.",
+        createdAt: new Date("2026-09-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+      },
+    );
+  });
+
+  it("200s with every sheet when unfiltered", async () => {
+    const res = await request(app).get(SHEET_BASE);
+
+    expect(res.status).toBe(200);
+    assertContract(
+      CharacterSheetListResponseSchema,
+      res.body,
+      "GET /api/admin/content/character-sheets",
+    );
+    expect(res.body.data).toHaveLength(3);
+  });
+
+  it("narrows ?worldId= to that world plus the world-less sheets", async () => {
+    // The same set the illustration generator applies to a story set there. A
+    // filter answering differently would show an author a cast their pictures do
+    // not use.
+    const res = await request(app).get(`${SHEET_BASE}?worldId=${WORLD_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((sheet: { slug: string }) => sheet.slug)).toEqual([
+      "nibbles",
+      "the-narrator",
+    ]);
+  });
+
+  it("400s an unknown query parameter", async () => {
+    const res = await request(app).get(`${SHEET_BASE}?world=jungle`);
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("PATCH /api/admin/content/character-sheets/{id}", () => {
+  const SHEET_BASE = `${BASE}/character-sheets`;
+  const SHEET_ID = "eeeeeeee-0000-4000-8000-0000000000aa";
+
+  beforeEach(() => {
+    seed(store.worlds, { id: WORLD_ID, slug: "jungle", name: "Jungle" });
+    store.characterSheets.push({
+      id: SHEET_ID,
+      slug: "nibbles",
+      name: "Nibbles",
+      worldId: WORLD_ID,
+      description: "A small white rabbit with one grey ear and a red scarf.",
+      createdAt: new Date("2026-09-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+    });
+  });
+
+  it("200s with the rewritten description", async () => {
+    const res = await request(app).patch(`${SHEET_BASE}/${SHEET_ID}`).send({
+      description:
+        "A small white rabbit with one grey ear, wearing a green scarf.",
+    });
+
+    expect(res.status).toBe(200);
+    assertContract(
+      CharacterSheetResponseSchema,
+      res.body,
+      "PATCH /api/admin/content/character-sheets/{id}",
+    );
+    expect(res.body.data.description).toContain("green scarf");
+  });
+
+  it("400s a body that names a slug", async () => {
+    // The slug is how an import recognises a saved character, so one that could
+    // change would let the same mascot be imported twice under two names.
+    const res = await request(app)
+      .patch(`${SHEET_BASE}/${SHEET_ID}`)
+      .send({ slug: "nibbles-the-rabbit" });
+
+    expect(res.status).toBe(400);
+    expect(store.characterSheets[0].slug).toBe("nibbles");
+  });
+
+  it("400s an empty body", async () => {
+    const res = await request(app).patch(`${SHEET_BASE}/${SHEET_ID}`).send({});
+
+    expect(res.status).toBe(400);
+  });
+
+  it("404s an unknown id", async () => {
+    const res = await request(app)
+      .patch(`${SHEET_BASE}/${LESSON_ID}`)
+      .send({ name: "Nibbles the Brave" });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /api/admin/content/character-sheets/from-job", () => {
+  const FROM_JOB = `${BASE}/character-sheets/from-job`;
+  const JOB_ID = "eeeeeeee-0000-4000-8000-000000000001";
+  const STORY_ID = "ffffffff-0000-4000-8000-000000000001";
+
+  function storyJob(characters: Array<Record<string, unknown>>): Row {
+    return {
+      id: JOB_ID,
+      type: "story",
+      status: "awaiting_review",
+      rawOutput: {
+        parsed: { characterDescriptions: characters },
+        entities: { storyId: STORY_ID },
+      },
+    };
+  }
+
+  beforeEach(() => {
+    seed(store.worlds, { id: WORLD_ID, slug: "jungle", name: "Jungle" });
+    store.stories.push({ id: STORY_ID, worldId: WORLD_ID });
+  });
+
+  it("201s with the sheets it created, scoped to the story's world", async () => {
+    store.jobs.push(
+      storyJob([
+        {
+          name: "Nibbles",
+          kind: "rabbit",
+          visualDescription:
+            "A small white rabbit with one grey ear and a red scarf.",
+        },
+        {
+          name: "Professor Hoot",
+          kind: "owl",
+          visualDescription: "A round brown owl in large round glasses.",
+        },
+      ]),
+    );
+
+    const res = await request(app).post(FROM_JOB).send({ jobId: JOB_ID });
+
+    expect(res.status).toBe(201);
+    assertContract(
+      PromotedCharacterSheetsResponseSchema,
+      res.body,
+      "POST /api/admin/content/character-sheets/from-job",
+    );
+    expect(res.body.data.created).toHaveLength(2);
+    expect(res.body.data.skipped).toBe(0);
+    expect(
+      res.body.data.created.map((sheet: { slug: string }) => sheet.slug),
+    ).toEqual(["nibbles", "professor-hoot"]);
+    expect(res.body.data.created[0].worldId).toBe(WORLD_ID);
+  });
+
+  it("counts a slug lost to a concurrent import as skipped, not as a 500", async () => {
+    // The window the `findUnique` above it cannot cover: a second admin (or a
+    // double-click) inserted the same slug between the check and the write. The
+    // import is idempotent by slug, so the loser of that race means the character
+    // is saved — which is a `skipped`, exactly as finding it taken would be.
+    store.jobs.push(
+      storyJob([
+        {
+          name: "Nibbles",
+          kind: "rabbit",
+          visualDescription: "A small white rabbit with one grey ear.",
+        },
+      ]),
+    );
+    store.characterSheets.push({
+      id: "sheet-existing",
+      slug: "nibbles",
+      name: "Nibbles",
+      worldId: WORLD_ID,
+      description: "Written by the request that won the race.",
+      createdAt: new Date("2026-09-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+    });
+    store.slugCheckMisses = 1;
+
+    const res = await request(app).post(FROM_JOB).send({ jobId: JOB_ID });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ created: [], skipped: 1 });
+    expect(store.characterSheets).toHaveLength(1);
+  });
+
+  it("skips a character whose slug already has a sheet, without overwriting it", async () => {
+    // The second story in a world describes the same mascot in slightly
+    // different words; taking the newer wording would change how it is drawn in
+    // every story already using it (FR-AI-09).
+    store.characterSheets.push({
+      id: "sheet-existing",
+      slug: "nibbles",
+      name: "Nibbles",
+      worldId: WORLD_ID,
+      description: "The original wording, which must survive this import.",
+      createdAt: new Date("2026-09-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+    });
+    store.jobs.push(
+      storyJob([
+        {
+          name: "Nibbles",
+          kind: "rabbit",
+          visualDescription: "A rewritten rabbit description from a new story.",
+        },
+      ]),
+    );
+
+    const res = await request(app).post(FROM_JOB).send({ jobId: JOB_ID });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ created: [], skipped: 1 });
+    expect(store.characterSheets[0].description).toBe(
+      "The original wording, which must survive this import.",
+    );
+  });
+
+  it("404s an unknown job", async () => {
+    const res = await request(app).post(FROM_JOB).send({ jobId: JOB_ID });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("409s a job that is not a story generation", async () => {
+    store.jobs.push({ ...storyJob([]), type: "lesson" });
+
+    const res = await request(app).post(FROM_JOB).send({ jobId: JOB_ID });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("CONFLICT");
+  });
+
+  it("409s a job whose output holds no character descriptions", async () => {
+    // A `failed` generation that never produced a valid answer. `409` rather
+    // than `404`: the job exists, and what is wrong is its contents.
+    store.jobs.push({
+      id: JOB_ID,
+      type: "story",
+      status: "failed",
+      rawOutput: { attempts: [] },
+    });
+
+    const res = await request(app).post(FROM_JOB).send({ jobId: JOB_ID });
+
+    expect(res.status).toBe(409);
+    expect(store.characterSheets).toHaveLength(0);
   });
 });

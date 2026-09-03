@@ -13,6 +13,7 @@ import {
 import { ApiError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
 import { withSerializationRetry } from "../lib/serializable-retry.js";
+import { asSlugConflict } from "../lib/slug-conflict.js";
 import type {
   LessonCreateBody,
   LessonUpdateBody,
@@ -966,33 +967,6 @@ async function assertParentExists(
       : prisma.topic.findUnique({ where: { id }, select }));
 
   if (!found) throw ApiError.notFound(`No such ${model}`);
-}
-
-/**
- * Turns Postgres's unique violation into a `409` that names the cause.
- *
- * Slugs are unique per model (`World.slug`, `Subject.slug`) or per parent
- * (`Topic@@unique([subjectId, slug])`, `Lesson@@unique([topicId, slug])`), and an
- * admin re-typing one that exists is ordinary rather than exceptional — it should
- * read as "that slug is taken", not as a server error.
- */
-async function asSlugConflict<T>(
-  model: string,
-  run: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await run();
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw ApiError.conflict(`A ${model} with that slug already exists`, {
-        code: "DUPLICATE_SLUG",
-      });
-    }
-    throw error;
-  }
 }
 
 function singular(resource: ContentResource): string {

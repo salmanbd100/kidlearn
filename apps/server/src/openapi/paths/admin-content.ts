@@ -414,4 +414,151 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
   return docs;
 }
 
-export const ADMIN_CONTENT_ROUTES: RouteDoc[] = RESOURCES.flatMap(docsFor);
+// --- Character sheets (file 36, FR-AI-09) ---------------------------------
+
+const CHARACTER_SHEET_BASE = "/api/admin/content/character-sheets";
+
+const CHARACTER_SHEET_PURPOSE = [
+  "A character sheet is the **stable visual description** of one recurring character, and its only consumer is the illustration prompt (FR-AI-09).",
+  "",
+  'It exists because an image model is stateless: it draws whatever one prompt says and remembers nothing about the picture it drew a second ago, so "the rabbit" on page 3 and "the rabbit" on page 7 come back as two different rabbits. `POST /api/admin/ai/generate/illustrations` prepends every applicable sheet\'s `description` **verbatim** to every page\'s prompt, which is the whole mechanism.',
+  "",
+  "**These rows are not content and carry no `status`.** Nothing under `/api/content/*` or `/api/stories/*` reads this table, so there is nothing for the publishing workflow to protect and no state a child could see. That is why they sit outside the transition machinery the four resources above share, along with ordering, translations and the `updatedBy` stamp — a sheet has none of them.",
+  "",
+  "**`worldId` is nullable and means something.** A sheet scoped to a world applies to the stories set there; a sheet with no world is a figure who recurs across worlds — a narrator, a child protagonist — and applies to all of them.",
+].join("\n");
+
+const CHARACTER_SHEET_ROUTES: RouteDoc[] = [
+  {
+    method: "get",
+    path: CHARACTER_SHEET_BASE,
+    operation: {
+      tags: ["Admin CMS"],
+      summary: "List character sheets",
+      description: [
+        CHARACTER_SHEET_PURPOSE,
+        "",
+        "**`?worldId=` narrows to that world *plus* the world-less sheets, not to an exact match.** That is the set the illustration generator applies to a story set there, and a filter answering differently would show an author a cast their pictures do not use. (Stated here because JSON Schema cannot say what a filter means.)",
+        "",
+        "Ordered world-scoped first, then by slug — the same order the generator builds its prompt block in, so what is listed is what is prepended.",
+      ].join("\n"),
+      parameters: [
+        {
+          name: "worldId",
+          in: "query",
+          required: false,
+          description:
+            "Restrict to one world's sheets plus the world-less ones. Omitted, every sheet is returned.",
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      responses: {
+        "200": jsonResponse(
+          "Every matching sheet, world-scoped first then by slug.",
+          "CharacterSheetListResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        ...GUARD_RESPONSES,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: CHARACTER_SHEET_BASE,
+    operation: {
+      tags: ["Admin CMS"],
+      summary: "Create a character sheet",
+      description: [
+        CHARACTER_SHEET_PURPOSE,
+        "",
+        '**`description` is prompt text, not notes**, which is why the floor is 20 characters: "a rabbit" gives an image model nothing to be consistent about, and a sheet that contributes nothing makes the drift it was created to stop look like the feature working. Write the colours, the size, the clothing and the distinguishing features.',
+        "",
+        "**Editing a sheet changes every illustration drawn afterwards and none drawn before.** Consistency holds forward, not backward — pictures already generated are not redrawn.",
+        "",
+        "`slug` is optional and derived from `name` when omitted, suffixed until free. It is **not editable afterwards**: it is how `POST /character-sheets/from-job` recognises a character it has already saved, so a slug that could change would let the same mascot be imported twice under two names.",
+      ].join("\n"),
+      requestBody: jsonRequestBody("AdminCharacterSheetCreateBody"),
+      responses: {
+        "201": jsonResponse("The sheet as stored.", "CharacterSheetResponse"),
+        "400": VALIDATION_RESPONSE,
+        ...GUARD_RESPONSES,
+        "404": errorResponse("`worldId` names no world.", ["NOT_FOUND"]),
+        "409": errorResponse(
+          "An explicitly supplied `slug` is already taken. Omit it and one is derived from `name` and suffixed until free.",
+          ["CONFLICT"],
+        ),
+      },
+    },
+  },
+  {
+    method: "post",
+    path: `${CHARACTER_SHEET_BASE}/from-job`,
+    operation: {
+      tags: ["Admin CMS"],
+      summary: "Save a story generation's cast as character sheets",
+      description: [
+        "Promotes the `characterDescriptions` of a `story` generation into sheets — the one-click **Save as character sheet** action (FR-AI-09).",
+        "",
+        "They are read out of the job's `rawOutput` rather than from a column because `POST /api/admin/ai/generate/story` deliberately does not persist them: a story that is later rejected must not leave character records behind. Promoting them is the administrator saying this story's cast is worth keeping.",
+        "",
+        "**A slug that already has a sheet is skipped, never overwritten**, and counted in `skipped`. The second story set in a world will describe the same mascot again in slightly different words, and taking the newer wording would silently change how that mascot is drawn in every story already using it. Editing a sheet stays an explicit `PATCH`.",
+        "",
+        "The world is inherited from the story the job wrote, so the sheets land scoped the way the illustration generator will look for them. A job whose story was not written — a `failed` generation — yields world-less sheets.",
+        "",
+        '`201` even when every character was skipped: the request was well formed and the outcome is in the body. A status that varied with "did anything get created" would make an idempotent re-import look like a different kind of event.',
+      ].join("\n"),
+      requestBody: jsonRequestBody("AdminPromoteJobCharactersBody"),
+      responses: {
+        "201": jsonResponse(
+          "The sheets created, and how many characters already had one.",
+          "PromotedCharacterSheetsResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        ...GUARD_RESPONSES,
+        "404": errorResponse("No job with that id.", ["NOT_FOUND"]),
+        "409": errorResponse(
+          "The job is not a `story` generation, or its output holds no character descriptions — a `failed` job that never produced a valid answer, for instance. `409` rather than `404`: the job exists, and what is wrong is its contents.",
+          ["CONFLICT"],
+        ),
+      },
+    },
+  },
+  {
+    method: "patch",
+    path: `${CHARACTER_SHEET_BASE}/{id}`,
+    operation: {
+      tags: ["Admin CMS"],
+      summary: "Edit a character sheet",
+      description: [
+        "Rewrites a sheet's `name`, `description` or `worldId`.",
+        "",
+        "**`slug` is absent from the body** — see the create operation for why it cannot change.",
+        "",
+        "**This changes every illustration drawn from now on and none drawn before.** A picture already generated is not redrawn, so a description corrected after a story was illustrated leaves that story on the old look until its pages are regenerated.",
+        "",
+        AT_LEAST_ONE_FIELD,
+      ].join("\n"),
+      parameters: [
+        pathParam("id", "The character sheet's id.", {
+          type: "string",
+          format: "uuid",
+        }),
+      ],
+      requestBody: jsonRequestBody("AdminCharacterSheetUpdateBody"),
+      responses: {
+        "200": jsonResponse("The sheet as stored.", "CharacterSheetResponse"),
+        "400": VALIDATION_RESPONSE,
+        ...GUARD_RESPONSES,
+        "404": errorResponse(
+          "No sheet with that id, or `worldId` names no world.",
+          ["NOT_FOUND"],
+        ),
+      },
+    },
+  },
+];
+
+export const ADMIN_CONTENT_ROUTES: RouteDoc[] = [
+  ...RESOURCES.flatMap(docsFor),
+  ...CHARACTER_SHEET_ROUTES,
+];

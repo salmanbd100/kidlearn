@@ -11,7 +11,11 @@
  * (FR-AI-07), so a body that could name a status would be a door around the
  * review queue that has not even been built yet.
  */
-import { GradeLevelSchema, LocaleSchema } from "@kidlearn/types";
+import {
+  GradeLevelSchema,
+  LocaleSchema,
+  NarrationEntitySchema,
+} from "@kidlearn/types";
 import { z } from "zod";
 
 /**
@@ -115,3 +119,41 @@ export const GenerateQuizSchema = z
   .strict();
 
 export type GenerateQuizBody = z.infer<typeof GenerateQuizSchema>;
+
+/**
+ * Which content to narrate (file 36, FR-AI-04, FR-I18N-05).
+ *
+ * Two fields, and no language among them. **The locales are computed, not
+ * requested**: the server looks for every `(target, locale)` pair that has text
+ * and no audio, so an admin cannot ask for a Bangla clip on a page that has no
+ * Bangla text, nor re-record a clip that already exists by naming its language.
+ * Asking for "the missing narration" is the only request that has a correct
+ * answer here — anything narrower is a way to produce a story that is half
+ * narrated and looks finished.
+ *
+ * `entity` is `lesson | story | quiz` and `id` is that row's id, not a
+ * translation's. Which of the three tables holds the audio key is the server's
+ * business, and it differs per entity.
+ */
+export const GenerateNarrationSchema = z
+  .object({ entity: NarrationEntitySchema, id: z.string().uuid() })
+  .strict();
+
+export type GenerateNarrationBody = z.infer<typeof GenerateNarrationSchema>;
+
+/**
+ * Which story to illustrate (file 36, FR-AI-05, FR-AI-09).
+ *
+ * One field. No page list and no prompt: the pages worth drawing are the ones
+ * carrying an `illustrationPrompt` and no illustration, and the prompt itself is
+ * the brief the story generator already wrote plus the world's character sheets.
+ * A caller-supplied prompt would be a way to draw a picture no character sheet
+ * was applied to, which is FR-AI-09 defeated in one request.
+ */
+export const GenerateIllustrationsSchema = z
+  .object({ storyId: z.string().uuid() })
+  .strict();
+
+export type GenerateIllustrationsBody = z.infer<
+  typeof GenerateIllustrationsSchema
+>;
