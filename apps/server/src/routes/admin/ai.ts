@@ -2,14 +2,21 @@ import type { GenerationJobRef } from "@kidlearn/types";
 import { Router } from "express";
 import type { SuccessEnvelope } from "../../lib/errors.js";
 import { validate } from "../../middleware/validate.js";
-import { GenerateLessonSchema } from "../../schemas/admin-ai.js";
+import {
+  GenerateLessonSchema,
+  GenerateQuizSchema,
+  GenerateStorySchema,
+} from "../../schemas/admin-ai.js";
 import { generateLesson } from "../../services/ai/generators/lesson.js";
+import { generateQuiz } from "../../services/ai/generators/quiz.js";
+import { generateStory } from "../../services/ai/generators/story.js";
 
 /**
  * `/api/admin/ai` — the generation pipeline (file 34, FR-AI-01, FR-AI-08).
  *
  * Mounted inside `adminRouter`, so `requireAdmin` guards every path here by
- * construction. Files 35–36 add their generators as further paths on this router.
+ * construction. File 35 added the story and quiz generators as further paths on
+ * this router; file 36 adds the audio and image ones the same way.
  *
  * **Generation is awaited inline, and `202` says so honestly.** A lesson takes
  * tens of seconds to write, which is a long request — but this service runs on a
@@ -32,6 +39,36 @@ adminAiRouter.post(
   async (req, res, next) => {
     try {
       const result = await generateLesson(req.body);
+
+      const payload: SuccessEnvelope<GenerationJobRef> = { data: result };
+      res.status(202).json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminAiRouter.post(
+  "/generate/story",
+  validate({ body: GenerateStorySchema }),
+  async (req, res, next) => {
+    try {
+      const result = await generateStory(req.body);
+
+      const payload: SuccessEnvelope<GenerationJobRef> = { data: result };
+      res.status(202).json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminAiRouter.post(
+  "/generate/quiz",
+  validate({ body: GenerateQuizSchema }),
+  async (req, res, next) => {
+    try {
+      const result = await generateQuiz(req.body);
 
       const payload: SuccessEnvelope<GenerationJobRef> = { data: result };
       res.status(202).json(payload);

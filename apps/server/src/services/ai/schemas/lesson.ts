@@ -1,5 +1,6 @@
 import { type Locale, QuizQuestionSchema } from "@kidlearn/types";
 import { z } from "zod";
+import { localized } from "./localized.js";
 
 /**
  * What the lesson generator's tool call must return (FR-AI-01).
@@ -36,20 +37,6 @@ export const QUIZ_QUESTION_BOUNDS = { min: 3, max: 5 } as const;
  * 200, and a generated row goes into the same column.
  */
 const TITLE_MAX = 200;
-
-/** An object with exactly the requested locales as required string keys. */
-function localized(
-  languages: readonly Locale[],
-  description: string,
-  max?: number,
-) {
-  const value =
-    max === undefined ? z.string().min(1) : z.string().min(1).max(max);
-  const shape = Object.fromEntries(
-    languages.map((language) => [language, value]),
-  );
-  return z.object(shape).strict().describe(description);
-}
 
 export function buildLessonGenerationOutputSchema(
   languages: readonly Locale[],

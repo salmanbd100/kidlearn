@@ -162,7 +162,7 @@ vi.mock("../../../lib/prisma.js", () => {
 });
 
 const { generateLesson } = await import("./lesson.js");
-const { PLACEHOLDER_ASSET_HOST } = await import("../prompts/lesson.js");
+const { PLACEHOLDER_ASSET_HOST } = await import("../placeholder-assets.js");
 
 const TOPIC_ID = "11111111-1111-4111-8111-111111111111";
 const SUBJECT_ID = "22222222-2222-4222-8222-222222222222";

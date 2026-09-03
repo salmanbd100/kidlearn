@@ -11,8 +11,9 @@ import { LOCALES } from "@kidlearn/types";
 import { Button, Input, Label } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
 import type { ContentDraft } from "@/lib/admin-api";
+import { LOCALE_LABELS } from "@/lib/admin-labels";
 import { GradeLevelPicker } from "./GradeLevelPicker";
-import { LOCALE_LABELS, LocaleTabs } from "./LocaleTabs";
+import { LocaleTabs } from "./LocaleTabs";
 
 /**
  * Create and edit for the three name-only resources — world, subject, topic

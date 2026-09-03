@@ -546,3 +546,51 @@ export interface GenerateLessonRequest {
   lessonFocus: string;
   languages: Locale[];
 }
+
+/**
+ * Ask for a draft story. Answers with a job to look up, never with the story.
+ *
+ * `retries: 0` for the reason `generateLesson` gives: a generation is expensive
+ * and not idempotent, so replaying one the API was slow to answer would bill twice
+ * and leave two draft stories for a reviewer to tell apart.
+ */
+export function generateStory(
+  body: GenerateStoryRequest,
+): Promise<ApiResult<GenerationJobRef>> {
+  return apiFetch<GenerationJobRef>("/api/admin/ai/generate/story", {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export interface GenerateStoryRequest {
+  gradeLevels: GradeLevelValue[];
+  theme: string;
+  worldId: string;
+  languages: Locale[];
+  pageCount?: number;
+}
+
+/**
+ * Ask for draft quiz questions on an existing lesson. `retries: 0`, as above.
+ *
+ * A `409` here is expected rather than exceptional: it means the lesson's quiz is
+ * published, and the caller is meant to show the admin that they have to withdraw
+ * it first. Branch on `error.details.code === "QUIZ_PUBLISHED"`.
+ */
+export function generateQuiz(
+  body: GenerateQuizRequest,
+): Promise<ApiResult<GenerationJobRef>> {
+  return apiFetch<GenerationJobRef>("/api/admin/ai/generate/quiz", {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export interface GenerateQuizRequest {
+  lessonId: string;
+  count?: number;
+  languages: Locale[];
+}

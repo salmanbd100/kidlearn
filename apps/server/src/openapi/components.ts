@@ -128,7 +128,11 @@ import {
   WorldTopicLessonsSchema,
 } from "@kidlearn/types";
 import type { ZodTypeAny } from "zod";
-import { GenerateLessonSchema } from "../schemas/admin-ai.js";
+import {
+  GenerateLessonSchema,
+  GenerateQuizSchema,
+  GenerateStorySchema,
+} from "../schemas/admin-ai.js";
 import {
   LessonCreateSchema,
   LessonUpdateSchema,
@@ -400,6 +404,11 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   // operation description for why a generation answers with a job rather than
   // with the lesson it wrote.
   AiGenerateLessonBody: GenerateLessonSchema,
+  // File 35 — the story and quiz generators answer with the same job reference.
+  // One response schema for all three, because a caller's next step is identical
+  // whichever it asked for: look the job up in the review queue.
+  AiGenerateStoryBody: GenerateStorySchema,
+  AiGenerateQuizBody: GenerateQuizSchema,
   GenerationJobRef: GenerationJobRefSchema,
   GenerationJobRefResponse: GenerationJobRefResponseSchema,
 
