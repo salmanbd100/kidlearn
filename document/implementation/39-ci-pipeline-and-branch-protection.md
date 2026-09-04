@@ -126,31 +126,54 @@ This is the finding that matters most in this file, and it was not in the improv
 was run **27 times** end to end while building this pipeline. It is green most of the time and
 red often enough that a required status check built on it would be untrustworthy on day one.
 
-Measured, `pnpm turbo run test:coverage --force` on a 12-core machine, 8 runs per configuration:
+Measured on a 12-core machine, `--force` every run:
 
 | Configuration | Failed runs | Where | Wall time (median) |
 | --- | --- | --- | --- |
 | Coverage, Turbo default concurrency | **3 / 8** | `apps/server`, three *different* files | ~24s |
 | Coverage, `TURBO_CONCURRENCY=1` | **2 / 8** | `apps/web`, the *same* test both times | ~29s |
-| Plain `test`, default concurrency | 1 / 6 | `apps/server` | ~21s |
+| Plain `test`, default concurrency | 2 / 10 | `apps/server` | ~21s |
+| Plain `test`, `TURBO_CONCURRENCY=1` | **3 / 6** | `apps/server`, three more files | ~30s |
+
+That last row was measured **after** the first three, and it is the one that matters most: read
+the first three alone and serialisation looks like a cure. It is not. See the correction below.
 
 Every failure was in a different place, and they fall into exactly two families.
 
-**Family 1 — `apps/server` Supertest under CPU starvation.** Five distinct files failed across the
-runs (`admin/ai.test.ts`, `progress.test.ts`, `events.test.ts`, `admin/content-editors.test.ts`,
-`admin/ai-review.test.ts`, `parent.test.ts`) with three signatures: `Error: socket hang up`,
-`Error: Parse Error: Expected HTTP/, RTSP/ or ICE/`, and one assertion reading a status code that
-belonged to a different request (`expected 404 to be 400`). The second signature is a client
-reading a corrupted response — these are socket-level, not logic-level. The cause is structural:
-`request(app)` binds a fresh ephemeral listener per call, and Turbo running five Vitest instances
-at once puts roughly 60 forked workers on 12 cores, so ports churn faster than the OS retires
-them. Each of the failing files passes 8/8 in isolation.
+**Family 1 — `apps/server` Supertest transport failures under load.** **Eleven** distinct files
+have failed this way across roughly 40 runs — `admin/ai.test.ts`, `progress.test.ts`,
+`events.test.ts`, `admin/content-editors.test.ts`, `admin/ai-review.test.ts`, `parent.test.ts`,
+`children.test.ts`, `stories.test.ts`, `dashboard.test.ts`, `middleware/validate.test.ts`,
+`middleware/require-parent.test.ts` — with four signatures:
 
-**`TURBO_CONCURRENCY=1` eliminated this family entirely — 0 failures in 8 runs, for about five
-seconds of extra wall time.** That is the mitigation this file adopts (requirement 4). A GitHub
-runner has 4 cores, so it has less headroom than the machine these numbers came from, not more.
-The deeper fix — one Supertest server per file instead of one per request — is 64 files of churn
-and belongs nowhere near this branch.
+- `Error: socket hang up`
+- `Error: Parse Error: Expected HTTP/, RTSP/ or ICE/`
+- `Error: Test timed out in 5000ms`
+- an assertion on a body that never arrived (`expected 404 to be 400`;
+  `TypeError: Cannot read properties of undefined (reading 'stories')`)
+
+None of those is a logic failure. The second is a client reading a corrupted response off the
+socket. The cause is structural: `request(app)` binds a fresh ephemeral listener per call, so a
+suite of this size churns ports faster than the OS retires them. Every one of the failing files
+passes 8/8 in isolation.
+
+**Correction — `TURBO_CONCURRENCY=1` is not a fix, and an earlier draft of this file said it was.**
+On the strength of 8 clean serialised coverage runs this file originally claimed the family was
+"eliminated entirely". Re-measured on the `14-parent-onboarding-profile-ui-fix` branch, serialised,
+it failed **3 runs in 6** with the same signatures. That 0/8 was a small sample, not a cure, and
+the four rows above do not support a claim that serialisation helps at all — the two serialised
+configurations bracket the two unserialised ones.
+
+The step keeps `TURBO_CONCURRENCY: 1` anyway, on a narrower argument that does not depend on those
+numbers: a GitHub runner has 4 cores, five concurrent Vitest instances each forking a
+core-count-sized pool oversubscribe it badly, and serialising costs ~5s. That is a reasonable
+default for a small runner. It is **not** a mitigation for this flake, and the workflow comment
+must not imply otherwise.
+
+The real fix is one Supertest listener per file instead of one per request — 64 files of churn,
+and files 42–43 rewrite much of that suite against a real database anyway. It belongs there.
+Until then the pipeline is genuinely unreliable on `apps/server`, which is the whole reason
+requirement 6 defers the ruleset change.
 
 **Family 2 — a real bug in `apps/web`, found by the repetition.**
 `app/(parent)/context/parent-session.test.tsx > keeps 'guard' stable when the gate unlocks again`
@@ -176,8 +199,11 @@ is a one-line clamp.
 
 **It is not fixed here.** `general.md §7` is explicit: "If work on file `07` reveals a bug in file
 `05`'s output, fix it in a separate branch named `05-<filename>-fix` and open a separate PR."
-`git log --diff-filter=A` puts `parent-session.tsx` in **file 14**, so the fix belongs on
-`14-parent-onboarding-profile-ui-fix`. Requirement 6's ordering depends on it — see there.
+`git log --diff-filter=A` puts `parent-session.tsx` in **file 14**, so the fix went to
+`14-parent-onboarding-profile-ui-fix` — a `setTimeout` armed in ceiling-sized chunks that re-reads
+the clock, plus an explicit fail-closed branch for an unparseable expiry, with the `apps/web`
+suite then clean across 8 consecutive runs. That closes family 2. Family 1 remains open, so
+requirement 6's ordering now waits on the Supertest work rather than on file 14.
 
 ## Detailed Requirements
 
@@ -258,13 +284,15 @@ is a one-line clamp.
    native coverage rather than transforming source, so it changes timing, not semantics.
 
    **Run the test step with `TURBO_CONCURRENCY: 1`**, set as an `env:` on that step only — `build`
-   and `typecheck` keep their parallelism, which is free. This is not tidiness: it is the measured
-   fix for flake family 1 (0 failures in 8 runs, against 3 in 8 unserialised), and a 4-core runner
-   is tighter than the machine those numbers came from. `TURBO_CONCURRENCY` is preferred over
-   `--concurrency=1` on the command line so the CI step stays the same command a developer runs
-   locally, tuned by environment rather than forked into a CI-only invocation. Comment the step
-   with what it is defending against and point at this file — a bare `TURBO_CONCURRENCY: 1` reads
-   as cargo cult and will be deleted by the next person optimising the pipeline.
+   and `typecheck` keep their parallelism, which is free. The argument is runner size, **not** the
+   flake: five concurrent Vitest instances each forking a core-count-sized pool oversubscribe a
+   4-core runner badly, and serialising costs about five seconds. Do **not** describe it as a fix
+   for flake family 1 — the measurements in Context do not support that, and an earlier draft of
+   this file wrongly claimed they did. `TURBO_CONCURRENCY` is preferred over `--concurrency=1` on
+   the command line so the CI step stays the same command a developer runs locally, tuned by
+   environment rather than forked into a CI-only invocation. Comment the step with the real
+   reasoning and point at this file — a bare `TURBO_CONCURRENCY: 1` reads as cargo cult and will be
+   deleted by the next person optimising the pipeline.
 
 5. **Upload coverage as an artifact, and surface a summary in the run.** `actions/upload-artifact`
    with `if: always()` (a failed test run's partial coverage is still the more interesting one),
@@ -570,9 +598,11 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
       Until then this file is complete without it, and the tracker row says so.
 - [ ] All 2,577 tests pass under v8 instrumentation, and the coverage step's wall time is recorded
       in the PR description alongside the plain-`test` baseline.
-- [ ] The test step sets `TURBO_CONCURRENCY: 1` with a comment saying what it defends against, and
-      `pnpm turbo run test:coverage --force` was run **at least eight times** serialised with no
-      `apps/server` socket-level failure — the measurement, not the intention, is the criterion.
+- [ ] The test step sets `TURBO_CONCURRENCY: 1` with a comment giving the runner-size reasoning and
+      **not** claiming it fixes the flake. The suite was run enough times, in enough
+      configurations, to state the `apps/server` failure rate honestly rather than to conclude it
+      had gone away — four configurations, ~40 runs, recorded in Context with the correction that
+      the first three rows alone were misleading.
 - [ ] The `apps/web` grant-expiry flake is written up in Context with its root cause and handed to
       `14-parent-onboarding-profile-ui-fix`. It is **not** fixed on this branch (`general.md §7`),
       and `git diff` touches nothing under `apps/web/app/`.
@@ -623,6 +653,6 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
   Diagnosed here, fixed on `14-parent-onboarding-profile-ui-fix` — `general.md §7`'s one-branch
   rule, and the diff wants to sit next to the PIN-gate tests that own the behaviour.
 - **Reusing one Supertest listener per test file instead of one per request.** The structural fix
-  for flake family 1, across 64 files. `TURBO_CONCURRENCY=1` buys the determinism this file needs
-  for five seconds; the refactor is worth its own file, and files 42–43 will be rewriting much of
-  that suite against a real database anyway. Do it there, or not at all.
+  for flake family 1, across 64 files, and the thing that actually has to happen before `gates` can
+  be a required check. Files 42–43 rewrite much of that suite against a real database anyway, so it
+  belongs there. This file only measures the problem and says so out loud.
