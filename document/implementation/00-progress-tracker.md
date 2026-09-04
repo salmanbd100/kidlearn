@@ -21,6 +21,7 @@
 | 8 — Admin CMS | 31–33 | Admin auth, curriculum management, media + editors |
 | 9 — AI Pipeline | 34–37 | Generators, audio/images, review queue |
 | 10 — Launch | 38–38a | Zero-cost deployment, custom domain |
+| 11 — Hardening | 39+ | CI, HTTP hardening, real test database, docs truth pass — see `document/improvement-plan.md §4` |
 
 ---
 
@@ -69,6 +70,21 @@
 | 37a | `37a-free-tier-ai-provider-migration.md` | Swap Claude + ElevenLabs for free-tier providers behind the existing generator interfaces | — (protects FR-AI-01..06, FR-AI-08) | 34, 35, 36 | 3–4h | ✅ Done |
 | 38 | `38-deployment-zero-cost-launch.md` | Vercel + Render/Fly + Supabase + Cloudinary deployment, cold-start UX | §9, NFR-PERF-04 | 16, 29, 37 | 3–4h | ⬜ Not started |
 | 38a | `38a-custom-domain-and-same-site-cookies.md` | `kidlearn.net` + `api.kidlearn.net`, dropping file 38's `SameSite=None` cookie workaround | §9 | 38 | 1–2h | ⬜ Not started |
+| 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions gates (lint → build → typecheck → test), pnpm + Turbo caching, coverage reporting, `gates` required on `main` | — (makes `general.md §6`'s `[CI]` tier real) | — | 2–3h | 🟨 In progress — pipeline written; first run and the ruleset rule pending (see the file's requirement 6 ordering note) |
+
+Files **40–46** are proposed in `document/improvement-plan.md §4` — docs truth pass, server HTTP
+hardening, the test-database harness and its suite ports, error/loading boundaries, the tokens and
+i18n packages, and dependency governance. Each gets a row here when its own spec file is written;
+a row without a file is a promise, not a plan.
+
+### Open follow-up fixes
+
+`general.md §7` sends a bug found while implementing one file to its own branch rather than the
+current one. Those branches are tracked here so they do not live only in a spec's prose.
+
+| Branch | What | Found by | Status |
+| --- | --- | --- | --- |
+| `14-parent-onboarding-profile-ui-fix` | `apps/web/app/(parent)/context/parent-session.tsx`'s grant-expiry `setTimeout` is handed a delay above `2**31 - 1` ms, which the platform clamps to **1 ms** — a far-future `pinVerifiedUntil` relocks the PIN gate instantly instead of never. Never fires on the 15-minute grants production issues, so no live impact; the fix is a one-line clamp. It is also the cause of a ~25% flake in `parent-session.test.tsx`, which is why file 39 defers making CI a required check. | File 39 (running the suite 27 times) | ⬜ Not started |
 
 ---
 
@@ -89,11 +105,12 @@ These are fixed across all implementation files so chunks stay consistent:
 - **Media:** Cloudinary free tier (images, audio, short video).
 - **Publishing rule:** every content row carries `status` (`draft → in_review → approved/rejected → published`); student-facing queries filter `status = published` — always, at the query layer.
 - **Server-authoritative:** rewards, streaks, screen time, completion are computed server-side; the client only reports events.
+- **CI (from file 39):** `.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every PR and every push to `main`. A PR is not done until it is green (`gh pr checks`). The test step is serialised (`TURBO_CONCURRENCY=1`) — `apps/server`'s Supertest suites fail at the socket level when five Vitest instances compete for cores; see file 39's Context. Coverage is reported, never gated on a threshold.
 
 ## Working Agreement
 
 1. Read the implementation file fully before starting; it contains the requirement details and technical suggestions.
 2. Follow TDD where the chunk produces logic (schemas, APIs, engines): failing test → minimal code → pass → commit.
-3. Run `pnpm lint && pnpm typecheck` and the relevant tests before marking a file ✅ Done.
+3. Run `pnpm lint && pnpm typecheck` and the relevant tests before marking a file ✅ Done — and, from file 39, confirm CI is green on the PR (`gh pr checks`). Locally-green and CI-green are no longer independent facts.
 4. If a requirement emerges that isn't in the master spec, add it to `document/project-requirement-details.md` first, then to the relevant implementation file.
 5. A file that adds or changes an API endpoint is not ✅ Done until the OpenAPI document covers it and `pnpm --filter server test` passes — the coverage test will tell you if it does not.

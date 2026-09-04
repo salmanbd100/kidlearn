@@ -1,5 +1,5 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
@@ -12,6 +12,20 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules", ".next"],
+    coverage: {
+      provider: "v8",
+      // Reporting only. The missing `thresholds` key is deliberate — see
+      // `document/standards/general.md §5`.
+      reporter: ["text-summary", "json-summary", "html"],
+      reportsDirectory: "coverage",
+      exclude: [
+        ...coverageConfigDefaults.exclude,
+        "vitest.setup.ts",
+        ".next/**",
+        "next.config.ts",
+        "postcss.config.mjs",
+      ],
+    },
   },
   resolve: { alias: { "@": new URL(".", import.meta.url).pathname } },
 });
