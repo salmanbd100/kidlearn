@@ -229,6 +229,52 @@ describe("ParentLayout", () => {
   });
 
   /**
+   * Real timers on purpose. The bug this covers is `setTimeout`'s 32-bit ceiling
+   * — it clamps any delay above 2**31-1 ms to 1ms — and the fake-timer clock
+   * stores the delay as a plain number, so it cannot reproduce it.
+   */
+  it("keeps the gate open for a grant beyond the setTimeout ceiling", async () => {
+    api.fetchGateStatus.mockResolvedValue({
+      ok: true,
+      data: {
+        hasPin: true,
+        isPinVerified: true,
+        pinVerifiedUntil: new Date(Date.now() + 2 ** 31 + 60_000).toISOString(),
+      },
+    });
+
+    renderLayout();
+
+    await waitFor(() =>
+      expect(screen.getByText("dashboard")).toBeInTheDocument(),
+    );
+
+    // A clamped timer fires after ~1ms, so 50 is generous. The assertion can
+    // only fail in the unsafe direction — a gate that relocked when it should
+    // not have.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("shuts the gate when the grant's expiry cannot be parsed", async () => {
+    api.fetchGateStatus.mockResolvedValue({
+      ok: true,
+      data: {
+        hasPin: true,
+        isPinVerified: true,
+        pinVerifiedUntil: "not-a-date",
+      },
+    });
+
+    renderLayout();
+
+    // Same fail-closed rule as an unreadable gate-status: an expiry the client
+    // cannot read is a grant it cannot vouch for.
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+  });
+
+  /**
    * The gate has to fail closed. `isLocked` starts `false`, so a version that only
    * locked when `gate-status` *succeeded* turned one failed request into a bypass:
    * the parent dashboard rendered ungated for anyone holding the device. `hasPin`
