@@ -59,11 +59,10 @@ jobs:
 
       - run: pnpm typecheck
 
-      # Serialised deliberately. Running the five packages' suites at once put
-      # ~60 Vitest workers on 12 cores locally and made `apps/server`'s Supertest
-      # tests fail 3 runs in 8 at the socket level ("socket hang up", "Parse
-      # Error: Expected HTTP/"); serialised, the same 8 runs were clean. A 4-core
-      # runner has less headroom, not more. Measured in
+      # Serialised because five concurrent Vitest instances, each forking a
+      # core-count-sized pool, oversubscribe a 4-core runner — and it costs ~5s.
+      # NOT a fix for `apps/server`'s Supertest flake: that survives
+      # serialisation (3 runs in 6), and the measurements are in
       # document/implementation/39-ci-pipeline-and-branch-protection.md.
       - run: pnpm test:coverage
         env:

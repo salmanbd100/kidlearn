@@ -281,7 +281,7 @@ Checked by `pnpm typecheck` (blocks CI):
 
 Two caveats, stated rather than glossed:
 
-1. **`gates` does not block a merge yet.** The pipeline runs and reports; the repository ruleset "Protect Main Branch" gains its `required_status_checks` rule once the flake recorded under **Open follow-up fixes** in `document/implementation/00-progress-tracker.md` is fixed. A check that fails a quarter of the time would only teach everyone to bypass it. Until that rule lands, `[CI]` is *reported on every PR and expected to be green* — weaker than the tier's name, and the honest description of it.
+1. **`gates` does not block a merge yet.** The pipeline runs and reports; the repository ruleset "Protect Main Branch" gains its `required_status_checks` rule once `apps/server`'s Supertest listener lifecycle is fixed — see **Open follow-up fixes** in `document/implementation/00-progress-tracker.md`. That suite fails intermittently under load for reasons unrelated to the code under test, and a check that fails that often would only teach everyone to bypass it. Until the rule lands, `[CI]` is *reported on every PR and expected to be green* — weaker than the tier's name, and the honest description of it.
 2. **When it does land, the ruleset keeps the repository-admin bypass**, which is the account doing the work. `[CI]` will then mean *blocks merge unless someone deliberately overrides it* — a solo maintainer locked out of their own `main` mid-incident is the worse failure. That is still categorically stronger than `[REVIEW]`, where nothing has to be overridden because nothing is checked.
 
 ### Human review gate `[REVIEW]`
