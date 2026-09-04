@@ -3,7 +3,7 @@ import { z } from "zod";
 import { localized } from "./localized.js";
 
 /**
- * What the story generator's tool call must return (FR-AI-02).
+ * What the story generator's answer must be shaped like (FR-AI-02).
  *
  * **Built per request**, for the reason `./lesson.ts` sets out: the admin's
  * language choice and page count become required keys and an exact array length,

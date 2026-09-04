@@ -275,7 +275,7 @@ AI generates content at scale; humans gate everything before publication.
 | FR-AI-01 | **AI Lesson Generator:** admin selects grade level, subject, topic, and language → AI produces a complete lesson plan: learning objectives, narration script, and a set of quiz questions.                                                          | [MVP]                                                 |
 | FR-AI-02 | **AI Story Generator:** admin selects age group, theme, and language → AI produces a complete illustrated story with page-by-page narration text and character descriptions.                                                                        | [MVP]                                                 |
 | FR-AI-03 | **AI Quiz Generator:** AI generates quiz questions for any lesson, in all supported formats (§5.7), matched to target age/grade. Output is JSON conforming to the quiz schema (FR-QUIZ-07).                                                         | [MVP]                                                 |
-| FR-AI-04 | **AI Audio Narration:** lesson scripts and story text are converted to child-friendly spoken audio (e.g. ElevenLabs multi-language dubbing), generated separately per supported language.                                                           | [MVP]                                                 |
+| FR-AI-04 | **AI Audio Narration:** lesson scripts and story text are converted to child-friendly spoken audio (Google Cloud Text-to-Speech, one voice per language), generated separately per supported language.                                                           | [MVP]                                                 |
 | FR-AI-05 | **AI Image Generation:** cartoon-style illustrations for lesson backgrounds, story scenes, and character expressions (e.g. Midjourney, Gemini image models), kept consistent with the platform's visual style via curated prompts/character sheets. | [MVP]                                                 |
 | FR-AI-06 | **Video/animation generation** for lesson content uses tools such as Google Veo, Runway Gen-3, or Mootion.                                                                                                                                          | [MVP — may launch with a partially manual video step] |
 | FR-AI-07 | **Human review gate:** all AI-generated content enters a review queue and must be approved by a human administrator before becoming visible to students. **No AI content is ever published automatically.**                                         | [MVP — hard requirement]                              |
@@ -374,10 +374,10 @@ kidlearn/
 | Database          | Supabase (PostgreSQL, free tier)                   | Single source of truth; relational data + `JSONB` for quiz/activity schemas |
 | ORM / migrations  | Prisma                                             | Lives in `packages/db`, consumed by `apps/server`                           |
 | i18n              | i18next (frontend) + per-language asset refs (DB)  | FR-I18N-03                                                                  |
-| AI — text/quizzes | LLMs → JSON payloads                               | Validated against shared schemas in `packages/types`                        |
-| AI — images       | Midjourney / Gemini image models                   | FR-AI-05                                                                    |
+| AI — text/quizzes | Gemini text models (free tier) → JSON payloads     | Validated against shared schemas in `packages/types`                        |
+| AI — images       | Gemini image models (free tier)                    | FR-AI-05                                                                    |
 | AI — video        | Google Veo / Runway Gen-3 / Mootion                | FR-AI-06                                                                    |
-| AI — audio        | ElevenLabs (multi-language)                        | FR-AI-04                                                                    |
+| AI — audio        | Google Cloud Text-to-Speech (Standard, free tier)  | FR-AI-04                                                                    |
 | Media hosting     | Cloudinary or Uploadthing (free tier)              | Streams images, audio, short video                                          |
 
 ### 7.3 Architectural Principles

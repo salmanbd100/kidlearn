@@ -2,15 +2,15 @@ import { QUIZ_QUESTION_TYPES, QuizQuestionSchema } from "@kidlearn/types";
 import { z } from "zod";
 
 /**
- * What the quiz generator's tool call must return (FR-AI-03).
+ * What the quiz generator's answer must be shaped like (FR-AI-03).
  *
  * **Deliberately thin.** The questions are `QuizQuestionSchema` from
  * `@kidlearn/types`, untouched — the same union the renderer draws from, the admin
  * editor validates against and the student API serves. This file adds a count and
  * a format spread and nothing else; a field described here that the payload
- * contract does not have would be a second source of truth, and the tool's
- * `input_schema` is generated from this object, so the prompt's contract and the
- * validator that accepts the answer cannot drift apart.
+ * contract does not have would be a second source of truth, and the request's
+ * `responseJsonSchema` is generated from this object, so the prompt's contract and
+ * the validator that accepts the answer cannot drift apart.
  *
  * **Exactly `count` questions, not a range.** Unlike the lesson generator — where
  * nobody names a number and 3–5 is the spec's bound — here the admin asked for a

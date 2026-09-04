@@ -1,6 +1,6 @@
-import type { GoogleGenAI } from "@google/genai";
 import type { CharacterSheet } from "@kidlearn/db";
 import { env } from "../../lib/env.js";
+import { getClient } from "./google-genai-client.js";
 
 /**
  * Gemini image generation — story and lesson illustrations (file 36, FR-AI-05),
@@ -19,37 +19,6 @@ import { env } from "../../lib/env.js";
  * ones, and putting it ahead of both the characters and the scene is deliberate:
  * the earliest instructions are the ones an image model weights most heavily.
  */
-
-/**
- * The SDK is loaded on first use, not at import.
- *
- * `@google/genai` pulls in protobufjs and the whole Google auth stack, which is
- * over ten seconds of module evaluation. Every other client in this codebase is
- * constructed at import time, and this one deliberately is not: it would put that
- * cost on the boot path of an API that sleeps on its free tier and is measured on
- * how fast it wakes (NFR-PERF-04), in order to be ready for an endpoint only an
- * administrator ever calls.
- *
- * Memoised, so the second illustration in a batch does not re-resolve it. `import`
- * caches the module either way; this caches the client on top.
- *
- * A *rejection* is deliberately not memoised. `??=` only reassigns on `undefined`,
- * so caching a rejected promise would make one transient module-evaluation failure
- * — protobufjs running out of memory on the free-tier instance this laziness
- * exists for — permanent: every later illustration would fail with the same stale
- * error, burning the daily image cap, until somebody restarted the process.
- */
-let clientPromise: Promise<GoogleGenAI> | undefined;
-
-function getClient(): Promise<GoogleGenAI> {
-  clientPromise ??= import("@google/genai")
-    .then(({ GoogleGenAI }) => new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }))
-    .catch((error: unknown) => {
-      clientPromise = undefined;
-      throw error;
-    });
-  return clientPromise;
-}
 
 /**
  * The platform look, in the model's own vocabulary.

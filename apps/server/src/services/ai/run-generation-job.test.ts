@@ -154,7 +154,7 @@ describe("the happy path", () => {
   it("keeps the model's answer verbatim, not the parsed value", async () => {
     // A key the schema strips is exactly what a reviewer needs to see when a
     // generation looks wrong — `.strict()` would have rejected it, so this proves
-    // the stored attempt is the raw tool arguments rather than the parse output.
+    // the stored attempt is the model's raw JSON rather than the parse output.
     await runGenerationJob({
       type: "lesson",
       input: {},
@@ -348,7 +348,7 @@ describe("failure", () => {
     expect(rawOutput().parsed).toEqual(VALID);
   });
 
-  it("fails the job when the model returns no tool call at all", async () => {
+  it("fails the job when the model returns no JSON at all", async () => {
     const result = await runGenerationJob({
       type: "lesson",
       input: {},
@@ -417,12 +417,12 @@ describe("the stops that are not schema failures", () => {
       .mockResolvedValueOnce({
         raw: INVALID,
         usage: USAGE,
-        stopReason: "tool_use",
+        stopReason: "stop",
       })
       .mockResolvedValueOnce({
         raw: VALID,
         usage: USAGE,
-        stopReason: "tool_use",
+        stopReason: "stop",
       });
 
     const result = await runGenerationJob({
@@ -435,9 +435,6 @@ describe("the stops that are not schema failures", () => {
 
     expect(result.status).toBe("awaiting_review");
     expect(generate).toHaveBeenCalledTimes(2);
-    expect(attempts().map((one) => one.stopReason)).toEqual([
-      "tool_use",
-      "tool_use",
-    ]);
+    expect(attempts().map((one) => one.stopReason)).toEqual(["stop", "stop"]);
   });
 });

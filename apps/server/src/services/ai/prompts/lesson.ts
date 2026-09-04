@@ -12,10 +12,11 @@ import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
  * (NFR-SAFE, FR-I18N-01): age-appropriate, culturally neutral, never frightening,
  * native-quality in every requested language.
  *
- * Neither prompt restates the JSON shape. The tool's `input_schema` is generated
- * from the very Zod object the answer is validated against, so describing the
- * fields in prose would be a second source of truth that drifts the first time a
- * question format gains one (FR-AI-03, `services/ai/claude.ts`).
+ * Neither prompt restates the JSON shape. The request's `responseJsonSchema` is
+ * generated from the very Zod object the answer is validated against, so
+ * describing the fields in prose would be a second source of truth that drifts
+ * the first time a question format gains one (FR-AI-03,
+ * `services/ai/gemini-text.ts`).
  */
 
 export const KIDLEARN_SYSTEM_PROMPT = `You are a curriculum writer for KidLearn, an educational platform for children aged 3 to 6

@@ -157,6 +157,6 @@ Convert the web's audio assets rather than re-sourcing them: they are already tu
 
 - Word-level narration highlighting for the story reader — M23 (it consumes `NarrationTimingsSchema`; this file only plays the audio).
 - Lesson video playback and its own audio track — M15.
-- Text-to-speech generation. Narration is pre-generated content (web file 36, ElevenLabs); the client only plays URLs.
+- Text-to-speech generation. Narration is pre-generated content (web files 36 and 37a, Google Cloud TTS); the client only plays URLs.
 - Downloading narration for offline use — out of scope for the plan (§3.2).
 - Background audio playback. A learning app that keeps talking with the screen off is a support ticket, not a feature.

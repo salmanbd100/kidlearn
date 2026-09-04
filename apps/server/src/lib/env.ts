@@ -1,4 +1,5 @@
 import "dotenv/config";
+import type { Locale } from "@kidlearn/types";
 import { z } from "zod";
 
 /** Whether the running platform's ICU data recognises the zone name. */
@@ -9,6 +10,26 @@ function isKnownTimeZone(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * A Google Cloud TTS voice name (`en-US-Standard-C`), pinned to the language it
+ * is allowed to speak.
+ *
+ * The `languageCode` sent to the API is derived from this name's own prefix
+ * (`services/ai/google-tts.ts`), so the name is the whole of the configuration —
+ * which makes a voice from the wrong language the one config error worth
+ * rejecting at boot rather than accepting. It is the failure with no error at
+ * runtime: a Bangla page read by an English voice generates, uploads and passes a
+ * review that was not listening in that language (FR-I18N-05).
+ */
+function ttsVoice(language: Locale) {
+  return z
+    .string()
+    .regex(
+      new RegExp(`^${language}-[A-Z]{2}-[A-Za-z0-9-]+$`),
+      `must be a ${language} voice name, e.g. ${language}-XX-Standard-A`,
+    );
 }
 
 const EnvSchema = z.object({
@@ -73,64 +94,70 @@ const EnvSchema = z.object({
   CLOUDINARY_API_KEY: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
   /**
-   * The Claude API, behind every generator in files 34–36 (FR-AI-01..03).
+   * Google AI Studio — one key behind every generator that writes text (files
+   * 34–35, FR-AI-01..03) and the one that draws pictures (file 36, FR-AI-05).
    *
    * Required on the same reasoning as `CRON_SECRET` and the Cloudinary triple: an
    * optional key would let a deployment boot with an AI Queue that answers `500`
    * the first time an admin asks for a lesson, and the cause would be a variable
    * nobody looked for.
    *
-   * `ANTHROPIC_MODEL` has a default because the model is a tuning knob rather
-   * than a credential — pinning a newer or cheaper one is a config change, not a
-   * deployment. The default is the latest Sonnet-class model per the tracker's
-   * Shared Technical Decisions.
-   */
-  ANTHROPIC_API_KEY: z.string().min(1),
-  ANTHROPIC_MODEL: z.string().min(1).default("claude-sonnet-5"),
-  /**
-   * ElevenLabs, the narration voice (file 36, FR-AI-04, FR-I18N-05).
-   *
-   * All three required, on the same reasoning as the Claude key — but the two
-   * voice ids deserve their own note. They are not a tuning knob with a sensible
-   * default: an id is account-specific, and a wrong or missing one produces
-   * *audible* damage rather than an error a deployment notices. A Bangla page
-   * narrated by an English voice is a clip that plays, uploads, and passes review
-   * unless somebody listens to it in the right language.
-   *
-   * Which voices they name is an administrator's decision, documented in
-   * `.env.example` — child-friendly means warm, slow and unhurried, and the
-   * Bangla one has to be a voice the multilingual model actually speaks Bangla
-   * well in.
-   */
-  ELEVENLABS_API_KEY: z.string().min(1),
-  ELEVENLABS_VOICE_ID_EN: z.string().min(1),
-  ELEVENLABS_VOICE_ID_BN: z.string().min(1),
-  /**
-   * Gemini, the illustration model (file 36, FR-AI-05).
-   *
-   * `GEMINI_IMAGE_MODEL` has a default for the reason `ANTHROPIC_MODEL` does —
-   * the model is config, not a credential — and the default is the current
-   * image-capable Flash snapshot.
+   * Both models are defaulted because a model is a tuning knob rather than a
+   * credential — pinning a newer or cheaper snapshot is a config change, not a
+   * deployment. They share the key, the account and therefore the free tier's
+   * rate limits, which is what `AI_TEXT_JOBS_PER_DAY` and
+   * `AI_IMAGE_JOBS_PER_DAY` below are sized against.
    */
   GEMINI_API_KEY: z.string().min(1),
+  GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-2.5-flash"),
   GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-2.5-flash-image"),
   /**
+   * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
+   * FR-I18N-05).
+   *
+   * The key is required, like every other credential here. The two voice names
+   * are defaulted, and the defaults are Standard voices deliberately: Standard's
+   * free allowance is an order of magnitude larger than WaveNet's, and
+   * "child-friendly" means warm and unhurried rather than expensive.
+   *
+   * Which voices they name is still an administrator's listening decision,
+   * documented in `.env.example` — the defaults are a starting point, not a
+   * verdict.
+   */
+  GOOGLE_TTS_API_KEY: z.string().min(1),
+  GOOGLE_TTS_VOICE_EN: ttsVoice("en").default("en-US-Standard-C"),
+  GOOGLE_TTS_VOICE_BN: ttsVoice("bn").default("bn-IN-Standard-A"),
+  /**
    * How many generation jobs a single `APP_TIMEZONE` day may create, per cost
-   * bucket (file 36).
+   * bucket (file 36, resized against the free tiers in file 37a).
    *
    * These exist because the batch endpoints turn one click into *n* provider
    * calls: "generate narration" on a story is two clips a page, and a misclick on
-   * a long story is a bill. The caps are a floor under that, not a quota system —
-   * they are counted across the whole deployment rather than per admin, because
-   * what is being protected is a shared free tier.
+   * a long story is a day's quota. The caps are a floor under that, not a quota
+   * system — they are counted across the whole deployment rather than per admin,
+   * because what is being protected is a shared free tier.
    *
-   * Three buckets rather than one total, because the three cost wildly different
-   * amounts per call and one shared ceiling would let a morning of audio work
-   * block the afternoon's lesson writing.
+   * Three buckets rather than one total, because the three draw on different
+   * allowances and one shared ceiling would let a morning of audio work block the
+   * afternoon's lesson writing.
+   *
+   * **Sized to trip before the provider's own quota does.** A `429 RATE_LIMITED`
+   * naming the cap is a far better admin experience than an opaque provider quota
+   * error surfacing through `runGenerationJob`'s generic failure path. Text and
+   * image share one Google AI Studio account, whose free-tier daily request
+   * limits Google no longer publishes per model — they are visible only in AI
+   * Studio's own rate-limit dashboard, and the reported figure for Flash is as low
+   * as 20 requests/day (checked 2026-09-04). Both defaults sit under that with
+   * room for the one retry a text job may spend, and both are meant to be raised
+   * by an operator who has read their own dashboard.
+   *
+   * Audio is on a different and much larger allowance — 4,000,000 characters a
+   * month for Standard voices (checked 2026-09-04) — so its cap is set by what a
+   * month of daily batches would spend against that, not by a request count.
    */
-  AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(50),
-  AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(200),
-  AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
+  AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(8),
+  AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
+  AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(15),
   // --- API documentation --------- //
   ENABLE_API_DOCS: z
     .enum(["true", "false"])

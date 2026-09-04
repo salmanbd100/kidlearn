@@ -296,7 +296,7 @@ packages/ui/                 # shared, theme-agnostic component library (shadcn 
 ## 10. Content & voice
 
 - **Kid copy:** 1–4 words, present tense, encouraging ("Let's go!", "You did it!"). Always
-  pairs with voice-over (ElevenLabs) and an icon.
+  pairs with voice-over (text-to-speech narration) and an icon.
 - **Parent copy:** clear, calm, professional. No jargon, no dark patterns around the child's data.
 - All user-facing strings flow through i18next — **no hard-coded text in components.**
 

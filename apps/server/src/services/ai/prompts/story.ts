@@ -11,9 +11,9 @@ import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
  * refinements enforce, stated in prose as well because a model told the rule
  * beforehand costs one call rather than two.
  *
- * The JSON shape is not restated. The tool's `input_schema` is generated from the
- * Zod object the answer is validated against (`schemas/story.ts`), so describing
- * the fields here would be a second source of truth.
+ * The JSON shape is not restated. The request's `responseJsonSchema` is generated
+ * from the Zod object the answer is validated against (`schemas/story.ts`), so
+ * describing the fields here would be a second source of truth.
  */
 
 export interface StoryPromptInput {

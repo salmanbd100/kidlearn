@@ -278,7 +278,7 @@ export type SelectedNote = Pick<WeeklyReportMetrics, "noteKey" | "noteParams">;
  * key means the client renders `t(\`reports.notes.${noteKey}\`, noteParams)` and
  * the note is Bangla for a Bangla-reading parent.
  *
- * Post-MVP the producer can be swapped for the Claude API behind this exact
+ * Post-MVP the producer can be swapped for a generation call behind this exact
  * signature: the stored shape is already `key + params`, so a generated note needs
  * no schema change — only a decision about which language it is generated in.
  *

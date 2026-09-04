@@ -23,7 +23,7 @@
  *     Postgres's transaction guarantee — the stub runs the callback and rethrows,
  *     so the tests assert the *job* fails and that no completed path wrote a story.
  *
- * The Anthropic client is mocked, which `general.md §5` permits explicitly:
+ * The Gemini client is mocked, which `general.md §5` permits explicitly:
  * external network boundaries are the one allowed mock.
  */
 
@@ -44,7 +44,9 @@ const store = vi.hoisted(() => ({
 
 const ai = vi.hoisted(() => ({ generateStructured: vi.fn() }));
 
-vi.mock("../claude.js", () => ({ generateStructured: ai.generateStructured }));
+vi.mock("../gemini-text.js", () => ({
+  generateStructured: ai.generateStructured,
+}));
 
 vi.mock("../../../lib/prisma.js", () => {
   let counter = 0;

@@ -3,7 +3,7 @@ import { type Locale, safeParseQuizQuestion } from "@kidlearn/types";
 import { ApiError } from "../../../lib/errors.js";
 import { prisma } from "../../../lib/prisma.js";
 import { slugify } from "../../../lib/slug.js";
-import { generateStructured } from "../claude.js";
+import { generateStructured } from "../gemini-text.js";
 import { withPlaceholderAssets } from "../placeholder-assets.js";
 import {
   buildLessonUserPrompt,
@@ -42,8 +42,6 @@ import {
  * mean a schema change to hold a string that is about to become an audio asset
  * reference instead.
  */
-
-const TOOL_NAME = "submit_lesson";
 
 export interface GenerateLessonInput {
   gradeLevel: GradeLevel;
@@ -109,13 +107,12 @@ export async function generateLesson(
     generate: (retryFeedback) =>
       generateStructured({
         system: KIDLEARN_SYSTEM_PROMPT,
-        // The retry is a second *user* turn rather than the usual
-        // user → assistant(tool_use) → user(tool_result) round trip, because the
-        // rejected attempt is not something to echo back: the model produced it,
-        // it is quoted in the feedback by way of its validation errors, and
-        // replaying it as an assistant turn would double the tokens the second
-        // call costs to tell the model what it already said. Consecutive
-        // same-role messages are combined into one turn by the API.
+        // The retry is a second *user* message rather than a model turn carrying
+        // the rejected answer, because that answer is not something to echo back:
+        // the model produced it, it is quoted in the feedback by way of its
+        // validation errors, and replaying it would double the tokens the second
+        // call costs to tell the model what it already said. `gemini-text.ts`
+        // sends both messages as parts of one user turn.
         messages:
           retryFeedback === undefined
             ? [{ role: "user", content: userPrompt }]
@@ -123,7 +120,6 @@ export async function generateLesson(
                 { role: "user", content: userPrompt },
                 { role: "user", content: retryFeedback },
               ],
-        toolName: TOOL_NAME,
         outputSchema: schema,
       }),
     persist: (parsed, jobId, tx) =>

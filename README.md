@@ -40,9 +40,9 @@ Every design decision traces back to two real users: my daughters.
 | Validation | Zod — one schema per contract, shared between the API and the web app (`packages/types`) |
 | Testing | Vitest — Supertest for API routes, React Testing Library for components |
 | i18n | i18next on frontend + per-language asset refs in DB |
-| AI — text & quizzes | LLMs → typed JSON payloads validated against shared schemas |
-| AI — audio | ElevenLabs (multi-language narration) |
-| AI — images | Midjourney / Gemini image models |
+| AI — text & quizzes | Gemini text models (free tier) → typed JSON payloads validated against shared schemas |
+| AI — audio | Google Cloud Text-to-Speech (Standard voices, one per language) |
+| AI — images | Gemini image models (free tier) |
 | AI — video | Google Veo / Runway Gen-3 |
 | Linting & formatting | Biome (repo-wide, replaces ESLint + Prettier) |
 

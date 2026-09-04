@@ -6,7 +6,7 @@ import { useState } from "react";
 import { generateNarration } from "@/lib/admin-api";
 
 /**
- * "Generate narration" — the admin end of the ElevenLabs voice pipeline
+ * "Generate narration" — the admin end of the text-to-speech pipeline
  * (file 36, FR-AI-04, FR-I18N-05).
  *
  * **A button with no options, deliberately**, and one shared by the lesson, story

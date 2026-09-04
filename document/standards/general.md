@@ -204,7 +204,7 @@ No separate `__tests__` directories. **[REVIEW]**
 
 ### No mocking `@kidlearn/db`
 
-Service tests and route integration tests run against a real test database. Do not mock Prisma. The lesson from `document/project-requirement-details.md §12` (assumption 8) applies: mock/real divergence masks broken migrations. The only permitted mocks are external network boundaries — AI generation APIs, media hosting APIs, ElevenLabs. **[REVIEW]**
+Service tests and route integration tests run against a real test database. Do not mock Prisma. The lesson from `document/project-requirement-details.md §12` (assumption 8) applies: mock/real divergence masks broken migrations. The only permitted mocks are external network boundaries — AI generation APIs, text-to-speech APIs, media hosting APIs. **[REVIEW]**
 
 #### Recorded exception — `apps/server` stubs `lib/prisma.js` until the test database lands
 
