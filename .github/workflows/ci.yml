@@ -30,7 +30,7 @@ jobs:
       # Must precede setup-node: its pnpm cache resolves `pnpm store path`.
       # No `version` input — the action reads `packageManager` from package.json,
       # so the pinned pnpm version keeps exactly one home.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -39,7 +39,7 @@ jobs:
           cache: pnpm
 
       - name: Restore Turbo cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: |
