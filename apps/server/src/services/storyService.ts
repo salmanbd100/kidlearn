@@ -14,28 +14,7 @@ import {
 } from "../lib/published-for-child.js";
 import type { GrantSource } from "./rewardService.js";
 
-/**
- * The Story Library's read side (FR-STORY-01, 04, 05, 08).
- *
- * Same two invariants as `contentService.ts`, for the same reasons: visibility
- * comes from `lib/published-for-child.ts` and nowhere else, and grade and language
- * come from the `ChildProfile` row the caller passes in — never from request input
- * (FR-PROF-03). A story's `World` carries its own `status`, so that edge is gated
- * too: the world supplies the cover's palette and mascot, and a published story
- * hanging off a draft world would theme itself from unreviewed content.
- *
- * ## Completion has no table of its own
- *
- * `completed` is read from `RewardLedger` — the `story_completion` grant file 26
- * writes once per story per child, made idempotent by the ledger's unique index on
- * `(childId, rewardType, sourceType, sourceId)`. A separate `StoryProgress` row
- * would be a second record of the same fact, free to disagree with the one the
- * child's stars were paid from.
- *
- * The lookup is one `findMany` plus a `Set`, not a query per story: a library of
- * twenty covers would otherwise be twenty-one round trips on the first screen a
- * child opens.
- */
+// The Story Library's read side (FR-STORY-01, 04, 05, 08).
 
 /**
  * Read, not written, here — the grant itself is file 26's. Pinned to
@@ -97,9 +76,6 @@ function toPalette(value: Prisma.JsonValue): Record<string, string> {
  * `as` cast, exactly as `toPalette` narrows a palette: the column is free-form
  * JSONB written by the voice pipeline (file 36), and a malformed blob must render
  * as an unhighlighted page rather than as a reader that throws mid-story.
- *
- * An empty `spans` array collapses to `null` so the client has one "no timings"
- * case to handle instead of two.
  */
 function toNarrationTimings(value: Prisma.JsonValue): NarrationTimings | null {
   if (value === null || value === undefined) return null;
@@ -110,13 +86,6 @@ function toNarrationTimings(value: Prisma.JsonValue): NarrationTimings | null {
 
 /**
  * A story's world, in the shape the home screen already receives for a world tile.
- *
- * Deviation from the implementation spec, which described `world` as a
- * `"jungle" | "ocean" | "space"` enum and a `WORLD_ACCENTS` map in the client. The
- * settled schema gives `Story.worldId` a real `World` row carrying `palette` and a
- * mascot, and file 15 already established that a world's look travels in its row
- * (FR-WORLD-05). Sending the row keeps a fourth world a database insert; an enum
- * would make it a change to a union type, a client map, and this file.
  */
 function toWorldSummary(
   world: StoryWorld,
@@ -141,15 +110,7 @@ function toWorldSummary(
   };
 }
 
-/**
- * The child-facing title and which locale supplied it.
- *
- * Falls through to `Story.title` — the admin label — only when no translation row
- * exists in either locale. That last step is what keeps a story authored before
- * its translations servable instead of nameless, exactly as `pickName` does for
- * curriculum rows; a missing translation is a content gap to report, never a blank
- * cover.
- */
+/** The child-facing title and which locale supplied it. */
 function pickTitle(story: StoryRow, language: Lang) {
   const picked = pickLocale(
     toLocaleMap(story.translations, (row) => row.title),
@@ -183,10 +144,6 @@ function toSummary(
 
 /**
  * FR-STORY-08 read side — every published story tagged for this child's grade.
- *
- * Ordered by world and then by creation so the grid is stable between visits: a
- * three-year-old navigates by where a cover *was*, and a list that reshuffles
- * itself is a list they cannot learn.
  */
 export async function listStoriesForChild(
   child: ChildProfile,
@@ -217,15 +174,6 @@ export async function listStoriesForChild(
 
 /**
  * Resolves a story the child is actually allowed to be reading, or throws 404.
- *
- * Exported so that the completion endpoint (file 26) gates on *this* clause
- * rather than on a copy of it. The two must agree by construction: a story
- * `GET /api/content/stories/:id` will not serve must not be one a child can be
- * paid for finishing, or an unpublished draft becomes a star farm for anyone who
- * can guess a uuid.
- *
- * **404, not 403**, for the reason `getStoryForChild` gives — a 403 would confirm
- * the row exists (NFR-SAFE-02).
  */
 export async function requireVisibleStoryId(
   child: ChildProfile,
@@ -245,18 +193,7 @@ export async function requireVisibleStoryId(
   return story.id;
 }
 
-/**
- * One story and all of its pages, for the reader (file 26).
- *
- * A story that is not published, or not tagged for this child's grade, returns
- * **404, not 403** — a 403 would confirm the row exists, and a draft must be
- * indistinguishable from a story that was never written (spec §7.3.4,
- * NFR-SAFE-02).
- *
- * Text and narration resolve per page and per field rather than per story, so a
- * Bangla story whose narration was only ever recorded in English still reads in
- * Bangla instead of falling back wholesale.
- */
+/** One story and all of its pages, for the reader (file 26). */
 export async function getStoryForChild(
   child: ChildProfile,
   storyId: string,

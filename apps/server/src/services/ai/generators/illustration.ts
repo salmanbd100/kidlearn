@@ -19,28 +19,7 @@ import {
   runGenerationJob,
 } from "../run-generation-job.js";
 
-/**
- * Batch illustration (file 36, FR-AI-05, FR-AI-09, FR-CMS-05).
- *
- * One job per `StoryPage` that has a brief (`illustrationPrompt`, written by the
- * story generator in file 35) and no picture yet (`illustrationAssetId` is null).
- * The shape mirrors `narration.ts` deliberately — same missing-work computation,
- * same in-flight skip, same "the foreign key is not set here" rule — because the
- * two are the same admin action over different media, and a reviewer approving
- * either should not have to learn two models.
- *
- * **Every prompt in a batch carries the same character block, and that is the
- * point (FR-AI-09).** The sheets are looked up once per story and prepended to
- * every page, so page 3's rabbit and page 7's rabbit are described to the model in
- * identical words. Selecting sheets per page — by which characters a brief happens
- * to name — was the alternative and is worse: a brief that says "the rabbit finds
- * a carrot" without naming Nibbles would silently lose its sheet and come back as
- * a different rabbit, which is exactly the failure this mechanism exists to stop.
- *
- * **Sheets are the world's plus the world-less ones.** A character scoped to a
- * world belongs to the stories set there; one with no world is a recurring figure
- * across worlds — a narrator, a child protagonist — and belongs to all of them.
- */
+// Batch illustration (file 36, FR-AI-05, FR-AI-09, FR-CMS-05).
 
 export interface GenerateIllustrationsInput {
   storyId: string;
@@ -115,14 +94,7 @@ export async function generateIllustrationBatch(
   return { jobIds, skipped: candidates.length - missing.length, failed };
 }
 
-/**
- * The sheets that apply to a story: its world's, then the world-less ones.
- *
- * Ordered by slug within each group so two batches on the same world produce the
- * same block in the same order. An unordered read would make the character block
- * depend on Postgres's row order, and two prompts differing only in the order of
- * two descriptions is a difference an image model can act on.
- */
+/** The sheets that apply to a story: its world's, then the world-less ones. */
 async function readCharacterSheets(
   worldId: string,
 ): Promise<CharacterSheetRef[]> {

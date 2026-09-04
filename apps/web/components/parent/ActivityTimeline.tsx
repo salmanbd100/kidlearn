@@ -13,21 +13,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { pickLabel } from "@/lib/localized-label";
 import { formatAbsolute, formatRelative } from "@/lib/relative-time";
 
-/**
- * What this child has finished lately (FR-DASH-04).
- *
- * **The relative date has an absolute one behind it.** "3 days ago" is easy to
- * read and impossible to check, so every entry is a `<time>` carrying the ISO
- * instant for machines and a `title` spelling the date out for a parent who wants
- * to know which Tuesday it was.
- *
- * `now` is a prop rather than `new Date()` inside the render. Reading the clock
- * during render makes the component's output depend on when it happened to be
- * called, which is untestable and, on a page that re-renders, unstable.
- *
- * The icons repeat the `type`, which the localised label already names — the icon
- * is scanning aid, not information, hence `aria-hidden`.
- */
+/** What this child has finished lately (FR-DASH-04). */
 const ACTIVITY_ICONS: Record<
   DashboardActivityType,
   ComponentType<{ className?: string; "aria-hidden"?: boolean }>

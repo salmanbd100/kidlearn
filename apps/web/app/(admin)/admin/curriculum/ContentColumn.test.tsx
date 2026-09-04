@@ -2,24 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 
-/**
- * The row, and the two ways dnd-kit used to break it.
- *
- * **Keyboard selection.** `KeyboardSensor` activates on Space and Enter and calls
- * `preventDefault()` first. With its listeners on the same button that carried
- * `onClick`, that suppressed the button's own activation: Enter on a subject
- * started a drag and never selected it, so the tree could not be navigated
- * without a pointer. The drag now lives on its own handle.
- *
- * **`aria-disabled` on a clickable row.** dnd-kit's `attributes` always carry
- * `aria-disabled: disabled`, so spreading them on a non-draggable row announced
- * every world as dimmed while it stayed clickable. The attributes are now on the
- * handle, which only renders when the column reorders.
- *
- * The drag gesture itself is not asserted — dnd-kit's pointer maths needs a real
- * layout, and jsdom reports every element as 0×0. What is testable here is the
- * wiring around it, which is what actually regressed.
- */
+// The row, and the two ways dnd-kit used to break it.
 
 const ITEMS: ColumnItem[] = [
   { id: "a", label: "Letters", status: "published" },

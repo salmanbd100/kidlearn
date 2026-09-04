@@ -6,20 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { fetchPlatformOverview } from "@/lib/admin-api";
 
-/**
- * `/admin/analytics` — the four platform counters (FR-CMS-07, basic tier).
- *
- * **Four numbers and a refresh button. No charts.** Detailed analytics — per-subject
- * usage, retention curves — are Phase 2, and a chart drawn over one sample would
- * imply a trend the endpoint cannot report.
- *
- * `generatedAt` is shown because nothing else on the page moves: without it a
- * reviewer cannot tell a quiet platform from a tab left open since yesterday.
- *
- * Refresh is manual rather than polled. This is a page somebody opens to check a
- * number, and a five-second poll against a free-tier instance would keep it awake
- * for no one's benefit.
- */
+/** `/admin/analytics` — the four platform counters (FR-CMS-07, basic tier). */
 const CARDS: ReadonlyArray<{
   key: keyof Omit<PlatformOverview, "generatedAt">;
   label: string;

@@ -9,11 +9,6 @@ import { useWiggle, type WiggleRequest } from "./use-wiggle";
 
 /**
  * Everything that happens between a child letting go and the activity being over.
- *
- * Extracted from the renderer because jsdom cannot perform a drag: dnd-kit hands
- * the component a `DragEndEvent` and nothing below cares where it came from, so
- * the rules — what a wrong drop does, when the activity is finished — are
- * testable by calling `handleDragEnd` directly. The renderer keeps the markup.
  */
 
 export interface PlacementState {

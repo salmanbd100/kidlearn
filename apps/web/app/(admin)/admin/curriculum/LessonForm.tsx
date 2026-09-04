@@ -17,20 +17,6 @@ import { LocaleTabs } from "./LocaleTabs";
 /**
  * The lesson editor (FR-CMS-01) — title and intro script per locale, a world, one
  * or more grade levels, and the ordered step config.
- *
- * **The step selects are ids typed by hand, and say so.** Activities, quizzes and
- * the media library arrive with file 33; until they do there is nothing to
- * populate a picker from, and a picker with no options is worse than a field
- * that admits what it wants. Each is optional, because a lesson has to be
- * draftable before its parts exist — the server agrees, and nullable columns are
- * what make that true rather than a client-side kindness.
- *
- * `videoAssetId` is per locale: a video with a word burnt into it belongs to the
- * language it was produced in (`LessonTranslation.videoAssetId`, file 17).
- *
- * No status field and no sortOrder field, for the reasons `ContentForm` gives —
- * as is the per-locale validation, which cannot be `required` while the inactive
- * panel is `hidden`.
  */
 
 type LocaleFields = {

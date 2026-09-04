@@ -23,30 +23,7 @@ import { toLocale } from "@/lib/locale";
 import { completeLesson } from "@/lib/progress-api";
 import type { LessonStepProps } from "./lesson-step-props";
 
-/**
- * The celebration (FR-LSN-05, FR-GAM-01..02).
- *
- * **Finishing the lesson happens here, on mount.** This is the call that stamps
- * `completedAt` and writes the reward grants; it replaces the reward-step report
- * the player used to send on its way out. Completion therefore lands when the
- * child *reaches* the celebration rather than when they leave it — the numbers
- * on this screen are the server's answer, and there is nowhere else to ask.
- *
- * **The child never sees a failure, and never sees an empty screen.** A rejected
- * request, an offline tablet, a replay that grants nothing: all three land on the
- * same warm celebration and the same big button home. There is nothing here a
- * four-year-old could act on, so there is nothing worth telling them — a lost
- * grant is a row an adult chases later, and a lesson they finished is finished.
- * Zero earned is *already done*, not a failure.
- *
- * **Nothing on this screen is computed here.** Stars and coins arrive from the
- * server; this file renders what it is told (FR-GAM-08).
- *
- * **In an administrator preview it writes nothing** (file 33, FR-CMS-04). The
- * celebration plays with nothing earned, which is the same shape a replay produces
- * — so previewing a lesson cannot stamp a completion against a child who does not
- * exist.
- */
+// The celebration (FR-LSN-05, FR-GAM-01..02).
 
 /** Held after the last star lands, before the coins start climbing. */
 const STAR_PHASE_TAIL_MS = 600;
@@ -63,11 +40,6 @@ const STREAK_PHASE_MS = 2000;
 /**
  * Phases run on a timer rather than gating each other, so a slow frame or a
  * paused tab cannot leave the celebration half-finished.
- *
- * The order is fixed — stars, coins, badges, characters, streak, mascot — and
- * every phase with nothing to show is *skipped*, not held empty. A replay that
- * granted nothing therefore lands straight on the mascot, and a lesson that
- * unlocked a badge and crossed a three-day streak plays all six.
  */
 const PHASES = [
   "stars",
@@ -93,14 +65,7 @@ function streakAudioUrl(locale: string): string {
 const COIN_AUDIO_URL = "/audio/feedback/coin-1.mp3";
 const UNLOCK_AUDIO_URL = "/audio/feedback/unlock-1.mp3";
 
-/**
- * Which phases this particular completion plays, and how long each holds.
- *
- * Derived from the response rather than stored in state, so the "skip what is
- * empty" rule lives in exactly one place. A completion that granted nothing
- * still plays stars → coins → mascot: zero is *already done*, and the child is
- * owed the sequence either way.
- */
+/** Which phases this particular completion plays, and how long each holds. */
 function buildSchedule(
   rewards: LessonCompletionResponse | undefined,
 ): ReadonlyArray<{ phase: Phase; holdMs: number }> {
@@ -298,20 +263,7 @@ export function RewardStep({ lesson, onComplete, isPreview }: LessonStepProps) {
   );
 }
 
-/**
- * What the celebration says out loud.
- *
- * Everything drawn on this screen is `aria-hidden`, so this sentence is the
- * whole party for a child who cannot see it — and it must not narrate a replay
- * as a failure. "You got 0 stars and 0 coins" is the one thing this screen
- * exists to never say; zero earned is *already done*, and so is a completion the
- * network dropped. Both land on `nothing`, which says the true and warm thing.
- *
- * Four frames rather than one with two counts in it, because a sentence that
- * always names both reads "0 coins" at a child who earned three stars — and
- * because i18next can only pluralise on a single `count`, so the two figures
- * come in as already-translated fragments.
- */
+/** What the celebration says out loud. */
 function announce(
   t: TFunction,
   starCount: number,
@@ -369,12 +321,7 @@ function names(t: TFunction, items: ReadonlyArray<{ name: string }>): string {
   });
 }
 
-/**
- * The mascot, bouncing, once the counting is over.
- *
- * `alt=""` for the reason `IntroStep` gives: the character is company, not
- * information, and the celebration is already announced above.
- */
+/** The mascot, bouncing, once the counting is over. */
 function MascotCheer({ url }: { url?: string }) {
   const isMotionReduced = useIsMotionReduced();
 
@@ -401,12 +348,7 @@ function MascotCheer({ url }: { url?: string }) {
   );
 }
 
-/**
- * What the child has altogether, small and at the bottom.
- *
- * Small on purpose: the screen is about what they just earned. The running
- * totals are the reassurance that it was added to something, not the headline.
- */
+/** What the child has altogether, small and at the bottom. */
 function Totals({ totals }: { totals: LessonCompletionResponse["totals"] }) {
   const { t } = useTranslation(LESSON_NAMESPACE);
 

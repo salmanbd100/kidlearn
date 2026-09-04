@@ -23,32 +23,7 @@ import { AttachDialog } from "./AttachDialog";
 import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";
 
-/**
- * `/admin/media` — the asset library (file 33, FR-CMS-02).
- *
- * **Filters are server-side.** The chips set `?kind=` and `?language=` rather than
- * narrowing an array in the browser, so the same query the pickers use is the one
- * this grid shows — an author who cannot find an asset here will not find it in a
- * picker either, which is the useful property.
- *
- * **Every upload becomes a row.** The dialog does not report success until
- * `POST /api/admin/media` has answered, so the grid never shows a file that exists
- * at Cloudinary but not in Postgres, and never the reverse.
- *
- * **Nothing here deletes.** An asset is referenced by explicit foreign keys from
- * worlds, lessons, stories, badges and characters, so a delete button would be a
- * button that breaks content silently. Retiring an asset is unlinking it from its
- * owners, which the curriculum screens do.
- *
- * **Two tabs since file 36.** Character sheets are not assets — they are the prompt
- * text that makes generated illustrations consistent (FR-AI-09) — but this is the
- * page an author comes to about pictures, so they live here rather than in a corner
- * of the curriculum tree.
- *
- * `videoWorkflow` arrives as a prop rather than being imported: it is static prose
- * and renders on the server, so passing it through keeps it out of this client
- * bundle (`frontend.md §2`).
- */
+// `/admin/media` — the asset library (file 33, FR-CMS-02).
 
 const KIND_LABELS: Record<AssetKind, string> = {
   image: "Images",

@@ -21,24 +21,6 @@ import { optionValue } from "@/lib/select-option";
 
 /**
  * Points an owning row's foreign key at one asset (FR-CMS-02, requirement 3).
- *
- * **Three targets, because three columns take a `MediaAsset.id`** and each is a
- * different shape of write: a world's `mascotAssetId` is a scalar, a badge's
- * `iconAssetId` is a scalar on a different resource, and a lesson's video is
- * per-locale and lives inside a `translations` object the server requires
- * *complete*. The last one is why this dialog holds the whole lesson rather than
- * an id: setting `en.videoAssetId` means resending `bn` untouched, and a partial
- * translation write is what produces content that falls back to English part-way
- * through a Bangla learner's session (FR-I18N-01).
- *
- * **Published rows are not offered.** The server refuses an edit to one, so a row
- * that would earn a `409` is filtered out of the list with the reason stated,
- * rather than left there to fail on click. `isContentEditable` is the same
- * predicate the server applies.
- *
- * The asset's `kind` decides which targets make sense: a mascot and a badge icon
- * are images, a lesson video is a video. Offering an audio clip as a mascot would
- * be a `400` an author could not have predicted.
  */
 
 type Target = "world-mascot" | "lesson-video" | "badge-icon";
@@ -235,13 +217,7 @@ function editableRows(input: {
   return [];
 }
 
-/**
- * The actual write, per target.
- *
- * The lesson case resends **both** locales because the server requires the pair
- * whenever `translations` is present — see this file's header for why that rule
- * exists rather than being an inconvenience.
- */
+/** The actual write, per target. */
 function attach(input: {
   target: Target;
   rowId: string;

@@ -16,17 +16,6 @@ import { type FormEvent, useEffect, useState } from "react";
 /**
  * Refusing a generation, with the reason the server insists on (file 37,
  * FR-AI-08).
- *
- * **The reason is required and the dialog says why before it is typed.** "no"
- * and "bad" record nothing: whoever regenerates this content has to change the
- * prompt, and the sentence explaining what was wrong is the only part of a
- * rejection that tells them how. The server's floor is ten characters; the
- * counter here shows the distance to it rather than letting a short reason reach
- * the API and come back as a `400`.
- *
- * **Nothing is deleted by rejecting**, and the copy says so. An admin who thinks
- * "reject" throws the work away hesitates over the button; one who knows the rows
- * are kept, unreachable to children, and the audit trail preserved, does not.
  */
 
 /** The server's `z.string().trim().min(10)`, mirrored so the button can wait. */

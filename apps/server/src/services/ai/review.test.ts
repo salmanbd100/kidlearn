@@ -252,14 +252,7 @@ const {
 
 const REVIEWER = "admin-1";
 
-/**
- * Awaits a call expected to throw and hands back the `ApiError`.
- *
- * Narrowed here rather than at each call site: `.catch()` widens the result to
- * the union of the resolved value and the caught one, and asserting on
- * `error.statusCode` against that union is a compile error every case would
- * otherwise have to cast its way out of.
- */
+/** Awaits a call expected to throw and hands back the `ApiError`. */
 async function expectRejection(work: Promise<unknown>): Promise<ApiError> {
   try {
     await work;

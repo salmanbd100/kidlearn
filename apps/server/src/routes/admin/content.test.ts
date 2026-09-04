@@ -98,13 +98,7 @@ const db = vi.hoisted(() => ({ adminFindUnique: vi.fn() }));
 vi.mock("../../lib/prisma.js", async () => {
   const { Prisma: PrismaNamespace } = await import("@kidlearn/db");
 
-  /**
-   * A minimal Prisma model, backed by one array.
-   *
-   * `slugScope` is what makes the duplicate-slug path real rather than mocked: it
-   * names the columns the model's unique index covers, so inserting a colliding
-   * slug throws the same `P2002` Postgres would.
-   */
+  /** A minimal Prisma model, backed by one array. */
   function table(rows: () => Row[], slugScope: string[]) {
     const matches = (row: Row, where: Record<string, unknown> = {}): boolean =>
       Object.entries(where).every(([column, condition]) => {
@@ -364,14 +358,7 @@ const lessonTranslations = (title: string) => ({
   bn: { title: `${title} (bn)`, introScript: `${title} শিখি।` },
 });
 
-/**
- * Seeds a row directly, bypassing the API — a fixture, not an assertion.
- *
- * The defaults cover every nullable column across the four models, because
- * Postgres returns `null` for one that was never written and a stub that omitted
- * the key would let a response schema pass on a shape the database cannot
- * produce.
- */
+/** Seeds a row directly, bypassing the API — a fixture, not an assertion. */
 function seed(table: Row[], row: Partial<Row> & { id: string }): Row {
   const full: Row = {
     status: "draft",
@@ -949,13 +936,6 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
 
   /**
    * The FR-AI-07 invariant, reached through the *generic* endpoint (file 37).
-   *
-   * This is the hole the review queue exists to close, and it is not a hole the
-   * matrix can see: `draft → in_review → approved → published` is four perfectly
-   * legal hops, and walking a generated lesson along them by hand publishes work
-   * no human read. The guard is on the publish hop and reads the creating job, so
-   * the first three hops still succeed — which is what the test asserts, because a
-   * guard that refused the whole chain would be a different (and wrong) rule.
    */
   describe("AI-generated content cannot be published without a review decision", () => {
     function seedAiLesson(job: {
@@ -1224,15 +1204,7 @@ describe("PATCH /api/admin/content/:resource/reorder", () => {
     );
   });
 
-  /**
-   * The sibling set is whichever list the admin was looking at.
-   *
-   * With archived rows hidden they are neither expected nor renumbered; with
-   * them shown they are ordered like anything else. Sending the wrong set is the
-   * `400` — which is what a tree loaded with `?includeArchived=true` used to hit
-   * on every single drag, because the payload carried an id the server had
-   * filtered out of its own expectation.
-   */
+  /** The sibling set is whichever list the admin was looking at. */
   describe("and the archived siblings", () => {
     const ARCHIVED_ID = "cccccccc-0000-4000-8000-00000000000d";
 
@@ -1533,15 +1505,7 @@ describe("lists show every status, unlike the student API", () => {
   });
 });
 
-/**
- * The world item shape, which no other resource shares.
- *
- * `palette` is the one JSONB column in the four, read back through the `as
- * Record<string, string>` cast in `adminContentService.ts` — the cast whose own
- * comment says a row that broke it would fail here. It only does if something
- * asserts it, and the list contract cannot: the item schema is what carries
- * `palette` and `mascotAssetId`.
- */
+/** The world item shape, which no other resource shares. */
 describe("the world item contract", () => {
   const body = {
     slug: "forest",
@@ -1716,13 +1680,7 @@ describe("what the stub cannot prove — asserted against schema.prisma", () => 
   });
 });
 
-/**
- * Character sheets (file 36, FR-AI-09).
- *
- * They live on this router but outside the four-resource machinery above, so
- * their tests are separate: no publishing workflow, no ordering, no
- * translations, no `updatedBy`.
- */
+/** Character sheets (file 36, FR-AI-09). */
 describe("POST /api/admin/content/character-sheets", () => {
   const SHEET_BASE = `${BASE}/character-sheets`;
 

@@ -29,25 +29,7 @@ import { useActivitySensors } from "./use-activity-sensors";
 import { usePuzzleState } from "./use-puzzle-state";
 import { isWiggling, type WiggleRequest } from "./use-wiggle";
 
-/**
- * Build the picture (FR-ACT-04).
- *
- * **The board shows the answer, faintly.** A ghost of the whole image sits under
- * the empty cells, because a three-year-old holding a piece of an elephant's ear
- * has no way to work out where an ear goes from an empty grid. The puzzle is the
- * placing, not the guessing.
- *
- * **Nothing is cut up.** Each piece is the same image with `background-size` and
- * `background-position` shifted, so a payload needs one asset rather than nine and
- * the server never slices anything. It is also why the art is a CSS background
- * rather than `next/image`: cropping is the whole technique, and the ghost uses
- * the same background so the browser fetches the file once.
- *
- * **Wrong is quiet.** A piece pushed into the wrong space glides back to the tray
- * on its own (the drag overlay's drop animation; nothing here persists a
- * transform) and wiggles for 400ms while an encouraging voice plays — no counter,
- * no cross, no ceiling on attempts (FR-ACT-05).
- */
+// Build the picture (FR-ACT-04).
 
 const pieceVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a
@@ -78,13 +60,7 @@ const slotVariants = cva("relative", {
   defaultVariants: { state: "empty" },
 });
 
-/**
- * The crop of `image` that belongs at this cell, as background properties.
- *
- * `cols - 1` and `rows - 1` are safe divisors: the schema floors both at 2. The
- * percentages are positions in the *scaled* background, which is why the first
- * column is 0% and the last is 100% rather than the intuitive `col / cols`.
- */
+/** The crop of `image` that belongs at this cell, as background properties. */
 function cropStyle(
   imageUrl: string,
   grid: PuzzleDefinition["grid"],
@@ -210,8 +186,6 @@ export function PuzzleActivity({
           // square grid in landscape is taller than the space it has, and the
           // board is the one thing a child must be able to see whole — scrolling
           // to find the rest of the puzzle is not a working screen (design.md §6).
-          // When the height cap binds the ratio gives: the cells are `1fr` and the
-          // crops are percentages, so the picture stretches but still tiles exactly.
           className="relative max-h-[60dvh] w-full max-w-sm shrink-0 overflow-hidden rounded-lg landscape:max-w-[min(24rem,50vw)]"
           // The board's shape is the grid's, not the artwork's: square cells are
           // what make a piece a square crop, and the payload carries no intrinsic

@@ -7,15 +7,6 @@ import { authContext } from "./require-parent.js";
 /**
  * Resolves *which child is learning* for every `/api/content/*` request
  * (FR-PROF-03). Runs after `requireParent`.
- *
- * The id comes from `session.activeChildProfileId` — the server-side session
- * column better-auth owns (FR-AUTH-06) — and the row is re-read under the
- * signed-in parent's ownership on every request. Grade and preferred language
- * are then read from that row and from nowhere else, so no query string, body
- * field, or header can widen what a child is allowed to see.
- *
- * A session pointing at a child of a different parent is treated exactly like
- * no active child at all: a 403 that says nothing about whether the id exists.
  */
 export const requireActiveChild: RequestHandler = async (
   req: Request,

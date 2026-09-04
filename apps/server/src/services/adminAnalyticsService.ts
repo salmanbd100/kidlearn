@@ -3,20 +3,7 @@ import { env } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { learningTimeWindow } from "./learningTimeService.js";
 
-/**
- * Platform analytics for the admin CMS (FR-CMS-07, basic tier).
- *
- * **Aggregates only.** Four counts and a timestamp — nothing here names a parent,
- * a child or a household, which is what makes the page safe to put in front of an
- * internal reviewer who has no relationship with any of them (NFR-SAFE-02). A
- * figure that would need a row to be identified by belongs in Phase 2, behind a
- * decision about who may see it.
- *
- * The two windows come from `learningTimeWindow`, the same function the parent
- * dashboard and the weekly report use, rather than from a second copy of "which
- * seven days is this week". A platform whose Monday differed from a household's
- * would make every cross-check between this page and a dashboard wrong.
- */
+/** Platform analytics for the admin CMS (FR-CMS-07, basic tier). */
 export async function getPlatformOverview(
   now = new Date(),
 ): Promise<PlatformOverview> {

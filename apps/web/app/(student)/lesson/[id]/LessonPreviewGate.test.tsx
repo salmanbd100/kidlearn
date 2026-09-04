@@ -3,19 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
 
-/**
- * Who `?preview=1` actually gets the preview (file 33, FR-CMS-04).
- *
- * The property under test is a content-safety one and it is about *writes*, not
- * about draft content: preview mode suppresses the heartbeat, the step reports,
- * the session events, the completion and the quiz submission, so a caller who can
- * enter it by editing a URL can play published lessons that never accrue against
- * the parental daily limit (FR-TIME-02..04) and never reach the parent dashboard.
- *
- * So each case below asserts what `LessonPlayer` was handed, not what rendered:
- * `isPreview` is the switch, and only an admin session the server vouched for may
- * flip it.
- */
+// Who `?preview=1` actually gets the preview (file 33, FR-CMS-04).
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 

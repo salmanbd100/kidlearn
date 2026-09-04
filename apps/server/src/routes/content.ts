@@ -20,14 +20,7 @@ import {
 } from "../services/contentService.js";
 import { storiesRouter } from "./stories.js";
 
-/**
- * The student-facing curriculum read API.
- *
- * Mounted in `routes/index.ts` behind `requireParent` + `requireActiveChild`,
- * so every handler here can assume an ownership-checked `ChildProfile`. The
- * handlers stay thin: all querying, filtering and serialisation lives in
- * `services/contentService.ts` (`backend.md §2`).
- */
+/** The student-facing curriculum read API. */
 export const contentRouter = Router();
 
 // The Story Library (file 25). Nested here rather than mounted on `apiRouter` so
@@ -41,11 +34,6 @@ contentRouter.use("/stories", storiesRouter);
 /**
  * Reads the `:id` path parameter on routes guarded by
  * `validate({ params: ContentIdParamsSchema })`.
- *
- * Express 5 types every param as `string | string[]` because a repeated segment
- * can produce an array. The cast is safe only *after* that middleware has run:
- * it replaced `req.params` with the Zod-parsed object, where `id` is a uuid
- * string or the request never reached the handler (400 `VALIDATION_FAILED`).
  */
 function idParam(req: Request): string {
   return req.params.id as string;

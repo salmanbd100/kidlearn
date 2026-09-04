@@ -12,22 +12,7 @@ import {
 } from "@/lib/parent-redirect";
 import { useParentGate, useParentSession } from "./context/parent-session";
 
-/**
- * The two gates every `(parent)` page sits behind.
- *
- * **Onboarding order** (FR-AUTH-02..04, FR-PROF-01) is decided by
- * `resolveParentRedirect`, which is a pure function so that the rule "no child
- * profile UI is reachable before consent" is provable by assertion rather than by
- * clicking through the app. This component only carries out its verdict.
- *
- * **The PIN gate** (FR-AUTH-04) renders on top of the page rather than instead of
- * it, so a parent who was halfway through a form when the 15-minute grant lapsed
- * still has it when they unlock.
- *
- * While the session is loading, nothing is rendered but a status line. Rendering
- * the page first would flash a profile list at someone who turns out to be signed
- * out, which is a content-safety problem and not only a visual one.
- */
+/** The two gates every `(parent)` page sits behind. */
 export function ParentGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();

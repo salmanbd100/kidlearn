@@ -26,29 +26,7 @@ import {
   useDragAnswer,
 } from "./use-drag-answer";
 
-/**
- * Drag the missing word into the gap (FR-QUIZ-03).
- *
- * **The sentence stays one sentence.** The blank is rendered inline between its
- * two halves rather than under them, so what a child is looking at is the thing
- * they are completing — a slot floating below the words is a form field, and a
- * pre-reader has no idea what it belongs to.
- *
- * **Wrong is quiet.** A card dropped on the blank that does not belong there
- * snaps back on its own (dnd-kit discards the transform; nothing here persists
- * one), fades to 40% and stops answering, while an encouraging voice plays.
- * There is no cross, no counter, and no ceiling on attempts (§5.7).
- *
- * **Nothing reads the finished sentence aloud.** `promptAudio` speaks the
- * question, not the sentence with the gap filled, and the schema carries no clip
- * of the completed line — so replaying it after the answer would repeat the
- * instruction over the cheer rather than confirm anything. The cheer is what
- * says "that's it", the same one every other format uses.
- *
- * How a drag starts — and why mouse and touch are tuned apart — lives in
- * `activities/use-activity-sensors.ts`, shared with every dnd-kit surface so the
- * gesture a child learns in the activity is the gesture here.
- */
+// Drag the missing word into the gap (FR-QUIZ-03).
 
 const optionCardVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a

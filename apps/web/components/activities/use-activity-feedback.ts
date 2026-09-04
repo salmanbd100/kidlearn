@@ -6,19 +6,7 @@ import { type RefObject, useCallback, useMemo, useRef } from "react";
 import { useAudio } from "@/components/AudioProvider";
 import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
-/**
- * The two things every activity says back to a child (FR-ACT-05).
- *
- * **There is no third one.** `success` and `retry` are the whole vocabulary
- * because there is no fail state to express: a wrong drop is a turn that has not
- * finished yet, so it gets an encouraging voice and a wiggle, never a red cross,
- * a buzzer or a count of how many times it has happened. Keeping the API this
- * narrow is what stops a later renderer from inventing one.
- *
- * Shared by every renderer rather than reimplemented in each, so that a trace
- * (file 19) and a puzzle (file 20) celebrate identically to a drag-drop — the
- * child learns one language of feedback for the whole app.
- */
+// The two things every activity says back to a child (FR-ACT-05).
 
 export interface ActivityFeedback {
   /** Cheer + confetti. `anchor` is a viewport point — where the child just touched. */

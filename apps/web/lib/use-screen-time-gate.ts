@@ -6,24 +6,6 @@ import { getScreenTimeStatus } from "./screen-time-api";
 
 /**
  * The student surface's view of the screen-time gate (FR-TIME-02, FR-TIME-04).
- *
- * **Checked on load *and* again on the tap.** The load check is what stops a
- * blocked child being shown a home screen full of lessons they cannot open; the
- * tap check is what stops a child who has been on the page for twenty minutes
- * walking into a limit that has since been reached, or a window that closed while
- * they were choosing. Neither alone is enough, and the second one is why this is a
- * function rather than a value.
- *
- * **It decides nothing.** The verdict is the server's, and the real refusal is the
- * `423` on the content-start endpoint. A stale `allowed: true` here therefore
- * cannot extend an allowance — it can only send a child one screen further before
- * the same answer arrives, which is exactly what the lesson and story screens
- * handle.
- *
- * **A failed check never blocks.** If the status read fails, the child proceeds
- * and meets the server's own answer at the content endpoint. Failing closed here
- * would turn a dropped request into a lockout with no explanation, on a surface
- * where the only recourse is a five-year-old asking a grown-up.
  */
 
 export type ScreenTimeGate = {

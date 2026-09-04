@@ -8,20 +8,7 @@ import { McqQuestion } from "./McqQuestion";
 import { PictureSelectQuestion } from "./PictureSelectQuestion";
 import type { PlayableQuestion, QuestionProps } from "./types";
 
-/**
- * Question format → renderer (FR-QUIZ-07).
- *
- * The same shape as `activities/registry.tsx`, for the same reasons: a `switch`
- * rather than a lookup table, so the discriminated union narrows for free and
- * the compiler — not a runtime cast — is what guarantees each format is handed a
- * definition it understands.
- *
- * All four formats are rendered now, so `isPlayableQuestion` answers `true` for
- * every member of the union. It stays — and stays exhaustive rather than
- * `return true` — because it is the gate the engine asks *before* a question
- * joins the session, and a fifth format added to the schema must be dropped from
- * the quiz rather than reached and rendered blank.
- */
+// Question format → renderer (FR-QUIZ-07).
 
 export function isPlayableQuestion(
   definition: QuizQuestionDefinition,

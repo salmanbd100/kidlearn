@@ -91,8 +91,6 @@ vi.mock("../lib/prisma.js", () => {
 const { app } = await import("../app.js");
 const { auth } = await import("../lib/auth.js");
 
-// --- Fixtures ---------------------------------------------------------------
-
 /** Header the stubbed `getSession` reads to decide who is calling. */
 const TEST_PARENT_HEADER = "x-test-parent";
 
@@ -234,8 +232,6 @@ function authedAgentFor(fixture: ParentFixture) {
 function anonymousAgent() {
   return request(app);
 }
-
-// --- Store-backed Prisma stubs ---------------------------------------------
 
 type ChildWhere = { id?: string; parentId?: string };
 
@@ -459,8 +455,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
-// --- Tests ------------------------------------------------------------------
 
 describe("authentication on /api/children", () => {
   it.each([
@@ -707,18 +701,7 @@ describe("POST /api/children", () => {
   });
 });
 
-/**
- * The parental gate on the write verbs (FR-AUTH-04).
- *
- * These exist because the gate used to live only in the browser: `ParentGuard`
- * rendered a modal over a page that had already loaded, and the API behind it
- * asked for nothing but a session cookie. A gate that one `fetch` walks around is
- * not a gate, and `DELETE /api/children/:id` destroys a child's whole history.
- *
- * The read verbs are asserted open in the same breath, because that is not an
- * oversight either — the Student Portal calls them and FR-AUTH-06 forbids showing
- * a child a PIN prompt.
- */
+/** The parental gate on the write verbs (FR-AUTH-04). */
 describe("parental PIN gate on writes (FR-AUTH-04)", () => {
   const WRITE_ROUTES = [
     ["post", "/api/children", VALID_BODY],
@@ -1008,13 +991,7 @@ describe("PATCH /api/children/:id", () => {
   });
 });
 
-/**
- * The list the avatar picker draws from (FR-GAM-05, FR-PROF-02).
- *
- * These tests pair with the `PATCH` ones above deliberately: the two must agree
- * about which characters a child may wear, or the picker offers an avatar the
- * write route then rejects.
- */
+/** The list the avatar picker draws from (FR-GAM-05, FR-PROF-02). */
 describe("GET /api/children/:id/characters", () => {
   it("returns every published character, locked ones included", async () => {
     const child = seedChild(PARENT_A);

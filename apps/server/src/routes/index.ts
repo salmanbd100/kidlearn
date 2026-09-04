@@ -16,8 +16,6 @@ import { screenTimeRouter } from "./screen-time.js";
 /**
  * Aggregates every `/api/*` resource router. Later implementation files mount
  * their routers here.
- *
- * Paths under `/api` that match nothing fall through to `notFoundHandler`.
  */
 export const apiRouter = Router();
 
@@ -35,13 +33,6 @@ apiRouter.use("/characters", charactersRouter);
 // Curriculum reads (file 12). The two guards are mounted here rather than
 // inside `content.ts` so that every current and future `/api/content/*` path is
 // covered by construction — a new route added there cannot forget them.
-// `adminLessonPreview` sits *in front of* the two guards, and only because it has
-// to: an admin session satisfies neither of them, so a `?preview=1` branch inside
-// the lesson handler could never run (file 33, FR-CMS-04). It intercepts exactly
-// `GET /lessons/:id?preview=1` from a session an `AdminUser` row backs, and calls
-// `next()` for everything else — including a parent who typed the parameter
-// themselves, who then meets the ordinary route and its `404`. See that file for
-// why the query parameter requests the mode and never grants it.
 apiRouter.use(
   "/content",
   adminLessonPreview,
@@ -88,7 +79,4 @@ apiRouter.use("/admin/jobs", jobsRouter);
 // matches in registration order, and this router applies `requireAdmin` to
 // everything under it, so mounting it first would put a session guard in front of
 // the scheduler's paths and break the weekly-report job.
-//
-// The guard lives on the router rather than here, so files 32–37 inherit it by
-// construction wherever they add a path.
 apiRouter.use("/admin", adminRouter);

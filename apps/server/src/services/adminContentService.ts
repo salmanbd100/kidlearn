@@ -32,33 +32,6 @@ import {
 
 /**
  * The curriculum hierarchy as admins write it (file 32, FR-CURR-04, FR-CMS-01).
- *
- * **Nothing here filters by status, and that is correct.** The guard in
- * `backend.md §4` binds *student-facing* queries; a CMS list that hid drafts
- * would be a CMS with nothing to edit. Publishing stays safe because none of
- * this is student-facing: every read in `routes/content.ts` filters
- * `status = published` at the query layer, so the whole visibility question is
- * decided there and by the status column these functions write.
- *
- * **Publish is immediate visibility (FR-CMS-06).** There is no second flag, no
- * cache and no publication queue: the moment `transitionContent` writes
- * `published`, the next student request returns the row. The inverse holds too —
- * `published → draft` withdraws it from every student response at once, without
- * deleting the row or the progress hanging off it.
- *
- * **A published row refuses an edit.** Every `update*` here runs through
- * `editWithinTransaction`, which applies `assertEditable` to the status the row
- * actually holds. The matrix guards the act of publishing; this guards the
- * content that stays published, which the matrix never sees because an edit does
- * not move the status. Withdraw to `draft` first.
- *
- * **Every write stamps `updatedBy`** with the acting `AdminUser.id`
- * (requirement 6). It is a parameter rather than something read off a request,
- * because service functions take no Express types (`backend.md §2`).
- *
- * The DTOs below type timestamps as `Date`, matching `ChildProfileDto`: the wire
- * format is an ISO string, which is `res.json()`'s doing and is what the schemas
- * in `packages/types/src/api` describe (`backend.md §7`).
  */
 
 /** The two locales every piece of content carries, in a deterministic order. */
@@ -118,15 +91,7 @@ export type AdminLessonDto = AuditFields & {
   };
 };
 
-/**
- * Folds translation rows into the `{ en, bn }` pair the API publishes.
- *
- * A locale can legitimately be missing — the translation tables have no
- * constraint forcing both to exist, and the seeds predate this API — so a gap
- * becomes an empty string rather than an exception. The CMS renders that as an
- * empty field an author can fill, which is the useful behaviour; throwing would
- * let one incomplete row take out the whole list.
- */
+/** Folds translation rows into the `{ en, bn }` pair the API publishes. */
 function toLocalizedName(rows: Array<{ language: Language; name: string }>) {
   return {
     en: rows.find((row) => row.language === "en")?.name ?? "",
@@ -140,8 +105,6 @@ function nameTranslationCreates(translations: LocalizedName) {
     name: translations[language],
   }));
 }
-
-// --- Worlds ---------------------------------------------------------------
 
 const worldSelect = {
   id: true,
@@ -248,8 +211,6 @@ export async function updateWorld(
   return toAdminWorld(row);
 }
 
-// --- Subjects -------------------------------------------------------------
-
 const subjectSelect = {
   id: true,
   slug: true,
@@ -348,8 +309,6 @@ export async function updateSubject(
   return toAdminSubject(row);
 }
 
-// --- Topics ---------------------------------------------------------------
-
 const topicSelect = {
   id: true,
   subjectId: true,
@@ -445,8 +404,6 @@ export async function updateTopic(
   );
   return toAdminTopic(row);
 }
-
-// --- Lessons --------------------------------------------------------------
 
 const lessonSelect = {
   id: true,
@@ -625,14 +582,7 @@ export async function updateLesson(
   return toAdminLesson(row);
 }
 
-// --- Transitions ----------------------------------------------------------
-
-/**
- * The four resources this router manages, spelled as a path segment.
- *
- * Re-exported from `@kidlearn/types` rather than declared here: the CMS speaks
- * the same four strings, and one definition is what stops the two from drifting.
- */
+/** The four resources this router manages, spelled as a path segment. */
 export { CONTENT_RESOURCES };
 export type ContentResource = ContentResourceName;
 
@@ -658,23 +608,7 @@ type ContentWriter = Pick<
   "world" | "subject" | "topic" | "lesson"
 >;
 
-/**
- * Moves one row through the publishing workflow (FR-CMS-06).
- *
- * The read and the write are two statements inside a Serializable transaction
- * rather than one conditional update, because the matrix has to be applied to the
- * status the row *actually* holds: two admins approving and rejecting the same
- * lesson at the same moment must not both read `in_review` and both succeed. The
- * loser aborts, retries, and has its hop judged against what the winner wrote.
- *
- * **The publish hop carries a second guard (file 37, FR-AI-07).** The matrix
- * cannot see whether a row was written by a model, so a generated lesson walked
- * `draft → in_review → approved → published` by hand is four legal hops that never
- * involved anybody reading it. `assertAiPublishable` reads the creating job and
- * refuses unless a reviewer decided it. It runs inside the same transaction as the
- * write, so a job decided or undecided concurrently is judged against the same
- * snapshot the status was.
- */
+/** Moves one row through the publishing workflow (FR-CMS-06). */
 export async function transitionContent(
   resource: ContentResource,
   id: string,
@@ -699,14 +633,6 @@ export async function transitionContent(
 
 /**
  * The status a transition is judged against, and the job that created the row.
- *
- * Only `Lesson` carries `aiJobId` among these four — a world, a subject and a
- * topic are structure an admin defines, not content a model writes — so the other
- * three report `null` and `assertAiPublishable` returns without a query. Spelled
- * out per resource rather than selected uniformly because a `select` naming a
- * column the model does not have is a compile error, which is the right outcome:
- * it is what would fail if `aiJobId` were ever added to one of the other three
- * without this being revisited.
  */
 async function readGuardFields(
   tx: ContentWriter,
@@ -751,18 +677,7 @@ async function writeStatus(
   else await tx.lesson.update(args);
 }
 
-/**
- * Runs one edit against the status the row actually holds.
- *
- * Serializable and read-then-write for the reason `transitionContent` gives, and
- * the interleaving it rules out is the one that matters most here: a `published`
- * check made before the transaction can be true when it is read and stale when
- * the edit lands, which is precisely how a rewrite reaches a live lesson. The
- * loser of the race retries and is refused.
- *
- * `readStatus` also supplies the `404`, so this replaces the existence check the
- * edit functions would otherwise make in a separate query.
- */
+/** Runs one edit against the status the row actually holds. */
 async function editWithinTransaction<T>(
   resource: ContentResource,
   id: string,
@@ -779,31 +694,11 @@ async function editWithinTransaction<T>(
   );
 }
 
-// --- Reordering -----------------------------------------------------------
-
 /** Which resources have a `sortOrder` to reorder. `World` has no such column. */
 export { ORDERABLE_CONTENT_RESOURCES as ORDERABLE_RESOURCES };
 export type OrderableResource = OrderableContentResourceName;
 
-/**
- * Persists a whole sibling set's order in one transaction (requirement 4).
- *
- * **Why the payload is every sibling.** "Move this one to index 3" is a claim
- * about the other rows too, and two such requests arriving together leave two
- * rows sharing an index and a tree that renders in an order nobody chose. A full
- * set makes the write total, and checking it against the real siblings is what
- * turns a stale tab — one whose list predates a colleague's create — into a `400`
- * rather than a silent reordering of a set the admin never saw.
- *
- * **Archived siblings follow the list the admin is looking at.** The sibling set
- * this validates against has to be the one the caller can see, or a reorder
- * performed from one view fails against the other. `includeArchived` therefore
- * mirrors the flag on the list endpoints and defaults to the default view: with
- * it off, archived rows are neither expected in the payload nor renumbered, and
- * their `sortOrder` may tie with a live row's — which costs nothing, since an
- * archived row appears in no student query. With it on, they are ordered like any
- * other sibling, because the admin dragged them.
- */
+/** Persists a whole sibling set's order in one transaction (requirement 4). */
 export async function reorderContent(
   resource: OrderableResource,
   input: { parentId?: string; orderedIds: string[]; includeArchived?: boolean },
@@ -900,8 +795,6 @@ function assertSameSet(
   );
 }
 
-// --- Shared helpers -------------------------------------------------------
-
 /** Archived rows are hidden from admin lists by default (requirement 5). */
 const ARCHIVED: ContentStatus = "archived";
 const NOT_ARCHIVED = { status: { not: ARCHIVED } };
@@ -945,16 +838,7 @@ function optionalNullable<TKey extends string>(
       ({ [key]: value } as Record<TKey, string | null>);
 }
 
-/**
- * The per-locale `upsert` list that writes a name in both languages.
- *
- * `whereFor` is a callback rather than a foreign-key name, because Prisma's
- * compound-unique inputs (`worldId_language`, `subjectId_language`, …) are
- * distinct literal-keyed types: a computed key would widen to an index signature
- * and stop type-checking against any of them. The callback keeps the shared part
- * — that a name is written in both locales, create-or-update — in one place while
- * each caller supplies its own literal.
- */
+/** The per-locale `upsert` list that writes a name in both languages. */
 function nameUpserts<TWhere>(
   translations: LocalizedName,
   whereFor: (language: Language) => TWhere,

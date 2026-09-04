@@ -6,14 +6,6 @@ import { Button, cn } from "@kidlearn/ui";
 /**
  * Which grades a piece of content appears for — the same fieldset on the subject,
  * topic and lesson forms (FR-CURR-04).
- *
- * One component rather than the copy each form used to hold: the two had already
- * drifted apart in their empty-state wording, which is what a duplicated widget
- * does first.
- *
- * The hint is `aria-describedby`-linked rather than merely adjacent, because it
- * carries the reason the submit button is disabled and colour is not the only
- * signal an error is showing (design.md §2.3).
  */
 const LABELS: Record<GradeLevelValue, string> = {
   NURSERY: "Nursery",

@@ -17,11 +17,6 @@ export const MAX_CHILDREN_PER_PARENT = 5;
  * The subset of a `ChildProfile` that goes over HTTP. An allowlist, not an
  * omission: `parentId` must never reach a client (NFR-SAFE-02), and any column
  * added to the model later stays invisible until someone lists it here.
- *
- * `stats` is a placeholder block so the client can render the profile card in
- * its final shape from day one (FR-PROF-04). Files 23–24 replace the zeros with
- * real ledger and streak queries inside `toChildProfileDto`; nothing else has
- * to change when they do.
  */
 export type ChildProfileDto = {
   id: string;
@@ -58,22 +53,7 @@ type CharacterReader = {
   character: { findFirst: typeof prisma.character.findFirst };
 };
 
-/**
- * Confirms the requested avatar is one this profile is allowed to wear.
- *
- * The spec for this file called the flag `isStarter`; the `Character` model
- * (file 06) instead carries `isDefault` — the characters unlocked for everyone
- * from the start — alongside `unlockRule` for the ones earned later (file 24).
- * `status: "published"` is the content-safety guard from `backend.md §4`: a
- * draft or in-review character must never become a child's avatar.
- *
- * `childId` is what makes this reusable on the update path. A creation has no
- * child yet, so only the starters are selectable; an existing profile may also
- * wear anything it has unlocked, which is a `ChildCharacter` row. That table is
- * empty until file 24 grants the first unlock, so the two branches behave
- * identically today — but the *seam* is here, because the alternative is a rule
- * that silently refuses every character a child earns the day rewards ship.
- */
+/** Confirms the requested avatar is one this profile is allowed to wear. */
 async function assertAvatarIsSelectable(
   client: CharacterReader,
   avatarCharacterId: string,
@@ -96,17 +76,7 @@ async function assertAvatarIsSelectable(
   }
 }
 
-/**
- * Creates a profile, enforcing the five-per-parent cap.
- *
- * Sharing one transaction between the count and the insert is not enough on its
- * own: an interactive transaction runs at Postgres's default READ COMMITTED,
- * under which two concurrent creates both count four and both commit, producing
- * exactly the sixth profile the transaction is supposed to prevent. Serializable
- * is what actually makes the cap hold — the loser aborts with P2034 having
- * written nothing, and `withSerializationRetry` re-counts under the winner's row
- * and either succeeds honestly or reports the limit.
- */
+/** Creates a profile, enforcing the five-per-parent cap. */
 export async function createChildProfile(
   parentId: string,
   input: CreateChildBody,
@@ -184,18 +154,7 @@ export async function updateChildProfile(
   return prisma.childProfile.update({ where: { id: childId }, data });
 }
 
-/**
- * Deletes a profile and everything belonging to it (FR-PROF-06).
- *
- * Only one row is deleted here: every child-data relation (LessonProgress,
- * QuizResponse, RewardLedger, ChildCharacter, Streak, ScreenTimeSetting,
- * SessionEvent, WeeklyReport) declares `onDelete: Cascade`, so Postgres removes
- * the rest. `Session.activeChildProfileId` is the exception — better-auth owns
- * that table and the column is a plain string with no foreign key, so it has to
- * be cleared by hand or the parent's session would keep acting as a profile
- * that no longer exists. `updateMany` rather than a single-session update so
- * the parent's other devices are cleared too.
- */
+/** Deletes a profile and everything belonging to it (FR-PROF-06). */
 export async function deleteChildProfile(childId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.session.updateMany({
@@ -206,15 +165,7 @@ export async function deleteChildProfile(childId: string): Promise<void> {
   });
 }
 
-/**
- * Points the current session at a child profile (FR-AUTH-06).
- *
- * Written straight to the `Session` row rather than through better-auth's own
- * session-update endpoint: `activeChildProfileId` is declared with
- * `input: false` in `lib/auth.ts` precisely so no client can set it, which also
- * rules out better-auth's updater. The column is part of better-auth's session
- * model, so the next `getSession` reads the new value back.
- */
+/** Points the current session at a child profile (FR-AUTH-06). */
 export async function activateChildProfile(
   sessionId: string,
   childId: string,

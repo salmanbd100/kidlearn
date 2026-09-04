@@ -11,15 +11,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { createChild } from "@/lib/parent-api";
 import { PARENT_ROUTES } from "@/lib/parent-redirect";
 
-/**
- * Add a second-through-fifth profile (FR-PROF-01).
- *
- * The same form as the onboarding step, differing only in having somewhere to
- * cancel to. `refresh()` before navigating, so the list this returns to already
- * contains the new profile rather than showing a stale count for a frame — which
- * matters at four profiles, where the count decides whether the Add button is
- * still there.
- */
+/** Add a second-through-fifth profile (FR-PROF-01). */
 export function NewChildScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();

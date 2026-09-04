@@ -8,34 +8,7 @@ import type { ActivityRendererProps } from "./registry";
 import { arrowsAlong, type Point, toPathUnits } from "./trace/geometry";
 import { useTraceState } from "./trace/use-trace-state";
 
-/**
- * Draw the letter with your finger (FR-ACT-02).
- *
- * **Six layers over one glyph, drawn back to front.** A faint outline of the
- * whole letter so the child can see what they are making; a dotted guide on the
- * stroke they are on now; the strokes they have already finished, solid; the part
- * of the current stroke they have covered, equally solid, because progress that
- * survives lifting a finger is what makes a half-traced letter resumable rather
- * than a restart; the live crayon trail; and a pulsing dot saying *start here*
- * with arrows saying *this way*.
- *
- * **Nothing on this board can be wrong.** Wandering off the guide draws a trail
- * that covers nothing and is wiped when the finger lifts — no cross, no shake,
- * no counter. The only thing a fruitless gesture earns is an encouraging voice
- * (FR-ACT-05), and only when the whole gesture found nothing at all.
- *
- * **Every length here is written in the reference 0–100 glyph space** and
- * converted through `toPathUnits`. Payload coordinates are not normalised — the
- * canonical "A" is authored in 0–200 — so a hard-coded `strokeWidth` would be
- * half as thick on one glyph as on another.
- *
- * **Every mark that means something is outlined in `foreground`.** The kid
- * palette is built for fills behind dark text, so sunshine on cream is 1.5:1 and
- * sky-blue is 2.3:1 — both under the 3:1 WCAG 2.1 AA floor for graphics that
- * carry meaning (design.md §1.6). The playful fill stays; a hairline of
- * `foreground` around it is what actually carries the contrast, in every theme
- * including high-contrast.
- */
+// Draw the letter with your finger (FR-ACT-02).
 
 const OUTLINE_WIDTH = 11;
 const INK_WIDTH = 7;

@@ -11,19 +11,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { updateChild } from "@/lib/parent-api";
 import { PARENT_ROUTES } from "@/lib/parent-redirect";
 
-/**
- * Edit a profile (FR-PROF-05).
- *
- * The profile is read from the session context rather than fetched by id: the list
- * is already loaded, so `GET /api/children/{id}` would ask for a row the client is
- * holding. An unknown id therefore means either a deleted profile or another
- * parent's — indistinguishable here for the same reason the API answers `404` to
- * both (NFR-SAFE-02) — and gets the same message either way.
- *
- * The form submits every field it validated, not just the changed ones. `PATCH`
- * accepts a partial body, but the parent reviewed the whole form, and diffing would
- * mean deciding what "unchanged" means for a trimmed string.
- */
+/** Edit a profile (FR-PROF-05). */
 export function EditChildScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();

@@ -204,8 +204,6 @@ function signInAs({
   db.childFindFirst.mockResolvedValue(child);
 }
 
-// --- The curriculum the fixtures are built from ---------------------------- //
-
 const PUBLISHED_NURSERY: StatusRow = {
   status: "published",
   gradeLevels: ["NURSERY", "KG1"],
@@ -301,8 +299,6 @@ function seedMinutes(minutes: number) {
     (_, index) => new Date(start + index * 30_000),
   );
 }
-
-// --- Narrow stand-ins for the queries the service actually sends ----------- //
 
 /**
  * The subset of Prisma's `where` grammar this service sends.

@@ -1,33 +1,4 @@
-/**
- * Shared primitives for every versioned content payload in kidlearn.
- *
- * ## Versioning rule (NFR-SCALE-02) — read before editing any schema here
- *
- * Every payload carries `schemaVersion` as a Zod **literal**. Revisions are
- * strictly additive: to introduce a v2 shape, add a new schema with
- * `schemaVersion: z.literal(2)` and widen the top-level union to include it.
- * Never edit a shipped v1 schema in a way that would stop already-stored
- * JSONB from parsing — rows written months ago must keep parsing forever.
- *
- * ## Localisation rule (FR-I18N-01, FR-I18N-05)
- *
- * Every child-facing string and every prompt audio clip is required in *both*
- * locales. These use `z.object` rather than `z.record` deliberately: `z.record`
- * infers optional keys, which would let a missing `bn` translation slip past
- * the compiler. `z.object` makes both locales statically required.
- *
- * ## Strictness rule
- *
- * Every object schema in this package is `.strict()`. Zod's default is to strip
- * unknown keys silently, which is the wrong behaviour for a validator that gates
- * author submissions and AI-generated payloads (files 33–35): a misspelled
- * `promptAudioo` or a hallucinated third locale would vanish instead of being
- * reported, and the human reviewer would approve a payload that lost data.
- * Strict mode turns those into issues the `400` response can name.
- *
- * Note the interaction with the versioning rule above: a v2 field must arrive
- * with a `schemaVersion: 2` schema, never as an extra key on a v1 payload.
- */
+/** Shared primitives for every versioned content payload in kidlearn. */
 import { z } from "zod";
 
 /** The current content schema version. Bump only by adding a new literal union member. */

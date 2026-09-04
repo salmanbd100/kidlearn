@@ -3,20 +3,6 @@ import type { ZodTypeAny } from "zod";
 /**
  * Asserts a real response body against the schema the OpenAPI document publishes
  * for it. Used by the route tests.
- *
- * This is the half of the drift protection that `coverage.test.ts` cannot provide.
- * Coverage proves every route is *described*; this proves the description is
- * *true*. Without it, a service could start returning a new field, or serialise a
- * timestamp differently, and the page would keep confidently documenting the old
- * shape.
- *
- * The response schemas are `.strict()`, so this fails on an **extra** key as well
- * as a missing one — which is the direction that matters most here, since an
- * accidentally-leaked field (`parentId`, `pinHash`) is a content-safety problem
- * and not merely an inaccurate document.
- *
- * Deliberately free of `vitest` imports so it stays importable from anywhere and
- * is not itself collected as a test.
  */
 export function assertContract(
   schema: ZodTypeAny,

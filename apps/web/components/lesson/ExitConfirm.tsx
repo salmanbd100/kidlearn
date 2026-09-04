@@ -17,26 +17,6 @@ import { toLocale } from "@/lib/locale";
 
 /**
  * "Leave the lesson?" — the one thing between a mis-tap and losing a lesson.
- *
- * Three deliberate choices, all from the same principle (design.md §1.2 — nothing
- * destructive is one easy tap away):
- *
- *  - **The answers are two big buttons.** Both are ≥64px targets. A child who cannot
- *    read still has a green *go back to playing* and a plainly different *leave*,
- *    each with its own icon, so the choice is not carried by text.
- *  - **Every accidental way out means *stay*.** The primitive's small close button,
- *    Escape, and a tap on the scrim all route to `onStay` — so the outcome of a
- *    mis-tap is always the harmless one, and only the labelled *Leave* leaves. The
- *    close button is given the *Stay* label for that reason: it is not a third
- *    option, it is the same answer in a smaller shape.
- *  - **Staying is the default.** `Stay` is the primary action and is first in the
- *    DOM, so it takes focus when Radix traps it.
- *  - **It is spoken.** A pre-reader gets the question aloud on open, through the
- *    shared channel so it interrupts whatever the step was narrating.
- *
- * Nothing is at stake if the child does leave: every step was reported as it
- * finished, so `Leave` returns to the world screen with the place already saved.
- * The copy says so, for the grown-up who is reading over their shoulder.
  */
 export function ExitConfirm({
   isOpen,

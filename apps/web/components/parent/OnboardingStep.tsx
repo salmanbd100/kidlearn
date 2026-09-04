@@ -5,17 +5,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 
-/**
- * Chrome shared by the three first-run steps (FR-AUTH-03..04, FR-PROF-01).
- *
- * The point is the progress line. A mandatory flow with no visible end is the
- * shape a parent abandons; "Step 2 of 3" is what says the PIN pad is not the
- * beginning of an unbounded form.
- *
- * There is no back link, on purpose. Consent and the PIN are recorded server-side
- * as each step completes, so a step behind the current one has nothing left to
- * change — `resolveParentRedirect` would send a parent forward again immediately.
- */
+// Chrome shared by the three first-run steps (FR-AUTH-03..04, FR-PROF-01).
 
 export const ONBOARDING_STEP_COUNT = 3;
 

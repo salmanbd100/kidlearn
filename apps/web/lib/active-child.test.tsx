@@ -5,13 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
 
-/**
- * The provider every student screen reads from.
- *
- * The API is stubbed at `lib/parent-api`, which is the module boundary the
- * provider talks through — stubbing `fetch` instead would re-test `apiFetch`'s
- * envelope handling, which has its own suite.
- */
+// The provider every student screen reads from.
 
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),

@@ -19,27 +19,6 @@ import { StatusChip } from "./StatusChip";
 
 /**
  * One pane of the curriculum tree: a reorderable list of siblings (file 32).
- *
- * **Built on `@dnd-kit/core` alone, not `@dnd-kit/sortable`.** The sortable
- * package is not a dependency of this app and a list of at most a few dozen rows
- * does not need its layout animation machinery — `general.md §3` says reuse what
- * exists before adding. Each row is both a draggable and a droppable, and a drop
- * splices the dragged id in at the target's index.
- *
- * **Reordering is optimistic and then settled by the server.** The parent applies
- * the new order immediately so the list does not jump under the cursor, sends the
- * whole sibling set, and reverts if the write is refused — which it will be if
- * this tab's list is stale.
- *
- * **The drag lives on a handle, not on the row.** `KeyboardSensor` activates on
- * Space and Enter and calls `preventDefault()` before it does, so listeners on
- * the row button swallowed that button's own activation: pressing Enter on a
- * subject started a drag and never selected it, leaving the tree unusable
- * without a pointer (NFR-A11Y-06). A separate handle registered through
- * `setActivatorNodeRef` gives each gesture its own target — Enter on the row
- * selects, Enter on the handle picks up, arrows move, Enter drops.
- *
- * `onReorder` is absent for worlds, which carry no `sortOrder` column.
  */
 
 export interface ColumnItem {

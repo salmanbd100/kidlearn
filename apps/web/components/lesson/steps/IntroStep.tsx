@@ -14,18 +14,6 @@ import type { LessonStepProps } from "./lesson-step-props";
 /**
  * The lesson's opening beat — the mascot greets the child and says what the
  * lesson is about (FR-LSN-01, NFR-A11Y-01).
- *
- * **The narration is the screen; the text is a copy of it.** It plays on mount
- * without a tap, because a three-year-old who cannot read has no other way in
- * (Pillar A). `introScript` is rendered large underneath as reinforcement for a
- * reader, an adult sitting alongside, and a device with the sound off — but
- * nothing on this screen depends on it being read.
- *
- * **Two controls, and the advance is never locked.** Hear it again, or go on.
- * Disabling "Let's go!" until the audio finished would trap a child who already
- * knows the lesson behind thirty seconds of a voice they are not listening to,
- * so instead the button simply starts pulsing once the narration is done — the
- * cue is an invitation, not a gate (design.md §1.3).
  */
 
 const MASCOT_PX = 320;
@@ -109,17 +97,7 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
   );
 }
 
-/**
- * The mascot, breathing.
- *
- * A slow vertical bob on `transform` only (design.md §5.2), and completely still
- * under reduced motion — the point of the movement is that the character looks
- * alive while it talks, and a static image loses nothing else.
- *
- * `alt=""`: the character is company, not information. Everything it has to say
- * is in the narration and the script below it, and naming it to a screen reader
- * would only add a noise between the two.
- */
+/** The mascot, breathing. */
 function MascotGreeting({ url, name }: { url?: string; name: string }) {
   const isMotionReduced = useIsMotionReduced();
 

@@ -6,14 +6,6 @@ import { authContext } from "./require-parent.js";
  * The parental gate (FR-AUTH-04). Mount it *after* `requireParent` on every
  * parent-dashboard and settings route (files 28–30) — never on a student-portal
  * route, because FR-AUTH-06 keeps profile switching PIN-free.
- *
- * It is an app-level check on top of the session, not a second auth system: the
- * grant is `Session.pinVerifiedUntil`, written by `POST /api/parent/pin/verify`
- * and expiring 15 minutes later.
- *
- * The two failure codes are deliberately distinct — the client's next screen
- * differs. `PIN_REQUIRED` means "this account has no PIN, open setup";
- * `PIN_VERIFICATION_REQUIRED` means "we have a PIN, open the PIN pad".
  */
 export const requirePinVerified: RequestHandler = (
   req: Request,

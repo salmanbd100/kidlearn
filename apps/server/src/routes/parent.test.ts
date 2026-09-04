@@ -118,12 +118,6 @@ function lastParentUpdateData(): Record<string, unknown> {
 /**
  * The row `prisma.parent.update` writes to: seeded from whatever the test told
  * `parentFindUnique` to return, then carried across every write in the test.
- *
- * A stub that returned a fixed row would hide what this suite now has to guard.
- * The PIN counter is written with Prisma's atomic `{ increment: 1 }`, and only
- * a stub that applies the increment to *stored* state can tell that apart from
- * the lost-update version that computed `snapshot + 1` in this process — where
- * parallel guesses all read the same snapshot and the lockout never trips.
  */
 let storedParent: Parent | undefined;
 
@@ -141,17 +135,7 @@ function applyUpdate(row: Parent, data: Record<string, unknown>): Parent {
   return next as Parent;
 }
 
-/**
- * Evaluates a Prisma `where` against the stored row.
- *
- * Needed because the brute-force guard's correctness now lives *in* a `where`:
- * `claimAttemptSlot` bounds a concurrent burst by putting
- * `pinFailedCount: { lt: 5 }` in the same `UPDATE` that increments it, and a stub
- * that ignored the filter would report the whole burst as allowed — exactly the
- * defect the guard exists to prevent. Only the operators that guard uses are
- * supported; an unrecognised one throws rather than quietly matching, so a future
- * predicate cannot pass this suite by being invisible to it.
- */
+/** Evaluates a Prisma `where` against the stored row. */
 function matchesWhere(row: Parent, where: Record<string, unknown>): boolean {
   return Object.entries(where).every(([field, condition]) => {
     if (field === "OR") {
@@ -458,8 +442,6 @@ describe("POST /api/parent/pin/verify", () => {
     // The escalation used to be derived from `pinFailedCount`, which had to
     // survive the lockout for the doubling to work — and that made the window
     // allowance impossible to restore without also forgiving the escalation.
-    // `pinLockoutStrikes` carries the depth instead: it survives every cool-off
-    // and only a correct PIN clears it.
     db.parentFindUnique.mockResolvedValue(
       parentRow({ pinHash: correctPinHash, pinFailedCount: 4 }),
     );
@@ -520,13 +502,6 @@ describe("POST /api/parent/pin/verify", () => {
 
   it("refuses a parallel burst beyond the allowance instead of comparing every guess", async () => {
     // The regression this guards is a check-then-act race, not a counting one.
-    // Every request here reads the same `pinFailedCount: 0` snapshot in
-    // `requireParent`, so a guard that decides from the snapshot lets all twenty
-    // guesses reach `verifyPin` and arms the cool-off twenty times afterwards —
-    // by which point a 4-digit PIN has taken 20 shots from one burst. An atomic
-    // `{ increment: 1 }` fixes the count but not that; the allowance has to be
-    // claimed by the same UPDATE that tests it, which is what `claimAttemptSlot`
-    // does. Exactly five guesses may be compared, however many arrive at once.
     const BURST = 20;
     db.parentFindUnique.mockResolvedValue(
       parentRow({ pinHash: correctPinHash, pinFailedCount: 0 }),

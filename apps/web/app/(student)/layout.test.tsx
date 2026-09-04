@@ -8,9 +8,6 @@ import { resetI18nForTests } from "@/lib/i18n";
  * decides who is playing, and the one control that leaves the portal. This suite
  * covers what that boundary owns — the theme, and the parent corner being present
  * on every student screen by construction rather than by each page remembering it.
- *
- * The API is stubbed at `lib/parent-api`, the module boundary the provider talks
- * through.
  */
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));

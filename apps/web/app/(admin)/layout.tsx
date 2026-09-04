@@ -1,12 +1,6 @@
 import type { ReactNode } from "react";
 
-/**
- * Admin CMS shell — internal content review and publishing.
- *
- * Shares the parent theme (it is the same professional voice) but runs wider
- * and denser: this surface is content tables and review queues, used on a
- * desktop by a reviewer approving AI-generated lessons.
- */
+/** Admin CMS shell — internal content review and publishing. */
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div

@@ -15,32 +15,10 @@ import {
   type UploadSignature,
 } from "../../services/mediaService.js";
 
-/**
- * `/api/admin/media` — the media library (file 33, FR-CMS-02).
- *
- * Three operations and a deliberate absence. `POST /sign` hands out an upload
- * credential, `POST /` records what came back, `GET /` lists what exists — and
- * **there is no upload endpoint**, because the file goes straight from the
- * admin's browser to Cloudinary. See `services/mediaService.ts` for why that is
- * the only shape that works on this deployment.
- *
- * The two-request dance is visible to the client and that is intentional: an
- * upload that succeeded at Cloudinary but failed to register leaves an orphan
- * file in the account rather than a row pointing at nothing. Orphans cost storage
- * and are collectable; a broken reference is content a child cannot play.
- *
- * Mounted inside `adminRouter`, so `requireAdmin` guards every path here by
- * construction.
- */
+/** `/api/admin/media` — the media library (file 33, FR-CMS-02). */
 export const adminMediaRouter = Router();
 
-/**
- * The upload credential (FR-CMS-02).
- *
- * `POST` rather than `GET` even though it reads nothing: it mints a
- * time-limited credential, so it must not be cacheable, prefetchable or
- * reachable from a link.
- */
+/** The upload credential (FR-CMS-02). */
 adminMediaRouter.post(
   "/sign",
   validate({ body: SignUploadSchema }),

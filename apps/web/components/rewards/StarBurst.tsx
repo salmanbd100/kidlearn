@@ -7,16 +7,6 @@ import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 /**
  * The stars a lesson just earned, popping in one at a time (FR-GAM-01,
  * FR-LSN-05).
- *
- * One big star per star, and nothing that could read as a mark out of anything:
- * there is no empty slot, no "2 of 3", and no total to compare against. The
- * count is small by construction — two or three — so the stagger is generous
- * enough for a child to watch each one land rather than a shower they cannot
- * follow.
- *
- * A completion that granted nothing (a replay) renders no stars, and the
- * celebration around it says the warm thing instead. Zero is *already done*, not
- * a failure, and the child is owed the fireworks either way.
  */
 
 /** Long enough that each star is its own event, per `design.md §5.1`. */

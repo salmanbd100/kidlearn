@@ -1,27 +1,6 @@
 import { DEFAULT_LOCALE, isLocale } from "./locale";
 
-/**
- * "3 minutes ago", "yesterday", "12 days ago" — the activity feed's dates.
- *
- * A pure function taking `now` rather than reading the clock inside a component,
- * for the reason the implementation file gives: a date rendered inside a component
- * can only be tested by freezing time around a render, while this is a table of
- * assertions.
- *
- * Granularity steps at the boundaries a parent actually reads. Under an hour it is
- * minutes; under a day, hours; beyond that, **calendar** days rather than 24-hour
- * blocks — 30 hours before midday is 06:00 yesterday, which a parent reads as
- * "yesterday" and not "2 days ago", and `Intl.RelativeTimeFormat`'s
- * `numeric: "auto"` is what turns -1 into that word in both locales.
- *
- * Magnitudes are **truncated, not rounded**, so a figure can never round out of
- * the bucket that selected it: 59m42s is "59 minutes ago", where rounding gave
- * the nonsense "60 minutes ago".
- *
- * `locale` is whatever i18next holds, which may be a region tag or something
- * unsupported; anything that is not a locale this app ships falls back to the
- * default rather than throwing inside a render.
- */
+/** "3 minutes ago", "yesterday", "12 days ago" — the activity feed's dates. */
 export function formatRelative(date: Date, locale: string, now: Date): string {
   const language = isLocale(locale) ? locale : DEFAULT_LOCALE;
   const relative = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
@@ -40,13 +19,7 @@ export function formatRelative(date: Date, locale: string, now: Date): string {
   return relative.format(calendarDaysBetween(now, date), "day");
 }
 
-/**
- * The full date, for the `title` a relative date hangs off.
- *
- * A relative date is easy to read and impossible to check; the tooltip is what
- * lets a parent see which Tuesday "3 days ago" was (NFR-A11Y — a `<time>`'s own
- * `dateTime` is machine-readable but not shown to a sighted reader).
- */
+/** The full date, for the `title` a relative date hangs off. */
 export function formatAbsolute(date: Date, locale: string): string {
   const language = isLocale(locale) ? locale : DEFAULT_LOCALE;
   return new Intl.DateTimeFormat(language, {

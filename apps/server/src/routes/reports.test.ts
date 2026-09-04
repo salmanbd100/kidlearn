@@ -192,8 +192,6 @@ function signInAs({
   db.childFindFirst.mockResolvedValue(child);
 }
 
-// --- Fixtures -------------------------------------------------------------- //
-
 const LIVE_WORLD = "world_meadow";
 const DRAFT_WORLD = "world_unreviewed";
 

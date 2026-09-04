@@ -9,22 +9,7 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 import { StoryMediaPanel } from "./StoryMediaPanel";
 
-/**
- * `/admin/stories` — the story section (file 35, FR-AI-02).
- *
- * **This is the generator's entry point and nothing more yet.** Authoring,
- * listing and editing stories arrive with the review queue (file 37, which reuses
- * the file-33 editors for edit-then-approve), so the screen says what it can do
- * and what it cannot rather than showing an empty table that looks broken.
- *
- * It fetches its own data for the reason recorded in `frontend.md §2`: the admin
- * session cookie belongs to the API origin, so a Server Component calling
- * `/api/admin/*` would send no credentials and get a `401`.
- *
- * The worlds list is the one thing the dialog cannot do without — a story's world
- * decides its characters — so a failure to load it is an error state rather than a
- * dialog with an empty select.
- */
+// `/admin/stories` — the story section (file 35, FR-AI-02).
 
 export function StoriesScreen() {
   const [worlds, setWorlds] = useState<AdminWorld[]>([]);

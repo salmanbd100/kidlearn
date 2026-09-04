@@ -6,10 +6,6 @@ import { formatWeekRange } from "./week-range";
  * that crosses a month, one that crosses a year, and Bangla — which uses its own
  * digits *and* puts the month last, so a Latin-numeral assertion would pass
  * against a locale-blind implementation.
- *
- * Assertions are on structure rather than exact strings wherever ICU owns the
- * shape: month abbreviations and range separators move between Node versions, and
- * a test that pins them fails on an upgrade that broke nothing.
  */
 
 const MONDAY = "2026-08-17T00:00:00.000Z";

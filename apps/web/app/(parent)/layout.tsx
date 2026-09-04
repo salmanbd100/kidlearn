@@ -2,19 +2,7 @@ import type { ReactNode } from "react";
 import { ParentSessionProvider } from "./context/parent-session";
 import { ParentGuard } from "./ParentGuard";
 
-/**
- * Parent Dashboard shell — PIN-gated, calm, dense (design.md §2.2, §6).
- *
- * A centred app-shell container rather than the kid surface's full bleed:
- * parents must be able to manage the whole account from a phone, so the content
- * column is fluid up to a readable maximum.
- *
- * This stays a Server Component. The session it wraps everything in cannot be —
- * see the note in `context/parent-session.tsx` — but the theme boundary, the
- * layout, and the font choice are static, so only the two components that need
- * browser state are client ones. `children` passes straight through as a slot, so
- * a page is not forced client by sitting inside them.
- */
+/** Parent Dashboard shell — PIN-gated, calm, dense (design.md §2.2, §6). */
 export default function ParentLayout({ children }: { children: ReactNode }) {
   return (
     <div

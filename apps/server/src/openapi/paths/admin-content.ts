@@ -13,18 +13,6 @@ import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 /**
  * `routes/admin/content.ts` — the curriculum CMS (file 32, FR-CURR-04,
  * FR-CMS-01, FR-CMS-06).
- *
- * The four resources are documented from one table rather than four hand-written
- * blocks, mirroring the router. Prose that is genuinely per-resource lives in
- * `RESOURCES` below; everything the four share is written once, so the shared
- * half cannot say one thing on `subjects` and another on `lessons`.
- *
- * Compile-time guard on the mirrored enum, matching the `GradeLevel` assertion in
- * `paths/children.ts`. `@kidlearn/types` may not depend on `@kidlearn/db`, so
- * `CONTENT_STATUSES` restates Prisma's `ContentStatus` by hand. These two
- * assignments make that restatement checked rather than trusted: adding a status
- * to `schema.prisma` without adding it here fails `pnpm typecheck`, rather than
- * shipping a workflow document that omits a state content can actually be in.
  */
 type _StatusesCoverPrisma = ContentStatus extends ContentStatusValue
   ? true
@@ -71,13 +59,7 @@ const EDIT_CONFLICT_RESPONSE = errorResponse(
  * The one paragraph that has to appear on every create and edit operation, and
  * the reason this file exists as a generator rather than four copies.
  */
-/**
- * `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07).
- *
- * Registered on all four resources rather than on lessons alone. Only `Lesson`
- * carries `aiJobId` today, but a per-resource rule is one the next generated
- * resource has to remember, and an absent `jobId` costs nothing.
- */
+/** `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07). */
 const JOB_ID_QUERY_NOTE =
   "**`?jobId=…`** records `edit_then_approve` on that AI generation job (FR-AI-07), for a save made from the review queue's Edit button. It rides on this request rather than following it as a second call: a client that crashed between the two would leave a rewritten lesson whose audit trail says nobody rewrote it (FR-AI-08). Ignored — never an error — when the job named has already been decided, because the save is real work and the breadcrumb is not. Recording it publishes nothing: the publish guard also requires the job to *be* approved, which only `POST /api/admin/ai/jobs/{id}/approve` writes.";
 
@@ -436,8 +418,6 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
 
   return docs;
 }
-
-// --- Character sheets (file 36, FR-AI-09) ---------------------------------
 
 const CHARACTER_SHEET_BASE = "/api/admin/content/character-sheets";
 

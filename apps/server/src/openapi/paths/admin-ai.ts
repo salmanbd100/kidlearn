@@ -21,28 +21,6 @@ import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 /**
  * `routes/admin/ai.ts` — the AI generation pipeline (files 34–36, FR-AI-01..06,
  * FR-AI-08, FR-AI-09).
- *
- * The three text operations answer with the same `GenerationJobRefResponse`, and
- * every one of them can answer `202` with `status: "failed"`. That is not an
- * oversight in the status codes: a generation that produced nothing usable is not
- * a bad request, the job row exists and holds both attempts, and a client's next
- * step — open the job — is the same either way.
- *
- * The two media operations added by file 36 answer with `BatchGenerationRefResponse`
- * instead, because one click there creates *n* jobs — one per clip or picture,
- * since one clip is what a reviewer approves. They report `skipped` and `failed`
- * alongside: the first so a re-run on finished work reads as "nothing left to do"
- * rather than as five silent failures, the second so a batch that generated
- * nothing usable does not read as one that worked.
- *
- * **Every operation here can answer `429`.** Three independent daily ceilings —
- * text, audio, image — counted from `AIGenerationJob` rows created since midnight
- * in `APP_TIMEZONE`. They exist because the batch endpoints turn one click into
- * many provider calls; see `RATE_LIMITED_RESPONSE` below.
- *
- * File 37 adds the review queue — the human gate FR-AI-07 makes a hard
- * requirement. Nothing above it can publish; nothing below it can be reached
- * without an administrator having read what a model wrote.
  */
 
 /**
@@ -139,12 +117,7 @@ const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   ["FORBIDDEN"],
 );
 
-/**
- * The `429` every generation operation shares (file 36).
- *
- * Deployment-wide rather than per administrator: what is being protected is a
- * shared free tier, so a second admin's budget is the same budget.
- */
+/** The `429` every generation operation shares (file 36). */
 const RATE_LIMITED_RESPONSE = errorResponse(
   [
     'Today\'s generation cap for this operation\'s cost bucket is used up. `error.details` carries `{ bucket, cap, used, pending }` — the arithmetic, not just the verdict, so a client can say "40 of 50 used, this needs 16" rather than "try again tomorrow".',

@@ -9,16 +9,6 @@ import { LOCALES } from "@kidlearn/types";
 /**
  * The activity editor's form state, and the compiler that turns it into a payload
  * (FR-ACT-06).
- *
- * Same design as `./quiz-draft.ts`, for the same reasons: pure and separate from
- * the component so "the form produces something `safeParseActivityDefinition`
- * accepts" is testable as a function, and one draft type across all four types so
- * switching mid-edit does not discard work.
- *
- * **The puzzle's slots are generated, not authored.** `slots` is `rows × cols`
- * entries of `{ index, row, col }` — mechanical, cross-validated by the schema,
- * and nothing an author has an opinion about. A form that asked for them would be
- * a form whose only possible mistake is arithmetic.
  */
 
 export type LocalizedDraft = Record<Locale, string>;
@@ -108,16 +98,7 @@ export function emptyActivityDraft(type: ActivityType): ActivityDraft {
   };
 }
 
-// --- Compiling ------------------------------------------------------------
-
-/**
- * A `LocalizedAudio`, or `undefined` when *neither* locale is filled.
- *
- * Half-filled emits the half that exists, for the reason `localizedText` does:
- * `audio` is optional on an item, so dropping the whole pair would discard the
- * clip the author just picked and leave Save enabled with nothing to explain it.
- * Emitting the half makes the schema name the locale that is missing.
- */
+/** A `LocalizedAudio`, or `undefined` when *neither* locale is filled. */
 function localizedAudio(urls: LocalizedDraft) {
   if (LOCALES.every((locale) => urls[locale] === "")) return undefined;
   return Object.fromEntries(
@@ -141,13 +122,7 @@ function localizedText(text: LocalizedDraft) {
   );
 }
 
-/**
- * A comma-separated list of numbers, as the schema wants it.
- *
- * Non-numeric entries are passed through unchanged rather than coerced to `NaN`:
- * the schema then names the offending position, which is a message an author can
- * act on, where `NaN` is a type error about a value they never typed.
- */
+/** A comma-separated list of numbers, as the schema wants it. */
 function numberList(value: string): Array<number | string> | undefined {
   const parts = value
     .split(",")
@@ -182,13 +157,7 @@ function compileItem(item: ItemDraft, isImageRequired: boolean) {
   };
 }
 
-/**
- * The grid cells a puzzle of this size has, in reading order.
- *
- * `index` is the piece's identity and `row`/`col` its home cell; the schema
- * requires exactly `rows × cols` of them, each cell used once. Generated rather
- * than authored — see the file header.
- */
+/** The grid cells a puzzle of this size has, in reading order. */
 export function puzzleSlots(rows: number, cols: number): PuzzleSlot[] {
   return Array.from({ length: rows * cols }, (_unused, index) => ({
     index,
@@ -197,13 +166,7 @@ export function puzzleSlots(rows: number, cols: number): PuzzleSlot[] {
   }));
 }
 
-/**
- * The draft as a payload, ready for `safeParseActivityDefinition`.
- *
- * `unknown` rather than `ActivityDefinition`, for the reason `compileQuestion`
- * gives: an incomplete draft is not a valid definition, and typing it as one would
- * be a claim this function cannot make.
- */
+/** The draft as a payload, ready for `safeParseActivityDefinition`. */
 export function compileActivity(draft: ActivityDraft): unknown {
   const audio = localizedAudio(draft.instructionAudio);
   const shared = {
@@ -335,8 +298,6 @@ export function knownActivityPaths(draft: ActivityDraft): string[] {
     ...setPaths("targets", draft.targets),
   ];
 }
-
-// --- Loading an existing activity ----------------------------------------
 
 export function draftFromActivity(
   definition: ActivityDefinition,

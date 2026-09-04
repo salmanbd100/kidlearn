@@ -7,21 +7,6 @@ import { prisma } from "../lib/prisma.js";
 
 /**
  * Gate for every `/api/admin/*` route the CMS serves (spec §4.3, FR-CMS-01).
- *
- * The `AdminUser` lookup **is** the separation of principals. Admins and parents
- * share one better-auth instance and one `user` table (see the note on
- * `emailAndPassword` in `lib/auth.ts` for why), so "is this an admin" cannot be
- * answered by the session alone. It is answered by whether a domain row claims
- * that identity — and because a Google sign-in never writes one, every parent
- * session fails here, however valid it is.
- *
- * The reverse direction holds without any code here: `requireParent` refuses to
- * provision a `Parent` for a user with no Google account, so an admin session is
- * rejected by every parent route. `admin.test.ts` asserts both directions.
- *
- * Unlike `requireParent`, this never provisions anything. An admin exists because
- * `scripts/seed-admin.ts` created one; a session with no matching row is a
- * mistake, not a new account.
  */
 export const requireAdmin: RequestHandler = async (
   req: Request,

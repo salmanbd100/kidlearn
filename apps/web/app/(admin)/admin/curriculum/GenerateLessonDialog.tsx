@@ -27,25 +27,6 @@ import { GRADE_LABELS, LOCALE_LABELS } from "@/lib/admin-labels";
 /**
  * "Write this lesson for me" — the admin end of the AI Lesson Generator
  * (file 34, FR-AI-01).
- *
- * **The dialog promises a draft, not a lesson, and says so before the button is
- * pressed.** What comes back is a job in the review queue; the objectives, the
- * scripts and the quiz are all invisible to children until somebody reads them
- * and publishes (FR-AI-07). Wording that implied otherwise would be the one place
- * in this CMS where a click could look like it had put words in front of a child.
- *
- * **One grade, not the multi-select the hand-authored lesson form carries.** The
- * prompt writes for a reading age, so "Nursery and KG-2" is a request for two
- * lessons rather than one lesson for two audiences.
- *
- * **The world select is optional and labelled as inherited.** A topic that
- * already has lessons settles it, which is the normal case; a topic with none
- * earns a `409` the admin can act on rather than a silent guess that themes the
- * lesson wrongly on a child's home screen.
- *
- * The request is deliberately un-retried and can take the better part of a
- * minute — see `lib/admin-api.ts` — so the submit button carries the wait rather
- * than a spinner that could be mistaken for a hung page.
  */
 
 export interface GenerateLessonDialogProps {

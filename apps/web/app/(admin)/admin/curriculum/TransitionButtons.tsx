@@ -5,19 +5,6 @@ import { Button } from "@kidlearn/ui";
 
 /**
  * The status changes legal from where a row currently is (file 32, FR-CMS-06).
- *
- * **The list comes from `@kidlearn/types`, which is the same table the server
- * applies** — not a copy of it. A mirrored matrix drifts, and what drift produces
- * here is a button an admin clicks and a `409` they can do nothing about. The
- * server stays the authority regardless: it judges the hop against the row's
- * *actual* status, which this component cannot know is still current, so a
- * rejection is surfaced rather than assumed away.
- *
- * **Publish on an `in_review` row is two requests, not a special one.** There is
- * no `in_review → published` hop, and adding one would be adding a way to publish
- * without an approval on the record. The button sends `approved` and then
- * `published`, each validated in its own right; if the first is refused the
- * second is never sent.
  */
 
 /** The verb an admin thinks in, for each hop. `to` is what goes over the wire. */

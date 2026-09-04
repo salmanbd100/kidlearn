@@ -3,9 +3,6 @@ import { LOCALES, type Locale } from "@kidlearn/types";
 /**
  * Locale plumbing with no dependency on i18next, so a Server Component can read
  * the visitor's choice without pulling the i18n runtime into the server bundle.
- *
- * The cookie is the source of truth for a *device*. Once a child profile is
- * active, its `language` column wins and is pushed here (wired in file 15).
  */
 
 export const LOCALE_COOKIE_NAME = "kidlearn_locale";

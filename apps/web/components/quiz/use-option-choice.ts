@@ -4,21 +4,7 @@ import { useCallback, useState } from "react";
 import { evaluateAnswer } from "./evaluate-answer";
 import type { PlayableQuestion, QuestionProps } from "./types";
 
-/**
- * Tap one, and that is your answer (FR-QUIZ-01, FR-QUIZ-04).
- *
- * **Single tap commits — there is no confirm step.** A three-year-old does not
- * hold an intention across "pick" and "then press OK"; asking them to would turn
- * every question into two questions. So the tap *is* the answer, and the safety
- * net is that a wrong one costs nothing.
- *
- * **A wrong option is set aside, not marked.** It fades and stops answering, the
- * others stay live, and the child tries again with fewer things to consider —
- * which is help, not a penalty. Nothing counts down and nothing runs out (§5.7).
- *
- * Shared by both pick-one formats: the interaction is identical and only the
- * layout differs, so it lives here and the format files hold the shapes.
- */
+// Tap one, and that is your answer (FR-QUIZ-01, FR-QUIZ-04).
 
 export interface OptionChoice {
   /** The option that was right, once it has been tapped. */

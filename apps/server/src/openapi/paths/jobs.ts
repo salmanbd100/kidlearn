@@ -5,12 +5,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `routes/jobs.ts` — `requireCronSecret` guards the whole router.
- *
- * The only operations in this document that do **not** use the session cookie, so
- * each overrides the default security scheme explicitly.
- */
+/** `routes/jobs.ts` — `requireCronSecret` guards the whole router. */
 export const JOBS_ROUTES: RouteDoc[] = [
   {
     method: "post",

@@ -6,21 +6,6 @@ import { cn } from "@kidlearn/ui";
 /**
  * A story page's text, following the narration when the recording knows where it
  * is (FR-STORY-02).
- *
- * **One component, two data shapes — never two screens.** Every MVP story arrives
- * with `narrationTimings: null` and renders as plain text; when the voice pipeline
- * (file 36) starts producing spans, the same component highlights the run being
- * read. Writing the highlight later, as a second reading view, is how a feature
- * ends up shipped twice and tested once.
- *
- * The spans are **character offsets into this exact string**, so nothing here
- * re-tokenises the text. That matters beyond tidiness: Bangla does not break on
- * spaces where English does, and a client-side word split would disagree with the
- * pipeline's in one of the two languages the app ships.
- *
- * `text-2xl` is the floor a child reads a story at — well above the 20px kid
- * minimum (design.md §3.2), because this is the one screen whose text is the
- * point rather than a label on something else.
  */
 
 export interface NarratedTextProps {
@@ -77,13 +62,6 @@ interface Segment {
 /**
  * Splits `text` into the timed runs and the gaps between them, marking the run
  * the narration is inside.
- *
- * The gaps matter: spaces and punctuation sit *between* spans, and dropping them
- * would rewrite the sentence. Anything after the last span is emitted too, so a
- * pipeline that timed only the first half of a page still shows the whole page.
- *
- * A span whose offsets fall outside the string is skipped rather than clamped —
- * bad timing data must cost a highlight, never a word of the story.
  */
 function toSegments(
   text: string,

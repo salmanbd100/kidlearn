@@ -4,17 +4,7 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { LocaleTabs } from "./LocaleTabs";
 
-/**
- * The locale switch, and the two ARIA claims it used to make falsely.
- *
- * It wore `role="tablist"` / `role="tab"` without a `tabpanel`, `aria-controls`,
- * roving `tabindex` or arrow-key navigation — a screen reader was told "tab 1 of
- * 2" and then could not find the panel. They are toggle buttons, and now say so.
- *
- * Both panels stay mounted either way: that is what keeps a half-typed
- * translation alive across a switch, and it is why nothing inside may be
- * `required` (see `ContentForm.test.tsx`).
- */
+// The locale switch, and the two ARIA claims it used to make falsely.
 
 function Harness() {
   const [active, setActive] = useState<Locale>("en");

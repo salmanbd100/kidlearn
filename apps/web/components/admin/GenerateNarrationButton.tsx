@@ -8,32 +8,6 @@ import { generateNarration } from "@/lib/admin-api";
 /**
  * "Generate narration" — the admin end of the text-to-speech pipeline
  * (file 36, FR-AI-04, FR-I18N-05).
- *
- * **A button with no options, deliberately**, and one shared by the lesson, story
- * and quiz screens rather than three near-copies. The endpoint takes an entity and
- * an id and works out the rest: which locales have text, which of those have no
- * audio yet, and which already have a clip waiting in the review queue. A form
- * offering a language picker would let an admin ask for a Bangla clip on a page
- * with no Bangla text, or re-record one that already exists.
- *
- * **Nothing this produces is audible to a child, and the notice says so.** The
- * clips land as `MediaAsset` rows with no foreign key pointing at them; the
- * attachment happens on approval in the review queue (FR-CMS-05, FR-AI-07). An
- * admin who was not told that would reasonably assume the lesson now speaks.
- *
- * **`skipped` is half the answer.** An eight-page story that produced three clips
- * looks like five failures without it, and the admin's next move — click again —
- * is the wrong one. It covers three reasons at once — already recorded, already in
- * the queue, no text to read — so the notice names all three rather than claiming
- * the clips exist, which is untrue of the third.
- *
- * **`failed` is reported as an error, not folded into the count.** A batch answers
- * `202` even when every clip failed, because the jobs were created and hold their
- * own diagnosis; saying "16 clips recorded" for sixteen failures would send the
- * admin to listen to nothing. A wholly failed batch goes to `onError`.
- *
- * The request is un-retried and can take a long time: sixteen clips is sixteen
- * sequential text-to-speech calls, so the button carries the wait in its label.
  */
 
 const ENTITY_NOUN: Record<NarrationEntity, string> = {

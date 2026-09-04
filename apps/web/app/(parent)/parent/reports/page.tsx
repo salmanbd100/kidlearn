@@ -2,11 +2,6 @@ import { ReportsScreen } from "./ReportsScreen";
 
 /**
  * `/parent/reports` — the weekly report card and its history (FR-DASH-05..06).
- *
- * `searchParams` is a Promise in Next.js 16 — synchronous access was removed, not
- * just deprecated (see `apps/web/AGENTS.md`). Reading `?child=` and `?week=` here
- * rather than with `useSearchParams` below keeps the client component free of
- * routing concerns and needs no Suspense boundary: it receives two ids, not a route.
  */
 export default async function ParentReportsPage({
   searchParams,

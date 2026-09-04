@@ -1,14 +1,5 @@
 /**
  * The pure half of the weekly report: rows → metrics, and metrics → a note key.
- *
- * No Prisma stub and no `app.ts` import, deliberately — this file is the reason
- * `computeWeeklyMetrics` takes arrays of plain rows rather than a child id, and the
- * reason `selectNote` takes the metrics rather than reading them back. The database
- * half is covered by `routes/reports.test.ts` and `routes/jobs.test.ts`.
- *
- * Every timestamp below is written in UTC and asserted through `Asia/Dhaka`
- * (UTC+6), which is the only way the timezone rules are actually under test: a
- * fixture written in local time would pass against a UTC implementation too.
  */
 import { describe, expect, it } from "vitest";
 import { localDayStartUtc } from "../lib/local-date.js";

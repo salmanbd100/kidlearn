@@ -8,25 +8,7 @@ import { fetchAiJobCount } from "@/lib/admin-api";
 import { ADMIN_ROUTES, isPublicAdminPath } from "@/lib/admin-routes";
 import { useAdminSession } from "./context/admin-session";
 
-/**
- * The sidebar-and-content frame around every CMS page (FR-CMS-01 shell).
- *
- * A Client Component only because the sidebar needs the current path and the
- * sign-out button needs a handler. `children` passes straight through as a slot, so
- * a page is not forced client by sitting inside it — the same arrangement
- * `ParentLayout` uses.
- *
- * The login screen gets no chrome: a sidebar full of links that all bounce back
- * here would be worse than no sidebar at all.
- *
- * **The AI Queue badge is polled here rather than on the queue screen** (file 37,
- * requirement 8). Its point is to be seen from the *other* five sections — an
- * admin editing curriculum has no reason to open the queue unless something told
- * them to — so it has to live in the frame, above every page. Sixty seconds: a
- * generation takes tens of seconds to write and nobody is waiting on the number,
- * and a tighter interval would be a request a minute per open tab for a count
- * that changes a few times a day.
- */
+// The sidebar-and-content frame around every CMS page (FR-CMS-01 shell).
 
 const BADGE_POLL_MS = 60_000;
 export function AdminShell({ children }: { children: ReactNode }) {

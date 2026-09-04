@@ -1,14 +1,4 @@
-/**
- * Parental-PIN hashing (FR-AUTH-04).
- *
- * argon2id, not bcrypt: a 4-digit PIN has only 10,000 possible values, so the
- * only real defence against an attacker who has stolen the `pinHash` column is
- * a memory-hard KDF. argon2id also resists the GPU attack bcrypt does not.
- * (The 5-attempt lockout in `parentSecurityService` covers the online case.)
- *
- * Raw PINs never leave this module: they are not logged, not returned, and not
- * stored — only the digest reaches the database.
- */
+/** Parental-PIN hashing (FR-AUTH-04). */
 import argon2 from "argon2";
 
 export function hashPin(pin: string): Promise<string> {

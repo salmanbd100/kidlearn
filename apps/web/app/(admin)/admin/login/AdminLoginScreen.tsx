@@ -9,20 +9,6 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
 
 /**
  * `/admin/login` — email and password, and nothing else (file 31, spec §4.3).
- *
- * **No signup link, no "forgot password".** Neither exists to link to:
- * `emailAndPassword.disableSignUp` closes `POST /api/auth/sign-up/email` for every
- * caller, and a forgotten password is recovered by re-running `pnpm --filter server
- * seed:admin` — `/api/auth/forget-password` is not registered, because no reset
- * email is configured to send. An affordance for either would be a dead end that
- * also implied a self-service path into the CMS.
- *
- * One error line for every failure, because the server makes a wrong password and
- * an unknown email indistinguishable on purpose — telling them apart would confirm
- * which addresses are administrators. There is nothing an admin can do differently
- * in the two cases anyway.
- *
- * `router.replace`: the login page must not sit in the back stack behind the CMS.
  */
 export function AdminLoginScreen() {
   const router = useRouter();

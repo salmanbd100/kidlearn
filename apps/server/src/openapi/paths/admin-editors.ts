@@ -11,12 +11,6 @@ import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 /**
  * `routes/admin/content-editors.ts` — the guided editors (file 33, FR-CMS-03,
  * FR-GAM-04).
- *
- * Written out per operation rather than generated from a table, unlike
- * `paths/admin-content.ts`. The four curriculum resources really are the same
- * five operations with different schemas; these three are not — a quiz owns an
- * ordered sub-resource, an activity is a single payload, and a badge is a rule.
- * A generator over them would be a table of exceptions.
  */
 
 const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
@@ -110,23 +104,7 @@ const INCLUDE_ARCHIVED_PARAM = {
   schema: { type: "string", enum: ["true", "false"] },
 };
 
-/**
- * `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07).
- *
- * The review queue deep-links into these editors carrying the job whose content
- * is being rewritten. Saving with it present records `edit_then_approve` on that
- * job, in the *same request* as the save: a client that saved and then posted the
- * decision separately can crash between the two, and what it leaves behind is a
- * rewritten lesson whose audit trail says nobody rewrote it (FR-AI-08).
- *
- * Optional everywhere — these routes are also reached from the ordinary CMS with
- * no job in sight — and never an error on its own. A `jobId` naming a job that
- * has since been decided is ignored rather than failing the save: it is a
- * breadcrumb, and the save is real work an administrator has just done. Nothing
- * is weakened by that, because recording the decision publishes nothing; the
- * publish guard additionally requires the job to *be* approved, which only
- * `POST /api/admin/ai/jobs/{id}/approve` writes.
- */
+/** `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07). */
 const JOB_ID_QUERY_PARAM = {
   ...queryParam(
     "jobId",
@@ -142,7 +120,6 @@ const quizId = pathParam("quizId", "The quiz's id.", {
 });
 
 export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
-  // --- Quizzes -----------------------------------------------------------
   {
     method: "post",
     path: "/api/admin/content/quizzes",
@@ -359,7 +336,6 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     },
   },
 
-  // --- Activities --------------------------------------------------------
   {
     method: "post",
     path: "/api/admin/content/activities",
@@ -497,7 +473,6 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     },
   },
 
-  // --- Badges ------------------------------------------------------------
   {
     method: "post",
     path: "/api/admin/content/badges",

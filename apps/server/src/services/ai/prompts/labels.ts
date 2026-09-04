@@ -1,13 +1,7 @@
 import type { GradeLevel } from "@kidlearn/db";
 import type { Locale } from "@kidlearn/types";
 
-/**
- * How a grade and a language are spelled to the model.
- *
- * Extracted from `./lesson.ts` by file 35 so all three generators name a reading
- * age the same way: `KG1` is a database enum member and means nothing to a writer,
- * whereas the age range is the whole instruction.
- */
+// How a grade and a language are spelled to the model.
 
 export const GRADE_LABELS: Record<GradeLevel, string> = {
   NURSERY: "Nursery (ages 3–4)",

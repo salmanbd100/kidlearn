@@ -11,26 +11,6 @@ import { STUDENT_NAMESPACE } from "@/lib/i18n";
 /**
  * The last screen of a story: what it was about, and what finishing it was worth
  * (FR-STORY-03, FR-STORY-06..07).
- *
- * **The moral is spoken, not just printed.** It is the one line of a story that
- * exists only as text — the pages have narration and the cover has its title read
- * aloud — so a finish screen that merely displayed it would keep the point of the
- * story from the child the app is for.
- *
- * **Reading again is one of the two buttons, not a consolation.** Replays are free
- * and unlimited (FR-STORY-06), so the ending offers the story back as readily as
- * it offers the library.
- *
- * **A replay's reward is silence about rewards, never a failure.** `granted` is
- * `null` on every reading after the first; the screen then says the warm thing
- * ("you have read this one before") instead of announcing zero stars. Zero earned
- * is *already done*.
- *
- * **Three states, not two.** Until the completion call answers there is nothing
- * true to say about the reward, so the line is simply absent — and stays absent
- * if the call failed. Collapsing "still asking" into "already read" would tell a
- * child who has just earned their first stars that they had read this one before,
- * announce it, and then change its mind.
  */
 
 export interface FinishScreenProps {

@@ -4,37 +4,11 @@ import { env } from "../../lib/env.js";
 /**
  * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
  * FR-I18N-05; provider swapped in file 37a).
- *
- * **Plain `fetch`, no SDK.** The whole integration is one POST that answers with
- * one field; a client library would add a dependency, a type surface and an
- * error vocabulary to learn in exchange for nothing this needs — and the SDK's
- * auth stack wants a service-account file, where this project's credentials are
- * all plain strings.
- *
- * **One voice per locale, and the voice is the locale's.** Which voice speaks
- * which language is a decision made once and held — it is not something a caller
- * passes in — because a wrong one produces *audible* damage rather than an error:
- * the clip generates, uploads, and passes a review that was not listening in that
- * language. `lib/env.ts` rejects a voice from the wrong language at boot for the
- * same reason.
- *
- * **Standard voices, not WaveNet or Neural2.** Standard's free allowance is an
- * order of magnitude larger, and warm-and-unhurried — file 36's actual bar for a
- * three-year-old — does not need a premium voice.
- *
- * The bytes are returned rather than uploaded here. Where the clip lands is
- * `services/mediaService.ts`'s business, and keeping the two apart is what lets
- * the narration generator's test drive a real upload path against a stubbed voice.
  */
 
 /**
  * The voice name carries its own language, so `languageCode` is derived from it
  * rather than configured beside it.
- *
- * Two independent variables would let a deployment set an `en-US` code against a
- * `bn-IN` voice, which is two values to get wrong instead of one — and the API
- * would answer either with an error or, worse, with a clip in whichever of the
- * two it preferred.
  */
 const VOICE_BY_LOCALE: Record<Locale, { languageCode: string; name: string }> =
   {

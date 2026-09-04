@@ -13,18 +13,7 @@ import {
   listStoriesForChild,
 } from "../services/storyService.js";
 
-/**
- * The Story Library read API (FR-STORY-01, 04, 05, 08).
- *
- * Mounted on `contentRouter` at `/stories` rather than on `apiRouter` directly, so
- * it inherits the `requireParent` + `requireActiveChild` pair `/api/content/*`
- * already carries and every handler here can assume an ownership-checked
- * `ChildProfile` — one gate for the whole content surface rather than a second
- * copy that could be forgotten.
- *
- * Handlers stay thin: querying, visibility and locale resolution all live in
- * `services/storyService.ts` (`backend.md §2`).
- */
+/** The Story Library read API (FR-STORY-01, 04, 05, 08). */
 export const storiesRouter = Router();
 
 /** See the identical helper in `content.ts` for why this cast is safe here. */

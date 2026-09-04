@@ -3,34 +3,7 @@ import type { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import type { GenerationStopReason, TokenUsage } from "./types.js";
 
-/**
- * The `AIGenerationJob` lifecycle, shared by every generator (FR-AI-08).
- *
- * `pending → generating → awaiting_review | failed`. The three parts a generator
- * supplies are the prompt call, the schema its answer must satisfy, and the write
- * that turns a valid answer into draft rows. Everything else — the row, the
- * status moves, the one retry, the audit trail — is here, so a new generator in
- * files 35–36 is a prompt and a `persist`, not a second copy of this.
- *
- * **Every attempt is kept, valid or not.** `rawOutput` holds the verbatim JSON of
- * both attempts plus the token usage they cost, which is the whole of FR-AI-08: a
- * reviewer looking at a bad lesson can see exactly what the model was asked and
- * exactly what it said, and a failed job is readable rather than just red.
- *
- * **Exactly one retry, and only for a schema failure.** A validation miss is
- * something the model can fix when shown its own issues; a 401, a 429 or a
- * rejected write is not, and a second identical request would only spend the
- * quota twice. Two of the model's own stops are not validation misses either,
- * though they arrive looking like one: a refusal and an answer cut off at the
- * token ceiling both leave the JSON missing or half-written. Both are failed here
- * by name rather than retried and then reported as invalid JSON.
- *
- * **Nothing here can publish.** `persist` runs inside a transaction and writes
- * draft rows carrying `jobId`; the job lands on `awaiting_review` and stops. That
- * is the structural half of FR-AI-07 — the half that holds before file 37's
- * review queue exists, because there is no code path from this function to
- * `status: "published"`.
- */
+// The `AIGenerationJob` lifecycle, shared by every generator (FR-AI-08).
 
 /** The feedback appended to the conversation before the single retry. */
 export function buildRetryFeedback(flattenedIssues: string): string {
@@ -188,13 +161,6 @@ export async function runGenerationJob<TParsed>(
 
 /**
  * The two stops that are not worth a second call, named rather than fed back.
- *
- * A retry exists to show the model its own validation errors. Neither of these is
- * one: a refusal is a decision the same prompt will reach again, and an answer cut
- * off at the token ceiling will be cut off at the same place. Reported by name
- * because the alternative — "failed schema validation on both attempts" — sends
- * whoever reads the job looking at the schema for a fault that is not there
- * (FR-AI-08).
  */
 function describeUnretryableStop(generated: {
   stopReason?: GenerationStopReason | null;
@@ -215,10 +181,6 @@ function describeUnretryableStop(generated: {
 /**
  * The whole audit trail for one job (FR-AI-08): every attempt verbatim, what they
  * cost together, and whatever the caller has to add about the outcome.
- *
- * The attempts are rebuilt field by field rather than handed over as they are,
- * because `Prisma.InputJsonObject` is structural and `Attempt` is not: mapping
- * them here is what makes the JSONB write type-checked instead of cast.
  */
 function auditRecord(
   attempts: Attempt[],
@@ -257,14 +219,7 @@ function totalUsage(attempts: Attempt[]): Prisma.InputJsonObject {
   };
 }
 
-/**
- * Zod issues as the lines the retry shows the model.
- *
- * `issues` rather than `flatten()`, deliberately: the lesson output nests quiz
- * questions inside an array, and `flatten()` collapses every nested path into one
- * `formErrors` bucket that names no field. `quizQuestions.2.options: too_small`
- * is something a model can act on.
- */
+/** Zod issues as the lines the retry shows the model. */
 function flatten(error: z.ZodError): string {
   return error.issues
     .map((issue) => `- ${issue.path.join(".") || "<root>"}: ${issue.message}`)

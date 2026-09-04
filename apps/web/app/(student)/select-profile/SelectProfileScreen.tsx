@@ -9,20 +9,7 @@ import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { useScreenNarration } from "@/lib/use-screen-narration";
 import { StudentStatus } from "../StudentGuard";
 
-/**
- * "Who's learning today?" — the child's front door (FR-AUTH-06).
- *
- * **No PIN, now or on the way back.** Switching profiles is a child-initiated
- * action by design: a sibling picking up the tablet must not need a grown-up, and
- * the list can only ever contain profiles the already-signed-in parent owns. The
- * PIN guards `/parent/*`, which is where a first name could be changed or a
- * profile deleted.
- *
- * This screen deliberately does not sit behind `StudentGuard` — it is the screen
- * the guard sends people *to* when no profile is active, so it has to render in
- * exactly the state the guard treats as incomplete. The one redirect it owns is
- * the signed-out case, which no child can resolve.
- */
+/** "Who's learning today?" — the child's front door (FR-AUTH-06). */
 export function SelectProfileScreen() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();

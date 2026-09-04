@@ -7,23 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
-/**
- * The three- and seven-day streak party (FR-GAM-06).
- *
- * **Only on the day the streak *reaches* the milestone.** The server decides
- * that — `streak.milestone` is `3` or `7` on exactly one completion and `null`
- * on every other, including later days of the same run — so there is no day
- * arithmetic here, and nothing a device clock could change. This component
- * renders what it is told.
- *
- * A ring of flames rather than confetti or a firework burst: a particle system
- * is dozens of animated nodes on a device that may be a five-year-old's
- * hand-me-down, and the whole effect here is one icon repeated eight times with
- * a staggered scale. `transform` and `opacity` only (design.md §5.2).
- *
- * Under reduced motion the flames are simply *there* — the child still gets the
- * ring, the count and the audio, without a loop.
- */
+// The three- and seven-day streak party (FR-GAM-06).
 
 /** Enough to read as a burst, few enough to animate on a cheap tablet. */
 const FLAME_COUNT = 8;

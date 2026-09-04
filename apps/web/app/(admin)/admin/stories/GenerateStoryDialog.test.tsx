@@ -3,15 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 
-/**
- * The AI Story Generator's form (file 35, FR-AI-02).
- *
- * The claims worth testing here are the ones a reviewer cannot see from the
- * markup: that the request carries exactly the admin's choices, that grade levels
- * are a set in a stable order however they were clicked, that a story cannot be
- * asked for without a world to set it in, and that a `failed` job is reported as a
- * failure even though the HTTP call succeeded.
- */
+// The AI Story Generator's form (file 35, FR-AI-02).
 
 const generateStory = vi.hoisted(() => vi.fn());
 

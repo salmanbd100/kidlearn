@@ -9,31 +9,9 @@ import {
 import { z } from "zod";
 import { logger } from "./logger.js";
 
-/**
- * The badge rule engine (FR-GAM-04) — **badges are data, not code**.
- *
- * A `Badge` row carries a `ruleType` string and a `rule` JSONB blob, and this
- * file is the only place that knows what either means. Adding "finish 5 lessons
- * in Shapes" is then an admin writing a row (file 33), not a deploy.
- *
- * Two properties make that safe rather than merely flexible:
- *
- *  - **Every evaluator is pure.** They take pre-counted facts and return a
- *    boolean, so the whole rule table is testable without a database, and the
- *    queries that produce the counts live in one place
- *    (`services/achievementService.ts`) instead of once per rule.
- *  - **A bad row can never break a completion.** An unknown `ruleType` and a
- *    `rule` that fails its schema both warn and evaluate `false`. A child who
- *    finished a lesson gets their celebration whatever an admin typed into the
- *    CMS; the badge they did not get is a row an adult fixes later.
- */
+// The badge rule engine (FR-GAM-04) — **badges are data, not code**.
 
-/**
- * Everything the rules can ask about a child, counted once per completion.
- *
- * The topic lookups are functions rather than maps so a rule naming a topic that
- * does not exist reads as zero rather than as `undefined`.
- */
+/** Everything the rules can ask about a child, counted once per completion. */
 export interface BadgeFacts {
   /** Completed and published lesson counts for one topic. */
   lessonsInTopic: (topicSlug: string) => {
@@ -50,11 +28,6 @@ export interface BadgeFacts {
 
 /**
  * The rule payload shapes, from `@kidlearn/types`.
- *
- * Imported rather than declared here, because the CMS's guided form (file 33)
- * builds a payload against the same shapes and the admin API validates one with
- * them. Three parties, one definition — see `types/src/badges.ts` for why a
- * second copy is how a badge nobody can earn gets authored.
  */
 type Evaluator = (rule: unknown, facts: BadgeFacts) => boolean;
 
@@ -155,13 +128,7 @@ export function evaluateBadgeRule(
   return evaluator(rule, facts);
 }
 
-/**
- * Which topic a rule is about, if any.
- *
- * Exported so `achievementService` can decide which topics to count *before* it
- * counts them, without a second copy of the rule shapes: knowing that
- * `topicSlug` is the key is this file's business, not the caller's.
- */
+/** Which topic a rule is about, if any. */
 const TopicScopedRuleSchema = z.object({ topicSlug: z.string().min(1) });
 
 export function badgeRuleTopicSlug(rule: unknown): string | undefined {

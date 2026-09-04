@@ -1,11 +1,4 @@
-/**
- * Illustration prompt assembly (file 36, FR-AI-05, FR-AI-09).
- *
- * `buildIllustrationPrompt` is a pure function and is tested as one — no mocks and
- * no database. That it is exported at all is the point: the character-consistency
- * mechanism is a string, and asserting the string is how the requirement is
- * checkable without spending money on two pictures and looking at them.
- */
+// Illustration prompt assembly (file 36, FR-AI-05, FR-AI-09).
 
 import { describe, expect, it } from "vitest";
 import { buildIllustrationPrompt } from "./gemini.js";

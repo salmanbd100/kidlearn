@@ -8,20 +8,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 
-/**
- * What the child has earned, at the top of every world screen (FR-GAM-06).
- *
- * **Read-only, and structurally so.** There is no setter, no local counter and no
- * optimistic increment anywhere in this component — every number comes from
- * `stats` on the profile the server sent. Rewards, coins and streaks are computed
- * server-side (spec §7, files 23–24); a client that could add a star is a client
- * that could be asked to.
- *
- * The streak chip is never hidden. A brand-new child sees a dimmed flame reading
- * "Start a streak!" rather than a gap where a chip will appear tomorrow —
- * predictability matters more to a five-year-old than tidiness, and a strip that
- * changes shape is a strip they have to re-learn.
- */
+// What the child has earned, at the top of every world screen (FR-GAM-06).
 
 const chipVariants = cva(
   "inline-flex min-h-11 items-center gap-2 rounded-pill px-4 py-2 font-display text-lg leading-none",

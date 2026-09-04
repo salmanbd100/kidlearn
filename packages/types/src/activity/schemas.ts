@@ -1,16 +1,6 @@
 /**
  * Activity payload schemas (FR-ACT-06) — the single source of truth for the
  * JSONB stored in `Activity.definition`.
- *
- * Consumed by three independent parties: the frontend activity engines
- * (files 18–20), the backend content validators (files 12, 33), and the AI
- * generation prompts (files 34–35). Change nothing here without checking all
- * three, and honour the additive versioning rule documented in `../primitives`.
- *
- * The union is a plain `z.union`, not `z.discriminatedUnion`: every member
- * carries a `.superRefine()` and is therefore a `ZodEffects`, which
- * `z.discriminatedUnion` rejects. Discrimination still fails fast because the
- * `type` literal mismatches before any expensive refinement runs.
  */
 import { z } from "zod";
 import {

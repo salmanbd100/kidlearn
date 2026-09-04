@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateScreenTime } from "./screenTimeService.js";
 
-/**
- * The whole of the screen-time rule, tested without a database or a clock.
- *
- * `evaluateScreenTime` is pure precisely so this suite can be a table: the thing
- * that decides whether a five-year-old is told "come back tomorrow" is the one
- * piece of this feature that must not depend on how it was reached.
- */
+// The whole of the screen-time rule, tested without a database or a clock.
 
 /** The permissive case — every test overrides only what it is about. */
 const OPEN = {

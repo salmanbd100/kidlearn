@@ -125,14 +125,7 @@ function daysAgoAsDateColumn(days: number): Date {
   return date;
 }
 
-/**
- * An in-memory store, not a queue of canned answers.
- *
- * `progressRows` is carried between requests, so "advance", "no regress" and "do
- * not re-stamp `completedAt`" are each a *second* request reading what the first
- * wrote. Keyed by lesson rather than a single row, because two lessons finished
- * on one day is exactly the case the daily reward grant is about.
- */
+/** An in-memory store, not a queue of canned answers. */
 const store = vi.hoisted(() => ({
   progressRows: [] as unknown[],
   events: [] as unknown[],
@@ -508,8 +501,6 @@ beforeEach(() => {
   //
   // The catalogues start empty, so the reward tests above stay about stars and
   // coins; a test that cares seeds `store.badges` / `store.characters` itself.
-  // The streak store is a real row that carries between requests, which is the
-  // only way "a second lesson today changes nothing" can be tested at all.
 
   db.streakFindUnique.mockImplementation(
     async ({ where }: { where: { childId: string } }) =>
@@ -1070,10 +1061,6 @@ describe("POST /api/progress/lessons/:id/complete", () => {
 /**
  * Streaks, badges and character unlocks, through the endpoint that produces them
  * (FR-GAM-04..06).
- *
- * The streak fixture is a seeded `Streak` row with `lastActivityDate` set to
- * yesterday rather than any attempt to travel in time: "completing on day three"
- * is a property of the stored row, and faking the clock would test the fake.
  */
 describe("POST /api/progress/lessons/:id/complete — achievements", () => {
   function complete(lessonId = LESSON_ID) {

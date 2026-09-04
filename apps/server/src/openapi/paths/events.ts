@@ -13,17 +13,6 @@ import type { RouteDoc } from "../route-doc.js";
  * `routes/events.ts` — mounted behind `requireParent` **and**
  * `requireActiveChild` in `routes/index.ts`, so every present and future
  * `/api/events/*` path is covered by construction.
- *
- * Compile-time guard on the mirrored enum, one direction only. `@kidlearn/types`
- * may not depend on `@kidlearn/db`, so `ACTIVITY_EVENT_TYPES` restates part of
- * Prisma's `SessionEventType` by hand. The assignment below fails `pnpm typecheck`
- * if a type this endpoint accepts stops existing in the database — the failure that
- * would otherwise surface as a runtime error on a screen a child is looking at.
- *
- * The reverse direction is deliberately **not** asserted: the subset is the point.
- * `heartbeat` has its own endpoint, and `session_start` / `session_end` have no
- * producer, so a client that could name them could forge the rows a screen-time
- * limit is enforced from.
  */
 type _ActivityTypesExistInPrisma = ActivityEventType extends SessionEventType
   ? true

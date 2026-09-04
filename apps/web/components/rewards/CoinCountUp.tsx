@@ -4,22 +4,7 @@ import { Coins } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
-/**
- * Coins ticking up (FR-GAM-02, FR-LSN-05).
- *
- * The number climbing is the whole point: a five-year-old who cannot yet read
- * "11" can watch the pile grow, and the counting is what makes the reward feel
- * earned rather than announced. So this animates the *value*, not a transform —
- * the one place in the app where an animation carries meaning instead of polish.
- *
- * `requestAnimationFrame` rather than an interval, because a step per coin would
- * finish in three frames for a small grant and take a minute for a large one.
- * The ease-out is what a pile of coins does: fast, then settling.
- *
- * Under reduced motion it renders the final number immediately (NFR-A11Y-05).
- * That is the honest reduction here — the information is the total, and the
- * climb is the decoration.
- */
+// Coins ticking up (FR-GAM-02, FR-LSN-05).
 
 export const COIN_COUNT_DURATION_MS = 1200;
 

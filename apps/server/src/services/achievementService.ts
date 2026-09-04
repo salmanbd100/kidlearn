@@ -12,25 +12,7 @@ import {
 import { logger } from "../lib/logger.js";
 import { prisma } from "../lib/prisma.js";
 
-/**
- * Badge milestones and character unlocks (FR-GAM-04, FR-GAM-05).
- *
- * This file is the *queries*; `lib/badge-rules.ts` is the *rules*. The split is
- * what makes a rule table testable without a database, and it is also what keeps
- * one completion to a handful of reads rather than one per badge: the rules
- * declare which topics they care about, this counts those topics once, and every
- * candidate badge is then evaluated against the same set of facts.
- *
- * **Nothing here writes a `RewardLedger` row.** `findNewlyEarnedBadges` answers
- * *which* badges a child has just earned and `rewardService` writes them, so the
- * FR-GAM-08 invariant survives intact: there is exactly one file in this codebase
- * that can put a reward in the ledger, and a route that could be handed an amount
- * is not reachable from here. `ChildCharacter` is a different table with no
- * amount on it at all, so unlocking a character is written where it is decided.
- *
- * No Express types cross this boundary — every function is callable from a test
- * without an HTTP layer.
- */
+// Badge milestones and character unlocks (FR-GAM-04, FR-GAM-05).
 
 /** The slice of the client these need, so a transaction callback and the plain
  *  client are interchangeable. */
@@ -58,11 +40,6 @@ export interface UnlockTotals {
  * The MVP unlock criteria. Any combination of the three, and **all** the keys
  * present must be met — an `AND`, because `{ stars: 10, coins: 50 }` reads as
  * "ten stars and fifty coins" to everybody who writes one.
- *
- * `.strict()` so a key this engine does not understand fails the character
- * closed rather than unlocking it on the half that parsed, and non-empty so a
- * `{}` rule — which is how the seed marks "no rule, available from the start" —
- * can never unlock anything by meeting all zero of its conditions.
  */
 const UnlockRuleSchema = z
   .object({
@@ -75,14 +52,7 @@ const UnlockRuleSchema = z
     message: "an unlock rule must name at least one criterion",
   });
 
-/**
- * Whether these totals satisfy a character's `unlockRule`.
- *
- * Pure and exported so the criteria are testable without a database. A malformed
- * rule warns and stays locked, for the same reason a malformed badge rule stays
- * unearned: a bad CMS row must never break a completion, and a character a child
- * did not earn is a smaller failure than one they did.
- */
+/** Whether these totals satisfy a character's `unlockRule`. */
 export function meetsUnlockCriteria(
   unlockRule: unknown,
   totals: UnlockTotals,
@@ -107,13 +77,7 @@ export function meetsUnlockCriteria(
   );
 }
 
-/**
- * Counts everything the candidate badges ask about, in four reads.
- *
- * `topicSlugs` comes from the rules themselves, so a deployment whose badges
- * mention two topics does not scan the curriculum. An empty set skips the
- * lesson read entirely.
- */
+/** Counts everything the candidate badges ask about, in four reads. */
 async function loadBadgeFacts(
   tx: AchievementClient,
   childId: string,
@@ -218,18 +182,7 @@ async function loadBadgeFacts(
   };
 }
 
-/**
- * Which published badges this child has just qualified for (FR-GAM-04).
- *
- * "Just" is done by exclusion rather than by comparison: a badge already in the
- * ledger is never a candidate, so a child who crossed a threshold weeks ago is
- * not re-awarded, and a badge published today is awarded to a child who was
- * already past its threshold — which is the behaviour an admin adding a badge
- * expects.
- *
- * Must run **after** the streak update in the same transaction, so a
- * `streak_days` rule sees the day that has just been added.
- */
+/** Which published badges this child has just qualified for (FR-GAM-04). */
 export async function findNewlyEarnedBadges(
   tx: AchievementClient,
   childId: string,
@@ -277,16 +230,7 @@ export async function findNewlyEarnedBadges(
     }));
 }
 
-/**
- * Grants any characters this child's totals have just unlocked (FR-GAM-05).
- *
- * Must run **after** the badge grants in the same transaction, so a
- * `{ badges: n }` rule counts the badge that was just written.
- *
- * `isDefault` characters are excluded rather than filtered out later: they are
- * available to everyone from the first day, so unlocking one would write a row
- * that changes nothing and announce a character the child already had.
- */
+/** Grants any characters this child's totals have just unlocked (FR-GAM-05). */
 export async function unlockCharacters(
   tx: AchievementClient,
   childId: string,
@@ -336,14 +280,6 @@ export async function unlockCharacters(
 /**
  * Every published character, flagged with whether this child may wear it
  * (FR-GAM-05).
- *
- * The locked ones are returned too, and that is the feature: a picker showing
- * only what a child already has cannot show them what there is to earn. The
- * client draws those as silhouettes and will not select them.
- *
- * `isUnlocked` is exactly `assertAvatarIsSelectable`'s condition in
- * `childProfileService.ts` — `isDefault`, or a `ChildCharacter` row — so this
- * list can never offer an avatar the write route would reject.
  */
 export async function listCharactersForChild(
   childId: string,

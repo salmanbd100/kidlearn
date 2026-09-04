@@ -11,35 +11,10 @@ import { IsoDateTimeSchema, ok } from "./envelope.js";
 /**
  * `/api/admin/content/{quizzes,activities,badges}` — the guided editors
  * (file 33, FR-CMS-03, FR-GAM-04).
- *
- * **The `definition` fields carry the shared payload schemas, not `unknown`.**
- * That is the point of these responses: the admin API validated the JSONB with
- * `QuizQuestionSchema` / `ActivityDefinitionSchema` on the way in, so a route
- * test asserting a response against this schema proves the round trip — what came
- * back out of Postgres still parses as the thing the engines in files 18–22 will
- * be handed. A response schema of `z.unknown()` there would document nothing and
- * catch nothing.
- *
- * These sit apart from `./admin-content.ts` because they are a different kind of
- * thing. That file is the curriculum *hierarchy* — rows with slugs, parents,
- * ordering and per-locale names. A quiz question has none of those: its text is
- * inside its payload, in both locales, because the engine that renders it does
- * its own locale picking.
  */
 
 /**
  * The three resources the editors manage, spelled as they appear in the path.
- *
- * Deliberately separate from `CONTENT_RESOURCES`. That union is the curriculum
- * hierarchy — every member has a slug, a parent and per-locale names, and the
- * reorder and translation machinery keyed to it assumes all three. A quiz has none
- * of them, and widening the union would have made the four existing resources'
- * guarantees conditional.
- *
- * Shared rather than respelled on each side, for the same reason
- * `CONTENT_RESOURCES` is: this union *is* the path segment on the wire, so the
- * client, the router and the OpenAPI registration are talking about the same three
- * strings.
  */
 export const EDITOR_CONTENT_RESOURCES = [
   "quizzes",
@@ -107,14 +82,7 @@ export const AdminActivitySchema = z
 
 export type AdminActivity = z.infer<typeof AdminActivitySchema>;
 
-/**
- * A badge, as the manager edits it (FR-GAM-04).
- *
- * No timestamps: `Badge` has no `createdAt`/`updatedAt` columns, and no
- * `updatedBy` either — the audit stamp file 32 added to the curriculum models was
- * not added here. Absent rather than faked, so the document does not promise a
- * history the database cannot produce.
- */
+/** A badge, as the manager edits it (FR-GAM-04). */
 export const AdminBadgeSchema = z
   .object({
     id: z.string(),
@@ -124,13 +92,7 @@ export const AdminBadgeSchema = z
     ruleType: BadgeRuleTypeSchema,
     rule: BadgeRuleSchema,
     iconAssetId: z.string().nullable(),
-    /**
-     * The icon's delivery url, resolved from `iconAssetId`.
-     *
-     * Sent alongside the id because the editor's media picker identifies an asset
-     * by url: without it, opening a badge that has an icon renders the picker as
-     * "Not set" and invites the author to re-pick what is already there.
-     */
+    /** The icon's delivery url, resolved from `iconAssetId`. */
     iconUrl: z.string().nullable(),
     status: ContentStatusSchema,
   })
@@ -150,11 +112,6 @@ export const AdminBadgeListResponseSchema = ok(z.array(AdminBadgeSchema));
 /**
  * What a delete answers with — the id that is gone, and the remaining questions
  * in their re-numbered order.
- *
- * Not `204`: removing a question renumbers its siblings' `sortOrder`, so the
- * client's list is stale the moment the delete succeeds. Returning the survivors
- * is what lets the editor settle rather than guess, and it is the same reasoning
- * `ReorderedIds` is returned for.
  */
 export const QuestionDeletedSchema = z
   .object({

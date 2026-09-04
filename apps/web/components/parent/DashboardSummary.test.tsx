@@ -5,13 +5,7 @@ import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
 import { DashboardSummary } from "./DashboardSummary";
 
-/**
- * The dashboard's rendering, driven by fixtures rather than by a fetch.
- *
- * `DashboardSummary` takes the payload and the instant to measure dates from, so
- * every state the parent can be shown — a busy child, a brand-new one, a Bangla
- * reader — is a different fixture and not a different mock.
- */
+// The dashboard's rendering, driven by fixtures rather than by a fetch.
 
 const NOW = new Date("2026-08-19T12:00:00.000Z");
 

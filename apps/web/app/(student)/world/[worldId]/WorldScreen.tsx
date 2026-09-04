@@ -12,20 +12,7 @@ import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { useScreenNarration } from "@/lib/use-screen-narration";
 import { StudentStatus } from "../../StudentGuard";
 
-/**
- * Everything inside one world, as pictures (FR-PROF-03).
- *
- * One request, and no filtering afterwards. `GET /api/content/worlds/:id/lessons`
- * returns this world's lessons already grouped under their topic headings and
- * already narrowed to the child's grade and language — the server reads both from
- * the active profile, so there is nothing for this screen to decide and no way for
- * it to widen what a child can see.
- *
- * Tapping a tile speaks the lesson's name and navigates on the same tap. That
- * ordering is deliberate and it works because the audio channel is a single
- * element that outlives this tree: the name carries into the lesson that is
- * already loading instead of being cut off by the unmount.
- */
+/** Everything inside one world, as pictures (FR-PROF-03). */
 export function WorldScreen({ worldId }: { worldId: string }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();

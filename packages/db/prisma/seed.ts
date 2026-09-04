@@ -19,13 +19,7 @@ function asJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
-/**
- * Child-facing display names, in both locales.
- *
- * Seeded for every curriculum row the student API can reach, because an untranslated
- * seed makes the locale fallback invisible: everything would resolve through the
- * admin label and look correct in Bangla without a single translation existing.
- */
+/** Child-facing display names, in both locales. */
 async function seedNames(
   rows: {
     world?: string;
@@ -224,15 +218,6 @@ async function main() {
 
   /**
    * `title` is the one field this seed asserts on **update** as well as create.
-   *
-   * Every other upsert here passes `update: {}` on purpose — a re-seed must not
-   * stamp on content someone has since edited. Titles are the exception because
-   * of how they arrived: the `curriculum_name_translations` migration backfilled
-   * `LessonTranslation.title` from `Lesson.title`, which is the English admin
-   * label, so every pre-existing `bn` row came out reading English. With
-   * `update: {}` those rows would keep that English title forever — the seed
-   * would look correct on a fresh database and silently leave every existing one
-   * wrong. Owning the field on update is what makes a re-seed repair it.
    */
   await prisma.lessonTranslation.upsert({
     where: { lessonId_language: { lessonId: lessonA.id, language: "en" } },
@@ -467,15 +452,6 @@ async function main() {
   // The child-profile form offers every published `isDefault` character, so one
   // seeded character meant a picker with a single option and no real choice
   // (FR-PROF-02). These five join Leo to make the six-avatar starter set.
-  //
-  // `unlockRule: {}` marks "no rule — available from the start", the same as
-  // Leo's. Characters that must be *earned* carry a real rule and
-  // `isDefault: false`; those arrive with the unlock mechanics in file 24.
-  //
-  // No `assetId`: the illustrated character sheet comes from the content
-  // pipeline (design.md §9) and does not exist yet. `GET /api/characters` reports
-  // `imageUrl: null` and the web picker draws a placeholder keyed on the slug,
-  // so attaching real artwork later is a data change and nothing more.
   const STARTER_CHARACTERS = [
     { slug: "ellie-the-elephant", name: "Ellie the Elephant" },
     { slug: "tara-the-turtle", name: "Tara the Turtle" },
@@ -502,10 +478,6 @@ async function main() {
   // `isDefault: false` and a real `unlockRule`, which is what separates these
   // from the starter set above: they appear in the picker as locked silhouettes
   // and become selectable when the child's ledger totals meet the criteria.
-  //
-  // The three shapes the engine understands, one each, so a developer can see
-  // all of them fire without inventing content. Every key a rule names must be
-  // met — `{ stars: 10 }` is ten stars and nothing else.
   const UNLOCKABLE_CHARACTERS = [
     {
       slug: "mia-the-monkey",
@@ -533,22 +505,9 @@ async function main() {
     });
   }
 
-  // ---------- Six FR-GAM-04 Badges ----------
   /**
    * `ruleType` and `rule` are owned on **update**, unlike almost every other
    * upsert in this file.
-   *
-   * The reason is the same one `LessonTranslation.title` gives: these rows were
-   * seeded before the engine existed, and two of them named a `ruleType` the
-   * engine has no evaluator for (`lessons_completed_in_subject`). With
-   * `update: {}` a re-seed would leave those rows in place, evaluating false
-   * forever while looking correct on a fresh database. `name` and `description`
-   * are deliberately *not* owned — those are copy an admin may have edited
-   * (file 33), and a rule is not.
-   *
-   * `topicSlug: "numbers"` and `"animals"` name topics no seed has created yet.
-   * That is intentional and safe: a topic with nothing published in it counts as
-   * zero, so the badge simply never fires until the curriculum exists.
    */
   const MVP_BADGES = [
     {
@@ -606,7 +565,6 @@ async function main() {
     });
   }
 
-  // ---------- Assign Default Character to Child Profile ----------
   const ChildProfileUpdate = await prisma.childProfile.update({
     where: { id: "00000000-0000-0000-0000-000000000001" },
     data: { avatarCharacterId: characterLion.id },
@@ -629,14 +587,6 @@ async function main() {
   // Developer scaffolding for `GET /api/content/*` and for the frontend files
   // 15–22. Everything below is upserted on a stable id or slug, so running the
   // seed twice changes no row count.
-  //
-  // Deliberate status spread — the leak-proof tests and manual smoke checks
-  // need content that must NOT be visible:
-  //   letter-a            draft        (seeded above by file 04)
-  //   letter-a-sounds     published    NURSERY + KG1, en + bn
-  //   letter-a-practice   published    NURSERY + KG1, en only (fallback demo)
-  //   letter-c            in_review
-  //   letter-z-advanced   published    KG2 only (wrong-grade probe)
 
   // ---------- Media assets ----------
   // Local paths, not a CDN host that does not resolve. The lesson player is the
@@ -773,7 +723,6 @@ async function main() {
     });
   }
 
-  // ---------- Lessons ----------
   const letterASounds = await prisma.lesson.upsert({
     where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a-sounds" } },
     // Shares `letter:A` with the draft `letter-a` lesson on purpose: the report's

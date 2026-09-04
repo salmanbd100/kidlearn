@@ -8,15 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CharactersTab } from "./CharactersTab";
 
-/**
- * The Characters tab (file 36, FR-AI-09).
- *
- * What is worth asserting is the three things an admin can get wrong about a
- * character sheet, all of which the screen has to say out loud: that a
- * two-word description is not a description an image model can use, that a
- * rewrite changes future pictures and not past ones, and that saving a story's
- * cast never overwrites a sheet that already exists.
- */
+// The Characters tab (file 36, FR-AI-09).
 
 const api = vi.hoisted(() => ({
   fetchCharacterSheets: vi.fn(),

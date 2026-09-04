@@ -11,31 +11,7 @@ import { toLocale } from "@/lib/locale";
 import { submitQuizResponses } from "@/lib/progress-api";
 import type { LessonStepProps } from "./lesson-step-props";
 
-/**
- * The quiz (FR-LSN-04, FR-QUIZ-01..08).
- *
- * Thin, like the activity step: everything about *asking* a question belongs to
- * the engine, which validates its own payloads. This file answers the two things
- * the engine cannot — which lesson is on screen, and what happens to the answers
- * once the last one is in. A `null` quiz is an ordinary authoring state (a
- * published lesson may point at a quiz still in review), so it gets the same
- * gentle way onward a child gets from a broken payload.
- *
- * **The submission never gets in the child's way.** The score screen is rendered
- * from the records the engine just handed over, and the POST is fired alongside
- * it rather than awaited: a failure is a lost row in a report an adult reads
- * later, and there is no version of that worth stranding a four-year-old on a
- * spinner for. Scoring itself stays server-authoritative — nothing the response
- * carries is shown to the child, and nothing about it travels up through the
- * player.
- *
- * **The locale is the child's, not `lesson.locale`** — see `ActivityStep` for
- * why. Question payloads carry both languages and have nothing to fall back from.
- *
- * **In an administrator preview nothing is submitted** (file 33, FR-CMS-04): the
- * score screen still renders from the records in hand, and no `QuizResponse` row
- * is written for a child who does not exist.
- */
+/** The quiz (FR-LSN-04, FR-QUIZ-01..08). */
 export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
   const { t, i18n } = useTranslation(LESSON_NAMESPACE);
   const locale = toLocale(i18n.resolvedLanguage);

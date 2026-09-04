@@ -16,10 +16,6 @@ export type LocalePick<T> = { value: T | null; locale: Lang };
  * falling back to English, and reports which locale actually supplied it
  * (FR-PROF-03: the client is told what it got, and never sees the other
  * language's copy).
- *
- * `null` is treated as "missing" as well as `undefined`, because a translation
- * row can exist for a locale while the field it carries (e.g. a video asset)
- * does not.
  */
 export function pickLocale<T>(
   map: Partial<Record<Lang, T | null>> | null | undefined,

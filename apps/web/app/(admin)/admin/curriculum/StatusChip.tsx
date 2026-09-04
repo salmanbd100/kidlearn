@@ -3,17 +3,7 @@ import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ReactNode } from "react";
 
-/**
- * What status a row is in, at a glance (file 32, FR-CMS-06).
- *
- * The three tones answer one question — *can a child see this?* `live` is
- * `published` and only `published`; `review` is the two states waiting on a
- * person; `quiet` is everything a child cannot reach and nobody is waiting on.
- * Six colours would ask an admin scanning a tree to remember a legend; three ask
- * them to remember one distinction, and it is the distinction that matters.
- *
- * Semantic tokens only, per `design.md §2`.
- */
+/** What status a row is in, at a glance (file 32, FR-CMS-06). */
 export const chipVariants = cva(
   "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 font-medium text-[11px] uppercase tracking-[0.04em]",
   {

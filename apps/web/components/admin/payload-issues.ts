@@ -1,18 +1,6 @@
 import type { ZodIssue } from "zod";
 
-/**
- * Zod issues, indexed by the field they are about.
- *
- * The editors validate a compiled payload on **every keystroke** and put each
- * message under the input that produced it. That only works if a field can ask
- * "is there an issue at `options.1.text.bn`?" in constant time, which is what this
- * map is for — walking the issue array per input would be quadratic in the number
- * of fields on a form that re-validates constantly.
- *
- * Shared by the quiz and activity editors because the shape of the problem is the
- * same: one Zod union, one form, and messages that have to land somewhere
- * specific rather than in a list at the bottom.
- */
+/** Zod issues, indexed by the field they are about. */
 export type IssueMap = {
   /** The message for exactly this path, if any. */
   at: (path: (string | number)[]) => string | undefined;

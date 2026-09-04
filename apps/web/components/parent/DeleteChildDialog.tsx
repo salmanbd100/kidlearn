@@ -18,19 +18,7 @@ import type { ApiResult } from "@/lib/api-client";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { childWriteErrorKey } from "@/lib/parent-errors";
 
-/**
- * Confirm deleting a profile (FR-PROF-06).
- *
- * The delete button stays disabled until the parent has typed the child's name
- * exactly. That is not friction for its own sake: this erases every star, badge
- * and lesson a child earned, cascading across eight tables, and design.md §1.2 is
- * explicit that nothing destructive may be one easy tap away on a device a
- * four-year-old also holds. Typing a name is something a mis-tap cannot do.
- *
- * The comparison requires the exact name, and trims only surrounding whitespace —
- * a mobile keyboard's trailing space is not a different name, but a different name
- * is.
- */
+/** Confirm deleting a profile (FR-PROF-06). */
 export interface DeleteChildDialogProps {
   child: ChildProfileResponse;
   isOpen: boolean;

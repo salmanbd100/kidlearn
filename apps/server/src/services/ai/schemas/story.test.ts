@@ -1,13 +1,4 @@
-/**
- * The contract the story generator holds the model to (file 35, FR-AI-02).
- *
- * No database and no network — this is a schema, so the tests are the schema's own
- * behaviour. What matters here is the *rejections*: each one is a retry the
- * pipeline spends, and the two refinements below exist because the alternatives
- * are worse than a retry — a duplicate page number fails the insert, and a
- * character-less illustration prompt produces a story drawn differently on every
- * page.
- */
+// The contract the story generator holds the model to (file 35, FR-AI-02).
 
 import { describe, expect, it } from "vitest";
 import { buildStoryGenerationOutputSchema } from "./story.js";

@@ -210,33 +210,13 @@ import {
  * Everything under `components` in the document: the named schema registry, the
  * session-cookie security scheme, and the error responses that repeat across
  * operations.
- *
- * Every schema listed here is the *same object* the server validates with or the
- * tests assert against. Nothing in this file restates a shape — that is the whole
- * point, and it is why the page cannot drift from the server.
  */
 
-/**
- * Named schemas, request and response alike.
- *
- * Both a payload (`ChildProfile`) and the envelope that wraps it
- * (`ChildProfileResponse`) are registered, so a reader can look up either.
- *
- * Size note: because `to-json-schema.ts` must inline rather than cross-reference
- * (see the `$refStrategy` comment there for why), a schema nested inside another
- * is emitted in both places — `ActivityDefinition` appears standalone and again
- * inside `LessonDetail`. That puts the served document at roughly 165 KB (~600 KB
- * when pretty-printed by `openapi:write`), which gzips to about 20 KB. Accepted
- * deliberately: it is a development-only page, and the alternative is
- * hand-composing response bodies in JSON, which reintroduces exactly the second
- * source of truth this file exists to eliminate.
- */
+/** Named schemas, request and response alike. */
 const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
-  // --- Envelopes and errors ------------------------------------------------
   ErrorEnvelope: ErrorEnvelopeSchema,
   ValidationDetails: ValidationDetailsSchema,
 
-  // --- Requests (the very schemas `validate()` runs at the boundary) -------
   CreateChildBody: CreateChildBodySchema,
   UpdateChildBody: UpdateChildBodySchema,
   SetPinBody: SetPinSchema,
@@ -249,11 +229,9 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   QuizResponsesBody: QuizResponsesBodySchema,
   ScreenTimeBody: ScreenTimeBodySchema,
 
-  // --- Health -------------------------------------------------------------
   ServiceIdentityResponse: ServiceIdentityResponseSchema,
   HealthResponse: HealthResponseSchema,
 
-  // --- Auth / parent account ----------------------------------------------
   ParentSummary: ParentSummarySchema,
   AuthMe: AuthMeSchema,
   AuthMeResponse: AuthMeResponseSchema,
@@ -265,20 +243,17 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   DeletionRequestResponse: DeletionRequestResponseSchema,
   DeletedResponse: DeletedResponseSchema,
 
-  // --- Children -----------------------------------------------------------
   ChildStats: ChildStatsSchema,
   ChildProfile: ChildProfileSchema,
   ChildProfileResponse: ChildProfileResponseSchema,
   ChildProfileListResponse: ChildProfileListResponseSchema,
   ActiveChildResponse: ActiveChildResponseSchema,
 
-  // --- Characters ---------------------------------------------------------
   AvatarCharacter: AvatarCharacterSchema,
   AvatarCharacterListResponse: AvatarCharacterListResponseSchema,
   CharacterUnlock: CharacterUnlockSchema,
   CharacterUnlockListResponse: CharacterUnlockListResponseSchema,
 
-  // --- Content ------------------------------------------------------------
   MediaSummary: MediaSummarySchema,
   WorldSummary: WorldSummarySchema,
   SubjectSummary: SubjectSummarySchema,
@@ -296,7 +271,6 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   LessonListResponse: LessonListResponseSchema,
   LessonDetailResponse: LessonDetailResponseSchema,
 
-  // --- Stories ------------------------------------------------------------
   StorySummary: StorySummarySchema,
   NarrationTimings: NarrationTimingsSchema,
   StoryPage: StoryPageSchema,
@@ -304,7 +278,6 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   StoryListResponse: StoryListResponseSchema,
   StoryDetailResponse: StoryDetailResponseSchema,
 
-  // --- Progress -----------------------------------------------------------
   LessonProgress: LessonProgressSchema,
   LessonProgressReadResponse: LessonProgressReadResponseSchema,
   LessonProgressResponse: LessonProgressResponseSchema,
@@ -480,7 +453,6 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AiReviewResult: AiReviewResultSchema,
   AiReviewResultResponse: AiReviewResultResponseSchema,
 
-  // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,
   ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
   ScreenTimeStatus: ScreenTimeStatusSchema,
@@ -513,9 +485,6 @@ export const COMPONENT_SCHEMAS = buildComponentSchemas(SCHEMA_DEFINITIONS);
 /**
  * better-auth issues an httpOnly session cookie; there is no bearer token
  * anywhere in this API. `apiKey`/`cookie` is how OpenAPI 3.0 spells that.
- *
- * The name gains a `__Secure-` prefix in production, where better-auth sets
- * `secure: true`.
  */
 export const SECURITY_SCHEMES = {
   sessionCookie: {
@@ -525,15 +494,7 @@ export const SECURITY_SCHEMES = {
     description:
       "better-auth session cookie, set by the Google OAuth callback and sent automatically by the browser. Because Swagger UI is served from this same origin, signing in at `/api/auth/google` is enough to make **Try it out** work on every authenticated operation below — there is no token to paste. Named `__Secure-better-auth.session_token` in production.",
   },
-  /**
-   * The shared secret on `/api/admin/jobs/*` (file 30).
-   *
-   * The only credential in this API that is not a session, and it exists because
-   * its caller is a scheduler: cron-job.org has no browser to hold a cookie and
-   * nobody to complete an OAuth round trip. Registered as a scheme of its own
-   * rather than folded into `sessionCookie`, so the operations that use it say so
-   * in the document instead of appearing to accept a login they would refuse.
-   */
+  /** The shared secret on `/api/admin/jobs/*` (file 30). */
   cronSecret: {
     type: "http",
     scheme: "bearer",
@@ -633,14 +594,7 @@ export const TAGS = [
   },
 ];
 
-/**
- * A `4xx`/`5xx` response referencing the shared error envelope.
- *
- * `codes` is not decoration: a 403 on this API can mean `FORBIDDEN`,
- * `CONSENT_REQUIRED`, `PIN_REQUIRED`, `PIN_VERIFICATION_REQUIRED` or
- * `PIN_INVALID`, and which ones an operation can return is exactly what a client
- * developer needs in order to branch correctly.
- */
+/** A `4xx`/`5xx` response referencing the shared error envelope. */
 export function errorResponse(
   description: string,
   codes: readonly string[],

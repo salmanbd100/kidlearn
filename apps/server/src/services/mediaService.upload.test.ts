@@ -30,13 +30,7 @@ vi.mock("cloudinary", () => ({
 
 const { uploadBuffer } = await import("./mediaService.js");
 
-/**
- * Stands in for the SDK's stream, answering the callback with `error`.
- *
- * `end()` rather than an immediate call, because `uploadBuffer` writes the buffer
- * before the callback can fire and a stub that answered earlier would not exercise
- * that ordering.
- */
+/** Stands in for the SDK's stream, answering the callback with `error`. */
 function respondWith(error: unknown, result?: unknown) {
   sdk.uploadStream.mockImplementation(
     (

@@ -17,20 +17,7 @@ import {
   SUPPORTED_LOCALES,
 } from "./locale";
 
-/**
- * i18next, with both locales bundled statically (FR-I18N-01).
- *
- * Two small resource files beat an async backend here: `changeLanguage` has
- * nothing to fetch, so the switch is instant and cannot fail offline
- * (FR-I18N-02) — and no screen ever renders a key while a bundle downloads.
- *
- * The initial language is passed in by the Server Component that read the
- * cookie, never detected during render. Detecting on the client instead would
- * make the server emit English and the browser swap to Bangla after hydration:
- * a mismatch React warns about and a visible flash for every Bangla user. The
- * detector is still registered in the browser so `caches: ["cookie"]` persists
- * the choice on every `changeLanguage` (FR-I18N-03).
- */
+// i18next, with both locales bundled statically (FR-I18N-01).
 
 export const DEFAULT_NAMESPACE = "common";
 

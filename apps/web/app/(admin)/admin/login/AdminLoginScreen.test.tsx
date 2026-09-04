@@ -4,11 +4,6 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
 
 /**
  * `/admin/login` — the only password form in the product (file 31, spec §4.3).
- *
- * The two things worth asserting are the two that are easy to get wrong: that a
- * rejected password says so in place rather than navigating, and that a successful
- * one re-reads the session before navigating — without that, `AdminGuard` bounces
- * the brand-new session straight back here.
  */
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));

@@ -2,24 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
-/**
- * Tap one, tap its partner (FR-ACT-03).
- *
- * **Tap-tap, not draw-a-line.** Dragging a line between two columns asks a
- * three-year-old to keep a finger down while tracking across a screen; tapping
- * twice asks for two taps. The interaction this hook models is the reliable one.
- *
- * **It knows nothing about matching *objects*.** No definition, no feedback
- * channel, no locale — only "are these two a pair" and four things to call. That
- * is deliberate: file 22's `match_pair` quiz format is the same interaction with a
- * different scoring authority behind it, and it reuses this file rather than
- * reimplementing the tap rules.
- *
- * **Colour is decorative here.** `pairIndexOf` hands the renderer a stable index
- * per matched pair, and the renderer turns it into a highlight — but the thing
- * that actually says *these two go together* is the line drawn between them.
- * Colour alone never carries meaning (design.md §2.3).
- */
+// Tap one, tap its partner (FR-ACT-03).
 
 export type PairSide = "left" | "right";
 

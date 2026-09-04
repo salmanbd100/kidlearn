@@ -1,13 +1,7 @@
 import { jsonResponse } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `routes/health.ts` — root-mounted, so these two carry no `/api` prefix.
- *
- * Both are public: `security: []` overrides the document-level default. A
- * liveness probe that needed a session cookie would be useless to the platform
- * poller it exists for.
- */
+/** `routes/health.ts` — root-mounted, so these two carry no `/api` prefix. */
 export const HEALTH_ROUTES: RouteDoc[] = [
   {
     method: "get",

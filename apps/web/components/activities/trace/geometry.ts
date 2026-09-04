@@ -3,21 +3,6 @@ import { svgPathProperties } from "svg-path-properties";
 /**
  * Everything the tracing activity needs to know about an SVG path, computed in
  * pure JavaScript (FR-ACT-02).
- *
- * **`svg-path-properties` rather than the DOM.** `SVGPathElement.getPointAtLength`
- * is the obvious tool and jsdom does not implement it, which would put the one
- * part of this activity that decides whether a child was right beyond the reach
- * of a unit test. This library does the same arithmetic off-DOM, so every
- * function here runs under plain Vitest.
- *
- * **The glyph's coordinate space belongs to the payload, not to this file.** A
- * trace payload's `pathData` may be authored in any range — the canonical "A"
- * fixture uses 0–200 — so nothing here assumes one. `glyphFrameOf` derives the
- * viewBox from the path's own extent and reports the scale factor that converts
- * the reference lengths the renderer and `tolerance` are written in (a 0–100
- * space) into that payload's units. Without it, a glyph authored at twice the
- * reference size would be traced with half the intended forgiveness and drawn
- * with half the intended stroke weight.
  */
 
 export interface Point {
@@ -74,15 +59,6 @@ function endPointOf(pathData: string): Point | undefined {
 
 /**
  * Rewrite a subpath's opening `m dx dy` as the absolute point it resolves to.
- *
- * Prepending an absolute moveto instead would look simpler and be wrong:
- * `getPointAtLength(0)` reports a path's *initial* point, so a stroke opening
- * with two movetos samples its first point at the wrong end and the child is
- * asked to start somewhere the ink never goes.
- *
- * A multi-pair `m` carries implicit **relative** linetos after the moveto, which
- * an absolute `M` would silently turn into absolute ones — hence the explicit
- * `l` for whatever follows the first pair.
  */
 function toAbsoluteMoveTo(chunk: string, cursor: Point): string {
   const match = RELATIVE_MOVETO_PATTERN.exec(chunk);
@@ -100,13 +76,7 @@ function toAbsoluteMoveTo(chunk: string, cursor: Point): string {
   )}`;
 }
 
-/**
- * Split on every moveto, resolving relative ones.
- *
- * A subpath opening with a relative `m` is positioned against wherever the
- * previous subpath left off, so lifting it out on its own would move it —
- * measurably, for any glyph whose author wrote `m` instead of `M`.
- */
+/** Split on every moveto, resolving relative ones. */
 function resolveSubpaths(pathData: string): string[] {
   const chunks = pathData
     .split(/(?=[Mm])/)

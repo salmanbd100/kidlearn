@@ -2,13 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RejectDialog } from "./RejectDialog";
 
-/**
- * The mandatory rejection reason (file 37, FR-AI-08).
- *
- * The claim worth testing is that a reason too short to say anything cannot be
- * submitted — the server enforces the same floor, and a dialog that let a "no"
- * through would turn a mandatory field into a `400` an admin has to decode.
- */
+/** The mandatory rejection reason (file 37, FR-AI-08). */
 describe("RejectDialog", () => {
   function setup(overrides: Partial<Parameters<typeof RejectDialog>[0]> = {}) {
     const onConfirm = vi.fn();

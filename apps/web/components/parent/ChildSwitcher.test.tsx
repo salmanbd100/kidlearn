@@ -7,10 +7,6 @@ import { ChildSwitcher } from "./ChildSwitcher";
 
 /**
  * The selection is a URL, so the assertions are about hrefs and `aria-current`.
- *
- * That is the behaviour worth pinning: a switcher built from buttons and
- * `router.replace` would lose the parent's tab on the reload a lapsed PIN grant
- * causes, and could not be deep-linked or navigated back through.
  */
 
 function child(overrides: Partial<ChildProfileResponse> = {}) {

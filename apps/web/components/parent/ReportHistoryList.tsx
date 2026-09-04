@@ -9,32 +9,9 @@ import { formatMinutes } from "@/lib/duration";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { formatWeekRange } from "@/lib/week-range";
 
-/**
- * Every earlier week, one row each (FR-DASH-06).
- *
- * **Links, not buttons or an accordion.** Which week the card above is showing lives
- * in `?week=`, so a link is what reaches it: refresh keeps the week, the back button
- * walks back through the ones the parent looked at, and a week can be bookmarked or
- * sent between a parent's own devices. It is also what survives the reload a lapsed
- * PIN grant causes — the same reasoning `ChildSwitcher` records.
- *
- * An expanding row would have meant two copies of the card's markup, or a card that
- * renders differently depending on where it sits. One card, one selection.
- *
- * The list is what a parent scans, so each row carries the two figures worth
- * comparing across weeks — time and lessons — and nothing else. Everything else is
- * one tap away.
- */
+/** Every earlier week, one row each (FR-DASH-06). */
 export interface ReportHistoryListProps {
-  /**
-   * The earlier weeks, newest first.
-   *
-   * The week the card above is showing is filtered out by the caller, so there is
-   * no selected-row state here. There was a `selectedWeekStart` prop and an
-   * `aria-current` branch for it, which could never fire for exactly that reason —
-   * dead markup, and a test that only passed because it fed the component a list
-   * the screen never produces.
-   */
+  /** The earlier weeks, newest first. */
   reports: readonly WeeklyReport[];
   /** Path the week links hang off — `?week=` is appended to it. */
   basePath: string;

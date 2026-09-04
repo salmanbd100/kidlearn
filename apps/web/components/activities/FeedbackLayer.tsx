@@ -2,15 +2,7 @@
 
 import type { RefObject } from "react";
 
-/**
- * The surface success is drawn on (FR-ACT-05).
- *
- * A single fixed canvas above the whole step, and deliberately inert: confetti
- * bursting over the target a child just touched must never intercept the next
- * tap, and a pre-reader will tap again immediately. `aria-hidden` for the same
- * reason it is `pointer-events-none` — the celebration is decoration, and the
- * cheer that plays with it is what a screen reader user is given instead.
- */
+/** The surface success is drawn on (FR-ACT-05). */
 export function FeedbackLayer({
   canvasRef,
 }: {

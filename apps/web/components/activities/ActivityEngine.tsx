@@ -20,18 +20,6 @@ import { oopsAudioUrl, useActivityFeedback } from "./use-activity-feedback";
 /**
  * The practice step of every lesson, whatever the practice happens to be
  * (FR-ACT-01, FR-ACT-05, FR-ACT-06, NFR-SCALE-02).
- *
- * **It is handed `unknown` and validates it here.** The payload is JSONB written
- * by a CMS author or an AI pipeline, and the server's own validation is a
- * different process from this one — so the renderer trusts nothing and parses at
- * the boundary. What comes out the other side is a discriminated union, which is
- * the whole reason a new activity type is a new file rather than a change to this
- * one.
- *
- * **The concerns that belong to every activity live here, not in the renderers.**
- * Speaking the instruction on arrival, offering it again, the feedback channel,
- * and the celebration between "finished" and the step engine's `onComplete`. A
- * renderer implements one game and nothing else.
  */
 
 /** How long the celebration holds before the step advances. Tappable-through. */
@@ -164,14 +152,7 @@ function PlayableActivity({
   );
 }
 
-/**
- * The beat between finishing and moving on.
- *
- * Skippable by tapping anywhere on it, which is why it is a button rather than a
- * decorated `div`: design.md §5.2 requires a celebration be dismissible, and a
- * child who is already reaching for the next thing should not be held for a
- * second and a half. The entrance caps at `--dur-slow`; the hold does not animate.
- */
+/** The beat between finishing and moving on. */
 function Celebration({ onSkip }: { onSkip: () => void }) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const isMotionReduced = useIsMotionReduced();

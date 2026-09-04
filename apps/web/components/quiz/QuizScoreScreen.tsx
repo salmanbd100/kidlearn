@@ -11,24 +11,7 @@ import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import type { QuizAnswerRecord } from "./types";
 
-/**
- * How the quiz ends (FR-QUIZ-06).
- *
- * **There is no score on the score screen.** No percentage, no fraction, no
- * grade, and nothing red. One star per question, filled for the ones the child
- * knew straight away and a sparkle for the rest — a sparkle, not an empty
- * outline, because an unfilled slot is a mark against a four-year-old whichever
- * shape it is drawn in. What a child takes from this screen is that they
- * finished, which they did.
- *
- * **The praise is the same however it went.** One pool, played on arrival,
- * regardless of how many stars filled. A celebration that got quieter the worse
- * a child did would teach them exactly what §5.7 exists to avoid.
- *
- * **It renders from the answers, not from the server.** The submission runs
- * alongside this screen and may fail; nothing here waits on it, because a child
- * who finished a quiz has finished it whether or not the network agreed.
- */
+// How the quiz ends (FR-QUIZ-06).
 
 /** Kept under `--dur-slow` in total, however many questions the quiz had. */
 const STAR_STAGGER_S = 0.08;

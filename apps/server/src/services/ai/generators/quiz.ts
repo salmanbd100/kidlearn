@@ -12,47 +12,7 @@ import {
   type QuizGenerationOutput,
 } from "../schemas/quiz.js";
 
-/**
- * The AI Quiz Generator (FR-AI-03).
- *
- * An admin picks a lesson and a question count; this grounds the prompt in what
- * that lesson actually taught, runs it through `runGenerationJob`, and appends the
- * questions to the lesson's quiz as drafts.
- *
- * **The published-quiz refusal is the structural half of FR-AI-07 here.** A
- * `QuizQuestion` has no `status` of its own — its visibility is entirely its parent
- * `Quiz`'s — so appending generated questions to a *published* quiz would put
- * unreviewed content in front of a child the moment the row landed, with no draft
- * state to hold it back and no transition for a reviewer to refuse. There is no
- * way to make that safe at the row level, so the endpoint refuses: `409` with
- * `details.code = "QUIZ_PUBLISHED"`, and the admin withdraws the quiz to draft
- * first (file 32's transitions). The check runs **before** `runGenerationJob`, so a
- * refused request creates no job row and bills nothing.
- *
- * **And it runs again inside the write transaction, because the first check is a
- * snapshot tens of seconds old.** Generation is awaited inline; an administrator
- * who publishes the quiz while the model is writing would otherwise have the
- * questions appended to a live quiz and served to a child the moment the insert
- * committed — `contentService` serves every question of a visible quiz, there
- * being no per-question status to filter on. The second read is under the same
- * transaction as the inserts, so nothing lands: the job is failed with the reason
- * in its audit record, and the admin still gets the `409` that tells them what to
- * do about it (`details.jobId` names the job, which unlike the pre-flight refusal
- * does exist).
- *
- * **The prompt is grounded in the lesson, not in its title.** A quiz asking about
- * things the lesson never taught is worse than no quiz: the child fails a question
- * about material they were never shown. Where the lesson itself came from a file-34
- * generation, its objectives and narration script are read back out of that job's
- * `rawOutput` — the actual teaching text. Otherwise the lesson's intro scripts are
- * the only record of its content this schema holds, so those are used and the
- * prompt says which it got.
- *
- * **Every question is parsed twice.** Once as part of the generation output, and
- * again against the shared union immediately before insert, after the asset URLs
- * have been rewritten onto the placeholder host. The two checks are cheap and the
- * failure they guard is a question a child cannot answer.
- */
+// The AI Quiz Generator (FR-AI-03).
 
 /** The spec's default: four questions, the middle of the 3–5 range. */
 export const DEFAULT_QUESTION_COUNT = 4;
@@ -170,12 +130,6 @@ export async function generateQuiz(
 
 /**
  * The quiz's status as of *this transaction*, not as of the pre-flight check.
- *
- * Only asked of a quiz that already existed: one this generation creates is a
- * draft by construction, and there is no id to read before `persistQuestions`
- * makes it. A missing row is not published — it was deleted mid-generation, and
- * the insert that follows fails on the foreign key, which is the right outcome
- * for a different reason.
  */
 async function isPublished(
   tx: Prisma.TransactionClient,
@@ -190,20 +144,7 @@ async function isPublished(
   return quiz?.status === "published";
 }
 
-/**
- * What the lesson taught, in the model's own words where they exist.
- *
- * The file-34 job's `rawOutput.parsed` holds the objectives and the narration
- * script — the teaching text itself, which is never a column: file 34 left it in
- * the job deliberately, because the column it eventually needs is an audio asset
- * reference. Reading it back here is the whole reason a generated lesson produces a
- * better quiz than a hand-authored one.
- *
- * The fallback is the intro scripts, and it says so in the text. An intro is a
- * greeting rather than a lesson, so a quiz grounded only in one is thinner — naming
- * that in the prompt is what stops the model inventing content to fill the gap, and
- * it is visible to whoever later reads the job's `input` and wonders why.
- */
+/** What the lesson taught, in the model's own words where they exist. */
 async function buildLessonContext(lesson: {
   aiJobId: string | null;
   title: string;
@@ -251,15 +192,7 @@ async function readGeneratedContext(
   return sections.length === 0 ? undefined : sections.join("\n\n");
 }
 
-/**
- * The two fields this generator reads out of a lesson job's audit record.
- *
- * Narrowed by hand rather than by importing the lesson generator's schema: what is
- * being read is a JSONB column written by a *previous* version of this codebase, so
- * the honest contract is "these keys, if they are there and are the right shape",
- * not the current schema's whole object. A job written before a prompt change must
- * not make a quiz generation fail.
- */
+/** The two fields this generator reads out of a lesson job's audit record. */
 function readParsedLesson(rawOutput: unknown):
   | {
       learningObjectives: string[];

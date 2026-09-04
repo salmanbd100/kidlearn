@@ -7,29 +7,7 @@ import {
   type StoryFixture,
 } from "./stories.js";
 
-/**
- * Seeds the development story library (FR-STORY-08).
- *
- * Run on its own with `pnpm --filter @kidlearn/db seed:stories`, and also called
- * by `prisma/seed.ts` so one command leaves a dev database with stories in it.
- *
- * ## Idempotence
- *
- * Everything keys off `Story.slug`, so re-running converges rather than
- * duplicating. Pages are **deleted and recreated inside a transaction** instead of
- * upserted one by one: a page removed from the fixture must disappear from the
- * database, and `@@unique([storyId, sortOrder])` means a renumbered fixture would
- * otherwise collide with the rows it is trying to replace. `StoryPageTranslation`
- * cascades with its page, so the delete takes the old text with it.
- *
- * Story *translations* are upserted rather than replaced, and `update` owns every
- * field — a re-seed is how a fixture correction reaches a database that already
- * has the old text.
- *
- * The 18 remaining starter stories arrive from the AI pipeline (files 35–37) and
- * flow through this same function; nothing here knows or cares where a
- * `StoryFixture` came from.
- */
+// Seeds the development story library (FR-STORY-08).
 
 const LANGUAGES: Language[] = ["en", "bn"];
 

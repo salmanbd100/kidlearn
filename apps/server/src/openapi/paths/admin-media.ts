@@ -10,18 +10,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `routes/admin/media.ts` — the media library (file 33, FR-CMS-02).
- *
- * Compile-time guard on the two reused enums, matching the `GradeLevel` assertion
- * in `paths/children.ts` and the `ContentStatus` one in `paths/admin-content.ts`.
- * `@kidlearn/types` may not depend on `@kidlearn/db`, so `AssetKind` and `Locale`
- * are independent declarations that happen to hold the same values as Prisma's
- * `MediaKind` and `Language`. These assignments make the coincidence checked:
- * adding a kind to `schema.prisma` without adding it to `ASSET_KINDS` fails
- * `pnpm typecheck` here, rather than shipping a library that cannot describe its
- * own rows.
- */
+/** `routes/admin/media.ts` — the media library (file 33, FR-CMS-02). */
 type _KindsAgree = MediaKind extends AssetKind
   ? AssetKind extends MediaKind
     ? true

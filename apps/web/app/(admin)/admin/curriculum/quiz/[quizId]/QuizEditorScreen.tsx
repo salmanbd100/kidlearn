@@ -32,21 +32,6 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
 
 /**
  * `/admin/curriculum/quiz/[quizId]` — one quiz's ordered questions (FR-CMS-03).
- *
- * **The list re-reads after every write.** `sortOrder` is the server's, and a
- * delete renumbers the survivors, so a client splicing its own idea of the list
- * back in would be right until the first time it was not — the same rule the
- * curriculum tree follows.
- *
- * **A published quiz is read-only here**, matching the server, which refuses a
- * question edit while the quiz is published. The buttons that would earn a `409`
- * are disabled with the reason stated rather than left to produce one.
- *
- * **`jobId` is the review queue's Edit deep-link (file 37, FR-AI-07).** When it
- * is present every save here carries it, and the server records
- * `edit_then_approve` on that job in the same request. It rides on the save
- * rather than following it, so a browser closed mid-flow cannot leave a
- * rewritten quiz whose audit trail says nobody rewrote it (FR-AI-08).
  */
 
 type DialogState =

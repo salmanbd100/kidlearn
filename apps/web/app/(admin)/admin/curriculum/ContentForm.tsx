@@ -19,25 +19,6 @@ import { LocaleTabs } from "./LocaleTabs";
  * Create and edit for the three name-only resources — world, subject, topic
  * (FR-CMS-01). The lesson has its own form; it carries per-locale scripts and
  * step ids that nothing else does.
- *
- * **No status control anywhere on it.** Status moves through the transition
- * buttons, matching the server, whose edit body rejects a `status` key outright.
- * A form that showed a status field the submit could not honour would be a lie
- * about what the screen does.
- *
- * **No sortOrder control either** — position is a drag, and the reorder endpoint
- * writes the whole sibling set at once.
- *
- * On edit the slug is shown but locked. A slug is in the URL of published
- * content, and changing one silently breaks any link to it; unlocking that is a
- * deliberate operation, not a text field somebody tabs through.
- *
- * **The per-locale names are validated here, not by `required`.** `LocaleTabs`
- * keeps the inactive panel mounted and `hidden`, and a `required` field inside a
- * `display:none` subtree is still constraint-validated but cannot be focused — so
- * the browser refuses the submit and reports nothing. Checking both locales in
- * `handleSubmit` and switching to the offending one is what turns that dead click
- * into a message.
  */
 
 export type NameOnlyResource = "worlds" | "subjects" | "topics";

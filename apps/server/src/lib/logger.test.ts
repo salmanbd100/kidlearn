@@ -1,17 +1,4 @@
-/**
- * What the log stream is not allowed to contain (file 30).
- *
- * `pino-http` logs the serialised request, and `pino-std-serializers.req` includes
- * the entire header map — so the default configuration prints every credential the
- * caller sent. The `CRON_SECRET` bearer token is the whole of the authorisation on
- * `/api/admin/jobs/*`, which makes this a test about an exposure rather than about
- * tidy output.
- *
- * Asserted against a real `pino` instance built from the same exported paths the
- * process logger uses, writing to a stream this file can read. Reading the process
- * logger's own output is not possible here: pino writes to fd 1 through sonic-boom,
- * which does not pass through `process.stdout.write`.
- */
+/** What the log stream is not allowed to contain (file 30). */
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 import { REDACTED_LOG_PATHS } from "./logger.js";

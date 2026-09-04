@@ -2,19 +2,7 @@ import type { GradeLevel } from "@kidlearn/db";
 import type { Locale } from "@kidlearn/types";
 import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
-/**
- * The prompt behind the AI Story Generator (FR-AI-02).
- *
- * The system prompt is the shared file-34 persona, unchanged — a safety rule
- * tightened there tightens here. This adds only what a story needs: the world it
- * belongs to, the moral it has to demonstrate, and the two rules the schema's
- * refinements enforce, stated in prose as well because a model told the rule
- * beforehand costs one call rather than two.
- *
- * The JSON shape is not restated. The request's `responseJsonSchema` is generated
- * from the Zod object the answer is validated against (`schemas/story.ts`), so
- * describing the fields here would be a second source of truth.
- */
+// The prompt behind the AI Story Generator (FR-AI-02).
 
 export interface StoryPromptInput {
   gradeLevels: readonly GradeLevel[];

@@ -3,13 +3,7 @@ import swaggerUi from "swagger-ui-express";
 import { env } from "../lib/env.js";
 import { buildOpenApiDocument } from "../openapi/document.js";
 
-/**
- * Swagger UI and the raw spec.
- *
- * Mounted in `app.ts` behind `isDocsEnabled(env)`, after `express.json()` and
- * before `notFoundHandler`. It cannot live under `/api/auth/*` — better-auth's
- * `app.all("/api/auth/{*any}")` wildcard swallows everything there.
- */
+/** Swagger UI and the raw spec. */
 export const docsRouter = Router();
 
 /**

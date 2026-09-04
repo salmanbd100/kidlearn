@@ -39,39 +39,7 @@ import { QuizStep } from "./steps/QuizStep";
 import { RewardStep } from "./steps/RewardStep";
 import { VideoStep } from "./steps/VideoStep";
 
-/**
- * The lesson player (FR-LSN-01..07, Pillar B).
- *
- * **The flow's rules are in `lesson-machine.ts`; every effect is here.** That split
- * is the design of this file. The reducer decides what step follows what; this
- * component watches its output and tells the server. Nothing below decides a
- * transition, and nothing in the reducer touches the network — so the flow is
- * testable as a table and the recording is testable with a mocked API.
- *
- * **Progress is written per step, not on the way out.** Each completed step posts
- * before the next renders, which is what makes FR-LSN-06 hold for the case it exists
- * for: a tablet whose battery dies mid-video was never going to reach an unload
- * handler, so `beforeunload` is deliberately not used.
- *
- * **The two writes are different kinds of write.** `reportStep` is the child's
- * progress — retried, and idempotent server-side. `sendSessionEvent` is analytics —
- * fire-and-forget, no retries, failures logged. Neither ever blocks a step from
- * rendering, and neither is awaited on the path a child is looking at.
- *
- * **The last step reports itself.** `RewardStep` calls the completion endpoint on
- * mount, because the rewards it renders are that call's answer (file 23). So this
- * file reports the first four steps and the analytics events, and never the
- * reward step.
- *
- * **Preview mode records nothing** (file 33, FR-CMS-04). An administrator opening
- * `?preview=1` gets the real player against unpublished content, with a banner and
- * with every write suppressed: no progress read, no step report, no session event,
- * no heartbeat, and — through `isPreview` on the step props — no completion and no
- * quiz submission from the two steps that write for themselves. The guarantee does
- * not rest on this: `/api/progress`, `/api/events` and `/api/me` are all behind
- * `requireParent` + `requireActiveChild`, which an admin session cannot pass. This
- * is what stops the console filling with 403s while a reviewer works.
- */
+// The lesson player (FR-LSN-01..07, Pillar B).
 
 /** Whether `step` is at or past `target` in flow order. See `useLessonRecording`. */
 function hasReachedStep(step: LessonStep, target: LessonStep): boolean {
@@ -129,13 +97,6 @@ export function LessonPlayer({
   // player rather than on the student layout: this is a learning surface, and the
   // home screen and profile picker are not. It measures nothing locally, so there
   // is no total here for a refresh to reset.
-  //
-  // `enabled` rather than a mount inside the ready branch, because the reducer and
-  // its effects live out here: only a lesson actually on screen is learning time.
-  // The heartbeat endpoint is never screen-time gated (a lesson under way has to
-  // keep recording), so beating through the `blocked` state would bill a child for
-  // sitting on "time's up" — the reader avoids it by mounting the hook inside
-  // `ReadingSurface`.
   useHeartbeat({ enabled: load.status === "ready" && !isPreview });
 
   useEffect(() => {
@@ -143,10 +104,6 @@ export function LessonPlayer({
 
     // In parallel: the lesson and the saved position are independent reads behind
     // the same two guards, so neither has a reason to wait for the other.
-    //
-    // A preview reads only the lesson. There is no child whose progress could be
-    // saved, and asking would be a guaranteed `403` — so a preview always starts
-    // at `intro`, which is also what a reviewer wants.
     void Promise.all([
       getLesson(lessonId, {
         isPreview,
@@ -291,15 +248,7 @@ export function LessonPlayer({
   );
 }
 
-/**
- * The "this is not a child's session" strip (FR-CMS-04).
- *
- * Fixed to the top and outside the theme swap the player sits in, so it reads as
- * chrome rather than as part of the lesson — an admin must never be in doubt about
- * whether what they are looking at is live. English only, like the rest of the
- * CMS: a reviewer previewing a Bangla lesson still wants the banner in the
- * interface language of the tool (`frontend.md §3`).
- */
+/** The "this is not a child's session" strip (FR-CMS-04). */
 function PreviewBanner() {
   const { t } = useTranslation(LESSON_NAMESPACE);
   return (
@@ -315,30 +264,6 @@ function PreviewBanner() {
 
 /**
  * Reports each step as the reducer leaves it, and stamps completion at the end.
- *
- * Driven by *transitions*, not by the current step: the step to report is the one the
- * child just left, which is only knowable by comparing against the previous render.
- * Hence the ref — the one place the player keeps history, kept out of the component
- * body so the reason is written down once.
- *
- * **Observation starts at the resumed step, not at the reducer's initial state.**
- * `RESUME` arrives as a dispatch, so a lesson resuming at `activity` renders `intro`
- * for one frame first; treating that as a transition would report an `intro` the
- * child never watched. The guard below waits for the resumed step to be on screen
- * before it starts comparing — which is a no-op for a fresh lesson, whose resume
- * target *is* `intro`.
- *
- * That wait is `>=` in flow order, not `===`. Equality looks equivalent and fails
- * shut in the worst possible way: if the step ever moves past the resume target
- * before this effect arms — a tap landing between paint and effect, or a step that
- * completes itself — the condition can never be true again, because `currentStep`
- * only moves forwards. Recording would then be silently disabled for the whole
- * lesson and the child's progress lost. Arming on "at or past the target" cannot
- * get stuck, and costs nothing in the ordinary case.
- *
- * The `reward` report is the completion, and it fires on entering `finished` rather
- * than on leaving `quiz`: a child who never taps through the celebration has not
- * finished the lesson.
  */
 function useLessonRecording(
   state: LessonPlayerState,

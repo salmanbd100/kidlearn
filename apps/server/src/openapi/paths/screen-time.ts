@@ -8,10 +8,6 @@ import type { RouteDoc } from "../route-doc.js";
 
 /**
  * `routes/screen-time.ts` — mounted behind `requireParent` + `requireActiveChild`.
- *
- * The student half of screen-time control. The parent half — reading and writing
- * the policy itself — lives on `paths/children.ts`, because those routes are on
- * `childrenRouter` and take a child id.
  */
 
 /** The `403` `requireActiveChild` produces on every student-surface route. */

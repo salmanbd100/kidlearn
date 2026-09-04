@@ -8,21 +8,7 @@ import { MediaPicker } from "@/components/admin/MediaPicker";
 import type { ContentDraft } from "@/lib/admin-api";
 import { optionValue } from "@/lib/select-option";
 
-/**
- * The guided badge form (FR-GAM-04).
- *
- * **The rule is a fieldset, not a JSON box.** `ruleType` picks which parameters
- * render, and `BADGE_RULE_PARAMETERS` — the same table the engine's schemas are
- * keyed by — decides which those are. Free-form JSON was considered and rejected:
- * the engine treats an unrecognised `ruleType` or a malformed payload as *unmet*
- * with a warning, so a typo there produces a badge no child can ever earn and an
- * error nobody ever sees. A select cannot make that mistake.
- *
- * `"all"` is offered on `lessons_completed_in_topic` because it is a real value
- * the schema accepts and the useful one: it means "every published lesson in the
- * topic", so the badge does not need re-authoring when the twenty-seventh letter
- * lesson ships.
- */
+// The guided badge form (FR-GAM-04).
 
 const RULE_LABELS: Record<BadgeRuleType, string> = {
   lessons_completed_in_topic: "Finish lessons in a topic",
@@ -224,13 +210,7 @@ export function BadgeForm({
   );
 }
 
-/**
- * The stored rule back into form state.
- *
- * Read through `in` narrowing rather than a cast: the union's members are
- * structurally different, and asking whether the key is there is what makes each
- * branch honest about which rule it is looking at.
- */
+/** The stored rule back into form state. */
 function ruleDraftFrom(existing: AdminBadge | undefined): RuleDraft {
   const blank: RuleDraft = { topicSlug: "", count: "", days: "" };
   if (existing === undefined) return blank;
@@ -247,11 +227,6 @@ function ruleDraftFrom(existing: AdminBadge | undefined): RuleDraft {
  * The form state as the payload the engine consumes — only the parameters the
  * chosen type allows, because the server's schemas are `.strict()` and a stray key
  * is a `400` rather than a silently dropped one.
- *
- * `count` is sent as a number unless it is literally `"all"`, which is a value the
- * lessons rule accepts. Anything else non-numeric is sent through as typed so the
- * server names it, rather than being coerced to `NaN` here and reported as a
- * confusing type error.
  */
 function compileRule(ruleType: BadgeRuleType, rule: RuleDraft): unknown {
   const count = rule.count.trim() === "all" ? "all" : toNumber(rule.count);

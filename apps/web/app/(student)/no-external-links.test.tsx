@@ -9,19 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
 
-/**
- * NFR-SAFE-07 — nothing on the Student Portal leaves it.
- *
- * A child cannot evaluate a destination, cannot read a URL, and cannot get back
- * from wherever a tap sent them. So the rule is absolute rather than a matter of
- * which sites are acceptable: no anchor anywhere in the `(student)` tree points at
- * another origin.
- *
- * This sweeps the rendered DOM of every student screen rather than grepping the
- * source, because the dangerous link is the one built at runtime from content
- * data — a mascot URL, a lesson title, a palette value that turned out to be a
- * string somebody could smuggle markup through.
- */
+// NFR-SAFE-07 — nothing on the Student Portal leaves it.
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const audio = vi.hoisted(() => ({ play: vi.fn(async () => {}) }));

@@ -17,25 +17,7 @@ import { getDashboard } from "@/lib/dashboard-api";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { PARENT_ROUTES } from "@/lib/parent-redirect";
 
-/**
- * `/parent` — the dashboard a parent lands on (FR-DASH-01..04).
- *
- * The profile list comes from the session context, which loaded it to decide
- * whether onboarding was finished; fetching it again would be a second request for
- * an answer already on the page and two copies free to disagree. So the summary is
- * the **only** call this screen makes, which is what the one-endpoint shape of
- * `GET /api/children/{id}/dashboard` is for.
- *
- * Selection comes in as a prop from the server component, which read `?child=`.
- * That keeps the choice in the URL — refresh, back and a bookmarked link all work —
- * without this component owning routing. An id naming no profile the parent owns
- * (a deleted child, a hand-edited URL) silently falls back to the first, because
- * the alternative is an error screen about a query parameter.
- *
- * Every call is wrapped in `guard`: the endpoint is PIN-gated, so a grant that
- * lapsed between the page loading and the fetch landing must re-open the PIN pad
- * rather than show a parent an error they cannot act on.
- */
+/** `/parent` — the dashboard a parent lands on (FR-DASH-01..04). */
 export function DashboardScreen({
   selectedChildId,
 }: {
@@ -45,13 +27,7 @@ export function DashboardScreen({
   const { children: profiles } = useParentSession();
   const { guard } = useParentGate();
 
-  /**
-   * The payload and the instant it arrived, as one value.
-   *
-   * Together because every relative date on the screen is measured from that
-   * instant, and a clock read during render would make the component's output
-   * depend on when React happened to call it.
-   */
+  /** The payload and the instant it arrived, as one value. */
   const [loaded, setLoaded] = useState<
     { data: DashboardData; at: Date } | undefined
   >();

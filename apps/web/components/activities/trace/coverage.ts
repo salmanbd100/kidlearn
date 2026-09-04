@@ -1,23 +1,6 @@
 import type { Point } from "./geometry";
 
-/**
- * Whether the child has actually traced the stroke (FR-ACT-02, FR-ACT-05).
- *
- * **In order, or it does not count.** Marking any sampled point the finger comes
- * near would make scribbling across the glyph a winning strategy, which teaches
- * the opposite of letter formation. So a point is only markable inside a narrow
- * window around the frontier: a few points ahead, to allow a fast finger that
- * outruns the sampling, and two points behind, to forgive the jitter of a hand
- * that has been holding a crayon for six months.
- *
- * **Tolerant, and deliberately so.** A three-year-old cannot stay inside a hair
- * of a guide, and being told they failed is the one outcome this activity has no
- * vocabulary for. The stroke completes short of every point, and the payload can
- * widen the tolerance further for a glyph whose curves deserve it.
- *
- * Pure and DOM-free: coordinates arrive already converted into the glyph's own
- * space, so every rule here is unit-testable without a browser.
- */
+// Whether the child has actually traced the stroke (FR-ACT-02, FR-ACT-05).
 
 export interface CoverageState {
   /** Parallel to the stroke's sampled points. */

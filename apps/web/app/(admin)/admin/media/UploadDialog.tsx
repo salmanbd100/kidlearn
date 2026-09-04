@@ -15,24 +15,7 @@ import {
 } from "@/lib/admin-api";
 import { optionValue } from "@/lib/select-option";
 
-/**
- * Sign → upload → register, as one form (FR-CMS-02).
- *
- * **The file never touches `apps/server`.** Only two JSON calls hit our API —
- * `/api/admin/media/sign` and `/api/admin/media` — and the bytes go straight to
- * Cloudinary in between. Watching the network tab while this runs is the
- * acceptance check for that.
- *
- * **The three steps are reported separately**, because they fail differently and
- * an admin can act on each: a refused signature is an authorisation problem, a
- * refused upload is Cloudinary or the network, and a refused registration means
- * the file is *already uploaded* — so it says so rather than inviting a retry that
- * would upload it twice.
- *
- * `language` is deliberately not offered for an image. An illustration has no
- * language, and a field that let an author claim one would put `language: "bn"` on
- * a picture and then filter it out of every English lesson's picker.
- */
+// Sign → upload → register, as one form (FR-CMS-02).
 
 type UploadState =
   | { phase: "idle" }

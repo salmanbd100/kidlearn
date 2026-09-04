@@ -11,18 +11,6 @@ import {
 /**
  * What the quiz says back to a child, and the pause it says it in (FR-QUIZ-05,
  * §5.7).
- *
- * **Two outcomes, and neither of them is failure.** `correct` and `retry` are
- * the whole vocabulary, drawn from the same clips the activities use — a wrong
- * tap is a turn that has not finished yet, so it gets an encouraging voice and
- * the option quietly steps aside, never a cross, a buzzer, or a score.
- * `retry` rather than `wrong` in the API too: naming it after the failure is how
- * a failure state gets built by the next person to touch this.
- *
- * **The lock is the point.** Every format ignores taps while `isLocked` is true,
- * which is what makes a double-tap during the cheer harmless: without it a child
- * drumming on the screen answers the next question with the finger that answered
- * this one.
  */
 
 /** The beat between the right answer and the next question. */

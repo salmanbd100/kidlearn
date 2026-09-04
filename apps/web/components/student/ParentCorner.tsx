@@ -19,24 +19,7 @@ import { pinErrorKey } from "@/lib/parent-errors";
 /** Where the parent area opens once the gate is passed. */
 const PARENT_DESTINATION = "/parent/children";
 
-/**
- * The only way out of the Student Portal (Pillar C, FR-AUTH-04).
- *
- * **Placed in a top corner on purpose.** Every other kid control lives in the
- * thumb zone; this one is deliberately outside it (design.md §6), because the
- * design goal is the opposite of the rest of the surface — a grown-up should find
- * it, a child sweeping their thumb across the screen should not.
- *
- * **The PIN is answered here, not after navigating.** Pushing to `/parent/*` and
- * letting `ParentGuard` raise its gate would work, but it would render the parent
- * dashboard behind the modal for anyone who taps the lock — a child included.
- * Verifying first means the student surface is what stays on screen until the PIN
- * is right, and a wrong PIN goes nowhere at all.
- *
- * The grant itself is still the server's: `verifyPin` opens the same 15-minute
- * session window the parent dashboard reads back from `gate-status`, so arriving
- * there needs no client-side state to be handed over.
- */
+/** The only way out of the Student Portal (Pillar C, FR-AUTH-04). */
 export function ParentCorner() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();

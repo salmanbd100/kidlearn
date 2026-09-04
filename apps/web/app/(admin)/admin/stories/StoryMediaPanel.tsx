@@ -8,16 +8,6 @@ import { generateIllustrations } from "@/lib/admin-api";
 /**
  * Narration and illustrations for one generated story (file 36, FR-AI-04,
  * FR-AI-05, FR-AI-09).
- *
- * **It asks for a story id, and that is a stopgap the CMS wears openly.** There
- * is no admin story list yet — listing, reading and editing a generated story
- * arrive with the review queue (file 37) — so there is no row for these two
- * actions to hang off. Rather than defer the media pipeline until a screen exists
- * to launch it from, the panel takes the id and says where to find it.
- *
- * Both actions are safe to run twice: each computes what is *missing* and skips
- * the rest, so a mistyped id is a `404` and a repeated click is a no-op with a
- * count.
  */
 
 /** Loose enough to catch a typo, not a validator — the server owns that. */

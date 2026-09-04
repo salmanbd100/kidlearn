@@ -6,23 +6,7 @@ import { cva } from "class-variance-authority";
 import { Check } from "lucide-react";
 import Image from "next/image";
 
-/**
- * One answer, as something a child taps (FR-QUIZ-01, FR-QUIZ-04).
- *
- * Shared by both pick-one formats so that a wrong tap looks the same wherever a
- * child meets it: the card fades back and stops responding, and nothing else on
- * the question changes. No cross, no red, no "wrong" — the option has stepped
- * aside, and the ones left are still there to try (§5.7).
- *
- * **The right answer is a tick, not a colour.** Green alone says nothing to a
- * colour-blind child, so the glow arrives with a mark and a spoken cheer
- * (design.md §2.3).
- *
- * `shape` is the whole difference between the two formats: a text card is a wide
- * button with its picture above the words, a picture card is a square the image
- * fills. Both floor at 96px, half again the 64px kid minimum, because these are
- * the only targets on the screen.
- */
+// One answer, as something a child taps (FR-QUIZ-01, FR-QUIZ-04).
 
 const optionCardVariants = cva(
   "relative flex w-full flex-col items-center justify-center gap-2 rounded-lg border-4 bg-card p-3 text-card-foreground shadow-md transition-opacity [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -93,11 +77,6 @@ export function OptionCard({
           src={image.url}
           // The picture is the answer where there are no words for it, and
           // decoration where the card already says the same thing in text.
-          // `alt` is optional on the schema, so a wordless option is allowed to
-          // arrive with nothing describing it — and `alt=""` there would leave
-          // the button with no accessible name at all, unreadable to a screen
-          // reader and unreachable by voice. Its place in the row is a poor name
-          // and still an operable one (design.md §7).
           alt={label === undefined ? (image.alt?.[locale] ?? pictureLabel) : ""}
           width={IMAGE_PX}
           height={IMAGE_PX}

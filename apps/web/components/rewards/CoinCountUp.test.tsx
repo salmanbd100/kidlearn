@@ -13,11 +13,6 @@ import { CoinCountUp } from "./CoinCountUp";
 /**
  * Frames pending, in call order. `paint(ms)` moves the clock on and delivers
  * them.
- *
- * The **first** paint is the clock's origin, not a step: `requestAnimationFrame`
- * hands the callback a timestamp and the component takes the first one it sees
- * as the start. So every test paints once at zero before advancing, exactly as a
- * browser would.
  */
 let frames: FrameRequestCallback[] = [];
 let now = 0;

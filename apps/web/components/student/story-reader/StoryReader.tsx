@@ -35,31 +35,7 @@ import {
 } from "./reader-machine";
 import { StoryPageView } from "./StoryPageView";
 
-/**
- * The story reader (FR-STORY-02..03, FR-STORY-06..07).
- *
- * **The flow's rules are in `reader-machine.ts`; every effect is here** — the same
- * split `LessonPlayer` uses. The reducer says which page is on screen; this file
- * plays that page's narration, holds the auto-advance timer, listens for a swipe
- * and posts the completion.
- *
- * **Narration follows the page, not the tap.** One effect keyed on the page starts
- * its clip and cancels the pending advance on the way out, so a child who turns
- * three pages quickly hears only the third — there is one audio channel
- * (`AudioProvider`), and voices talking over each other are worse than silence for
- * the child this is built for.
- *
- * **The completion is asked for once per mount, however many times the story is
- * read.** `completionRequested` is set the first time the story ends and never
- * resets across "Read again", so the tenth reading of a favourite makes no request
- * at all. The server would refuse to pay twice anyway (FR-STORY-06); this keeps
- * the reader from asking a question whose answer it already has.
- *
- * The fetch and the reading surface are split so the reducer can be initialised
- * with the real page count instead of being told it afterwards — a reader whose
- * state has to be corrected after the first paint is a reader that can be paged
- * past the end of a story in the frame before the correction lands.
- */
+// The story reader (FR-STORY-02..03, FR-STORY-06..07).
 
 /** Held after the narration ends before the page turns itself. */
 const AUTO_ADVANCE_HOLD_MS = 1500;
@@ -275,17 +251,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   // too, but a child usually leaves the reader without leaving the app.
   useEffect(() => stop, [stop]);
 
-  /**
-   * Where the narration has got to, for the follow-along highlight.
-   *
-   * Runs only for a page that actually carries timings — none of them, until the
-   * voice pipeline (file 36) produces some — so the ordinary reading path has no
-   * interval at all. It counts from `narrationStartedAt` rather than reading the
-   * element's `currentTime`, which the shared audio channel does not expose; the
-   * drift across one page of narration is well under what a word-level highlight
-   * would show, and swapping in the real clock later is a change to this effect
-   * and nothing else.
-   */
+  /** Where the narration has got to, for the follow-along highlight. */
   const hasTimings = page?.narrationTimings != null;
   useEffect(() => {
     if (!isReading || !hasTimings) return;
@@ -450,9 +416,6 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
 
 /**
  * A round 64px control — the kid touch-target floor (design.md §7, NFR-A11Y-02).
- *
- * An icon and a label, never an icon alone: the picture is what a pre-reader
- * navigates by, and the label is the whole control for a screen reader.
  */
 const iconControlVariants = cva(
   "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

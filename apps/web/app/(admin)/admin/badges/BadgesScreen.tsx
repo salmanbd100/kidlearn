@@ -22,18 +22,7 @@ import {
 } from "@/lib/admin-api";
 import { BadgeForm } from "./BadgeForm";
 
-/**
- * `/admin/badges` — the badge manager (FR-GAM-04).
- *
- * **A `draft` badge is authored but inert.** The achievement engine evaluates
- * published badges only, so creating one changes nothing until it is published —
- * and archiving one stops it being awarded without touching the `RewardLedger`
- * rows that recorded the children who already earned it.
- *
- * A published badge refuses an edit, matching every other resource on this
- * surface and for a sharper reason than most: changing a live badge's rule
- * changes, retroactively, what a child had to do to earn it.
- */
+// `/admin/badges` — the badge manager (FR-GAM-04).
 
 type DialogState =
   | { kind: "closed" }

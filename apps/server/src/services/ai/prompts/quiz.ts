@@ -4,30 +4,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
 import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
-/**
- * The prompt behind the AI Quiz Generator (FR-AI-03).
- *
- * **The question schema is embedded in the prose as well as in the request.** That
- * looks like duplication and is not: both come from the same
- * `zodToJsonSchema(QuizQuestionSchema)` call on the same Zod object, and
- * `responseJsonSchema` and the message body are two different places the model
- * reads. A union of four formats with per-format option bounds and a
- * `correctOptionId` that has to match one of them is the kind of contract a model
- * gets wrong from the response schema alone, and every wrong answer costs a full
- * retry.
- *
- * **No hand-written copy of the schema may exist in prompt code.** The one below
- * is serialised at module load from `@kidlearn/types` — the same bytes the
- * renderer, the admin editor and the validator use — and
- * `../schemas/quiz.test.ts` asserts that byte-for-byte. A prose paraphrase would be a
- * second source of truth that drifts the first time a format gains a field.
- *
- * The conversion options match `services/ai/gemini-text.ts` so the schema in the
- * prose and the schema in the request are the identical document:
- * `$refStrategy: "none"` because a `$ref` into a `definitions` block the message
- * does not carry would be unreadable, and `jsonSchema7` because
- * `responseJsonSchema` is documented as taking JSON Schema.
- */
+// The prompt behind the AI Quiz Generator (FR-AI-03).
 
 export const QUIZ_QUESTION_JSON_SCHEMA = JSON.stringify(
   zodToJsonSchema(QuizQuestionSchema, {

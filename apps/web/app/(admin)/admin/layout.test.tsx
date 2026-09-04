@@ -5,15 +5,6 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
 /**
  * The CMS shell: the guard's verdict, and that no page is rendered to someone it
  * has not cleared (file 31, spec §4.3).
- *
- * The API is stubbed at `lib/admin-api`, which is the module boundary the session
- * provider talks through. Stubbing `fetch` would test `apiFetch`'s envelope
- * handling a second time; that has its own suite.
- *
- * This is a convenience layer, not the security boundary — `requireAdmin` on the
- * server is that, and `apps/server/src/routes/admin/admin.test.ts` covers it. What
- * these assertions protect is the *other* failure: a parent seeing curriculum
- * content for a frame before being redirected.
  */
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));

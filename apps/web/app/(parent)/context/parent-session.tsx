@@ -19,28 +19,6 @@ import { fetchAuthMe, fetchGateStatus, listChildren } from "@/lib/parent-api";
 
 /**
  * Everything the `(parent)` route group knows about the visitor, loaded once.
- *
- * ## Why this fetches in the browser
- *
- * `frontend.md §2` says never fetch in a Client Component. This is the documented
- * exception, and it is forced rather than chosen: the better-auth session cookie
- * is set on the **API origin** and is `httpOnly`. A Server Component calling
- * `/api/auth/me` would send no cookie and get a `401` — the Next server never
- * receives that cookie at all, so there is no server-side path to the parent's
- * identity. Every request therefore goes out from the browser with
- * `credentials: "include"`, which is what `apiFetch` already does.
- *
- * The consequence is contained deliberately: this is the *only* place in
- * `(parent)` that loads session data. Pages read it from context, so no screen
- * fetches its own copy and no screen can disagree with another about who is
- * signed in or how many children exist.
- *
- * ## Why the gate is a second context
- *
- * `useParentSession` answers "who is this and what do they have"; `useParentGate`
- * answers "may the parent area be shown right now". A component that renders a
- * child's name does not want to re-render when the gate locks, and the PIN modal
- * does not care how many children there are.
  */
 
 export type ParentSessionStatus = "loading" | "ready" | "signedOut" | "error";
@@ -68,16 +46,6 @@ type ParentGateValue = {
   /**
    * Runs a PIN-gated call, shutting the gate if the grant turns out to have
    * lapsed.
-   *
-   * The expiry timer handles the ordinary case, but it cannot handle every case:
-   * the server is the authority on the grant, and a client clock that drifted, a
-   * tab that slept through its own `setTimeout`, or a sign-out on another device
-   * all end with a live-looking gate in front of an expired one. `403
-   * PIN_VERIFICATION_REQUIRED` is the server saying so, and the only correct
-   * response is the PIN pad rather than an error the parent cannot act on.
-   *
-   * Every caller of a PIN-gated endpoint should wrap it in this. The result is
-   * passed through untouched, so it composes with the existing error mapping.
    */
   guard: <T>(call: Promise<ApiResult<T>>) => Promise<ApiResult<T>>;
 };
@@ -157,8 +125,6 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
     // Fail **closed**. A gate whose state could not be read is a shut gate: the
     // alternative leaves `isLocked` at its initial `false`, so one failed request
     // renders the whole parent area unlocked — a network blip becoming a bypass.
-    // `hasPin` from `/api/auth/me` is enough to decide that, and it arrived on a
-    // request that did succeed.
     if (gate.ok) {
       setIsLocked(gate.data.hasPin && !gate.data.isPinVerified);
       setGrantExpiresAt(gate.data.pinVerifiedUntil);
@@ -205,19 +171,7 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
     [status, parent, profiles, error, load],
   );
 
-  /**
-   * The three gate actions are stable across a lock/unlock, and must be.
-   *
-   * They were built inside the `gateValue` memo, so every one of them was a new
-   * closure each time `isLocked` flipped — and a screen that fetches inside
-   * `useEffect(..., [childId, guard])` therefore re-ran that effect the moment a
-   * grant lapsed, threw away the figures it had already rendered and replaced
-   * them with the error from a request that could only 403. `PinGate` overlays
-   * the page rather than replacing it precisely so that a parent still has their
-   * screen when they unlock; an unstable `guard` was undoing that.
-   *
-   * Only `isLocked` belongs in the memo below, because only `isLocked` changes.
-   */
+  /** The three gate actions are stable across a lock/unlock, and must be. */
   const relock = useCallback(() => {
     setIsLocked(true);
     setGrantExpiresAt(null);

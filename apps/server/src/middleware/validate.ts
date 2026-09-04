@@ -51,15 +51,7 @@ export function validatedQuery<TQuery>(res: Response): TQuery {
   return res.locals[VALIDATED_QUERY] as TQuery;
 }
 
-/**
- * The same read, for a helper that cannot see its own route's middleware.
- *
- * `validatedQuery` promises a value because its callers are the handlers that
- * registered the schema. A shared helper called from several routers has no such
- * guarantee — a route that forgot `validate({ query })` leaves nothing in
- * `res.locals` — and a non-nullable return would hide that behind a `TypeError`
- * at the first property access instead of letting the caller handle it.
- */
+/** The same read, for a helper that cannot see its own route's middleware. */
 export function optionalValidatedQuery<TQuery>(
   res: Response,
 ): TQuery | undefined {

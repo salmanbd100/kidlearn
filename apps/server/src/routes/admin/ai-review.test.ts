@@ -67,11 +67,6 @@ vi.mock("../../lib/prisma.js", () => {
   /**
    * Applies a `where` clause, including the `AND`/`OR` nesting and the
    * `input: { path, equals | array_contains }` JSON filters `listJobs` builds.
-   *
-   * Applied rather than waved through, because the grade and language filters
-   * *are* JSON filters — there is no column to fall back on — so a stub that
-   * ignored them would make both filter tests pass on a service that filtered
-   * nothing.
    */
   const matches = (row: Row, where: Record<string, unknown> = {}): boolean =>
     Object.entries(where).every(([key, value]) => {

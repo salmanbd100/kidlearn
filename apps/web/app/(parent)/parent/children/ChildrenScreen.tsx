@@ -23,19 +23,7 @@ import { PARENT_ROUTES } from "@/lib/parent-redirect";
 /** FR-PROF-01 — a household may hold at most five learner profiles. */
 const MAX_CHILDREN = 5;
 
-/**
- * The profile list (FR-PROF-05..06).
- *
- * The five-profile cap is enforced in two places on purpose. Here, the Add button
- * is replaced by a friendly note once five exist, so a parent is not invited into a
- * form that must fail. And in `ChildProfileForm`, a `409` from the server becomes
- * that same note — which covers the case this screen cannot, where a second device
- * created the fifth profile while this one was showing four.
- *
- * Profiles come from the session context, which already loaded them to decide
- * whether onboarding was finished. Fetching them again here would be a second
- * request for an answer already on the page, and two copies that can disagree.
- */
+/** The profile list (FR-PROF-05..06). */
 export function ChildrenScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles, refresh } = useParentSession();

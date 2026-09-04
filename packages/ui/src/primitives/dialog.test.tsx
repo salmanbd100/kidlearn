@@ -8,14 +8,7 @@ import {
   DialogTitle,
 } from "./dialog";
 
-/**
- * `isDismissable={false}` is the security-relevant half of this primitive.
- *
- * `PinGate` relies on it: the parental gate is a dialog that *is* the boundary, so
- * a child who can press Escape or tap the scrim defeats FR-AUTH-04. That behaviour
- * was asserted only through the consumer, which meant the primitive could lose it
- * for every other caller without a single test going red.
- */
+// `isDismissable={false}` is the security-relevant half of this primitive.
 
 function renderDialog(props: { isDismissable?: boolean; closeLabel?: string }) {
   const onOpenChange = vi.fn();

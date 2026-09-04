@@ -11,14 +11,6 @@ import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 /**
  * A big illustrated square: how a pre-reader chooses anything — a world, a
  * lesson, a character, an answer.
- *
- * Built on the token contract directly rather than on the `Button` primitive:
- * a tile is a square media surface with the label *under* the art, which no
- * `Button` variant expresses. What it does copy from the primitive is the part
- * that matters — the same focus ring, the same disabled treatment.
- *
- * The picture is decorative (`alt=""`); the visible label is what a screen
- * reader announces, so meaning is never carried by the image alone.
  */
 
 const iconTileVariants = cva(

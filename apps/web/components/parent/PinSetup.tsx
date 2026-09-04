@@ -7,17 +7,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { pinErrorKey } from "@/lib/parent-errors";
 import { PIN_LENGTH, PinPad } from "./PinPad";
 
-/**
- * Choose a PIN, then prove you remember it (FR-AUTH-04).
- *
- * The second entry is not a formality: a PIN that was mistyped once is a parent
- * locked out of their own dashboard with no reset path short of account deletion.
- *
- * The state machine is explicit rather than a pile of booleans because the
- * mismatch case has a shape that flags cannot express — the pad has to be empty
- * *and* showing an error *and* ready to start over on the next keypress, without
- * that keypress being swallowed to clear the error.
- */
+// Choose a PIN, then prove you remember it (FR-AUTH-04).
 
 type PinSetupState =
   | { phase: "enter"; first: string }

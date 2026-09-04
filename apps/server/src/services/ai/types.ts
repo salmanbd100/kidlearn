@@ -1,11 +1,4 @@
-/**
- * The contract between a text-generation client and `runGenerationJob`.
- *
- * Its own module rather than the client's, because the orchestrator must not
- * import the provider (file 37a): the retry loop, the audit trail and the
- * transaction handling are provider-agnostic, and a type import from
- * `gemini-text.ts` would be the one line making that untrue.
- */
+// The contract between a text-generation client and `runGenerationJob`.
 
 export interface TokenUsage {
   inputTokens: number;
@@ -15,13 +8,6 @@ export interface TokenUsage {
 /**
  * Why the model stopped, in this pipeline's own vocabulary rather than a
  * provider's.
- *
- * Three values because three are all `runGenerationJob` can act on: a normal
- * finish, an answer cut off at the token ceiling, and a refusal. A provider's own
- * taxonomy is mapped onto these by its client (`gemini-text.ts`), and anything
- * outside them is reported as `null` — an unrecognised stop is treated as a
- * normal one, which is the safe default: it costs one retry rather than failing a
- * generation the model may well have completed.
  */
 export type GenerationStopReason = "stop" | "max_tokens" | "refusal";
 

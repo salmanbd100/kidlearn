@@ -1,20 +1,6 @@
 import { type LessonStep, nextLessonStep } from "@kidlearn/types";
 
-/**
- * The five-step lesson flow, as a pure reducer (FR-LSN-01..05, Pillar B).
- *
- * No React, no fetching, no navigation — every side effect lives in
- * `LessonPlayer`. That split is what makes the flow itself testable as a table of
- * inputs, and it is why the step order and the resume arithmetic are imported from
- * `@kidlearn/types` rather than restated: the server's monotonic guard walks the
- * same array, so the two cannot disagree about what "the next step" is.
- *
- * **Every event that does not apply returns the state unchanged, by identity.**
- * That is a hard requirement, not defensiveness: a three-year-old taps everything
- * at once, and a reducer that threw on an unexpected event would lose the child's
- * place mid-lesson. Returning the same object also means `useReducer` skips the
- * re-render, so a mashed tap costs nothing.
- */
+// The five-step lesson flow, as a pure reducer (FR-LSN-01..05, Pillar B).
 
 export type LessonPlayerState =
   | { status: "playing"; step: LessonStep; isConfirmingExit: boolean }

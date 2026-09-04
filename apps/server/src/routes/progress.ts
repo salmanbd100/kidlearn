@@ -30,26 +30,12 @@ import {
 } from "../services/lessonProgressService.js";
 import { completeStory } from "../services/storyProgressService.js";
 
-/**
- * Where the lesson player writes what a child has done (FR-LSN-06..07).
- *
- * Mounted in `routes/index.ts` behind `requireParent` + `requireActiveChild`, so
- * every handler here can assume an ownership-checked `ChildProfile` — the same
- * arrangement `/api/content/*` uses, and for the same reason: a route added here
- * later cannot forget the guards. The handlers stay thin; the visibility check, the
- * monotonic guard and the server timestamping all live in
- * `services/lessonProgressService.ts` (`backend.md §2`).
- */
+/** Where the lesson player writes what a child has done (FR-LSN-06..07). */
 export const progressRouter = Router();
 
 /**
  * Reads the `:id` path parameter on routes guarded by
  * `validate({ params: LessonIdParamsSchema })`.
- *
- * Express 5 types every param as `string | string[]`. The cast is safe only
- * *after* that middleware has run: it replaced `req.params` with the Zod-parsed
- * object, where `id` is a uuid string or the request never reached the handler
- * (400 `VALIDATION_FAILED`). Same shape as `routes/content.ts`.
  */
 function lessonIdParam(req: Request): string {
   return req.params.id as string;
@@ -127,20 +113,7 @@ progressRouter.post(
   },
 );
 
-/**
- * FR-LSN-05 — finishes the lesson and pays for it.
- *
- * No body: there is nothing a client could tell this endpoint that the server
- * does not already know better. How many answers were right is read from the
- * stored responses and the amounts are constants in `services/rewardService.ts`,
- * which is the whole of FR-GAM-08 — a request that cannot name a reward cannot
- * buy one. The same holds for everything file 24 added to the response: badges,
- * character unlocks and the streak are all decided from rows the server counted,
- * against a calendar day in `APP_TIMEZONE` rather than a device clock.
- *
- * `200`, not `201`: the ledger rows are a consequence of finishing, and a replay
- * writes none at all, so there is no resource this call reliably creates.
- */
+/** FR-LSN-05 — finishes the lesson and pays for it. */
 progressRouter.post(
   "/lessons/:id/complete",
   validate({ params: LessonIdParamsSchema }),
@@ -158,19 +131,7 @@ progressRouter.post(
   },
 );
 
-/**
- * FR-STORY-06..07 — finishes a story and pays for it, once.
- *
- * Mounted here rather than on `/api/content/stories` because it is a write about
- * what a child has *done*, which is what this surface is; the content router is a
- * read-only view of the catalogue.
- *
- * No body, for the same reason the lesson completion has none: the amounts are
- * constants in `services/rewardService.ts` and there is nothing a client could
- * send that would be believed (FR-GAM-08). A replay answers
- * `alreadyCompleted: true` and writes nothing — reading again is free and
- * unlimited (FR-STORY-06), and this endpoint stays callable every time.
- */
+/** FR-STORY-06..07 — finishes a story and pays for it, once. */
 progressRouter.post(
   "/stories/:id/complete",
   validate({ params: StoryIdParamsSchema }),

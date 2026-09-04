@@ -7,20 +7,7 @@ import { useAudio } from "@/components/AudioProvider";
 import { BigButton } from "@/components/kid/BigButton";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
-/**
- * The way out of an activity that cannot be played (FR-ACT-06).
- *
- * Two situations end up here and the child must not be able to tell them apart:
- * a lesson that was authored without an activity, and a payload that failed
- * validation. Neither is the child's doing, so neither gets an error — the game
- * is asleep, and there is one large button onward. **The button is the point.**
- * A malformed row in the database is a content bug for an adult to fix, and it
- * must never be a wall a four-year-old is left standing in front of.
- *
- * The illustration is a Lucide glyph rather than the world's mascot: the engine
- * is handed an activity payload, not a lesson, and plumbing the mascot through
- * for this one screen would put lesson knowledge into every future renderer.
- */
+/** The way out of an activity that cannot be played (FR-ACT-06). */
 export function ActivityUnavailable({
   message,
   audioUrl,

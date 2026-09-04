@@ -1,29 +1,5 @@
 /**
  * Route-boundary schemas for `/api/admin/content/*` (file 32, `backend.md §2`).
- *
- * Three rules hold across every shape in this file, and each of them is load-
- * bearing rather than stylistic:
- *
- *  1. **No `status` key anywhere, and `.strict()` everywhere.** A status change is
- *     `POST /:id/transition` and nothing else, because that is the only path that
- *     runs the matrix in `services/contentStatusService.ts`. If a create or edit
- *     body could carry `status`, publishing would have a second door with no
- *     review behind it. `.strict()` is what turns "the field is not in the schema"
- *     into a `400` instead of a silently stripped key.
- *  2. **No `sortOrder` key either.** Ordering is owned by
- *     `PATCH /:resource/reorder`, which writes a whole sibling set in one
- *     transaction. Letting a create or an edit set one row's position is how two
- *     rows end up sharing an index and the tree renders in an order nobody chose.
- *  3. **Translations arrive complete or not at all.** Both locales are required
- *     whenever `translations` is present, including on a `PATCH`. A partial write
- *     is what produces a lesson that falls back to English mid-way through a
- *     Bangla learner's session (FR-I18N-01), and the CMS form submits both fields
- *     together in any case.
- *
- * Grades are the uppercase Prisma spelling. This file's spec wrote
- * `nursery | kg1 | kg2`, but `GradeLevel` shipped in file 03 as
- * `NURSERY | KG1 | KG2` and `/api/children` already speaks it — see the casing
- * note in `schemas/children.ts`.
  */
 import {
   ContentStatusSchema,
@@ -59,15 +35,7 @@ const LocalizedNameSchema = z
   .object({ en: z.string().min(1).max(200), bn: z.string().min(1).max(200) })
   .strict();
 
-/**
- * A lesson's per-locale content: what a child reads and hears.
- *
- * `videoAssetId` is nullable and optional because file 33 owns the media library
- * — a lesson is authored, reviewed and only then given its video. It is an id
- * rather than the URL this file's spec sketched, because `MediaAsset` is where a
- * URL lives in the settled schema (file 04) and a lesson holding a loose string
- * would be a second, unmanaged copy of it.
- */
+/** A lesson's per-locale content: what a child reads and hears. */
 const LessonTranslationSchema = z
   .object({
     title: z.string().min(1).max(200),
@@ -87,16 +55,9 @@ export const AdminContentIdParamsSchema = z
 
 export type AdminContentIdParams = z.infer<typeof AdminContentIdParamsSchema>;
 
-// --- Lists ----------------------------------------------------------------
-
 /**
  * `?includeArchived=true` opts an admin list into showing archived rows, which
  * are hidden by default (requirement 5).
- *
- * Archiving is how content is retired, and a CMS that shows every retirement
- * forever is a CMS an admin stops reading. Coerced rather than parsed as a
- * boolean: a query string carries `"true"`, and `z.boolean()` would reject every
- * request that used the flag.
  */
 const IncludeArchivedSchema = z
   .enum(["true", "false"])
@@ -125,8 +86,6 @@ export const AdminLessonListQuerySchema = z
 export type AdminContentListQuery = z.infer<typeof AdminContentListQuerySchema>;
 export type AdminTopicListQuery = z.infer<typeof AdminTopicListQuerySchema>;
 export type AdminLessonListQuery = z.infer<typeof AdminLessonListQuerySchema>;
-
-// --- Creates and edits ----------------------------------------------------
 
 export const WorldCreateSchema = z
   .object({
@@ -157,18 +116,7 @@ export const TopicCreateSchema = z
   })
   .strict();
 
-/**
- * A lesson's authored shape (FR-CMS-01).
- *
- * `activityId` and `quizId` are nullable and optional for the same reason
- * `videoAssetId` is: the editors that produce them arrive with file 33, and a
- * lesson has to be draftable before its parts exist.
- *
- * `conceptsIntroduced` are the prefixed tokens the weekly report unions across a
- * week (`letter:A`, `word:apple`, `number:7`, file 30). The prefix is validated
- * here because a typo produces a token no report will ever match and no error
- * anyone will ever see.
- */
+/** A lesson's authored shape (FR-CMS-01). */
 export const LessonCreateSchema = z
   .object({
     topicId: z.string().uuid(),
@@ -198,14 +146,6 @@ export const LessonCreateSchema = z
  * pointers — a topic does not change subject and a lesson does not change topic
  * by editing a field. Moving content between parents is a deliberate operation
  * with reordering consequences on both sides, and it is not in this file's scope.
- *
- * `.strict()` on the partial is what rejects `{ "status": "published" }` with a
- * `400`. The refinement below rejects `{}`, which would otherwise be an edit that
- * stamps `updatedBy` while changing nothing.
- *
- * Zod refinements are dropped in JSON Schema conversion, so the "at least one
- * field" rule is restated in each operation's OpenAPI description
- * (`backend.md §7`).
  */
 const atLeastOneField = <TSchema extends z.ZodTypeAny>(schema: TSchema) =>
   // `refine` hands back `z.infer<TSchema>`, which is unresolved while `TSchema`
@@ -241,35 +181,12 @@ export type SubjectUpdateBody = z.infer<typeof SubjectUpdateSchema>;
 export type TopicUpdateBody = z.infer<typeof TopicUpdateSchema>;
 export type LessonUpdateBody = z.infer<typeof LessonUpdateSchema>;
 
-// --- Transitions and ordering ---------------------------------------------
-
-/**
- * The only body in the API that names a `ContentStatus`.
- *
- * Whether the hop is *legal* is not this schema's job — `assertTransition` owns
- * that, and answers `409` rather than `400`, because a rejected hop is about the
- * row's current state and not about the request being malformed.
- */
+/** The only body in the API that names a `ContentStatus`. */
 export const TransitionSchema = z.object({ to: ContentStatusSchema }).strict();
 
 export type TransitionBody = z.infer<typeof TransitionSchema>;
 
-/**
- * A whole sibling set in the order it should hold (requirement 4).
- *
- * The payload is every sibling, not the one that moved, because "put this at
- * index 3" is a claim about the other rows too and two of those requests racing
- * leaves duplicate indices. The service rejects a list that is not exactly the
- * sibling set — see `reorderContent`.
- *
- * `parentId` is optional only because top-level subjects have no parent; topics
- * and lessons require one, which the service enforces.
- *
- * `includeArchived` says which sibling set the payload claims to be, and has to
- * match the list the admin dragged: a tree loaded with archived rows shown sends
- * them too, and one loaded without does not. A body flag rather than a query
- * parameter because it is part of what the write asserts, not a filter on a read.
- */
+/** A whole sibling set in the order it should hold (requirement 4). */
 export const ReorderSchema = z
   .object({
     parentId: z.string().uuid().optional(),
@@ -280,30 +197,7 @@ export const ReorderSchema = z
 
 export type ReorderBody = z.infer<typeof ReorderSchema>;
 
-// --- Character sheets (file 36, FR-AI-09) ---------------------------------
-
-/**
- * A recurring character's stable visual description.
- *
- * **`description` is prompt text, not notes**, which is why the floor is 20
- * characters rather than 1: "a rabbit" contributes nothing an image model can draw
- * consistently from, and a sheet that adds nothing makes the drift it was created
- * to stop look like the feature working. The ceiling is generous — colours,
- * clothing, size and distinguishing features are four sentences, not one.
- *
- * `slug` is optional on create and absent from the update body. It is how an
- * import recognises a character it has already saved, so a slug that could change
- * would let the same mascot be imported twice under two names. Omitted, it is
- * derived from `name` and suffixed until free.
- *
- * `worldId` is explicitly nullable rather than optional-and-absent, matching
- * `RegisterAssetSchema.language`: a character used across every world is a fact
- * worth recording, not a gap.
- *
- * No `status` and no `sortOrder`, for a different reason from the curriculum
- * bodies above — a sheet has neither. It is never student-facing, so there is
- * nothing to publish, and it is never listed in an order an admin chose.
- */
+/** A recurring character's stable visual description. */
 export const CharacterSheetCreateSchema = z
   .object({
     slug: SlugSchema.optional(),
@@ -330,9 +224,6 @@ export type CharacterSheetUpdateBody = z.infer<
  * to an exact match — it is the set the illustration generator applies to a story
  * set there, and a filter that answered differently would show an admin a cast
  * their pictures do not use.
- *
- * Restated in the operation's OpenAPI description: JSON Schema cannot say what a
- * filter means.
  */
 export const CharacterSheetListQuerySchema = z
   .object({ worldId: z.string().uuid().optional() })
@@ -345,11 +236,6 @@ export type CharacterSheetListQuery = z.infer<
 /**
  * Promote a story generation's cast into sheets — the "Save as character sheet"
  * action (FR-AI-09).
- *
- * Just the job id. Which characters it describes, and which world they belong to,
- * are read from the job's own audit record and the story it wrote: a body that
- * could name the characters would be a way to write a description the model never
- * produced while the row still claimed a job as its provenance.
  */
 export const PromoteJobCharactersSchema = z
   .object({ jobId: z.string().uuid() })

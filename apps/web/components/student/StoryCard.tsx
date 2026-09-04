@@ -11,23 +11,7 @@ import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { worldGradientStyle } from "@/lib/worlds";
 
-/**
- * One story, as a cover a pre-reader can choose (FR-STORY-01).
- *
- * The world accent is the story's own world row (FR-STORY-04) — the same
- * `palette` and mascot the home screen's world tiles use — so a jungle story and
- * Jungle World look like they belong together, and a fourth world needs no change
- * here. The mascot doubles as the "characters from the learning worlds" cue the
- * requirement asks for.
- *
- * `palette` reaches the DOM as an inline style with raw colour values: the
- * sanctioned exception for decorative art (design.md §2.2), and confined to the
- * band behind the cover. The title sits on a `bg-card` plate, so its contrast comes
- * from the theme rather than from whatever colours an author saved.
- *
- * Presentational on purpose. Selection and navigation belong to `StoryGrid`, which
- * is the only thing that can know whether *this* card was the one tapped last.
- */
+// One story, as a cover a pre-reader can choose (FR-STORY-01).
 
 const storyCardVariants = cva(
   "group relative flex w-full flex-col items-stretch gap-3 overflow-hidden rounded-xl border-4 bg-card p-3 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

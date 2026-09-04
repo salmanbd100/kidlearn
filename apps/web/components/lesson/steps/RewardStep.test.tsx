@@ -5,14 +5,7 @@ import { Providers } from "@/components/Providers";
 import { A11Y_PREF_CLASSES } from "@/lib/a11y-prefs";
 import { resetI18nForTests } from "@/lib/i18n";
 
-/**
- * The celebration, driven by a mocked completion response.
- *
- * The endpoint is stubbed at the module boundary, which is where it is a network
- * call. What this file is about is everything downstream of it: that the numbers
- * on screen are the server's, and that a child who is owed a party gets one
- * whatever the network did.
- */
+// The celebration, driven by a mocked completion response.
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -106,12 +99,6 @@ function renderStep() {
 
 /**
  * Flushes the completion promise, then walks the celebration to its last phase.
- *
- * Once per phase, because each phase's timer is scheduled by the effect that
- * runs *after* the previous one fired — draining the queue in one go would stop
- * at the first handover. Six iterations covers the longest run (stars, coins,
- * badges, characters, streak, mascot); a shorter celebration simply has no
- * pending timer left to fire.
  */
 async function settle() {
   await act(async () => {});

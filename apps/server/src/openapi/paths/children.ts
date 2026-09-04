@@ -10,16 +10,7 @@ import {
 } from "../components.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `routes/children.ts` — `requireParent` guards the whole router.
- *
- * Compile-time guard on the mirrored enum. `@kidlearn/types` may not depend on
- * `@kidlearn/db`, so `GRADE_LEVELS` restates Prisma's `GradeLevel` by hand. These
- * two assignments make that restatement checked rather than trusted: adding a
- * grade to `schema.prisma` without adding it to `GRADE_LEVELS` (or vice versa)
- * fails `pnpm typecheck` here, instead of silently shipping a spec that omits a
- * legal value.
- */
+/** `routes/children.ts` — `requireParent` guards the whole router. */
 type _GradeLevelsCoverPrisma = GradeLevel extends GradeLevelValue
   ? true
   : never;
@@ -32,27 +23,13 @@ const _gradeLevelMirrorIsExhaustive: [
 ] = [true, true];
 void _gradeLevelMirrorIsExhaustive;
 
-/**
- * `404`, never `403`, for a profile owned by somebody else.
- *
- * This is a deliberate content-safety decision (NFR-SAFE-02), not an oversight: a
- * `403` would confirm that the id exists, which is precisely what a probe is
- * after. Documented here so nobody "fixes" it into a 403 later.
- */
+/** `404`, never `403`, for a profile owned by somebody else. */
 const CHILD_NOT_FOUND_RESPONSE = errorResponse(
   "No such profile — **or** it belongs to another parent. The two are deliberately indistinguishable (NFR-SAFE-02): answering `403` for someone else's child would confirm the id exists.",
   ["NOT_FOUND"],
 );
 
-/**
- * The PIN gate's two `403` codes, on every route that writes a profile.
- *
- * Two codes rather than one because the client's next screen differs:
- * `PIN_REQUIRED` means no PIN exists, so open setup; `PIN_VERIFICATION_REQUIRED`
- * means one exists but this session's 15-minute grant has lapsed, so open the PIN
- * pad. A client telling them apart by matching message strings breaks the first
- * time someone rewords a message.
- */
+/** The PIN gate's two `403` codes, on every route that writes a profile. */
 const PIN_GATE_RESPONSE = errorResponse(
   "The parental gate is shut. `PIN_REQUIRED` — no PIN is set on this account, so send the parent to setup. `PIN_VERIFICATION_REQUIRED` — a PIN exists but this session has no live grant; call `POST /api/parent/pin/verify`.",
   ["PIN_REQUIRED", "PIN_VERIFICATION_REQUIRED"],

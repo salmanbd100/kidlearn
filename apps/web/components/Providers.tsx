@@ -6,12 +6,7 @@ import { getI18n } from "@/lib/i18n";
 import type { Locale } from "@/lib/locale";
 import { AudioProvider } from "./AudioProvider";
 
-/**
- * The client-side context the whole app sits inside.
- *
- * `locale` comes from the Server Component that read the cookie, so the first
- * paint is already in the right language — see the note in `lib/i18n.ts`.
- */
+/** The client-side context the whole app sits inside. */
 export function Providers({
   locale,
   children,

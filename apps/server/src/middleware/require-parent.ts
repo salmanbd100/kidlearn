@@ -11,10 +11,6 @@ type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
  * Gate for every parent-authenticated route. Reads the better-auth session from
  * the request cookies, provisions the `Parent` domain row on first sight, and
  * attaches both to the request.
- *
- * This is the *authentication* layer only. Parent-area routes additionally need
- * `requirePinVerified` (file 10) layered on top; the student portal deliberately
- * does not, so a child switching profiles never faces a PIN prompt (FR-AUTH-06).
  */
 export const requireParent: RequestHandler = async (
   req: Request,

@@ -21,33 +21,7 @@ import {
   runGenerationJob,
 } from "../run-generation-job.js";
 
-/**
- * Batch narration (file 36, FR-AI-04, FR-I18N-05, FR-CMS-05).
- *
- * One admin action, one job per **missing** `(target, locale)` pair. What makes a
- * pair missing is the absence of a foreign key — `LessonTranslation.introAudioAssetId`,
- * `StoryPageTranslation.narrationAudioAssetId`, `QuizQuestionTranslation.audioAssetId`
- * — so re-running the action on a half-narrated story asks for the half that is
- * silent and nothing else.
- *
- * **The foreign key is not set here, and that is the whole design.** Each job
- * records the clip, the asset row and which `(table, id, locale)` it was recorded
- * *for*, and stops on `awaiting_review`. An admin listens first; the attachment
- * happens on approval in file 37 (FR-CMS-05, FR-AI-07). Setting the key at
- * generation time would put an unreviewed voice — possibly the wrong voice for the
- * language — into a lesson a five-year-old plays, with the review queue reduced to
- * a notification.
- *
- * **One job per pair rather than one job per batch**, because the review unit is
- * one clip. A reviewer listens to page 3's Bangla narration and approves or
- * rejects *that*; a single job covering sixteen clips could only be approved
- * wholesale, and one bad take would send fifteen good ones back through the model.
- *
- * **In-flight pairs are skipped too.** A pair whose clip is already sitting in the
- * review queue has no missing audio in any useful sense — the FK is still null,
- * but generating a second clip for it would bill twice and give the reviewer two
- * takes to choose between when they asked for one.
- */
+// Batch narration (file 36, FR-AI-04, FR-I18N-05, FR-CMS-05).
 
 /** The three tables that hold a narration foreign key. */
 const NARRATION_TABLES = [
@@ -57,16 +31,7 @@ const NARRATION_TABLES = [
 ] as const;
 export type NarrationTable = (typeof NARRATION_TABLES)[number];
 
-/**
- * One clip to record.
- *
- * `targetId` is the id on the **parent** side of the translation row's unique key
- * — the lesson, the story page, the question — not the translation row's own id.
- * `(targetId, locale)` is `@@unique([lessonId, language])` and its two siblings,
- * so the pair addresses the row whether or not it exists yet. It does not always:
- * a `QuizQuestionTranslation` is created only when a question gains audio, so
- * file 37 upserts on this pair rather than updating an id that may be absent.
- */
+/** One clip to record. */
 interface NarrationTarget {
   table: NarrationTable;
   targetId: string;
@@ -85,9 +50,6 @@ type NarrationUpload = z.infer<typeof NarrationUploadSchema>;
 
 /**
  * Job statuses that mean "a clip for this pair already exists or is coming".
- *
- * `failed` and `rejected` are deliberately absent: both mean there is no usable
- * clip, so the pair is missing again and asking for another is the point.
  */
 const LIVE_JOB_STATUSES = [
   "pending",
@@ -199,10 +161,6 @@ function runNarrationJob(
 
 /**
  * Every pair that could carry narration, flagged with whether it already does.
- *
- * Candidates rather than only the missing ones, because `skipped` is the half of
- * the answer that lets the CMS say "3 generated, 2 already had audio" instead of
- * leaving an admin to wonder why a story with eight pages produced three clips.
  */
 type NarrationCandidate = {
   hasAudio: boolean;
@@ -295,14 +253,7 @@ async function readStoryCandidates(
   );
 }
 
-/**
- * A quiz's pairs come from the payload, not from a text column.
- *
- * `QuizQuestionTranslation` holds an audio key and nothing else — the words are
- * in `QuizQuestion.definition.prompt`, the JSONB the shared payload contract
- * governs — so the locales worth narrating are the locales that payload actually
- * carries a prompt for, and the translation row may not exist at all yet.
- */
+/** A quiz's pairs come from the payload, not from a text column. */
 async function readQuizCandidates(
   quizId: string,
 ): Promise<NarrationCandidate[]> {
@@ -347,14 +298,7 @@ async function readQuizCandidates(
   });
 }
 
-/**
- * `definition.prompt` as a locale map, or an empty one.
- *
- * Read defensively rather than parsed against `QuizQuestionSchema`. A question
- * that fails the payload contract is a problem for the editor and for file 37's
- * review, not a reason a narration batch on the other four questions should throw
- * — and the only field wanted here is one string per locale.
- */
+/** `definition.prompt` as a locale map, or an empty one. */
 function readPrompts(
   definition: Prisma.JsonValue,
 ): Partial<Record<Locale, string>> {
@@ -375,13 +319,7 @@ function readPrompts(
   return prompts;
 }
 
-/**
- * The pairs a live audio job already covers.
- *
- * Filtered on the job's own `input`, which is written before the provider is
- * called — so a job that is still mid-generation blocks a duplicate, which is
- * exactly the window a second click lands in.
- */
+/** The pairs a live audio job already covers. */
 async function readInFlightPairs(entityId: string): Promise<Set<string>> {
   const jobs = await prisma.aIGenerationJob.findMany({
     where: {

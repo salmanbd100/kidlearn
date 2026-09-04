@@ -45,23 +45,6 @@ import { TransitionButtons } from "./TransitionButtons";
 /**
  * `/admin/curriculum` — the curriculum tree (file 32, FR-CURR-04, FR-CMS-01,
  * FR-CMS-06).
- *
- * **Three panes, Subject → Topic → Lesson**, with worlds edited in a fourth pane
- * of their own. A world is not a level of this hierarchy — it is a theme a lesson
- * points at, shared across subjects — so nesting it would draw a tree the data
- * does not have.
- *
- * **The whole tree is fetched once and filtered in the browser.** A curriculum
- * for ages 3–6 is a few hundred rows at most; four requests on mount beat a
- * request per expand on an API that sleeps on its free tier (NFR-PERF-04), and it
- * means a reorder can settle against a list already in memory.
- *
- * **Every mutation re-reads its list rather than patching state from the
- * response.** The server owns `sortOrder`, `status`, `updatedBy` and
- * `updatedAt`, and a client that spliced its own idea of a row back into the list
- * would be right until the first time it was not. The one exception is the drag
- * itself, which is applied optimistically so the list does not jump under the
- * cursor, then reverted if the write is refused.
  */
 
 type DialogState =
@@ -189,13 +172,7 @@ export function CurriculumScreen() {
     return true;
   }
 
-  /**
-   * Applies each hop in order and stops at the first refusal.
-   *
-   * Sequential rather than concurrent, and not merely for tidiness: the second
-   * hop is only legal from the status the first one wrote, so firing both at once
-   * would race the server into rejecting one of them.
-   */
+  /** Applies each hop in order and stops at the first refusal. */
   async function handleTransition(
     resource: ContentResourceName,
     id: string,
@@ -219,13 +196,7 @@ export function CurriculumScreen() {
     setIsBusy(false);
   }
 
-  /**
-   * Reorders optimistically, then lets the server's answer stand.
-   *
-   * The revert on failure is the point: a refusal means this tab's list was not
-   * the sibling set the server has — somebody else created a row — and leaving
-   * the optimistic order on screen would show an order that was never saved.
-   */
+  /** Reorders optimistically, then lets the server's answer stand. */
   async function handleReorder(
     resource: OrderableContentResourceName,
     orderedIds: string[],
@@ -559,15 +530,7 @@ export function CurriculumScreen() {
     </div>
   );
 
-  /**
-   * Creates an empty quiz and points the lesson at it, in that order.
-   *
-   * Two requests because they are two resources: a quiz exists in its own right and
-   * publishes on its own schedule, and `Lesson.quizId` is the pointer. Doing it here
-   * rather than making the admin create a quiz and paste its id is the difference
-   * between a workflow and a scavenger hunt — but the id is still shown on the
-   * lesson form, because an existing quiz can be shared by two lessons.
-   */
+  /** Creates an empty quiz and points the lesson at it, in that order. */
   async function createQuizFor(lesson: AdminLesson) {
     setIsBusy(true);
     clearMessages();
@@ -630,13 +593,7 @@ type SelectedRow = {
   };
 };
 
-/**
- * Which single row the detail panel is about.
- *
- * Deepest selection wins — a chosen lesson is what an admin is looking at, not
- * the topic above it — and a world, being outside the hierarchy, is checked
- * first because selecting one clears the lesson.
- */
+/** Which single row the detail panel is about. */
 function useSelection(input: {
   worlds: AdminWorld[];
   subjects: AdminSubject[];
@@ -673,10 +630,6 @@ function useSelection(input: {
 /**
  * The three things an admin does with a selected lesson that are not edits to the
  * lesson row: preview it, and open the quiz and activity it points at.
- *
- * **Preview opens in a new tab**, because it is the real student player at full
- * bleed and losing the CMS tree behind it is how a reviewer loses their place. It
- * is offered whatever the lesson's status — that is the point of it (FR-CMS-04).
  */
 function LessonPartLinks({
   lesson,

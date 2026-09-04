@@ -11,12 +11,6 @@ import { getRewardSummary } from "../services/rewardService.js";
 /**
  * `/api/me` — what the *signed-in child* has, as opposed to what the curriculum
  * holds or what a parent administers.
- *
- * A resource of its own rather than a path on `/children/{id}`, and the missing
- * id is the point: the child is the session's active profile, so there is no
- * parameter here a client could change to read another child's totals. Mounted
- * behind the same two guards as `/api/content/*` and `/api/progress/*` in
- * `routes/index.ts`, so a route added here later inherits them.
  */
 export const meRouter = Router();
 
@@ -32,11 +26,6 @@ meRouter.get("/rewards/summary", async (req, res, next) => {
 
 /**
  * FR-GAM-05 — every published character, flagged with whether this child has it.
- *
- * The locked ones are part of the answer, not an omission: the picker draws them
- * as silhouettes so a child can see what there is to earn. Which of them are
- * unlocked is the session's active profile's business and nobody else's, which
- * is why this is on `/api/me` rather than taking a child id.
  */
 meRouter.get("/characters", async (req, res, next) => {
   try {

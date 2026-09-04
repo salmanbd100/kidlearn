@@ -3,14 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LessonForm } from "./LessonForm";
 
-/**
- * The lesson editor's submit path.
- *
- * Same failure as `ContentForm` had, twice over: the per-locale title *and* the
- * intro script were `required` inside a `hidden` panel, so a lesson filled in
- * English alone could not be saved and said nothing about why. The form now
- * names the first missing field and switches to its locale.
- */
+// The lesson editor's submit path.
 
 const WORLDS: AdminWorld[] = [
   {

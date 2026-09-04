@@ -11,26 +11,7 @@ import {
   updateCharacterSheet,
 } from "@/lib/admin-api";
 
-/**
- * The Characters tab on `/admin/media` (file 36, FR-AI-09).
- *
- * **A character sheet is prompt text, not an asset**, which is why it sits beside
- * the media library rather than in the curriculum tree: it is the thing that makes
- * the *pictures* consistent, and it is read at the moment one is drawn. It has no
- * status, no ordering and no translations — nothing student-facing reads the
- * table, so there is nothing for the publishing workflow to protect.
- *
- * **Editing a description changes every illustration drawn afterwards and none
- * drawn before.** The screen says so, because the opposite assumption — that
- * fixing the wording fixes the pictures — is the natural one and it is wrong.
- *
- * **The slug is shown and not editable.** It is how "Save as character sheet"
- * recognises a character it already holds, so a slug that could change would let
- * the same mascot be saved twice under two names.
- *
- * Fetches its own data, per the recorded exception in `frontend.md §2`: the admin
- * session cookie belongs to the API origin.
- */
+// The Characters tab on `/admin/media` (file 36, FR-AI-09).
 
 type Draft = {
   name: string;

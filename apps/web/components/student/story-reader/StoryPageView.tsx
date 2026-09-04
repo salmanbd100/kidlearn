@@ -5,19 +5,7 @@ import { BookOpen } from "lucide-react";
 import Image from "next/image";
 import { NarratedText } from "./NarratedText";
 
-/**
- * One page of a story: the picture and the words (FR-STORY-02).
- *
- * **The layout adapts to the device's orientation in CSS alone.** Portrait stacks
- * the illustration over the text; landscape puts them side by side, which is the
- * only way a phone held sideways — about 240px of usable height — shows both a
- * picture and a sentence at a size a child can read. No resize listener and no
- * `matchMedia` hook: an orientation is a media query, and reading it in JavaScript
- * means the first paint after a rotation is always wrong.
- *
- * The illustration is capped by viewport height rather than given a fixed box, so
- * the words are never pushed off the bottom of a short screen.
- */
+// One page of a story: the picture and the words (FR-STORY-02).
 
 const ILLUSTRATION_PX = 720;
 

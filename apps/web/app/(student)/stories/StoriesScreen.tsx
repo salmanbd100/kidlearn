@@ -12,16 +12,7 @@ import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { useScreenNarration } from "@/lib/use-screen-narration";
 import { StudentStatus } from "../StudentGuard";
 
-/**
- * The Story Library (FR-STORY-01).
- *
- * Its own screen off the main menu, not a step inside a lesson: a child can come
- * here at any time, and nothing has to be finished first. One request, no filtering
- * afterwards — `GET /api/content/stories` returns the stories already narrowed to
- * this child's grade and language, and already flagged with what they have
- * finished, so there is nothing here to decide and no way for this screen to widen
- * what a child can see.
- */
+/** The Story Library (FR-STORY-01). */
 export function StoriesScreen() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();

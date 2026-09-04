@@ -2,16 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "../lib/cn";
 
-/**
- * Label — a plain `<label>`, tokenized.
- *
- * No Radix wrapper: `@radix-ui/react-label` exists to stop label clicks selecting
- * text, which is not worth a dependency, and a native label already gives the
- * `htmlFor` association every field here needs.
- *
- * `text-sm` is legal on parent surfaces only (design.md §3.2) — the `kid` variant
- * is what a Student-Portal caller uses, and it never goes below 20px.
- */
+/** Label — a plain `<label>`, tokenized. */
 const labelVariants = cva("font-medium leading-tight text-foreground", {
   variants: {
     size: {

@@ -7,19 +7,6 @@ import { asSlugConflict, isSlugConflict } from "../lib/slug-conflict.js";
 /**
  * Character sheets — the prompt text that keeps a recurring character
  * recognisable (file 36, FR-AI-09).
- *
- * **These rows are prompt input, not content.** Nothing here is student-facing:
- * no query in `routes/content.ts` or `routes/stories.ts` reads this table, and a
- * sheet has no `status` column because there is nothing for a child to be
- * protected from. What it does have is reach — editing a description changes every
- * illustration drawn from it afterwards — which is why `updateCharacterSheet`
- * touches `description` and never silently reaches back into pictures already
- * drawn.
- *
- * A separate service from `adminContentService` deliberately: sheets have no
- * publishing workflow, no ordering, no translations and no `updatedBy` audit
- * stamp, so folding them into the four-resource `mount` machinery there would mean
- * teaching it about a resource that opts out of all four of its rules.
  */
 
 export type CharacterSheetDto = {
@@ -43,14 +30,7 @@ const sheetSelect = {
   updatedAt: true,
 } as const;
 
-/**
- * The sheets, world-scoped ones first.
- *
- * `worldId` narrows to *that world plus the world-less ones*, rather than to an
- * exact match, because that is the set the illustration generator applies to a
- * story in that world — a filter that answered differently from the generator
- * would show an admin a character list their pictures do not use.
- */
+/** The sheets, world-scoped ones first. */
 export function listCharacterSheets(filters: {
   worldId?: string;
 }): Promise<CharacterSheetDto[]> {
@@ -94,14 +74,7 @@ export async function createCharacterSheet(
   );
 }
 
-/**
- * Edits a sheet. `slug` is not editable.
- *
- * The slug is how a sheet is recognised across an import — `promoteJobCharacters`
- * skips one that already exists by slug — so letting it change would let the same
- * character be imported twice under two names. Renaming is `name`, which is the
- * field the prompt actually prints.
- */
+/** Edits a sheet. `slug` is not editable. */
 export async function updateCharacterSheet(
   id: string,
   input: Partial<Omit<CharacterSheetInput, "slug">>,
@@ -136,20 +109,6 @@ export interface PromotedCharacterSheets {
 /**
  * Turns a story generation's `characterDescriptions` into sheets — the one-click
  * "Save as character sheet" action (FR-AI-09).
- *
- * Read out of the job's `rawOutput` rather than from a column, because file 35
- * deliberately did not persist them: a story that is later rejected should not
- * leave character records behind. Promoting them is the admin saying this story's
- * cast is worth keeping.
- *
- * **An existing slug is skipped, never overwritten.** The second story set in a
- * world will describe the same mascot again, in slightly different words, and
- * taking the newer description would silently change how that mascot is drawn in
- * every story that already uses it — consistency is the entire point of the table
- * (FR-AI-09). Editing a sheet stays an explicit `PATCH`.
- *
- * The story's world is inherited, so the sheets land scoped the way the
- * illustration generator will look for them.
  */
 export async function promoteJobCharacters(
   jobId: string,
@@ -216,14 +175,7 @@ export async function promoteJobCharacters(
   return { created, skipped };
 }
 
-/**
- * `rawOutput.parsed.characterDescriptions`, defensively.
- *
- * The JSONB column boundary, and read field by field rather than parsed against
- * the story output schema: that schema is built per request from the locales the
- * generation asked for, so reconstructing it here would mean re-deriving a
- * contract in order to read three strings out of it.
- */
+/** `rawOutput.parsed.characterDescriptions`, defensively. */
 function readCharacterDescriptions(
   rawOutput: Prisma.JsonValue,
 ): Array<{ name: string; visualDescription: string }> {

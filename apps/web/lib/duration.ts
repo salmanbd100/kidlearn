@@ -1,14 +1,4 @@
-/**
- * A minute count as a parent reads it: `"12m"`, `"1h"`, `"1h 35m"`.
- *
- * The switch at an hour is the whole point. A daily figure is minutes and a
- * monthly one is hours, and "310m" is a number a parent has to do arithmetic on
- * before it means anything.
- *
- * `translate` is passed in rather than the hook being called here, so the rule is
- * testable without an i18next instance and the copy stays in the locale files
- * (`frontend.md §3`). Its shape is the subset of i18next's `t` this needs.
- */
+/** A minute count as a parent reads it: `"12m"`, `"1h"`, `"1h 35m"`. */
 export type Translate = (
   key: string,
   params?: Record<string, unknown>,

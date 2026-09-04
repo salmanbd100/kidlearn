@@ -4,20 +4,7 @@ import { AssetKindSchema, LocaleSchema } from "../primitives.js";
 import { QuizQuestionSchema } from "../quiz/schemas.js";
 import { ok } from "./envelope.js";
 
-/**
- * `/api/content` — the student-facing curriculum read API.
- *
- * Two properties of every schema here are worth reading before building against
- * them:
- *
- *  1. **Text is already resolved.** The server picks the child's
- *     `preferredLanguage` and falls back to English, then sends one string. A
- *     client never receives the other language's copy (FR-PROF-03), and never
- *     chooses a locale — there are no locale query parameters on this API.
- *  2. **Activity and quiz `definition` payloads are the exception.** They are
- *     passed through whole because they embed `LocalizedText`, and the engines in
- *     files 18–22 do their own locale picking via this package's parsers.
- */
+// `/api/content` — the student-facing curriculum read API.
 
 /** A media reference flattened for the client — no ids of rows it cannot fetch. */
 export const MediaSummarySchema = z
@@ -130,21 +117,6 @@ export const LessonQuizSchema = z
 /**
  * Which of the lesson's media the child is hearing or watching in English
  * because their own locale has none (FR-I18N-01).
- *
- * **Reporting only — never behaviour.** The server has already resolved every
- * URL, so a client that ignored this object entirely would play exactly the same
- * assets. It exists so the content gap is countable: the player attaches the flag
- * to its `step_complete` event, and the report says which lessons still need a
- * Bangla recording rather than leaving that to be discovered by a parent.
- *
- * A flag is `true` only when an English asset was actually substituted. A lesson
- * with no video in either locale is a hole in the content, not a fallback, and
- * reads `false` — otherwise the count would conflate "translate this" with
- * "record this at all".
- *
- * Booleans rather than the locale that supplied each asset: English is the only
- * fallback there is (`FALLBACK_LANG`), so a locale here could only ever be `"en"`
- * or absent, which is a boolean spelled at length.
  */
 export const LessonAssetFallbacksSchema = z
   .object({
@@ -191,13 +163,6 @@ export const LessonDetailSchema = z
 
 /**
  * One topic heading and the lessons of the requested world that sit under it.
- *
- * The grouping exists because `World` and `Topic` are orthogonal in the settled
- * schema: a lesson belongs to exactly one topic (its place in the curriculum,
- * authored subject → topic → lesson) and to exactly one world (its setting).
- * The student home screen navigates by world, so the world screen needs both —
- * and carrying the headings alongside the lessons is what saves it a round trip
- * per topic.
  */
 export const WorldTopicLessonsSchema = TopicSummarySchema.extend({
   lessons: z.array(LessonListItemSchema),
@@ -222,13 +187,7 @@ export const LessonDetailResponseSchema = ok(
   z.object({ lesson: LessonDetailSchema }).strict(),
 );
 
-/**
- * Payload types for the client.
- *
- * Exported so `apps/web` names a world or a lesson tile with the same type the
- * route test asserts the real body against, rather than declaring its own
- * (`backend.md §7` — a response shape has one definition).
- */
+/** Payload types for the client. */
 export type WorldSummaryResponse = z.infer<typeof WorldSummarySchema>;
 export type TopicSummaryResponse = z.infer<typeof TopicSummarySchema>;
 export type LessonListItemResponse = z.infer<typeof LessonListItemSchema>;

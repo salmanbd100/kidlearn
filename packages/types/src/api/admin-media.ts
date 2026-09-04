@@ -2,15 +2,7 @@ import { z } from "zod";
 import { AssetKindSchema, LocaleSchema } from "../primitives.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/admin/media` — the media library (file 33, FR-CMS-02).
- *
- * `AssetKindSchema` and `LocaleSchema` are reused rather than mirrored: Prisma's
- * `MediaKind` and `Language` hold exactly the same values these already carry,
- * and `apps/server/src/openapi/paths/admin-media.ts` asserts that at compile
- * time. One spelling of "audio" across the payload schemas, the database and this
- * API.
- */
+/** `/api/admin/media` — the media library (file 33, FR-CMS-02). */
 export const MediaAssetSchema = z
   .object({
     id: z.string(),
@@ -29,18 +21,7 @@ export const MediaAssetSchema = z
 
 export type MediaAsset = z.infer<typeof MediaAssetSchema>;
 
-/**
- * What the browser needs to post a file **directly** to Cloudinary.
- *
- * Note what is absent: the API secret. It signs `timestamp` and `folder` on the
- * server and never leaves it, which is the whole reason this endpoint exists
- * rather than an upload preset the client could use unsigned.
- *
- * `signature` covers exactly `timestamp` and `folder`, so the upload form must
- * send those two and no other signed field — Cloudinary verifies the signature
- * over the parameters it was computed from and answers `Invalid Signature`
- * otherwise.
- */
+/** What the browser needs to post a file **directly** to Cloudinary. */
 export const UploadSignatureSchema = z
   .object({
     timestamp: z.number().int(),

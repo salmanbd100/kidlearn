@@ -11,21 +11,10 @@ import {
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { useWiggle, type WiggleRequest } from "./use-wiggle";
 
-/**
- * Which pieces are in, and what happens when one is let go (FR-ACT-04).
- *
- * Extracted from the renderer for the same reason `usePlacementState` is: jsdom
- * cannot perform a drag, so the rules a child is marked against are testable by
- * calling `handleDragEnd` with a `DragEndEvent` nothing here can tell from a real
- * one. The renderer keeps the board.
- */
+// Which pieces are in, and what happens when one is let go (FR-ACT-04).
 
 /**
  * How long the finished picture holds before the engine takes over to celebrate.
- *
- * `--dur-slow`, which design.md §5.2 sets as the ceiling for a celebration — and
- * this is one, however brief. The same rule is why `skipShine` exists: a child
- * already reaching for the next thing must not be held by it.
  */
 export const SHINE_MS = 400;
 

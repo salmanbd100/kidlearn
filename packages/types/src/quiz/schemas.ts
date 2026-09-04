@@ -1,20 +1,6 @@
 /**
  * Quiz question payload schemas (FR-QUIZ-07) — the single source of truth for
  * the JSONB stored in `QuizQuestion.definition`.
- *
- * Every format carries `prompt` plus `promptAudio` in both locales (FR-QUIZ-05):
- * a 3-year-old cannot read the question, so it must always be speakable.
- *
- * Option-count bounds: `mcq` is 3–4 per FR-QUIZ-01. The spec sets no bound on
- * the other formats, so `picture_select` mirrors mcq at 3–4 (it is the same
- * pick-one interaction), `drag_answer` allows 2–4 because a single blank with a
- * binary choice is a legitimate early-learner question, and `match_pair` uses
- * 2–6 per column to match `MatchActivitySchema` — the spec calls for the "same
- * shape rules as the match activity", and the two share one renderer.
- *
- * The union is a plain `z.union` for the same `ZodEffects` reason documented in
- * `../activity/schemas`, and the additive versioning rule in `../primitives`
- * applies here unchanged.
  */
 import { z } from "zod";
 import {
@@ -161,25 +147,7 @@ export const QuizQuestionSchema = z.union([
 ]);
 export type QuizQuestionDefinition = z.infer<typeof QuizQuestionSchema>;
 
-/**
- * The union, indexed by the `type` literal each member carries.
- *
- * **Parse with the member, not the union, wherever the type is already known.**
- * Zod reports a failed `z.union` as one `invalid_union` issue at the root, so
- * `flatten()` yields `{ _errors: ["Invalid input"] }` — a message no author can act
- * on and no form field can display. Parsing against `QUIZ_QUESTION_SCHEMAS.mcq`
- * instead yields `prompt.bn: Required`, which is the field that is actually wrong.
- *
- * It also makes the column/payload agreement check structural: the member carries
- * `type` as a literal, so a `match_pair` payload submitted as `mcq` fails on that
- * literal rather than needing a hand-written comparison.
- *
- * Shared rather than declared on each side, because both the admin API
- * (`adminEditorService`) and the CMS editor pick a schema this way, and the pair
- * disagreeing would mean an author allowed to save something the server refuses.
- * `satisfies` rather than an annotation, so indexing keeps the member type and
- * `z.infer` still narrows.
- */
+/** The union, indexed by the `type` literal each member carries. */
 export const QUIZ_QUESTION_SCHEMAS = {
   mcq: McqQuestionSchema,
   match_pair: MatchPairQuestionSchema,

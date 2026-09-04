@@ -1,13 +1,6 @@
 import type { JsonSchemaObject } from "./to-json-schema.js";
 
-/**
- * One documented operation.
- *
- * `method` + `path` are not free text: `coverage.test.ts` walks the live Express
- * routers and diffs their registrations against these two fields, so a typo here
- * fails the build rather than quietly producing a page that documents a path
- * nobody serves.
- */
+/** One documented operation. */
 export type RouteDoc = {
   method: "get" | "post" | "patch" | "delete";
   /** OpenAPI-style, with braces: `/api/children/{id}`, not `/api/children/:id`. */

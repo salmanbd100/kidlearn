@@ -18,22 +18,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { formatWeekRange } from "@/lib/week-range";
 import { StatCard } from "./StatCard";
 
-/**
- * One week, as the card at the top of `/parent/reports` (FR-DASH-05).
- *
- * Purely presentational, which is what makes every state testable from a fixture:
- * there is no fetching here and no clock read, so a quiet week, a perfect week and
- * a week with no quizzes are three objects rather than three database setups.
- *
- * **The encouraging note is rendered from `metrics.noteKey`, never from
- * `report.note`.** The server sends a key plus params precisely so the sentence can
- * be Bangla for a Bangla-reading parent — it has no parent-language column to
- * resolve one with. `report.note` carries the English rendering as a stored
- * fallback and is deliberately not read on this screen (`frontend.md §3`).
- *
- * `StatCard` is reused rather than reimplemented: it takes an already-formatted
- * `value`, which is exactly why file 29 built it that way.
- */
+/** One week, as the card at the top of `/parent/reports` (FR-DASH-05). */
 export interface ReportCardProps {
   report: WeeklyReport;
 }
@@ -118,9 +103,6 @@ export function ReportCard({ report }: ReportCardProps) {
               : t("reports.accuracyHint", {
                   // The denominator is what makes a percentage actionable: "9 of
                   // 10" is a fact, where 90% alone hides how much it rests on.
-                  // Both figures come from the server — inverting the numerator
-                  // out of the rounded percentage would print a count that never
-                  // happened (50 of 101 rounds to 50%, and back to 51).
                   correct: metrics.quizFirstAttemptsCorrect,
                   total: metrics.quizFirstAttempts,
                 })
@@ -209,16 +191,7 @@ export function ReportCard({ report }: ReportCardProps) {
   );
 }
 
-/**
- * One kind of concept, with the tokens themselves listed under the count.
- *
- * The tokens are shown and not just counted, because "3 new letters" is a number a
- * parent can do nothing with, while "A, B, C" is something they can ask their child
- * about at dinner — which is the entire purpose of the report (FR-DASH-05).
- *
- * A row with nothing in it renders nothing rather than a zero. Three "0 new" lines
- * is a report about what a child did not do.
- */
+/** One kind of concept, with the tokens themselves listed under the count. */
 const chipVariants = cva(
   "inline-flex min-h-6 items-center rounded-[var(--radius-sm)] border px-1.5 font-medium text-xs",
   {

@@ -8,14 +8,6 @@ import { authContext } from "./require-parent.js";
 /**
  * Ownership gate for every `/:id` route that addresses a child profile
  * (FR-PROF-07, NFR-SAFE-02). Mount it after `requireParent`.
- *
- * The lookup filters on `id` **and** `parentId` in one query, and a miss is a
- * 404 — never a 403. The distinction matters: a 403 would confirm that the id
- * exists and belongs to somebody, which is exactly the fact an attacker probing
- * ids is after. A parent asking for a child that is not theirs gets the same
- * bytes back as a parent asking for an id that never existed.
- *
- * Reused verbatim by files 12, 16, 23, 27 and 28.
  */
 export const loadOwnedChild: RequestHandler = async (
   req: Request,

@@ -3,14 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateLessonDialog } from "./GenerateLessonDialog";
 
-/**
- * The AI Lesson Generator's form (file 34, FR-AI-01).
- *
- * The claims worth testing here are the ones a reviewer cannot see from the
- * markup: that the request carries exactly the admin's choices, that an inherited
- * world means the key is *absent* rather than empty, and that a `failed` job is
- * reported as a failure even though the HTTP call succeeded.
- */
+// The AI Lesson Generator's form (file 34, FR-AI-01).
 
 const generateLesson = vi.hoisted(() => vi.fn());
 

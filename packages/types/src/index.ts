@@ -1,12 +1,5 @@
 /**
  * `@kidlearn/types` — the single source of truth for versioned content payloads.
- *
- * The frontend renderers, the backend validators, and the AI generation prompts
- * all import from here. Nothing in this package may depend on `@kidlearn/db`,
- * Prisma, Express, or React: it is pure schema, usable on both sides of the wire.
- *
- * The additive versioning rule for `schemaVersion` is documented in
- * `./primitives` — read it before changing any schema.
  */
 
 // Fixtures ship from the package root by design: the content seed script

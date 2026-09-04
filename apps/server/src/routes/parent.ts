@@ -21,18 +21,7 @@ import {
   verifyParentPinForSession,
 } from "../services/parentSecurityService.js";
 
-/**
- * `/api/parent` — the parent's own account: PIN, consent, deletion.
- *
- * `requireParent` guards the whole router. `requirePinVerified` is applied
- * per-route rather than router-wide, because the PIN and consent routes cannot
- * require a PIN grant without a chicken-and-egg deadlock: you would need to
- * verify a PIN in order to set your first one. Everything that acts on the
- * account itself (deletion) does sit behind the gate.
- *
- * Later parent-dashboard and settings routes (files 28–30) mount here behind
- * `requirePinVerified`.
- */
+/** `/api/parent` — the parent's own account: PIN, consent, deletion. */
 export const parentRouter = Router();
 
 parentRouter.use(requireParent);
@@ -59,18 +48,7 @@ type DeleteRequestResponse = SuccessEnvelope<{
 type DeleteResponse = SuccessEnvelope<{ deleted: true }>;
 type GateStatusResponse = SuccessEnvelope<GateStatus>;
 
-/**
- * Whether the parent area is open right now (FR-AUTH-04).
- *
- * Deliberately **not** behind `requirePinVerified` — a gate cannot be asked
- * whether it is shut from the far side of itself. It is also why this route
- * exists at all: without it a client's only way to learn the state of the gate is
- * to call a PIN-gated endpoint and read the 403, and the only PIN-gated endpoint
- * is "request account deletion", which mints a deletion token as a side effect.
- *
- * Reads only what `requireParent` already loaded, so it costs no query and
- * answers while the database is asleep (NFR-PERF-04).
- */
+/** Whether the parent area is open right now (FR-AUTH-04). */
 parentRouter.get("/gate-status", (req, res) => {
   const { parent, session } = authContext(req);
 
@@ -82,9 +60,6 @@ parentRouter.get("/gate-status", (req, res) => {
  * Sets the parental PIN, or replaces it when `currentPin` proves possession
  * (FR-AUTH-04). Deliberately not behind `requirePinVerified`: a parent with no
  * PIN could never get through the gate to create their first one.
- *
- * Answers with the grant it opened, so onboarding can walk straight on to the
- * first-profile form — which *is* gated. See `setParentPin`.
  */
 parentRouter.post(
   "/pin",
@@ -150,9 +125,6 @@ parentRouter.post(
  * Step one of account deletion (FR-AUTH-05). PIN-gated: this is the most
  * destructive action in the product, so it must not be reachable from a
  * session someone left open on the kitchen tablet.
- *
- * The token is returned in the response for the MVP. When email confirmation
- * lands, only this handler changes — the `DELETE` contract stays identical.
  */
 parentRouter.post(
   "/account/delete-request",

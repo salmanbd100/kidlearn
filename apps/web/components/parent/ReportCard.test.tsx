@@ -8,12 +8,6 @@ import { ReportCard } from "./ReportCard";
 /**
  * The card is purely presentational, so each state below *is* a fixture — which is
  * the point of keeping the fetch and the clock in the screen above it.
- *
- * The assertions that matter most are the two the server deliberately made
- * expressible: a `null` accuracy must not render as 0%, and the encouraging note
- * must come from `metrics.noteKey` through i18next rather than from the stored
- * English `note`. Both are the difference between a report a Bangla-reading parent
- * can use and one that lies to them.
  */
 
 function metrics(

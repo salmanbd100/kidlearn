@@ -1,14 +1,7 @@
 import type { QuizQuestionDefinition } from "@kidlearn/types";
 import type { QuizAnswerValue } from "./types";
 
-/**
- * What counts as a right answer, for every quiz format (FR-QUIZ-01..04).
- *
- * The same split as `activities/evaluate.ts`: the question components decide
- * what an answer *looks* like, this decides what an answer *means*. No React, no
- * DOM — so the rule a child is marked against is testable as a table rather than
- * through taps.
- */
+/** What counts as a right answer, for every quiz format (FR-QUIZ-01..04). */
 export function evaluateAnswer(
   question: QuizQuestionDefinition,
   answer: QuizAnswerValue,
@@ -23,14 +16,7 @@ export function evaluateAnswer(
   }
 }
 
-/**
- * True only when the answer is *every* correct pair and nothing else.
- *
- * Order-agnostic within a pair, because which column a child tapped first is not
- * part of the answer: `usePairing` normalises a tap-tap into left-then-right, but
- * an answer replayed from a stored row need not have been. Order *between* pairs
- * is likewise irrelevant — a set, compared as one.
- */
+/** True only when the answer is *every* correct pair and nothing else. */
 function isMatchComplete(
   correctPairs: readonly { leftId: string; rightId: string }[],
   answer: QuizAnswerValue,

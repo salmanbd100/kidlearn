@@ -10,26 +10,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { submitConsent } from "@/lib/parent-api";
 import { generalErrorKey } from "@/lib/parent-errors";
 
-/**
- * COPPA consent (FR-AUTH-03).
- *
- * Three properties this screen has to have, and why:
- *
- *  - **The checkbox starts unchecked and the button is disabled until it is
- *    ticked.** A pre-ticked box is not consent, and neither is a button a parent
- *    could press without having made a choice.
- *  - **Plain language, in both locales.** The text a parent agreed to is the whole
- *    value of the record, so it is prose in `parent.json` rather than a link to a
- *    policy page nobody opens. `CONSENT_VERSION` names this text: if the wording
- *    changes materially, that constant is bumped and every parent re-consents.
- *  - **It is the only way past.** `resolveParentRedirect` sends a parent with no
- *    consent record here from anywhere else, so no child profile UI is reachable
- *    before it.
- *
- * A `409` means the server's version has moved past the copy on screen. That is not
- * an error to retry — it is a prompt to read the new text — so it gets its own
- * message.
- */
+/** COPPA consent (FR-AUTH-03). */
 export function ConsentScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { refresh } = useParentSession();

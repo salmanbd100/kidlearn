@@ -5,14 +5,7 @@ import {
   readerReducer,
 } from "./reader-machine";
 
-/**
- * The reading flow as a table of inputs (FR-STORY-02, FR-STORY-06..07).
- *
- * Everything with a timer or a network call in it lives in `StoryReader`; what is
- * here is the arithmetic, and the two properties a child's tapping must never be
- * able to break: no page outside the story, and no second reward for a story they
- * have already finished.
- */
+// The reading flow as a table of inputs (FR-STORY-02, FR-STORY-06..07).
 
 const THREE_PAGES = initialReaderState(3);
 

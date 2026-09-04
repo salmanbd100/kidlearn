@@ -17,59 +17,10 @@ import {
 import { getLearningMinutes } from "./learningTimeService.js";
 import { STORY_COMPLETION } from "./rewardService.js";
 
-/**
- * The parent dashboard, in one read (FR-DASH-01..04).
- *
- * Three invariants, each of which is the reason a figure here can be trusted:
- *
- *  1. **Minutes are never recomputed.** All three windows come from
- *     `getLearningMinutes`, the same function the screen-time limit checks and
- *     `GET /api/children/{id}/learning-time` answers from. A second density
- *     implementation would be a second answer to "how long has my child been on
- *     this today", and a dashboard disagreeing with the limit that blocked a
- *     lesson is worse than either number.
- *  2. **Visibility comes from `lib/published-for-child.ts` and nowhere else**
- *     (`backend.md §4`). This is a parent-facing screen, but it renders the titles
- *     of lessons, stories and badges — so unreviewed content must not reach it
- *     either, and the guard is the same one the student surfaces use: status,
- *     grade where a fraction depends on it, and **the world**, which
- *     `contentService`, `lessonProgressService` and `storyService` all gate on
- *     because `World.status` defaults to `draft` and takes its content down with
- *     it.
- *  3. **The arithmetic is pure.** `computeSubjectProgress` and `mergeActivity`
- *     take plain arrays, so every rule below — rounding, the omission of empty
- *     subjects, the suppression of highlight chips, the merge order — is one
- *     assertion in `dashboardService.test.ts` rather than a database fixture.
- *
- * ## Where the two visibility gates deliberately differ
- *
- * The progress figures are gated on **status and grade**: `completed` and `total`
- * are two halves of one fraction, so they must be counted over the same set of
- * lessons or the percentage means nothing (FR-DASH-03).
- *
- * The activity feed is gated on **status and world, but not grade**. A child
- * promoted from Nursery to KG-1 keeps their history, which a grade filter would
- * erase from the feed on the day their profile changed — a parent watching a month
- * of work vanish because they corrected an age. The world still applies: it is not
- * a curriculum position but a review state, and an unreviewed world's titles are
- * no more the parent's to read than the child's.
- */
+// The parent dashboard, in one read (FR-DASH-01..04).
 
 /**
  * How many ledger rows to read for a feed capped at `RECENT_ACTIVITY_LIMIT`.
- *
- * Wider than the cap because a badge row is filtered by the query but a story row
- * is not: `RewardLedger.sourceId` is a bare string with no relation to `Story`, so
- * a withdrawn story is only discovered when its title fails to resolve — after the
- * window has closed. Capping before that drop is what made a 20-entry feed return
- * 19, and silently omitted the 21st-newest story that should have taken the slot.
- *
- * The residual bound, stated rather than hidden: a child with more than
- * `LEDGER_FEED_WINDOW - RECENT_ACTIVITY_LIMIT` withdrawn story completions among
- * their newest rows can still see a short feed. Closing that entirely would mean
- * reading the published story ids before this query instead of alongside it — a
- * third sequential round trip on every dashboard load, to fix a state that needs
- * the story catalogue to have been largely un-published.
  */
 const LEDGER_FEED_WINDOW = RECENT_ACTIVITY_LIMIT * 2;
 
@@ -94,24 +45,7 @@ export interface SubjectProgressResult {
   weakestSubjectId: string | null;
 }
 
-/**
- * Per-subject completion, plus the two subjects worth naming (FR-DASH-03).
- *
- * Lessons are counted per topic because that is the only grouping Prisma can do
- * in one query — `Lesson` has a `topicId` and no `subjectId` — so the topic→subject
- * mapping is applied here.
- *
- * **A subject with no lessons for this grade is omitted, not shown at 0%.** An
- * empty curriculum is not a child's failure, and `percent` is a real fraction at
- * every point in this function as a result: there is no division by zero to guard.
- *
- * **The highlight chips are suppressed unless the extremes actually differ.** The
- * spec asks for that when every percentage is zero and when fewer than two
- * subjects have lessons; `max === min` is the one condition that covers both, and
- * it also covers the case they did not name — two subjects sitting at the same
- * non-zero percentage, where calling one "strongest" and the other "needs
- * practice" invents a difference the data does not contain.
- */
+/** Per-subject completion, plus the two subjects worth naming (FR-DASH-03). */
 export function computeSubjectProgress(
   topics: readonly TopicSubjectLink[],
   totalsByTopic: readonly { topicId: string; total: number }[],
@@ -221,18 +155,7 @@ export interface BadgeActivityRow {
   name: string;
 }
 
-/**
- * The three histories as one feed, newest first, capped (FR-DASH-04).
- *
- * Merged in JS rather than in SQL: three indexed queries of twenty rows each is
- * cheaper at MVP scale than a `UNION` Prisma cannot express, and the ordering rule
- * stays testable without a database.
- *
- * Ties are broken by type and then by `refId`. Two completions can share a
- * timestamp to the millisecond — a lesson whose reward row was written in the same
- * transaction, most obviously — and a feed whose order changed between two reads
- * of the same data would make the newest entry jump around on refresh.
- */
+/** The three histories as one feed, newest first, capped (FR-DASH-04). */
 export function mergeActivity(
   lessons: readonly LessonActivityRow[],
   stories: readonly StoryActivityRow[],
@@ -280,14 +203,7 @@ export function mergeActivity(
     .slice(0, RECENT_ACTIVITY_LIMIT);
 }
 
-/**
- * Both locales of a display string, from the row's translations.
- *
- * `en` falls back to the admin label because every response contract in this API
- * guarantees an English string; `bn` falls back to `null` rather than to English,
- * so the client shows English *knowingly* instead of being handed English under a
- * Bangla key (`lib/locale.ts`).
- */
+/** Both locales of a display string, from the row's translations. */
 function toLocalizedLabel<TRow extends { language: Lang }>(
   translations: readonly TRow[] | undefined,
   fallback: string,
@@ -297,13 +213,7 @@ function toLocalizedLabel<TRow extends { language: Lang }>(
   return { en: map.en ?? fallback, bn: map.bn ?? null };
 }
 
-/**
- * FR-DASH-01 — one call, everything the `/parent` screen renders.
- *
- * Takes the `ChildProfile` rather than an id because `loadOwnedChild` has already
- * fetched it, and because the grade the progress figures are counted over must come
- * from that row and never from request input (FR-PROF-03).
- */
+/** FR-DASH-01 — one call, everything the `/parent` screen renders. */
 export async function getDashboardSummary(
   child: ChildProfile,
 ): Promise<DashboardData> {
@@ -311,12 +221,6 @@ export async function getDashboardSummary(
   /**
    * A lesson is visible only if its world, its topic and that topic's subject
    * are too.
-   *
-   * `world` is not optional decoration here: `World.status` defaults to `draft`,
-   * `Lesson.worldId` is required, and `requireVisibleLessonId` gates on it — so a
-   * lesson in an unreviewed world is one the child cannot open. Counting it in
-   * `total` while it can never reach `completed` caps the subject bar below 100%
-   * for as long as the world stays unpublished.
    */
   const visibleLesson = {
     ...visible,

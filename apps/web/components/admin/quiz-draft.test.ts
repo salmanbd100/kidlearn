@@ -16,18 +16,7 @@ import {
   type QuestionDraft,
 } from "./quiz-draft";
 
-/**
- * What the quiz editor's form state compiles to (FR-CMS-03).
- *
- * Driven as a function rather than through the rendered form, because the property
- * under test is a property of the compiler: "these fields produce a payload the
- * shared schema accepts". The component's suite covers what an author *sees* when
- * it does not.
- *
- * Every assertion runs the real shared schemas — the same table the server picks
- * its validator from and the same union the renderer parses before a child sees it.
- * A stubbed validator here would make the whole file vacuous.
- */
+// What the quiz editor's form state compiles to (FR-CMS-03).
 
 function option(id: string, en: string, bn: string): OptionDraft {
   return {

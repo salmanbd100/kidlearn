@@ -1,14 +1,4 @@
-/**
- * Content read API — behaviour and, above all, leak-proofing.
- *
- * See the note at the top of `middleware/require-parent.test.ts` about stubbing
- * `lib/prisma.js` in the absence of a test database. Because these tests cannot
- * assert on real rows, they assert on the **`where` clause** each endpoint sends
- * to Prisma: that is where `status: "published"` and the grade condition live,
- * and asserting on the query is the only way a stubbed suite can prove content
- * safety rather than assume it. The `@kidlearn/types` fixtures supply realistic
- * JSONB so the definition parsing is exercised for real.
- */
+/** Content read API — behaviour and, above all, leak-proofing. */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import {
   LessonDetailResponseSchema,
@@ -1186,13 +1176,6 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
 /**
  * Display names are child-facing text, and were the one kind this API resolved by
  * reading the untranslated column.
- *
- * The response contract in `packages/types/src/api/content.ts` has always promised
- * a single string already picked for the child's language. It was true of the
- * narration and false of every name around it, so a Bangla learner heard Bangla
- * inside a lesson whose tile, topic, subject and world were all labelled in
- * English. These tests pin all four, and pin the fallback that keeps untranslated
- * content servable rather than nameless.
  */
 describe("curriculum names are localised (FR-I18N-01)", () => {
   const BANGLA = { preferredLanguage: "bn" as const };

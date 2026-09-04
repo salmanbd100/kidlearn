@@ -6,26 +6,6 @@ import { IsoDateTimeSchema, ok } from "./envelope.js";
 /**
  * `/api/admin/content/*` — the curriculum as an **author** sees it (file 32,
  * FR-CURR-04, FR-CMS-01, FR-CMS-06).
- *
- * Read this next to `api/content.ts`, which is the same curriculum as a *child*
- * sees it. The two differ in three ways, and every one of them is deliberate:
- *
- *  1. **Text is not resolved.** A student response carries one string in the
- *     child's language; these carry both locales, because an author edits both
- *     and a CMS that showed only one would make the other unmaintainable.
- *  2. **Nothing is filtered by status.** The student API returns `published` rows
- *     and nothing else — that is the content-safety guard (`backend.md §4`). This
- *     API exists precisely to show drafts, and every payload here carries the
- *     `status` that decides whether a child can see the row.
- *  3. **Ids are exposed.** `activityId`, `quizId`, `videoAssetId`,
- *     `mascotAssetId` are join keys a child's client has no use for and an
- *     author's editor cannot work without.
- *
- * `CONTENT_STATUSES` mirrors Prisma's `ContentStatus` by hand, because this
- * package may not depend on `@kidlearn/db` (see `../index.ts`). The mirror is
- * checked rather than trusted: `apps/server/src/openapi/paths/admin-content.ts`
- * carries a compile-time assertion that the two still agree, so adding a status
- * to the schema without adding it here fails `pnpm typecheck`.
  */
 export const CONTENT_STATUSES = [
   "draft",
@@ -38,14 +18,7 @@ export const CONTENT_STATUSES = [
 export const ContentStatusSchema = z.enum(CONTENT_STATUSES);
 export type ContentStatusValue = z.infer<typeof ContentStatusSchema>;
 
-/**
- * The four resources the CMS manages, spelled as they appear in the path.
- *
- * Shared rather than respelled on each side: this union *is* the path segment on
- * the wire, so the client, the router and the OpenAPI registration are all
- * talking about the same four strings. A copy in `apps/web` that gained a fifth
- * resource before the server did would compile and 404 at runtime.
- */
+/** The four resources the CMS manages, spelled as they appear in the path. */
 export const CONTENT_RESOURCES = [
   "worlds",
   "subjects",
@@ -57,9 +30,6 @@ export type ContentResourceName = z.infer<typeof ContentResourceSchema>;
 
 /**
  * The three that carry a `sortOrder` column, and can therefore be reordered.
- *
- * `World` is absent: worlds are chosen on a map, not read in sequence, so there
- * is no column for a reorder to write.
  */
 export const ORDERABLE_CONTENT_RESOURCES = [
   "subjects",
@@ -73,29 +43,7 @@ export type OrderableContentResourceName = z.infer<
   typeof OrderableContentResourceSchema
 >;
 
-/**
- * The publishing workflow, as data (FR-CMS-06).
- *
- * **Shared rather than mirrored, deliberately.** This file's spec suggested the
- * CMS keep its own copy of the matrix so the transition buttons could be derived
- * client-side. A copy is a thing that drifts, and the failure it produces is a
- * button an admin clicks and a `409` they cannot act on. One definition, imported
- * by both sides, makes that impossible: the client can only offer hops the server
- * will accept, and the server stays the authority regardless — it applies this
- * same table to the row's *actual* status, which a client cannot know is current.
- *
- * `apps/server/src/services/contentStatusService.ts` re-types this against
- * Prisma's `ContentStatus`, which fails to compile if the two enums ever diverge.
- *
- * Three properties are the point of the table:
- *
- *  - `published` is reachable from `approved` and nowhere else, so nothing skips
- *    a reviewer.
- *  - `rejected` leads only to `draft` or `archived`: rejected work is re-reviewed,
- *    never un-rejected.
- *  - The diagonal is empty — a status cannot transition to itself, which would
- *    re-stamp the audit trail with a review step nobody performed.
- */
+/** The publishing workflow, as data (FR-CMS-06). */
 export const ALLOWED_CONTENT_TRANSITIONS: Record<
   ContentStatusValue,
   readonly ContentStatusValue[]
@@ -108,50 +56,19 @@ export const ALLOWED_CONTENT_TRANSITIONS: Record<
   archived: ["draft"],
 };
 
-/**
- * The legal next states for a status, as a fresh array.
- *
- * A copy rather than the stored array: the CMS renders this list, and a caller
- * mutating it would widen the matrix for every later use in the process — adding
- * a button the server refuses.
- */
+/** The legal next states for a status, as a fresh array. */
 export function nextContentStatuses(
   from: ContentStatusValue,
 ): ContentStatusValue[] {
   return [...ALLOWED_CONTENT_TRANSITIONS[from]];
 }
 
-/**
- * Whether a row's content may be rewritten at its current status.
- *
- * The matrix above guards the *act* of publishing; this guards the content that
- * stays published afterwards. Without it a `PATCH` rewriting a live lesson's
- * title and intro script reaches a five-year-old without passing a reviewer
- * again — the matrix never sees the edit, because the status never moved.
- *
- * Withdrawing first (`published → draft`) is the door instead: the removal from
- * students is explicit rather than a side effect of an edit, and the rewrite
- * comes back through `draft → in_review → approved → published`. That is more
- * clicks, and the clicks are the point — file 37 layers AI-generated edits on
- * this same API, where "an edit is not a publish" stops being true by inspection.
- *
- * Shared with the CMS for the reason `ALLOWED_CONTENT_TRANSITIONS` is: the Edit
- * button and the server's refusal come from one definition, so the client cannot
- * offer an edit the server will reject.
- */
+/** Whether a row's content may be rewritten at its current status. */
 export function isContentEditable(status: ContentStatusValue): boolean {
   return status !== "published";
 }
 
-/**
- * The audit stamp on every curriculum row (requirement 6).
- *
- * `updatedBy` is the acting `AdminUser.id`, or `null` for a row written by a seed
- * or predating the column. Deliberately the raw id and not a name: it is not a
- * foreign key — an audit stamp has to survive the account that made it — so there
- * is no row to join to once an admin is gone, and inventing "Unknown admin"
- * server-side would hide that distinction from the person reading the history.
- */
+/** The audit stamp on every curriculum row (requirement 6). */
 const AuditFieldsSchema = z.object({
   updatedBy: z.string().nullable(),
   createdAt: IsoDateTimeSchema,
@@ -254,13 +171,7 @@ export type AdminSubjectResponse = z.infer<typeof AdminSubjectResponseSchema>;
 export type AdminTopicResponse = z.infer<typeof AdminTopicResponseSchema>;
 export type AdminLessonResponse = z.infer<typeof AdminLessonResponseSchema>;
 
-/**
- * What a reorder answers with: the siblings, in their new order.
- *
- * The whole set rather than `{ ok: true }`, because the client has just guessed
- * the outcome optimistically for the drag animation and this is what lets it
- * settle on the server's answer instead of its own.
- */
+/** What a reorder answers with: the siblings, in their new order. */
 export const ReorderedIdsSchema = z
   .object({ orderedIds: z.array(z.string()) })
   .strict();
@@ -271,16 +182,6 @@ export type ReorderedIds = z.infer<typeof ReorderedIdsSchema>;
 /**
  * A character sheet — the stable visual description of one recurring character
  * (file 36, FR-AI-09).
- *
- * **No `status`, unlike every other payload in this file.** A sheet is prompt
- * input, never student-facing: nothing in `api/content.ts` or `api/stories.ts`
- * reads it, so there is nothing for a publishing workflow to protect. Adding one
- * would imply a review step that does not exist and a child-visible state that
- * cannot happen.
- *
- * `description` is the text prepended verbatim to every illustration prompt the
- * character appears in, which is why editing one changes every picture drawn from
- * then on and none drawn before.
  */
 export const CharacterSheetSchema = z
   .object({
@@ -298,15 +199,7 @@ export const CharacterSheetSchema = z
 
 export type CharacterSheet = z.infer<typeof CharacterSheetSchema>;
 
-/**
- * The result of promoting a story generation's cast into sheets.
- *
- * `skipped` counts characters whose slug already had a sheet. Nothing is
- * overwritten: the second story set in a world describes the same mascot in
- * slightly different words, and taking the newer wording would change how it is
- * drawn in every story already using it — which is the drift the table exists to
- * prevent.
- */
+/** The result of promoting a story generation's cast into sheets. */
 export const PromotedCharacterSheetsSchema = z
   .object({
     created: z.array(CharacterSheetSchema),

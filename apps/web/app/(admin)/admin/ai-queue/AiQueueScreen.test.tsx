@@ -3,15 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiQueueScreen } from "./AiQueueScreen";
 
-/**
- * The review queue's list (file 37, FR-CMS-05).
- *
- * The claims worth testing are the ones a reviewer cannot see from the markup:
- * that the screen asks for `awaiting_review` unprompted, that each filter chip
- * reaches the request as a query parameter rather than filtering client-side, and
- * that an empty *filtered* list explains why a grade filter hides every media job
- * instead of reading as a finished queue.
- */
+// The review queue's list (file 37, FR-CMS-05).
 
 const fetchAiJobs = vi.hoisted(() => vi.fn());
 

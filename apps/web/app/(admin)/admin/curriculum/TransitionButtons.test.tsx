@@ -3,15 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TransitionButtons } from "./TransitionButtons";
 
-/**
- * Which transitions an admin is offered, per status (file 32, FR-CMS-06).
- *
- * The buttons are derived from `@kidlearn/types`, the same table the server
- * applies, so what is worth asserting is not the table again — `contentStatusService.test.ts`
- * owns all 36 cells — but that this component *renders* it faithfully: the two
- * failures possible here are offering a hop the server refuses, and hiding one it
- * would allow.
- */
+// Which transitions an admin is offered, per status (file 32, FR-CMS-06).
 
 function renderFor(status: ContentStatusValue) {
   const onTransition = vi.fn();

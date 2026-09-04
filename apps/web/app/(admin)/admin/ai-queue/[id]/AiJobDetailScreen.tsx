@@ -22,24 +22,6 @@ import {
 /**
  * `/admin/ai-queue/[id]` — read it, then decide (file 37, FR-CMS-05..06,
  * FR-AI-07..08).
- *
- * **Three actions and no fourth.** Approve, which publishes everything the job
- * created in one step because FR-CMS-06 says approved content is published
- * immediately; edit-then-approve, which is a round trip through the file-33
- * editors so validation and preview stay in one place; and reject, which needs a
- * reason. There is no "save for later" and no partial approval: a lesson with
- * half its quiz published is a lesson that breaks mid-play.
- *
- * **Nothing is editable here, deliberately.** The Edit button leaves for the
- * editor that owns the shape, carrying `?jobId` so the round trip records itself.
- * An inline editor here would be a second, weaker copy of the payload validation
- * and preview those editors already have.
- *
- * **`blockers` is the server's list, not this screen's judgement.** The approve
- * button is disabled from the same computation the endpoint refuses on, so the
- * button and the `409` cannot disagree about why.
- *
- * It fetches its own data for the reason recorded in `frontend.md §2`.
  */
 
 export function AiJobDetailScreen({ jobId }: { jobId: string }) {
@@ -49,14 +31,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
-  /**
-   * The rejection's own failure, kept apart from the page's.
-   *
-   * One shared slot meant an approve that failed was still set when the reject
-   * dialog opened — the dialog then showed the approve's message as though the
-   * rejection had failed — and a rejection that genuinely failed rendered the same
-   * string in two live `role="alert"` regions, which is announced twice.
-   */
+  /** The rejection's own failure, kept apart from the page's. */
   const [rejectError, setRejectError] = useState<string>();
 
   const load = useCallback(
@@ -305,18 +280,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   );
 }
 
-/**
- * One content row, with the way into the editor that owns it.
- *
- * **The Edit link carries `?jobId`**, which is what makes edit-then-approve a
- * recorded fact rather than an intention: saving in that editor records the
- * decision on this job in the same request (FR-AI-08).
- *
- * Only a quiz has an editor to link to at MVP. A lesson's own form lives in the
- * curriculum tree, which has no deep link to one row, and there is no story
- * editor at all — so those rows say where to go rather than offering a link that
- * lands somewhere unhelpful.
- */
+/** One content row, with the way into the editor that owns it. */
 function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
   const editHref =
     entity.resource === "quizzes"
@@ -341,23 +305,7 @@ function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
   );
 }
 
-/**
- * The clip or the picture, playable and viewable before it is approved.
- *
- * **This is the only place either can be experienced.** Neither is attached to
- * anything yet — the foreign key is written on approval (file 36) — so no lesson,
- * story or quiz screen can show it, and a reviewer approving on the strength of a
- * filename is the failure mode the whole queue exists to prevent.
- *
- * `<audio controls>` rather than a custom player: it is a reviewer scrubbing a
- * ten-second clip on a laptop, and the platform control is keyboard-accessible
- * and familiar without a line of our code.
- *
- * `next/image` with `unoptimized`, matching the media library — see
- * `components/admin/MediaPicker.tsx` for why the CMS bypasses the optimizer
- * rather than widening the app's remote-image allowlist for a picture only the
- * team ever sees.
- */
+/** The clip or the picture, playable and viewable before it is approved. */
 function AssetPreview({ asset }: { asset: AiJobAsset }) {
   return (
     <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3">

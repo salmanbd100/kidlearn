@@ -2,39 +2,7 @@ import type { Locale } from "@kidlearn/types";
 import { z } from "zod";
 import { localized } from "./localized.js";
 
-/**
- * What the story generator's answer must be shaped like (FR-AI-02).
- *
- * **Built per request**, for the reason `./lesson.ts` sets out: the admin's
- * language choice and page count become required keys and an exact array length,
- * so a response that writes a locale nobody asked to review, or eight pages when
- * seven were commissioned, is rejected and retried rather than persisted.
- *
- * **`moral` is localized, unlike the implementation spec's `moral: string`.**
- * `StoryTranslation.moral` arrived with file 25 and is *child-facing* — file 26
- * reads it aloud on the reader's finish screen — so an English sentence written
- * into a Bangla row would be untranslated child-facing text that looks filled in,
- * the same defect the per-locale lesson title exists to avoid (FR-I18N-01). The
- * admin's own theme line remains the internal label on `Story.theme`.
- *
- * **`characterDescriptions` is generated but not persisted here.** It is the input
- * to file 36's image consistency work and file 37 promotes it into `CharacterSheet`
- * rows on approval, so it stays in the job's `rawOutput` — a column now would hold
- * a value whose owning table already exists.
- *
- * Two refinements carry rules the JSON Schema cannot state, so both are also
- * written into the prompt:
- *
- *  1. **`pageNumber` values are exactly `1..pages.length`.** A gap or a repeat is
- *     not a cosmetic flaw: `sortOrder` comes from this field and is unique per
- *     story, so a duplicate would fail the insert and a gap would silently reorder
- *     the reading. Caught here, it costs one retry instead of a failed job.
- *  2. **Every `illustrationPrompt` names at least one declared character.** The
- *     whole point of `characterDescriptions` is that file 36 draws the same rabbit
- *     on every page; a prompt that says "a small animal" instead of naming one
- *     cannot be matched to a description, and the story loses its consistency at
- *     the only step where it is cheap to fix.
- */
+// What the story generator's answer must be shaped like (FR-AI-02).
 
 /** The spec's bounds: 6–8 pages, 1–4 characters. */
 export const STORY_PAGE_BOUNDS = { min: 6, max: 8 } as const;
@@ -132,14 +100,7 @@ function addPageNumberIssues(
   });
 }
 
-/**
- * A prompt that names no declared character, reported per page.
- *
- * Matched case-insensitively on a whole-word boundary, because "Bo" must not be
- * satisfied by "bounce" while "bo the rabbit hops" should count. The prompt is
- * English and so are the names it has to carry, which is why this looks at the
- * prompt only and never at the page text.
- */
+/** A prompt that names no declared character, reported per page. */
 function addUnnamedCharacterIssues(
   ctx: z.RefinementCtx,
   value: {

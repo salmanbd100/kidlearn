@@ -1,10 +1,4 @@
-/**
- * Parental PIN and COPPA consent logic (FR-AUTH-03, FR-AUTH-04).
- *
- * No Express types cross this boundary — every function here is callable from a
- * test without an HTTP layer. Raw PINs are arguments only: they are never
- * logged, never returned, and never written anywhere but through `hashPin`.
- */
+/** Parental PIN and COPPA consent logic (FR-AUTH-03, FR-AUTH-04). */
 // `Prisma` is a value import, not a type-only one: the known-request-error class
 // below is a runtime member of the namespace.
 import { type Parent, Prisma } from "@kidlearn/db";
@@ -25,17 +19,7 @@ const PIN_LOCKOUT_BASE_MS = 60_000;
 /** Ceiling on that doubling, so a forgetful parent is not locked out for a day. */
 const PIN_LOCKOUT_MAX_MS = 60 * 60_000;
 
-/**
- * How long the cool-off lasts after `strikes` consecutive cool-offs.
- *
- * A 4-digit PIN has 10,000 values, so a fixed window that also forgives the
- * escalation is not a defence: five guesses per minute walks the whole space in
- * about 33 hours. `pinLockoutStrikes` survives every cool-off — only a correct
- * PIN clears it — so each window costs double the last: 1 min, 2, 4, 8 … capped
- * at an hour. Combined with `restoreOneAttempt` below, an attacker gets five
- * free guesses and then one per escalating window; the parent who mistyped twice
- * notices nothing.
- */
+/** How long the cool-off lasts after `strikes` consecutive cool-offs. */
 function lockoutMsFor(strikes: number): number {
   const doublings = Math.max(0, strikes - 1);
   return Math.min(PIN_LOCKOUT_BASE_MS * 2 ** doublings, PIN_LOCKOUT_MAX_MS);
@@ -57,19 +41,7 @@ export type GateStatus = {
   pinVerifiedUntil: Date | null;
 };
 
-/**
- * Reports whether the parent area is currently open, without opening it.
- *
- * A pure function of the two rows the request already carries — no query, no
- * write. `requirePinVerified` applies exactly this logic to decide between
- * `PIN_REQUIRED`, `PIN_VERIFICATION_REQUIRED` and letting the request through;
- * this is that decision made available as a read, so the client can render the
- * right screen on first paint instead of provoking a 403 to find out.
- *
- * A lapsed `pinVerifiedUntil` is reported as `null` rather than as a past
- * timestamp: the only question a client has is "is it open, and until when", and
- * a stale expiry invites a client to subtract two clocks to answer it.
- */
+/** Reports whether the parent area is currently open, without opening it. */
 export function readGateStatus(
   parent: Pick<Parent, "pinHash">,
   session: { pinVerifiedUntil?: Date | string | null },
@@ -103,14 +75,6 @@ export type ConsentRecord = {
  * Sets or replaces the parental PIN. Replacing one requires the current PIN:
  * without that, anyone who found an unattended unlocked session could lock the
  * real parent out of their own dashboard.
- *
- * Opens the grant on success, and returns it. Choosing a PIN *is* possession of
- * it — the parent typed it twice a moment ago — so demanding they immediately
- * type it a third time to get through the gate would be a prompt that verifies
- * nothing. It also has a load-bearing consequence: `POST /api/children` sits
- * behind `requirePinVerified`, and onboarding runs PIN setup one screen before
- * the first-profile form, so without this grant the flow would deadlock on a gate
- * the parent had just satisfied.
  */
 export async function setParentPin(
   parent: Parent,
@@ -143,16 +107,7 @@ export async function setParentPin(
   return grantPinToSession(sessionId);
 }
 
-/**
- * Checks the PIN and, on success, extends the session's grant.
- *
- * The grant is written straight onto the better-auth `Session` row. better-auth
- * exposes no server-side helper for updating a session's additional fields
- * (`updateSession` on the public API is client-driven and refuses fields
- * declared `input: false`), and the Prisma adapter stores those fields as plain
- * columns — so this is the same write it would perform. Session cookie caching
- * is off, so the next request re-reads the row and sees the new value.
- */
+/** Checks the PIN and, on success, extends the session's grant. */
 export async function verifyParentPinForSession(
   parent: Parent,
   sessionId: string,
@@ -181,9 +136,6 @@ async function grantPinToSession(sessionId: string): Promise<PinGrant> {
  * Records COPPA consent (FR-AUTH-03, NFR-SAFE-03). Idempotent: re-posting the
  * current version refreshes the timestamp, which is the honest record of the
  * last time the parent actively agreed.
- *
- * A mismatched version is a conflict rather than a silent acceptance — the
- * client would otherwise record agreement to text the parent never saw.
  */
 export async function recordParentConsent(
   parent: Parent,
@@ -213,29 +165,6 @@ const PIN_LOCKED = new ApiError(
 /**
  * One PIN comparison plus its brute-force bookkeeping. Shared by "verify" and
  * "change", because the change endpoint is an equally good guessing oracle.
- *
- * Throws `PIN_LOCKED` (429) while a cool-off is running and `PIN_REQUIRED`
- * (403) when there is no PIN to compare against; otherwise returns the result
- * and leaves the caller to decide which error a mismatch deserves.
- *
- * ## Why the slot is claimed before the PIN is compared
- *
- * `parent` is the snapshot `requireParent` read at the *start* of this request.
- * Reading the lockout from it and then deciding is a check-then-act race: fire N
- * wrong PINs in parallel and every one of them sees `pinLockedUntil: null`, every
- * one of them is compared, and the cool-off is armed N times after the fact. An
- * atomic `{ increment: 1 }` fixes the *count* but not the decision — the guesses
- * have already happened. A 4-digit PIN falls to one wide enough burst.
- *
- * So the allowance is claimed first, by an `UPDATE` whose own `WHERE` carries the
- * predicate: `pinFailedCount < MAX_PIN_ATTEMPTS`. Concurrent writers serialise on
- * the row lock and each re-evaluates that predicate against the committed value,
- * so at most `MAX_PIN_ATTEMPTS` claims can ever win, however many arrive together.
- * A claim that loses is refused without `verifyPin` being called at all.
- *
- * The comparison itself stays outside every transaction and row lock on purpose:
- * argon2id is deliberately slow, and holding a pooled Supabase connection for the
- * duration would turn this guard into its own denial of service.
  */
 async function consumePinAttempt(
   parent: Parent,
@@ -271,18 +200,7 @@ async function consumePinAttempt(
   return false;
 }
 
-/**
- * Gives back a single attempt once a cool-off has been served.
- *
- * One, not the full five. Restoring the whole allowance would hand an attacker
- * five guesses per window forever, which is the failure `lockoutMsFor` exists to
- * prevent; leaving it at zero would lock a legitimate parent out permanently,
- * because the slot claim would never match again. One guess per escalating window
- * is the behaviour the doubling was always meant to produce.
- *
- * Conditional on the timestamp it clears, so it fires exactly once no matter how
- * many requests arrive together at the end of a window.
- */
+/** Gives back a single attempt once a cool-off has been served. */
 async function restoreOneAttempt(parentId: string, now: Date): Promise<void> {
   await prisma.parent.updateMany({
     where: { id: parentId, pinLockedUntil: { lte: now } },
@@ -293,9 +211,6 @@ async function restoreOneAttempt(parentId: string, now: Date): Promise<void> {
 /**
  * Consumes one attempt from the current window, returning the count this attempt
  * landed on — or `null` when the window is exhausted or a cool-off is running.
- *
- * The predicate lives in the `WHERE` of the same statement that increments, which
- * is the whole point: see the note on `consumePinAttempt`.
  */
 async function claimAttemptSlot(parentId: string): Promise<number | null> {
   try {
@@ -315,19 +230,7 @@ async function claimAttemptSlot(parentId: string): Promise<number | null> {
   }
 }
 
-/**
- * Starts a cool-off and deepens the escalation by one strike.
- *
- * Conditional on no cool-off already running, so a frustrated parent tapping the
- * pad ten times during a lockout does not buy themselves an hour — the strike is
- * charged once per window, not once per refused tap. Losing that race is the
- * expected outcome under a burst and means another request has already armed the
- * window, so it returns quietly.
- *
- * The two writes are not atomic with each other. That is deliberate and harmless:
- * the *bound* on guesses is held entirely by `claimAttemptSlot`, and the worst a
- * lost race here can do is set a duration one doubling out of step.
- */
+/** Starts a cool-off and deepens the escalation by one strike. */
 async function armLockout(parentId: string, now: Date): Promise<void> {
   let strikes: number;
   try {

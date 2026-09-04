@@ -8,14 +8,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `routes/parent.ts` — `requireParent` guards the whole router.
- *
- * `requirePinVerified` is applied per-route rather than router-wide, and the
- * reason is worth stating in the docs: gating the PIN and consent routes behind a
- * PIN grant would deadlock, because you would need to verify a PIN in order to
- * set your first one. Only the deletion request sits behind the gate.
- */
+// `routes/parent.ts` — `requireParent` guards the whole router.
 
 /** Both PIN routes share the brute-force bookkeeping, so both can lock out. */
 const PIN_LOCKED_RESPONSE = errorResponse(

@@ -10,25 +10,7 @@ import { usePreloadNextStep } from "@/lib/use-preload-next-step";
 import type { LessonStepProps } from "./lesson-step-props";
 import { VideoControls, type VideoState } from "./VideoControls";
 
-/**
- * The teaching video (FR-LSN-02, NFR-PERF-02).
- *
- * **One state, driven by the element's own events.** `canplay`, `playing`,
- * `waiting`, `pause`, `ended`, `error` — the union below mirrors what the media
- * element reports rather than a set of booleans this component keeps in step by
- * hand. A video that buffers is genuinely not the same thing as one that is
- * paused, and a child staring at a frozen frame with a pause icon over it has
- * been told the wrong thing.
- *
- * **The end is a tap, not a jump.** `ended` reveals the advance button rather
- * than calling `onComplete` itself: a child who looked away for the last ten
- * seconds should find the lesson where they left it, and replay stays available
- * until they choose to move on — re-watching is a thing preschoolers do, and
- * nothing here should treat it as a mistake.
- *
- * **One sound source.** Lesson narration is stopped when playback starts, so the
- * intro's voice cannot talk over the film (design.md, `AudioProvider`).
- */
+// The teaching video (FR-LSN-02, NFR-PERF-02).
 
 export function VideoStep({ lesson, onComplete }: LessonStepProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
@@ -113,12 +95,6 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
           src={videoUrl}
           poster={videoPosterUrl ?? undefined}
           // Every one of these is a door the child must not find (FR-LSN-02).
-          // `controls` is absent, which is the main one: native controls expose a
-          // seek bar, and this step's own overlay is the only transport. The rest
-          // close doors that survive that — PiP and remote playback are reachable
-          // from a long-press menu, and both leave the app for browser chrome there
-          // is no obvious way back from. `controlsList` is kept for the same
-          // reason: it applies to that menu on WebKit, not only to `controls`.
           playsInline
           disablePictureInPicture
           controlsList="nodownload nofullscreen noremoteplayback"

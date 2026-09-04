@@ -3,12 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ADMIN_ROUTES } from "@/lib/admin-routes";
 import { AdminSidebar } from "./AdminSidebar";
 
-/**
- * The six-section contract (FR-CMS-01 shell).
- *
- * `pathname` is a prop rather than a `usePathname()` call, so these assertions need
- * no router — which is the point of passing it in.
- */
+/** The six-section contract (FR-CMS-01 shell). */
 describe("AdminSidebar", () => {
   it("renders exactly the six CMS sections, in order", () => {
     render(<AdminSidebar pathname={ADMIN_ROUTES.analytics} />);
@@ -80,13 +75,7 @@ describe("AdminSidebar", () => {
 
     expect(screen.getByText("Reviewer One")).toBeInTheDocument();
   });
-  /**
-   * The AI Queue badge (file 37, requirement 8).
-   *
-   * Its whole purpose is to be seen from the other five sections, so what matters
-   * is that it appears on the nav item and disappears at zero — a badge reading
-   * "0" is a notification that there is nothing to notify about.
-   */
+  /** The AI Queue badge (file 37, requirement 8). */
   describe("the AI Queue badge", () => {
     it("shows the count on the AI Queue item", () => {
       render(

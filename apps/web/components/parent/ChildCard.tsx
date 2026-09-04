@@ -13,27 +13,9 @@ import { useTranslation } from "react-i18next";
 import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/lib/avatars";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 
-/**
- * One learner profile in the list (FR-PROF-05).
- *
- * Avatar art is resolved from the character the profile points at. The card is
- * given the whole avatar list rather than looking one up itself, because the list
- * page has already loaded it and a per-card lookup would be N requests for one
- * answer.
- *
- * Edit is a link, delete is a button: one navigates, the other opens a dialog, and
- * a parent should be able to tell which is which before tapping.
- */
+// One learner profile in the list (FR-PROF-05).
 
-/**
- * Every grade the API can return, not every grade this app's form offers.
- *
- * `ChildProfileForm` deliberately omits KG-2 at MVP (spec §10), but
- * `GradeLevelSchema` accepts all three, so `POST /api/children` will store one and
- * this card has to be able to name it. Typing the map on `GradeLevelValue` makes
- * that a compile error rather than a silent mislabel the next time the enum grows
- * — which is what the ternary this replaced could not do.
- */
+/** Every grade the API can return, not every grade this app's form offers. */
 const GRADE_LABEL_KEYS: Record<GradeLevelValue, string> = {
   NURSERY: "form.gradeNursery",
   KG1: "form.gradeKg1",

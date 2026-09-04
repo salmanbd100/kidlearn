@@ -7,9 +7,6 @@ import { cn } from "../lib/cn";
  * Button — the foundational shadcn-style primitive, tokenized for both themes.
  * Colors come from semantic tokens, so it follows the active [data-theme]
  * (kid / parent). Radius follows the surface's --radius. See document/design.md.
- *
- * Touch targets (design.md §7): `default` meets the 44px parent minimum; use
- * `size="kid"` (64px, pill) on Student-Portal surfaces.
  */
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius)] font-body font-semibold transition-[color,background-color,opacity,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-5",

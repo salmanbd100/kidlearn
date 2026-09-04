@@ -3,44 +3,9 @@ import { v2 as cloudinary, type UploadApiErrorResponse } from "cloudinary";
 import { env } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 
-/**
- * The media library (file 33, FR-CMS-02).
- *
- * **No file byte passes through this process.** The browser asks for a signature,
- * posts the file straight to `api.cloudinary.com`, and then tells us the delivery
- * URL it got back. That is not a performance choice: this API runs on a free tier
- * that sleeps and has no disk, so proxying a 40 MB lesson video through it would
- * be a request that times out on a cold start and a memory ceiling nobody can
- * raise.
- *
- * The consequence is that **the client reports the URL**, which is why
- * `registerAsset` re-derives what a legitimate one looks like rather than trusting
- * it. Without that check the endpoint would be a way to write any URL on the
- * internet into a row a five-year-old's lesson later plays.
- *
- * `MediaAsset` rows are never mutated and never deleted here. An asset is
- * referenced by explicit foreign keys from worlds, lessons, stories, badges and
- * characters (files 04–06); rewriting a row's URL would silently change what
- * every one of those plays, and deleting one would break them. Retiring an asset
- * is unlinking it from its owners, which the file-32 endpoints already do.
- *
- * **File 36 adds the one exception to the first paragraph: `uploadBuffer`.** An AI
- * narration clip or illustration has no browser to upload it — it exists only as
- * bytes inside this process — so that path does proxy the file. It is bounded to
- * generated media, tens of kilobytes of mp3 or a single png rather than a 40 MB
- * lesson video, and it is the only shape available: there is nowhere else for
- * those bytes to be.
- */
+// The media library (file 33, FR-CMS-02).
 
-/**
- * `cloudinary.config` rather than credentials per call.
- *
- * `signUploadParams` hands its secret in explicitly, so the SDK needed no global
- * configuration until `uploadBuffer` arrived — `upload_stream` reads the account
- * from this config and takes no per-call equivalent. Set at import time, so by the
- * time anything calls it a missing credential is impossible: `lib/env.ts` has
- * already refused to boot without one.
- */
+/** `cloudinary.config` rather than credentials per call. */
 cloudinary.config({
   cloud_name: env.CLOUDINARY_CLOUD_NAME,
   api_key: env.CLOUDINARY_API_KEY,
@@ -62,21 +27,6 @@ export type UploadSignature = {
 
 /**
  * The signed parameter set the browser posts to Cloudinary alongside the file.
- *
- * `api_sign_request` is Cloudinary's own implementation of the signing rule
- * (sorted `key=value` pairs, `&`-joined, secret appended, SHA-1) rather than a
- * local copy of it. A hand-rolled version would be a second implementation of a
- * remote service's contract, and a silently wrong signature reads to an admin as
- * "the upload failed" with no way to tell why.
- *
- * Only `timestamp` and `folder` are signed. Cloudinary verifies the signature
- * over exactly the parameters it was computed from, so every field the browser
- * sends must appear here — adding one there without adding it here is what makes
- * an upload fail with `Invalid Signature`.
- *
- * The signature expires (Cloudinary rejects a timestamp more than an hour old),
- * which is what stops one handed out today from being a permanent upload
- * credential.
  */
 export function signUploadParams(kind: MediaKind): UploadSignature {
   const timestamp = Math.round(Date.now() / 1000);
@@ -95,12 +45,7 @@ export function signUploadParams(kind: MediaKind): UploadSignature {
   };
 }
 
-/**
- * The prefix every delivery URL for this account starts with.
- *
- * Exported so the request schema refines against the same string this module
- * builds, rather than restating the host — see `schemas/admin-media.ts`.
- */
+/** The prefix every delivery URL for this account starts with. */
 export function deliveryUrlPrefix(): string {
   return `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
 }
@@ -150,38 +95,14 @@ export function registerAsset(
   return client.mediaAsset.create({ data: input, select: mediaSelect });
 }
 
-/**
- * The resource type Cloudinary files an upload under.
- *
- * **Audio goes under `video`, and that is Cloudinary's model rather than a
- * mistake**: it has three resource types — `image`, `video`, `raw` — and every
- * time-based medium is a `video` to it, mp3 included. Filing a narration clip as
- * `raw` would store the bytes but give up the transformations and the streaming
- * delivery URL that make it playable.
- */
+/** The resource type Cloudinary files an upload under. */
 export type UploadResourceType = "image" | "video";
 
 export function resourceTypeFor(kind: MediaKind): UploadResourceType {
   return kind === "image" ? "image" : "video";
 }
 
-/**
- * Uploads bytes this process is holding and resolves with the delivery URL.
- *
- * **The one path where a file transits this API** (see the module header). The AI
- * pipeline has no browser to sign an upload for: the mp3 or the png exists only in
- * memory here, so there is nothing to hand a signature to.
- *
- * `upload_stream` rather than `upload`, because `upload` takes a path or a data
- * URI — the latter would mean base64-encoding the whole buffer into a string,
- * inflating it by a third to send it to the same place.
- *
- * The callback is wrapped rather than awaited through the SDK's promise API
- * because there is not one for the streaming form. A missing `secure_url` on an
- * otherwise successful response is thrown rather than defaulted: what would be
- * stored instead is a `MediaAsset` row pointing at nothing, which is content a
- * child cannot play — the exact failure the file-33 two-step exists to avoid.
- */
+/** Uploads bytes this process is holding and resolves with the delivery URL. */
 export function uploadBuffer(
   buffer: Buffer,
   options: { folder: string; resourceType: UploadResourceType },
@@ -206,16 +127,7 @@ export function uploadBuffer(
   });
 }
 
-/**
- * Cloudinary's failure, as an `Error` that still says what went wrong.
- *
- * `upload_stream` hands its callback a plain `{ message, name, http_code }`
- * object for every API-level failure — only genuine socket errors arrive as an
- * `Error` — so coercing the raw value with `String()` yields the literal
- * `"[object Object]"`. That string is what `runGenerationJob` records as the job's
- * `rawOutput.error`, and it is the whole of the FR-AI-08 diagnosis: a reviewer has
- * to be able to tell a rotated credential (401) from a rate limit (420) from it.
- */
+/** Cloudinary's failure, as an `Error` that still says what went wrong. */
 function asUploadError(error: UploadApiErrorResponse): Error {
   if (error instanceof Error) return error;
 
@@ -229,13 +141,7 @@ function asUploadError(error: UploadApiErrorResponse): Error {
   return new Error(`Cloudinary upload failed: ${message}${status}`);
 }
 
-/**
- * The library, newest first.
- *
- * Unpaginated, matching the curriculum lists: the picker filters by kind and the
- * grid is browsed by looking at it, so a page boundary would hide an asset that
- * exists. Revisit when the account holds thousands rather than hundreds.
- */
+/** The library, newest first. */
 export function listAssets(filters: {
   kind?: MediaKind;
   language?: Language;

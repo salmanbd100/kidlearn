@@ -36,46 +36,11 @@ import {
   readQuizAiJobIds,
 } from "./contentStatusService.js";
 
-/**
- * The guided editors' data layer (file 33, FR-CMS-03, FR-GAM-04).
- *
- * Three things hold across every write here, and each is the reason the file
- * exists rather than being inlined into the routes:
- *
- * **1. The shared schema is the gate, and it is applied per format.** A payload is
- * parsed with the specific member of `@kidlearn/types`' union that the enum column
- * names, not with the union. That gives an author the field that is actually wrong
- * (`prompt.bn: Required`) instead of Zod's one-line `invalid_union`, and it makes
- * the column/payload agreement check structural: the member carries
- * `type: z.literal("mcq")`, so a `match_pair` payload submitted as `mcq` fails on
- * that literal. This is the same union `routes/content.ts` re-parses before serving
- * a published row — a definition that gets past here cannot make the student API
- * throw its `500 Content unavailable` (`services/contentService.ts`).
- *
- * **2. A published row refuses an edit**, via `assertEditable` applied to the
- * status read inside a Serializable transaction — file 32's reasoning, unchanged:
- * a check made before the transaction can be stale by the time the write lands,
- * which is exactly how a rewrite reaches a live lesson. For a *question*, the
- * status that governs is the quiz's: questions have no status of their own, and a
- * published quiz whose questions could be rewritten would be a published quiz
- * whose content changed without review.
- *
- * **3. Nothing here filters by status for safety.** Same as file 32: these lists
- * exist to show drafts. Student visibility is decided entirely by
- * `routes/content.ts`, which requires the quiz and the activity to be `published`
- * in their own right before serving either.
- */
-
-// --- Compile-time enum mirrors -------------------------------------------
+// The guided editors' data layer (file 33, FR-CMS-03, FR-GAM-04).
 
 /**
  * The payload unions and the Prisma enums must name the same formats, or a row
  * could carry a `format` no schema can parse.
- *
- * Asserted as bidirectional assignability rather than trusted, matching the
- * `ContentStatus` guard in `openapi/paths/admin-content.ts`: adding a format to
- * `schema.prisma` without adding it to `packages/types` fails `pnpm typecheck`
- * here.
  */
 type _FormatsAgree = QuizQuestionFormat extends QuizQuestionType
   ? QuizQuestionType extends QuizQuestionFormat
@@ -96,15 +61,6 @@ void _editorEnumMirrorsAreExhaustive;
 /**
  * Parses a payload against the one schema its sibling enum column names, or throws
  * the `400` the route's own validator would have thrown.
- *
- * Issue paths are prefixed with the field the client actually sent —
- * `definition.prompt.bn`, not `prompt.bn` — which is what lets the editor put each
- * message under the input that produced it.
- *
- * Generic over the schema rather than over the payload, so `z.infer` still
- * distributes across the union the caller indexed out of a lookup table: an
- * annotated table would hand back the whole union and the `schemaVersion` read at
- * every call site would lose its type.
  */
 function parsePayload<TSchema extends z.ZodTypeAny>(
   schema: TSchema,
@@ -151,8 +107,6 @@ const NOT_ARCHIVED = { status: { not: ARCHIVED } };
 function visibility(includeArchived: boolean) {
   return includeArchived ? {} : NOT_ARCHIVED;
 }
-
-// --- Quizzes --------------------------------------------------------------
 
 export type AdminQuizDto = {
   id: string;
@@ -267,15 +221,7 @@ export async function getQuizSummary(quizId: string): Promise<AdminQuizDto> {
   return toAdminQuiz(row);
 }
 
-/**
- * Renames a quiz (FR-CMS-03).
- *
- * Read-then-write inside one Serializable transaction, for the reason file 32's
- * `editWithinTransaction` gives: two admins, one publishing and one editing, must
- * not both see `draft` and both succeed. Checking editability in a transaction of
- * its own would commit the read before the update began, which is exactly the
- * staleness Serializable is here to prevent.
- */
+/** Renames a quiz (FR-CMS-03). */
 export async function updateQuiz(
   quizId: string,
   input: QuizUpdateBody,
@@ -298,14 +244,7 @@ export async function updateQuiz(
   return toAdminQuiz(row);
 }
 
-/**
- * Appends a question (FR-CMS-03).
- *
- * `sortOrder` is the current count, which is also `max + 1` because deletes
- * renumber the survivors contiguously — see `deleteQuestion`. Taken inside the
- * same transaction as the status check so two questions added at once cannot both
- * claim the tail index and violate `@@unique([quizId, sortOrder])`.
- */
+/** Appends a question (FR-CMS-03). */
 export async function createQuestion(
   quizId: string,
   input: QuestionUpsertBody,
@@ -350,10 +289,6 @@ export async function createQuestion(
 /**
  * Replaces a question's payload whole — there is no partial edit, for the reason
  * `QuestionUpsertSchema` gives.
- *
- * `format` may change with it: switching an `mcq` to a `picture_select` is a
- * legitimate authoring move, and the column follows the payload rather than
- * pinning it.
  */
 export async function replaceQuestion(
   quizId: string,
@@ -389,17 +324,7 @@ export async function replaceQuestion(
   return toAdminQuestion(row);
 }
 
-/**
- * Removes a question and closes the gap it left.
- *
- * The renumbering is not cosmetic: `@@unique([quizId, sortOrder])` and the
- * player's `orderBy: sortOrder` mean a hole is harmless but a duplicate is not,
- * and the next `createQuestion` derives its index from the *count* — so leaving a
- * hole would make the next append collide with an existing row.
- *
- * Assigned in ascending order, which is what makes it safe under the unique
- * index: each target index is vacated by the row below it before being claimed.
- */
+/** Removes a question and closes the gap it left. */
 export async function deleteQuestion(
   quizId: string,
   questionId: string,
@@ -443,11 +368,6 @@ type EditorWriter = Pick<
 /**
  * `404` unless the question exists **and belongs to the quiz in the path**, then
  * the quiz's own editability.
- *
- * The ownership check is what stops `/quizzes/A/questions/<a question of B>` from
- * editing B's question through A's — a mismatch is a `404` rather than a `400`,
- * because from this caller's point of view that question does not exist under that
- * quiz.
  */
 async function assertQuestionEditable(
   tx: EditorWriter,
@@ -463,8 +383,6 @@ async function assertQuestionEditable(
   }
   assertEditable(question.quiz.status);
 }
-
-// --- Activities -----------------------------------------------------------
 
 export type AdminActivityDto = {
   id: string;
@@ -576,8 +494,6 @@ export async function updateActivity(
   );
   return toAdminActivity(row);
 }
-
-// --- Badges ---------------------------------------------------------------
 
 export type AdminBadgeDto = {
   id: string;
@@ -738,16 +654,7 @@ async function asSlugConflict<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-// --- Transitions ----------------------------------------------------------
-
-/**
- * The three resources this module publishes, spelled as a path segment.
- *
- * Re-exported from `@kidlearn/types` rather than declared here, for the reason
- * file 32 gives about `CONTENT_RESOURCES`: the CMS speaks the same three strings,
- * and one definition is what stops the two from drifting. See that module for why
- * they are a separate union from the curriculum hierarchy's.
- */
+/** The three resources this module publishes, spelled as a path segment. */
 export { EDITOR_CONTENT_RESOURCES as EDITOR_RESOURCES };
 export type EditorResource = EditorContentResourceName;
 
@@ -764,20 +671,6 @@ export type AdminEditorDto = AdminQuizDto | AdminActivityDto | AdminBadgeDto;
 
 /**
  * Moves a quiz, activity or badge through the publishing workflow (FR-CMS-06).
- *
- * The same matrix, the same Serializable read-then-write and the same reasoning as
- * `transitionContent` in file 32 — the hop has to be judged against the status the
- * row *actually* holds, or two admins approving and rejecting at once both succeed.
- *
- * Publishing an activity or a quiz has a second effect worth stating: the student
- * lesson API gates `Lesson.activity` and `Lesson.quiz` on their own `status`, so a
- * published lesson shows neither until its parts are published in their own right
- * — and unpublishing one removes it from a live lesson without taking the lesson
- * down.
- *
- * **The publish hop carries the FR-AI-07 guard (file 37)**, for the reason
- * `transitionContent` gives: a quiz the generator wrote is a `draft` like any
- * other, and the matrix alone cannot tell it from one an author typed.
  */
 export async function transitionEditorContent(
   resource: EditorResource,
@@ -802,15 +695,6 @@ export async function transitionEditorContent(
 /**
  * The status a transition is judged against, and every job answerable for the
  * row's contents.
- *
- * `Badge` has no `aiJobId` and reports nothing: nothing generates badges, and a
- * badge is not lesson content — it is a reward rule an admin writes. Quizzes and
- * activities do carry one.
- *
- * A quiz reports its questions' jobs as well as its own. The generator appends to
- * a quiz that already exists and stamps only the questions, so the quiz row's
- * `aiJobId` is null for exactly the case where unreviewed model output is what
- * would go live (file 37, FR-AI-07).
  */
 async function readEditorGuardFields(
   tx: EditorWriter,

@@ -1,12 +1,7 @@
 import { StudentGuard } from "../../StudentGuard";
 import { WorldScreen } from "./WorldScreen";
 
-/**
- * Lesson browsing inside one world (FR-PROF-03).
- *
- * `params` is a Promise in Next 16 and is awaited here, in the Server Component,
- * so the client boundary starts below it with a plain string prop.
- */
+/** Lesson browsing inside one world (FR-PROF-03). */
 export default async function WorldPage({
   params,
 }: {

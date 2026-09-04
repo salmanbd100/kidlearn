@@ -6,23 +6,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { fetchMediaAssets } from "@/lib/admin-api";
 
-/**
- * Choose an asset from the media library, never type a URL (FR-CMS-02).
- *
- * **The reason this component exists is that a typed URL is unverifiable.** An
- * author who can paste a string into a prompt-audio field can paste one that
- * 404s, points at the wrong locale, or points outside our Cloudinary account —
- * and none of that surfaces until a three-year-old is looking at a silent
- * question. A list of rows that exist cannot express any of those.
- *
- * `kind` and `language` narrow the list server-side, so a Bangla prompt field
- * offers Bangla narration and nothing else. Filtering here rather than in the
- * browser is what keeps that true as the library grows.
- *
- * A native `<select>` rather than a gallery: an audio clip has nothing to look at,
- * and the one thing worth previewing — playing it — is offered next to the control
- * instead. Images get a thumbnail for the same reason, and only images.
- */
+// Choose an asset from the media library, never type a URL (FR-CMS-02).
 
 export interface MediaPickerProps {
   id: string;
@@ -129,29 +113,14 @@ export function MediaPicker({
   );
 }
 
-/**
- * The tail of the delivery URL, which is the filename an author uploaded.
- *
- * The whole URL is unreadable in a `<select>` and the row carries no name column —
- * `MediaAsset` is `{ url, kind, language }` and nothing else. The date
- * disambiguates two uploads of the same filename.
- */
+/** The tail of the delivery URL, which is the filename an author uploaded. */
 function assetLabel(asset: MediaAsset): string {
   const filename = asset.url.split("/").pop() ?? asset.url;
   const uploaded = new Date(asset.createdAt).toLocaleDateString("en-GB");
   return `${filename} — ${uploaded}`;
 }
 
-/**
- * Playable or viewable inline, per kind.
- *
- * `unoptimized`, which is the point of using `next/image` here at all. The
- * optimizer refuses a host that is not in `next.config.ts`'s `remotePatterns`, and
- * that list is deliberately environment-driven and empty by default — so an admin
- * thumbnail would throw at render time on a fresh checkout. Bypassing the
- * optimizer keeps the rule in `frontend.md §3` (no raw `<img>`) without widening
- * the app's image allowlist for a picture only the team ever sees.
- */
+/** Playable or viewable inline, per kind. */
 function AssetPreview({ asset }: { asset: MediaAsset }) {
   if (asset.kind === "audio") {
     // biome-ignore lint/a11y/useMediaCaption: an admin preview of a narration clip has no caption track to offer — the clip *is* the caption of the text beside it.

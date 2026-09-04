@@ -1,24 +1,6 @@
 import type { GradeLevel, Language, MediaKind } from "@prisma/client";
 
-/**
- * The development story library (FR-STORY-08).
- *
- * Two handcrafted stories, one per seeded world, in both locales. They exist so
- * the library screen and the reader can be looked at before any content pipeline
- * runs — and so the locale fallback is *visible*: `dot-counts-the-fish` has no
- * Bangla narration and no Bangla moral, which is the only way to see a Bangla
- * child served English audio under Bangla text without recording a second track.
- *
- * The remaining 18 of the 20-story starter library are produced by the AI pipeline
- * (files 35–37) and land through the **same upsert shape** as these — the fixture
- * type below is the contract that pipeline writes against, which is why this file
- * is data and `seed-stories.ts` is the only code.
- *
- * Media urls are relative paths under `apps/web/public/dev/`, never a CDN host.
- * A remote origin has to be listed in `MEDIA_ASSET_HOSTS` before `next/image`
- * will load it, and an unconfigured host throws rather than degrading to a broken
- * image — see that directory's README.
- */
+// The development story library (FR-STORY-08).
 
 export interface MediaFixture {
   /** Fixed so a re-seed updates the row it wrote last time (idempotence). */

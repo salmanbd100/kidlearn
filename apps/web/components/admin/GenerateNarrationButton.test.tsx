@@ -2,17 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateNarrationButton } from "./GenerateNarrationButton";
 
-/**
- * The "Generate narration" button (file 36, FR-AI-04, FR-CMS-05).
- *
- * Three things are worth asserting, and all three are about the message rather
- * than the request — the request is two fields. First, that a batch of zero jobs
- * reads as "nothing to do" rather than as a failure, because that is the ordinary
- * outcome of clicking twice and the natural reading of it is wrong. Second, that
- * `skipped` reaches the admin, or an eight-page story that produced three clips
- * looks like five silent failures. Third, that the notice says nothing is attached
- * yet — an admin who was not told that would assume the lesson now speaks.
- */
+// The "Generate narration" button (file 36, FR-AI-04, FR-CMS-05).
 
 const generateNarration = vi.hoisted(() => vi.fn());
 

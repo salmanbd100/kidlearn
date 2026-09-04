@@ -12,24 +12,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { PARENT_ROUTES } from "@/lib/parent-redirect";
 import { getScreenTime, updateScreenTime } from "@/lib/screen-time-api";
 
-/**
- * One child's screen-time settings (FR-TIME-01, FR-TIME-04..05).
- *
- * The child comes from the session context, the way `EditChildScreen` reads it:
- * the profile list is already loaded, so fetching one by id would be asking for a
- * row the client holds. An unknown id is a deleted profile or another parent's —
- * indistinguishable here for the same reason the API answers `404` to both
- * (NFR-SAFE-02) — and gets the same message either way.
- *
- * The *policy* is fetched, because nothing else on the page has it and it is not
- * part of a child profile. Both calls go through `guard`, since both ends of this
- * route are PIN-gated: a lapsed grant re-opens the PIN pad rather than showing a
- * parent an error they cannot act on.
- *
- * The confirmation stays on this screen instead of navigating away. A parent
- * setting a limit usually wants to see what they set, and often to adjust it once
- * — bouncing them back to the list would make the second adjustment a navigation.
- */
+/** One child's screen-time settings (FR-TIME-01, FR-TIME-04..05). */
 export function ScreenTimeScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles } = useParentSession();

@@ -14,13 +14,6 @@ import { pathParam, type RouteDoc } from "../route-doc.js";
  * `routes/progress.ts` — mounted behind `requireParent` **and**
  * `requireActiveChild` in `routes/index.ts`, so every present and future
  * `/api/progress/*` path is covered by construction.
- *
- * Compile-time guard on the mirrored enum. `@kidlearn/types` may not depend on
- * `@kidlearn/db`, so `LESSON_STEPS` restates Prisma's `LessonStep` by hand. These
- * two assignments make that restatement checked rather than trusted: adding a step
- * to `schema.prisma` without adding it to `LESSON_STEPS` (or vice versa) fails
- * `pnpm typecheck` here, instead of shipping a player that cannot express a state
- * the database holds. Same pattern as `paths/children.ts` for `GradeLevel`.
  */
 type _LessonStepsCoverPrisma = PrismaLessonStep extends LessonStep
   ? true

@@ -72,12 +72,7 @@ function renderPlayer() {
   );
 }
 
-/**
- * Which step is on screen right now.
- *
- * `section[data-step]`, not `[data-step]`: the container's progress dots each name a
- * step too, and matching one of those would report `intro` forever.
- */
+/** Which step is on screen right now. */
 function currentStep(): string | null {
   return (
     document.querySelector("section[data-step]")?.getAttribute("data-step") ??
@@ -85,14 +80,7 @@ function currentStep(): string | null {
   );
 }
 
-/**
- * What each step calls its way onward.
- *
- * The placeholders all said "Next"; the real steps say what they mean, and files
- * 18–23 will keep changing these words. Looked up per step rather than asserted,
- * because none of the tests below are about a step's copy — they are about the
- * flow that runs when a step reports itself complete, whatever it was labelled.
- */
+/** What each step calls its way onward. */
 const ADVANCE_LABEL: Record<string, RegExp> = {
   intro: /Let's go!/,
   video: /Done — next!/,
@@ -113,13 +101,7 @@ function completeStep() {
   );
 }
 
-/**
- * Taps through all five steps to the finish screen.
- *
- * Driven by which step is on screen rather than by a fixed count of writes: the
- * reward step reports itself through a different call from the other four (file
- * 23), so counting `reportStep` would stall on the last one.
- */
+/** Taps through all five steps to the finish screen. */
 async function walkTheLesson() {
   for (const step of ["intro", "video", "activity", "quiz"] as const) {
     completeStep();

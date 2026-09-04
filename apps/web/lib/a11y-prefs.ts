@@ -1,16 +1,4 @@
-/**
- * The three accessibility preferences a user can turn on (NFR-A11Y-03..05).
- *
- * Each maps to a class on `<html>`; the CSS that reacts to them lives in
- * `app/globals.css`. Two rules matter here:
- *
- *  - The classes are applied by an inline script in `<head>` *before* first
- *    paint (`A11Y_BOOTSTRAP_SCRIPT`), so a user who needs high contrast never
- *    sees a flash of the default theme.
- *  - `reducedMotion` is an *additive* opt-in. The OS-level
- *    `prefers-reduced-motion` query is honoured independently in CSS, so
- *    leaving this off never overrides a system setting.
- */
+// The three accessibility preferences a user can turn on (NFR-A11Y-03..05).
 
 export const A11Y_STORAGE_KEY = "kidlearn_a11y";
 

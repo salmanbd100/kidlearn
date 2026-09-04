@@ -6,10 +6,6 @@ import { Button, buttonVariants } from "./button";
  * The primitive's geometry is an accessibility contract, not decoration
  * (design.md §7, NFR-A11Y-02), and nothing asserted it until now — `packages/ui`
  * had no test runner, so `turbo run test` skipped the package silently.
- *
- * These tests are about the contract, not the styling: which token a variant
- * reaches for and how big a hit area a size promises. Exact colour values belong
- * to `tokens.css` and would only couple the suite to a palette.
  */
 
 describe("Button sizes", () => {

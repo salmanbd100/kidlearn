@@ -1,21 +1,5 @@
 /**
  * The story reader's flow, as a pure reducer (FR-STORY-02, FR-STORY-06..07).
- *
- * No React, no audio, no timers, no fetching — every effect lives in
- * `StoryReader`. The reducer decides which page is on screen and whether the
- * story is over; the component plays the narration, runs the auto-advance timer
- * and posts the completion. That split is what makes the flow testable as a table.
- *
- * **Every event that does not apply returns the state by identity**, the same hard
- * rule `lesson-machine.ts` states and for the same reason: a three-year-old taps
- * everything, and a reducer that threw on the back arrow at page one would lose
- * their place. Returning the same object also means `useReducer` skips the
- * re-render, so a mashed tap costs nothing.
- *
- * **`completionRequested` never resets.** It is set the first time the story ends
- * and survives `READ_AGAIN`, which is what makes the reward call happen once per
- * mount however many times a child re-reads a story they love. The server would
- * refuse to pay twice regardless (FR-STORY-06) — this keeps the reader from asking.
  */
 
 export interface ReaderState {

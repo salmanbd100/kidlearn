@@ -713,14 +713,7 @@ describe("POST /api/admin/ai/generate/illustrations", () => {
   });
 });
 
-/**
- * The daily caps (file 36).
- *
- * Asserted through the HTTP boundary rather than only in
- * `services/ai/rate-guard.test.ts`, because what is being checked here is that
- * every generation path actually carries the guard and names the right bucket —
- * "by construction" is exactly the claim a route added next year breaks.
- */
+/** The daily caps (file 36). */
 describe("the daily generation caps", () => {
   it("429s the text generators once the text bucket is full", async () => {
     fillBucket("lesson", env.AI_TEXT_JOBS_PER_DAY);

@@ -2,19 +2,6 @@
  * ---------------------------------------------------------------------------
  * JSON response envelope — every kidlearn API response uses one of two shapes.
  * No route ever sends a bare body.
- *
- * Success (2xx):
- *   { "data": <payload> }
- *
- * Failure (4xx / 5xx):
- *   { "error": { "code": <ErrorCode>, "message": string, "details"?: unknown } }
- *
- * `code` is machine-readable and stable — clients branch on it. `message` is a
- * human-readable hint for developers and is never shown verbatim to a child.
- * `details` carries structured context (e.g. flattened Zod issues) and is
- * omitted when there is none. Unexpected server errors are always reported as
- * `INTERNAL` with a fixed message; the underlying error is logged, never sent.
- * ---------------------------------------------------------------------------
  */
 
 import { ERROR_CODES, type ErrorCode } from "@kidlearn/types";

@@ -8,23 +8,7 @@ import type {
 } from "@kidlearn/types";
 import { type ApiResult, apiFetch } from "./api-client";
 
-/**
- * Typed wrappers over the student-facing curriculum API.
- *
- * Response types come from `@kidlearn/types` — the same schemas the route tests
- * assert the real bodies against — so no shape is redeclared here
- * (`backend.md §7`).
- *
- * What is *not* here is any notion of filtering. These endpoints take no query
- * parameters at all: grade and language are read from the active child's row on
- * the server (FR-PROF-03), so there is nothing a client could pass to widen what
- * a child sees, and nothing it should narrow afterwards. A screen renders what it
- * is given.
- *
- * `onColdStart` is threaded through because these are the first requests a child
- * makes after the API has been idle, and a mascot waking up beats a spinner
- * (NFR-PERF-04).
- */
+// Typed wrappers over the student-facing curriculum API.
 
 export interface ContentFetchOptions {
   onColdStart?: () => void;
@@ -33,11 +17,6 @@ export interface ContentFetchOptions {
 /**
  * The administrator preview (file 33, FR-CMS-04) — the **only** query parameters
  * anywhere on this API, and they are not an exception to the rule above.
- *
- * `preview=1` requests the mode; it does not grant it. The server ignores it
- * entirely unless an `AdminUser` row backs the session, so a child or a parent
- * sending it sees exactly what they see without it. `language` exists only because
- * a preview has no child row to read a locale from.
  */
 export interface LessonPreviewOptions {
   isPreview?: boolean;
@@ -67,15 +46,7 @@ export function listWorldLessons(
   );
 }
 
-/**
- * Everything the lesson player needs, in one round trip (FR-LSN-01..05).
- *
- * Intro script, video url, activity payload and quiz questions all arrive together
- * because the five steps run back to back and a request between two of them would be
- * a stall a child reads as "broken". `activity` and `quiz` may each be `null` — the
- * lesson had none, or the one it points at is not itself published — and the flow
- * handles both.
- */
+/** Everything the lesson player needs, in one round trip (FR-LSN-01..05). */
 export function getLesson(
   lessonId: string,
   options: ContentFetchOptions & LessonPreviewOptions = {},
@@ -92,11 +63,6 @@ export function getLesson(
 
 /**
  * The child's whole story library, in one request (FR-STORY-01, FR-STORY-08).
- *
- * Twenty covers is a small enough list to send at once, and the alternative —
- * paging a library a child browses by looking at it — would mean a cover that
- * exists but cannot be found. `completed` and the world's palette arrive with each
- * story, so the grid needs nothing else to draw itself.
  */
 export function listStories(
   options: ContentFetchOptions = {},
@@ -106,15 +72,7 @@ export function listStories(
   });
 }
 
-/**
- * One story and every one of its pages, in a single request (FR-STORY-02).
- *
- * All of it at once for the reason the lesson detail gives: a child turns a page
- * in well under a second, and a request per page would put a stall between the
- * picture and the sentence that goes with it. A story is a handful of pages of
- * text and a handful of image urls — small enough to send whole, and small enough
- * that the pictures are then the browser's problem rather than the reader's.
- */
+/** One story and every one of its pages, in a single request (FR-STORY-02). */
 export function getStory(
   storyId: string,
   options: ContentFetchOptions = {},

@@ -14,12 +14,7 @@ declare global {
       session?: BetterAuthSession["session"];
       /** The ownership-checked child profile, attached by `loadOwnedChild` (file 11) or `requireActiveChild` (file 12). */
       child?: ChildProfile;
-      /**
-       * The admin domain row, attached by `requireAdmin` (file 31).
-       *
-       * Disjoint from `parent` by construction — a `User` has at most one of the
-       * two (spec §4.3) — so a request that has one never has the other.
-       */
+      /** The admin domain row, attached by `requireAdmin` (file 31). */
       admin?: AdminUser;
     }
   }

@@ -27,25 +27,7 @@ import type { ActivityRendererProps } from "./registry";
 import { type PairSide, usePairing } from "./use-pairing";
 import { isWiggling, useWiggle } from "./use-wiggle";
 
-/**
- * Find the two that go together (FR-ACT-03).
- *
- * **Two taps, and the line is the answer.** A matched pair keeps its cards where
- * they are and draws a line between them, so the board slowly fills with the
- * child's own working rather than emptying like the drag-drop tray. The shared
- * pastel highlight is the same statement in a second modality; neither one is
- * doing the work alone (design.md §2.3).
- *
- * **Wrong is quiet.** Two cards that do not go together shake for 400ms while an
- * encouraging voice plays, the selection clears, and nothing else changes — no
- * counter, no cross, no ceiling on attempts (FR-ACT-05).
- *
- * **The lines are measured, not computed.** Card positions depend on wrapping,
- * orientation and font metrics, so the overlay reads the boxes the browser
- * actually laid out and re-reads them whenever the board resizes — which is what
- * makes a rotation mid-activity redraw correctly instead of leaving six lines
- * pointing at where the cards used to be.
- */
+// Find the two that go together (FR-ACT-03).
 
 const matchCardVariants = cva(
   // 96px square before its contents — the floor this spec sets for a match card,

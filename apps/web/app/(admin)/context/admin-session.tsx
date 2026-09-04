@@ -12,21 +12,7 @@ import {
 } from "react";
 import { adminSignOut, fetchAdminMe } from "@/lib/admin-api";
 
-/**
- * Who is signed in to the CMS, loaded once (file 31, FR-CMS-01).
- *
- * **Fetches in the browser, like `(parent)` does, and for the same forced
- * reason:** the better-auth session cookie is set on the API origin and is
- * `httpOnly`, so a Server Component calling `/api/admin/me` would send no cookie
- * and get a `401`. There is no server-side path to the admin's identity. The
- * exception to `frontend.md §2` is contained the same way — this is the only place
- * in `(admin)` that loads session data, so `AdminGuard` and the sidebar footer
- * cannot disagree about who is signed in.
- *
- * There is no gate context to match `useParentGate`: the PIN protects a parent's
- * dashboard from the child holding the tablet, and nobody is handing an admin's
- * laptop to a five-year-old.
- */
+// Who is signed in to the CMS, loaded once (file 31, FR-CMS-01).
 
 export type AdminSessionStatus = "loading" | "ready" | "signedOut" | "error";
 

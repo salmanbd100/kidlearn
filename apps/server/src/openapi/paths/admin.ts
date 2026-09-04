@@ -8,10 +8,6 @@ import type { RouteDoc } from "../route-doc.js";
 
 /**
  * `routes/admin/index.ts` — the administrator surface (spec §4.3, FR-CMS-01/07).
- *
- * `requireAdmin` guards the whole router, so every operation here can answer
- * `401` (no session) or `403` (a session with no `AdminUser` row — which is every
- * parent). Files 32–37 add their operations to this list.
  */
 export const ADMIN_ROUTES: RouteDoc[] = [
   {

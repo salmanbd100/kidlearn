@@ -12,18 +12,6 @@ import { worldGradientStyle } from "@/lib/worlds";
 
 /**
  * A themed world, drawn entirely from the row that describes it (FR-WORLD-05).
- *
- * Jungle and Ocean appear because `GET /api/content/worlds` returned them — this
- * component has never heard of either, and adding Space World is a `World` row
- * plus a mascot asset, with no code change anywhere. That is the whole point of
- * the feature, so the one thing this file must never grow is a branch on
- * `world.slug`.
- *
- * `palette` therefore reaches the DOM as an inline style with raw colour values.
- * That is the sanctioned exception to the semantic-token rule (design.md §2.2,
- * decorative art) and it is confined to the gradient behind the mascot: the name
- * sits on a `bg-card` plate, so its contrast is guaranteed by the theme rather
- * than by whatever colours an author happened to save.
  */
 
 const worldCardVariants = cva(

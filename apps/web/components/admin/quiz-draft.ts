@@ -8,23 +8,6 @@ import { LOCALES } from "@kidlearn/types";
 /**
  * The quiz question editor's form state, and the compiler that turns it into a
  * payload (FR-CMS-03).
- *
- * **Pure, and separate from the component on purpose.** "The form produces a
- * payload `safeParseQuizQuestion` accepts" is the property the editor exists for,
- * and it is a property of a function — testable directly, without rendering a
- * single input. The component's job is to move strings in and out of this shape.
- *
- * **One draft type for all four formats**, rather than a discriminated union of
- * four. Switching format mid-edit is a normal authoring move — an author decides
- * a question reads better as pictures — and a union would throw away the prompt
- * and options they had already typed on every switch. The compiler reads only the
- * fields the chosen format needs, so the unused ones are carried harmlessly.
- *
- * **Empty means absent, never empty-string.** `"" `in a `LocalizedText` field is a
- * Zod failure (`min(1)`), which is right for a prompt the author must write, but
- * wrong for an *optional* option image: an empty picker must compile to a missing
- * key, not to `{ kind: "image", url: "" }`. `localizedText`, `localizedAudio` and
- * `compileOption` are where that distinction is made, once each.
  */
 
 export type LocalizedDraft = Record<Locale, string>;
@@ -34,13 +17,7 @@ export interface OptionDraft {
   text: LocalizedDraft;
   /** A `MediaAsset` delivery URL, or empty for none. */
   imageUrl: string;
-  /**
-   * The image's alternative text, per locale.
-   *
-   * Carried in the draft even though the schema makes it optional, because an edit
-   * that silently dropped it would turn a described picture into an undescribed one
-   * — an accessibility regression nobody performed and nobody would see.
-   */
+  /** The image's alternative text, per locale. */
   imageAlt: LocalizedDraft;
   /** Per-locale audio URLs, or empty for none. */
   audio: LocalizedDraft;
@@ -74,15 +51,7 @@ export function emptyOption(index: number): OptionDraft {
   };
 }
 
-/**
- * The next option to append to `options`.
- *
- * `offset` is where this column's numbering starts — a `match_pair`'s right
- * column begins past the left one, so numbering a new option by `options.length`
- * alone would remint an id the column already holds and hand the author a
- * duplicate-id error for pressing Add. Anything still taken is skipped, so the
- * result stays unique after options have been removed too.
- */
+/** The next option to append to `options`. */
 export function nextOption(
   options: OptionDraft[],
   offset: number,
@@ -129,16 +98,7 @@ export function emptyQuestionDraft(format: QuizQuestionType): QuestionDraft {
   };
 }
 
-// --- Compiling ------------------------------------------------------------
-
-/**
- * A `LocalizedAudio`, or `undefined` when *neither* locale is filled.
- *
- * Half-filled emits the half that exists, for the reason `localizedText` does:
- * `audio` is optional on an option, so dropping the whole pair would discard the
- * clip the author just picked and leave Save enabled with nothing to explain it.
- * Emitting the half makes the schema name the locale that is missing.
- */
+/** A `LocalizedAudio`, or `undefined` when *neither* locale is filled. */
 function localizedAudio(urls: LocalizedDraft) {
   if (LOCALES.every((locale) => urls[locale] === "")) return undefined;
   return Object.fromEntries(
@@ -149,13 +109,7 @@ function localizedAudio(urls: LocalizedDraft) {
   );
 }
 
-/**
- * A `LocalizedText`, or `undefined` when *neither* locale is filled.
- *
- * A half-filled pair compiles to the half that exists, deliberately: the schema
- * then reports the missing locale rather than the field vanishing, which is the
- * message an author needs (FR-I18N-01).
- */
+/** A `LocalizedText`, or `undefined` when *neither* locale is filled. */
 function localizedText(text: LocalizedDraft) {
   if (LOCALES.every((locale) => text[locale] === "")) return undefined;
   return omitEmpty({ en: text.en, bn: text.bn });
@@ -196,13 +150,7 @@ function compileOption(option: OptionDraft, isImageRequired: boolean) {
   };
 }
 
-/**
- * The draft as a payload, ready for `safeParseQuizQuestion`.
- *
- * Returns `unknown` rather than `QuizQuestionDefinition`: an incomplete draft is
- * not a valid definition and typing it as one would be a claim the compiler cannot
- * make. Validating the result is the caller's whole purpose.
- */
+/** The draft as a payload, ready for `safeParseQuizQuestion`. */
 export function compileQuestion(draft: QuestionDraft): unknown {
   const shared = {
     schemaVersion: 1,
@@ -252,10 +200,6 @@ export function compileQuestion(draft: QuestionDraft): unknown {
 /**
  * Every path the form renders an input for, so `toIssueMap` can tell a message
  * that has a home from one that does not.
- *
- * `promptAudio` is listed as the bare field rather than per locale: the two
- * pickers sit under one heading, and an issue at `promptAudio.bn.url` belongs to
- * that heading.
  */
 export function knownQuestionPaths(draft: QuestionDraft): string[] {
   const optionPaths = (field: string, options: OptionDraft[]) =>
@@ -305,15 +249,9 @@ export function knownQuestionPaths(draft: QuestionDraft): string[] {
   ];
 }
 
-// --- Loading an existing question ----------------------------------------
-
 /**
  * A stored definition back into form state, so editing starts from what is there
  * rather than from blank fields.
- *
- * Narrowed by `type` rather than cast: each branch reads only the fields its
- * format carries, which is what makes the round trip — load, change one field,
- * save — lossless.
  */
 export function draftFromDefinition(
   definition: QuizQuestionDefinition,

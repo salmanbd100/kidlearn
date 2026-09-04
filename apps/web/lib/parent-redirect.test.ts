@@ -10,10 +10,6 @@ import {
 /**
  * The first-run gating rule, asserted as a function rather than by clicking
  * through the app.
- *
- * "No child profile UI is reachable before consent" (FR-AUTH-03) is a claim about
- * *every* path through this decision, which is why it is worth testing exhaustively
- * here rather than once in a rendered flow.
  */
 
 function parent(

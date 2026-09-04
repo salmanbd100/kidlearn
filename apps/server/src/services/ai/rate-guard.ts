@@ -4,38 +4,12 @@ import { ApiError } from "../../lib/errors.js";
 import { localDateIn, localDayStartUtc } from "../../lib/local-date.js";
 import { prisma } from "../../lib/prisma.js";
 
-/**
- * The daily ceiling on generation jobs (file 36).
- *
- * This exists because file 36 turned one click into *n* provider calls. A lesson
- * or a story generation is a single expensive call an admin decided to make; a
- * batch narration on an eight-page bilingual story is sixteen, and a misclick on
- * the wrong story is a bill nobody authorised. The cap is the floor under that.
- *
- * **Counted deployment-wide, not per administrator.** What is being protected is
- * a shared free tier, so a second admin's budget is the same budget.
- *
- * **Counted from `AIGenerationJob` rows rather than from a counter.** There is no
- * separate tally to drift, get out of step with a rollback, or need clearing: the
- * jobs table already records every generation ever attempted, including the failed
- * ones — which cost money too, and so must count against the cap. A counter would
- * also have to survive a process restart on a free tier that sleeps.
- *
- * **The day is the calendar day in `APP_TIMEZONE`**, the same day the reward grant
- * and the streak roll-over use. An admin working at 9am local time is in "today",
- * whatever UTC thinks.
- */
+// The daily ceiling on generation jobs (file 36).
 
 /** What a job costs, roughly. One ceiling per bucket rather than one overall. */
 export type CostBucket = "text" | "audio" | "image";
 
-/**
- * Which ceiling each job type is billed against.
- *
- * `satisfies Record<AIJobType, CostBucket>` is the drift guard: a new member of
- * Prisma's `AIJobType` is a compile error here until somebody decides what it
- * costs, rather than a job type that silently escapes every cap.
- */
+/** Which ceiling each job type is billed against. */
 const BUCKET_BY_TYPE = {
   lesson: "text",
   story: "text",
@@ -100,18 +74,7 @@ export async function readDailyBudget(
   return { bucket, cap, used, remaining: Math.max(cap - used, 0) };
 }
 
-/**
- * Refuses the whole request when it would take the bucket past its ceiling.
- *
- * `pending` is how many jobs the caller is *about* to create, which is why a
- * batch endpoint has to compute its missing pairs before calling this. Checking
- * one at a time would let a sixteen-clip batch start, spend eleven clips' worth of
- * quota, and stop halfway with five pages narrated and three not — a partial
- * result that costs money and still has to be finished tomorrow.
- *
- * `details` carries the arithmetic rather than only the verdict, so the CMS can
- * say "40 of 50 used, this needs 16" instead of "try again tomorrow".
- */
+/** Refuses the whole request when it would take the bucket past its ceiling. */
 export async function assertWithinDailyCap(
   type: AIJobType,
   pending = 1,

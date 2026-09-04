@@ -9,16 +9,6 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
  * The four-digit numpad. Presentational and fully controlled — it owns no state,
  * decides nothing, and never talks to the API, which is what makes both the setup
  * flow and the gate able to reuse it and what makes it testable in isolation.
- *
- * Design constraints it exists to satisfy:
- *
- *  - The parental gate "must be genuinely hard for a pre-reader" (design.md §7):
- *    reading and typing digits, never a "tap to continue".
- *  - Keys are 64px — comfortably past the 44px parent minimum — because this is
- *    the one parent control most likely to be used one-handed while holding a
- *    tablet.
- *  - The entry is masked, and the count of entered digits is announced through a
- *    live region rather than left to the dots, which a screen reader cannot read.
  */
 
 export const PIN_LENGTH = 4;

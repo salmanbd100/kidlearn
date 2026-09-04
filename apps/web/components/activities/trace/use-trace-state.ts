@@ -28,33 +28,7 @@ import {
   toPathUnits,
 } from "./geometry";
 
-/**
- * The tracing gesture, from the first touch to the finished glyph.
- *
- * **Why the pointer work is a hook and not part of the renderer.** jsdom has no
- * layout and no SVG matrix, so nothing about a real trace can be reproduced in a
- * component test. Everything that decides whether the child got it right lives
- * here instead, driven through `toViewBox` — the one seam that reads the DOM —
- * so the rules are testable and the renderer is only markup.
- *
- * **`pointermove` fires far faster than the screen repaints.** Handling each
- * event would run coverage and set React state dozens of times per frame. Moves
- * are therefore parked in a ref and drained once per animation frame, and the
- * frame only touches state when the covered count or the stroke index actually
- * moved — `updateCoverage` returns its argument unchanged when nothing did, which
- * is what makes that check a pointer comparison (NFR-PERF).
- *
- * **One pointer at a time.** A child steadying a tablet rests a palm or a thumb
- * on the board constantly; without an owning pointer id, that second contact
- * wipes the trail and its lift ends the stroke the first finger is still drawing.
- * The gesture therefore belongs to whichever pointer opened it until that same
- * pointer lifts.
- *
- * **A keyboard can trace too (NFR-A11Y-06).** `traceAhead` walks the frontier
- * forward through the very same coverage rules a finger goes through, so a child
- * on a switch or a keyboard finishes the glyph, earns the same cheer, and reaches
- * the same completion — no parallel code path that could drift from the real one.
- */
+// The tracing gesture, from the first touch to the finished glyph.
 
 /** Points sampled per stroke. Fine enough to follow a curve, coarse enough to stay cheap. */
 const SAMPLES_PER_STROKE = 40;

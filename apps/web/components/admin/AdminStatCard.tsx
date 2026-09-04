@@ -1,19 +1,7 @@
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 
-/**
- * One platform counter on the admin analytics page (FR-CMS-07, basic tier).
- *
- * **Not `components/parent/StatCard`, on purpose.** That card belongs to a
- * parent's dashboard: it takes a `hint` for the encouraging zero state and has a
- * `featured` tone for the window a parent checks first. Neither idea applies to an
- * internal counter — nobody needs consoling about a quiet Tuesday — and bending it
- * to fit would put dashboard vocabulary in the CMS.
- *
- * Takes an already-formatted `value` for the same reason the parent card does, so
- * a later file can put a percentage or a duration in one without this component
- * learning what either is.
- */
+/** One platform counter on the admin analytics page (FR-CMS-07, basic tier). */
 const adminStatCardVariants = cva(
   "flex flex-1 flex-col gap-1 rounded-[var(--radius)] border border-border bg-card p-4",
   {

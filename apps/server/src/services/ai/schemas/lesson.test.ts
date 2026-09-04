@@ -1,11 +1,4 @@
-/**
- * The contract the lesson generator holds the model to (file 34, FR-AI-01).
- *
- * No database and no network — this is a schema, so the tests are the schema's
- * own behaviour. What matters here is the *rejections*: every one of them is a
- * retry the pipeline spends and, if it fails twice, a lesson that never reaches a
- * child half-written.
- */
+// The contract the lesson generator holds the model to (file 34, FR-AI-01).
 
 import { parseQuizQuestion, validMcq } from "@kidlearn/types";
 import { describe, expect, it } from "vitest";

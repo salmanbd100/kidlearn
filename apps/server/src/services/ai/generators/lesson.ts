@@ -15,33 +15,7 @@ import {
   type LessonGenerationOutput,
 } from "../schemas/lesson.js";
 
-/**
- * The AI Lesson Generator (FR-AI-01).
- *
- * An admin picks a grade, a topic, a focus and the languages; this builds the
- * prompt, runs it through `runGenerationJob`, and writes what comes back as a
- * **draft** lesson with a **draft** quiz attached.
- *
- * **Nothing here can publish, and that is structural rather than careful.** Every
- * `create` below omits `status`, so the column takes its `draft` default, and no
- * branch in this file writes any other value. The student API filters
- * `status: "published"`, so a generated lesson answers `404` to a child until an
- * administrator moves it through review (file 37, FR-AI-07). Every row also
- * carries `aiJobId`, which is what lets that file refuse to publish generated
- * content no human approved.
- *
- * **The lesson has two titles, deliberately.** `Lesson.title` and the slug come
- * from the admin's focus line — that is the name the CMS lists and the URL a
- * reviewer opens. `LessonTranslation.title` is what a child reads on a lesson
- * card, so it comes from the model, per locale: copying an English focus line
- * into the Bangla row would be untranslated child-facing text that looks filled
- * in (FR-I18N-01).
- *
- * **The narration script is not a column.** It lives in the job's `input` and
- * `rawOutput` for file 36's text-to-speech to read; adding a column now would
- * mean a schema change to hold a string that is about to become an audio asset
- * reference instead.
- */
+// The AI Lesson Generator (FR-AI-01).
 
 export interface GenerateLessonInput {
   gradeLevel: GradeLevel;
@@ -127,16 +101,7 @@ export async function generateLesson(
   });
 }
 
-/**
- * Which world the lesson is themed from.
- *
- * The topic's existing lessons decide it when the admin does not, because a topic
- * whose lessons all live in one world is the normal case and asking again would
- * be a question with one answer. There is deliberately no fallback to "the first
- * world in the table": a lesson in the wrong world is themed wrongly on a child's
- * home screen, and a `409` naming the gap is recoverable in a way a silent wrong
- * answer is not.
- */
+/** Which world the lesson is themed from. */
 async function resolveWorldId(input: GenerateLessonInput): Promise<string> {
   if (input.worldId !== undefined) {
     const world = await prisma.world.findUnique({

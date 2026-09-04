@@ -6,16 +6,6 @@ import type { QuizAnswerRecord, QuizAnswerValue } from "./types";
 /**
  * Where the child is in the quiz, and what they have answered so far
  * (FR-QUIZ-07).
- *
- * A pure reducer with the hook wrapped round it, for the same reason
- * `lesson-machine.ts` is one: the arithmetic that decides what goes in a
- * `QuizAnswerRecord` — how many attempts, and whether the first one was right —
- * is the part file 22 scores from, and it is testable as a table only if no
- * React is involved in it.
- *
- * **Events that do not apply return the state by identity.** A three-year-old
- * taps everything at once, and a reducer that threw on a stray commit after the
- * last question would lose a completed quiz.
  */
 
 export interface QuizSessionState {

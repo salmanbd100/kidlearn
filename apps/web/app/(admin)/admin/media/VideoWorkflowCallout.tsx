@@ -1,18 +1,7 @@
 import Link from "next/link";
 import { ADMIN_ROUTES } from "@/lib/admin-routes";
 
-/**
- * How a lesson video gets made (FR-AI-06).
- *
- * **Documentation, not a feature, and deliberately so.** Video generation at MVP
- * is partly manual: there is no automated clip pipeline, and there will not be one
- * before launch. What there is instead is a written procedure, and its home is the
- * page where step 3 of it happens — a runbook in `document/` is a runbook nobody
- * reads at the moment they need it.
- *
- * A Server Component: it renders prose and one link, so it needs no client
- * boundary (`frontend.md §2`).
- */
+/** How a lesson video gets made (FR-AI-06). */
 export function VideoWorkflowCallout() {
   return (
     <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border border-dashed bg-muted/40 p-4">

@@ -16,27 +16,7 @@ import {
 } from "./achievementService.js";
 import { updateStreakForActivity } from "./streakService.js";
 
-/**
- * Stars and coins (FR-GAM-01, FR-GAM-02, FR-GAM-07).
- *
- * **FR-GAM-08 — this module is the only writer of `RewardLedger` rows.** No route
- * accepts a reward amount, a reward type or a source from a client; every number
- * below is a constant in this file multiplied by something the server counted for
- * itself. Rewards are earned, never bought and never claimed. Keeping the write
- * in one file is what makes that reviewable — `grep -r "rewardLedger.create"
- * apps/server/src` should only ever find this one.
- *
- * **Balances are aggregates, not counters.** Nothing here increments a stored
- * total; a balance is `SUM(amount)` over the ledger (database-design.md §"Server
- * -authoritative"). The rows are the record, so files 29–30 can report *why* a
- * child has 42 coins and not merely that they do.
- *
- * **Replaying a lesson grants nothing.** A four-year-old who liked a lesson will
- * play it five more times, and a balance that measured that would measure nothing.
- * The guard is the unique index on `(childId, rewardType, sourceType, sourceId)`,
- * not a check in this file: it holds under two taps racing each other, and it
- * holds for any code path added later.
- */
+// Stars and coins (FR-GAM-01, FR-GAM-02, FR-GAM-07).
 
 /**
  * The MVP grant table. Fixed constants deliberately — tuning these is a
@@ -75,14 +55,7 @@ export type GrantSource =
    */
   | "story_completion";
 
-/**
- * The story-completion `sourceType`, as a value.
- *
- * Exported because two readers filter the ledger by it — the dashboard's activity
- * feed and the weekly report's story count — and both had their own copy of the
- * same annotated constant. The union above closes the set of spellings; this
- * closes the set of copies.
- */
+/** The story-completion `sourceType`, as a value. */
 export const STORY_COMPLETION: GrantSource = "story_completion";
 
 export interface GrantSpec {
@@ -111,12 +84,6 @@ export interface GrantInput {
 /**
  * What finishing this lesson is worth — pure, so every rule above is testable
  * without a database.
- *
- * The specs it returns are *candidates*: which of them a child is actually paid
- * is decided by the unique index, because a replay produces exactly the same
- * list. That is the point of keeping this side of the work free of I/O — the
- * arithmetic has no idea whether it is a first run or a fifth, and does not need
- * one.
  */
 export function computeLessonGrants(input: GrantInput): GrantSpec[] {
   const specs: GrantSpec[] = [
@@ -189,13 +156,7 @@ export interface RewardSummary extends RewardTotals {
   currentStreak: number;
 }
 
-/**
- * The key the unique index is on.
- *
- * `sourceId` is nullable on the row and never null on a row this file writes, so
- * a stored `null` keys to a string no spec can produce — which is right: Postgres
- * treats those rows as outside the constraint, and so should this.
- */
+/** The key the unique index is on. */
 function grantKey(spec: {
   rewardType: string;
   sourceType: string;
@@ -204,27 +165,7 @@ function grantKey(spec: {
   return `${spec.rewardType}|${spec.sourceType}|${spec.sourceId}`;
 }
 
-/**
- * Grants everything finishing this lesson is worth, once.
- *
- * The caller has already established that the child may see the lesson; nothing
- * here re-checks visibility, and nothing here writes `LessonProgress` — that
- * belongs to `lessonProgressService.completeLesson`, which calls this.
- *
- * Serializable, like every other read-then-write in this codebase and for a
- * sharper reason than most: `starsEarned` is computed by reading which grants
- * already exist and then inserting the rest. Under READ COMMITTED two taps
- * arriving together would both read "nothing granted yet", and while the unique
- * index would still stop the second *insert*, both responses would celebrate the
- * same stars. The index protects the ledger; the isolation level protects the
- * number the child is shown.
- *
- * And therefore `withSerializationRetry`, not a bare `$transaction`: Serializable
- * makes the loser of that race abort with P2034, so without the retry the very
- * double tap this is guarding against would answer a 500 into the middle of a
- * celebration. The retry re-reads under the winner's rows and answers the truth —
- * zeros and the totals the other request just wrote.
- */
+/** Grants everything finishing this lesson is worth, once. */
 export async function grantLessonCompletion(
   childId: string,
   lessonId: string,
@@ -288,8 +229,6 @@ function grantLessonCompletionOnce(
       // The order of the next three steps is load-bearing (file 24 §8): the
       // streak has to be current before a `streak_days` badge is evaluated, and
       // the badge has to be in the ledger before a `{ badges: n }` character is.
-      // Reversed, a child would be told about their three-day streak today and
-      // handed the badge for it tomorrow.
       const streak = await updateStreakForActivity(tx, childId, localDate);
 
       const newBadges = await findNewlyEarnedBadges(
@@ -342,28 +281,7 @@ function grantLessonCompletionOnce(
   );
 }
 
-/**
- * Pays for finishing a story, once per story per child (FR-STORY-07).
- *
- * The caller has already established that the child may read this story
- * (`requireVisibleStoryId`); nothing here re-checks visibility.
- *
- * **Replays are free and unlimited (FR-STORY-06).** A second finish answers
- * `alreadyCompleted: true` with `granted: null` and writes nothing — the endpoint
- * stays callable, it simply never pays twice. `alreadyCompleted` is derived from
- * how many rows this call *inserted*, not from the read above it: under two taps
- * racing each other, the loser inserts nothing and must say so, and only the
- * insert count knows that.
- *
- * Serializable and retried for the reason `grantLessonCompletion` gives — the
- * unique index protects the ledger, the isolation level protects the number the
- * child is shown, and the retry keeps the loser of that race off a 500.
- *
- * No streak, badge or character work here, unlike a lesson completion. Those all
- * hang off finishing a *lesson*; a story writes its ledger rows and file 24's
- * milestone engine counts them the next time it runs (`storyService` reads the
- * same rows for a cover's `completed` flag).
- */
+/** Pays for finishing a story, once per story per child (FR-STORY-07). */
 export async function grantStoryCompletion(
   childId: string,
   storyId: string,
@@ -429,12 +347,6 @@ type LedgerReader = {
  * How the child did on this lesson's quiz, **derived from the stored responses**
  * rather than taken from the request. A client that could report its own
  * `correctCount` could report any number of coins.
- *
- * *Latest* response per question, not first and not best. A replay writes a
- * second row for the same question (`QuizResponse` is an append-only log), so
- * "first" would freeze a child's very first attempt forever and "any correct"
- * would be a constant `true` — a quiz here has no fail state, and every question
- * ends right eventually.
  */
 async function readQuizOutcome(
   tx: LedgerReader,
@@ -480,14 +392,7 @@ async function readQuizOutcome(
   };
 }
 
-/**
- * Every balance in one read.
- *
- * `badgeCount` is a row count rather than a sum of `amount`, for the reason
- * `getRewardSummary` gives — and it is read here rather than derived from
- * `newBadges` because a character unlock rule counts what the child *has*, not
- * what they just got.
- */
+/** Every balance in one read. */
 async function readTotals(
   tx: LedgerReader,
   childId: string,
@@ -509,17 +414,7 @@ async function readTotals(
   };
 }
 
-/**
- * FR-GAM-06 — what the child has, for the strip on the home screen.
- *
- * `badgeCount` counts badge rows rather than summing them: a badge is a thing
- * you have or do not, and its `amount` is a 1 that exists only because the ledger
- * is one table.
- *
- * `currentStreak` is read rather than recomputed. Nothing in a read path may
- * advance a streak — the day it counts is the day something was *finished*, and
- * a child opening the home screen at midnight has not learned anything yet.
- */
+/** FR-GAM-06 — what the child has, for the strip on the home screen. */
 export async function getRewardSummary(
   childId: string,
 ): Promise<RewardSummary> {

@@ -78,10 +78,6 @@ const {
  * The matrix restated as a set of "from → to" strings, transcribed from the table
  * in `document/implementation/32-admin-curriculum-management.md` rather than read
  * back out of `ALLOWED_TRANSITIONS`.
- *
- * Deriving the expectation from the implementation is how a matrix test passes
- * while documenting the wrong rules. This list is the spec; the test below is the
- * diff against it.
  */
 const ALLOWED_CELLS = new Set([
   "draft→in_review",
@@ -245,14 +241,7 @@ describe("nextStatuses", () => {
   });
 });
 
-/**
- * The FR-AI-07 invariant (file 37).
- *
- * These cases are the whole of what stops a generated lesson reaching a child
- * without anybody reading it, so they are enumerated rather than sampled — the
- * `edit_then_approve`-before-approval cell in particular, which is the one that
- * exists because the editors write that decision the moment a reviewer saves.
- */
+/** The FR-AI-07 invariant (file 37). */
 describe("assertAiPublishable", () => {
   beforeEach(() => {
     store.jobs = [];
@@ -381,13 +370,7 @@ describe("assertAiPublishable", () => {
   });
 });
 
-/**
- * The questions half of the FR-AI-07 guard.
- *
- * A quiz row created before the job that wrote its questions carries a null
- * `aiJobId`, so the publish guard has to reach the questions to find the job it
- * must check.
- */
+/** The questions half of the FR-AI-07 guard. */
 describe("readQuizAiJobIds", () => {
   beforeEach(() => {
     store.questions = [];
@@ -415,14 +398,7 @@ describe("readQuizAiJobIds", () => {
   });
 });
 
-/**
- * The route the review queue drives a row along (file 37).
- *
- * Asserted against the matrix's shape rather than a written-down chain, because
- * a chain is exactly what this replaced: `["in_review", "rejected"]` is only
- * correct for a row still at `draft`, and threw `INVALID_TRANSITION` on the rows
- * most likely to need rejecting.
- */
+/** The route the review queue drives a row along (file 37). */
 describe("routeToStatus", () => {
   it("routes a draft to published through review and approval", () => {
     expect(routeToStatus("draft", "published")).toEqual([

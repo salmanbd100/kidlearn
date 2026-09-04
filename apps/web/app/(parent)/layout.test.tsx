@@ -9,10 +9,6 @@ import { PARENT_ROUTES } from "@/lib/parent-redirect";
  * provider and the guard, so this suite covers the two things that changed with it —
  * that the theme still applies, and that a page is not rendered to someone the guard
  * has not cleared.
- *
- * The API is stubbed at `lib/parent-api`, which is the module boundary the provider
- * talks through. Stubbing `fetch` instead would test `apiFetch`'s envelope handling
- * a second time; that has its own suite.
  */
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));

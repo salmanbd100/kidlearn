@@ -9,14 +9,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiJobDetailScreen } from "./AiJobDetailScreen";
 
-/**
- * The review screen's three decisions (file 37, FR-AI-07, FR-CMS-05..06).
- *
- * The claims worth testing are the ones a reviewer cannot see from the markup:
- * that the approve button is disabled from the *server's* blocker list rather
- * than this screen's own judgement, that the Edit deep-link carries `?jobId` so
- * the round trip records itself, and that a decided job offers no buttons at all.
- */
+// The review screen's three decisions (file 37, FR-AI-07, FR-CMS-05..06).
 
 const api = vi.hoisted(() => ({
   fetchAiJob: vi.fn(),

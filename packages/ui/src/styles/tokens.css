@@ -1,15 +1,5 @@
-/* ───────────────────────────────────────────────────────────────────────────
-   kidlearn design tokens — single source of truth in code.
-   Mirrors document/design.md. Update design.md first, then this file.
-
-   Structure:
-   1. Static design tokens (brand colors, radius, shadows, motion) → @theme
-   2. Per-theme semantic values (kid / parent) → plain CSS custom properties
-   3. Semantic → Tailwind utility mapping → @theme inline (resolves at runtime,
-      so utilities like `bg-primary` follow the active [data-theme]).
-
-   Consumed by apps/web via `@import "@kidlearn/ui/styles/tokens.css"`.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* kidlearn design tokens — single source of truth in code.
+   Mirrors document/design.md. Update design.md first, then this file. */
 
 /* 1. Static design tokens ─────────────────────────────────────────────────── */
 @theme {
@@ -109,15 +99,11 @@
   --dur-slow: 400ms;
 }
 
-/* Font families (design.md §3.1).
-   The indirection is load-bearing: `@theme inline` substitutes a token's value
-   into the utility it generates, so `.font-body` would compile to
-   `font-family: var(--font-nunito)` and redefining `--font-body` further down
-   the tree would do nothing. Pointing the theme key at `--family-*` instead
-   makes the utility re-resolve per element, which is what lets `:lang(bn)` swap
-   in the Bengali stack and `.dyslexia-font` swap in OpenDyslexic (apps/web's
-   globals.css). The `--font-*` values themselves are injected on <html> by
-   next/font. */
+/* Font families (design.md §3.1). The indirection is load-bearing: `@theme
+   inline` substitutes a token's value into the utility it generates, so
+   `.font-body` would compile to `font-family: var(--font-nunito)` and
+   redefining `--font-body` further down the tree would do nothing. Pointing the
+   theme key at `--family-*` lets the utility re-resolve per element. */
 :root {
   --family-display: var(--font-fredoka);
   --family-body: var(--font-nunito);

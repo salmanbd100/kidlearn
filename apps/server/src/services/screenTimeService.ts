@@ -14,22 +14,7 @@ import {
 } from "../lib/time-of-day.js";
 import { getLearningMinutes } from "./learningTimeService.js";
 
-/**
- * Parental screen-time control (FR-TIME-01..05).
- *
- * The rule is enforced **server-side, at the moment a child asks to start
- * something new**, and nowhere else. A limit the client applied would be a limit a
- * child could lift by refreshing, and the minutes it is compared against are
- * already server-derived (file 27) — so having the decision anywhere but here
- * would put a trustworthy number behind an untrustworthy gate.
- *
- * The decision itself is a pure function with no I/O, tested as a table. Two
- * callers reach it: the status read the student surface polls, and the middleware
- * in front of the two content-start endpoints. They must not be able to disagree —
- * a child told "you may start" by one and refused by the other is the worst
- * possible version of this feature — so there is one implementation and the
- * callers differ only in what they can observe.
- */
+// Parental screen-time control (FR-TIME-01..05).
 
 export type ScreenTimeDecision =
   | { allowed: true }
@@ -47,14 +32,7 @@ export interface ScreenTimeInput {
   hasInProgressLesson: boolean;
 }
 
-/**
- * Whether this child may start something new.
- *
- * Order is part of the contract, not an implementation detail. The exemption
- * outranks both rules; the window then outranks the limit, because the window is
- * the block that can tell a child *when to come back* and "see you at 8 o'clock"
- * is something a five-year-old can act on where "come back tomorrow" is not.
- */
+/** Whether this child may start something new. */
 export function evaluateScreenTime(input: ScreenTimeInput): ScreenTimeDecision {
   if (input.hasInProgressLesson) return { allowed: true };
 
@@ -119,13 +97,7 @@ export function getScreenTimeSetting(
   return prisma.screenTimeSetting.findUnique({ where: { childId } });
 }
 
-/**
- * FR-TIME-01/04/05 — stores one child's whole policy.
- *
- * An upsert on the unique `childId` rather than a create-then-update: there is at
- * most one policy per child by construction, and the first save from a parent who
- * has never opened this screen must not be a different code path from the second.
- */
+/** FR-TIME-01/04/05 — stores one child's whole policy. */
 export async function saveScreenTimeSetting(
   childId: string,
   update: ScreenTimeUpdate,
@@ -149,14 +121,6 @@ export async function saveScreenTimeSetting(
 
 /**
  * "May I start something new?" — the student surface's own read (FR-TIME-02/04).
- *
- * `hasInProgressLesson` is `false` here and cannot be anything else: the question
- * this endpoint answers is about starting, and the exemption is about a specific
- * lesson the caller has not named. The middleware, which *has* a lesson id, is
- * where the exemption is decided.
- *
- * The settings travel with the verdict because a lock screen has to say when to
- * come back, and `windowStart` is the only value that can answer that.
  */
 export async function getScreenTimeStatus(
   childId: string,
@@ -182,33 +146,12 @@ export async function getScreenTimeStatus(
   };
 }
 
-/**
- * How stale an incomplete lesson may be and still count as "under way".
- *
- * The exemption exists for the child who is *in* a lesson right now — the one who
- * would otherwise lose the quiz they just answered — so it has to be bounded by
- * something. Without a bound, one abandoned lesson is a permanent hole in both
- * rules: a row is written on the first step and only ever cleared by finishing, so
- * a lesson half-started on Monday would still be served at 3am on Wednesday, past
- * the cap and outside the window, for as long as the child never completed it.
- *
- * Thirty minutes, against `updatedAt`, which a step report restamps. Generous
- * enough for the gaps that are really one sitting — a five-minute video step, a
- * refresh, a child called away to the table mid-lesson — and short enough that
- * yesterday's abandoned lesson is a new start, which is what it is.
- */
+/** How stale an incomplete lesson may be and still count as "under way". */
 export const LESSON_RESUME_GRACE_MS = 30 * 60_000;
 
 /**
  * The middleware's variant: the same decision, for a child who has named the
  * lesson they want (FR-TIME-03).
- *
- * `hasInProgressLesson` is an incomplete `LessonProgress` row *touched within
- * `LESSON_RESUME_GRACE_MS`*, so a finished lesson being replayed is a new start
- * and so is one abandoned days ago — which is the whole distinction the exemption
- * rests on. Nothing is exempt for a story: the reader holds every page
- * client-side once it has them, so mid-story reading is never interrupted by this
- * gate and there is no half-finished state to protect.
  */
 export async function evaluateStartForChild(
   childId: string,

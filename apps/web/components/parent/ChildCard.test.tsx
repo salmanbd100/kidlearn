@@ -9,15 +9,7 @@ import { Providers } from "@/components/Providers";
 import { resetI18nForTests } from "@/lib/i18n";
 import { ChildCard } from "./ChildCard";
 
-/**
- * The grade label is the point of this suite.
- *
- * `ChildProfileForm` offers two grades at MVP, but `GradeLevelSchema` accepts
- * three, so a `KG2` profile is something `POST /api/children` will store and this
- * card has to name correctly. The earlier two-way ternary rendered it as "KG-1" —
- * a wrong answer TypeScript could not see, because an else-branch type-checks
- * against every remaining member of the union.
- */
+// The grade label is the point of this suite.
 
 const AVATARS: AvatarCharacterResponse[] = [
   {

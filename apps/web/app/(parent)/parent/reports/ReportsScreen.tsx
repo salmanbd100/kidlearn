@@ -18,25 +18,7 @@ import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { PARENT_ROUTES } from "@/lib/parent-redirect";
 import { getWeeklyReports } from "@/lib/reports-api";
 
-/**
- * `/parent/reports` — every week this child has had (FR-DASH-05..06).
- *
- * Built on the same three decisions as `DashboardScreen`, for the same reasons:
- * the profile list comes from the session context rather than a second request,
- * the child selection lives in `?child=` so the URL is the state, and every call
- * is wrapped in `guard` because the endpoint is PIN-gated and a grant that lapsed
- * between page load and fetch must re-open the PIN pad rather than show an error.
- *
- * **Which week is showing also lives in the URL** (`?week=`). One fetch returns the
- * whole history, so switching weeks is a selection and not a request — but keeping
- * it in the query is what makes a particular week bookmarkable, survivable across
- * the reload a lapsed grant causes, and reachable by the back button after a parent
- * has clicked through three of them. A `useState` would lose all of that.
- *
- * A `?week=` naming no report the child has silently falls back to the newest,
- * exactly as an unknown `?child=` does: the alternative is an error screen about a
- * query parameter.
- */
+/** `/parent/reports` — every week this child has had (FR-DASH-05..06). */
 export function ReportsScreen({
   selectedChildId,
   selectedWeekStart,

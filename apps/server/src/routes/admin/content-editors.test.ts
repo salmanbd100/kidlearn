@@ -112,13 +112,7 @@ vi.mock("../../lib/prisma.js", async () => {
     });
   };
 
-  /**
-   * A minimal Prisma model over one array.
-   *
-   * `uniqueColumns` names the unique index the model carries, so inserting a
-   * colliding value throws the same `P2002` Postgres would — which is what makes
-   * the duplicate-slug path real rather than mocked.
-   */
+  /** A minimal Prisma model over one array. */
   function table(
     rows: () => Row[],
     defaults: () => Record<string, unknown>,
@@ -660,14 +654,7 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
   });
 });
 
-/**
- * `?jobId=…` — edit-then-approve (file 37, requirement 5, FR-AI-07).
- *
- * The review queue deep-links into these editors carrying the job it came from,
- * and saving is what records the decision. The claims worth asserting are that
- * it rides on the *save* — one request, so the two facts cannot come apart — and
- * that recording it publishes nothing on its own.
- */
+/** `?jobId=…` — edit-then-approve (file 37, requirement 5, FR-AI-07). */
 describe("saving with ?jobId records edit_then_approve", () => {
   const JOB_ID = "dddddddd-0000-4000-8000-000000000001";
 
@@ -1237,14 +1224,7 @@ describe("transitions", () => {
     expect(res.status).toBe(404);
   });
 
-  /**
-   * The FR-AI-07 guard's questions half (file 37).
-   *
-   * A quiz generated against a lesson that already had one stamps `aiJobId` on
-   * the *questions* and leaves the quiz row's own null. A guard that read only the
-   * quiz column let every one of those questions reach a child through the
-   * ordinary CMS publish path, with the job still sitting in the review queue.
-   */
+  /** The FR-AI-07 guard's questions half (file 37). */
   describe("a quiz answers for its questions' generation jobs", () => {
     function seedGeneratedQuestion(jobStatus: string, decision: string | null) {
       store.jobs.push({

@@ -37,12 +37,6 @@ export type ParentSummary = {
  * on first sight. This is why kidlearn has no separate sign-up: the Google
  * callback creates the identity, and the first authenticated request creates the
  * domain row (FR-AUTH-02).
- *
- * `googleId` comes from the `account` row better-auth wrote during the OAuth
- * exchange, not from the session — the session carries our own user id, while
- * `account.accountId` is the Google profile id the column is documented to hold.
- * A user with no Google account row is not a parent (an admin signing in with
- * credentials, for instance), so they are refused rather than provisioned.
  */
 export async function findOrCreateParentForUser(
   user: AuthenticatedUser,

@@ -7,23 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
-/**
- * A badge or a character, revealed one at a time (FR-GAM-04, FR-GAM-05).
- *
- * **One card, two meanings, because to a four-year-old they are the same
- * moment:** something new appeared, it has a picture and a name, and it is
- * theirs now. Splitting them into two components would have produced two files
- * differing by a noun.
- *
- * The reveal is a scale-and-fade rather than a card flip. A flip animates
- * `rotateY`, which forces a repaint of the face coming round on every frame —
- * `design.md §5.2` allows `transform` and `opacity`, and a 3-D rotation on a
- * cheap tablet is exactly where that rule comes from.
- *
- * **The name is spoken by the celebration around it, not by this card.** The
- * whole reward screen has one live region (see `RewardStep`); a card that
- * announced itself would talk over it.
- */
+// A badge or a character, revealed one at a time (FR-GAM-04, FR-GAM-05).
 
 const ART_PX = 160;
 

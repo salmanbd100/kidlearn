@@ -1,18 +1,6 @@
 /**
  * The lazily-constructed `@google/genai` client, shared by the text generators
  * and the illustration model (files 36, 37a).
- *
- * Driven through `generateIllustration` rather than by calling `getClient()`
- * directly, because a real caller is what proves the memoisation holds across a
- * batch — and `gemini.test.ts` is deliberately mock-free, since
- * `buildIllustrationPrompt` is a pure function and asserting it needs no SDK.
- *
- * The claim is narrow and easy to lose in a refactor: the client promise is cached
- * so a sixteen-page batch resolves the module once, but a *rejection* must not be.
- * `??=` reassigns only on `undefined`, so caching a failure would make one bad
- * module evaluation — protobufjs running out of memory on the free-tier instance
- * this laziness exists for — permanent, failing every later generation with a
- * stale error and burning the daily cap until somebody restarted the process.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -4,15 +4,6 @@ import { buildOpenApiDocument } from "./document.js";
 
 /**
  * Writes the spec to `apps/server/openapi.json` — `pnpm --filter server openapi:write`.
- *
- * The file is gitignored on purpose. It is a derived artifact: committing it would
- * mean a Biome-formatted, merge-conflicting copy of something the server already
- * serves live at `/docs.json`. This script exists for the cases that need a file
- * on disk — importing into Postman, or running a client generator.
- *
- * Note it does **not** import `lib/env.ts`: that module exits the process when
- * `.env` is missing, and generating a document should not require database
- * credentials.
  */
 const DEFAULT_SERVER_URL = "http://localhost:4000";
 

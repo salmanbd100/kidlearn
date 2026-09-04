@@ -1,12 +1,5 @@
 /**
  * Account deletion (FR-AUTH-05, NFR-SAFE-05/06) — the right-to-erasure path.
- *
- * Two steps on purpose: a single unguarded `DELETE` is one mis-tap away from
- * destroying a family's history, and the token round-trip is also the seam an
- * email confirmation slots into later without changing the HTTP contract.
- *
- * No Express types cross this boundary — every function here is callable from a
- * test without an HTTP layer.
  */
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Parent } from "@kidlearn/db";
@@ -42,13 +35,7 @@ export async function requestAccountDeletion(
   return { confirmationToken, expiresAt };
 }
 
-/**
- * Step two: verify the token, then erase everything.
- *
- * The delete is synchronous and total — there is no soft-delete, no tombstone,
- * and no retained copy of any child's data. See
- * `document/implementation/notes/compliance-consent-deletion.md`.
- */
+/** Step two: verify the token, then erase everything. */
 export async function confirmAccountDeletion(
   parent: Parent,
   confirmationToken: string,

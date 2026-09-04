@@ -12,27 +12,6 @@ import { STUDENT_NAMESPACE } from "@/lib/i18n";
 /**
  * What a child sees when their grown-up's screen-time rule says no (FR-TIME-02,
  * FR-TIME-04).
- *
- * **It is never an error screen.** A five-year-old cannot tell "you have had your
- * turn today" from "the app is broken" unless the app says so in words they know,
- * with the same mascot that greets them everywhere else. So this is a full-bleed
- * kid screen with a friendly line, not a toast over a failed request — and it is
- * rendered wherever a `423` can arrive, so a raw error is never what a child gets.
- *
- * **Two reasons, two screens, because the child's next move differs.** "Time's up
- * for today" ends the session; "see you at 8 o'clock" is something they can wait
- * for, so the window variant names the hour and the limit variant does not pretend
- * to. That is why the block code travels as a code rather than a message.
- *
- * **The time is formatted, not printed.** `windowStart` arrives as `"08:00"`,
- * which is a storage format, not something to read to a child — and Bangla renders
- * its own digits. `Intl.DateTimeFormat` in the active language is what turns it
- * into the sentence, which is also why the hour is interpolated rather than baked
- * into the translation.
- *
- * **One way out, and it goes home rather than back.** Back would return to the
- * lesson tile that was just refused. `/select-profile` is where a sibling can take
- * a turn, and where a grown-up can reach the parent corner.
  */
 
 export interface ScreenTimeLockProps {
@@ -101,13 +80,7 @@ function narrationKey(reason: ScreenTimeBlockCode): string {
   return reason === "OUTSIDE_WINDOW" ? "outside-window" : "time-up";
 }
 
-/**
- * `"08:00"` as the visitor's language writes a clock time.
- *
- * The date is a throwaway anchor — only the clock fields are read — and it is
- * built in local time on purpose: the string is already a wall-clock value, so
- * parsing it as UTC would shift the displayed hour by the device's offset.
- */
+/** `"08:00"` as the visitor's language writes a clock time. */
 function formatTimeOfDay(timeOfDay: string, language: string): string | null {
   const [hours, minutes] = timeOfDay.split(":").map(Number);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;

@@ -1,13 +1,7 @@
 import { z } from "zod";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * The signed-in parent as the client sees them.
- *
- * An allowlist, not an omission — `pinHash` and the PIN-lockout counters live on
- * the same row and must never cross the wire. `hasPin` is the whole of what a
- * client needs: it decides between "set a PIN" and "enter your PIN".
- */
+/** The signed-in parent as the client sees them. */
 export const ParentSummarySchema = z
   .object({
     id: z.string(),

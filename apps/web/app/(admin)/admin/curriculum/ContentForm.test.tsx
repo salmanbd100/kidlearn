@@ -2,20 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ContentForm } from "./ContentForm";
 
-/**
- * The submit path, which is where the form used to fail silently.
- *
- * `LocaleTabs` keeps the inactive locale panel mounted under `hidden`, and the
- * per-locale inputs once carried `required`. A `required` control inside a
- * `display:none` subtree is still constraint-validated but cannot be focused, so
- * the browser refused the submit and reported nothing: the admin clicked "Create
- * draft" and the dialog just sat there. These assert the replacement — the form
- * checks both locales itself, says which one is missing, and switches to it.
- *
- * jsdom does not implement interactive constraint validation, so the old bug was
- * invisible to a test of this shape. What is asserted here is therefore the
- * behaviour that replaced it, not the absence of the browser's.
- */
+// The submit path, which is where the form used to fail silently.
 
 function renderForm(
   overrides: Partial<Parameters<typeof ContentForm>[0]> = {},

@@ -23,30 +23,7 @@ import {
 import { AvatarPicker, type AvatarPickerOption } from "./AvatarPicker";
 import { SegmentedField } from "./SegmentedField";
 
-/**
- * Create or edit a learner profile (FR-PROF-02).
- *
- * ## Validation
- *
- * Every rule comes from `ChildProfileCreateSchema` in `@kidlearn/types` — the same
- * object `POST /api/children` validates the body with. Nothing here restates a
- * limit: the age bounds and the name length are imported constants, and the
- * decision about whether a value is acceptable is `safeParse`. Only the *wording*
- * of each message is local, because Zod's messages are English strings written for
- * a developer (`lib/parent-errors.ts`).
- *
- * That is why a client-side rule cannot drift from the server's here. It also
- * means the form cannot construct a payload the API would reject on shape — the
- * value it submits is `safeParse`'s output, not the raw form state.
- *
- * ## Why this fetches its avatars
- *
- * `avatarCharacterId` is a `Character` row id, so the options cannot be a list in
- * this app; they come from `GET /api/characters`. This component is their only
- * consumer, and the client-side fetch is covered by the same forced exception
- * documented in `app/(parent)/context/parent-session.tsx` — the session cookie
- * lives on the API origin, so no Server Component can make this call.
- */
+// Create or edit a learner profile (FR-PROF-02).
 
 /** KG-2 is omitted at MVP (spec §10), so the control offers two grades. */
 const GRADE_OPTIONS = [
@@ -310,14 +287,7 @@ function FieldError({ id, children }: { id: string; children: string }) {
   );
 }
 
-/**
- * Age, bounded to the range the platform is built for.
- *
- * A stepper rather than a free text field: there are four legal values, and a
- * control that cannot express an illegal one is better than one that validates
- * afterwards. The buttons disable at the bounds, and the value is a live region so
- * a screen-reader user hears each change without re-reading the group.
- */
+/** Age, bounded to the range the platform is built for. */
 function AgeStepper({
   value,
   error,

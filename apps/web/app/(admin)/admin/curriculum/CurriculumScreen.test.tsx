@@ -7,22 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/**
- * The screen's two message channels.
- *
- * **Success and failure were one variable.** `notice` held both and was passed to
- * the open form as its `error`, so the last success was still in it when the next
- * dialog opened: creating a subject and then clicking **New** rendered "Created
- * as a draft." as a red `role="alert"` on an untouched form. They are two states
- * now, cleared together whenever a dialog opens.
- *
- * The reorder path is not exercised here. dnd-kit's collision maths needs a real
- * layout and jsdom reports every element as 0×0, so a drop cannot be simulated
- * without asserting against a mock of the library rather than the behaviour. What
- * a reorder sends is covered where it is observable — `lib/admin-api.test.ts` on
- * the request body, and `routes/admin/content.test.ts` on the server's reading of
- * it.
- */
+// The screen's two message channels.
 
 const api = vi.hoisted(() => ({
   fetchWorlds: vi.fn(),
@@ -71,13 +56,7 @@ async function renderScreen() {
   await screen.findByRole("button", { name: /^Letters/ });
 }
 
-/**
- * The screen's own status banner.
- *
- * `getByRole("status")` is ambiguous here: dnd-kit mounts an empty live region
- * with the same role per `DndContext`, one per column. The banner is the only one
- * that ever carries text.
- */
+/** The screen's own status banner. */
 function banner(): HTMLElement | undefined {
   return screen
     .queryAllByRole("status")

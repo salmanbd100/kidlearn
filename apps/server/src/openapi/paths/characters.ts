@@ -5,9 +5,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `routes/characters.ts` — `requireParent` guards the whole router.
- */
+/** `routes/characters.ts` — `requireParent` guards the whole router. */
 export const CHARACTERS_ROUTES: RouteDoc[] = [
   {
     method: "get",

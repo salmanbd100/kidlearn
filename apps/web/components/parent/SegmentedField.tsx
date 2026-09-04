@@ -2,18 +2,7 @@
 
 import { useId } from "react";
 
-/**
- * A one-of-N choice as a native radio group.
- *
- * Native inputs rather than buttons with `aria-pressed`: arrow keys move within
- * the group, the group is a single tab stop, and the checked state is announced
- * without any ARIA of ours. The inputs stay in the accessibility tree (`sr-only`,
- * not `hidden`) so the focus ring on the visible pill is the input's own.
- *
- * Lifted out of `ChildProfileForm`, where it started, when the screen-time form
- * needed the same control for its limit picker — the grade, language and limit
- * choices are the same interaction and must not be three near-identical pills.
- */
+// A one-of-N choice as a native radio group.
 
 export interface SegmentedFieldProps {
   label: string;

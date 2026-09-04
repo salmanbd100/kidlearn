@@ -19,22 +19,6 @@ import { useQuizSession } from "./use-quiz-session";
 /**
  * The quiz step of every lesson, whatever the questions happen to be
  * (FR-QUIZ-01, FR-QUIZ-04, FR-QUIZ-05, FR-QUIZ-07).
- *
- * **It is handed `unknown` and validates it here**, exactly as the activity
- * engine does: the payloads are JSONB written by a CMS author or an AI pipeline,
- * and the server's validation is a different process from this one — so the
- * renderer trusts nothing and parses at the boundary.
- *
- * **A question it cannot render is dropped, never shown.** A payload that fails
- * validation and a format that has not been built yet both end the same way: the
- * question is logged for whoever authored it and the quiz carries on without it.
- * The alternative is a child sitting in front of a blank card with no way past
- * it, and there is no version of that which is better than a shorter quiz.
- *
- * **The concerns every format shares live here, not in the formats.** Speaking
- * the question on arrival, offering it again, the fruit strip, the feedback
- * channel, and the answer records. A format renders one kind of question and
- * nothing else.
  */
 
 interface PlayableQuizQuestion {

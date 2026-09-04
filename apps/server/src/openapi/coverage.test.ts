@@ -21,21 +21,7 @@ import { storiesRouter } from "../routes/stories.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
 
-/**
- * The drift gate.
- *
- * Documentation rots because nothing fails when it does. This walks the live
- * Express routers, diffs their registrations against the OpenAPI registry in both
- * directions, and fails the suite on any difference. So an endpoint added in a
- * later implementation file cannot ship undocumented, and a registry entry cannot
- * outlive the route it describes.
- *
- * The walk reads `layer.route.path` and `layer.route.methods`, which Express 5
- * (`router@2`) populates with the plain registration string — no `path-to-regexp`
- * reversing involved. That only holds for a router's *own* routes, which is why
- * this iterates the resource routers with known prefixes rather than trying to
- * recover mount paths from `app.router`.
- */
+// The drift gate.
 
 /**
  * Every router that serves documented routes, with the prefix `app.ts` and
@@ -114,12 +100,6 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
  * `adminContentRouter`, `adminContentEditorsRouter`, `adminMediaRouter` and
  * `adminAiRouter` nested on `adminRouter` (file 33 added the middle two, file 34
  * the last).
- *
- * Counted through the whole tree rather than one level down, because a router
- * nested inside a resource router is invisible to both of the diffs above — the
- * walk reads a router's own registrations only, so its routes would simply not
- * appear and "documents every route the server serves" would pass on a surface it
- * never saw.
  */
 const EXPECTED_ROUTERS_UNDER_API = 15;
 
@@ -136,13 +116,7 @@ type RouteLayer = {
   handle?: unknown;
 };
 
-/**
- * Joins a mount prefix to a route path.
- *
- * `router.post("/")` registers the path `/`, so a naive concatenation yields
- * `/api/children/` — a path the registry does not list and Express does not
- * distinguish. The trailing slash is dropped unless the result would be empty.
- */
+/** Joins a mount prefix to a route path. */
 function joinPath(prefix: string, routePath: string): string {
   const joined = `${prefix}${routePath}`.replace(/\/+$/, "");
   return joined === "" ? "/" : joined;
@@ -233,10 +207,6 @@ describe("openapi coverage", () => {
     // The prefix map above is hand-maintained, so it cannot see a router someone
     // mounts without touching this file. This count is what turns that blind spot
     // into a failure with a clear cause.
-    //
-    // Counting layers would be wrong: `apiRouter.use("/content", requireParent,
-    // requireActiveChild, contentRouter)` registers one layer per handler. Only a
-    // mounted Router has a `stack` of its own, so that is what identifies one.
     function countRouters(router: Router): number {
       const stack = (router as unknown as { stack: RouteLayer[] }).stack;
       let count = 0;

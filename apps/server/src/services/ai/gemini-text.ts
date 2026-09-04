@@ -8,50 +8,16 @@ import type { StructuredGeneration } from "./types.js";
 /**
  * Gemini text generation, and the one shape every generator in files 34–36 calls
  * it through (FR-AI-01..03).
- *
- * **A response schema, never free text.** `responseJsonSchema` is the generated
- * JSON Schema of the Zod object the caller will validate against, and
- * `responseMimeType: "application/json"` makes it the response format rather
- * than a suggestion. That removes the whole class of failure where a model wraps
- * JSON in prose, opens with an apology, or explains itself first.
- *
- * **One schema, three consumers.** The prompt's contract, the validator that
- * accepts the answer, and the renderer that later draws it are the same Zod
- * object from `@kidlearn/types` (FR-AI-03). Restating the shape in prose inside
- * the prompt would be a second source of truth, and it would drift the first time
- * a question format gained a field.
- *
- * The parsed JSON is returned **unvalidated**. Validation belongs to
- * `runGenerationJob`, which owns the retry, and the verbatim value is what it
- * stores for audit (FR-AI-08) — narrowing here would throw away the very thing a
- * reviewer needs when a generation goes wrong.
  */
 
 /**
  * Generous rather than tuned. The ceiling exists so a runaway generation stops
  * instead of spending the day's free-tier allowance in one call, not to shape the
  * output.
- *
- * It has to be generous: a bilingual lesson plus five bilingual quiz questions —
- * every option carrying a URL and alt text in both locales — has to fit. A
- * ceiling that is merely *probably* enough buys a `MAX_TOKENS` stop, which costs
- * a full generation and arrives looking like a schema failure (see `stopReason`
- * in `types.ts`).
  */
 const MAX_OUTPUT_TOKENS = 16000;
 
-/**
- * Thinking off (`0` is the SDK's DISABLED).
- *
- * Extracting a fixed JSON shape does not benefit from extended reasoning the way
- * an open-ended question does, and thinking tokens are billed and rate-limited
- * exactly like output tokens — on a free tier, spending them on reasoning the
- * schema does not need is the wrong default. Left explicit rather than unset
- * because some Flash models still reason by default, which would quietly cost
- * more of the day's allowance per call than this asks for.
- *
- * If lesson or story quality drops, raise this rather than removing it.
- */
+/** Thinking off (`0` is the SDK's DISABLED). */
 const THINKING_BUDGET = 0;
 
 export interface GenerateStructuredOptions {
@@ -73,10 +39,6 @@ export async function generateStructured(
   const response = await client.models.generateContent({
     model: env.GEMINI_TEXT_MODEL,
     // One turn carrying one part per message, rather than one turn per message.
-    // Gemini is not documented to merge consecutive same-role turns the way the
-    // Anthropic API is, and a retry whose feedback arrived as a second user turn
-    // the model treated as a fresh conversation would be a retry that had lost
-    // the prompt.
     contents: [
       {
         role: "user",
@@ -114,11 +76,6 @@ export async function generateStructured(
 /**
  * Every keyword `responseJsonSchema` accepts, from the field's own declaration in
  * `@google/genai`.
- *
- * `zodToJsonSchema` emits draft-07, which is a superset, and the two answers to a
- * keyword outside this list are both bad: a root `$schema` is rejected outright
- * (`400 Unknown name "$schema"`), and the rest are dropped in silence — the
- * constraint gone with nothing to say so.
  */
 const ACCEPTED_KEYWORDS = new Set([
   "$id",
@@ -162,25 +119,7 @@ function toResponseJsonSchema(schema: ZodTypeAny): unknown {
   );
 }
 
-/**
- * The generated schema, reduced to what the provider reads.
- *
- * **`const` becomes a single-valued `enum`.** It is the one keyword worth
- * translating rather than dropping: `z.literal()` is how every discriminated
- * union in `@kidlearn/types` marks its branches, so a dropped `const` leaves the
- * model choosing between four structurally identical quiz-question shapes and
- * Zod rejecting whichever it picks. `enum` is accepted for strings and numbers,
- * which covers both `type` and `schemaVersion`.
- *
- * **Nesting level decides what a key means.** Under `properties` and `$defs` the
- * keys are the caller's own field names — a lesson has a `description`, a
- * question has a `type` — so filtering them as if they were keywords would
- * delete the content rather than the constraint.
- *
- * Bounds that do not survive (`minLength`, `maxLength`, `pattern`) are still
- * enforced by the Zod parse in `runGenerationJob`; losing them here costs a
- * retry when the model overruns, never a bad row.
- */
+/** The generated schema, reduced to what the provider reads. */
 function accepted(node: unknown): unknown {
   if (Array.isArray(node)) return node.map(accepted);
   if (node === null || typeof node !== "object") return node;
@@ -215,13 +154,6 @@ function accepted(node: unknown): unknown {
 /**
  * Malformed JSON is a schema failure, not a thrown error — and the distinction is
  * a retry.
- *
- * `runGenerationJob` retries an answer that fails `safeParse`, but a `generate`
- * that *throws* fails the job immediately with no second attempt. An answer cut
- * off mid-object — the `MAX_TOKENS` case — would throw a `SyntaxError` out of
- * `JSON.parse` and silently burn the one retry this pipeline exists to give the
- * model, so it is returned as `null` instead: no answer, in the shape the retry
- * loop already understands.
  */
 function parseJson(text: string | undefined): unknown {
   if (text === undefined || text === "") return null;
@@ -234,18 +166,7 @@ function parseJson(text: string | undefined): unknown {
 
 type StopMapping = Pick<StructuredGeneration, "stopReason" | "refusal">;
 
-/**
- * Gemini's own taxonomy onto the three stops this pipeline acts on.
- *
- * `promptFeedback.blockReason` is checked first because it is the case where
- * there is no candidate at all: the *prompt* was blocked before generation
- * started, and reading `candidates[0]` would find nothing to explain why.
- *
- * Everything unrecognised — `OTHER`, `LANGUAGE`, a reason added after this was
- * written — maps to `null`, which `describeUnretryableStop` treats as retryable.
- * That is the right default: one wasted retry is cheaper than failing a
- * generation the model may have finished.
- */
+/** Gemini's own taxonomy onto the three stops this pipeline acts on. */
 function mapFinishReason(response: GenerateContentResponse): StopMapping {
   const blockReason = response.promptFeedback?.blockReason;
   if (blockReason !== undefined) {

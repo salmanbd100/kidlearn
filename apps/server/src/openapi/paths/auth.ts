@@ -6,13 +6,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `routes/auth.ts` — the two routes kidlearn defines itself on `/api/auth`.
- *
- * They are registered before better-auth's wildcard in `app.ts`, because Express
- * matches in registration order and `app.all("/api/auth/{*any}")` would otherwise
- * swallow them.
- */
+/** `routes/auth.ts` — the two routes kidlearn defines itself on `/api/auth`. */
 export const AUTH_ROUTES: RouteDoc[] = [
   {
     method: "get",
@@ -82,15 +76,7 @@ export const AUTH_ROUTES: RouteDoc[] = [
   },
 ];
 
-/**
- * better-auth's own endpoints, mounted by `app.all("/api/auth/{*any}")`.
- *
- * Hand-written and deliberately **excluded from `coverage.test.ts`**: they are
- * not registrations on any router this repo owns, so the coverage walk cannot see
- * them and must not expect to. Only the ones `apps/web` will actually call are
- * documented — better-auth serves more, and its own `openAPI()` plugin is the
- * place to look for the full list if that ever becomes necessary.
- */
+/** better-auth's own endpoints, mounted by `app.all("/api/auth/{*any}")`. */
 export const BETTER_AUTH_ROUTES: RouteDoc[] = [
   {
     method: "post",

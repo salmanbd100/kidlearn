@@ -6,21 +6,7 @@ import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { googleSignInUrl } from "@/lib/parent-api";
 
-/**
- * Google, and nothing else (FR-AUTH-02).
- *
- * There is no email field, no password field, and no sign-up step anywhere on this
- * screen or behind it — the Google callback creates the identity and the first
- * authenticated request creates the domain row. Email/password is disabled in
- * `lib/auth.ts` for parents permanently; the admin surface in file 31 is a
- * separate provider list.
- *
- * The button is a plain anchor rather than a fetch: signing in is a chain of
- * cross-origin redirects, so it has to be a real navigation. `GET
- * /api/auth/google` exists for exactly this reason — better-auth's own
- * `sign-in/social` is POST-only, which a link cannot do — and the server owns the
- * post-login destination, so no callback URL is passed from here.
- */
+/** Google, and nothing else (FR-AUTH-02). */
 export function LoginScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
 

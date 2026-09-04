@@ -1,14 +1,4 @@
-/**
- * Canonical activity payloads.
- *
- * The `valid*` fixtures are annotated with their inferred type, so the compiler
- * fails if a fixture drifts from its schema. They are the reference examples
- * reused by the content seed script (file 12) and the AI generation prompts
- * (file 34) — keep them realistic, not minimal.
- *
- * The `invalid*` fixtures are typed `unknown` on purpose: they must be
- * structurally wrong, which is exactly what the compiler would otherwise reject.
- */
+/** Canonical activity payloads. */
 import type {
   DragDropActivity,
   MatchActivity,
@@ -64,14 +54,7 @@ export const validDragDrop: DragDropActivity = {
   ],
 };
 
-/**
- * Sorting: four animals into two homes, so two items share each target.
- *
- * The schema constrains items — each is mapped exactly once, and every one has a
- * mapping — but says nothing about how many items may share a `targetId`.
- * "Put the animals where they live" is the ordinary shape of that freedom, and a
- * renderer that assumes one item per target loses every answer but the last.
- */
+/** Sorting: four animals into two homes, so two items share each target. */
 export const validDragDropManyToOne: DragDropActivity = {
   schemaVersion: 1,
   type: "drag_drop",
@@ -160,13 +143,7 @@ export const validTrace: TraceActivity = {
   strokeOrder: [0, 1, 2],
 };
 
-/**
- * Bangla digit three — proves the glyph field is not ASCII-only.
- *
- * Single-stroke, so it carries no `strokeOrder`, and it widens the default
- * `tolerance`: two stacked curves are harder to follow than the straight lines
- * of an "A", and a child who keeps cutting the corner is not making a mistake.
- */
+/** Bangla digit three — proves the glyph field is not ASCII-only. */
 export const validTraceBangla: TraceActivity = {
   schemaVersion: 1,
   type: "trace",
@@ -265,13 +242,7 @@ export const validPuzzle: PuzzleActivity = {
   ],
 };
 
-/**
- * The Nursery shape: a 3×3 picture with the top row already built.
- *
- * Nine pieces is the hardest puzzle the schema allows and far too many for a
- * three-year-old on their own, so `prePlaced` is how the same artwork serves
- * both ends of the age range — six pieces here, nine for a Class 1 child.
- */
+/** The Nursery shape: a 3×3 picture with the top row already built. */
 export const validPuzzlePrePlaced: PuzzleActivity = {
   schemaVersion: 1,
   type: "puzzle",

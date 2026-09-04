@@ -22,24 +22,6 @@ import { AI_JOB_TYPE_LABELS, formatRelativeAge } from "./job-labels";
 /**
  * `/admin/ai-queue` — everything a model wrote and nobody has read yet
  * (file 37, FR-CMS-05).
- *
- * **Oldest first, and the screen says so.** This is a work list, not a feed: the
- * generation that has been waiting longest is the one to review next, and a
- * newest-first order would quietly starve the bottom of the queue.
- *
- * **Three filters, all of them read off the job's own `input`** — the parameters
- * an admin actually chose when they asked for the content. Filtering by grade
- * narrows to the text generators by construction, because a narration clip has
- * no reading age; the empty state says that rather than reading as "nothing to
- * review".
- *
- * It fetches its own data for the reason recorded in `frontend.md §2`: the admin
- * session cookie belongs to the API origin, so a Server Component calling
- * `/api/admin/*` would send no credentials and get a `401`.
- *
- * **A page size of 25 with no pager yet.** MVP reviews one job at a time and the
- * queue is not expected to run long; `total` is shown so a backlog that outgrows
- * one page is visible rather than silently truncated.
  */
 
 const PAGE_SIZE = 25;
@@ -329,14 +311,7 @@ function JobRow({ job }: { job: AiJobSummary }) {
   );
 }
 
-/**
- * The empty states differ, and the difference matters.
- *
- * "Nothing is waiting" is good news. "Nothing matches these filters" is a
- * prompt to widen them — and on a grade filter it needs the extra sentence,
- * because a grade excludes every narration and illustration job by construction
- * and an admin who does not know that reads an empty list as a finished queue.
- */
+/** The empty states differ, and the difference matters. */
 function EmptyState({
   status,
   isFiltered,

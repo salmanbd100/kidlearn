@@ -10,18 +10,7 @@ import {
   uploadToCloudinary,
 } from "./admin-api";
 
-/**
- * What a reorder actually puts on the wire.
- *
- * The server validates `orderedIds` against the sibling set `includeArchived`
- * selects, so a tree loaded with archived rows showing has to say so — omitting
- * the flag from that view made every drag a `400 VALIDATION_FAILED`, because the
- * payload carried an id the server had filtered out of its own expectation.
- *
- * Asserted here rather than in the screen's suite: dnd-kit needs a real layout to
- * resolve a drop and jsdom gives it none, so the request body is the last point
- * where this is observable without mocking the drag library itself.
- */
+/** What a reorder actually puts on the wire. */
 function stubFetch() {
   const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
     Promise.resolve(
@@ -85,15 +74,7 @@ describe("reorderContent", () => {
   });
 });
 
-/**
- * Where an upload's bytes actually go (file 33, FR-CMS-02).
- *
- * The acceptance criterion is a network-tab observation — "only `/sign` and
- * `/media` JSON calls hit our API" — and this is that observation made
- * mechanically. It matters because the alternative implementation, proxying the
- * file through `apps/server`, is the obvious one and would pass every other test
- * in this file.
- */
+// Where an upload's bytes actually go (file 33, FR-CMS-02).
 
 /** The minimum of `XMLHttpRequest` `uploadToCloudinary` drives, recorded. */
 function stubXhr(
@@ -210,14 +191,7 @@ describe("the upload path", () => {
   });
 });
 
-/**
- * The edit-then-approve breadcrumb on the wire (file 37, FR-AI-07).
- *
- * Asserted at this layer because it is a *URL* claim, not a body one: the server
- * reads `jobId` as a query parameter so the recording rides on the same request
- * as the save, and a wrapper that dropped it would leave the queue's Edit button
- * doing nothing an audit trail can see (FR-AI-08).
- */
+/** The edit-then-approve breadcrumb on the wire (file 37, FR-AI-07). */
 describe("the ?jobId breadcrumb", () => {
   const JOB_ID = "aaaaaaaa-0000-4000-8000-000000000001";
   const QUIZ_ID = "bbbbbbbb-0000-4000-8000-000000000001";

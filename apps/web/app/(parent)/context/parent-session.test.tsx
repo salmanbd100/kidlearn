@@ -3,16 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The gate's *identities*, not its behaviour — which `PinGate.test.tsx` covers.
- *
- * `guard` is the dependency a PIN-gated screen keys its fetch effect on
- * (`DashboardScreen`), so it being rebuilt whenever the gate flipped meant an
- * expiring grant re-ran that effect: the figures already on screen were cleared
- * and replaced with the error from a request that could only 403, behind a PIN pad
- * that is supposed to overlay a page the parent still has. A reference comparison
- * is the whole test, because a reference is the whole bug.
- *
- * Stubbed at `lib/parent-api`, the module boundary the provider talks through —
- * the same seam `(parent)/layout.test.tsx` uses.
  */
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),

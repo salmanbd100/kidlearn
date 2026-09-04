@@ -27,29 +27,6 @@ import {
 
 /**
  * Student-facing curriculum reads (FR-CURR-01..02, FR-WORLD-01..05, spec §7.3.4).
- *
- * Two invariants hold for every function in this file:
- *
- *  1. Visibility comes from `lib/published-for-child.ts` and nowhere else. No
- *     `status` or `gradeLevels` condition is written inline here. That covers
- *     related rows as well as queried ones: `Activity`, `Quiz` and `World` each
- *     carry their own `status`, so a *published* lesson can still point at
- *     unreviewed content, and every one of those edges is gated below.
- *  2. Grade and language come from the `ChildProfile` row the caller passes in —
- *     resolved server-side by `requireActiveChild` — never from request input
- *     (FR-PROF-03).
- *
- * Responses carry single-locale resolved values plus the `locale` that supplied
- * them. The one exception is activity/quiz `definition` JSONB, which is passed
- * through whole: those payloads embed `LocalizedText` and the engines in files
- * 18–22 do their own locale picking via `@kidlearn/types`.
- *
- * That includes **display names**. `World.name`, `Subject.name`, `Topic.name` and
- * `Lesson.title` are admin labels, not the strings a child reads — the child's come
- * from the matching `*Translation` row via `pickName` below. Reading the column
- * directly is the bug this file used to have: a Bangla learner heard Bangla
- * narration inside a lesson whose tile, topic, subject and world were all named in
- * English, while the response contract claimed every string was already resolved.
  */
 
 /**
@@ -161,33 +138,12 @@ export type LessonDetail = {
 /**
  * Whether an asset the child is about to receive came from English instead of
  * their own locale (FR-I18N-01).
- *
- * `pickLocale` reports `FALLBACK_LANG` for a value it never found, so the value
- * has to be checked as well as the locale: a lesson with no video at all is a
- * missing recording, not a missing *translation*, and counting it as a fallback
- * would tell the content report to translate something that does not exist.
  */
 function isSubstituted(pick: LocalePick<string>, requested: Lang): boolean {
   return pick.value !== null && pick.locale !== requested;
 }
 
-/**
- * A payload's own `type` literal must agree with the enum column beside it.
- *
- * `Activity.type` / `QuizQuestion.format` are columns; the JSONB payload repeats
- * the same fact as a Zod literal. Two sources of truth for one decision, and the
- * response carries both — so the engines in files 18–22 can pick a renderer from
- * the column while the payload they hand it is a different shape entirely. Zod
- * cannot catch that: a `match` payload under `type: "drag_drop"` parses perfectly
- * well as a `match` payload.
- *
- * Treated exactly like corrupt JSONB, and for the same reason: on a *published*
- * row it is a server-side authoring failure, not something the child's request
- * did wrong, so it is logged with the offending id and answered with a 500 that
- * carries no part of the payload. Fail closed — serving the row and letting the
- * client guess which of the two to believe is how a three-year-old ends up
- * looking at a tracing canvas with jigsaw pieces in it.
- */
+/** A payload's own `type` literal must agree with the enum column beside it. */
 function assertDiscriminatorAgrees(
   discriminator: { column: string; payload: string },
   ids: Record<string, string>,
@@ -203,15 +159,7 @@ function assertDiscriminatorAgrees(
   throw new ApiError(500, "INTERNAL", "Content unavailable");
 }
 
-/**
- * The child-facing name of a curriculum row, in their language.
- *
- * Resolution order is `preferredLanguage → en → the row's own label`. That last
- * step is not a nicety: it keeps content authored before a translation existed
- * servable instead of nameless, and it means adding a locale is a data change
- * rather than a migration that has to backfill every row first. A missing
- * translation is a content gap to report, never a blank tile.
- */
+/** The child-facing name of a curriculum row, in their language. */
 function pickName(
   translations: readonly { language: Lang; name: string }[] | undefined,
   fallbackLabel: string,
@@ -253,9 +201,6 @@ function toWorldSummary(
 /**
  * FR-WORLD-01..03, FR-WORLD-05 — the themed worlds the home screen renders.
  * Worlds carry no grade tagging of their own, so only the status gate applies.
- *
- * Takes the `ChildProfile` purely for `preferredLanguage`: the world names are
- * child-facing text, so they are resolved per locale like everything else here.
  */
 export async function listWorlds(child: ChildProfile): Promise<WorldSummary[]> {
   const worlds = await prisma.world.findMany({
@@ -395,21 +340,6 @@ export async function listLessonsForChild(
 /**
  * FR-WORLD-01..03 — everything a child can do inside one world, grouped by the
  * topic each lesson sits under.
- *
- * This is the world screen's only request. `World` and `Topic` are orthogonal in
- * the settled schema — a lesson has one topic (its curriculum position) and one
- * world (its setting) — so navigating by world means crossing the subject tree
- * sideways. Doing that here rather than in the client is what keeps the grade and
- * status filter server-side (FR-PROF-03): a client walking
- * `/subjects → /topics → /lessons` and keeping the rows whose `worldId` matched
- * would be deciding visibility for itself.
- *
- * Three status gates apply, not one. The lesson's own, its topic's, and its
- * subject's — a lesson tagged for this child can still hang off a topic that is
- * tagged for another grade, or under a subject still in draft, and in both cases
- * its curriculum position says it is not for this child. The world itself needs
- * no lesson-level gate here because an unpublished world 404s before any lesson
- * is read.
  */
 export async function listWorldLessonsForChild(
   child: ChildProfile,
@@ -461,24 +391,7 @@ export async function listWorldLessonsForChild(
   return [...byTopic.values()];
 }
 
-/**
- * The full payload the lesson player needs in one round trip.
- *
- * A lesson that is not published, or not tagged for this child's grade, returns
- * **404, not 403** — a 403 would confirm the row exists, which is exactly the
- * information a probe is after.
- *
- * Corrupt JSONB on a *published* row is a server bug, not a client error: it is
- * logged with the offending id and answered with a 500 that carries no part of
- * the payload.
- *
- * `Lesson.status` is not the whole guard. The world, activity and quiz a lesson
- * points at each carry their own `status`, and the publishing workflow routinely
- * produces a published lesson whose activity is still in review. Those three
- * edges are gated separately below — the world in the `where` (a lesson in an
- * unpublished world does not exist as far as a child is concerned), the two
- * nullable ones after the read.
- */
+/** The full payload the lesson player needs in one round trip. */
 export async function getLessonForChild(
   child: ChildProfile,
   lessonId: string,
@@ -500,25 +413,6 @@ export async function getLessonForChild(
 /**
  * The same payload with **no status gate at all**, for the admin preview
  * (FR-CMS-04).
- *
- * Only reachable through `middleware/admin-lesson-preview.ts`, which resolves an
- * `AdminUser` row from the session before it calls this — the `?preview=1` query
- * parameter requests the mode and never grants it. Nothing on the student path can
- * reach this function.
- *
- * Three differences from the child version, all of them the point of a preview:
- *
- *  - **No `status` and no `gradeLevels` filter**, so a draft lesson in a draft
- *    world tagged for another grade renders.
- *  - **Unpublished activities and quizzes are included** rather than omitted. A
- *    reviewer looking at a lesson whose activity is still in review needs to see
- *    the activity — that is what they are reviewing.
- *  - **The locale is a parameter**, because there is no child row to read one
- *    from. An admin previews each language deliberately.
- *
- * Corrupt JSONB is still a `500`: the editors validate a definition against the
- * shared schema on save, so a payload that cannot be parsed is a real fault worth
- * surfacing rather than hiding behind an empty step.
  */
 export async function getLessonForPreview(
   lessonId: string,
@@ -556,15 +450,7 @@ function findLessonRow(where: Prisma.LessonWhereInput) {
 
 type LessonRow = NonNullable<Awaited<ReturnType<typeof findLessonRow>>>;
 
-/**
- * Turns one lesson row into the payload the player renders.
- *
- * `isPreview` changes exactly one thing: whether the nullable `activity` and
- * `quiz` edges are gated on their own `status`. Everything else — locale
- * resolution, fallback reporting, the discriminator check, the corrupt-JSONB `500`
- * — is identical, which is what makes the preview a preview rather than a second
- * renderer that can disagree with the real one.
- */
+/** Turns one lesson row into the payload the player renders. */
 function toLessonDetail(
   lesson: LessonRow,
   language: Lang,

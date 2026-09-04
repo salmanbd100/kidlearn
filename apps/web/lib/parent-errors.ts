@@ -1,31 +1,12 @@
 import type { ZodIssue } from "zod";
 import type { ApiFailure } from "./api-client";
 
-/**
- * Turning failures into i18next keys.
- *
- * Two rules hold throughout:
- *
- *  - **Branch on `error.code`, never on `error.message`.** The message is a
- *    developer hint and may be reworded at any time; the code is the contract.
- *  - **Never render a server message to a parent.** They are English-only and
- *    written for whoever is reading the logs. Every string a parent sees comes
- *    from `locales/*\/parent.json`.
- */
+// Turning failures into i18next keys.
 
 /** Keys under the `parent` namespace, relative to it. */
 type ParentMessageKey = string;
 
-/**
- * The message for a failed `POST /api/children`.
- *
- * The five-profile cap arrives as a plain `409 CONFLICT` — not, as this file's
- * spec assumed, a `CHILD_LIMIT_REACHED` code. `createChildProfile` raises it with
- * `ApiError.conflict`, and it is the only conflict that route can produce (see
- * `openapi/paths/children.ts`), so the mapping is sound. Kept in one named
- * function rather than inline in the form, because it is the second half of the
- * max-5 rule and belongs next to the first.
- */
+/** The message for a failed `POST /api/children`. */
 export function childWriteErrorKey(failure: ApiFailure): ParentMessageKey {
   switch (failure.code) {
     case "CONFLICT":
@@ -39,15 +20,7 @@ export function childWriteErrorKey(failure: ApiFailure): ParentMessageKey {
   }
 }
 
-/**
- * The message for a failed screen-time write (file 28).
- *
- * Not `childWriteErrorKey`: that one maps `409` onto the five-profile cap, which
- * this route cannot produce, and a mapping that claims an impossible cause is
- * worse than the generic message. The only code with a screen-specific meaning
- * here is `404` — the profile was deleted on another device while this form was
- * open.
- */
+/** The message for a failed screen-time write (file 28). */
 export function screenTimeErrorKey(failure: ApiFailure): ParentMessageKey {
   return failure.code === "NOT_FOUND"
     ? "errors.notFound"
@@ -59,14 +32,7 @@ export function generalErrorKey(failure: ApiFailure): ParentMessageKey {
   return failure.code === "NETWORK_ERROR" ? "errors.network" : "errors.generic";
 }
 
-/**
- * The message for a rejected PIN.
- *
- * `PIN_LOCKED` and `PIN_INVALID` are separate screens' worth of difference: one
- * says "try again", the other says "stop trying for a while". The server does not
- * report attempts remaining — deliberately, since that number is a hint to
- * whoever is guessing — so neither message names one.
- */
+/** The message for a rejected PIN. */
 export function pinErrorKey(failure: ApiFailure): ParentMessageKey {
   switch (failure.code) {
     case "PIN_INVALID":
@@ -83,17 +49,7 @@ export function pinErrorKey(failure: ApiFailure): ParentMessageKey {
 /** Which field of the profile form an issue belongs to, and what it says. */
 export type FieldErrors = Partial<Record<string, ParentMessageKey>>;
 
-/**
- * Maps Zod issues onto localized field messages.
- *
- * Keyed on the field plus the issue `code` rather than on Zod's own message: those
- * messages are English strings from a validation library ("String must contain at
- * most 50 character(s)"), and showing one to a parent would both leak the
- * implementation and ignore the Bangla locale. The *rules* still come from the one
- * schema in `@kidlearn/types` — only the wording is local.
- *
- * First issue per field wins; a field with two problems has one message.
- */
+/** Maps Zod issues onto localized field messages. */
 export function toFieldErrors(issues: readonly ZodIssue[]): FieldErrors {
   const errors: FieldErrors = {};
 

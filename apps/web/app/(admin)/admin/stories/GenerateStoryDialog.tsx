@@ -21,28 +21,6 @@ import { GRADE_LABELS, LOCALE_LABELS } from "@/lib/admin-labels";
 /**
  * "Write this story for me" — the admin end of the AI Story Generator
  * (file 35, FR-AI-02).
- *
- * **The dialog promises a draft, not a story, and says so before the button is
- * pressed.** What comes back is a job in the review queue; the pages, the moral
- * and the illustration briefs are all invisible to children until somebody reads
- * them and publishes (FR-AI-07).
- *
- * **Grade levels are a multi-select here, unlike the lesson dialog's single
- * grade.** A story is read aloud to whoever is listening — the reading age shapes
- * how long the sentences are, not what the story is about — and `Story.gradeLevels`
- * is an array for that reason.
- *
- * **The world is required and not inherited.** A story has no topic to inherit
- * from, and the world decides whether the characters are jungle animals or sea
- * creatures, so there is nothing safe to guess.
- *
- * **No illustrations are produced here, and the copy says so.** Each page comes
- * back with a written picture brief; the pictures themselves arrive with file 36.
- * A dialog that let an admin expect artwork would make an empty story look broken.
- *
- * The request is deliberately un-retried and can take the better part of a minute
- * — see `lib/admin-api.ts` — so the submit button carries the wait rather than a
- * spinner that could be mistaken for a hung page.
  */
 
 /** The bounds the server enforces, and the length a 3–6 year old sits through. */

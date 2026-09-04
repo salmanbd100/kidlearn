@@ -6,17 +6,7 @@ import { useTranslation } from "react-i18next";
 import { BigButton } from "@/components/kid/BigButton";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
-/**
- * The stand-in body of a step that has not been built yet.
- *
- * Files 17–23 replace each of the five step components outright; this is the frame
- * they share until then — a title and the single primary action every kid screen has
- * (design.md §1.3). Extracted rather than copied five times so that the five
- * placeholders differ only in which step they are, and so deleting one as its real
- * implementation lands cannot leave four stale copies behind.
- *
- * Not exported from `steps/` as a public component: it exists to be replaced.
- */
+/** The stand-in body of a step that has not been built yet. */
 export function StepPlaceholder({
   step,
   title,

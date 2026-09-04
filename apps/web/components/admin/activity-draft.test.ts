@@ -14,13 +14,7 @@ import {
   puzzleSlots,
 } from "./activity-draft";
 
-/**
- * What the activity editor's form state compiles to (FR-ACT-06).
- *
- * Same shape and same reasoning as `quiz-draft.test.ts`: the property under test
- * belongs to the compiler, and every assertion runs the real shared schemas rather
- * than a stub.
- */
+// What the activity editor's form state compiles to (FR-ACT-06).
 
 describe("compileActivity", () => {
   it.each([

@@ -1,12 +1,4 @@
-/**
- * The dashboard's arithmetic, on in-memory fixtures.
- *
- * No Prisma stub and no database: `computeSubjectProgress` and `mergeActivity`
- * take plain arrays precisely so the rules FR-DASH-03 and FR-DASH-04 state —
- * rounding, the omission of empty subjects, the suppression of the highlight
- * chips, the merge order and the cap — are each one assertion. The queries that
- * feed them are covered in `routes/children.test.ts`.
- */
+/** The dashboard's arithmetic, on in-memory fixtures. */
 import { RECENT_ACTIVITY_LIMIT } from "@kidlearn/types";
 import { describe, expect, it } from "vitest";
 import {

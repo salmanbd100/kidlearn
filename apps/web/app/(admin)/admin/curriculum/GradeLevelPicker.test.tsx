@@ -4,13 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { GradeLevelPicker } from "./GradeLevelPicker";
 
-/**
- * One picker, used by the subject, topic and lesson forms.
- *
- * It was three copies of the same fieldset that had already drifted apart in
- * their empty-state wording. These assert the toggle logic once, where the
- * duplicates each asserted it nowhere.
- */
+// One picker, used by the subject, topic and lesson forms.
 
 function Harness({ initial = [] }: { initial?: GradeLevelValue[] }) {
   const [value, setValue] = useState<GradeLevelValue[]>(initial);

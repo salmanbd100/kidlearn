@@ -24,30 +24,7 @@ import {
   type QuestionDraft,
 } from "./quiz-draft";
 
-/**
- * The guided quiz-question form (FR-CMS-03).
- *
- * **Validation is the shared schema, on every keystroke.** The form compiles its
- * state to a payload with `compileQuestion`, parses it with the member of
- * `QUIZ_QUESTION_SCHEMAS` the chosen format names, and puts each issue under the
- * input that produced it. So the rule an author is shown is *the* rule — the same
- * table the server picks its validator from, and the same union the renderer parses
- * before a child sees it — rather than a client-side approximation that can be laxer
- * or stricter than the thing that decides.
- *
- * **Save is disabled until it parses.** Not as a courtesy: an invalid payload is a
- * `400` the author cannot read from a toast, and the editor already knows exactly
- * what is wrong.
- *
- * **The preview is the real renderer.** `QuizEngine` — the component a child gets
- * — is mounted on the parsed payload, in a phone-sized frame under
- * `data-theme="kid"`. A bespoke preview would be a second implementation of the
- * question, and the whole point of previewing is to see the one that ships.
- *
- * **Media is picked, never typed.** Every audio and image field is a `MediaPicker`
- * over the library, filtered by kind and locale — see that component for why a
- * typed URL is unverifiable.
- */
+// The guided quiz-question form (FR-CMS-03).
 
 const FORMAT_LABELS: Record<QuizQuestionType, string> = {
   mcq: "Multiple choice",
@@ -469,13 +446,7 @@ function Field({
   );
 }
 
-/**
- * One column of options.
- *
- * The image picker is required for `picture_select` and offered for every other
- * format, matching the schema: that format is picture-first, so an image stops
- * being optional (FR-QUIZ-04).
- */
+/** One column of options. */
 function OptionList({
   field,
   legend,

@@ -4,24 +4,7 @@ import { Button, cn } from "@kidlearn/ui";
 import { useState } from "react";
 import { FOCUS_RING } from "@/lib/focus-ring";
 
-/**
- * The audit record, readable (file 37, FR-AI-08, FR-CMS-05).
- *
- * **A JSON dump rather than typed fields, deliberately.** A job's `input` and
- * `rawOutput` hold the verbatim prompts, both model attempts including the one
- * that failed validation, the tokens each cost and the ids of the rows written —
- * and their shape differs per generator and changes whenever a prompt does. A
- * rendered form over them would be a contract nothing can keep, and the field it
- * quietly stopped showing would be the one a reviewer needed.
- *
- * **Collapsed by default.** This is the answer to "why did it write that?", not
- * the thing a reviewer reads first; open above the fold it would push the actual
- * content off the screen.
- *
- * `<details>` rather than state and a button: it is the element for exactly this,
- * it works before hydration, and its open/closed state is keyboard-reachable and
- * announced without any ARIA of ours.
- */
+/** The audit record, readable (file 37, FR-AI-08, FR-CMS-05). */
 export interface JsonInspectorProps {
   title: string;
   value: unknown;

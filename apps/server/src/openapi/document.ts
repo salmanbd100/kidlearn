@@ -7,14 +7,7 @@ import {
 import { ALL_ROUTE_DOCS } from "./paths/index.js";
 import type { JsonSchemaObject } from "./to-json-schema.js";
 
-/**
- * Assembles the OpenAPI document from the route registry.
- *
- * **3.0.3, not 3.1**, and the reason is `nullable`. This API is full of nullable
- * fields; 3.0 spells them `nullable: true`, which `zod-to-json-schema`'s
- * `openApi3` target emits and Swagger UI renders correctly. The 3.1 spelling
- * (`type: ["string","null"]`) renders as an empty type in the UI.
- */
+// Assembles the OpenAPI document from the route registry.
 
 const OPENAPI_VERSION = "3.0.3";
 

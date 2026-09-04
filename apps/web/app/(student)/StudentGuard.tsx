@@ -6,24 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/lib/active-child";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 
-/**
- * What every student screen that needs a child sits behind.
- *
- * Three states, and no screen underneath has to know about any of them:
- *
- *  - **Signed out.** Nobody has connected this device to an account yet, so the
- *    grown-up is sent to `/parent/login`. A child cannot resolve this.
- *  - **No profile picked.** Back to `/select-profile`. `/home` and `/world/*`
- *    have nothing to render without a child, and — more to the point — the
- *    content API answers `403` without one, since grade and language come from
- *    that row.
- *  - **Waiting.** A mascot line rather than a spinner, and the cold-start message
- *    when the API is asleep (NFR-PERF-04): a five-year-old reads a friendly
- *    sentence as "soon" and a blank screen as "broken".
- *
- * `replace`, not `push`: a redirect the child never asked for must not become a
- * back-button trap.
- */
+/** What every student screen that needs a child sits behind. */
 export function StudentGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();

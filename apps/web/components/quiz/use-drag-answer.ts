@@ -9,15 +9,6 @@ import type { QuestionProps } from "./types";
 /**
  * Everything that happens between a child letting go and the sentence being
  * finished (FR-QUIZ-03).
- *
- * Extracted from the renderer for the reason `activities/use-placement-state.ts`
- * is: jsdom has no layout, so it has no collision detection and no sensor run —
- * dnd-kit hands the component a `DragEndEvent` and nothing below cares where it
- * came from. The rules are therefore driven by calling `handleDragEnd` directly.
- *
- * The tap rules are the pick-one formats' rules with a drag in front of them: a
- * wrong option steps aside and stops answering, the others stay live, nothing
- * counts down and nothing runs out (§5.7).
  */
 
 /** The droppable the blank in the sentence registers as. */
@@ -88,14 +79,7 @@ export function useDragAnswer({
   return { lockedId, dimmedIds, handleDragEnd };
 }
 
-/**
- * The sentence either side of its `{blank}`.
- *
- * The schema guarantees exactly one token per locale, so the split always yields
- * two halves — but a payload is JSONB written by an author or an AI pipeline and
- * validated in a different process, so a missing token degrades to "all of it
- * before the blank" rather than rendering `undefined` at a child.
- */
+/** The sentence either side of its `{blank}`. */
 export function splitAtBlank(sentence: string): {
   before: string;
   after: string;

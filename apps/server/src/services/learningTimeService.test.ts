@@ -1,10 +1,6 @@
 /**
  * The pure half of learning time: heartbeat density → minutes, and a range name →
  * two instants.
- *
- * No Prisma stub and no `app.ts` import, deliberately — this file is the reason
- * `computeLearningMinutes` takes an array of `Date`s rather than a child id. The
- * database half is covered by `routes/events.test.ts`.
  */
 import { describe, expect, it } from "vitest";
 import { localDayStartUtc } from "../lib/local-date.js";

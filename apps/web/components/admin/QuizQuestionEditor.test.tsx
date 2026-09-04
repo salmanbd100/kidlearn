@@ -7,16 +7,6 @@ import { draftFromDefinition } from "./quiz-draft";
 
 /**
  * What an author *sees* while the shared schema disagrees with them (FR-CMS-03).
- *
- * The compiler's own suite (`quiz-draft.test.ts`) covers what the form state turns
- * into. This file covers the two things only a render can show: that a message
- * lands under the field it is about, and that Save is refused until the payload
- * parses.
- *
- * `MediaPicker` fetches the library on mount, so `fetch` is stubbed with an empty
- * one — a picker with no options still renders, and none of these cases is about
- * choosing an asset. Audio is stubbed because the preview mounts the real
- * `QuizEngine`, which speaks the prompt on arrival (FR-QUIZ-05).
  */
 
 const audio = vi.hoisted(() => ({

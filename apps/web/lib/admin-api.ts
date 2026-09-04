@@ -38,15 +38,6 @@ import { type ApiResult, apiBaseUrl, apiFetch } from "./api-client";
 
 /**
  * Typed wrappers over `/api/admin/*` and the two better-auth calls the CMS makes.
- *
- * Every response type is imported from `@kidlearn/types` — the same schema the
- * route tests assert real bodies against — so no shape is redeclared here
- * (`backend.md §7`). Files 32–37 extend this module rather than calling `apiFetch`
- * from a component.
- *
- * These run in the browser, not on the Next server, for the same reason
- * `parent-api.ts` does: the session cookie belongs to the API origin, so a Server
- * Component fetching `/api/admin/me` would send no credentials and get a 401.
  */
 
 /** Who am I. `403` here means a signed-in *parent*, not a broken session. */
@@ -63,19 +54,7 @@ export function fetchPlatformOverview(
   });
 }
 
-/**
- * Sign in with email and password — the only password login in the product.
- *
- * **Deliberately not `apiFetch`.** better-auth's endpoints answer with their own
- * bodies (`{ token, user }`, `{ success }`), not kidlearn's `{ data }` envelope, so
- * `apiFetch` would unwrap nothing and report `MALFORMED_RESPONSE` on a successful
- * sign-in. The retry behaviour is unwanted here too: replaying a rejected password
- * three times is how an account gets locked out once file 38 adds rate limiting.
- *
- * A wrong password and an unknown email both surface as `false` because the server
- * makes them indistinguishable on purpose — telling them apart would confirm which
- * addresses belong to administrators.
- */
+/** Sign in with email and password — the only password login in the product. */
 export async function adminSignIn(
   email: string,
   password: string,
@@ -102,10 +81,6 @@ export async function adminSignIn(
 
 /**
  * Revoke the session. Same reasoning as `adminSignIn` for bypassing `apiFetch`.
- *
- * Resolves rather than throws on failure: the caller navigates to the login screen
- * regardless, and a failed sign-out that left the admin looking at the CMS would be
- * worse than one that sent them to a page their stale cookie cannot open.
  */
 export async function adminSignOut(): Promise<void> {
   try {
@@ -119,18 +94,10 @@ export async function adminSignOut(): Promise<void> {
   }
 }
 
-// --- Curriculum CMS (file 32, FR-CURR-04, FR-CMS-01, FR-CMS-06) -----------
-
 /**
  * `/api/admin/content/*`. Every payload type comes from `@kidlearn/types` — the
  * same schemas the route tests assert real bodies against — so the CMS cannot
  * drift from the server by redeclaring a shape (`backend.md §7`).
- *
- * There is **no `updateStatus`** here, deliberately, and no wrapper that takes a
- * status alongside other fields. Status moves through `transitionContent` and
- * nothing else, mirroring the server, where an edit body carrying `status` is a
- * `400`. A convenience wrapper that hid the distinction on the client is how a
- * caller ends up believing an edit can publish.
  */
 
 const CONTENT_BASE = "/api/admin/content";
@@ -216,16 +183,7 @@ export function updateContent<TResult>(
   );
 }
 
-/**
- * The single door to a status change, matching the server.
- *
- * `retries: 0`, unlike every other call here. `apiFetch` retries a 5xx because
- * the API sleeps on its free tier, but a transition is not idempotent in the way
- * a read is: the first attempt may have succeeded and only its response been
- * lost, and the replay would then be judged against the status the first one
- * wrote and fail with a confusing `409`. One attempt, and the admin retries
- * deliberately.
- */
+/** The single door to a status change, matching the server. */
 export function transitionContent<TResult>(
   resource: ContentResourceName,
   id: string,
@@ -242,12 +200,6 @@ export function transitionContent<TResult>(
  * Persists a whole sibling set's order. `orderedIds` must be exactly the
  * siblings the list is showing — the server rejects anything else rather than
  * applying it partially.
- *
- * `includeArchived` is therefore not optional decoration: it tells the server
- * which sibling set the payload is claiming to be, and has to match the flag the
- * list was fetched with. Omit it on a tree that hides archived rows and the
- * archived ids are neither expected nor sent; pass it on one that shows them and
- * they are ordered along with everything else.
  */
 export function reorderContent(
   resource: OrderableContentResourceName,
@@ -266,21 +218,7 @@ export function reorderContent(
   });
 }
 
-// --- Media library (file 33, FR-CMS-02) -----------------------------------
-
-/**
- * The three-step upload, as three functions.
- *
- * **No file byte goes through `apps/server`.** `signMediaUpload` asks our API for
- * a signature, `uploadToCloudinary` posts the file straight to Cloudinary, and
- * `registerMediaAsset` tells our API the delivery URL that came back. The server
- * has no disk and sleeps on its free tier, so proxying a lesson video through it
- * would be a request that times out against a memory ceiling nobody can raise.
- *
- * The visible cost is that an upload can half-fail. That trade is deliberate: a
- * file at Cloudinary with no row is an orphan, which costs storage and is
- * collectable; a row pointing at nothing is content a child cannot play.
- */
+// The three-step upload, as three functions.
 
 const MEDIA_BASE = "/api/admin/media";
 
@@ -317,23 +255,7 @@ export function registerMediaAsset(input: {
   });
 }
 
-/**
- * Posts the file to Cloudinary and resolves with the delivery URL.
- *
- * **`XMLHttpRequest`, not `fetch`** — the one place in this app that is true.
- * `fetch` cannot report request-body progress, and a parent uploading a 40 MB
- * video needs a bar rather than a spinner that might mean anything.
- *
- * Deliberately **not** `apiFetch`: this request does not go to our API, carries no
- * session cookie, and answers with Cloudinary's own JSON rather than a `{ data }`
- * envelope. Sending credentials to a third-party host would be the bug, not a
- * convenience.
- *
- * Only the signed fields plus the file and `api_key` are sent. Cloudinary verifies
- * the signature over exactly the parameters it was computed from, so adding a
- * signed field here without adding it server-side is what produces
- * `Invalid Signature`.
- */
+/** Posts the file to Cloudinary and resolves with the delivery URL. */
 export function uploadToCloudinary(
   file: File,
   signature: UploadSignature,
@@ -388,17 +310,7 @@ export function uploadToCloudinary(
   });
 }
 
-// --- Guided editors (file 33, FR-CMS-03, FR-GAM-04) -----------------------
-
-/**
- * `/api/admin/content/{quizzes,activities,badges}`.
- *
- * `definition` and `rule` are sent as `unknown`, matching the server's boundary:
- * the shape is decided by the sibling `format` / `type` / `ruleType`, and the
- * editor has already validated it against the very same shared schema before
- * enabling Save. Declaring a narrower type here would mean a second, weaker copy
- * of that decision on the client.
- */
+// `/api/admin/content/{quizzes,activities,badges}`.
 
 export function fetchQuiz(quizId: string): Promise<ApiResult<AdminQuizDetail>> {
   return apiFetch<AdminQuizDetail>(`${CONTENT_BASE}/quizzes/${quizId}`);
@@ -537,17 +449,8 @@ export function transitionEditorContent<TResult>(
   });
 }
 
-// --- AI generation (file 34, FR-AI-01) -------------------------------------
-
 /**
  * Ask for a draft lesson. Answers with a job to look up, never with the lesson.
- *
- * `retries: 0`, and this is the call it matters most on. A generation is
- * expensive and not idempotent — replaying one that the API was slow to answer
- * would bill twice and leave two draft lessons in the same topic for a reviewer
- * to tell apart. It is also long: `apiFetch`'s cold-start retry exists for a
- * sleeping free-tier API, and a request that takes half a minute because a model
- * is writing is not a request that failed.
  */
 export function generateLesson(
   body: GenerateLessonRequest,
@@ -570,10 +473,6 @@ export interface GenerateLessonRequest {
 
 /**
  * Ask for a draft story. Answers with a job to look up, never with the story.
- *
- * `retries: 0` for the reason `generateLesson` gives: a generation is expensive
- * and not idempotent, so replaying one the API was slow to answer would bill twice
- * and leave two draft stories for a reviewer to tell apart.
  */
 export function generateStory(
   body: GenerateStoryRequest,
@@ -595,10 +494,6 @@ export interface GenerateStoryRequest {
 
 /**
  * Ask for draft quiz questions on an existing lesson. `retries: 0`, as above.
- *
- * A `409` here is expected rather than exceptional: it means the lesson's quiz is
- * published, and the caller is meant to show the admin that they have to withdraw
- * it first. Branch on `error.details.code === "QUIZ_PUBLISHED"`.
  */
 export function generateQuiz(
   body: GenerateQuizRequest,
@@ -618,15 +513,6 @@ export interface GenerateQuizRequest {
 
 /**
  * Ask for the missing narration on a lesson, story or quiz (file 36, FR-AI-04).
- *
- * `retries: 0` for the reason the text generators give, doubled: one click here
- * is *n* provider calls, so a replay of a request the API was slow to answer
- * could bill an entire story twice. It is also the longest request in the CMS —
- * sixteen clips is sixteen sequential text-to-speech calls.
- *
- * A `429` here means today's audio budget is spent. `error.details` carries
- * `{ bucket, cap, used, pending }`, so a caller can say how much is left rather
- * than only that there is none.
  */
 export function generateNarration(
   body: GenerateNarrationRequest,
@@ -645,10 +531,6 @@ export interface GenerateNarrationRequest {
 
 /**
  * Ask for the missing illustrations on a story (file 36, FR-AI-05, FR-AI-09).
- *
- * `retries: 0`, as above. No prompt and no page list: the briefs are already on
- * the pages and the character sheets are applied server-side, which is what makes
- * the same rabbit appear on every page.
  */
 export function generateIllustrations(
   storyId: string,
@@ -659,8 +541,6 @@ export function generateIllustrations(
     body: JSON.stringify({ storyId }),
   });
 }
-
-// --- Character sheets (file 36, FR-AI-09) ---------------------------------
 
 const CHARACTER_SHEET_BASE = `${CONTENT_BASE}/character-sheets`;
 
@@ -698,14 +578,7 @@ export function updateCharacterSheet(
   });
 }
 
-/**
- * Promote a story generation's cast into sheets.
- *
- * `retries: 0`: it creates rows, and a replay would be a second import of a cast
- * whose slugs the first import has just taken — harmless in outcome, since an
- * existing slug is skipped, but it would report `skipped` where the admin expects
- * `created` and read as a failure.
- */
+/** Promote a story generation's cast into sheets. */
 export function promoteJobCharacters(
   jobId: string,
 ): Promise<ApiResult<PromotedCharacterSheets>> {
@@ -716,18 +589,7 @@ export function promoteJobCharacters(
   });
 }
 
-// --- The AI review queue (file 37, FR-AI-07, FR-CMS-05..06) ---------------
-
-/**
- * `/api/admin/ai/jobs/*` — the human gate.
- *
- * The two decision calls are `retries: 0`, and it matters more here than
- * anywhere else in this module. Approving publishes content to children and
- * rejecting takes it out of circulation; neither is idempotent, so replaying one
- * the API was slow to answer would be judged against the state the first attempt
- * wrote and come back as a `409` an admin cannot act on. One attempt, and the
- * admin retries deliberately.
- */
+// `/api/admin/ai/jobs/*` — the human gate.
 
 const AI_JOBS_BASE = "/api/admin/ai/jobs";
 
@@ -753,24 +615,12 @@ export function fetchAiJob(id: string): Promise<ApiResult<AiJobDetail>> {
   return apiFetch<AiJobDetail>(`${AI_JOBS_BASE}/${id}`);
 }
 
-/**
- * The sidebar badge's one number, polled from every CMS screen.
- *
- * Its own endpoint rather than a field on the list: sending a page of jobs to
- * render a count would refetch the queue on every tick from every open tab.
- */
+/** The sidebar badge's one number, polled from every CMS screen. */
 export function fetchAiJobCount(): Promise<ApiResult<AiJobCount>> {
   return apiFetch<AiJobCount>(`${AI_JOBS_BASE}/count`);
 }
 
-/**
- * Approve, which publishes everything the job created (FR-CMS-06).
- *
- * A `409` here is expected rather than exceptional. `error.details.code` is
- * `APPROVAL_BLOCKED` with a `blockers` list — a linked row somebody has moved, or
- * a question still holding a placeholder asset — or `JOB_NOT_AWAITING_REVIEW`
- * when a colleague has already decided it. Both are worth showing verbatim.
- */
+/** Approve, which publishes everything the job created (FR-CMS-06). */
 export function approveAiJob(id: string): Promise<ApiResult<AiReviewResult>> {
   return apiFetch<AiReviewResult>(`${AI_JOBS_BASE}/${id}/approve`, {
     method: "POST",

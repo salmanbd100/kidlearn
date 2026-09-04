@@ -9,14 +9,7 @@ import { ActivityTimeline } from "./ActivityTimeline";
 import { StatCard } from "./StatCard";
 import { SubjectProgressCard } from "./SubjectProgressCard";
 
-/**
- * The whole dashboard for one child, from one payload (FR-DASH-01..04).
- *
- * Purely presentational, which is what makes the empty states testable: the
- * fixture *is* the state. There is no fetching here and no clock read — the screen
- * above owns both, and passes `now` in so a rendered relative date is a function of
- * its inputs.
- */
+/** The whole dashboard for one child, from one payload (FR-DASH-01..04). */
 export interface DashboardSummaryProps {
   data: DashboardData;
   childName: string;

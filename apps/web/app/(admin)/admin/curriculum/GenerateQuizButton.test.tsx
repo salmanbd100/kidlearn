@@ -2,14 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateQuizButton } from "./GenerateQuizButton";
 
-/**
- * The "Generate questions with AI" button (file 35, FR-AI-03).
- *
- * What is worth asserting is the three answers it has to tell apart, all of which
- * arrive on a call that did not throw: questions written, a job that failed
- * anyway, and a `409` because the lesson's quiz is published. Only the first is a
- * success, and only the third is something the admin can act on.
- */
+// The "Generate questions with AI" button (file 35, FR-AI-03).
 
 const generateQuiz = vi.hoisted(() => vi.fn());
 

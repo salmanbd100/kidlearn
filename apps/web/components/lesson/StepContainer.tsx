@@ -9,22 +9,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
-/**
- * The frame every lesson step is rendered inside (Pillar A, design.md §6).
- *
- * Full-bleed and immersive: the step owns the screen, and the only chrome is the
- * two things a child needs from outside the step — how far along they are, and the
- * way out. Both are pushed to the top edge, clear of the thumb zone the step's own
- * controls use, so neither is hit by accident while playing.
- *
- * The dots are the progress bar a pre-reader can read: five of them, always five,
- * so the shape of the lesson is visible from the first screen. The current one
- * pulses rather than merely being coloured, because a child who cannot compare five
- * shades of blue can still see which one is moving — meaning is never carried by
- * colour alone (design.md §2.3). Each dot also carries a text label for a screen
- * reader, and the whole strip is a single `progressbar` so assistive tech gets the
- * position rather than five unexplained circles.
- */
+// The frame every lesson step is rendered inside (Pillar A, design.md §6).
 
 const dotVariants = cva(
   "block size-4 rounded-pill transition-[background-color,transform]",

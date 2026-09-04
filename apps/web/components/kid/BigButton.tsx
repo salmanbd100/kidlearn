@@ -7,17 +7,7 @@ import type { ReactNode } from "react";
 import { useAudio } from "@/components/AudioProvider";
 import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
-/**
- * The one thing a child taps.
- *
- * Every kid screen has a single primary action (design.md §1.3), and this is
- * it: chunky, pill-shaped, impossible to miss at 360px, and able to say its own
- * label out loud for a pre-reader who cannot read it (`audioSrc`).
- *
- * Geometry is the accessibility contract, not decoration — `md` is a 64×64px
- * hit area, `lg` an 80px-tall full-width bar, and `xl` a 96px one
- * (NFR-A11Y-02, design.md §7).
- */
+// The one thing a child taps.
 
 const bigButtonVariants = cva("gap-3", {
   variants: {

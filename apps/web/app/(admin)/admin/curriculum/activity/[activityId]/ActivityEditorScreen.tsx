@@ -21,14 +21,6 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
 
 /**
  * `/admin/curriculum/activity/[activityId]` — one activity's payload (FR-ACT-06).
- *
- * The form is the whole page rather than a dialog, unlike the quiz editor: an
- * activity **is** one payload, so there is no list to sit behind a modal, and the
- * preview wants the room.
- *
- * A published activity is read-only, matching the server. Withdrawing it removes
- * the activity step from any live lesson pointing at it without taking the lesson
- * down — the lesson API omits an unpublished activity rather than failing.
  */
 export function ActivityEditorScreen({ activityId }: { activityId: string }) {
   const [activity, setActivity] = useState<AdminActivity>();

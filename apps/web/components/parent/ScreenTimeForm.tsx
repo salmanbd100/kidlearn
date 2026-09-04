@@ -19,28 +19,6 @@ import { SegmentedField } from "./SegmentedField";
 
 /**
  * The parent's screen-time controls for one child (FR-TIME-01, FR-TIME-04..05).
- *
- * ## The limit is a picker, not a number field
- *
- * `SCREEN_TIME_LIMIT_OPTIONS` is the same closed set the server accepts, imported
- * rather than restated, so the control cannot offer a value `PATCH` would reject.
- * It is closed for the child's sake as much as the code's: a free number invites
- * someone to type 7, and a 7-minute allowance is a child cut off mid-lesson every
- * day.
- *
- * ## The window is a toggle plus two native time inputs
- *
- * `<input type="time">` rather than a custom picker: it is the control every
- * platform already gives a parent in their own language and their own 12/24-hour
- * preference, and its value is already the `"HH:MM"` the API speaks. Turning the
- * toggle off sends both ends as `null` — the schema requires them set or cleared
- * together, so the toggle is what makes that pair impossible to half-submit.
- *
- * ## Validation is the server's schema, run early
- *
- * `ScreenTimeUpdateSchema.safeParse` is the same object the route validates with,
- * so what the form submits is `parsed.data` rather than raw state and a rule here
- * cannot drift from the rule there.
  */
 
 /** The `null` limit as a radio value — a radio group's value is a string. */

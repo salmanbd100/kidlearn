@@ -20,34 +20,7 @@ import { useScreenNarration } from "@/lib/use-screen-narration";
 import { useScreenTimeGate } from "@/lib/use-screen-time-gate";
 import { StudentStatus } from "../StudentGuard";
 
-/**
- * The child's home (FR-WORLD-01..03, FR-GAM-06 display).
- *
- * Every world on this screen came out of `GET /api/content/worlds` — there is no
- * list of worlds in this file, no `if (slug === "jungle")`, and no palette
- * literal. Adding Space World is a row in the database (FR-WORLD-05), and the
- * test for that property asserts the styling comes from the response.
- *
- * The counters are display-only. Every one of them is read from
- * `GET /api/me/rewards/summary` — live ledger aggregates and the stored streak
- * (files 23–24) rather than the zeros the profile still carries — and rendered
- * exactly as sent; nothing here can change a number, which is the client half of
- * progress being server-authoritative (spec §7). There is deliberately no date
- * arithmetic anywhere on this screen: which local day it is, and whether the
- * streak survived the night, are the server's to decide, because a device clock
- * is something a five-year-old can change in Settings (FR-GAM-06).
- *
- * A failed summary read leaves the profile's own figures on screen rather than
- * blanking the strip. A child who cannot see today's coins has lost nothing they
- * earned; a home screen that will not draw is the app not opening.
- *
- * The screen-time gate (FR-TIME-02, FR-TIME-04) is checked here rather than only
- * at the content endpoints, and it is checked twice: once on load, so a blocked
- * child never sees a board of lessons they cannot open, and again on each tap, so
- * a limit reached while they were choosing is caught before the navigation. The
- * server still refuses at the endpoint either way — this is about what a
- * five-year-old is shown, not about who decides.
- */
+/** The child's home (FR-WORLD-01..03, FR-GAM-06 display). */
 export function HomeScreen() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();

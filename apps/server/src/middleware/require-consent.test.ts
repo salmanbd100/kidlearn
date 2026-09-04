@@ -1,10 +1,6 @@
 /**
  * See the note at the top of `require-parent.test.ts` about stubbing
  * `lib/prisma.js` in the absence of a test database.
- *
- * The probe route here stands in for `POST /api/children`, which file 11 mounts
- * behind this guard. FR-AUTH-03 is a server-side rule: no child profile may
- * exist before a parent has given COPPA consent.
  */
 import type { Parent } from "@kidlearn/db";
 import express, { type Express } from "express";

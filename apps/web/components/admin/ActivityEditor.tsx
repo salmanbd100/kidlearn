@@ -19,20 +19,7 @@ import {
 import { MediaPicker } from "./MediaPicker";
 import { type IssueMap, toIssueMap } from "./payload-issues";
 
-/**
- * The guided activity form (FR-ACT-06, FR-CMS-03's sibling).
- *
- * Everything `QuizQuestionEditor` says applies here unchanged: the shared schema
- * for the chosen type validates on every keystroke, each issue lands under the
- * input that produced it, Save is disabled until the payload parses, and the
- * preview is the **real** `ActivityEngine` — the component a child plays — under
- * `data-theme="kid"`.
- *
- * The one thing worth stating separately is the drop-zone image. `drag_drop`
- * requires one on every target and not on the draggable items, because a
- * pre-reader cannot rely on a label to know where a thing goes. The form marks it
- * required rather than letting the schema be the first to mention it.
- */
+// The guided activity form (FR-ACT-06, FR-CMS-03's sibling).
 
 const TYPE_LABELS: Record<ActivityType, string> = {
   drag_drop: "Drag and drop",
@@ -485,13 +472,7 @@ function Field({
   );
 }
 
-/**
- * The waypoints a finger is snapped to, in trace order.
- *
- * Number inputs rather than a canvas: drawing a path by hand is a tool, not a
- * form, and the coordinates come from whoever produced the SVG path in the first
- * place. Two is the floor — one point describes no direction.
- */
+/** The waypoints a finger is snapped to, in trace order. */
 function GuideDots({
   dots,
   error,

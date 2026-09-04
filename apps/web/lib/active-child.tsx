@@ -23,32 +23,7 @@ import {
   listChildren,
 } from "./parent-api";
 
-/**
- * Who is playing, for the whole `(student)` route group.
- *
- * ## Why this fetches in the browser
- *
- * The same forced exception `(parent)/context/parent-session.tsx` documents: the
- * better-auth session cookie is `httpOnly` and set on the **API origin**, so a
- * Server Component asking who is signed in would send no cookie and get a `401`.
- * Every request therefore goes out from the browser, and it is contained the same
- * way — this is the only place in `(student)` that loads session data, so no two
- * screens can disagree about who is playing.
- *
- * ## Why the profile list lives here too
- *
- * `/select-profile` needs every profile, `/home` needs one of them, and the
- * avatar art for both is resolved from the same character list. Loading all three
- * once and picking from them means switching profiles is a `POST` and a state
- * change rather than three more round trips — which is the difference between an
- * instant switch and a child watching a spinner.
- *
- * ## What it does not do
- *
- * Nothing here computes a reward, a streak, or a screen-time budget. `stats`
- * arrives on the profile from the server and is rendered as given; the client
- * never writes to it (FR-GAM-06, spec §7 — progress is server-authoritative).
- */
+// Who is playing, for the whole `(student)` route group.
 
 export type ActiveChildStatus = "loading" | "ready" | "signedOut" | "error";
 
@@ -151,14 +126,7 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     [profiles, activeChildId],
   );
 
-  /**
-   * FR-I18N-02 — the child's own language wins over the device cookie.
-   *
-   * Driven by the active profile rather than by the tap that activated it, so a
-   * reload lands in the right language too: the session already remembers who is
-   * playing, and their preference has to survive that. `changeLanguage` writes the
-   * cookie through i18next's detector, so the next first paint is already correct.
-   */
+  /** FR-I18N-02 — the child's own language wins over the device cookie. */
   const language = child?.preferredLanguage;
   useEffect(() => {
     if (language !== undefined && i18n.resolvedLanguage !== language) {

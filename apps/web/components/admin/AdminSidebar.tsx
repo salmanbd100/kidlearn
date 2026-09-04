@@ -2,27 +2,7 @@ import { cn } from "@kidlearn/ui";
 import Link from "next/link";
 import { ADMIN_NAV, activeAdminNavHref } from "@/lib/admin-routes";
 
-/**
- * The CMS navigation (FR-CMS-01 shell).
- *
- * Deliberately **plain**: no kid tokens, no display font, no mascot, no oversized
- * buttons. This is an internal tool used on a laptop by someone approving lessons,
- * and dressing it in the Student Portal's voice would make a dense content list
- * harder to scan, not friendlier (design.md §1, principle 5).
- *
- * Desktop-first, which is the one place this surface departs from the project's
- * mobile-first default (design.md §0): a fixed rail on ≥768px, a horizontal
- * scrolling bar below it. Admins use laptops — the small-screen treatment exists so
- * a phone is not broken, not so a CMS is comfortable on one.
- *
- * `pathname` is a prop rather than a `usePathname()` call so the six-section
- * contract is assertable without a router. It does not keep this a Server
- * Component — `AdminShell` is `'use client'`, so importing this from there puts it
- * in the client bundle either way.
- *
- * `badges` is a prop for the same reason: the count comes from a poll `AdminShell`
- * owns, and a nav that fetched its own would refetch on every route change.
- */
+/** The CMS navigation (FR-CMS-01 shell). */
 export interface AdminSidebarProps {
   pathname: string;
   /**

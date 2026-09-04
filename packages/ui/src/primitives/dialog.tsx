@@ -6,23 +6,7 @@ import { X } from "lucide-react";
 import type * as React from "react";
 import { cn } from "../lib/cn";
 
-/**
- * Dialog — the shadcn/Radix primitive, tokenized for both themes.
- *
- * Radix is doing the part that is genuinely hard and non-negotiable
- * (design.md §7): focus is trapped while the dialog is open and restored to the
- * trigger on close, Escape and the overlay dismiss it, and the correct
- * `role="dialog"` / `aria-modal` / `aria-labelledby` wiring comes from composing
- * `Title` and `Description`. Don't override those roles.
- *
- * Two things a caller controls that matter more than styling:
- *
- *  - `isDismissable={false}` on `DialogContent` removes the close button and
- *    ignores Escape and outside clicks. That is for a dialog that *is* the gate —
- *    the parental PIN prompt — where a dismissable modal is not a gate at all.
- *  - Radius and colour follow the active `[data-theme]`, so the same dialog is a
- *    20px kid panel or a 12px parent card with no prop.
- */
+// Dialog — the shadcn/Radix primitive, tokenized for both themes.
 
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root {...props} />;

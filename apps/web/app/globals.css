@@ -1,26 +1,16 @@
 /* biome-ignore-all lint/complexity/noImportantStyles: the reduced-motion reset has to outrank utility classes and animation shorthands wherever they are declared — this is the canonical form of the rule, and the only alternative is auditing every future transition by hand. */
 
 @import "tailwindcss";
-/* kidlearn design tokens (brand palette, kid/parent themes, semantic mappings). */
 @import "@kidlearn/ui/styles/tokens.css";
 
 /* Tailwind v4 does not scan node_modules, so the workspace UI package's class
    names would be purged. Explicitly register its source for class detection. */
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
-/* ───────────────────────────────────────────────────────────────────────────
-   Activity feedback (FR-ACT-05)
-
-   The "not quite — try again" shake. Here rather than in the shared token
-   contract because it is one game surface's feedback, not a value any parent
-   component reads; and as CSS rather than a Motion transform because the
-   element it lands on already carries dnd-kit's own translate, which a second
-   JS-written transform would fight.
-
-   Transform only, and neutralised by the reduced-motion blocks further down —
-   applied as `motion-safe:animate-wiggle`, so nothing moves for a child who has
-   asked for stillness (design.md §5.2).
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Activity feedback (FR-ACT-05) — the "not quite, try again" shake.
+   CSS rather than a Motion transform because the element already carries
+   dnd-kit's own translate, which a second JS-written transform would fight.
+   Applied as `motion-safe:animate-wiggle` (design.md §5.2). */
 @theme {
   --animate-wiggle: wiggle 400ms var(--ease-standard) 1;
 
@@ -38,21 +28,10 @@
   }
 }
 
-/* ───────────────────────────────────────────────────────────────────────────
-   Matched-pair palette (FR-ACT-03)
-
-   Six hues, because six is the largest number of pairs a match payload may
-   carry and every locked pair needs its own highlight. Declared here rather
-   than in the shared token contract for the same reason the shake above is:
-   this is one game surface's art, not a value a parent component reads.
-
-   Brand hues used directly, which design.md §2.2 permits for decorative game
-   art. They say "this card and that card are the same pair" and nothing else —
-   the line drawn between them and the tick on the card are what say "matched",
-   so no meaning rests on colour alone (design.md §2.3). Blossom joined the
-   palette for this: the brand hues were drawn for interface accents, not for
-   six simultaneously distinguishable game colours, so it was one short.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Matched-pair palette (FR-ACT-03) — six hues, the largest number of pairs a
+   match payload may carry. Brand hues used directly, which design.md §2.2
+   permits for decorative game art; the connecting line and the tick are what
+   say "matched", so no meaning rests on colour alone (design.md §2.3). */
 @theme {
   --color-pair-1: var(--color-grape);
   --color-pair-2: var(--color-mint);
@@ -62,17 +41,9 @@
   --color-pair-6: var(--color-sunshine);
 }
 
-/* ───────────────────────────────────────────────────────────────────────────
-   Puzzle completion shine (FR-ACT-04)
-
-   One pass of light across the finished picture — the "look what you made"
-   beat before the engine's celebration takes over. Transform and opacity only,
-   and neutralised by the reduced-motion blocks further down like the shake.
-
-   Capped at `--dur-slow`, and the overlay that carries it is a button, because
-   design.md §5.2 holds this to the same rule as any other celebration: it may
-   not outlast 400ms and a tap must be able to dismiss it.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Puzzle completion shine (FR-ACT-04). Transform and opacity only, capped at
+   `--dur-slow` and dismissable by tap — design.md §5.2 holds a celebration to
+   400ms. Neutralised by the reduced-motion blocks below. */
 @theme {
   --animate-shine: shine var(--dur-slow) var(--ease-standard) 1;
 
@@ -91,23 +62,10 @@
   }
 }
 
-/* ───────────────────────────────────────────────────────────────────────────
-   Bangla typography (FR-I18N-01)
-
-   Fredoka, Nunito and Inter have no Bengali glyphs — without this, a Bangla
-   string falls back to whatever the device happens to have and the two
-   languages look like two different products. `<html lang>` is kept in step by
-   `components/Providers.tsx`, so the stack follows a language switch with no
-   reload.
-
-   Two selectors, and deliberately not a bare `:lang(bn)`. The root form sets
-   the tokens once and lets them inherit; `[lang="bn"]` catches a single tagged
-   element inside an otherwise-English page — the language switch labels itself
-   "বাংলা" while the interface is still in English. A bare `:lang(bn)` would
-   match *every* descendant of a Bangla page, and a declaration made directly on
-   an element always beats an inherited one, so it would silently outrank the
-   `.dyslexia-font` block below on every node in the tree.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Bangla typography (FR-I18N-01) — Fredoka, Nunito and Inter have no Bengali
+   glyphs. Deliberately not a bare `:lang(bn)`: that would match every
+   descendant of a Bangla page, and a direct declaration always beats an
+   inherited one, so it would outrank the `.dyslexia-font` block below. */
 :root:lang(bn),
 [lang="bn"] {
   --family-display: var(--font-noto-bengali), var(--font-fredoka);
@@ -115,17 +73,10 @@
   --family-ui: var(--font-noto-bengali), var(--font-inter);
 }
 
-/* ───────────────────────────────────────────────────────────────────────────
-   Accessibility preferences (NFR-A11Y-03..05)
-
-   Classes on <html>, written by `lib/a11y-prefs.ts` and applied before first
-   paint by the inline bootstrap script in the root layout.
-
-   The colour overrides need the extra `[data-theme]` selector because each
-   route group re-declares those tokens on its own wrapper — an override on
-   <html> alone would be shadowed by the nearer declaration. The font overrides
-   do not: `--family-*` is declared once on `:root` and simply inherits.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Accessibility preferences (NFR-A11Y-03..05) — classes on <html>, written by
+   `lib/a11y-prefs.ts`. The colour overrides need the extra `[data-theme]`
+   selector because each route group re-declares those tokens on its own
+   wrapper; the font overrides inherit from `:root` and do not. */
 
 /* High contrast — every pair below is ≥7:1 (WCAG AAA). */
 .high-contrast,
@@ -173,8 +124,7 @@
   font-display: swap;
 }
 
-/* Noto Bengali stays in the chain: OpenDyslexic has no Bengali glyphs, so a
-   Bangla reader who needs the dyslexia font must still get readable text.
+/* Noto Bengali stays in the chain: OpenDyslexic has no Bengali glyphs.
    `:root.dyslexia-font` matches the specificity of `:root:lang(bn)` above and
    is declared after it, so the accessibility setting wins the tie. */
 :root.dyslexia-font {

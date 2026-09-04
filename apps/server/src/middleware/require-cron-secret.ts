@@ -6,21 +6,6 @@ import { ApiError } from "../lib/errors.js";
 /**
  * The guard on `/api/admin/jobs/*` — a shared secret in an `Authorization` header
  * (file 30).
- *
- * **Deliberately not an admin session.** Every other guard in this codebase resolves
- * a signed-in human; the caller here is cron-job.org, which has no browser, no
- * cookie jar and nobody to complete an OAuth round trip. A scheduler that cannot
- * authenticate is a scheduler that does not run, so the credential is a bearer
- * secret the operator pastes into the job's header field.
- *
- * That makes the secret the whole of the authorisation, which is why `env.ts`
- * requires at least 16 characters and why these endpoints must never grow a route
- * that *reads* per-child data. What they may do is what this job does: recompute
- * something the server already owns. The response says how many children were
- * processed and nothing about who they are.
- *
- * `401`, not `403`: a missing or wrong secret is a failure to authenticate, and
- * there is no identity here for a `403` to be about.
  */
 export const requireCronSecret: RequestHandler = (
   req: Request,

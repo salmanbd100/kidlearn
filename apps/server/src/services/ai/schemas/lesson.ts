@@ -2,32 +2,7 @@ import { type Locale, QuizQuestionSchema } from "@kidlearn/types";
 import { z } from "zod";
 import { localized } from "./localized.js";
 
-/**
- * What the lesson generator's answer must be shaped like (FR-AI-01).
- *
- * **Built per request, not once.** An admin picks which languages a lesson is
- * generated in, and the schema is what makes that binding: asking for `["en"]`
- * produces a schema where `introScript` has exactly an `en` key, and a response
- * carrying `bn` as well is rejected as strictly as one missing `en`. A fixed
- * two-locale schema could only ever express "both", which would either force a
- * Bangla script nobody asked for or make the requested set advisory.
- *
- * **The title is generated per locale, not derived from the admin's focus line.**
- * `LessonTranslation.title` is what a child reads on a lesson card, so an English
- * focus line copied into the Bangla row would be untranslated child-facing text
- * that no reviewer sees as missing, because the field is filled (FR-I18N-01). The
- * focus line still names the row for the CMS and supplies the slug.
- *
- * **`quizQuestions` is `QuizQuestionSchema` from `@kidlearn/types`, unchanged.**
- * The same union the renderer draws from, the admin editor validates against and
- * the student API serves — so the request's `responseJsonSchema` and the
- * acceptance test are one object (FR-AI-03). Note that it requires *both* locales on every
- * question regardless of `languages`, because a stored question is content and
- * the payload contract has always required both (FR-I18N-01); the per-locale
- * choice above governs the scripts, which are this lesson's own text.
- *
- * The bounds come straight from the spec: 2–4 objectives, 3–5 questions.
- */
+// What the lesson generator's answer must be shaped like (FR-AI-01).
 
 export const LEARNING_OBJECTIVE_BOUNDS = { min: 2, max: 4 } as const;
 export const QUIZ_QUESTION_BOUNDS = { min: 3, max: 5 } as const;
@@ -71,14 +46,7 @@ export function buildLessonGenerationOutputSchema(
     .strict();
 }
 
-/**
- * The parsed shape, widened to every locale as optional.
- *
- * The runtime schema is exact about which locales are present; the static type
- * cannot be, because the set is a request parameter. Consumers read it through
- * the same `languages` array they asked with, so the optionality is checked where
- * it is actually decided rather than assumed away.
- */
+/** The parsed shape, widened to every locale as optional. */
 export interface LessonGenerationOutput {
   title: Partial<Record<Locale, string>>;
   learningObjectives: string[];

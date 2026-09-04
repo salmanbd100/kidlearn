@@ -11,38 +11,7 @@ import { avatarArtFor } from "@/lib/avatars";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { toLocale } from "@/lib/locale";
 
-/**
- * Pick the character a child wears (FR-PROF-02, FR-GAM-05).
- *
- * A radio group, built from native inputs rather than buttons, because that is
- * what "choose exactly one of these" means to a screen reader and to a keyboard:
- * arrow keys move within the group and the group is one tab stop. The inputs are
- * visually hidden but not removed — `sr-only` keeps them focusable, and the tile
- * styling hangs off `peer-checked` / `peer-focus-visible`, so the focus ring is
- * real rather than simulated.
- *
- * `options` comes from the API, never from a list in this app: the ids are
- * `Character` row ids and the published set is content (file 31).
- *
- * ## Locked characters
- *
- * An option carrying `isUnlocked: false` is one this child has not earned yet,
- * and it is **shown rather than hidden** — a picker listing only what a child
- * already has cannot show them what there is to earn.
- *
- * They sit *below* the radio group rather than inside it, in a section of their
- * own. A radio group is "choose one of these", and something that cannot be
- * chosen does not belong in it: inside, a keyboard user would arrow onto a
- * choice that refuses to take, and a screen reader would count it among the
- * options. Each one is a `button` rather than a disabled radio for the same
- * reason — a disabled control is skipped and announced as unavailable, which
- * tells nobody *why*. Pressing it plays the gentle "keep learning to unlock"
- * line and changes nothing: never an error, and never a dead tap.
- *
- * `isUnlocked` is optional so `GET /api/characters` — the starter list the
- * create form uses, where every option is by definition available — needs no
- * flag of its own.
- */
+/** Pick the character a child wears (FR-PROF-02, FR-GAM-05). */
 export interface AvatarPickerOption extends AvatarCharacterResponse {
   /** Absent means unlocked; only the per-child lists send `false`. */
   isUnlocked?: boolean;
@@ -168,13 +137,7 @@ function AvatarArtwork({ option }: { option: AvatarPickerOption }) {
   );
 }
 
-/**
- * A character still to be earned.
- *
- * `grayscale` plus a reduced opacity rather than a different glyph: the
- * silhouette is recognisably *that* character, so the day it unlocks the child
- * sees the one they had been looking at.
- */
+/** A character still to be earned. */
 function LockedAvatar({ option }: { option: AvatarPickerOption }) {
   const { t, i18n } = useTranslation(PARENT_NAMESPACE);
   const { play } = useAudio();

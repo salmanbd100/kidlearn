@@ -4,21 +4,7 @@ import { Pause, Play, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
-/**
- * Everything a three-year-old is allowed to do to a video (FR-LSN-02).
- *
- * **The list is short on purpose.** Play/pause and start-again, and that is all.
- * There is no seek bar, because scrubbing is a fine-motor task a preschooler
- * fails at and lands on a random frame; no volume slider, because the device has
- * one and a muted lesson is indistinguishable from a broken one; and no
- * fullscreen or picture-in-picture, because both are doors out of the app into
- * browser chrome nobody can get back from (NFR-SAFE-07). The native `controls`
- * attribute is off in `VideoStep` for the same reason, and its absence is
- * asserted there.
- *
- * Split out from `VideoStep` so this — the part with a state per button — is
- * testable without a media element that jsdom cannot play.
- */
+// Everything a three-year-old is allowed to do to a video (FR-LSN-02).
 
 export type VideoState =
   | "loading"

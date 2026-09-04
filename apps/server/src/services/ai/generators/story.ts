@@ -12,34 +12,7 @@ import {
   type StoryGenerationOutput,
 } from "../schemas/story.js";
 
-/**
- * The AI Story Generator (FR-AI-02).
- *
- * An admin picks the grades, a moral, a world and the languages; this builds the
- * prompt, runs it through `runGenerationJob`, and writes what comes back as a
- * **draft** `Story` with its pages in order and text in every requested language.
- *
- * **Nothing here can publish, and that is structural rather than careful.** The
- * `story.create` below omits `status`, so the column takes its `draft` default,
- * and no branch in this file writes any other value. The student library filters
- * `status: "published"`, so a generated story answers `404` to a child until an
- * administrator moves it through review (file 37, FR-AI-07). The row carries
- * `aiJobId`, which is what lets that file refuse to publish generated content no
- * human approved.
- *
- * **The story has two titles and two morals, for the reason the lesson has two
- * titles.** `Story.title` and `Story.theme` are the admin labels the CMS lists and
- * an audit trail names; `StoryTranslation.title` and `.moral` are what a child
- * reads and hears, so they are generated per locale (FR-I18N-01). The slug comes
- * from the English title where English was asked for, and from the admin's theme
- * line otherwise — a Bangla title transliterates into a slug nobody can search.
- *
- * **`characterDescriptions` is not persisted here.** It stays in the job's
- * `rawOutput`, where file 36's image pipeline reads it for illustration
- * consistency and file 37 promotes it into `CharacterSheet` rows on approval.
- * Writing those rows now would create character records for a story that may yet
- * be rejected.
- */
+// The AI Story Generator (FR-AI-02).
 
 /** The spec's default: seven pages, the middle of the 6–8 range. */
 export const DEFAULT_PAGE_COUNT = 7;
@@ -179,13 +152,7 @@ async function persistStory({
   return { storyId: story.id, pageIds };
 }
 
-/**
- * Slugified title, suffixed until it is free.
- *
- * `Story.slug` is unique across the whole table rather than per parent, so the
- * collision this walks around is any story ever written — two "The Kind Rabbit"s
- * generated a month apart are the normal case, not an admin mistake.
- */
+/** Slugified title, suffixed until it is free. */
 async function uniqueSlug(
   tx: Prisma.TransactionClient,
   title: string,

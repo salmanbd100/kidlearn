@@ -9,21 +9,6 @@ import { generateQuiz } from "@/lib/admin-api";
 /**
  * "Generate questions with AI" — the admin end of the AI Quiz Generator
  * (file 35, FR-AI-03).
- *
- * **A button rather than a dialog, deliberately.** Everything the endpoint needs
- * beyond the lesson is a count, and the lesson supplies the grade, the languages
- * and the material — a form asking an admin to restate what the lesson already
- * says is a form that lets them contradict it. It sits beside "Edit quiz" on the
- * selected lesson rather than inside the lesson form, because the form has no id
- * to generate against until the lesson has been saved.
- *
- * **A `409` here is expected, not exceptional.** It means the lesson's quiz is
- * published, and a generated question would be live the instant it landed — a
- * `QuizQuestion` has no status of its own (FR-AI-07). The message says to withdraw
- * the quiz rather than reporting a failure the admin cannot act on.
- *
- * The request is un-retried and can take tens of seconds — see `lib/admin-api.ts`
- * — so the button carries the wait in its own label.
  */
 
 /** Both locales, always: a stored question requires both (FR-I18N-01). */

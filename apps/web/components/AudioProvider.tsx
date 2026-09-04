@@ -11,17 +11,7 @@ import {
   useState,
 } from "react";
 
-/**
- * One narration channel for the whole app (NFR-A11Y-01 groundwork).
- *
- * A 3-year-old taps everything. Without a single channel, three overlapping
- * voice-overs play at once and none of them is understandable — so starting a
- * clip stops whatever was playing, and there is never more than one live
- * `HTMLAudioElement`.
- *
- * The real narration assets arrive with the AI pipeline (file 36); this is the
- * playback machinery they will use.
- */
+// One narration channel for the whole app (NFR-A11Y-01 groundwork).
 
 const MUTE_STORAGE_KEY = "kidlearn_audio_muted";
 
@@ -31,16 +21,6 @@ export interface PlayOptions {
    * Called once when this clip is no longer going to be heard — it reached its
    * end, failed to load, was blocked by autoplay policy, or was refused because
    * the channel is muted or already busy.
-   *
-   * All four collapse into one callback deliberately. A caller waiting on
-   * narration is asking "has the child heard this yet?", and the honest answer
-   * to a clip that never played is "as much as they ever will" — the alternative
-   * is a lesson's advance cue that never appears because a file 404'd (file 17,
-   * FR-LSN-01).
-   *
-   * It does **not** fire for a clip cut off by a newer one: the channel moved on,
-   * which is not the same as this clip being done, and the newer clip carries its
-   * own callback.
    */
   onFinished?: () => void;
 }

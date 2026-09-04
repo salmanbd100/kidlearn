@@ -1,23 +1,6 @@
 import type { ErrorCode } from "@kidlearn/types";
 
-/**
- * The single door to `apps/server`.
- *
- * Two things it is deliberately responsible for:
- *
- *  - **Unwrapping the envelope.** Every route answers `{ data }` or
- *    `{ error: { code, message } }` (see `@kidlearn/types` → `api/envelope`).
- *    Callers get a discriminated `ApiResult` instead of a raw `Response`, so a
- *    forgotten `res.ok` check cannot render an error object as content.
- *  - **Surviving a cold start.** The API is deployed on a free tier that sleeps;
- *    the first request after idle either fails to connect or answers 5xx for a
- *    few seconds. Those are retried with backoff, and `onColdStart` lets the UI
- *    put the mascot on screen instead of an error (NFR-PERF-04).
- *
- * Never branch on `error.message` — it is a developer hint and may be reworded.
- * `error.code` is the contract: behind a single 403 sit `CONSENT_REQUIRED`,
- * `PIN_REQUIRED` and `PIN_VERIFICATION_REQUIRED`, which are three screens.
- */
+// The single door to `apps/server`.
 
 const DEFAULT_API_URL = "http://localhost:4000";
 const DEFAULT_RETRIES = 2;

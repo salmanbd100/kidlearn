@@ -5,25 +5,7 @@ import { z } from "zod";
 import { ADMIN_MIN_PASSWORD_LENGTH, auth } from "../lib/auth.js";
 import { prisma } from "../lib/prisma.js";
 
-/**
- * Creates or refreshes an administrator (file 31, spec §4.3).
- *
- * **Admins never self-register.** `emailAndPassword.disableSignUp` in
- * `lib/auth.ts` closes `POST /api/auth/sign-up/email` for everybody, so this
- * script is the only way an admin comes into existence — and, because there is no
- * self-service reset at MVP, re-running it is how a *forgotten* password is
- * recovered. An admin who still knows theirs can change it through better-auth's
- * `POST /api/auth/change-password` instead.
- *
- * That is exactly why it does not go through `auth.api.signUpEmail`: that endpoint
- * consults `disableSignUp` itself and would refuse. It writes through
- * `auth.$context` instead — better-auth's own hasher and internal adapter, in the
- * same order `sign-up/email` uses them (hash, create user, link a `credential`
- * account) — so the row it produces is byte-for-byte the row a sign-up would have
- * produced, and no password hashing is reimplemented here. The alternative,
- * flipping `disableSignUp` off for the duration of the call, would open the public
- * endpoint for as long as the script ran.
- */
+// Creates or refreshes an administrator (file 31, spec §4.3).
 
 const SeedEnvSchema = z.object({
   ADMIN_EMAIL: z.string().email(),
@@ -47,10 +29,6 @@ export interface SeedAdminResult {
  * Idempotent: running twice with the same email leaves exactly one `AdminUser`
  * row and one `credential` account, with the password set to whatever was passed
  * the last time.
- *
- * Exported separately from the CLI entry so the suite can drive it without
- * spawning a process — "safe to re-run" is a claim about row counts, and a test
- * that shells out cannot see them.
  */
 export async function seedAdmin({
   email,
@@ -122,16 +100,7 @@ export async function seedAdmin({
   return { admin, isCreated: before === null };
 }
 
-/**
- * `pnpm --filter server seed:admin`.
- *
- * Reads its three variables itself rather than adding them to `lib/env.ts`: the
- * server must not require an admin password to be present at boot, and a
- * deployment that never seeds an admin from its own environment is normal.
- *
- * Prints the email so an operator can confirm which account was touched. Never
- * prints the password, and never echoes it on failure either.
- */
+/** `pnpm --filter server seed:admin`. */
 const isDirectRun =
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;

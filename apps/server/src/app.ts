@@ -29,7 +29,6 @@ export function buildApp(): Express {
     }),
   );
 
-  // --- Auth, before any body parser ----- //
   app.use("/api/auth", authRouter);
   // better-auth reads the raw request stream, so it must be mounted *before*
   // express.json() — with a JSON parser in front, its client calls hang.

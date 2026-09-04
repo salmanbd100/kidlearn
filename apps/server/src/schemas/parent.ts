@@ -1,14 +1,6 @@
 import { z } from "zod";
 
-/**
- * Request schemas for `/api/parent`.
- *
- * These were inline in `routes/parent.ts` until file 12a. They moved here for two
- * reasons: it is where `schemas/children.ts` and `schemas/content.ts` already
- * live, and the OpenAPI document needs to import them to describe the request
- * bodies — a spec that restated these shapes by hand would be a second source of
- * truth, which is the thing this whole exercise exists to avoid.
- */
+// Request schemas for `/api/parent`.
 
 /** Exactly four digits — leading zeros are significant, so this is a string. */
 export const PinSchema = z

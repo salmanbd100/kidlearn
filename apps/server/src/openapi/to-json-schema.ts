@@ -1,50 +1,12 @@
 import { type ZodTypeAny, z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-/**
- * The one place Zod becomes JSON Schema.
- *
- * `target: "openApi3"` is load-bearing. This API is full of nullable fields —
- * `avatarCharacterId`, `mascot`, `introScript`, `progress`, every `*Url` — and
- * OpenAPI 3.0 spells those `{ type: "string", nullable: true }` rather than JSON
- * Schema's `type: ["string", "null"]`. Swagger UI renders the former correctly and
- * the latter as an empty type.
- *
- * The conversion runs in `apps/server` rather than in `@kidlearn/types`
- * deliberately: the schemas themselves stay pure Zod, with no OpenAPI library in
- * their dependency tree that `apps/web` would then inherit for no reason.
- *
- * Two limits are worth knowing, because the converter drops them **silently**:
- *
- *  - `.refine()` / `.superRefine()` have no JSON Schema equivalent. So
- *    `UpdateChildBodySchema`'s "at least one field required" rule, and the
- *    cross-field rules in `@kidlearn/types`' `refinements.ts`, vanish. Anything
- *    that matters to a caller has to be restated in a `description` — see
- *    `paths/children.ts`.
- *  - `z.record(z.string())` becomes `additionalProperties: { type: "string" }`
- *    with no declared properties, which is accurate but tells a reader nothing.
- *    Hence the worked example in `PaletteSchema`'s description.
- *
- * And one it gets outright wrong — see `normalizeNullLiterals` below.
- */
+// The one place Zod becomes JSON Schema.
 
 /** A JSON Schema object, as far as this module cares. */
 export type JsonSchemaObject = Record<string, unknown>;
 
-/**
- * Repairs `z.null()`.
- *
- * The `openApi3` target emits `{ enum: ["null"], nullable: true }` for a
- * `ZodNull` — note the quotes. That describes a field whose only legal value is
- * the four-character string `"null"`, which is not what the schema says and not
- * what the server sends. kidlearn hits this on every reserved placeholder field
- * (`LessonListItem.progress`, `LessonDetail.progress`), so a client generated
- * from the unrepaired spec would type them as `"null"` string literals.
- *
- * Fixed here rather than by avoiding `z.null()` upstream, because `z.null()` is
- * the correct runtime contract and the route tests rely on it to assert that the
- * placeholders really are null.
- */
+/** Repairs `z.null()`. */
 function normalizeNullLiterals(node: unknown): void {
   if (Array.isArray(node)) {
     for (const item of node) normalizeNullLiterals(item);
@@ -70,10 +32,6 @@ function normalizeNullLiterals(node: unknown): void {
 /**
  * Converts a map of named schemas into `components.schemas` entries, with every
  * internal `$ref` pointing at `#/components/schemas/<Name>`.
- *
- * One call for the whole map, not one per schema: that is what lets a schema
- * referenced from several places (`MediaSummary`, `WorldSummary`) be emitted once
- * and referenced, instead of inlined at each use site.
  */
 export function buildComponentSchemas(
   definitions: Record<string, ZodTypeAny>,

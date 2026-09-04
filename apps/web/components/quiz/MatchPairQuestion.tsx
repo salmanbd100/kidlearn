@@ -20,27 +20,7 @@ import { isWiggling, useWiggle } from "@/components/activities/use-wiggle";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import type { QuestionProps, QuizAnswerValue } from "./types";
 
-/**
- * Match each one to its partner (FR-QUIZ-02).
- *
- * **The interaction is the match activity's, not a copy of it.** `usePairing`
- * was written activity-agnostic in file 20 for exactly this: tap one, tap its
- * partner, wrong clears the selection and nothing is ever taken away. What
- * changes here is only who is keeping score.
- *
- * **A pair that goes together is confirmed but does not interrupt.** The cheer
- * is played straight from the shared pool rather than through
- * `feedback.correct`, because that method's job is the 1.2-second hold before a
- * commit — and mid-question there is nothing to commit. Putting a lock after
- * every pair would leave a child tapping into a dead board for a second at a
- * time. The channel is used as intended at the end, where there *is* something
- * to advance to.
- *
- * **One answer, at the end.** Pairs matched along the way are the child's
- * working, not attempts: a clean run reports a single correct attempt, and each
- * wrong pair adds one. That is what makes `attempts: 1, isCorrect: true` mean
- * "knew it" here as it does on a four-option question.
- */
+// Match each one to its partner (FR-QUIZ-02).
 
 const matchCardVariants = cva(
   // 96px square before its contents — the same floor the match activity sets,

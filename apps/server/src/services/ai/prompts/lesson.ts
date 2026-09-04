@@ -3,21 +3,7 @@ import type { Locale } from "@kidlearn/types";
 import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
 import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
-/**
- * The prompts behind the AI Lesson Generator (FR-AI-01).
- *
- * `KIDLEARN_SYSTEM_PROMPT` is the shared persona — file 35's story and quiz
- * generators reuse it unchanged, so a safety rule tightened here tightens
- * everywhere. It carries the content rules the spec makes non-negotiable
- * (NFR-SAFE, FR-I18N-01): age-appropriate, culturally neutral, never frightening,
- * native-quality in every requested language.
- *
- * Neither prompt restates the JSON shape. The request's `responseJsonSchema` is
- * generated from the very Zod object the answer is validated against, so
- * describing the fields in prose would be a second source of truth that drifts
- * the first time a question format gains one (FR-AI-03,
- * `services/ai/gemini-text.ts`).
- */
+// The prompts behind the AI Lesson Generator (FR-AI-01).
 
 export const KIDLEARN_SYSTEM_PROMPT = `You are a curriculum writer for KidLearn, an educational platform for children aged 3 to 6
 (grades: Nursery, KG-1, KG-2). You write warm, simple, encouraging content designed to be

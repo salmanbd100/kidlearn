@@ -13,18 +13,7 @@ import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/lib/avatars";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 
-/**
- * How a child says "that one is me" (FR-AUTH-06).
- *
- * The whole card is the button, not a button inside it: a three-year-old aims at
- * the picture, and a hit area that stops short of what they aimed at reads as the
- * app ignoring them. At the smallest phone width two of these sit side by side and
- * each is still far past the 64px kid minimum (design.md §7).
- *
- * Deliberately no PIN and no lock: listing first names and avatars so a child can
- * pick one is the designed behaviour, and a gate here would make handing the
- * tablet to a sibling a parent's job. The PIN guards `/parent/*`.
- */
+// How a child says "that one is me" (FR-AUTH-06).
 
 const profileCardVariants = cva(
   "flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",

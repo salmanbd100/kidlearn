@@ -25,23 +25,7 @@ import { useActivitySensors } from "./use-activity-sensors";
 import { usePlacementState } from "./use-placement-state";
 import { isWiggling, type WiggleRequest } from "./use-wiggle";
 
-/**
- * Put each thing where it belongs (FR-ACT-01).
- *
- * **The tray empties into the targets.** A card the child gets right is removed
- * from the tray and redrawn inside the target it belongs to, which is why there
- * is no "disabled draggable" state anywhere below: a placed item is no longer a
- * thing that can be picked up, so it stops being one. What is left in the tray is
- * exactly what is left to do — the progress indicator a pre-reader can read.
- *
- * **Wrong is quiet.** A card dropped on the wrong target snaps back on its own
- * (dnd-kit discards the transform; nothing here persists one) and wiggles for
- * 400ms while an encouraging voice plays. There is no counter, no cross, and no
- * ceiling on attempts (FR-ACT-05).
- *
- * How a drag starts — and why mouse and touch are tuned apart — lives in
- * `use-activity-sensors.ts`, shared with the puzzle board.
- */
+// Put each thing where it belongs (FR-ACT-01).
 
 const itemCardVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a

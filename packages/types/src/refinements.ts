@@ -1,11 +1,4 @@
-/**
- * Cross-field refinement helpers shared by the activity and quiz schemas.
- *
- * Zod validates fields in isolation; these helpers cover the referential rules
- * that only make sense once the whole payload is present — "this id points at
- * something that exists", "no id is reused". Internal to the package: not
- * re-exported from `src/index.ts`.
- */
+/** Cross-field refinement helpers shared by the activity and quiz schemas. */
 import { z } from "zod";
 
 /** The minimum shape these helpers need — deliberately structural, not tied to a schema. */
@@ -43,13 +36,6 @@ export function addDuplicateIdIssues(
  * Validates a two-column pairing (match activity, match_pair question):
  * every referenced id exists, no id on either side is used twice, and every
  * left-column entry has somewhere correct to go.
- *
- * That last rule is the same one `DragDropActivitySchema` enforces on its items,
- * and for the same reason: a child who is asked to match six things but can only
- * be right about one has no way to finish, and no way to understand why. It
- * applies to the left column only — a spare right-column entry is a distractor,
- * which is legitimate content (drag-drop permits unused targets on the same
- * grounds).
  */
 export function addPairingIssues(
   ctx: z.RefinementCtx,

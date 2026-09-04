@@ -7,18 +7,7 @@ import { OptionCard } from "./OptionCard";
 import type { QuestionProps } from "./types";
 import { useOptionChoice } from "./use-option-choice";
 
-/**
- * Pick the right one (FR-QUIZ-01).
- *
- * Three or four cards, each with the option's words and its picture if the
- * payload carries one. The engine above has already spoken the question; a card
- * only has to be big enough to hit and clear enough to tell apart.
- *
- * One column on a phone held upright, two with it held sideways — four cards
- * stacked in landscape would put the last one below the fold, and a question a
- * child has to scroll to finish reading is a question they answer from the top
- * three (design.md §6).
- */
+/** Pick the right one (FR-QUIZ-01). */
 export function McqQuestion({
   definition,
   locale,

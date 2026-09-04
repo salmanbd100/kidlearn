@@ -5,9 +5,6 @@ import { ERROR_CODES } from "./errors.js";
  * The two response shapes the API sends. No route ever sends a bare body — the
  * rule is stated in `apps/server/src/lib/errors.ts` and enforced by these
  * schemas being the only thing the route tests accept.
- *
- * Success (2xx):  { "data": <payload> }
- * Failure (4xx/5xx): { "error": { "code", "message", "details"? } }
  */
 
 /** Wraps a payload schema in the success envelope. */
@@ -45,13 +42,5 @@ export const ValidationDetailsSchema = z.object({
   fieldErrors: z.record(z.array(z.string())),
 });
 
-/**
- * A timestamp as it appears **on the wire**.
- *
- * The services type these fields as `Date`, but `res.json()` serialises them to
- * ISO-8601 strings. Every response schema in this directory uses this, never
- * `z.date()` — a schema built from the TypeScript type would be wrong about
- * every timestamp in the API and would fail the moment a test parsed a real
- * response body.
- */
+/** A timestamp as it appears **on the wire**. */
 export const IsoDateTimeSchema = z.string().datetime();
