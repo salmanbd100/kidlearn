@@ -3,7 +3,7 @@ import type { Locale } from "@kidlearn/types";
 import { ApiError } from "../../../lib/errors.js";
 import { prisma } from "../../../lib/prisma.js";
 import { slugify } from "../../../lib/slug.js";
-import { generateStructured } from "../claude.js";
+import { generateStructured } from "../gemini-text.js";
 import { KIDLEARN_SYSTEM_PROMPT } from "../prompts/lesson.js";
 import { buildStoryUserPrompt } from "../prompts/story.js";
 import { runGenerationJob } from "../run-generation-job.js";
@@ -40,8 +40,6 @@ import {
  * Writing those rows now would create character records for a story that may yet
  * be rejected.
  */
-
-const TOOL_NAME = "submit_story";
 
 /** The spec's default: seven pages, the middle of the 6–8 range. */
 export const DEFAULT_PAGE_COUNT = 7;
@@ -110,7 +108,6 @@ export async function generateStory(
                 { role: "user", content: userPrompt },
                 { role: "user", content: retryFeedback },
               ],
-        toolName: TOOL_NAME,
         outputSchema: schema,
       }),
     persist: (parsed, jobId, tx) =>

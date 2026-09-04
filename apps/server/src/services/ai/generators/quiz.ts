@@ -2,7 +2,7 @@ import type { Prisma } from "@kidlearn/db";
 import { type Locale, safeParseQuizQuestion } from "@kidlearn/types";
 import { ApiError } from "../../../lib/errors.js";
 import { prisma } from "../../../lib/prisma.js";
-import { generateStructured } from "../claude.js";
+import { generateStructured } from "../gemini-text.js";
 import { withPlaceholderAssets } from "../placeholder-assets.js";
 import { KIDLEARN_SYSTEM_PROMPT } from "../prompts/lesson.js";
 import { buildQuizUserPrompt } from "../prompts/quiz.js";
@@ -53,8 +53,6 @@ import {
  * have been rewritten onto the placeholder host. The two checks are cheap and the
  * failure they guard is a question a child cannot answer.
  */
-
-const TOOL_NAME = "submit_quiz_questions";
 
 /** The spec's default: four questions, the middle of the 3–5 range. */
 export const DEFAULT_QUESTION_COUNT = 4;
@@ -139,7 +137,6 @@ export async function generateQuiz(
                 { role: "user", content: userPrompt },
                 { role: "user", content: retryFeedback },
               ],
-        toolName: TOOL_NAME,
         outputSchema: schema,
       }),
     persist: async (parsed, jobId, tx) => {

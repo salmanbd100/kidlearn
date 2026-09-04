@@ -23,7 +23,7 @@
  *     no asset row is Postgres's transaction guarantee — the stub runs the
  *     callback and rethrows, so the test asserts the *job* failed.
  *
- * ElevenLabs and the Cloudinary upload are mocked, which `general.md §5` permits
+ * Google TTS and the Cloudinary upload are mocked, which `general.md §5` permits
  * explicitly: external network boundaries are the one allowed mock.
  */
 
@@ -48,7 +48,7 @@ const store = vi.hoisted(() => ({
 const voice = vi.hoisted(() => ({ generateNarration: vi.fn() }));
 const upload = vi.hoisted(() => ({ uploadBuffer: vi.fn() }));
 
-vi.mock("../elevenlabs.js", () => ({
+vi.mock("../google-tts.js", () => ({
   generateNarration: voice.generateNarration,
 }));
 
@@ -314,7 +314,7 @@ describe("what a narration job records", () => {
 
   it("keeps the words that were spoken and what they cost", async () => {
     // A reviewer months later needs the text the voice actually read; the row it
-    // came from may have been edited since (FR-AI-08). ElevenLabs meters
+    // came from may have been edited since (FR-AI-08). Google TTS meters
     // characters, so `charCount` is what this job cost.
     const result = await generateNarrationBatch({
       entity: "lesson",
@@ -347,7 +347,7 @@ describe("what a narration job records", () => {
   });
 
   it("fails the job rather than throwing when the voice provider errors", async () => {
-    voice.generateNarration.mockRejectedValue(new Error("ElevenLabs 429"));
+    voice.generateNarration.mockRejectedValue(new Error("Google TTS 429"));
 
     const result = await generateNarrationBatch({
       entity: "lesson",
@@ -363,7 +363,7 @@ describe("what a narration job records", () => {
     // their own error. Without this count the caller cannot tell sixteen clips
     // recorded from sixteen clips that produced nothing, and the CMS said the
     // former.
-    voice.generateNarration.mockRejectedValue(new Error("ElevenLabs 401"));
+    voice.generateNarration.mockRejectedValue(new Error("Google TTS 401"));
 
     const result = await generateNarrationBatch({
       entity: "lesson",
@@ -398,7 +398,7 @@ describe("what a narration job records", () => {
     );
     voice.generateNarration
       .mockResolvedValueOnce(Buffer.from("mp3"))
-      .mockRejectedValueOnce(new Error("ElevenLabs 429"));
+      .mockRejectedValueOnce(new Error("Google TTS 429"));
 
     const result = await generateNarrationBatch({
       entity: "lesson",
@@ -671,7 +671,7 @@ describe("re-running the batch", () => {
   });
 
   it("asks again once the earlier job failed", async () => {
-    voice.generateNarration.mockRejectedValueOnce(new Error("ElevenLabs 500"));
+    voice.generateNarration.mockRejectedValueOnce(new Error("Google TTS 500"));
     const first = await generateNarrationBatch({
       entity: "lesson",
       id: LESSON_ID,

@@ -10,8 +10,8 @@ import { z } from "zod";
  * `bn` as well is rejected as strictly as one missing `en`, so the model cannot
  * quietly write a language nobody asked to review.
  *
- * `describe()` reaches the model — the description becomes part of the tool's
- * generated `input_schema` — so it is written as an instruction, not a note.
+ * `describe()` reaches the model — the description becomes part of the generated
+ * `responseJsonSchema` — so it is written as an instruction, not a note.
  *
  * ## Every locale in one response — the recorded decision (file 35, FR-I18N-01)
  *

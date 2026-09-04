@@ -17,7 +17,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.120.0",
     "@google/genai": "^2.21.0",
     "@kidlearn/db": "workspace:*",
     "@kidlearn/types": "workspace:*",

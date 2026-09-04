@@ -66,7 +66,7 @@
 | 35 | `35-ai-story-and-quiz-generators.md` | AI story generator + AI quiz generator (schema-validated JSON) | FR-AI-02..03 | 34 | 3–4h | ✅ Done |
 | 36 | `36-ai-audio-and-image-generation.md` | ElevenLabs narration (EN/BN) + image generation + character consistency | FR-AI-04..06, FR-AI-09, FR-I18N-05 | 33, 34 | 3–4h | ✅ Done |
 | 37 | `37-ai-review-queue.md` | Human review queue: approve / edit-then-approve / reject | FR-AI-07, FR-CMS-05..06 | 35, 36 | 3–4h | ✅ Done |
-| 37a | `37a-free-tier-ai-provider-migration.md` | Swap Claude + ElevenLabs for free-tier providers behind the existing generator interfaces | — (protects FR-AI-01..06, FR-AI-08) | 34, 35, 36 | 3–4h | ⬜ Not started |
+| 37a | `37a-free-tier-ai-provider-migration.md` | Swap Claude + ElevenLabs for free-tier providers behind the existing generator interfaces | — (protects FR-AI-01..06, FR-AI-08) | 34, 35, 36 | 3–4h | ✅ Done |
 | 38 | `38-deployment-zero-cost-launch.md` | Vercel + Render/Fly + Supabase + Cloudinary deployment, cold-start UX | §9, NFR-PERF-04 | 16, 29, 37 | 3–4h | ⬜ Not started |
 | 38a | `38a-custom-domain-and-same-site-cookies.md` | `kidlearn.net` + `api.kidlearn.net`, dropping file 38's `SameSite=None` cookie workaround | §9 | 38 | 1–2h | ⬜ Not started |
 
@@ -85,7 +85,7 @@ These are fixed across all implementation files so chunks stay consistent:
 - **Auth:** Google OAuth only for parents (better-auth on Express with the Prisma adapter; cookie sessions). PIN gate is an app-level check, not a second auth system.
 - **i18n:** `i18next` + `react-i18next` on the frontend; per-language asset references (text/audio URLs keyed by locale) in the database. Locales: `en`, `bn`.
 - **Drag & drop:** `@dnd-kit/core` (touch-friendly, accessible).
-- **AI text/quizzes:** Claude API (latest Sonnet-class model) producing JSON validated against `packages/types` schemas. Audio: ElevenLabs. Images: Gemini image models. Video: partially manual at MVP (FR-AI-06 allowance).
+- **AI providers (revised in file 37a — every one on a genuinely usable free tier):** text/quizzes and images both run on one Google AI Studio `GEMINI_API_KEY` — `gemini-2.5-flash` answering against a `responseJsonSchema` generated from the `packages/types` schemas, and `gemini-2.5-flash-image` drawing illustrations. Audio: Google Cloud Text-to-Speech, Standard voices, one voice per language (`GOOGLE_TTS_API_KEY`; its Cloud project needs a billing account attached even though free-tier usage bills $0). Video: partially manual at MVP (FR-AI-06 allowance). Claude and ElevenLabs are gone — no key for either is needed anywhere. The `AI_*_JOBS_PER_DAY` caps are sized to trip before Google's own free-tier quota does; Google no longer publishes per-model daily limits, so read aistudio.google.com/rate-limit before raising them.
 - **Media:** Cloudinary free tier (images, audio, short video).
 - **Publishing rule:** every content row carries `status` (`draft → in_review → approved/rejected → published`); student-facing queries filter `status = published` — always, at the query layer.
 - **Server-authoritative:** rewards, streaks, screen time, completion are computed server-side; the client only reports events.

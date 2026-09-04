@@ -3,7 +3,7 @@ import { z } from "zod";
 import { localized } from "./localized.js";
 
 /**
- * What the lesson generator's tool call must return (FR-AI-01).
+ * What the lesson generator's answer must be shaped like (FR-AI-01).
  *
  * **Built per request, not once.** An admin picks which languages a lesson is
  * generated in, and the schema is what makes that binding: asking for `["en"]`
@@ -20,8 +20,8 @@ import { localized } from "./localized.js";
  *
  * **`quizQuestions` is `QuizQuestionSchema` from `@kidlearn/types`, unchanged.**
  * The same union the renderer draws from, the admin editor validates against and
- * the student API serves — so the tool's `input_schema` and the acceptance test
- * are one object (FR-AI-03). Note that it requires *both* locales on every
+ * the student API serves — so the request's `responseJsonSchema` and the
+ * acceptance test are one object (FR-AI-03). Note that it requires *both* locales on every
  * question regardless of `languages`, because a stored question is content and
  * the payload contract has always required both (FR-I18N-01); the per-locale
  * choice above governs the scripts, which are this lesson's own text.

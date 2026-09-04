@@ -14,7 +14,7 @@ import {
   uploadBuffer,
   uploadFolderFor,
 } from "../../mediaService.js";
-import { generateNarration } from "../elevenlabs.js";
+import { generateNarration } from "../google-tts.js";
 import { assertWithinDailyCap } from "../rate-guard.js";
 import {
   type GenerationJobResult,
@@ -146,7 +146,7 @@ function runNarrationJob(
     type: "audio",
     // The text that was spoken, not a reference to it. A reviewer months later
     // needs the words the voice actually read, and the row it came from may have
-    // been edited since (FR-AI-08). `charCount` because ElevenLabs meters
+    // been edited since (FR-AI-08). `charCount` because Google TTS meters
     // characters — it is what this job cost.
     input: {
       entity: input.entity,
@@ -166,7 +166,7 @@ function runNarrationJob(
       });
 
       // Zeroed rather than omitted. `runGenerationJob` totals token usage across
-      // attempts for the text generators; ElevenLabs bills characters, and that
+      // attempts for the text generators; Google TTS meters characters, and that
       // figure is in `input.charCount` above. Reporting the character count as
       // "tokens" would corrupt the one number the audit trail sums.
       return { raw: { url }, usage: { inputTokens: 0, outputTokens: 0 } };

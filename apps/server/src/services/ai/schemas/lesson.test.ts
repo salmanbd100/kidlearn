@@ -142,11 +142,12 @@ describe("the bounds the spec fixes", () => {
   });
 });
 
-describe("the tool schema the model is given", () => {
+describe("the response schema the model is given", () => {
   it("describes the quiz question union rather than an opaque object", () => {
-    // The tool's `input_schema` is this conversion (`services/ai/claude.ts`), so
-    // the prompt's contract and the acceptance test are one object. Asserted as
-    // properties rather than as a stored snapshot, per `general.md §5`.
+    // The request's `responseJsonSchema` is this conversion
+    // (`services/ai/gemini-text.ts`), so the prompt's contract and the acceptance
+    // test are one object. Asserted as properties rather than as a stored
+    // snapshot, per `general.md §5`.
     const json = zodToJsonSchema(BOTH, {
       target: "jsonSchema7",
       $refStrategy: "none",

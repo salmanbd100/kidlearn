@@ -37,13 +37,12 @@ The whole MVP works locally: web on :3000, server on :4000, `pnpm dev` via Turbo
    | `CLOUDINARY_CLOUD_NAME` | server | no | production cloud (file 33) |
    | `CLOUDINARY_API_KEY` | server | no | (file 33) |
    | `CLOUDINARY_API_SECRET` | server | **yes** | (file 33) |
-   | `ANTHROPIC_API_KEY` | server | **yes** | (file 34) |
-   | `ANTHROPIC_MODEL` | server | no | `claude-sonnet-4-5` default (file 34) |
-   | `ELEVENLABS_API_KEY` | server | **yes** | (file 36) |
-   | `ELEVENLABS_VOICE_ID_EN` / `_BN` | server | no | chosen child-friendly voices (file 36) |
-   | `GEMINI_API_KEY` | server | **yes** | (file 36) |
+   | `GEMINI_API_KEY` | server | **yes** | one AI Studio key, text *and* images (files 36, 37a) |
+   | `GEMINI_TEXT_MODEL` | server | no | default `gemini-2.5-flash` (file 37a) |
    | `GEMINI_IMAGE_MODEL` | server | no | default `gemini-2.5-flash-image` (file 36) |
-   | `AI_TEXT_JOBS_PER_DAY` / `AI_AUDIO_JOBS_PER_DAY` / `AI_IMAGE_JOBS_PER_DAY` | server | no | 50 / 200 / 100 — tighten for launch (file 36) |
+   | `GOOGLE_TTS_API_KEY` | server | **yes** | Cloud TTS key, restricted to that one API (file 37a) |
+   | `GOOGLE_TTS_VOICE_EN` / `_BN` | server | no | defaults `en-US-Standard-C` / `bn-IN-Standard-A`, both a listening decision (file 37a) |
+   | `AI_TEXT_JOBS_PER_DAY` / `AI_AUDIO_JOBS_PER_DAY` / `AI_IMAGE_JOBS_PER_DAY` | server | no | 8 / 100 / 15 — sized under the Gemini free-tier daily request limit; re-check aistudio.google.com/rate-limit before raising (file 37a) |
    | `NEXT_PUBLIC_API_URL` | web | no (public) | `https://<service>.onrender.com` (file 13) |
 
 6. **Cold starts (NFR-PERF-04):** Render free services sleep after ~15 min idle; first request takes 30–60 s. Verify the file-13 UX end-to-end against a genuinely sleeping service (mascot loader + retry, no error flash). **Keep-warm option:** an external pinger (cron-job.org or UptimeRobot, free) hitting `GET /health` every 10 minutes — permitted within Render's free-tier ToS but burns the 750 free instance-hours/month faster only if you have multiple services (one service = always within budget). Ship the pinger; document how to turn it off.

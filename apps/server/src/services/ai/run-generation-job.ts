@@ -1,7 +1,7 @@
 import type { AIJobType, Prisma } from "@kidlearn/db";
 import type { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
-import type { GenerationStopReason, TokenUsage } from "./claude.js";
+import type { GenerationStopReason, TokenUsage } from "./types.js";
 
 /**
  * The `AIGenerationJob` lifecycle, shared by every generator (FR-AI-08).
@@ -12,19 +12,18 @@ import type { GenerationStopReason, TokenUsage } from "./claude.js";
  * status moves, the one retry, the audit trail — is here, so a new generator in
  * files 35–36 is a prompt and a `persist`, not a second copy of this.
  *
- * **Every attempt is kept, valid or not.** `rawOutput` holds the verbatim tool
- * arguments of both attempts plus the token usage they cost, which is the whole
- * of FR-AI-08: a reviewer looking at a bad lesson can see exactly what the model
- * was asked and exactly what it said, and a failed job is readable rather than
- * just red.
+ * **Every attempt is kept, valid or not.** `rawOutput` holds the verbatim JSON of
+ * both attempts plus the token usage they cost, which is the whole of FR-AI-08: a
+ * reviewer looking at a bad lesson can see exactly what the model was asked and
+ * exactly what it said, and a failed job is readable rather than just red.
  *
  * **Exactly one retry, and only for a schema failure.** A validation miss is
- * something the model can fix when shown its own issues; a 401, a 529 or a
- * rejected write is not, and a second identical request would only bill twice.
- * Two of the model's own stops are not validation misses either, though they
- * arrive looking like one: a refusal and an answer cut off at the token ceiling
- * both leave the tool call missing or half-written. Both are failed here by name
- * rather than retried and then reported as invalid JSON.
+ * something the model can fix when shown its own issues; a 401, a 429 or a
+ * rejected write is not, and a second identical request would only spend the
+ * quota twice. Two of the model's own stops are not validation misses either,
+ * though they arrive looking like one: a refusal and an answer cut off at the
+ * token ceiling both leave the JSON missing or half-written. Both are failed here
+ * by name rather than retried and then reported as invalid JSON.
  *
  * **Nothing here can publish.** `persist` runs inside a transaction and writes
  * draft rows carrying `jobId`; the job lands on `awaiting_review` and stops. That
@@ -38,7 +37,7 @@ export function buildRetryFeedback(flattenedIssues: string): string {
   return [
     "Your previous response failed schema validation. Errors:",
     flattenedIssues,
-    "Call the tool again with corrected JSON. Keep every field that was already valid unchanged.",
+    "Respond again with corrected JSON. Keep every field that was already valid unchanged.",
   ].join("\n");
 }
 
@@ -54,14 +53,14 @@ export interface RunGenerationJobOptions<TParsed> {
   generate: (retryFeedback?: string) => Promise<{
     raw: unknown;
     usage: TokenUsage;
-    /** Optional so a stub may omit it; the Claude client always reports it. */
+    /** Optional so a stub may omit it; the Gemini client always reports it. */
     stopReason?: GenerationStopReason | null;
     refusal?: string;
   }>;
   /**
    * The contract. Its *input* is `unknown` rather than `TParsed`: what is being
-   * parsed is a tool call the model wrote, and a generator whose schema builds
-   * its own keys per request (`schemas/lesson.ts`) cannot claim otherwise.
+   * parsed is JSON the model wrote, and a generator whose schema builds its own
+   * keys per request (`schemas/lesson.ts`) cannot claim otherwise.
    */
   schema: z.ZodType<TParsed, z.ZodTypeDef, unknown>;
   /** Creates the draft rows. Returns their ids for the audit record. */
@@ -153,8 +152,8 @@ export async function runGenerationJob<TParsed>(
 
   // `validated` is not `Prisma.InputJsonValue` to the compiler — it is whatever
   // the caller's schema infers — but it is by construction JSON: it came from a
-  // tool call the API decoded and a Zod parse that only ever narrows. Stored so a
-  // reviewer sees what was actually written from, not just what was said.
+  // `JSON.parse` and a Zod parse that only ever narrows. Stored so a reviewer
+  // sees what was actually written from, not just what was said.
   const parsedJson = toJson(validated);
 
   let entities: Prisma.JsonObject;
@@ -203,12 +202,11 @@ function describeUnretryableStop(generated: {
 }): string | undefined {
   switch (generated.stopReason) {
     case "refusal":
-      return `The model declined to answer (stop_reason: refusal${
+      return `The model declined to answer (stopReason: refusal${
         generated.refusal === undefined ? "" : ` — ${generated.refusal}`
       }). Not retried: the same prompt would be declined again.`;
     case "max_tokens":
-    case "model_context_window_exceeded":
-      return `The model's answer was cut off before it finished the tool call (stop_reason: ${generated.stopReason}), so there was nothing complete to validate. Not retried: an identical request would be cut off identically. Raise the generation token ceiling or ask for less in one call.`;
+      return "The model's answer was cut off before the JSON was complete (stopReason: max_tokens), so there was nothing whole to validate. Not retried: an identical request would be cut off identically. Raise the generation token ceiling or ask for less in one call.";
     default:
       return undefined;
   }
@@ -275,7 +273,7 @@ function flatten(error: z.ZodError): string {
 
 /** JSONB accepts `null`; `undefined` would drop the key instead of recording it. */
 function toJson(value: unknown): Prisma.InputJsonValue {
-  // The values reaching here are decoded tool arguments and Zod parse output —
+  // The values reaching here are the model's parsed JSON and Zod parse output —
   // JSON by construction, but `unknown` to the compiler because the schema is the
   // caller's. This is the JSONB column boundary.
   return (value ?? null) as Prisma.InputJsonValue;
