@@ -2,20 +2,21 @@
 
 > **Estimated effort:** 3–4 hours
 > **Depends on:** 34, 35, 36 (introduces every client this file replaces). Land before 38 —
-> deploying with a metered key defeats the point of a "zero-cost launch."
+> a metered key would dwarf that file's fixed ~$23/month infrastructure bill.
 > **Requirement IDs:** none directly — this is an infra/cost decision, not a new FR, on the
-> same footing as file 38a. It protects FR-AI-01..06/08 (behaviour is unchanged) and resolves a
-> contradiction in file 38's own name.
+> same footing as file 38a. It protects FR-AI-01..06/08 (behaviour is unchanged) and is what
+> keeps the deployment's running cost predictable.
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
 
 ## Goal
 
-File 38 is titled "deployment — **zero-cost** launch," but files 34–36 wired the AI pipeline to
+File 38 puts KidLearn on AWS for a **fixed** ~$23/month, but files 34–36 wired the AI pipeline to
 two metered, pay-as-you-go APIs: Anthropic Claude for every text generator (FR-AI-01..03) and
 ElevenLabs for narration (FR-AI-04). Neither has a free tier that survives real use — Claude has
 none at all, and ElevenLabs' free allowance is a few minutes of audio a month, which a single
 story with bilingual narration can exhaust. Deploying file 38 as written means the AI Queue is
-the one feature standing between "free" and a bill the moment an admin uses it.
+the one feature standing between a predictable bill and an unbounded one, from the moment an
+admin uses it.
 
 This file swaps both for providers with a genuinely usable free tier, **without touching
 `runGenerationJob`, any route, or any downstream schema**. Both `claude.ts` and `elevenlabs.ts`
@@ -366,7 +367,7 @@ document/implementation/00-progress-tracker.md          # Shared Technical Decis
       consumers" invariant (FR-AI-03) survives the provider swap.
 - [ ] `AI_TEXT_JOBS_PER_DAY`/`AI_IMAGE_JOBS_PER_DAY` are set below the current published Gemini
       free-tier daily request limit for the chosen models (cite the checked figure and date in the
-      commit message, the way file 38a cited its domain-availability check).
+      commit message, the way this file's own header cites its checked dates).
 - [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
 - [ ] No route, request schema, response schema, or OpenAPI path definition changed —
       `openapi/coverage.test.ts` passes unmodified, because this file is entirely internal to

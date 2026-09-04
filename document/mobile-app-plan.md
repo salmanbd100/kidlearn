@@ -119,7 +119,7 @@ started:
 | 30 | Weekly reports (FR-DASH-05..06) | Mobile phase M8 depends on the report API existing. Build web file 30 first, or ship the mobile dashboard without the reports tab and add it later. |
 | 31–33 | Admin CMS | Not ported. But without it there is no way to author content except seeds/SQL — which limits what you can demo on a device. |
 | 34–37 | AI pipeline | Same: content volume. A device demo with one seeded lesson is thin. |
-| **38 / 38a** | **Deployment** | **Hard blocker for store submission.** A store build cannot point at `localhost`. The API must be publicly reachable over HTTPS with a stable hostname before you can submit. Do web file 38 (and preferably 38a's custom domain) before mobile phase M9. |
+| **38 / 38a** | **Deployment** | **Hard blocker for store submission.** A store build cannot point at `localhost`. The API must be publicly reachable over HTTPS with a stable hostname before you can submit. Web file 38 delivers exactly that — `https://api.kidlearn.net` on a permanent host — so do it before mobile phase M9. File 38a only automates the deploy and is not a blocker. |
 
 ---
 
@@ -329,10 +329,11 @@ Things with no web counterpart, each of which is a real requirement rather than 
   screen that genuinely needs landscape — never a dead end.
 - **Hardware back / swipe-back.** Android's back button and iOS's edge swipe must not
   drop a child out of a lesson silently. Explicit interception on kid screens.
-- **Cold start and offline.** Render's free tier sleeps (NFR-PERF-04). Reuse the web's
-  "mascot waking up" idea with retry/backoff, plus a distinct offline state driven by
-  `@react-native-community/netinfo` — "no internet" and "server waking up" are different
-  messages to a parent.
+- **Slow networks and offline.** The API is always on (web file 38), so there is no cold
+  start to absorb — but a slow or flaky mobile connection in Dhaka produces the same felt
+  experience. Reuse the web's "mascot waking up" idea with retry/backoff, plus a distinct
+  offline state driven by `@react-native-community/netinfo` — "no internet" and "this is
+  taking a moment" are different messages to a parent (NFR-PERF-04).
 - **Deep links.** `kidlearn://` for the OAuth callback; universal/app links only if
   marketing needs them later.
 - **Kid-safety in a native shell.** No outbound links from student screens, no ads, no
@@ -485,9 +486,9 @@ M07 → M13 → M16 — about a third of the work.
 
 | Variable / setting | Where | Value |
 | --- | --- | --- |
-| `EXPO_PUBLIC_API_URL` | `apps/mobile` | dev: `http://<your-LAN-IP>:4000` — **not** `localhost`; a physical device cannot reach your Mac's loopback. Android emulator: `http://10.0.2.2:4000`. prod: the deployed API origin from web file 38/38a. |
+| `EXPO_PUBLIC_API_URL` | `apps/mobile` | local: `http://<your-LAN-IP>:4000` — **not** `localhost`; a physical device cannot reach your Mac's loopback. Android emulator: `http://10.0.2.2:4000`. Staging builds: `https://api.dev.kidlearn.net`. Store builds: `https://api.kidlearn.net` (web file 38). |
 | `scheme` | `app.config.ts` | `kidlearn` — must match `expoClient({ scheme })` and the server's `trustedOrigins`. |
-| iOS bundle ID / Android package | `app.config.ts` | e.g. `net.kidlearn.app` (aligns with the `kidlearn.net` domain in web file 38a). Changing these after first submission is not possible — decide once. |
+| iOS bundle ID / Android package | `app.config.ts` | e.g. `net.kidlearn.app` (aligns with the `kidlearn.net` domain in web file 38). Changing these after first submission is not possible — decide once. |
 | `BETTER_AUTH_URL`, `trustedOrigins` | `apps/server` | Must include the deployed API origin and `kidlearn://`. |
 | Google OAuth redirect URIs | Google Cloud console | Add the deployed API callback; the app itself never holds a client secret. |
 | Apple Services ID + key | Apple developer portal | For Sign in with Apple (§7.3). |
@@ -505,9 +506,11 @@ bundle and readable by anyone who downloads it.
 | Google Play Console | $25 one-off |
 | Apple Developer Program | $99/year — the only recurring cost this plan adds |
 | EAS Build | Free tier is workable (queued builds, monthly limits). `eas build --local` on your Mac is the escape hatch for both platforms. |
-| Backend / DB / media | Unchanged — web file 38's zero-cost stack serves the mobile app too |
+| Backend / DB / media | Unchanged — web file 38's AWS stack (~$23/month for both environments) serves the mobile app too, at no extra cost for a second client |
 
-The zero-cost posture of the project survives except for Apple's mandatory fee.
+The backend is no longer zero-cost: web file 38 moved it to a single EC2 box running both a
+production and a development environment, for roughly $23/month. Mobile adds Apple's $99/year and
+Google's one-off $25 on top of that, and nothing else recurring.
 
 ---
 

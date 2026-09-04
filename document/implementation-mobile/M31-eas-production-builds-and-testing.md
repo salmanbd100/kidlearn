@@ -11,7 +11,7 @@ Turn the app into signed store builds pointing at the **deployed** API, get them
 
 ## Blocking dependency
 
-**Web file 38 (deployment) must be ✅ Done.** A store build cannot point at `localhost` or a LAN IP: it needs a public HTTPS API with a stable hostname. File 38 also sets `WEB_ORIGIN`, the production Google OAuth redirect URI, `BETTER_AUTH_URL` and the Supabase production database — every one of which the mobile sign-in flow depends on. Web file 38a (custom domain) is not strictly required but is strongly preferred: a stable `api.kidlearn.net` avoids re-issuing OAuth configuration and re-building the app if the Render hostname ever changes.
+**Web file 38 (deployment) must be ✅ Done.** A store build cannot point at `localhost` or a LAN IP: it needs a public HTTPS API with a stable hostname. File 38 also sets `WEB_ORIGIN`, the production Google OAuth redirect URI, `BETTER_AUTH_URL` and the Supabase production database — every one of which the mobile sign-in flow depends on. File 38 deploys straight onto `api.kidlearn.net`, so the hostname the app is built against is permanent — there is no platform-assigned URL that could change and force an OAuth reconfiguration and a rebuild. Web file 38a (deploy automation) is not required for this file.
 
 Additionally, M06's server changes must be **deployed**, not merely merged: `expo()` plugin, `kidlearn://` in `trustedOrigins`, the whitelisted mobile callback and the Apple provider all have to be live for a store build to authenticate.
 
@@ -145,6 +145,6 @@ Record the smoke test as a table with device model, OS version, pass/fail per st
 
 - The closed test itself, the production release and the review correspondence — M32.
 - Automating builds in CI. Worth doing for a team; for a solo project the EAS CLI is enough, and adding CI now is a second thing to debug during a launch.
-- Server deployment or keep-warm — web file 38.
+- Server deployment — web file 38; deploy automation — web file 38a.
 - Feature work. Anything found in the smoke test that is not a blocker goes to a backlog, not into this file.
 - Marketing or launch announcements.

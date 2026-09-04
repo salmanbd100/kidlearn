@@ -20,7 +20,7 @@
 | 7 — Time & Dashboards | 27–30 | Learning time, screen time, parent dashboard, reports |
 | 8 — Admin CMS | 31–33 | Admin auth, curriculum management, media + editors |
 | 9 — AI Pipeline | 34–37 | Generators, audio/images, review queue |
-| 10 — Launch | 38–38a | Zero-cost deployment, custom domain |
+| 10 — Launch | 38–38a | Two AWS environments on `kidlearn.net` / `dev.kidlearn.net`, GitHub Actions CD |
 | 11 — Hardening | 39+ | CI, HTTP hardening, real test database, docs truth pass — see `document/improvement-plan.md §4` |
 
 ---
@@ -68,8 +68,8 @@
 | 36 | `36-ai-audio-and-image-generation.md` | ElevenLabs narration (EN/BN) + image generation + character consistency | FR-AI-04..06, FR-AI-09, FR-I18N-05 | 33, 34 | 3–4h | ✅ Done |
 | 37 | `37-ai-review-queue.md` | Human review queue: approve / edit-then-approve / reject | FR-AI-07, FR-CMS-05..06 | 35, 36 | 3–4h | ✅ Done |
 | 37a | `37a-free-tier-ai-provider-migration.md` | Swap Claude + ElevenLabs for free-tier providers behind the existing generator interfaces | — (protects FR-AI-01..06, FR-AI-08) | 34, 35, 36 | 3–4h | ✅ Done |
-| 38 | `38-deployment-zero-cost-launch.md` | Vercel + Render/Fly + Supabase + Cloudinary deployment, cold-start UX | §9, NFR-PERF-04 | 16, 29, 37 | 3–4h | ⬜ Not started |
-| 38a | `38a-custom-domain-and-same-site-cookies.md` | `kidlearn.net` + `api.kidlearn.net`, dropping file 38's `SameSite=None` cookie workaround | §9 | 38 | 1–2h | ⬜ Not started |
+| 38 | `38-deployment-aws-docker.md` | Two environments on one EC2 `t4g.medium` (`ap-south-1`) behind Caddy: prod on `kidlearn.net` + Supabase, dev on `dev.kidlearn.net` + a Postgres container. SSM secrets, per-env Cloudinary/Gemini | §9, NFR-PERF-02, NFR-PERF-04 | 16, 29, 37, 37a | 7–8h | ⬜ Not started |
+| 38a | `38a-github-actions-continuous-deployment.md` | `dev` → dev.kidlearn.net, `main` → kidlearn.net. Per-environment OIDC roles (no stored AWS keys), native arm64 build → ECR, `promotion-guard` on `main`, health-gated SSM rollout, rollback by env + image tag | §9 | 38, 39 | 4h | ⬜ Not started |
 | 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions gates (lint → build → typecheck → test), pnpm + Turbo caching, coverage reporting, `gates` required on `main` | — (makes `general.md §6`'s `[CI]` tier real) | — | 2–3h | 🟨 In progress — pipeline written; first run and the ruleset rule pending (see the file's requirement 6 ordering note) |
 
 Files **40–46** are proposed in `document/improvement-plan.md §4` — docs truth pass, server HTTP

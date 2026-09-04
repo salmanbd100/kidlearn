@@ -7,12 +7,12 @@
 
 ## Goal
 
-Make the app survive contact with real devices and real networks: an asset and bundle budget, image and audio caching, error boundaries so one bad payload cannot white-screen a child, the cold-start experience polished for a sleeping free-tier server, and crash reporting that tells you what broke **without** collecting a child's data — which on a Kids Category app is a rule, not a preference.
+Make the app survive contact with real devices and real networks: an asset and bundle budget, image and audio caching, error boundaries so one bad payload cannot white-screen a child, the slow-network experience polished, and crash reporting that tells you what broke **without** collecting a child's data — which on a Kids Category app is a rule, not a preference.
 
 ## Context & Current State
 
 - M28 produced measured frame-drop numbers for the four hot surfaces (drag-drop, tracing, the reward celebration, long lists) in `document/implementation-mobile/notes/a11y-device-pass.md`. This file works against that baseline rather than guessing.
-- NFR-PERF-04 and the whole web plan assume a **sleeping free-tier API**: M04's `apiFetch` already retries 5xx and connection failures with `[1500, 4000]` backoff and signals `onColdStart`. What is missing is a consistent, warm experience wherever that fires.
+- NFR-PERF-04's retry machinery already exists: M04's `apiFetch` retries 5xx and connection failures with `[1500, 4000]` backoff and signals `onColdStart`. Web file 38 put the API on an always-on host, so what that flag now reports is a **slow or flaky mobile connection**, not a sleeping server — the trigger changed, the need did not. What is missing is a consistent, warm experience wherever it fires.
 - **The compliance constraint that shapes this file** (`document/mobile-app-plan.md` §12, Apple guideline 1.3/5.1.4): no third-party advertising, and **no third-party analytics without verifiable parental consent**. A crash reporter is a third-party SDK. It can be justified as diagnostic rather than analytic, but only if it collects no personal data, is not used for tracking, is disclosed in the privacy policy and the Play Data Safety form, and is switched off on kid surfaces if any doubt remains. Decide deliberately and record the decision — see requirement 6.
 - NFR-SAFE-02: a child's first name is personal data. It must never reach a crash payload, a breadcrumb or a log line.
 - Expo gives `expo-image` (memory + disk caching), `expo-updates` (OTA, configured in M31), and Hermes' own bundle metrics. `react-native-bundle-visualizer` or Expo's `--dump-sourcemap` output can show what is actually large.
@@ -34,7 +34,7 @@ Make the app survive contact with real devices and real networks: an asset and b
    - **(b)** Sentry (`@sentry/react-native`) configured for **diagnostics only**: no user identification, no breadcrumbs containing content, PII scrubbing on, session replay off, performance tracing off, and disabled entirely on kid surfaces if any doubt remains.
    **Recommendation: start with (a) for launch**, because it needs no disclosure and no SDK on a child's device, and revisit (b) if the store dashboards prove too coarse. Whichever is chosen, write the decision, its reasoning and its data-collection consequences into `document/implementation-mobile/notes/observability.md` — M30's privacy policy and Data Safety form must match it exactly.
 7. **If (b) is chosen, scrub aggressively.** A `beforeSend` hook that drops any event whose payload contains a child's first name or a URL with an id, `sendDefaultPii: false`, no `setUser`, and a manual review of one real captured event before shipping. Verify the scrubbing with a deliberate test crash containing a name.
-8. **Cold-start experience.** One consistent treatment everywhere `onColdStart` fires: the mascot "waking up" state on kid surfaces, a calm line on parent surfaces, and never a raw error while a retry is still pending. Add a longer-wait escalation ("still waking up — thanks for waiting") so a 20-second free-tier wake does not look like a hang. Measure the real wake time against the deployed server once web file 38 is live and tune the copy thresholds to it.
+8. **Slow-response experience.** One consistent treatment everywhere `onColdStart` fires: the mascot "waking up" state on kid surfaces, a calm line on parent surfaces, and never a raw error while a retry is still pending. Add a longer-wait escalation ("still waking up — thanks for waiting") so a long stall does not look like a hang. Measure real response times against the deployed API on a throttled connection — the server is always on, so the numbers come from network conditions, not a wake — and tune the copy thresholds to what you measure.
 9. **App start time.** Measure cold app start on the low-end Android device. The splash is held for fonts, i18n and the session (M02/M03/M07) — confirm none of them is doing avoidable work, and that a failed session read does not extend the splash indefinitely (it must fall through to the login screen).
 10. **No console output in production.** Grep for `console.` and remove or route what remains. Configure the production build to strip any that survive.
 11. **Tests** (`components/ErrorBoundary.test.tsx`, plus targeted ones): a throwing child component renders the recovery UI and does not unmount the rest of the app; a step-level boundary keeps the lesson walkable; the boundary reports through the chosen path (mocked); if Sentry is chosen, `beforeSend` drops an event containing a child's name; image cache policy is set per surface (assert the prop, cheap but it catches a regression).
@@ -111,7 +111,7 @@ export const CACHE = {
 } as const;
 ```
 
-Cold-start escalation on a timer, with copy tuned to the measured wake time:
+Slow-response escalation on a timer, with copy tuned to measured response times:
 
 ```tsx
 const [waited, setWaited] = useState(0);
@@ -120,7 +120,7 @@ useEffect(() => {
   return () => clearInterval(id);
 }, []);
 
-// Thresholds set from the measured Render wake, not invented.
+// Thresholds set from measured throttled-network response times, not invented.
 const message = waited < 6 ? t("common:waking") : t("common:stillWaking");
 ```
 
@@ -157,6 +157,6 @@ const message = waited < 6 ? t("common:waking") : t("common:stillWaking");
 
 - Product analytics of any kind (screen views, funnels, retention). On a Kids Category app this needs verifiable parental consent, and the product has no measurement plan that would justify it at MVP.
 - OTA update configuration — M31 (`expo-updates` channels and `runtimeVersion`).
-- Server-side performance and cold-start elimination — web file 38 (keep-warm) and its own tuning.
+- Server-side performance and hosting — web file 38 and its own tuning.
 - Offline mode — out of scope for the plan (§3.2).
 - A/B testing or feature flags. No infrastructure for it, and no experiment worth running on children at launch.

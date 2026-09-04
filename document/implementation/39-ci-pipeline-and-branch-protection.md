@@ -87,9 +87,11 @@ Two things here contradict what the harness currently claims, and both matter to
 
 - **`salmanbd100/kidlearn` is a public repository.** `.claude/settings.json`'s
   `autoMode.environment` says "private GitHub repo" — that is false (`gh repo view` reports
-  `PUBLIC`). It matters twice: GitHub Actions minutes are unmetered on public repositories, so
-  this pipeline is genuinely free and needs no budget note in file 38; and the classic
-  branch-protection API is available, which it would not be on a private repo on GitHub Free.
+  `PUBLIC`). It matters three times: GitHub Actions minutes are unmetered on public repositories,
+  so this pipeline is genuinely free and needs no budget note in file 38; the free
+  `ubuntu-24.04-arm` runners file 38a builds its Graviton images on are public-repo-only; and the
+  classic branch-protection API is available, which it would not be on a private repo on GitHub
+  Free.
   Correct the line while updating that file per requirement 8.
 - **A ruleset already protects `main` — partially.** Repository ruleset **17802318**, "Protect Main
   Branch", is `active` on `~DEFAULT_BRANCH` with two rules: `deletion` and `non_fast_forward`. It
@@ -308,6 +310,12 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
 6. **Make `gates` a required status check on `main`, by amending ruleset 17802318.** Do not create
    a second ruleset and do not use the classic `branches/main/protection` API — that would leave
    two overlapping mechanisms on one branch, which is how a protection rule gets misread later.
+
+   > **Forward note (file 38a).** File 38a makes `dev` a deployable branch, so the ruleset's target
+   > has to widen from `~DEFAULT_BRANCH` to **both `main` and `dev`**, and `main` gains a second
+   > required context, `promotion-guard`, which fails any pull request into `main` that did not come
+   > from `dev`. That amendment belongs to file 38a — do not pre-empt it here — but write the
+   > ruleset payload in a way that is easy to extend rather than one that assumes a single branch.
 
    Add to the existing ruleset's `rules` array, keeping `deletion` and `non_fast_forward`:
 
@@ -636,8 +644,10 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
   fiction.** **File 40** — see `improvement-plan.md` P1-3 and P1-4.
 - **Coverage thresholds or a coverage gate.** Deliberately excluded; `improvement-plan.md` §6 is
   the reasoning. Reporting only.
-- **A deploy job, or anything touching Vercel, Render or Fly.** File 38's territory. This workflow
-  verifies; it does not ship.
+- **A deploy job, or anything touching AWS.** File 38a's territory — it appends a `deploy` job to
+  this same workflow, gated `needs: gates`, once file 38 has deployed by hand at least once. As
+  written here the workflow verifies; it does not ship. Note for whoever does that: `gates` is the
+  required status-check context, so do not rename it, and do not make `deploy` required.
 - **Dependabot, Renovate, CodeQL, or any other GitHub app.** Dependency upgrades are file 46's
   subject and `improvement-plan.md` §5.3 proposes an `/upgrade-dependency` skill for the mechanical
   part. Adding a bot that opens PRs before the pipeline has run a single week is how a new pipeline

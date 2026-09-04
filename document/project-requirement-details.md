@@ -31,7 +31,7 @@
 6. [Non-Functional Requirements](#6-non-functional-requirements)
 7. [Technical Architecture](#7-technical-architecture)
 8. [Data Model Overview](#8-data-model-overview)
-9. [Deployment Strategy (Zero-Cost MVP)](#9-deployment-strategy-zero-cost-mvp)
+9. [Deployment Strategy (Single-Box AWS)](#9-deployment-strategy-single-box-aws)
 10. [MVP Scope](#10-mvp-scope)
 11. [Phased Roadmap](#11-phased-roadmap)
 12. [Assumptions & Resolved Conflicts](#12-assumptions--resolved-conflicts)
@@ -59,7 +59,7 @@ The platform:
 - Supports **multiple languages** natively (English and Bangla at launch).
 - Gives parents full visibility (progress, reports) and control (screen time, time windows).
 - Uses a **generative-AI content pipeline** (lessons, stories, quizzes, narration, illustrations) with mandatory human review, so the curriculum can scale cheaply.
-- Launches on **free-tier hosting** with an architecture that scales modularly to higher grades and more languages without rework.
+- Launches on **low-cost hosting** — a single small cloud instance running both a production and a development environment, roughly $23/month (§9) — with an architecture that scales modularly to higher grades and more languages without rework.
 
 ---
 
@@ -328,7 +328,7 @@ AI generates content at scale; humans gate everything before publication.
 | NFR-PERF-01 | **Primary devices are phones and tablets** used by small children; the experience is mobile-first and responsive up to desktop. Both portrait and landscape are handled gracefully. |
 | NFR-PERF-02 | Media (video/audio/images) is streamed/served from a CDN-backed media host; lesson screens stay responsive while media loads (skeletons, preloading next step).                     |
 | NFR-PERF-03 | Works acceptably on mid-range tablets and modest network connections (content is short-form; assets optimized/compressed).                                                          |
-| NFR-PERF-04 | The free-tier deployment (§9) must survive cold starts gracefully (loading states, retries) since free backend hosts sleep.                                                         |
+| NFR-PERF-04 | Every network call must degrade gracefully — friendly loading states and retry with backoff, never a raw error. The §9 host is always on, so this now defends against slow and unreliable mobile connections rather than a sleeping backend.                                                         |
 
 ### 6.4 Scalability & Maintainability (NFR-SCALE)
 
@@ -378,7 +378,7 @@ kidlearn/
 | AI — images       | Gemini image models (free tier)                    | FR-AI-05                                                                    |
 | AI — video        | Google Veo / Runway Gen-3 / Mootion                | FR-AI-06                                                                    |
 | AI — audio        | Google Cloud Text-to-Speech (Standard, free tier)  | FR-AI-04                                                                    |
-| Media hosting     | Cloudinary or Uploadthing (free tier)              | Streams images, audio, short video                                          |
+| Media hosting     | Cloudinary (free tier)                             | Streams images, audio, short video                                          |
 
 ### 7.3 Architectural Principles
 
@@ -416,16 +416,34 @@ All content entities carry `status` (publishing workflow) and language-scoped ch
 
 ---
 
-## 9. Deployment Strategy (Zero-Cost MVP)
+## 9. Deployment Strategy (Single-Box AWS)
 
-| Service                 | Platform                              | Notes                                            |
-| ----------------------- | ------------------------------------- | ------------------------------------------------ |
-| Frontend (`apps/web`)   | Vercel or Netlify                     | Global CDN, preview deploys                      |
-| Backend (`apps/server`) | Render, Railway, or Fly.io            | Free tier; expect cold starts (NFR-PERF-04)      |
-| Database                | Supabase free cluster (PostgreSQL)    | Also candidate for auth + storage if convenient  |
-| Media assets            | Cloudinary or Uploadthing (free tier) | AI-generated images, audio, short video snippets |
+**Two environments, one instance**, each tracking a branch:
 
-Environment configuration via `.env` per app (`apps/server/.env.example` is the template). No paid infrastructure for MVP launch; the architecture must allow upgrading any single layer (e.g. paid Postgres) without touching the others.
+| Environment     | Branch | Web                    | API                        | Database                       |
+| --------------- | ------ | ---------------------- | -------------------------- | ------------------------------ |
+| **Production**  | `main` | `kidlearn.net`         | `api.kidlearn.net`         | Supabase free project          |
+| **Development** | `dev`  | `dev.kidlearn.net`     | `api.dev.kidlearn.net`     | Postgres container on the box  |
+
+Within each environment the web and API hosts share one registrable domain, so they are the same site and the parent session cookie stays `SameSite=Lax` rather than becoming a third-party cookie.
+
+| Layer                   | Platform                                                                        | Notes                                                                                                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host                    | One EC2 `t4g.medium` (Graviton, 2 vCPU / 4 GiB) in `ap-south-1`, Docker Compose  | Always on — no cold starts. Three Compose projects: an edge stack and one per environment. No load balancer and no NAT gateway: each costs more per month than the instance itself.                                        |
+| Ingress                 | Caddy, the only container binding a host port                                    | Terminates TLS for all five hostnames with automatic Let's Encrypt certificates. Ports 443 and 80 are the only ones open; shell access is SSM Session Manager, so there is no inbound SSH rule. Dev hosts carry `noindex`. |
+| Frontend (`apps/web`)   | Docker container per environment, Next.js standalone output                      | `NEXT_PUBLIC_*` values are inlined at build time, so the web image is built once per environment and the two are not interchangeable.                                                                                     |
+| Backend (`apps/server`) | Docker container per environment, one shared image                               | Configured entirely at runtime. `app.set("trust proxy", 1)` — Caddy is exactly one hop. Both environments run with `NODE_ENV=production`; what differs is hostnames, database, credentials and `ENABLE_API_DOCS`.         |
+| Production database     | Supabase free project (PostgreSQL), `ap-south-1`                                 | Pooled connection (:6543) at runtime, direct (:5432) for migrations. Free ceilings: 500 MB, 5 GB egress/month, two active projects — one used. No point-in-time recovery, so a nightly `pg_dump` to S3 is ours.            |
+| Development database    | `postgres:16-alpine` container, no published host port                           | Deliberately disposable and never backed up — wiping and reseeding it is the documented way to rehearse a migration before it reaches `main`. No `pgbouncer` flags on its connection string.                               |
+| Media assets            | Cloudinary free tier, a separate cloud per environment                           | AI-generated images, audio and short video snippets, CDN-served (NFR-PERF-02). Separate clouds keep test uploads out of the production media library.                                                                     |
+| Secrets                 | AWS SSM Parameter Store, `SecureString` under `/kidlearn/prod/` and `/kidlearn/dev/` | Free on the Standard tier; Secrets Manager would be ~$16/month for the same ~40 values.                                                                                                                                  |
+| Images and deploys      | ECR (`linux/arm64`); GitHub Actions via per-environment OIDC roles and SSM Send-Command | No AWS key, SSH key or database credential is stored in GitHub. `main` accepts pull requests only from `dev`, enforced by a required check.                                                                        |
+
+**Roughly $23/month** at steady state for both environments — instance, public IPv4 address, EBS, ECR, S3 backups and the Route 53 zone; about $18.50 with a one-year EC2 Instance Savings Plan. The AWS free tier moved to a six-month credit model on 2025-07-15, so nothing here is budgeted as free.
+
+Data between the environments is fully isolated — separate databases with no shared credential or network path. Runtime is not: one kernel, one disk, one Docker daemon, with memory limits on the dev stack so contention resolves in production's favour. Buying hard isolation means a second instance and nothing else in the design changes.
+
+Per-app configuration follows each app's own template file; deployed values live in SSM and never in the repository. The architecture must allow upgrading any single layer — a managed database, a second instance behind a load balancer, a CDN in front — without touching the others.
 
 ---
 

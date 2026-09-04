@@ -204,11 +204,11 @@ gate has escalating lockouts with strike persistence (`parentSecurityService.ts`
 generation is capped per day per cost bucket (`rate-guard.ts`, `require-generation-budget.ts`).
 The gap is the generic transport layer beneath them.
 
-**Why it matters now specifically:** file 38 puts this behind a proxy on Render or Fly, and file
-38a moves it to `api.kidlearn.net` with `SameSite` cookies. Without `trust proxy`, `req.ip` is
-the proxy's address — which silently weakens any IP-based control added later — and better-auth's
-secure-cookie handling behind a TLS-terminating proxy needs it too. Adding this *after* the first
-deployment means debugging it in production.
+**Why it matters now specifically:** file 38 puts this behind Caddy on an EC2 box, serving
+`api.kidlearn.net` over TLS. Without `trust proxy`, `req.ip` is the proxy's address — which
+silently weakens any IP-based control added later — and better-auth's secure-cookie handling
+behind a TLS-terminating proxy needs it too. Adding this *after* the first deployment means
+debugging it in production.
 
 **Fix:**
 
@@ -218,10 +218,11 @@ deployment means debugging it in production.
 - `express-rate-limit` on `/api/auth/*` and the PIN verification route. The app-level lockout is
   per-parent; this is per-IP, and they defend different attacks.
 - `app.set("trust proxy", 1)` behind the deployment's proxy, driven by an env flag so local dev
-  is unaffected.
+  is unaffected. **This one bullet is already file 38's requirement 4** — Caddy makes it a
+  prerequisite of the first deploy rather than a hardening nicety. The rest of this list is not.
 - Security headers in `next.config.ts` for the web app.
 
-**Effort:** S. Do it *as part of* file 38, not after.
+**Effort:** S. `trust proxy` ships with file 38; do the remainder immediately after it, not later.
 
 ---
 
@@ -365,7 +366,7 @@ a watchlist, not a work item.
 `packages/types`. `lucide-react`, `motion` and `class-variance-authority` are each declared in
 both `apps/web` and `packages/ui`. Nothing keeps them in step but attention. There is also no
 `engines` field and no `.nvmrc` — the Node version this builds against is undeclared, which
-matters the week Render picks a different default.
+matters the moment CI, the Dockerfiles and a developer's machine stop agreeing on it.
 
 Pending major upgrades, measured with `pnpm outdated -r`:
 
@@ -457,7 +458,7 @@ This plan should enter that process rather than sitting beside it. Proposed rows
 | --- | --- | --- | --- | --- |
 | 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions: lint → build → typecheck → test, pnpm + Turbo caching, branch protection, coverage reporting. Flip every `[CI once tests are configured]` tag in the standards to plain `[CI]`. | — | 2–3h |
 | 40 | `40-docs-and-standards-truth-pass.md` | P1-3 and P1-4: correct `CLAUDE.md`, close the stale-tooling caveats in `general.md §5/§6`, record the `packages/ui` scope decision in `frontend.md §1`, delete `apps/web/README.md`. Update the skills per §5. | 39 | 2–3h |
-| 41 | `41-server-http-hardening.md` | P1-2: helmet, body limits, per-IP rate limiting on auth and PIN routes, `trust proxy`, web security headers. **Fold into file 38 if 38 has not started.** | 39 | 2–3h |
+| 41 | `41-server-http-hardening.md` | P1-2: helmet, body limits, per-IP rate limiting on auth and PIN routes, web security headers. `trust proxy` is excluded — file 38 requirement 4 ships it. **Do this immediately after file 38: the API is public from that moment.** | 38, 39 | 2–3h |
 | 42 | `42-test-database-harness.md` | P0-2 part 1: `globalSetup` + migrate + truncation strategy + factories. No suites ported yet. | 39 | 3–4h |
 | 43 | `43-port-content-safety-suites-to-real-db.md` | P0-2 part 2: port `content`, `stories`, `children`, `parent`, `progress` and the reward-ledger suites. Split `progress.test.ts` while porting. Delete the recorded exception in `general.md §5`. | 42 | 4–6h |
 | 44 | `44-error-and-loading-boundaries.md` | P1-1: `global-error`, per-group `error`/`not-found`/`loading`. Add an error-state section to `design.md` first. | 40 | 3–4h |

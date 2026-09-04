@@ -181,5 +181,5 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
 
 - Authentication, sessions, and `requireParent` (file 09); PIN gate (10).
 - Any real resource routes: children (11), content (12), rewards (23), time (27), admin (31+).
-- Rate limiting, helmet/security headers hardening, and deployment cold-start UX (file 38).
+- Rate limiting and helmet/security headers hardening (proposed file 41); deployment (file 38).
 - Database migrations or schema changes (files 03–06 own the Prisma schema).
