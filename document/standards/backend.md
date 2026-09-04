@@ -84,7 +84,7 @@ Service functions are plain async functions and must not import or reference Exp
 
 ## 4. Content-Status Guard — Hard Rule
 
-Every Prisma query that serves student-facing content **must** include `where: { status: "published" }`. A missing filter is a content-safety bug, not a style issue. It must have an explicit test. **[REVIEW] [CI once tests are configured]**
+Every Prisma query that serves student-facing content **must** include `where: { status: "published" }`. A missing filter is a content-safety bug, not a style issue. It must have an explicit test. **[REVIEW] [CI]**
 
 ```ts
 // Correct
@@ -155,7 +155,7 @@ The server publishes an OpenAPI 3.0 document, served as Swagger UI at `/docs` an
 
 ### The rule
 
-**An endpoint is registered in `src/openapi/paths/<resource>.ts` in the same change that adds it.** Not in a follow-up, not "before the PR" — the same change. **[CI once tests are configured]**
+**An endpoint is registered in `src/openapi/paths/<resource>.ts` in the same change that adds it.** Not in a follow-up, not "before the PR" — the same change. **[CI]**
 
 This is enforced, not requested: `src/openapi/coverage.test.ts` walks the live Express routers and diffs their registrations against the registry in both directions. An undocumented route fails `pnpm --filter server test` and names itself. A registry entry whose route was deleted fails too.
 

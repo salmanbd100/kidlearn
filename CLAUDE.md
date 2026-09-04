@@ -37,7 +37,7 @@ pnpm --filter server openapi:write   # emit apps/server/openapi.json (gitignored
 
 **Linting is Biome** — no ESLint anywhere. Biome runs repo-wide from the root; apps have no per-package `lint` scripts.
 
-**No test runner** is configured yet (see `document/project-requirement-details.md` §12, assumption 8 — Vitest is the planned choice).
+**Vitest runs in every package that has code to test** — `pnpm test` is `turbo run test`. Note that `pnpm test --force` fails (pnpm parses `--force` itself); use `pnpm turbo run test --force` to bypass the Turbo cache.
 
 Per-app work:
 
@@ -45,6 +45,24 @@ Per-app work:
 cd apps/web && pnpm dev        # next dev → http://localhost:3000
 cd apps/server && pnpm dev     # tsx watch → http://localhost:4000
 ```
+
+## CI
+
+`.github/workflows/ci.yml` runs one job, `gates`, on every pull request and every push to `main`:
+
+```
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm build            # ^build is required before typecheck and test resolve
+pnpm typecheck
+pnpm test:coverage    # same suite as pnpm test, plus a coverage report
+```
+
+**A PR is not done until `gates` is green** — `gh pr checks` says whether it is. Coverage is reported in the run summary and as an artifact; it is deliberately not gated on a threshold (see `document/standards/general.md §5`).
+
+`gates` is not yet a *required* status check on `main`: the repository ruleset "Protect Main Branch" gets that rule once the flake recorded under **Open follow-up fixes** in `document/implementation/00-progress-tracker.md` is fixed. Until then the pipeline reports; it does not block.
+
+CI needs no secrets, no environment variables and no database: `apps/server/vitest.setup.ts` supplies everything `lib/env.ts` requires, and no test opens a connection. That changes when the test-database harness lands.
 
 ## Layout & current state
 

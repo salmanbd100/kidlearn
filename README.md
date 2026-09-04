@@ -1,5 +1,7 @@
 # KidLearn
 
+[![CI](https://github.com/salmanbd100/kidlearn/actions/workflows/ci.yml/badge.svg)](https://github.com/salmanbd100/kidlearn/actions/workflows/ci.yml)
+
 > An AI-powered early education platform built for children aged 3–6 — and, honestly, built for my two daughters.
 
 ---
@@ -182,6 +184,7 @@ pnpm lint         # Lint + format check + import sort (Biome, no writes)
 pnpm format       # Apply Biome fixes
 pnpm typecheck    # tsc --noEmit per package
 pnpm test         # Vitest across every package
+pnpm test:coverage # ...with a coverage report per package (what CI runs)
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:migrate   # Run DB migrations
 pnpm db:studio    # Open Prisma Studio (DB browser)
@@ -208,6 +211,10 @@ docker compose ps               # Which host port it actually landed on
 `docker compose ps` is the answer to "is the database even running" — it prints the live host→container port mapping, which is what the connection strings have to match. A `PrismaClientInitializationError` from the API when that mapping and `apps/server/.env` disagree looks identical to the database being down.
 
 Port conflicts belong in `docker-compose.override.yml` — see step 2.
+
+### CI
+
+`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every pull request and every push to `main`. It needs no secrets and no database. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
 
 ### Production build
 

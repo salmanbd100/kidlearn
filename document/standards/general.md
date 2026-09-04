@@ -245,7 +245,9 @@ it("button renders")
 
 ### CI gate
 
-Once Vitest is configured, `pnpm test` joins `pnpm typecheck` and `pnpm lint` as a required CI check. A PR that reduces test coverage on a service layer or disables a content-safety test does not merge. **[CI]**
+`pnpm test` sits alongside `pnpm lint`, `pnpm build` and `pnpm typecheck` in the CI job — `.github/workflows/ci.yml`, job `gates` (see §6 for what `[CI]` currently enforces). A PR that reduces test coverage on a service layer or disables a content-safety test does not merge. **[CI]**
+
+Coverage is **reported, never gated**. CI runs `pnpm test:coverage` and publishes a per-package table in the run summary plus an HTML artifact, and no `vitest.config` declares a `thresholds` key. That omission is deliberate: a percentage target over this many hand-written behavioural tests rewards padding the number rather than testing the behaviour. The report exists so that deleting a content-safety test moves a figure someone can see on the PR — not so that a bot can approve a ratio.
 
 ---
 
@@ -270,12 +272,17 @@ Checked by `pnpm typecheck` (blocks CI):
 
 ### Automatic — CI `[CI]`
 
-Blocks merge (once Vitest is configured):
+`.github/workflows/ci.yml`, job `gates`, runs on every pull request and on every push to `main`:
 
 - All tests pass, including explicit content-safety guard tests
 - `pnpm build` succeeds across all packages
 - `pnpm typecheck` passes across all packages
 - `pnpm lint` passes (Biome clean)
+
+Two caveats, stated rather than glossed:
+
+1. **`gates` does not block a merge yet.** The pipeline runs and reports; the repository ruleset "Protect Main Branch" gains its `required_status_checks` rule once the flake recorded under **Open follow-up fixes** in `document/implementation/00-progress-tracker.md` is fixed. A check that fails a quarter of the time would only teach everyone to bypass it. Until that rule lands, `[CI]` is *reported on every PR and expected to be green* — weaker than the tier's name, and the honest description of it.
+2. **When it does land, the ruleset keeps the repository-admin bypass**, which is the account doing the work. `[CI]` will then mean *blocks merge unless someone deliberately overrides it* — a solo maintainer locked out of their own `main` mid-incident is the worse failure. That is still categorically stronger than `[REVIEW]`, where nothing has to be overridden because nothing is checked.
 
 ### Human review gate `[REVIEW]`
 
@@ -329,12 +336,14 @@ The engineer reviews the changes, then commits manually. Claude does not commit 
 
 Use the `/pr-description` skill after implementation is complete. It reads the implementation file for the current branch, diffs against `main`, and produces a structured PR description ready to paste into GitHub.
 
+Then watch the pipeline: `gh pr checks` (or `gh run watch`). A PR is not ready for review until `gates` is green.
+
 ### Branch lifecycle
 
 | Stage | State |
 |---|---|
 | Work in progress | Feature branch, no commits yet (engineer reviews) |
-| Ready for review | Feature branch pushed, PR opened with `/pr-description` output |
+| Ready for review | Feature branch pushed, PR opened with `/pr-description` output, `gates` green |
 | Merged | PR squash-merged to `main`; feature branch deleted |
 
 ### Progress tracking — mandatory

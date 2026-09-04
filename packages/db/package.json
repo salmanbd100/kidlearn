@@ -21,7 +21,8 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "seed:stories": "tsx prisma/seed-stories.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -33,10 +34,11 @@
     "@kidlearn/config": "workspace:*",
     "@kidlearn/types": "workspace:*",
     "@types/node": "^20",
+    "@vitest/coverage-v8": "^4.1.11",
     "dotenv": "^17.4.2",
     "prisma": "^6",
     "tsx": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   }
 }

@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A superseded pull-request run is noise. A superseded push to `main` would
+  # leave that commit with no verdict at all, which is worse than a wasted run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    # This name is the status check context that ruleset 17802318 will require
+    # on `main` (pending — see the file 39 spec's requirement 6). Renaming the
+    # job after that lands silently un-gates the branch.
+    name: gates
+    runs-on: ubuntu-latest
+    # The four gates measure under a minute cold. This is a hang detector.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      # Must precede setup-node: its pnpm cache resolves `pnpm store path`.
+      # No `version` input — the action reads `packageManager` from package.json,
+      # so the pinned pnpm version keeps exactly one home.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          # File 46 replaces this with `node-version-file: .nvmrc`.
+          node-version: 22
+          cache: pnpm
+
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      # Four separate steps, not one chained command: a failed step names itself
+      # in the checks UI, which is the difference between "CI is red" and "types
+      # are broken". No `env:` block and no secrets — verified unnecessary in
+      # document/implementation/39-ci-pipeline-and-branch-protection.md.
+      - run: pnpm lint
+
+      # `typecheck` and `test:coverage` both declare `dependsOn: ["^build"]`, so
+      # this is explicit rather than required — general.md §6 names it as a gate.
+      - run: pnpm build
+
+      - run: pnpm typecheck
+
+      # Serialised deliberately. Running the five packages' suites at once put
+      # ~60 Vitest workers on 12 cores locally and made `apps/server`'s Supertest
+      # tests fail 3 runs in 8 at the socket level ("socket hang up", "Parse
+      # Error: Expected HTTP/"); serialised, the same 8 runs were clean. A 4-core
+      # runner has less headroom, not more. Measured in
+      # document/implementation/39-ci-pipeline-and-branch-protection.md.
+      - run: pnpm test:coverage
+        env:
+          TURBO_CONCURRENCY: 1
+
+      - name: Coverage summary
+        if: always()
+        run: node .github/scripts/coverage-summary.mjs
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            apps/*/coverage
+            packages/*/coverage
+          retention-days: 14

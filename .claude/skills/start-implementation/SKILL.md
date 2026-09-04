@@ -25,6 +25,9 @@ git branch --show-current
 
 # 3. Confirm main is clean (no uncommitted changes)
 git status --short
+
+# 4. Confirm the last CI run on main is green
+gh run list --branch main --workflow ci.yml --limit 1
 ```
 
 If the file does not exist, list `document/implementation/` and ask the engineer to confirm the correct filename.
@@ -32,6 +35,8 @@ If the file does not exist, list `document/implementation/` and ask the engineer
 If the current branch is not `main`, stop: tell the engineer to switch to `main` before starting.
 
 If there are uncommitted changes, stop: ask the engineer to stash or commit them first.
+
+If the latest CI run on `main` is failing, say so and ask whether to branch anyway. Starting new work on a red `main` means the first CI failure on the new branch is somebody else's — better to know that before writing code than while debugging it.
 
 ---
 

@@ -76,6 +76,10 @@
       "Bash(gh repo view:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh workflow list)",
+      "Bash(gh workflow view:*)",
+      "Bash(gh api repos/:*)",
       "Bash(curl -s http://localhost:4000/**)",
       "Bash(curl -s http://localhost:3000/**)"
     ],
@@ -89,13 +93,14 @@
   "autoMode": {
     "environment": [
       "**Project**: kidlearn — personal pnpm + Turborepo monorepo at /Users/salmanrahman/Documents/Me/kidlearn (NOT the Veyt/GreenfactAS repo described in the user-level settings)",
-      "**Repository**: private GitHub repo, default and only long-lived branch `main`; feature branches are created per implementation file and merged via PR",
+      "**Repository**: public GitHub repo `salmanbd100/kidlearn`, default and only long-lived branch `main`; feature branches are created per implementation file and merged via PR",
       "**Package manager**: pnpm 9 (never switch); task runner Turborepo; linter/formatter Biome (no ESLint); test runner Vitest",
       "**Stack**: apps/web = Next.js 16 App Router + React 19 + Tailwind v4; apps/server = Express 5 ESM on port 4000; packages/db = Prisma 6 against Supabase PostgreSQL; packages/ui and packages/types are shared workspaces",
       "**Routine here**: pnpm lint / format / typecheck / build / test, pnpm db:generate, turbo runs, local git reads, branch creation, staging and committing, reading and editing files anywhere under the repo",
       "**Needs confirmation**: any git push (especially to `main`), gh pr create / merge, prisma migrate / db push / db seed against Supabase, Vercel deploys, and anything writing to the hosted database",
       "**Sensitive data**: the packages/db env file holds the Supabase connection strings and apps/server env files hold AI provider keys — never read, print, or echo them; the .example templates are fine",
-      "**Local services**: web on http://localhost:3000, server on http://localhost:4000 (Swagger UI at /docs) — local curls against these are routine"
+      "**Local services**: web on http://localhost:3000, server on http://localhost:4000 (Swagger UI at /docs) — local curls against these are routine",
+      "**CI**: .github/workflows/ci.yml runs lint / build / typecheck / test:coverage as one `gates` job on every PR and every push to `main` — a PR is not done until it is green (`gh pr checks`). It is not yet a *required* status check; that ruleset rule is pending. Reading CI state is routine; changing repository settings or rulesets needs confirmation"
     ]
   }
 }

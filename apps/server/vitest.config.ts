@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
@@ -9,5 +9,19 @@ export default defineConfig({
     env: { TZ: "UTC" },
     include: ["src/**/*.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
+    coverage: {
+      provider: "v8",
+      // Reporting only. The missing `thresholds` key is deliberate — see
+      // `document/standards/general.md §5`.
+      reporter: ["text-summary", "json-summary", "html"],
+      reportsDirectory: "coverage",
+      exclude: [
+        ...coverageConfigDefaults.exclude,
+        "vitest.setup.ts",
+        "dist/**",
+        "src/openapi/write.ts",
+        "src/scripts/**",
+      ],
+    },
   },
 });
