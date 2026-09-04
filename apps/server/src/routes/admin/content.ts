@@ -4,6 +4,7 @@ import type { ZodType } from "zod";
 import type { SuccessEnvelope } from "../../lib/errors.js";
 import { adminContext } from "../../middleware/require-admin.js";
 import { validate, validatedQuery } from "../../middleware/validate.js";
+import { JobBreadcrumbQuerySchema } from "../../schemas/admin-ai.js";
 import {
   AdminContentIdParamsSchema,
   type AdminContentListQuery,
@@ -59,6 +60,7 @@ import {
   promoteJobCharacters,
   updateCharacterSheet,
 } from "../../services/characterSheetService.js";
+import { noteJobEdit } from "./job-breadcrumb.js";
 
 /**
  * `/api/admin/content/*` — CRUD over the curriculum hierarchy (file 32,
@@ -198,11 +200,21 @@ function mountResource<TCreate, TUpdate>(
 
   adminContentRouter.patch(
     `/${resource}/:id`,
-    validate({ params: AdminContentIdParamsSchema, body: schemas.update }),
+    validate({
+      params: AdminContentIdParamsSchema,
+      body: schemas.update,
+      // File 37 — `?jobId=…` on a save made from the review queue records
+      // `edit_then_approve` on that job. Registered for all four resources rather
+      // than lessons alone: only `Lesson` carries `aiJobId` today, but a
+      // per-resource validator would be a rule the next generated resource has to
+      // remember, and an absent `jobId` costs nothing.
+      query: JobBreadcrumbQuerySchema,
+    }),
     async (req, res, next) => {
       try {
         const admin = adminContext(req);
         const updated = await handlers.update(idParam(req), req.body, admin.id);
+        await noteJobEdit(req, res);
 
         const payload: SuccessEnvelope<AdminContentDto> = { data: updated };
         res.json(payload);

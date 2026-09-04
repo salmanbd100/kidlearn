@@ -1,0 +1,23 @@
+-- File 37 — why a reviewer refused an AI generation (FR-AI-07, FR-AI-08).
+--
+-- `decision = 'reject'` records *that* a human said no; it records nothing about
+-- what was wrong. Whoever regenerates the content has to change the prompt, and
+-- "the Bangla script reads as a translation, not as speech" is the only part of a
+-- rejection that tells them how. The API requires at least ten characters on a
+-- rejection, so the column is the audit trail's half of a rule enforced at the
+-- boundary.
+--
+-- Nullable rather than `NOT NULL DEFAULT ''`: an approval has nothing to explain,
+-- and an empty string would make "approved with no note" and "rejected with no
+-- reason given" indistinguishable in the one table FR-AI-08 asks to be complete.
+-- Existing rows predate any review and are correctly NULL.
+--
+-- No index. Nothing filters or sorts on it — it is read one job at a time on the
+-- review screen — and an index on free text would cost every job write for a
+-- query nobody makes.
+--
+-- Written by hand, matching the offline convention of the earlier migrations in
+-- this directory; it has not been applied to any database.
+
+-- AlterTable
+ALTER TABLE "AIGenerationJob" ADD COLUMN "reviewNote" TEXT;

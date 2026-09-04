@@ -2,8 +2,9 @@
 
 import { Button } from "@kidlearn/ui";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { fetchAiJobCount } from "@/lib/admin-api";
 import { ADMIN_ROUTES, isPublicAdminPath } from "@/lib/admin-routes";
 import { useAdminSession } from "./context/admin-session";
 
@@ -17,13 +18,47 @@ import { useAdminSession } from "./context/admin-session";
  *
  * The login screen gets no chrome: a sidebar full of links that all bounce back
  * here would be worse than no sidebar at all.
+ *
+ * **The AI Queue badge is polled here rather than on the queue screen** (file 37,
+ * requirement 8). Its point is to be seen from the *other* five sections — an
+ * admin editing curriculum has no reason to open the queue unless something told
+ * them to — so it has to live in the frame, above every page. Sixty seconds: a
+ * generation takes tens of seconds to write and nobody is waiting on the number,
+ * and a tighter interval would be a request a minute per open tab for a count
+ * that changes a few times a day.
  */
+
+const BADGE_POLL_MS = 60_000;
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { admin, signOut } = useAdminSession();
+  const [awaitingReview, setAwaitingReview] = useState(0);
 
-  if (isPublicAdminPath(pathname)) return <>{children}</>;
+  const isPublic = isPublicAdminPath(pathname);
+
+  useEffect(() => {
+    // Not on the login screen: an unauthenticated poll is a 401 a minute, and
+    // there is no rail to render the badge on.
+    if (isPublic) return;
+
+    let isCurrent = true;
+    const read = async () => {
+      const result = await fetchAiJobCount();
+      // A failure leaves the last count standing rather than blanking the badge:
+      // a sleeping API is not the same as an empty queue.
+      if (isCurrent && result.ok) setAwaitingReview(result.data.awaitingReview);
+    };
+
+    void read();
+    const timer = window.setInterval(() => void read(), BADGE_POLL_MS);
+    return () => {
+      isCurrent = false;
+      window.clearInterval(timer);
+    };
+  }, [isPublic]);
+
+  if (isPublic) return <>{children}</>;
 
   async function handleSignOut() {
     await signOut();
@@ -34,6 +69,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col md:flex-row">
       <AdminSidebar
         pathname={pathname}
+        badges={{ [ADMIN_ROUTES.aiQueue]: awaitingReview }}
         footer={
           <div className="flex items-center justify-between gap-2">
             <span

@@ -65,7 +65,8 @@
 | 34 | `34-ai-pipeline-foundation-lesson-generator.md` | AI job model/API, Claude integration, AI lesson generator, audit log | FR-AI-01, FR-AI-08 | 07, 31 | 3–4h | ✅ Done |
 | 35 | `35-ai-story-and-quiz-generators.md` | AI story generator + AI quiz generator (schema-validated JSON) | FR-AI-02..03 | 34 | 3–4h | ✅ Done |
 | 36 | `36-ai-audio-and-image-generation.md` | ElevenLabs narration (EN/BN) + image generation + character consistency | FR-AI-04..06, FR-AI-09, FR-I18N-05 | 33, 34 | 3–4h | ✅ Done |
-| 37 | `37-ai-review-queue.md` | Human review queue: approve / edit-then-approve / reject | FR-AI-07, FR-CMS-05..06 | 35, 36 | 3–4h | ⬜ Not started |
+| 37 | `37-ai-review-queue.md` | Human review queue: approve / edit-then-approve / reject | FR-AI-07, FR-CMS-05..06 | 35, 36 | 3–4h | ✅ Done |
+| 37a | `37a-free-tier-ai-provider-migration.md` | Swap Claude + ElevenLabs for free-tier providers behind the existing generator interfaces | — (protects FR-AI-01..06, FR-AI-08) | 34, 35, 36 | 3–4h | ⬜ Not started |
 | 38 | `38-deployment-zero-cost-launch.md` | Vercel + Render/Fly + Supabase + Cloudinary deployment, cold-start UX | §9, NFR-PERF-04 | 16, 29, 37 | 3–4h | ⬜ Not started |
 | 38a | `38a-custom-domain-and-same-site-cookies.md` | `kidlearn.net` + `api.kidlearn.net`, dropping file 38's `SameSite=None` cookie workaround | §9 | 38 | 1–2h | ⬜ Not started |
 

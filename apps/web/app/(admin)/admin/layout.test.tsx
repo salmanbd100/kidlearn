@@ -22,6 +22,8 @@ const api = vi.hoisted(() => ({
   fetchPlatformOverview: vi.fn(),
   adminSignIn: vi.fn(),
   adminSignOut: vi.fn(),
+  // File 37 — the shell polls this for the AI Queue badge on every CMS screen.
+  fetchAiJobCount: vi.fn(),
 }));
 
 /** Widened past the literal so a test can point the guard at another route. */
@@ -56,6 +58,10 @@ beforeEach(() => {
   for (const mock of Object.values(api)) mock.mockReset();
 
   api.fetchAdminMe.mockResolvedValue({ ok: true, data: ADMIN });
+  api.fetchAiJobCount.mockResolvedValue({
+    ok: true,
+    data: { awaitingReview: 0 },
+  });
 });
 
 describe("AdminCmsLayout", () => {
@@ -128,6 +134,38 @@ describe("AdminCmsLayout", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     // A dead server is not a signed-out admin, and redirecting would hide the cause.
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("does not poll the review count on the login screen", async () => {
+    // An unauthenticated poll is a 401 a minute, and there is no rail to render
+    // the badge on (file 37, requirement 8).
+    pathname = ADMIN_ROUTES.login;
+    api.fetchAdminMe.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "UNAUTHORIZED",
+        message: "Authentication required",
+        status: 401,
+      },
+    });
+
+    renderLayout();
+    await screen.findByText("curriculum tree");
+
+    expect(api.fetchAiJobCount).not.toHaveBeenCalled();
+  });
+
+  it("badges the AI Queue with what the shell polled", async () => {
+    api.fetchAiJobCount.mockResolvedValue({
+      ok: true,
+      data: { awaitingReview: 4 },
+    });
+
+    renderLayout();
+
+    expect(
+      await screen.findByText("4 jobs awaiting review"),
+    ).toBeInTheDocument();
   });
 
   it("shows the login screen with no rail and no redirect", async () => {

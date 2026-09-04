@@ -19,14 +19,23 @@ import { ADMIN_NAV, activeAdminNavHref } from "@/lib/admin-routes";
  * contract is assertable without a router. It does not keep this a Server
  * Component — `AdminShell` is `'use client'`, so importing this from there puts it
  * in the client bundle either way.
+ *
+ * `badges` is a prop for the same reason: the count comes from a poll `AdminShell`
+ * owns, and a nav that fetched its own would refetch on every route change.
  */
 export interface AdminSidebarProps {
   pathname: string;
+  /**
+   * Counts to show against nav items, keyed by href (file 37, requirement 8).
+   * A zero or a missing entry renders nothing — a badge reading "0" is a
+   * notification that there is nothing to notify about.
+   */
+  badges?: Partial<Record<string, number>>;
   /** Rendered at the foot of the rail — the signed-in admin and a way out. */
   footer?: React.ReactNode;
 }
 
-export function AdminSidebar({ pathname, footer }: AdminSidebarProps) {
+export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
   const activeHref = activeAdminNavHref(pathname);
 
   return (
@@ -41,6 +50,7 @@ export function AdminSidebar({ pathname, footer }: AdminSidebarProps) {
       <ul className="-mx-1 flex flex-1 gap-1 overflow-x-auto px-1 md:flex-col md:overflow-x-visible">
         {ADMIN_NAV.map(({ href, label }) => {
           const isActive = href === activeHref;
+          const count = badges?.[href] ?? 0;
           return (
             <li key={href} className="shrink-0 md:shrink">
               <Link
@@ -57,7 +67,20 @@ export function AdminSidebar({ pathname, footer }: AdminSidebarProps) {
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                {label}
+                <span className="flex-1">{label}</span>
+                {count > 0 ? (
+                  <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 font-medium text-[11px] text-primary-foreground">
+                    {/* The glyph is hidden and the same number is announced in a
+                        sentence instead, so the link does not read as "AI Queue
+                        3" with no clue what the 3 counts (design.md §2.3). A
+                        visually-hidden sibling rather than `aria-label`, which a
+                        bare `span` has no role to support. */}
+                    <span aria-hidden="true">{count}</span>
+                    <span className="sr-only">
+                      {count} {count === 1 ? "job" : "jobs"} awaiting review
+                    </span>
+                  </span>
+                ) : null}
               </Link>
             </li>
           );

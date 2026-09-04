@@ -54,6 +54,8 @@ const BASE = "/api/admin/content";
 
 const ADMIN_USER_ID = "user_admin_1";
 const PARENT_USER_ID = "user_parent_1";
+/** The `AdminUser.id` behind that session — what a decision is stamped with. */
+const ADMIN_ID = "11111111-1111-4111-8111-111111111111";
 
 /** Ids are uuids because every params schema demands one. */
 const QUIZ_ID = "eeeeeeee-0000-4000-8000-000000000001";
@@ -69,6 +71,8 @@ const store = vi.hoisted(() => ({
   questions: [] as Row[],
   activities: [] as Row[],
   badges: [] as Row[],
+  /** File 37 — the jobs a `?jobId` save can record its decision on. */
+  jobs: [] as Row[],
   /** Isolation levels `$transaction` was called with, for bound 4 above. */
   isolationLevels: [] as Array<string | undefined>,
   nextId: 0,
@@ -280,6 +284,27 @@ vi.mock("../../lib/prisma.js", async () => {
     },
     quizQuestion: {
       ...questionTable,
+      // `readQuizAiJobIds` asks for the distinct jobs that wrote a quiz's
+      // questions; the generic table has neither `select` nor `distinct`.
+      findMany: async ({
+        where,
+        distinct,
+      }: {
+        where?: Record<string, unknown>;
+        distinct?: string[];
+      }) => {
+        const rows = store.questions.filter((row) => matches(row, where));
+        if (distinct === undefined) return rows;
+        const seen = new Set<string>();
+        return rows
+          .filter((row) => {
+            const key = distinct.map((field) => String(row[field])).join("|");
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .map((row) => Object.fromEntries(distinct.map((f) => [f, row[f]])));
+      },
       findUnique: async (args: { where: { id: string } }) => {
         const row = await questionTable.findUnique(args);
         if (!row) return null;
@@ -288,6 +313,27 @@ vi.mock("../../lib/prisma.js", async () => {
       },
     },
     activity: table(() => store.activities, timestamps),
+    // File 37 — the edit-then-approve breadcrumb. `updateMany` rather than
+    // `update` in the service, so the "still awaiting review" condition is part
+    // of the write; the stub applies it for the same reason.
+    aIGenerationJob: {
+      // `assertAiPublishable` reads every job a row answers for in one query.
+      findMany: async ({ where }: { where: { id: { in: string[] } } }) =>
+        store.jobs.filter((row) => where.id.in.includes(row.id as string)),
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: Record<string, unknown>;
+        data: Record<string, unknown>;
+      }) => {
+        const found = store.jobs.filter((row) =>
+          Object.entries(where).every(([key, value]) => row[key] === value),
+        );
+        for (const row of found) Object.assign(row, data);
+        return { count: found.length };
+      },
+    },
     badge: table(
       () => store.badges,
       () => ({ status: "draft", description: null, iconAssetId: null }),
@@ -360,7 +406,7 @@ function seedBadge(status = "draft", icon?: { id: string; url: string }): Row {
 beforeEach(() => {
   store.admins = [
     {
-      id: "11111111-1111-4111-8111-111111111111",
+      id: ADMIN_ID,
       email: "reviewer@kidlearn.test",
       name: "Reviewer One",
       role: "admin",
@@ -371,6 +417,7 @@ beforeEach(() => {
   store.questions = [];
   store.activities = [];
   store.badges = [];
+  store.jobs = [];
   store.isolationLevels = [];
   store.nextId = 0;
   db.adminFindUnique.mockReset();
@@ -610,6 +657,107 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
           Prisma.TransactionIsolationLevel.Serializable,
         );
       });
+  });
+});
+
+/**
+ * `?jobId=…` — edit-then-approve (file 37, requirement 5, FR-AI-07).
+ *
+ * The review queue deep-links into these editors carrying the job it came from,
+ * and saving is what records the decision. The claims worth asserting are that
+ * it rides on the *save* — one request, so the two facts cannot come apart — and
+ * that recording it publishes nothing on its own.
+ */
+describe("saving with ?jobId records edit_then_approve", () => {
+  const JOB_ID = "dddddddd-0000-4000-8000-000000000001";
+
+  beforeEach(() => {
+    seedQuiz();
+    store.jobs = [
+      {
+        id: JOB_ID,
+        status: "awaiting_review",
+        decision: null,
+        reviewerId: null,
+      },
+    ];
+  });
+
+  it("records the decision when a question is added from the queue", async () => {
+    const res = await request(app)
+      .post(`${BASE}/quizzes/${QUIZ_ID}/questions?jobId=${JOB_ID}`)
+      .send({ format: "mcq", definition: validMcq });
+
+    expect(res.status).toBe(201);
+    expect(store.jobs[0]).toMatchObject({
+      decision: "edit_then_approve",
+      reviewerId: ADMIN_ID,
+    });
+  });
+
+  it("records it when a question is replaced, and when one is removed", async () => {
+    await request(app)
+      .post(`${BASE}/quizzes/${QUIZ_ID}/questions`)
+      .send({ format: "mcq", definition: validMcq });
+    const questionId = store.questions[0].id as string;
+
+    await request(app)
+      .patch(
+        `${BASE}/quizzes/${QUIZ_ID}/questions/${questionId}?jobId=${JOB_ID}`,
+      )
+      .send({ format: "mcq", definition: validMcq });
+    expect(store.jobs[0].decision).toBe("edit_then_approve");
+
+    store.jobs[0].decision = null;
+    await request(app).delete(
+      `${BASE}/quizzes/${QUIZ_ID}/questions/${questionId}?jobId=${JOB_ID}`,
+    );
+    expect(store.jobs[0].decision).toBe("edit_then_approve");
+  });
+
+  it("leaves the job's status alone, so the decision publishes nothing", async () => {
+    // Recording an edit is not approving it. The publish guard additionally
+    // requires the job to *be* approved, which only the review queue writes.
+    await request(app)
+      .post(`${BASE}/quizzes/${QUIZ_ID}/questions?jobId=${JOB_ID}`)
+      .send({ format: "mcq", definition: validMcq });
+
+    expect(store.jobs[0].status).toBe("awaiting_review");
+    expect(store.quizzes[0].status).toBe("draft");
+  });
+
+  it("records nothing when the save itself is refused", async () => {
+    // The recording runs after the write, not as middleware — a save the server
+    // rejected must not leave a decision claiming an edit that never happened.
+    const res = await request(app)
+      .post(`${BASE}/quizzes/${QUIZ_ID}/questions?jobId=${JOB_ID}`)
+      .send({ format: "mcq", definition: { nonsense: true } });
+
+    expect(res.status).toBe(400);
+    expect(store.jobs[0].decision).toBeNull();
+  });
+
+  it("is a no-op on a job somebody has already decided", async () => {
+    // The `jobId` is a breadcrumb; the save is real work. Losing the save to a
+    // colleague's concurrent decision would be the wrong trade.
+    store.jobs[0].status = "rejected";
+    store.jobs[0].decision = "reject";
+
+    const res = await request(app)
+      .post(`${BASE}/quizzes/${QUIZ_ID}/questions?jobId=${JOB_ID}`)
+      .send({ format: "mcq", definition: validMcq });
+
+    expect(res.status).toBe(201);
+    expect(store.jobs[0].decision).toBe("reject");
+  });
+
+  it("400s a jobId that is not a uuid", async () => {
+    const res = await request(app)
+      .post(`${BASE}/quizzes/${QUIZ_ID}/questions?jobId=nope`)
+      .send({ format: "mcq", definition: validMcq });
+
+    expect(res.status).toBe(400);
+    expect(store.questions).toHaveLength(0);
   });
 });
 
@@ -1087,6 +1235,100 @@ describe("transitions", () => {
       .send({ to: "in_review" });
 
     expect(res.status).toBe(404);
+  });
+
+  /**
+   * The FR-AI-07 guard's questions half (file 37).
+   *
+   * A quiz generated against a lesson that already had one stamps `aiJobId` on
+   * the *questions* and leaves the quiz row's own null. A guard that read only the
+   * quiz column let every one of those questions reach a child through the
+   * ordinary CMS publish path, with the job still sitting in the review queue.
+   */
+  describe("a quiz answers for its questions' generation jobs", () => {
+    function seedGeneratedQuestion(jobStatus: string, decision: string | null) {
+      store.jobs.push({
+        id: "job-questions",
+        status: jobStatus,
+        decision,
+      });
+      store.questions.push({
+        id: "q-generated",
+        quizId: QUIZ_ID,
+        format: "mcq",
+        schemaVersion: 1,
+        sortOrder: 0,
+        definition: validMcq,
+        aiJobId: "job-questions",
+      });
+    }
+
+    async function walkToPublished() {
+      let last = await request(app)
+        .post(`${BASE}/quizzes/${QUIZ_ID}/transition`)
+        .send({ to: "in_review" });
+      for (const to of ["approved", "published"]) {
+        last = await request(app)
+          .post(`${BASE}/quizzes/${QUIZ_ID}/transition`)
+          .send({ to });
+      }
+      return last;
+    }
+
+    it("409s the publish hop when the questions' job is still awaiting review", async () => {
+      // The quiz itself was written by a person — `aiJobId` is null on the row —
+      // so the only thing standing between an unreviewed model answer and a
+      // five-year-old is this guard reaching through to the questions.
+      seedQuiz();
+      seedGeneratedQuestion("awaiting_review", null);
+
+      const res = await walkToPublished();
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toMatchObject({
+        code: "AI_REVIEW_REQUIRED",
+        jobId: "job-questions",
+      });
+      expect(store.quizzes[0].status).toBe("approved");
+    });
+
+    it("409s when a reviewer edited the questions but nobody approved them", async () => {
+      seedQuiz();
+      seedGeneratedQuestion("awaiting_review", "edit_then_approve");
+
+      const res = await walkToPublished();
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details.code).toBe("AI_REVIEW_REQUIRED");
+    });
+
+    it("publishes once the questions' job carries an approved decision", async () => {
+      seedQuiz();
+      seedGeneratedQuestion("approved", "approve");
+
+      const res = await walkToPublished();
+
+      expect(res.status).toBe(200);
+      expect(store.quizzes[0].status).toBe("published");
+    });
+
+    it("leaves a hand-written quiz alone, at no query cost", async () => {
+      seedQuiz();
+      store.questions.push({
+        id: "q-human",
+        quizId: QUIZ_ID,
+        format: "mcq",
+        schemaVersion: 1,
+        sortOrder: 0,
+        definition: validMcq,
+        aiJobId: null,
+      });
+
+      const res = await walkToPublished();
+
+      expect(res.status).toBe(200);
+      expect(store.quizzes[0].status).toBe("published");
+    });
   });
 });
 

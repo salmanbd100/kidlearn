@@ -2,6 +2,7 @@ import type { QuestionDeleted } from "@kidlearn/types";
 import { type Request, Router } from "express";
 import type { SuccessEnvelope } from "../../lib/errors.js";
 import { validate, validatedQuery } from "../../middleware/validate.js";
+import { JobBreadcrumbQuerySchema } from "../../schemas/admin-ai.js";
 import { TransitionSchema } from "../../schemas/admin-content.js";
 import {
   type ActivityListQuery,
@@ -42,6 +43,7 @@ import {
   updateBadge,
   updateQuiz,
 } from "../../services/adminEditorService.js";
+import { noteJobEdit } from "./job-breadcrumb.js";
 
 /**
  * `/api/admin/content/{quizzes,activities,badges}` — the guided editors
@@ -131,12 +133,17 @@ adminContentEditorsRouter.get(
 
 adminContentEditorsRouter.patch(
   "/quizzes/:quizId",
-  validate({ params: QuizIdParamsSchema, body: QuizUpdateSchema }),
+  validate({
+    params: QuizIdParamsSchema,
+    body: QuizUpdateSchema,
+    query: JobBreadcrumbQuerySchema,
+  }),
   async (req, res, next) => {
     try {
       const payload: SuccessEnvelope<AdminQuizDto> = {
         data: await updateQuiz(param(req, "quizId"), req.body),
       };
+      await noteJobEdit(req, res);
       res.json(payload);
     } catch (error) {
       next(error);
@@ -146,10 +153,15 @@ adminContentEditorsRouter.patch(
 
 adminContentEditorsRouter.post(
   "/quizzes/:quizId/questions",
-  validate({ params: QuizIdParamsSchema, body: QuestionUpsertSchema }),
+  validate({
+    params: QuizIdParamsSchema,
+    body: QuestionUpsertSchema,
+    query: JobBreadcrumbQuerySchema,
+  }),
   async (req, res, next) => {
     try {
       const created = await createQuestion(param(req, "quizId"), req.body);
+      await noteJobEdit(req, res);
 
       const payload: SuccessEnvelope<AdminQuizQuestionDto> = { data: created };
       res.status(201).json(payload);
@@ -161,7 +173,11 @@ adminContentEditorsRouter.post(
 
 adminContentEditorsRouter.patch(
   "/quizzes/:quizId/questions/:id",
-  validate({ params: QuestionParamsSchema, body: QuestionUpsertSchema }),
+  validate({
+    params: QuestionParamsSchema,
+    body: QuestionUpsertSchema,
+    query: JobBreadcrumbQuerySchema,
+  }),
   async (req, res, next) => {
     try {
       const updated = await replaceQuestion(
@@ -169,6 +185,7 @@ adminContentEditorsRouter.patch(
         param(req, "id"),
         req.body,
       );
+      await noteJobEdit(req, res);
 
       const payload: SuccessEnvelope<AdminQuizQuestionDto> = { data: updated };
       res.json(payload);
@@ -180,13 +197,14 @@ adminContentEditorsRouter.patch(
 
 adminContentEditorsRouter.delete(
   "/quizzes/:quizId/questions/:id",
-  validate({ params: QuestionParamsSchema }),
+  validate({ params: QuestionParamsSchema, query: JobBreadcrumbQuerySchema }),
   async (req, res, next) => {
     try {
       const removed = await deleteQuestion(
         param(req, "quizId"),
         param(req, "id"),
       );
+      await noteJobEdit(req, res);
 
       const payload: SuccessEnvelope<QuestionDeleted> = { data: removed };
       res.json(payload);
@@ -247,12 +265,17 @@ adminContentEditorsRouter.get(
 
 adminContentEditorsRouter.patch(
   "/activities/:id",
-  validate({ params: EditorIdParamsSchema, body: ActivityUpsertSchema }),
+  validate({
+    params: EditorIdParamsSchema,
+    body: ActivityUpsertSchema,
+    query: JobBreadcrumbQuerySchema,
+  }),
   async (req, res, next) => {
     try {
       const payload: SuccessEnvelope<AdminActivityDto> = {
         data: await updateActivity(param(req, "id"), req.body),
       };
+      await noteJobEdit(req, res);
       res.json(payload);
     } catch (error) {
       next(error);

@@ -9,6 +9,12 @@ import type {
   AdminSubject,
   AdminTopic,
   AdminWorld,
+  AiJobCount,
+  AiJobDetail,
+  AiJobList,
+  AiJobStatus,
+  AiJobType,
+  AiReviewResult,
   AssetKind,
   BatchGenerationRef,
   CharacterSheet,
@@ -132,7 +138,7 @@ const CONTENT_BASE = "/api/admin/content";
 type ListOptions = { includeArchived?: boolean };
 
 function listQuery(
-  options: ListOptions & Record<string, string | boolean | undefined>,
+  options: ListOptions & Record<string, string | number | boolean | undefined>,
 ): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(options)) {
@@ -192,15 +198,22 @@ export function createContent<TResult>(
   });
 }
 
+/**
+ * `jobId` is the edit-then-approve breadcrumb (file 37, FR-AI-07): pass it when
+ * the form was opened from the review queue and the server records
+ * `edit_then_approve` on that job in the same request as the save. Omit it
+ * everywhere else.
+ */
 export function updateContent<TResult>(
   resource: ContentResourceName,
   id: string,
   body: ContentDraft,
+  jobId?: string,
 ): Promise<ApiResult<TResult>> {
-  return apiFetch<TResult>(`${CONTENT_BASE}/${resource}/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
+  return apiFetch<TResult>(
+    `${CONTENT_BASE}/${resource}/${id}${listQuery({ jobId })}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
 }
 
 /**
@@ -406,12 +419,14 @@ export function createQuiz(
   });
 }
 
+/** `jobId`: the edit-then-approve breadcrumb — see `updateContent`. */
 export function createQuestion(
   quizId: string,
   body: { format: QuizQuestionType; definition: unknown },
+  jobId?: string,
 ): Promise<ApiResult<AdminQuizQuestion>> {
   return apiFetch<AdminQuizQuestion>(
-    `${CONTENT_BASE}/quizzes/${quizId}/questions`,
+    `${CONTENT_BASE}/quizzes/${quizId}/questions${listQuery({ jobId })}`,
     { method: "POST", retries: 0, body: JSON.stringify(body) },
   );
 }
@@ -420,9 +435,10 @@ export function replaceQuestion(
   quizId: string,
   questionId: string,
   body: { format: QuizQuestionType; definition: unknown },
+  jobId?: string,
 ): Promise<ApiResult<AdminQuizQuestion>> {
   return apiFetch<AdminQuizQuestion>(
-    `${CONTENT_BASE}/quizzes/${quizId}/questions/${questionId}`,
+    `${CONTENT_BASE}/quizzes/${quizId}/questions/${questionId}${listQuery({ jobId })}`,
     { method: "PATCH", retries: 0, body: JSON.stringify(body) },
   );
 }
@@ -435,9 +451,10 @@ export function replaceQuestion(
 export function deleteQuestion(
   quizId: string,
   questionId: string,
+  jobId?: string,
 ): Promise<ApiResult<QuestionDeleted>> {
   return apiFetch<QuestionDeleted>(
-    `${CONTENT_BASE}/quizzes/${quizId}/questions/${questionId}`,
+    `${CONTENT_BASE}/quizzes/${quizId}/questions/${questionId}${listQuery({ jobId })}`,
     { method: "DELETE", retries: 0 },
   );
 }
@@ -696,5 +713,79 @@ export function promoteJobCharacters(
     method: "POST",
     retries: 0,
     body: JSON.stringify({ jobId }),
+  });
+}
+
+// --- The AI review queue (file 37, FR-AI-07, FR-CMS-05..06) ---------------
+
+/**
+ * `/api/admin/ai/jobs/*` — the human gate.
+ *
+ * The two decision calls are `retries: 0`, and it matters more here than
+ * anywhere else in this module. Approving publishes content to children and
+ * rejecting takes it out of circulation; neither is idempotent, so replaying one
+ * the API was slow to answer would be judged against the state the first attempt
+ * wrote and come back as a `409` an admin cannot act on. One attempt, and the
+ * admin retries deliberately.
+ */
+
+const AI_JOBS_BASE = "/api/admin/ai/jobs";
+
+export interface AiJobFilters {
+  status?: AiJobStatus;
+  type?: AiJobType;
+  language?: Locale;
+  gradeLevel?: GradeLevelValue;
+  take?: number;
+  skip?: number;
+}
+
+export function fetchAiJobs(
+  filters: AiJobFilters & { onColdStart?: () => void } = {},
+): Promise<ApiResult<AiJobList>> {
+  const { onColdStart, ...query } = filters;
+  return apiFetch<AiJobList>(`${AI_JOBS_BASE}${listQuery(query)}`, {
+    onColdStart,
+  });
+}
+
+export function fetchAiJob(id: string): Promise<ApiResult<AiJobDetail>> {
+  return apiFetch<AiJobDetail>(`${AI_JOBS_BASE}/${id}`);
+}
+
+/**
+ * The sidebar badge's one number, polled from every CMS screen.
+ *
+ * Its own endpoint rather than a field on the list: sending a page of jobs to
+ * render a count would refetch the queue on every tick from every open tab.
+ */
+export function fetchAiJobCount(): Promise<ApiResult<AiJobCount>> {
+  return apiFetch<AiJobCount>(`${AI_JOBS_BASE}/count`);
+}
+
+/**
+ * Approve, which publishes everything the job created (FR-CMS-06).
+ *
+ * A `409` here is expected rather than exceptional. `error.details.code` is
+ * `APPROVAL_BLOCKED` with a `blockers` list — a linked row somebody has moved, or
+ * a question still holding a placeholder asset — or `JOB_NOT_AWAITING_REVIEW`
+ * when a colleague has already decided it. Both are worth showing verbatim.
+ */
+export function approveAiJob(id: string): Promise<ApiResult<AiReviewResult>> {
+  return apiFetch<AiReviewResult>(`${AI_JOBS_BASE}/${id}/approve`, {
+    method: "POST",
+    retries: 0,
+  });
+}
+
+/** Reject. The server requires at least ten characters of reason (FR-AI-08). */
+export function rejectAiJob(
+  id: string,
+  reason: string,
+): Promise<ApiResult<AiReviewResult>> {
+  return apiFetch<AiReviewResult>(`${AI_JOBS_BASE}/${id}/reject`, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify({ reason }),
   });
 }

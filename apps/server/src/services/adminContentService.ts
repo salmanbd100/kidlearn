@@ -24,7 +24,11 @@ import type {
   WorldCreateBody,
   WorldUpdateBody,
 } from "../schemas/admin-content.js";
-import { assertEditable, assertTransition } from "./contentStatusService.js";
+import {
+  assertAiPublishable,
+  assertEditable,
+  assertTransition,
+} from "./contentStatusService.js";
 
 /**
  * The curriculum hierarchy as admins write it (file 32, FR-CURR-04, FR-CMS-01).
@@ -662,6 +666,14 @@ type ContentWriter = Pick<
  * status the row *actually* holds: two admins approving and rejecting the same
  * lesson at the same moment must not both read `in_review` and both succeed. The
  * loser aborts, retries, and has its hop judged against what the winner wrote.
+ *
+ * **The publish hop carries a second guard (file 37, FR-AI-07).** The matrix
+ * cannot see whether a row was written by a model, so a generated lesson walked
+ * `draft → in_review → approved → published` by hand is four legal hops that never
+ * involved anybody reading it. `assertAiPublishable` reads the creating job and
+ * refuses unless a reviewer decided it. It runs inside the same transaction as the
+ * write, so a job decided or undecided concurrently is judged against the same
+ * snapshot the status was.
  */
 export async function transitionContent(
   resource: ContentResource,
@@ -672,8 +684,10 @@ export async function transitionContent(
   await withSerializationRetry(() =>
     prisma.$transaction(
       async (tx) => {
-        const current = await readStatus(tx, resource, id);
-        assertTransition(current, to);
+        const current = await readGuardFields(tx, resource, id);
+        assertTransition(current.status, to);
+        if (to === "published")
+          await assertAiPublishable([current.aiJobId], tx);
         await writeStatus(tx, resource, id, to, adminId);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -683,11 +697,22 @@ export async function transitionContent(
   return READ_BY_RESOURCE[resource](id);
 }
 
-async function readStatus(
+/**
+ * The status a transition is judged against, and the job that created the row.
+ *
+ * Only `Lesson` carries `aiJobId` among these four — a world, a subject and a
+ * topic are structure an admin defines, not content a model writes — so the other
+ * three report `null` and `assertAiPublishable` returns without a query. Spelled
+ * out per resource rather than selected uniformly because a `select` naming a
+ * column the model does not have is a compile error, which is the right outcome:
+ * it is what would fail if `aiJobId` were ever added to one of the other three
+ * without this being revisited.
+ */
+async function readGuardFields(
   tx: ContentWriter,
   resource: ContentResource,
   id: string,
-): Promise<ContentStatus> {
+): Promise<{ status: ContentStatus; aiJobId: string | null }> {
   const select = { status: true } as const;
   const row = await (resource === "worlds"
     ? tx.world.findUnique({ where: { id }, select })
@@ -695,10 +720,21 @@ async function readStatus(
       ? tx.subject.findUnique({ where: { id }, select })
       : resource === "topics"
         ? tx.topic.findUnique({ where: { id }, select })
-        : tx.lesson.findUnique({ where: { id }, select }));
+        : tx.lesson.findUnique({
+            where: { id },
+            select: { ...select, aiJobId: true },
+          }));
 
   if (!row) throw ApiError.notFound(`No such ${singular(resource)}`);
-  return row.status;
+  return { status: row.status, aiJobId: "aiJobId" in row ? row.aiJobId : null };
+}
+
+async function readStatus(
+  tx: ContentWriter,
+  resource: ContentResource,
+  id: string,
+): Promise<ContentStatus> {
+  return (await readGuardFields(tx, resource, id)).status;
 }
 
 async function writeStatus(
