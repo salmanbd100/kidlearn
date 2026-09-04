@@ -30,6 +30,17 @@ import {
   AdminWorldListResponseSchema,
   AdminWorldResponseSchema,
   AdminWorldSchema,
+  AiJobAssetSchema,
+  AiJobCountResponseSchema,
+  AiJobCountSchema,
+  AiJobDetailResponseSchema,
+  AiJobDetailSchema,
+  AiJobEntitySchema,
+  AiJobListResponseSchema,
+  AiJobListSchema,
+  AiJobSummarySchema,
+  AiReviewResultResponseSchema,
+  AiReviewResultSchema,
   AuthMeResponseSchema,
   AuthMeSchema,
   AvatarCharacterListResponseSchema,
@@ -136,11 +147,14 @@ import {
 } from "@kidlearn/types";
 import type { ZodTypeAny } from "zod";
 import {
+  AiJobListQuerySchema,
   GenerateIllustrationsSchema,
   GenerateLessonSchema,
   GenerateNarrationSchema,
   GenerateQuizSchema,
   GenerateStorySchema,
+  JobBreadcrumbQuerySchema,
+  RejectJobSchema,
 } from "../schemas/admin-ai.js";
 import {
   CharacterSheetCreateSchema,
@@ -443,6 +457,28 @@ const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AiGenerateIllustrationsBody: GenerateIllustrationsSchema,
   BatchGenerationRef: BatchGenerationRefSchema,
   BatchGenerationRefResponse: BatchGenerationRefResponseSchema,
+
+  // --- Admin AI: the review queue (file 37, FR-AI-07, FR-CMS-05..06) -------
+  // The human gate. `AiJobDetail.input` and `.rawOutput` are `unknown` on
+  // purpose — they are the FR-AI-08 audit record, whose shape differs per
+  // generator and changes whenever a prompt does; the review screen renders them
+  // in a JSON inspector rather than as typed fields. `AiJobListQuery` and
+  // `JobBreadcrumbQuery` are registered as request shapes so the list filters and
+  // the edit-then-approve breadcrumb are readable from the spec alone.
+  AiJobListQuery: AiJobListQuerySchema,
+  AiJobRejectBody: RejectJobSchema,
+  JobBreadcrumbQuery: JobBreadcrumbQuerySchema,
+  AiJobSummary: AiJobSummarySchema,
+  AiJobEntity: AiJobEntitySchema,
+  AiJobAsset: AiJobAssetSchema,
+  AiJobDetail: AiJobDetailSchema,
+  AiJobDetailResponse: AiJobDetailResponseSchema,
+  AiJobList: AiJobListSchema,
+  AiJobListResponse: AiJobListResponseSchema,
+  AiJobCount: AiJobCountSchema,
+  AiJobCountResponse: AiJobCountResponseSchema,
+  AiReviewResult: AiReviewResultSchema,
+  AiReviewResultResponse: AiReviewResultResponseSchema,
 
   // --- Screen time --------------------------------------------------------
   ScreenTimeSetting: ScreenTimeSettingSchema,

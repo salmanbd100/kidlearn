@@ -80,4 +80,75 @@ describe("AdminSidebar", () => {
 
     expect(screen.getByText("Reviewer One")).toBeInTheDocument();
   });
+  /**
+   * The AI Queue badge (file 37, requirement 8).
+   *
+   * Its whole purpose is to be seen from the other five sections, so what matters
+   * is that it appears on the nav item and disappears at zero — a badge reading
+   * "0" is a notification that there is nothing to notify about.
+   */
+  describe("the AI Queue badge", () => {
+    it("shows the count on the AI Queue item", () => {
+      render(
+        <AdminSidebar
+          pathname={ADMIN_ROUTES.analytics}
+          badges={{ [ADMIN_ROUTES.aiQueue]: 3 }}
+        />,
+      );
+
+      expect(screen.getByRole("link", { name: /AI Queue/ })).toHaveTextContent(
+        "3",
+      );
+    });
+
+    it("says what the number counts, not just the number", () => {
+      // design.md §2.3 — "AI Queue 3" announced on its own tells a screen-reader
+      // user nothing about what the 3 is.
+      render(
+        <AdminSidebar
+          pathname={ADMIN_ROUTES.analytics}
+          badges={{ [ADMIN_ROUTES.aiQueue]: 3 }}
+        />,
+      );
+
+      expect(screen.getByText("3 jobs awaiting review")).toBeInTheDocument();
+    });
+
+    it("reads as one job in the singular", () => {
+      render(
+        <AdminSidebar
+          pathname={ADMIN_ROUTES.analytics}
+          badges={{ [ADMIN_ROUTES.aiQueue]: 1 }}
+        />,
+      );
+
+      expect(screen.getByText("1 job awaiting review")).toBeInTheDocument();
+    });
+
+    it("renders nothing at zero, so an empty queue is silent", () => {
+      render(
+        <AdminSidebar
+          pathname={ADMIN_ROUTES.analytics}
+          badges={{ [ADMIN_ROUTES.aiQueue]: 0 }}
+        />,
+      );
+
+      expect(
+        screen.getByRole("link", { name: "AI Queue" }),
+      ).toBeInTheDocument();
+    });
+
+    it("leaves the other sections unbadged", () => {
+      render(
+        <AdminSidebar
+          pathname={ADMIN_ROUTES.analytics}
+          badges={{ [ADMIN_ROUTES.aiQueue]: 3 }}
+        />,
+      );
+
+      expect(
+        screen.getByRole("link", { name: "Curriculum" }),
+      ).toBeInTheDocument();
+    });
+  });
 });

@@ -8,7 +8,7 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
-import { pathParam, type RouteDoc } from "../route-doc.js";
+import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
  * `routes/admin/content.ts` — the curriculum CMS (file 32, FR-CURR-04,
@@ -71,6 +71,25 @@ const EDIT_CONFLICT_RESPONSE = errorResponse(
  * The one paragraph that has to appear on every create and edit operation, and
  * the reason this file exists as a generator rather than four copies.
  */
+/**
+ * `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07).
+ *
+ * Registered on all four resources rather than on lessons alone. Only `Lesson`
+ * carries `aiJobId` today, but a per-resource rule is one the next generated
+ * resource has to remember, and an absent `jobId` costs nothing.
+ */
+const JOB_ID_QUERY_NOTE =
+  "**`?jobId=…`** records `edit_then_approve` on that AI generation job (FR-AI-07), for a save made from the review queue's Edit button. It rides on this request rather than following it as a second call: a client that crashed between the two would leave a rewritten lesson whose audit trail says nobody rewrote it (FR-AI-08). Ignored — never an error — when the job named has already been decided, because the save is real work and the breadcrumb is not. Recording it publishes nothing: the publish guard also requires the job to *be* approved, which only `POST /api/admin/ai/jobs/{id}/approve` writes.";
+
+const JOB_ID_QUERY_PARAM = {
+  ...queryParam(
+    "jobId",
+    "The `AIGenerationJob` this edit belongs to, when the form was opened from the review queue.",
+    { type: "string", format: "uuid" },
+  ),
+  required: false,
+};
+
 const NO_STATUS_IN_BODY = [
   '**The body cannot carry `status`.** The schema is `.strict()` and has no such key, so `{ "status": "published" }` is a `400` — status moves only through `POST /{id}/transition`, which is the only path that applies the transition matrix. An edit route that accepted `status` would be a second door to publishing, with no review behind it.',
   "",
@@ -339,8 +358,10 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
           "`translations`, if present, must carry **both** locales. A partial translation write is what produces content that falls back to English part-way through a Bangla learner's session (FR-I18N-01), and the CMS form submits the pair together in any case.",
           "",
           resource.notes,
+          "",
+          JOB_ID_QUERY_NOTE,
         ].join("\n"),
-        parameters: [id],
+        parameters: [id, JOB_ID_QUERY_PARAM],
         requestBody: jsonRequestBody(resource.updateBodySchema),
         responses: {
           "200": jsonResponse(
@@ -379,6 +400,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
               'The hop is not in the matrix above. `error.details` carries `code: "INVALID_TRANSITION"`, the `from` and `to` that were refused, and `allowed` — the legal next states — so a client can refresh its buttons from the rejection instead of guessing.',
               "",
               "`409` rather than `400`: the request is well formed and the target status is a real one. What is wrong is the state the row happens to be in, which may not be wrong a moment later.",
+              "",
+              'Publishing carries a second cause. `code: "AI_REVIEW_REQUIRED"` means the lesson was written by a generation job that no reviewer has approved (FR-AI-07); `details` carries `jobId`, `jobStatus` and `decision`. Only `Lesson` among these four can be refused this way — a world, a subject and a topic are structure an admin defines, not content a model writes. The fix is the AI review queue, not the matrix.',
             ].join("\n"),
             ["CONFLICT"],
           ),

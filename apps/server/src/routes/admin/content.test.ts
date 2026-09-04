@@ -331,6 +331,10 @@ vi.mock("../../lib/prisma.js", async () => {
     aIGenerationJob: {
       findUnique: async ({ where }: { where: { id: string } }) =>
         store.jobs.find((row) => row.id === where.id) ?? null,
+      // `assertAiPublishable` reads every job a row answers for in one query.
+      findMany: async ({ where }: { where: { id: { in: string[] } } }) =>
+        store.jobs.filter((row) => where.id.in.includes(row.id)),
+      updateMany: async () => ({ count: 0 }),
     },
     // Present so a stray parent-provisioning read fails loudly: no admin route
     // may create a Parent row.
@@ -941,6 +945,102 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
 
     expect(res.status).toBe(409);
     expect(store.lessons[0].status).toBe("draft");
+  });
+
+  /**
+   * The FR-AI-07 invariant, reached through the *generic* endpoint (file 37).
+   *
+   * This is the hole the review queue exists to close, and it is not a hole the
+   * matrix can see: `draft → in_review → approved → published` is four perfectly
+   * legal hops, and walking a generated lesson along them by hand publishes work
+   * no human read. The guard is on the publish hop and reads the creating job, so
+   * the first three hops still succeed — which is what the test asserts, because a
+   * guard that refused the whole chain would be a different (and wrong) rule.
+   */
+  describe("AI-generated content cannot be published without a review decision", () => {
+    function seedAiLesson(job: {
+      status: string;
+      decision: string | null;
+    }): void {
+      seedLesson("draft");
+      store.lessons[0].aiJobId = "job-1";
+      store.jobs = [{ id: "job-1", ...job }];
+    }
+
+    it("409s AI_REVIEW_REQUIRED on the publish hop of an undecided draft", async () => {
+      seedAiLesson({ status: "awaiting_review", decision: null });
+
+      for (const to of ["in_review", "approved"]) {
+        const res = await request(app).post(path).send({ to });
+        expect(res.status, `hop to ${to}`).toBe(200);
+      }
+
+      const res = await request(app).post(path).send({ to: "published" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe("CONFLICT");
+      expect(res.body.error.details).toMatchObject({
+        code: "AI_REVIEW_REQUIRED",
+        jobId: "job-1",
+        jobStatus: "awaiting_review",
+        decision: null,
+      });
+      // Still `approved`, which is not `published` — and `published` is the one
+      // value every student query filters on (asserted against the exported
+      // filter in "publishing is immediate visibility" below).
+      expect(store.lessons[0].status).toBe("approved");
+    });
+
+    it("409s even when an editor recorded edit_then_approve but nobody approved", async () => {
+      // The decision alone is not the gate. The editors write it the moment a
+      // reviewer saves, which is before any approval — so a decision-only check
+      // would leave exactly this door open.
+      seedAiLesson({
+        status: "awaiting_review",
+        decision: "edit_then_approve",
+      });
+      store.lessons[0].status = "approved";
+
+      const res = await request(app).post(path).send({ to: "published" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toMatchObject({
+        code: "AI_REVIEW_REQUIRED",
+      });
+    });
+
+    it("409s a rejected job's content, so a rejection cannot be walked around", async () => {
+      seedAiLesson({ status: "rejected", decision: "reject" });
+      store.lessons[0].status = "approved";
+
+      const res = await request(app).post(path).send({ to: "published" });
+
+      expect(res.status).toBe(409);
+      expect(store.lessons[0].status).toBe("approved");
+    });
+
+    it("publishes once the job carries an approved decision", async () => {
+      seedAiLesson({ status: "approved", decision: "approve" });
+      store.lessons[0].status = "approved";
+
+      const res = await request(app).post(path).send({ to: "published" });
+
+      expect(res.status).toBe(200);
+      assertContract(AdminLessonResponseSchema, res.body, OPERATION);
+      expect(store.lessons[0].status).toBe("published");
+    });
+
+    it("leaves human-authored content alone", async () => {
+      // A null `aiJobId` short-circuits before any job read, which is the normal
+      // case and must stay free.
+      seedLesson("approved");
+      store.jobs = [];
+
+      const res = await request(app).post(path).send({ to: "published" });
+
+      expect(res.status).toBe(200);
+      expect(store.lessons[0].status).toBe("published");
+    });
   });
 
   it("returns 400 for a status that is not a status at all", async () => {

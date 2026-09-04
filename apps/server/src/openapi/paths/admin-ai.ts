@@ -1,3 +1,13 @@
+import type { AIJobStatus, AIJobType, AIReviewDecision } from "@kidlearn/db";
+import {
+  AI_JOB_STATUSES,
+  AI_JOB_TYPES,
+  type AiJobStatus,
+  type AiJobType,
+  type AiReviewDecision,
+  GRADE_LEVELS,
+  LOCALES,
+} from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -6,7 +16,7 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
-import type { RouteDoc } from "../route-doc.js";
+import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
  * `routes/admin/ai.ts` — the AI generation pipeline (files 34–36, FR-AI-01..06,
@@ -29,7 +39,100 @@ import type { RouteDoc } from "../route-doc.js";
  * text, audio, image — counted from `AIGenerationJob` rows created since midnight
  * in `APP_TIMEZONE`. They exist because the batch endpoints turn one click into
  * many provider calls; see `RATE_LIMITED_RESPONSE` below.
+ *
+ * File 37 adds the review queue — the human gate FR-AI-07 makes a hard
+ * requirement. Nothing above it can publish; nothing below it can be reached
+ * without an administrator having read what a model wrote.
  */
+
+/**
+ * Compile-time guards on the three mirrored job enums. `@kidlearn/types` may not
+ * depend on `@kidlearn/db`, so it restates `AIJobType`, `AIJobStatus` and
+ * `AIReviewDecision` by hand; these assignments make the restatement checked
+ * rather than trusted, exactly as `paths/children.ts` does for `GradeLevel`.
+ * Adding a job type or a review decision to `schema.prisma` without adding it to
+ * `packages/types` fails `pnpm typecheck` here.
+ */
+type _JobEnumsAgree = AIJobType extends AiJobType
+  ? AiJobType extends AIJobType
+    ? AIJobStatus extends AiJobStatus
+      ? AiJobStatus extends AIJobStatus
+        ? AIReviewDecision extends AiReviewDecision
+          ? AiReviewDecision extends AIReviewDecision
+            ? true
+            : never
+          : never
+        : never
+      : never
+    : never
+  : never;
+const _aiJobEnumMirrorsAreExhaustive: _JobEnumsAgree = true;
+void _aiJobEnumMirrorsAreExhaustive;
+
+const JOB_ID_PARAM = pathParam("id", "`AIGenerationJob.id`.");
+
+const JOB_NOT_FOUND_RESPONSE = errorResponse(
+  "No generation job with that id.",
+  ["NOT_FOUND"],
+);
+
+const QUEUE_LIST_DESCRIPTION = [
+  "The review queue, oldest first (FR-CMS-05).",
+  "",
+  "**`status` defaults to `awaiting_review`, because that is the queue.** The other statuses are the archive and are reachable by asking for them — a `rejected` listing is how somebody finds out why a lesson never went live, and `failed` is where a broken provider key shows up.",
+  "",
+  '**Oldest first rather than newest.** This is a work list, and the job that has waited longest is the one to review next. `total` counts every job matching the filters, not the page, so a screen can say "25 of 40" instead of only showing what fits.',
+  "",
+  "**`gradeLevel` and `language` filter against the job's `input` JSON, not against columns.** That is where each generator recorded what it was asked for, and copying it into columns would be a second source of truth about a request that has already happened. `gradeLevel` matches either a lesson job's scalar `gradeLevel` or a story job's `gradeLevels` array; `language` matches a text job's `languages` array or a narration job's single `locale`.",
+  "",
+  'A consequence worth stating: **filtering by grade narrows to the text jobs**, because a narration clip has no reading age and an illustration job has no language. That is the useful behaviour — "KG1 lessons awaiting review" is the question being asked — but it is not an empty result meaning "nothing to review".',
+  "",
+  "`gradeLevels` and `languages` on each row are lifted out of the same `input` so the table has columns to render without every client parsing a free-form JSONB blob. Either may be empty. `entityLabel` is the name of what the job produced — a lesson title, a story title, the words a clip reads — or `null` for a job that produced nothing.",
+].join("\n");
+
+const QUEUE_DETAIL_DESCRIPTION = [
+  "One job, with everything a reviewer needs to decide on it (FR-CMS-05, FR-AI-08).",
+  "",
+  "**`input` and `rawOutput` are the audit record and are deliberately untyped.** They hold the verbatim system and user prompts, both model attempts including the one that failed validation, the token usage each cost, the parsed payload and the ids of the rows written. Their shape differs per generator and changes whenever a prompt does, so a typed contract here would be one nothing can keep — the review screen renders them in a JSON inspector instead. Read them; do not branch on them.",
+  "",
+  "**`entities` are the content rows this job created**, each with the CMS path segment to open it in an editor and the `status` it currently holds. A quiz whose questions this job wrote appears here even when the quiz row itself predates the job: a `QuizQuestion` has no status of its own and is published by its parent.",
+  "",
+  "**`assets` are the media it produced and where approving will attach them.** A generated clip or picture is deliberately *unattached* — the foreign key is not written at generation time (file 36) — so nothing student-facing can reach it. `targetTable`/`targetId` say which key approval will write; `isAttached` reflects the live state, so a job re-opened after approval shows the attachment rather than offering it again.",
+  "",
+  "**`blockers` is why the job cannot be approved right now, computed server-side.** It is the same function the approval runs, so the button this list disables and the `409` the endpoint would return cannot disagree. An empty array means approve will succeed.",
+].join("\n");
+
+const APPROVE_DESCRIPTION = [
+  "Approve the generation and publish everything it created, in one action (FR-AI-07, FR-CMS-06).",
+  "",
+  "**One action rather than approve-then-publish, because FR-CMS-06 says approved content is published immediately.** A separate publish step is a second thing to forget, and what it leaves behind is reviewed content invisible to children for no reason any of them benefits from.",
+  "",
+  "**Every row is walked `draft → in_review → approved → published`, one legal hop at a time**, each validated against the same matrix `POST /api/admin/content/{resource}/{id}/transition` uses. This endpoint is a trusted driver of legal hops, not a second definition of the workflow — a shortcut writing `published` directly would be exactly the second definition that eventually drifts.",
+  "",
+  '**For an audio or image job, "publish" means writing the foreign key.** A `MediaAsset` has no status and no student query of its own: it is reachable only through the row pointing at it, so setting `introAudioAssetId` / `narrationAudioAssetId` / `audioAssetId` / `illustrationAssetId` is the moment the clip becomes playable — and only through a parent that is itself published.',
+  "",
+  "**The decision is written before any row moves, in the same transaction.** That is what makes the FR-AI-07 invariant total: `assertAiPublishable` refuses a publish hop on any row whose creating job is not an approved one, so this endpoint passes because it has just recorded the approval, and every other path fails because it has not.",
+  "",
+  "**An `edit_then_approve` decision is preserved, never overwritten to `approve`.** It is recorded when a reviewer saves an edit from one of the editors (see `jobId` on the editor operations), and it is the only record that the words that went live are not the words the model wrote.",
+  "",
+  "No request body. The reviewer comes from the session and what to publish comes from the job's foreign keys; a body naming rows to include would be a way to publish half a lesson.",
+].join("\n");
+
+const REJECT_DESCRIPTION = [
+  "Refuse the generation, with a mandatory reason (FR-AI-07, FR-AI-08).",
+  "",
+  '**The reason is required and must be at least ten characters.** "no" and "bad" record nothing: whoever regenerates the content has to change the prompt, and the sentence explaining what was wrong is the only part of a rejection that tells them how. It is stored on the job as `reviewNote`, forever.',
+  "",
+  "**Each row is walked `draft → in_review → rejected` — two hops, not one.** The matrix has no `draft → rejected` edge, because rejecting something nobody reviewed is not a state the workflow models. Both hops are real transitions.",
+  "",
+  "**A row somebody has moved takes the longer way round.** The route is read out of the matrix per row rather than assumed, so a lesson an admin approved or published by hand walks `→ draft → in_review → rejected`. That is what makes a rejection always available: the job most likely to need rejecting is the one whose content someone has already moved, and a fixed two-hop chain would refuse exactly that one.",
+  "",
+  "**Nothing is deleted.** The rows stay at `rejected` and the job keeps its whole `rawOutput` — prompts, both attempts, token cost — which is what FR-AI-08 asks for. None of it is student-visible: every student query filters `status = published`.",
+  "",
+  "**Getting rejected work live later takes both gates.** The matrix routes `rejected` back through `draft → in_review → approved → published`, and the publish hop additionally requires an approving decision on the creating job — which a rejected job does not have. Re-generating is the intended path.",
+  "",
+  "Unlike approve, this does **not** refuse a row that has been moved off `draft` since generation. Taking content out of circulation is the safe direction, and refusing would mean an admin could not reject the job most likely to need it.",
+].join("\n");
 
 const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   "Authenticated, but not an administrator. Every signed-in *parent* lands here — see `GET /api/admin/me` for why a valid session is not enough.",
@@ -271,6 +374,154 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
         "403": ADMIN_FORBIDDEN_RESPONSE,
         "404": errorResponse("No story with that id.", ["NOT_FOUND"]),
         "429": RATE_LIMITED_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/admin/ai/jobs",
+    operation: {
+      tags: ["Admin AI"],
+      summary: "List generation jobs awaiting review",
+      description: QUEUE_LIST_DESCRIPTION,
+      parameters: [
+        queryParam(
+          "status",
+          "Which jobs to list. Defaults to `awaiting_review` — the queue itself.",
+          { type: "string", enum: [...AI_JOB_STATUSES] },
+        ),
+        queryParam("type", "Narrow to one generator.", {
+          type: "string",
+          enum: [...AI_JOB_TYPES],
+        }),
+        queryParam(
+          "language",
+          "Matches a text job's `languages` array or a narration job's `locale`.",
+          { type: "string", enum: [...LOCALES] },
+        ),
+        queryParam(
+          "gradeLevel",
+          "Matches a lesson job's `gradeLevel` or a story job's `gradeLevels` array. Narrows to the text jobs by construction — the media jobs record no grade.",
+          { type: "string", enum: [...GRADE_LEVELS] },
+        ),
+        queryParam("take", "Page size, 1–100. Defaults to 25.", {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+        }),
+        queryParam("skip", "Rows to skip. Defaults to 0.", {
+          type: "integer",
+          minimum: 0,
+        }),
+      ].map((parameter) => ({ ...parameter, required: false })),
+      responses: {
+        "200": jsonResponse(
+          "A page of the queue, oldest first, plus the total matching the filters.",
+          "AiJobListResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/admin/ai/jobs/count",
+    operation: {
+      tags: ["Admin AI"],
+      summary: "How many jobs are awaiting review",
+      description:
+        "One number, for the CMS sidebar badge (requirement 8). Its own endpoint rather than a field on the list, because the badge is polled from every screen and the list is not: sending a page of jobs to render a count would fetch the queue on every tick from every open tab.\n\nNo parameters — the badge counts `awaiting_review` and nothing else. Zero is a real answer and the badge hides at it.",
+      responses: {
+        "200": jsonResponse(
+          "`{ awaitingReview }` — the count of jobs waiting for a human.",
+          "AiJobCountResponse",
+        ),
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/admin/ai/jobs/{id}",
+    operation: {
+      tags: ["Admin AI"],
+      summary: "Read one generation job and everything it produced",
+      description: QUEUE_DETAIL_DESCRIPTION,
+      parameters: [JOB_ID_PARAM],
+      responses: {
+        "200": jsonResponse(
+          "The job, its content rows, its unattached media, and why it cannot be approved yet if it cannot.",
+          "AiJobDetailResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "404": JOB_NOT_FOUND_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/admin/ai/jobs/{id}/approve",
+    operation: {
+      tags: ["Admin AI"],
+      summary: "Approve a generation, publishing everything it created",
+      description: APPROVE_DESCRIPTION,
+      parameters: [JOB_ID_PARAM],
+      responses: {
+        "200": jsonResponse(
+          "The decided job, the content rows now published, and the ids of any media assets whose foreign key was written.",
+          "AiReviewResultResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "404": JOB_NOT_FOUND_RESPONSE,
+        "409": errorResponse(
+          [
+            "The approval was refused, and `error.details.code` says which of two reasons:",
+            "",
+            "- `JOB_NOT_AWAITING_REVIEW` — the job is already decided, still generating, or failed. `details.status` carries its state.",
+            "- `APPROVAL_BLOCKED` — `details.blockers` lists the sentences. A linked row is no longer `draft`, meaning somebody changed it since the job was generated; or a generated quiz question still points at a placeholder asset on the reserved `.invalid` host, meaning its picture or clip was never produced. Publishing either would put something broken in front of a child mid-lesson.",
+          ].join("\n"),
+          ["CONFLICT"],
+        ),
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/admin/ai/jobs/{id}/reject",
+    operation: {
+      tags: ["Admin AI"],
+      summary: "Reject a generation, with a mandatory reason",
+      description: REJECT_DESCRIPTION,
+      parameters: [JOB_ID_PARAM],
+      requestBody: jsonRequestBody("AiJobRejectBody"),
+      responses: {
+        "200": jsonResponse(
+          "The decided job and the content rows now sitting at `rejected`.",
+          "AiReviewResultResponse",
+        ),
+        "400": errorResponse(
+          "The body was rejected. Most often the reason is missing or shorter than ten characters — see the operation description for why the floor is not one.",
+          ["VALIDATION_FAILED"],
+        ),
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "404": JOB_NOT_FOUND_RESPONSE,
+        "409": errorResponse(
+          "`details.code` is `JOB_NOT_AWAITING_REVIEW`: the job has already been decided, is still generating, or failed. It is the only conflict a rejection produces — the row hops are routed through the matrix from wherever each row currently sits, so no linked row's status can refuse one.",
+          ["CONFLICT"],
+        ),
         "500": INTERNAL_RESPONSE,
       },
     },

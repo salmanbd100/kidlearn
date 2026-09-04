@@ -1,20 +1,39 @@
-import type { BatchGenerationRef, GenerationJobRef } from "@kidlearn/types";
-import { Router } from "express";
+import type {
+  AiJobCount,
+  BatchGenerationRef,
+  GenerationJobRef,
+} from "@kidlearn/types";
+import { type Request, Router } from "express";
 import type { SuccessEnvelope } from "../../lib/errors.js";
+import { adminContext } from "../../middleware/require-admin.js";
 import { requireGenerationBudget } from "../../middleware/require-generation-budget.js";
-import { validate } from "../../middleware/validate.js";
+import { validate, validatedQuery } from "../../middleware/validate.js";
 import {
+  AiJobIdParamsSchema,
+  type AiJobListQuery,
+  AiJobListQuerySchema,
   GenerateIllustrationsSchema,
   GenerateLessonSchema,
   GenerateNarrationSchema,
   GenerateQuizSchema,
   GenerateStorySchema,
+  RejectJobSchema,
 } from "../../schemas/admin-ai.js";
 import { generateIllustrationBatch } from "../../services/ai/generators/illustration.js";
 import { generateLesson } from "../../services/ai/generators/lesson.js";
 import { generateNarrationBatch } from "../../services/ai/generators/narration.js";
 import { generateQuiz } from "../../services/ai/generators/quiz.js";
 import { generateStory } from "../../services/ai/generators/story.js";
+import {
+  type AiJobDetailDto,
+  type AiJobListDto,
+  type AiReviewResultDto,
+  approveJob,
+  countAwaitingReview,
+  getJob,
+  listJobs,
+  rejectJob,
+} from "../../services/ai/review.js";
 
 /**
  * `/api/admin/ai` — the generation pipeline (file 34, FR-AI-01, FR-AI-08).
@@ -129,6 +148,121 @@ adminAiRouter.post(
 
       const payload: SuccessEnvelope<BatchGenerationRef> = { data: result };
       res.status(202).json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// --- The review queue (file 37, FR-AI-07, FR-CMS-05..06) ------------------
+
+/**
+ * Reads the `:id` path parameter, on routes guarded by
+ * `validate({ params: AiJobIdParamsSchema })`.
+ *
+ * Express 5 types every param as `string | string[]`, because a repeated segment
+ * can produce an array. The cast is safe only *after* that middleware has run: it
+ * replaced `req.params` with the Zod-parsed object, in which `id` is a uuid
+ * string — or the request never reached the handler (`400 VALIDATION_FAILED`).
+ * Same reasoning as `idParam` in `routes/admin/content.ts`.
+ */
+function jobIdParam(req: Request): string {
+  return req.params.id as string;
+}
+
+/**
+ * The human gate. Everything above creates drafts; nothing above can publish one.
+ *
+ * `/jobs/count` is registered before `/jobs/:id` because Express matches in
+ * registration order and `count` is a valid path segment — the reverse order
+ * would send every badge poll into the detail handler, where the uuid params
+ * schema would answer a confusing `400` about `id`.
+ */
+adminAiRouter.get(
+  "/jobs",
+  validate({ query: AiJobListQuerySchema }),
+  async (_req, res, next) => {
+    try {
+      const query = validatedQuery<AiJobListQuery>(res);
+
+      const payload: SuccessEnvelope<AiJobListDto> = {
+        data: await listJobs(query),
+      };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminAiRouter.get("/jobs/count", async (_req, res, next) => {
+  try {
+    const payload: SuccessEnvelope<AiJobCount> = {
+      data: await countAwaitingReview(),
+    };
+    res.json(payload);
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminAiRouter.get(
+  "/jobs/:id",
+  validate({ params: AiJobIdParamsSchema }),
+  async (req, res, next) => {
+    try {
+      const payload: SuccessEnvelope<AiJobDetailDto> = {
+        data: await getJob(jobIdParam(req)),
+      };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Approve, which publishes (FR-CMS-06).
+ *
+ * One action rather than approve-then-publish, because FR-CMS-06 says approved
+ * content is published immediately and a second step is a second thing to forget
+ * — leaving reviewed content invisible for no reason a child benefits from. What
+ * it publishes is every row the job created, walked through file 32's matrix one
+ * legal hop at a time.
+ *
+ * No body. There is nothing to say: the reviewer's identity comes from the
+ * session and what to publish comes from the job's foreign keys. A body naming
+ * rows to include would be a way to publish half a lesson.
+ */
+adminAiRouter.post(
+  "/jobs/:id/approve",
+  validate({ params: AiJobIdParamsSchema }),
+  async (req, res, next) => {
+    try {
+      const admin = adminContext(req);
+
+      const payload: SuccessEnvelope<AiReviewResultDto> = {
+        data: await approveJob(jobIdParam(req), admin.id),
+      };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/** Reject, with a mandatory reason of at least ten characters (FR-AI-08). */
+adminAiRouter.post(
+  "/jobs/:id/reject",
+  validate({ params: AiJobIdParamsSchema, body: RejectJobSchema }),
+  async (req, res, next) => {
+    try {
+      const admin = adminContext(req);
+
+      const payload: SuccessEnvelope<AiReviewResultDto> = {
+        data: await rejectJob(jobIdParam(req), admin.id, req.body.reason),
+      };
+      res.json(payload);
     } catch (error) {
       next(error);
     }

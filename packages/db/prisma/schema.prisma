@@ -701,6 +701,11 @@ model AIGenerationJob {
   reviewerId String?
   reviewer   AdminUser?        @relation(fields: [reviewerId], references: [id])
   decision   AIReviewDecision?
+  // Why the reviewer refused (file 37, FR-AI-08). Mandatory on a rejection at the
+  // API boundary and nowhere else: "rejected" on its own tells whoever regenerates
+  // the content nothing about what was wrong with it, and the prompt that produced
+  // it is the thing they have to change.
+  reviewNote String?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
   reviewedAt DateTime?

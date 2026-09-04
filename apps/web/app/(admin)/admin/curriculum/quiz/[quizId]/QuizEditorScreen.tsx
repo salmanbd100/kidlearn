@@ -41,6 +41,12 @@ import { ADMIN_ROUTES } from "@/lib/admin-routes";
  * **A published quiz is read-only here**, matching the server, which refuses a
  * question edit while the quiz is published. The buttons that would earn a `409`
  * are disabled with the reason stated rather than left to produce one.
+ *
+ * **`jobId` is the review queue's Edit deep-link (file 37, FR-AI-07).** When it
+ * is present every save here carries it, and the server records
+ * `edit_then_approve` on that job in the same request. It rides on the save
+ * rather than following it, so a browser closed mid-flow cannot leave a
+ * rewritten quiz whose audit trail says nobody rewrote it (FR-AI-08).
  */
 
 type DialogState =
@@ -48,7 +54,13 @@ type DialogState =
   | { kind: "new"; draft: QuestionDraft }
   | { kind: "edit"; question: AdminQuizQuestion; draft: QuestionDraft };
 
-export function QuizEditorScreen({ quizId }: { quizId: string }) {
+export interface QuizEditorScreenProps {
+  quizId: string;
+  /** The `AIGenerationJob` this edit belongs to, when opened from the queue. */
+  jobId?: string;
+}
+
+export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
   const [quiz, setQuiz] = useState<AdminQuizDetail>();
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -239,7 +251,7 @@ export function QuizEditorScreen({ quizId }: { quizId: string }) {
                   disabled={!isEditable || isBusy}
                   onClick={() =>
                     void run(
-                      () => deleteQuestion(quizId, question.id),
+                      () => deleteQuestion(quizId, question.id, jobId),
                       "Question removed; the rest were renumbered.",
                     )
                   }
@@ -295,11 +307,11 @@ export function QuizEditorScreen({ quizId }: { quizId: string }) {
     const succeeded =
       dialog.kind === "edit"
         ? await run(
-            () => replaceQuestion(quizId, dialog.question.id, payload),
+            () => replaceQuestion(quizId, dialog.question.id, payload, jobId),
             "Question saved.",
           )
         : await run(
-            () => createQuestion(quizId, payload),
+            () => createQuestion(quizId, payload, jobId),
             "Question added at the end.",
           );
 

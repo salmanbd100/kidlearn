@@ -1,6 +1,7 @@
 import type { ContentStatusValue } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
+import type { ReactNode } from "react";
 
 /**
  * What status a row is in, at a glance (file 32, FR-CMS-06).
@@ -13,7 +14,7 @@ import { cva, type VariantProps } from "class-variance-authority";
  *
  * Semantic tokens only, per `design.md §2`.
  */
-const statusChipVariants = cva(
+export const chipVariants = cva(
   "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 font-medium text-[11px] uppercase tracking-[0.04em]",
   {
     variants: {
@@ -27,10 +28,20 @@ const statusChipVariants = cva(
   },
 );
 
-const TONE_BY_STATUS: Record<
-  ContentStatusValue,
-  NonNullable<VariantProps<typeof statusChipVariants>["tone"]>
-> = {
+export type ChipTone = NonNullable<VariantProps<typeof chipVariants>["tone"]>;
+
+/** The same pill, for labels that are not a content status — a job's type. */
+export function Chip({
+  tone,
+  children,
+}: {
+  tone?: ChipTone;
+  children: ReactNode;
+}) {
+  return <span className={cn(chipVariants({ tone }))}>{children}</span>;
+}
+
+const TONE_BY_STATUS: Record<ContentStatusValue, ChipTone> = {
   published: "live",
   in_review: "review",
   approved: "review",
@@ -50,11 +61,7 @@ const LABELS: Record<ContentStatusValue, string> = {
 };
 
 export function StatusChip({ status }: { status: ContentStatusValue }) {
-  return (
-    <span className={cn(statusChipVariants({ tone: TONE_BY_STATUS[status] }))}>
-      {LABELS[status]}
-    </span>
-  );
+  return <Chip tone={TONE_BY_STATUS[status]}>{LABELS[status]}</Chip>;
 }
 
 export { LABELS as CONTENT_STATUS_LABELS };

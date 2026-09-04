@@ -12,6 +12,8 @@
  * review queue that has not even been built yet.
  */
 import {
+  AiJobStatusSchema,
+  AiJobTypeSchema,
   GradeLevelSchema,
   LocaleSchema,
   NarrationEntitySchema,
@@ -157,3 +159,77 @@ export const GenerateIllustrationsSchema = z
 export type GenerateIllustrationsBody = z.infer<
   typeof GenerateIllustrationsSchema
 >;
+
+// --- The review queue (file 37, FR-AI-07, FR-CMS-05..06) ------------------
+
+/**
+ * Which jobs to list.
+ *
+ * `status` defaults to `awaiting_review` because that is the queue — the other
+ * statuses are the archive, reachable by asking for them. Every filter is
+ * optional and none of them widens anything: an admin already sees every job.
+ *
+ * `language` and `gradeLevel` are matched against the job's `input` JSON rather
+ * than against a column, because that is where the generator recorded what it was
+ * asked for and duplicating it into columns would be a second source of truth
+ * about a request that has already happened. They match only the jobs whose input
+ * carries them: the two media generators record a clip's locale under a different
+ * key and no grade at all, so filtering by grade narrows to the text jobs by
+ * construction. That is the useful behaviour — "KG1 lessons awaiting review" is
+ * the question, and a narration clip has no reading age.
+ *
+ * `take`/`skip` are strings on the wire and coerced here; `z.number()` would
+ * reject every request that used them.
+ */
+const PositiveIntSchema = z.coerce.number().int().min(1);
+
+export const AiJobListQuerySchema = z
+  .object({
+    status: AiJobStatusSchema.optional().default("awaiting_review"),
+    type: AiJobTypeSchema.optional(),
+    language: LocaleSchema.optional(),
+    gradeLevel: GradeLevelSchema.optional(),
+    take: PositiveIntSchema.max(100).optional().default(25),
+    skip: z.coerce.number().int().min(0).optional().default(0),
+  })
+  .strict();
+
+export type AiJobListQuery = z.infer<typeof AiJobListQuerySchema>;
+
+export const AiJobIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
+
+export type AiJobIdParams = z.infer<typeof AiJobIdParamsSchema>;
+
+/**
+ * Why the reviewer refused (FR-AI-08).
+ *
+ * **Mandatory, and ten characters is the floor rather than one.** "no" and "bad"
+ * are rejections that record nothing: the person who regenerates the content has
+ * to change the prompt, and the only part of a rejection that tells them how is
+ * the sentence explaining what was wrong. A minimum long enough to need a verb is
+ * the cheapest way to ask for one.
+ */
+export const RejectJobSchema = z
+  .object({ reason: z.string().trim().min(10).max(2000) })
+  .strict();
+
+export type RejectJobBody = z.infer<typeof RejectJobSchema>;
+
+/**
+ * `?jobId=…` on a content or editor mutation — the edit-then-approve breadcrumb
+ * (requirement 5).
+ *
+ * The queue's Edit button deep-links into the file-33 editors carrying the job it
+ * came from, and saving there is what records `edit_then_approve` on that job. The
+ * recording rides on the save request rather than following it as a second call,
+ * so the two cannot come apart: a client that crashed between them would leave a
+ * rewritten lesson claiming nobody had rewritten it (FR-AI-08).
+ *
+ * Optional everywhere, because every one of these routes is also reached from the
+ * ordinary CMS with no job in sight.
+ */
+export const JobBreadcrumbQuerySchema = z
+  .object({ jobId: z.string().uuid().optional() })
+  .strict();
+
+export type JobBreadcrumbQuery = z.infer<typeof JobBreadcrumbQuerySchema>;

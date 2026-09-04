@@ -29,7 +29,12 @@ import type {
   QuizCreateBody,
   QuizUpdateBody,
 } from "../schemas/admin-editors.js";
-import { assertEditable, assertTransition } from "./contentStatusService.js";
+import {
+  assertAiPublishable,
+  assertEditable,
+  assertTransition,
+  readQuizAiJobIds,
+} from "./contentStatusService.js";
 
 /**
  * The guided editors' data layer (file 33, FR-CMS-03, FR-GAM-04).
@@ -769,6 +774,10 @@ export type AdminEditorDto = AdminQuizDto | AdminActivityDto | AdminBadgeDto;
  * published lesson shows neither until its parts are published in their own right
  * — and unpublishing one removes it from a live lesson without taking the lesson
  * down.
+ *
+ * **The publish hop carries the FR-AI-07 guard (file 37)**, for the reason
+ * `transitionContent` gives: a quiz the generator wrote is a `draft` like any
+ * other, and the matrix alone cannot tell it from one an author typed.
  */
 export async function transitionEditorContent(
   resource: EditorResource,
@@ -778,8 +787,9 @@ export async function transitionEditorContent(
   await withSerializationRetry(() =>
     prisma.$transaction(
       async (tx) => {
-        const current = await readEditorStatus(tx, resource, id);
-        assertTransition(current, to);
+        const current = await readEditorGuardFields(tx, resource, id);
+        assertTransition(current.status, to);
+        if (to === "published") await assertAiPublishable(current.aiJobIds, tx);
         await writeEditorStatus(tx, resource, id, to);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -789,20 +799,46 @@ export async function transitionEditorContent(
   return READ_BY_RESOURCE[resource](id);
 }
 
+/**
+ * The status a transition is judged against, and every job answerable for the
+ * row's contents.
+ *
+ * `Badge` has no `aiJobId` and reports nothing: nothing generates badges, and a
+ * badge is not lesson content — it is a reward rule an admin writes. Quizzes and
+ * activities do carry one.
+ *
+ * A quiz reports its questions' jobs as well as its own. The generator appends to
+ * a quiz that already exists and stamps only the questions, so the quiz row's
+ * `aiJobId` is null for exactly the case where unreviewed model output is what
+ * would go live (file 37, FR-AI-07).
+ */
+async function readEditorGuardFields(
+  tx: EditorWriter,
+  resource: EditorResource,
+  id: string,
+): Promise<{ status: ContentStatus; aiJobIds: string[] }> {
+  const select = { status: true, aiJobId: true } as const;
+  const row = await (resource === "quizzes"
+    ? tx.quiz.findUnique({ where: { id }, select })
+    : resource === "activities"
+      ? tx.activity.findUnique({ where: { id }, select })
+      : tx.badge.findUnique({ where: { id }, select: { status: true } }));
+
+  if (!row) throw ApiError.notFound(`No such ${SINGULAR[resource]}`);
+
+  const own = "aiJobId" in row && row.aiJobId !== null ? [row.aiJobId] : [];
+  const fromQuestions =
+    resource === "quizzes" ? await readQuizAiJobIds(id, tx) : [];
+
+  return { status: row.status, aiJobIds: [...own, ...fromQuestions] };
+}
+
 async function readEditorStatus(
   tx: EditorWriter,
   resource: EditorResource,
   id: string,
 ): Promise<ContentStatus> {
-  const select = { status: true } as const;
-  const row = await (resource === "quizzes"
-    ? tx.quiz.findUnique({ where: { id }, select })
-    : resource === "activities"
-      ? tx.activity.findUnique({ where: { id }, select })
-      : tx.badge.findUnique({ where: { id }, select }));
-
-  if (!row) throw ApiError.notFound(`No such ${SINGULAR[resource]}`);
-  return row.status;
+  return (await readEditorGuardFields(tx, resource, id)).status;
 }
 
 /** `"quizzes".slice(0, -1)` is `"quizze"` — the names are spelled out instead. */

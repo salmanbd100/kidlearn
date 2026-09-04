@@ -1,5 +1,12 @@
-import { AdminSectionPlaceholder } from "@/components/admin/AdminSectionPlaceholder";
+import { AiQueueScreen } from "./AiQueueScreen";
 
+/**
+ * `/admin/ai-queue` — the human gate FR-AI-07 makes a hard requirement
+ * (file 37, FR-CMS-05).
+ *
+ * A Server Component wrapper around a client screen, matching the rest of the
+ * CMS — see the recorded exception in `frontend.md §2`.
+ */
 export default function AdminAiQueuePage() {
-  return <AdminSectionPlaceholder title="AI Queue" arrivesIn="34–37" />;
+  return <AiQueueScreen />;
 }

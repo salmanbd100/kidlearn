@@ -6,7 +6,7 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
-import { pathParam, type RouteDoc } from "../route-doc.js";
+import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
  * `routes/admin/content-editors.ts` — the guided editors (file 33, FR-CMS-03,
@@ -95,6 +95,8 @@ const CONFLICT_RESPONSE = errorResponse(
     'The hop is not in the matrix. `error.details` carries `code: "INVALID_TRANSITION"`, the `from` and `to` that were refused, and `allowed` — the legal next states — so a client can refresh its buttons from the rejection rather than guessing.',
     "",
     "`409` rather than `400`: the request is well formed and the target status is a real one. What is wrong is the state the row happens to be in, which may not be wrong a moment later.",
+    "",
+    'Publishing carries a second cause. `code: "AI_REVIEW_REQUIRED"` means the row was written by a generation job that no reviewer has approved (FR-AI-07); `details` carries `jobId`, `jobStatus` and `decision`. A quiz reports its **questions\'** jobs as well as its own, because a generator appending to an existing quiz stamps only the questions — so a quiz whose own `aiJobId` is null can still be refused. The fix is the AI review queue, not the matrix.',
   ].join("\n"),
   ["CONFLICT"],
 );
@@ -106,6 +108,32 @@ const INCLUDE_ARCHIVED_PARAM = {
   description:
     "`true` to include archived rows, which are hidden by default. Archiving is how content is retired, and a list that showed every retirement forever is a list an admin stops reading.",
   schema: { type: "string", enum: ["true", "false"] },
+};
+
+/**
+ * `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07).
+ *
+ * The review queue deep-links into these editors carrying the job whose content
+ * is being rewritten. Saving with it present records `edit_then_approve` on that
+ * job, in the *same request* as the save: a client that saved and then posted the
+ * decision separately can crash between the two, and what it leaves behind is a
+ * rewritten lesson whose audit trail says nobody rewrote it (FR-AI-08).
+ *
+ * Optional everywhere — these routes are also reached from the ordinary CMS with
+ * no job in sight — and never an error on its own. A `jobId` naming a job that
+ * has since been decided is ignored rather than failing the save: it is a
+ * breadcrumb, and the save is real work an administrator has just done. Nothing
+ * is weakened by that, because recording the decision publishes nothing; the
+ * publish guard additionally requires the job to *be* approved, which only
+ * `POST /api/admin/ai/jobs/{id}/approve` writes.
+ */
+const JOB_ID_QUERY_PARAM = {
+  ...queryParam(
+    "jobId",
+    "The `AIGenerationJob` this edit belongs to, when the editor was opened from the review queue. Records `edit_then_approve` on that job.",
+    { type: "string", format: "uuid" },
+  ),
+  required: false,
 };
 
 const quizId = pathParam("quizId", "The quiz's id.", {
@@ -192,7 +220,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
         "",
         "At least one field is required; an empty body is a `400`. (Zod's refinement carrying that rule is dropped in JSON Schema conversion, so it is stated here rather than visible below.)",
       ].join("\n"),
-      parameters: [quizId],
+      parameters: [quizId, JOB_ID_QUERY_PARAM],
       requestBody: jsonRequestBody("AdminQuizUpdateBody"),
       responses: {
         "200": jsonResponse("The updated quiz.", "AdminQuizResponse"),
@@ -237,7 +265,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
         "",
         "Every format carries `prompt` and `promptAudio` in **both** locales, because a three-year-old cannot read the question and it must always be speakable (FR-QUIZ-05). A missing `bn` prompt is a `400`, not a fallback.",
       ].join("\n"),
-      parameters: [quizId],
+      parameters: [quizId, JOB_ID_QUERY_PARAM],
       requestBody: jsonRequestBody("AdminQuizQuestionBody"),
       responses: {
         "201": jsonResponse(
@@ -277,6 +305,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
           type: "string",
           format: "uuid",
         }),
+        JOB_ID_QUERY_PARAM,
       ],
       requestBody: jsonRequestBody("AdminQuizQuestionBody"),
       responses: {
@@ -315,6 +344,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
           type: "string",
           format: "uuid",
         }),
+        JOB_ID_QUERY_PARAM,
       ],
       responses: {
         "200": jsonResponse(
@@ -425,6 +455,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
           type: "string",
           format: "uuid",
         }),
+        JOB_ID_QUERY_PARAM,
       ],
       requestBody: jsonRequestBody("AdminActivityBody"),
       responses: {
