@@ -50,6 +50,9 @@ type ParentGateValue = {
   guard: <T>(call: Promise<ApiResult<T>>) => Promise<ApiResult<T>>;
 };
 
+/** The largest delay `setTimeout` honours; anything above it is clamped to 1ms. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
 const ParentSessionContext = createContext<ParentSessionValue | undefined>(
   undefined,
 );
@@ -152,17 +155,37 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (grantExpiresAt === null) return;
 
-    const msRemaining = new Date(grantExpiresAt).getTime() - Date.now();
-    if (msRemaining <= 0) {
+    const expiresAt = new Date(grantExpiresAt).getTime();
+
+    const lapse = () => {
       setIsLocked(true);
       setGrantExpiresAt(null);
+    };
+
+    // Fail **closed**, as everywhere else on this gate: an expiry the client
+    // cannot read is a grant it cannot vouch for.
+    if (Number.isNaN(expiresAt)) {
+      lapse();
       return;
     }
 
-    const timer = setTimeout(() => {
-      setIsLocked(true);
-      setGrantExpiresAt(null);
-    }, msRemaining);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const arm = () => {
+      const msRemaining = expiresAt - Date.now();
+      if (msRemaining <= 0) {
+        lapse();
+        return;
+      }
+      // `setTimeout` clamps any delay above 2**31-1 ms to **1ms** rather than
+      // rejecting it, so passing `msRemaining` straight through relocked the
+      // gate almost immediately for any grant more than ~24.8 days out — the
+      // exact opposite of what the delay asked for. Sleep in ceiling-sized
+      // chunks and re-check the real clock each time.
+      timer = setTimeout(arm, Math.min(msRemaining, MAX_TIMEOUT_MS));
+    };
+
+    arm();
     return () => clearTimeout(timer);
   }, [grantExpiresAt]);
 
