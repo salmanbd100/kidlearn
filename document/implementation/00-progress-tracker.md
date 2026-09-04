@@ -84,7 +84,8 @@ current one. Those branches are tracked here so they do not live only in a spec'
 
 | Branch | What | Found by | Status |
 | --- | --- | --- | --- |
-| `14-parent-onboarding-profile-ui-fix` | `apps/web/app/(parent)/context/parent-session.tsx`'s grant-expiry `setTimeout` is handed a delay above `2**31 - 1` ms, which the platform clamps to **1 ms** — a far-future `pinVerifiedUntil` relocks the PIN gate instantly instead of never. Never fires on the 15-minute grants production issues, so no live impact; the fix is a one-line clamp. It is also the cause of a ~25% flake in `parent-session.test.tsx`, which is why file 39 defers making CI a required check. | File 39 (running the suite 27 times) | ⬜ Not started |
+| `14-parent-onboarding-profile-ui-fix` | `apps/web/app/(parent)/context/parent-session.tsx`'s grant-expiry `setTimeout` was handed a delay above `2**31 - 1` ms, which the platform clamps to **1 ms** — a far-future `pinVerifiedUntil` relocked the PIN gate instantly instead of never. No live impact (production grants are 15 minutes). Fixed by arming the timer in ceiling-sized chunks and re-reading the clock, plus a fail-closed branch for an unparseable expiry. Closed the ~25% `parent-session.test.tsx` flake — `apps/web` then clean across 8 consecutive runs. | File 39 (running the suite 27 times) | 🟨 PR open |
+| Supertest listener lifecycle in `apps/server` (no branch yet — belongs to **files 42–43**) | `request(app)` binds a fresh ephemeral listener per call, so under load the suite churns ports faster than the OS retires them. **Eleven** files have failed this way across ~40 runs with four signatures: `socket hang up`, `Parse Error: Expected HTTP/`, `Test timed out in 5000ms`, and assertions on a body that never arrived. Each passes 8/8 in isolation. `TURBO_CONCURRENCY=1` does **not** fix it (3 runs in 6 serialised). The fix is one listener per file rather than per request; files 42–43 rewrite much of that suite against a real database, so it belongs there. **This is what blocks making `gates` a required status check.** | File 39 | ⬜ Not started |
 
 ---
 
@@ -105,7 +106,7 @@ These are fixed across all implementation files so chunks stay consistent:
 - **Media:** Cloudinary free tier (images, audio, short video).
 - **Publishing rule:** every content row carries `status` (`draft → in_review → approved/rejected → published`); student-facing queries filter `status = published` — always, at the query layer.
 - **Server-authoritative:** rewards, streaks, screen time, completion are computed server-side; the client only reports events.
-- **CI (from file 39):** `.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every PR and every push to `main`. A PR is not done until it is green (`gh pr checks`). The test step is serialised (`TURBO_CONCURRENCY=1`) — `apps/server`'s Supertest suites fail at the socket level when five Vitest instances compete for cores; see file 39's Context. Coverage is reported, never gated on a threshold.
+- **CI (from file 39):** `.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every PR and every push to `main`. A PR is not done until it is green (`gh pr checks`). The test step is serialised (`TURBO_CONCURRENCY=1`) because five concurrent Vitest instances oversubscribe a 4-core runner — not as a flake fix; `apps/server`'s Supertest suites still fail intermittently at the socket level, which is why `gates` is not a required check yet. See file 39's Context. Coverage is reported, never gated on a threshold.
 
 ## Working Agreement
 

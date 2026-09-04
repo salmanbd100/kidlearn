@@ -60,7 +60,7 @@ pnpm test:coverage    # same suite as pnpm test, plus a coverage report
 
 **A PR is not done until `gates` is green** — `gh pr checks` says whether it is. Coverage is reported in the run summary and as an artifact; it is deliberately not gated on a threshold (see `document/standards/general.md §5`).
 
-`gates` is not yet a *required* status check on `main`: the repository ruleset "Protect Main Branch" gets that rule once the flake recorded under **Open follow-up fixes** in `document/implementation/00-progress-tracker.md` is fixed. Until then the pipeline reports; it does not block.
+`gates` is not yet a *required* status check on `main`: `apps/server`'s Supertest suites fail intermittently under load for reasons that have nothing to do with the code under test — see **Open follow-up fixes** in `document/implementation/00-progress-tracker.md`. Until that is fixed the pipeline reports; it does not block. A red `gates` on a PR is worth re-running once before assuming it found something.
 
 CI needs no secrets, no environment variables and no database: `apps/server/vitest.setup.ts` supplies everything `lib/env.ts` requires, and no test opens a connection. That changes when the test-database harness lands.
 
