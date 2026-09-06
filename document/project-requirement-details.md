@@ -133,6 +133,7 @@ An adult who registers and manages up to 5 child profiles. A parent can:
 | FR-AUTH-04 | The parent dashboard and all settings are protected by a parental gate (PIN code) so a child using the device cannot enter parent areas.                      | [MVP] |
 | FR-AUTH-05 | Parents can request deletion of their account and all associated data; deletion removes all child profiles, progress, and personal data.                      | [MVP] |
 | FR-AUTH-06 | Sessions for the student portal are profile-scoped: switching child profiles does not require parent re-authentication, but entering parent areas does (PIN). | [MVP] |
+| FR-AUTH-07 | A parent can sign out from the parent dashboard. Signing out revokes the session, which also ends the PIN grant and the active child profile — the device returns to the sign-in screen for everyone using it. Added 2026-09-06, after the control shipped; recorded here so the requirement is not inferred from the code. | [MVP] |
 
 ### 5.2 Child Profiles (FR-PROF)
 

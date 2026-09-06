@@ -146,7 +146,7 @@ journey
 
 ```mermaid
 flowchart TD
-    Start([App opens]) --> PS["🗣️ 'Who's learning today?'<br/>Profile picker — big avatar cards"]
+    Start([App opens]) --> PS["🗣️ 'Who's learning today?'<br/>Profile picker — big avatar cards<br/>👤 parent chip in the corner"]
     PS -->|Child taps their face| ACT[Profile activates<br/>no PIN needed 🔒]
     ACT --> Lang{Profile language?}
     Lang -->|Bangla| BN[Whole portal switches to Bangla]
@@ -167,11 +167,12 @@ flowchart TD
 **Screen-by-screen:**
 
 - **Profile picker (`/select-profile`)** — Full-screen, large avatar cards (≥120px). On load, a voice asks *"Who's learning today?"* The child taps their face. **No PIN** — switching between siblings is friction-free by design (FR-AUTH-06).
+  - **👤 Parent chip** in the top corner: the signed-in grown-up's Google photo and first name (initials when Google supplied no photo; *"Grown-ups"* when it supplied no name either). This is the same PIN-gated door as the lock icon elsewhere — only named. It is named **here and nowhere else**, deliberately: this is the hand-off screen, before any child is playing, and the person looking for the way into the parent area is an adult who should be able to find it. On a screen a child is *using*, a photo of their own parent is the most tappable thing on the page, so every other student screen keeps the anonymous lock (FR-AUTH-04, Pillar C).
 - **Home (`/home`)** — Immersive and world-themed:
   - **Reward strip** at top: star count, coin count, and a **streak chip** shown as `🔥 3`. 🎈 For a brand-new child the flame is dimmed with *"Start a streak!"* — the goal is always visible, never hidden.
   - **World cards** — large gradient cards with the world's mascot and name. Tapping one opens that world's lessons; 🎈 the lesson/world name *plays aloud* on tap so pre-readers navigate by ear.
   - **Lesson tiles** — big picture thumbnails with names (≥20px). One tap = open.
-  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the PIN-gated parent area.
+  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the PIN-gated parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ.
 - **Orientation:** portrait stacks cards vertically (lessons 2-up); landscape places them side-by-side (lessons 3–4-up). Never any horizontal scrolling.
 
 ### 4.3 The 5-step lesson adventure
@@ -436,6 +437,8 @@ flowchart TD
     Dash --> D3[Screen-time settings]
     Dash --> D4[Manage profiles]
     Dash --> D5[Delete account]
+    Dash --> D6["👤 Account menu:<br/>back to kid mode · sign out"]
+    D6 -->|Sign out 🔒| Google
 ```
 
 ### 5.1 First-time setup
@@ -498,7 +501,24 @@ flowchart TD
 
 ### 5.4 The dashboard
 
-After the PIN gate, the parent sees a per-child summary. A child-switcher (tabs) sits at the top; the selected child persists in the URL.
+**Getting around.** Every parent page past onboarding sits under one persistent top bar, so navigation is a property of the surface rather than something each screen remembers to offer:
+
+```mermaid
+flowchart LR
+    Bar["KidLearn · Progress | Children | Weekly report · 🌐 · 👤"] --> Nav["Section links<br/>current one highlighted"]
+    Bar --> Lang["🌐 Language switch (EN ⇄ BN)"]
+    Bar --> Menu["👤 Account menu"]
+    Menu --> Who["Name + email<br/>(read-only)"]
+    Menu --> Kid["🧒 Back to kid mode<br/>→ /select-profile"]
+    Menu --> Out["🚪 Sign out<br/>→ /parent/login 🔒"]
+```
+
+- **Three section links** — Progress, Children, Weekly report — with the current one marked (`aria-current="page"`). On a phone they wrap to a second row rather than hiding behind a hamburger; three short labels fit, and a menu to reach three places is worse than no menu.
+- **The account menu** carries the parent's Google name and email, *Back to kid mode*, and *Sign out*. **Back to kid mode is the only route from the dashboard to the student portal** — before it existed the parent had to edit the URL.
+- 🔒 **Sign out** revokes the session server-side (FR-AUTH-07), which ends the PIN grant and the active child profile with it, and returns to the sign-in screen.
+- **The bar is absent during onboarding** (consent, PIN setup, first child) and on the login page. There is nowhere to navigate to yet, and a sign-out control mid-consent is a dead end rather than an escape.
+
+After the PIN gate, the parent sees a per-child summary. A child-switcher (tabs) sits below the bar; the selected child persists in the URL.
 
 ```mermaid
 flowchart TD

@@ -520,7 +520,7 @@ The six existing skills are well-scoped. Changes needed:
 | `code-review` | Add explicit checks for the rules that CI still cannot see: the `include`d-relation status gate (not just the `where` clause), en/bn key parity for any new i18next key, and OpenAPI registration in the same diff. Add "a new server suite that stubs Prisma must cite the recorded exception in its file header" — that is a rule the standards state and no reviewer currently applies. | The skill currently routes to the standards but does not encode the two failure modes that have actually shipped defects. |
 | `create-component` | Add error, empty and loading states to the required checklist — every kid-surface component needs all three, and file 44 is about to make that concrete. | P1-1 exists partly because no skill ever asked for these. |
 | `start-implementation` | After file 39, add "confirm CI is green on `main` before branching". Also update its standards-loading logic to know about `improvement-plan.md` for files 39–46. | Keeps the numbered-file workflow intact for the refactor work. |
-| `pr-description` | No change. | Works as written. |
+| `pr-description` | **Superseded 2026-09-06** — folded into the new `pr` skill (below). | The skill produced a description and stopped; the engineer still ran commit, push and `gh pr create` by hand. One skill for the whole pass is fewer moving parts, and it can refuse to claim gates it did not run. |
 | `explain`, `responsive-design` | No change. | Both are scoped to teaching and layout, neither of which this plan alters. |
 
 **One new skill is worth adding — and only one.** `/upgrade-dependency <package>`: read the
@@ -528,6 +528,19 @@ changelog between the pinned and target major, list the call sites in this repo,
 run the four gates, and report honestly what it could not verify. P2-3 is a recurring, mechanical,
 easy-to-get-wrong task with a fixed shape — exactly what a skill is for. Everything else in this
 plan is one-off work that does not justify one.
+
+> **Amendment, 2026-09-06 — two more skills, both from outside this plan.**
+>
+> - **`/sync-docs`** — after a change lands, work out which of the seven top-level `document/*.md`
+>   files the change contradicts, and correct them. Added because this plan's own P1-3 is *exactly*
+>   this failure with a nine-row table of evidence: the harness drifted from the code and nobody
+>   noticed until someone read the whole tree. P1-3 is the one-off cleanup; `/sync-docs` is what
+>   stops it recurring. It is explicitly barred from touching `document/implementation/**`, which
+>   is a build log of work already done, not a description of the present.
+> - **`/pr`** — commit, push and open the pull request in one pass, replacing `pr-description`.
+>
+> Neither contradicts the "do not add a `/refactor` skill" reasoning below it: both are
+> procedure-shaped with a fixed output, not judgement-shaped.
 
 **Do not add** a `/refactor` skill. Refactoring here is judgement-shaped, not procedure-shaped,
 and a skill would only encourage the kind of speculative extraction §6 warns against.

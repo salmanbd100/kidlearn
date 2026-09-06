@@ -321,12 +321,17 @@ document/implementation/01-workspace-packages-and-test-setup.md
 
 Use the `/start-implementation <filename-without-extension>` skill. It will:
 
-1. Verify the current branch is `main` and that `main` is clean.
-2. Create the feature branch from `main`: `git checkout -b <filename>`.
+1. Verify the current branch is `dev` and that `dev` is clean.
+2. Create the feature branch from `dev`: `git checkout -b <filename>`.
 3. Read the implementation file, load the standards documents relevant to the layers it touches, and begin the work described in it.
 4. **Stop before committing.** Leave all changes unstaged (or staged but not committed) for the engineer to review manually.
 
-Do not start implementation work directly on `main`. Do not create ad-hoc branch names — the branch name must match the implementation filename exactly.
+Do not start implementation work directly on `dev` or `main`. Do not create ad-hoc branch names — the branch name must match the implementation filename exactly.
+
+**`dev` is the integration branch; `main` is the release branch.** Feature branches are cut from
+`dev` and merge back into `dev`. `main` accepts pull requests only from `dev`, enforced by a
+required check — see `project-requirement-details.md §9`. Changed 2026-09-06; before that, feature
+branches used `main` as their base, which is why older implementation files say so.
 
 ### Committing
 
@@ -334,7 +339,9 @@ The engineer reviews the changes, then commits manually. Claude does not commit 
 
 ### Opening a pull request
 
-Use the `/pr-description` skill after implementation is complete. It reads the implementation file for the current branch, diffs against `main`, and produces a structured PR description ready to paste into GitHub.
+Use the `/pr` skill after implementation is complete. It runs the four gates, commits, pushes, and opens the pull request **against `dev`** with a structured description. It refuses to claim a gate it did not run.
+
+`/code-review <branch>` diffs against the same base, so what is reviewed is what the PR proposes.
 
 Then watch the pipeline: `gh pr checks` (or `gh run watch`). A PR is not ready for review until `gates` is green.
 
@@ -343,8 +350,8 @@ Then watch the pipeline: `gh pr checks` (or `gh run watch`). A PR is not ready f
 | Stage | State |
 |---|---|
 | Work in progress | Feature branch, no commits yet (engineer reviews) |
-| Ready for review | Feature branch pushed, PR opened with `/pr-description` output, `gates` green |
-| Merged | PR squash-merged to `main`; feature branch deleted |
+| Ready for review | Feature branch pushed, PR opened against `dev` by `/pr`, `gates` green |
+| Merged | PR squash-merged to `dev`; feature branch deleted. `dev` reaches `main` through its own release PR. |
 
 ### Progress tracking — mandatory
 
