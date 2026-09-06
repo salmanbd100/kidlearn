@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useAudio } from "@/components/AudioProvider";
 import { BigButton } from "@/components/kid/BigButton";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
+import { STUDENT_ROUTES } from "@/lib/student-routes";
 
 /**
  * What a child sees when their grown-up's screen-time rule says no (FR-TIME-02,
@@ -67,7 +68,7 @@ export function ScreenTimeLock({ reason, windowStart }: ScreenTimeLockProps) {
       <BigButton
         size="lg"
         icon={<Home aria-hidden="true" />}
-        onPress={() => router.push("/select-profile")}
+        onPress={() => router.push(STUDENT_ROUTES.selectProfile)}
       >
         {t("screenTime.back")}
       </BigButton>

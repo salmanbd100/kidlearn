@@ -11,6 +11,8 @@ import { resetI18nForTests } from "@/lib/i18n";
  */
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+/** Any student screen but `/select-profile`, where the corner is a named chip. */
+const navigation = vi.hoisted(() => ({ pathname: "/home" }));
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
@@ -20,7 +22,10 @@ const api = vi.hoisted(() => ({
   verifyPin: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  usePathname: () => navigation.pathname,
+}));
 vi.mock("@/lib/parent-api", () => api);
 
 const { default: StudentLayout } = await import("./layout");
@@ -43,7 +48,12 @@ describe("StudentLayout", () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: true,
       data: {
-        parent: { id: "parent_1", email: "p@example.com" },
+        parent: {
+          id: "parent_1",
+          email: "p@example.com",
+          name: "Salman",
+          avatarUrl: null,
+        },
         activeChildProfileId: null,
       },
     });

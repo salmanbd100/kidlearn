@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch, RETRY_BACKOFF_MS } from "./api-client";
+import { apiFetch, RETRY_BACKOFF_MS, signOut } from "./api-client";
 
 /**
  * `fetch` is the only thing stubbed here — the envelope handling, the retry
@@ -181,5 +181,32 @@ describe("apiFetch", () => {
     });
 
     expect(result).toEqual({ ok: true, data: undefined });
+  });
+});
+
+describe("signOut", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reports success only when the server confirms the revocation", async () => {
+    stubFetch(jsonResponse(200, {}));
+
+    await expect(signOut()).resolves.toBe(true);
+  });
+
+  it("reports failure on a server error, because the cookie is still live", async () => {
+    stubFetch(jsonResponse(500, {}));
+
+    // The caller must not navigate on this: `resolveParentRedirect` sends a
+    // still-signed-in parent from the login page straight back to the dashboard,
+    // so a silent `true` here would look like a sign-out that did nothing.
+    await expect(signOut()).resolves.toBe(false);
+  });
+
+  it("reports failure when the request never reached the server", async () => {
+    stubFetch(new TypeError("Failed to fetch"));
+
+    await expect(signOut()).resolves.toBe(false);
   });
 });

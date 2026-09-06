@@ -6,6 +6,12 @@ export const ParentSummarySchema = z
   .object({
     id: z.string(),
     email: z.string().email(),
+    /**
+     * Display name and photo as Google gave them at sign-in. Both nullable: a
+     * Google account may carry neither, so every surface needs a fallback.
+     */
+    name: z.string().nullable(),
+    avatarUrl: z.string().url().nullable(),
     hasPin: z.boolean(),
     /** `null` until the parent accepts COPPA consent (FR-AUTH-03). */
     consentGivenAt: IsoDateTimeSchema.nullable(),

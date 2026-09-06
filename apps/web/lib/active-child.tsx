@@ -3,6 +3,7 @@
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
+  ParentSummaryResponse,
 } from "@kidlearn/types";
 import {
   createContext,
@@ -29,6 +30,11 @@ export type ActiveChildStatus = "loading" | "ready" | "signedOut" | "error";
 
 export interface ActiveChildValue {
   status: ActiveChildStatus;
+  /**
+   * The grown-up who owns this device, for the parent chip on `/select-profile`.
+   * `undefined` until the session loads, and while signed out.
+   */
+  parent: ParentSummaryResponse | undefined;
   /** Every profile the signed-in parent owns, oldest first. */
   profiles: ChildProfileResponse[];
   /** Starter characters, for resolving a profile's avatar art. */
@@ -61,6 +67,7 @@ export function useActiveChild(): ActiveChildValue {
 export function ActiveChildProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const [status, setStatus] = useState<ActiveChildStatus>("loading");
+  const [parent, setParent] = useState<ParentSummaryResponse | undefined>();
   const [profiles, setProfiles] = useState<ChildProfileResponse[]>([]);
   const [avatars, setAvatars] = useState<AvatarCharacterResponse[]>([]);
   const [activeChildId, setActiveChildId] = useState<string | undefined>();
@@ -87,9 +94,12 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     if (!me.ok) {
       // A 401 is the ordinary signed-out case, not a failure to report: the
       // grown-up has to sign in before anyone can play.
+      setParent(undefined);
       setStatus(me.error.code === "UNAUTHORIZED" ? "signedOut" : "error");
       return;
     }
+
+    setParent(me.data.parent);
 
     if (!list.ok) {
       // Unlike the parent dashboard, this list *is* the screen — there is no
@@ -137,6 +147,7 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ActiveChildValue>(
     () => ({
       status,
+      parent,
       profiles,
       avatars,
       child,
@@ -144,7 +155,7 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
       activate,
       refresh: load,
     }),
-    [status, profiles, avatars, child, isWakingUp, activate, load],
+    [status, parent, profiles, avatars, child, isWakingUp, activate, load],
   );
 
   return (

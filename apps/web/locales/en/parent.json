@@ -1,4 +1,15 @@
 {
+  "nav": {
+    "label": "Parent sections",
+    "dashboard": "Progress",
+    "children": "Children",
+    "reports": "Weekly report",
+    "menuLabel": "Your account",
+    "fallbackName": "Your account",
+    "backToKidMode": "Back to kid mode",
+    "signOut": "Sign out",
+    "signOutFailed": "We could not sign you out. Please try again."
+  },
   "login": {
     "title": "Parent sign-in",
     "subtitle": "KidLearn uses your Google account, so there is no extra password to remember.",
@@ -91,8 +102,7 @@
     "edit": "Edit {{name}}",
     "delete": "Delete {{name}}",
     "meta": "Age {{age}} · {{grade}} · {{language}}",
-    "loading": "Loading profiles…",
-    "backToDashboard": "Progress"
+    "loading": "Loading profiles…"
   },
   "delete": {
     "title": "Delete {{name}}'s profile?",
@@ -126,7 +136,6 @@
     "switcherLabel": "Choose a child",
     "loading": "Loading progress…",
     "waking": "Waking KidLearn up — this takes a few seconds after a quiet spell.",
-    "manageChildren": "Manage children",
     "today": "Today",
     "week": "This week",
     "month": "This month",

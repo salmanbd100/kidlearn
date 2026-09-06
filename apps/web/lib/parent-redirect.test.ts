@@ -18,6 +18,8 @@ function parent(
   return {
     id: "parent_1",
     email: "parent@example.com",
+    name: "Parent One",
+    avatarUrl: null,
     hasPin: true,
     consentGivenAt: "2026-06-01T00:00:00.000Z",
     ...overrides,
