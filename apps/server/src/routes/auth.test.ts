@@ -111,12 +111,47 @@ describe("GET /api/auth/me", () => {
         parent: {
           id: "parent_1",
           email: SESSION_USER.email,
+          name: SESSION_USER.name,
+          avatarUrl: null,
           hasPin: false,
           consentGivenAt: null,
         },
         activeChildProfileId: null,
       },
     });
+  });
+
+  it("carries the Google display name and photo the parent chip renders", async () => {
+    mockSession();
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({
+        name: "Salman",
+        avatarUrl: "https://lh3.googleusercontent.com/a/photo=s96-c",
+      }),
+    );
+
+    const res = await request(app).get("/api/auth/me");
+
+    // The only test here passing a real URL, so the only one that can catch a
+    // regression in the schema's `.url()` constraint.
+    assertContract(AuthMeResponseSchema, res.body, "GET /api/auth/me");
+    expect(res.body.data.parent.name).toBe("Salman");
+    expect(res.body.data.parent.avatarUrl).toBe(
+      "https://lh3.googleusercontent.com/a/photo=s96-c",
+    );
+  });
+
+  it("sends null for a parent Google gave neither a name nor a photo", async () => {
+    mockSession();
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({ name: null, avatarUrl: null }),
+    );
+
+    const res = await request(app).get("/api/auth/me");
+
+    assertContract(AuthMeResponseSchema, res.body, "GET /api/auth/me");
+    expect(res.body.data.parent.name).toBeNull();
+    expect(res.body.data.parent.avatarUrl).toBeNull();
   });
 
   it("reports hasPin without ever exposing the hash", async () => {

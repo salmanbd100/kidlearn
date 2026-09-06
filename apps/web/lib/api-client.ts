@@ -200,3 +200,27 @@ const STATUS_FALLBACK_CODES: Record<number, ErrorCode> = {
   404: "NOT_FOUND",
   409: "CONFLICT",
 };
+
+/**
+ * Revoke the session cookie. Bypasses `apiFetch` because better-auth answers
+ * with its own body rather than kidlearn's envelope.
+ *
+ * Returns whether the server confirmed the revocation, and a caller must act on
+ * a `false`: the cookie is still live, so navigating to the login page would
+ * bounce straight back off `resolveParentRedirect`, which reads a signed-in
+ * parent there as someone who has finished onboarding. Treating a failure as a
+ * sign-out looks, from the parent's side, like the button did nothing.
+ */
+export async function signOut(): Promise<boolean> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/api/auth/sign-out`, {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+    return response.ok;
+  } catch {
+    // Never reached the server, so the session is certainly still live.
+    return false;
+  }
+}

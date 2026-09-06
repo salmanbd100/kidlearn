@@ -274,7 +274,10 @@ requests. Consequences for `lib/api-client.ts`:
   client, so **all** API calls must go through the wrapper that adds it.
 - `authClient.getCookie()` is **async** in current better-auth — any helper reading it
   must be `async`.
-- Sign-out must clear SecureStore, not just call the endpoint.
+- Sign-out must clear SecureStore, not just call the endpoint. It must also clear the client's
+  cached session **before** navigating to the login screen — web hit this exactly: the parent
+  redirect resolver sends a fully-onboarded parent away from `/parent/login`, so navigating first
+  bounced straight back to the dashboard. The same ordering trap exists on native.
 
 ### 7.5 What does *not* change
 
@@ -292,7 +295,7 @@ Web route → mobile route, with the porting note that matters:
 
 | Web route | Mobile route | Porting note |
 | --- | --- | --- |
-| `/select-profile` | `(student)/select-profile` | Avatar grid; sets active child via the API, not local state. |
+| `/select-profile` | `(student)/select-profile` | Avatar grid; sets active child via the API, not local state. Carries the **named parent chip** (photo + first name from `/api/auth/me`) rather than the anonymous lock the other student screens use — same PIN gate, named only here. See `user-journey-manual.md §4.2`. |
 | `/home` | `(student)/home` | World-themed home, streak display. Full-bleed, no nav chrome; waypoints in the thumb zone. |
 | `/world/[worldId]` | `(student)/world/[worldId]` | Lesson map. `expo-image` for world art. |
 | `/lesson/[id]` | `(student)/lesson/[id]` | The five-step machine and resume logic port almost directly — it is state, not DOM. Add hardware-back handling: a child must not be able to swipe out mid-quiz without the exit confirmation. |
@@ -307,6 +310,7 @@ Web route → mobile route, with the porting note that matters:
 | `/parent/onboarding/{consent,pin,child}` | `(parent)/onboarding/*` | Consent text must be legible on a phone; PIN keypad native. |
 | `/parent/children`, `/new`, `/[id]/edit` | `(parent)/children/*` | Max-5 rule is server-enforced; surface the error, do not re-implement. |
 | `/parent` (dashboard) | `(parent)/index` | One `GET /api/children/:id/dashboard` call, as on web. Pure-CSS bars become `<View>` widths. Child switcher becomes a native segmented control; the `?child=` URL param becomes a router param. |
+| parent top bar (all `(parent)` pages) | `(parent)/_layout` header | Web's persistent bar — section links, language switch, account menu with sign out (FR-AUTH-07) and *back to kid mode*. On native this is a `Stack.Screen` header plus a bottom tab or segmented control for the three sections; the account menu is an ActionSheet, not a dropdown. Hidden during onboarding, as on web. Sign-out must also clear SecureStore (§7.4). |
 | `/parent/children/[id]/screen-time` | `(parent)/children/[id]/screen-time` | Time pickers must be native, not text inputs. |
 | weekly reports (web file 30) | `(parent)/reports` | Gated on web file 30 existing. §3.3. |
 | Admin CMS | — | Not ported. |
@@ -452,7 +456,7 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | M07 | Mobile auth client: `expoClient` + SecureStore, Google + Apple sign-in, session bootstrap behind the splash, sign-out, `/me` | FR-AUTH-02, FR-AUTH-06 | M06 | 3–4h |
 | M08 | Consent screen, PIN setup, PIN gate + 15-minute grant, account deletion entry point | FR-AUTH-03..05, NFR-SAFE-05..06 | M07 | 3–4h |
 | M09 | Child profile CRUD (max 5), avatar picker, activate-child | FR-PROF-01..07 | M08 | 3–4h |
-| M10 | Profile picker + active-child context | FR-AUTH-06, FR-PROF-03 | M09 | 3–4h |
+| M10 | Profile picker + active-child context, incl. the named parent chip | FR-AUTH-06, FR-PROF-03 | M09 | 3–4h |
 | M11 | World-themed home: waypoints in the thumb zone, streak display, `expo-image` art, both orientations | FR-WORLD-01..03, FR-GAM-06 | M10 | 3–4h |
 | M12 | World/lesson browsing screens, published+grade filtering via the content API | FR-CURR-02, FR-WORLD-04..05 | M11 | 3–4h |
 | M13 | Lesson player shell: five-step machine, resume, progress saving, back-button/exit guard | FR-LSN-01..07 | M12 | 3–4h |
@@ -468,7 +472,7 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | M23 | Story reader: page-turn gestures, narration sync, completion reward | FR-STORY-02..03, 06..07 | M21, M22 | 3–4h |
 | M24 | Learning-time heartbeats driven by `AppState` | FR-TIME-06, FR-LSN-07 | M13 | 3–4h |
 | M25 | Screen-time limits, access windows, friendly lockout, foreground re-check | FR-TIME-01..05 | M24 | 3–4h |
-| M26 | Parent dashboard: child switcher, minute cards, subject bars, activity timeline, empty states | FR-DASH-01..04 | M09, M24 | 3–4h |
+| M26 | Parent dashboard: child switcher, minute cards, subject bars, activity timeline, empty states; the `(parent)` navigation header + account menu (sign out, back to kid mode) | FR-DASH-01..04, FR-AUTH-07 | M09, M24 | 3–4h |
 | M27 | Weekly reports screen (**blocked on web file 30**) | FR-DASH-05..06 | M26 | 3–4h |
 | M28 | Accessibility & device pass: TalkBack/VoiceOver, target sizes, contrast, reduced motion, tablet + low-end Android, both orientations | NFR-A11Y-*, NFR-PERF-01..03 | M21, M26 | 3–4h |
 | M29 | Performance & stability: bundle/asset budget, image and audio caching, cold-start UX, crash reporting, error boundaries | NFR-PERF-* | M28 | 3–4h |

@@ -34,7 +34,7 @@ import type {
   ReorderedIds,
   UploadSignature,
 } from "@kidlearn/types";
-import { type ApiResult, apiBaseUrl, apiFetch } from "./api-client";
+import { type ApiResult, apiBaseUrl, apiFetch, signOut } from "./api-client";
 
 /**
  * Typed wrappers over `/api/admin/*` and the two better-auth calls the CMS makes.
@@ -79,20 +79,8 @@ export async function adminSignIn(
   }
 }
 
-/**
- * Revoke the session. Same reasoning as `adminSignIn` for bypassing `apiFetch`.
- */
-export async function adminSignOut(): Promise<void> {
-  try {
-    await fetch(`${apiBaseUrl()}/api/auth/sign-out`, {
-      method: "POST",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    });
-  } catch {
-    // Intentionally swallowed — see above.
-  }
-}
+/** Revoke the session. One endpoint serves both principals (file 29). */
+export const adminSignOut = signOut;
 
 /**
  * `/api/admin/content/*`. Every payload type comes from `@kidlearn/types` — the

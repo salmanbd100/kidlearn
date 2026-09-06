@@ -12,6 +12,7 @@ import { resetI18nForTests } from "@/lib/i18n";
 // NFR-SAFE-07 — nothing on the Student Portal leaves it.
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const navigation = vi.hoisted(() => ({ pathname: "/home" }));
 const audio = vi.hoisted(() => ({ play: vi.fn(async () => {}) }));
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
@@ -26,7 +27,10 @@ const content = vi.hoisted(() => ({
   listWorldLessons: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  usePathname: () => navigation.pathname,
+}));
 vi.mock("@/lib/parent-api", () => api);
 vi.mock("@/lib/content-api", () => content);
 vi.mock("@/components/AudioProvider", () => ({
@@ -121,7 +125,12 @@ describe("no external links anywhere in the Student Portal", () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: true,
       data: {
-        parent: { id: "parent_1", email: "p@example.com" },
+        parent: {
+          id: "parent_1",
+          email: "p@example.com",
+          name: "Salman",
+          avatarUrl: null,
+        },
         activeChildProfileId: CHILD.id,
       },
     });
@@ -142,6 +151,9 @@ describe("no external links anywhere in the Student Portal", () => {
   });
 
   it("holds on /select-profile", async () => {
+    // The one screen where the parent corner is a named chip carrying a photo
+    // from Google's CDN — the sweep must cover that variant too.
+    navigation.pathname = "/select-profile";
     renderStudent(<SelectProfileScreen />);
 
     await screen.findByRole("button", { name: "Play as Ayaan" });
@@ -149,6 +161,7 @@ describe("no external links anywhere in the Student Portal", () => {
   });
 
   it("holds on /home, including world names that contain a URL", async () => {
+    navigation.pathname = "/home";
     renderStudent(<HomeScreen />);
 
     await screen.findByRole("button", {
@@ -158,6 +171,7 @@ describe("no external links anywhere in the Student Portal", () => {
   });
 
   it("holds on /world/[worldId], including lesson titles that contain a URL", async () => {
+    navigation.pathname = "/world/world_jungle";
     renderStudent(<WorldScreen worldId="world_jungle" />);
 
     await screen.findByText(/The Letter A/);

@@ -2,7 +2,7 @@
 
 import type { DashboardData } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
-import { CalendarRange, Users } from "lucide-react";
+import { CalendarRange } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,6 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ChildSwitcher } from "@/components/parent/ChildSwitcher";
 import { DashboardSummary } from "@/components/parent/DashboardSummary";
 import { getDashboard } from "@/lib/dashboard-api";
@@ -89,16 +88,13 @@ export function DashboardScreen({
 
   return (
     <main className="flex flex-1 flex-col gap-5 py-2">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-semibold text-2xl text-foreground">
-            {t("dashboard.title", { name: child.firstName })}
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {t("dashboard.subtitle")}
-          </p>
-        </div>
-        <LanguageSwitch size="default" />
+      <header className="flex flex-col gap-1">
+        <h1 className="font-semibold text-2xl text-foreground">
+          {t("dashboard.title", { name: child.firstName })}
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          {t("dashboard.subtitle")}
+        </p>
       </header>
 
       <ChildSwitcher profiles={profiles} selectedChildId={child.id} />
@@ -119,26 +115,17 @@ export function DashboardScreen({
         />
       )}
 
-      {/* Wrapped rather than a fixed row: two labels at +40% text length overflow
-          a 360px phone side by side (design.md §6, §1). */}
-      <div className="flex flex-wrap gap-3">
-        <Button asChild variant="outline">
-          {/* The child is carried across, so the report opens for whoever the
-              parent is looking at rather than resetting to the first profile. */}
-          <Link
-            href={`${PARENT_ROUTES.reports}?child=${encodeURIComponent(child.id)}`}
-          >
-            <CalendarRange aria-hidden="true" />
-            {t("reports.open")}
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href={PARENT_ROUTES.children}>
-            <Users aria-hidden="true" />
-            {t("dashboard.manageChildren")}
-          </Link>
-        </Button>
-      </div>
+      {/* Not the same link as the nav bar's Reports: this one carries the child
+          across, so the report opens for whoever the parent is looking at rather
+          than resetting to the first profile. */}
+      <Button asChild variant="outline" className="self-start">
+        <Link
+          href={`${PARENT_ROUTES.reports}?child=${encodeURIComponent(child.id)}`}
+        >
+          <CalendarRange aria-hidden="true" />
+          {t("reports.open")}
+        </Link>
+      </Button>
     </main>
   );
 }

@@ -229,9 +229,24 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 - **Fluid sizing.** Prefer `clamp()` for display type and large spacing so they scale smoothly
   across phone→tablet. Kid text stays **≥20px** and touch targets **≥64px** at every width.
 - Kid screens are **full-bleed and immersive** — no traditional nav chrome; navigation is
-  large illustrated waypoints, placed in the thumb zone (lower/center), not top corners.
-- Parent dashboard uses a **responsive app shell**: drawer nav on phones, sidebar + content from
-  `lg`; data tables collapse to stacked cards on small screens.
+  large illustrated waypoints, placed in the thumb zone (lower/center), not top corners. The one
+  standing exception is the **parent corner**: a small adult-only control pinned to a top corner,
+  deliberately outside the thumb zone. It is an anonymous lock icon everywhere except
+  `/select-profile`, where it is a named chip carrying the parent's photo — see
+  `user-journey-manual.md §4.2` for the reasoning.
+- Parent dashboard uses a **persistent top bar**: wordmark, section links, language switch, and an
+  account menu (identity, back to kid mode, sign out). Section links wrap to a second full-width
+  row below `sm` and sit inline from `sm` up. Data tables collapse to stacked cards on small screens.
+
+  > **Decision, 2026-09-06 — a top bar, not a drawer-and-sidebar shell.** This bullet previously
+  > specified "drawer nav on phones, sidebar + content from `lg`". The parent area has **three**
+  > destinations. A drawer that hides three short labels behind a tap costs a tap and buys nothing,
+  > and a `lg` sidebar spends horizontal space that a phone — the primary device, per the heading of
+  > this section — does not have. The pattern is reserved for the `(admin)` CMS, which has six
+  > sections and is desktop-first by design; `AdminSidebar` is where it lives.
+  >
+  > Recorded after the fact: `ParentTopBar` shipped before this paragraph was written, against this
+  > document's own "fix this file first" rule. The order was wrong; the decision stands.
 - No horizontal scroll except intentional carousels.
 
 ---
@@ -271,8 +286,14 @@ packages/ui/                 # shared, theme-agnostic component library (shadcn 
 - `apps/web` consumes `@kidlearn/ui`; quiz/game renderers map JSON payloads (see brief §B) to
   `kid/` components.
 
-> `packages/ui` currently has no `package.json` — see the create-component skill for the
-> one-time setup (name it `@kidlearn/ui`, add `dev`/`build`/`typecheck` scripts) before first use.
+> **Status, 2026-09-06:** `@kidlearn/ui` is an active workspace. What exists is `primitives/`
+> (button, dialog, dropdown-menu, input, label, select, textarea), `lib/cn.ts` and
+> `styles/tokens.css`. There is no `kid/` or `parent/` directory: surface-specific components live
+> in the app that renders them, under `apps/web/components/<surface>/`. The tree above is the
+> shape this document originally specified, not the shape on disk —
+> `improvement-plan.md §3 P1-4` explains why the split never earned its keep with one consumer,
+> and implementation file 40 is where both this section and `standards/frontend.md §1` get
+> corrected. Do not move files to match the diagram in the meantime.
 
 ### Variants & styling
 

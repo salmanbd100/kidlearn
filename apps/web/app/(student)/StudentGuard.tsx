@@ -5,6 +5,7 @@ import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/lib/active-child";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
+import { STUDENT_ROUTES } from "@/lib/student-routes";
 
 /** What every student screen that needs a child sits behind. */
 export function StudentGuard({ children }: { children: ReactNode }) {
@@ -16,7 +17,7 @@ export function StudentGuard({ children }: { children: ReactNode }) {
     status === "signedOut"
       ? "/parent/login"
       : status === "ready" && child === undefined
-        ? "/select-profile"
+        ? STUDENT_ROUTES.selectProfile
         : undefined;
 
   useEffect(() => {

@@ -17,6 +17,15 @@ export {
   dialogContentVariants,
   dialogHeaderVariants,
 } from "./primitives/dialog";
+export {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  dropdownMenuContentVariants,
+} from "./primitives/dropdown-menu";
 export { Input, type InputProps, inputVariants } from "./primitives/input";
 export { Label, type LabelProps, labelVariants } from "./primitives/label";
 export { Select, type SelectProps, selectVariants } from "./primitives/select";

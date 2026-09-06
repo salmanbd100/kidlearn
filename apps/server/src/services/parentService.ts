@@ -28,6 +28,8 @@ export type AuthenticatedUser = {
 export type ParentSummary = {
   id: string;
   email: string;
+  name: string | null;
+  avatarUrl: string | null;
   hasPin: boolean;
   consentGivenAt: Date | null;
 };
@@ -93,6 +95,10 @@ export function toParentSummary(parent: Parent): ParentSummary {
   return {
     id: parent.id,
     email: parent.email,
+    // What the parent chip and the dashboard menu render (file 29). Safe to
+    // send: it is the profile Google already shows the same person.
+    name: parent.name,
+    avatarUrl: parent.avatarUrl,
     // Never the hash itself — only whether one is set, so the client knows
     // whether to show "set a PIN" or "enter your PIN" (file 10).
     hasPin: parent.pinHash !== null,

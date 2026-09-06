@@ -10,7 +10,6 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ChildSwitcher } from "@/components/parent/ChildSwitcher";
 import { ReportCard } from "@/components/parent/ReportCard";
 import { ReportHistoryList } from "@/components/parent/ReportHistoryList";
@@ -99,16 +98,11 @@ export function ReportsScreen({
 
   return (
     <main className="flex flex-1 flex-col gap-5 py-2">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-semibold text-2xl text-foreground">
-            {t("reports.title", { name: child.firstName })}
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {t("reports.subtitle")}
-          </p>
-        </div>
-        <LanguageSwitch size="default" />
+      <header className="flex flex-col gap-1">
+        <h1 className="font-semibold text-2xl text-foreground">
+          {t("reports.title", { name: child.firstName })}
+        </h1>
+        <p className="text-muted-foreground text-sm">{t("reports.subtitle")}</p>
       </header>
 
       <ChildSwitcher

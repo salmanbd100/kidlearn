@@ -55,6 +55,8 @@ export const AUTH_ROUTES: RouteDoc[] = [
         "Also the endpoint that **provisions** the `Parent` row on a brand-new parent's first request: kidlearn has no sign-up step, so the domain row is created lazily here. That is why this can answer `403` or `409` on a session that authenticated perfectly well.",
         "",
         "Never returns the PIN or its hash — only `hasPin`, which is what a client needs to choose between 'set a PIN' and 'enter your PIN'.",
+        "",
+        "`name` and `avatarUrl` are the display name and photo Google supplied at sign-in, and are both `null` for an account that carries neither — every client rendering them needs a fallback.",
       ].join("\n"),
       responses: {
         "200": jsonResponse(
