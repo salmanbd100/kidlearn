@@ -1,6 +1,6 @@
 ---
 name: start-implementation
-description: Start work on a kidlearn implementation file. Invoke as /start-implementation <filename-without-extension> (e.g. /start-implementation 01-workspace-packages-and-test-setup). Creates the feature branch from main, loads only the standards docs relevant to the layers the spec touches, implements it, then stops before committing so the engineer can review manually.
+description: Start work on a kidlearn implementation file. Invoke as /start-implementation <filename-without-extension> (e.g. /start-implementation 01-workspace-packages-and-test-setup). Creates the feature branch from dev, loads only the standards docs relevant to the layers the spec touches, implements it, then stops before committing so the engineer can review manually.
 model: sonnet
 ---
 
@@ -20,23 +20,28 @@ Run the following checks in parallel. Stop with a clear error message if any fai
 # 1. Confirm the implementation file exists
 ls document/implementation/<args>.md
 
-# 2. Confirm we are on main
+# 2. Confirm we are on dev
 git branch --show-current
 
-# 3. Confirm main is clean (no uncommitted changes)
+# 3. Confirm dev is clean (no uncommitted changes)
 git status --short
 
-# 4. Confirm the last CI run on main is green
-gh run list --branch main --workflow ci.yml --limit 1
+# 4. Confirm the last CI run on dev is green
+gh run list --branch dev --workflow ci.yml --limit 1
 ```
 
 If the file does not exist, list `document/implementation/` and ask the engineer to confirm the correct filename.
 
-If the current branch is not `main`, stop: tell the engineer to switch to `main` before starting.
+If the current branch is not `dev`, stop: tell the engineer to switch to `dev` before starting.
+
+**Feature branches are cut from `dev`, not `main`.** `/pr` opens against `dev` and `/code-review`
+diffs against it; `main` only ever receives a `dev` → `main` release PR
+(`project-requirement-details.md §9`). Branching from `main` produces a branch whose review
+surface and PR diff disagree.
 
 If there are uncommitted changes, stop: ask the engineer to stash or commit them first.
 
-If the latest CI run on `main` is failing, say so and ask whether to branch anyway. Starting new work on a red `main` means the first CI failure on the new branch is somebody else's — better to know that before writing code than while debugging it.
+If the latest CI run on `dev` is failing, say so and ask whether to branch anyway. Starting new work on a red `dev` means the first CI failure on the new branch is somebody else's — better to know that before writing code than while debugging it.
 
 ---
 
@@ -156,8 +161,7 @@ execute, a flow needing real credentials, a manual smoke test, a standards
 deviation to sign off on. Say "nothing" if there is genuinely nothing — do not
 pad this section.>
 
-Run `/pr` to commit, push, and open the pull request — or, if `/pr` is not
-installed, commit and push by hand and run `/pr-description` for the body.
+Run `/pr` to commit, push, and open the pull request against `dev`.
 ```
 
 Two rules for that report:

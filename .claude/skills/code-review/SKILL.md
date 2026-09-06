@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review a local branch against main before pushing. Invoke as /code-review <branch-name>. Checks document/engineering-standards.md compliance, bugs, content-safety rules (status:"published" guard, i18next), TypeScript/architecture conventions, and packages/ui component layer placement. Use before any PR is opened.
+description: Review a local branch against dev before pushing. Invoke as /code-review <branch-name>. Checks document/engineering-standards.md compliance, bugs, content-safety rules (status:"published" guard, i18next), TypeScript/architecture conventions, and packages/ui component layer placement. Use before any PR is opened.
 model: sonnet
 ---
 
@@ -23,17 +23,21 @@ The authoritative standards for this codebase are:
 Run the following to establish the review surface. Store the results for agents in subsequent steps.
 
 ```bash
-# All files changed on the branch vs main
-git diff main...<branch> --name-only
+# All files changed on the branch vs dev — the same base /pr opens the PR against
+git diff dev...<branch> --name-only
 
 # Full unified diff
-git diff main...<branch>
+git diff dev...<branch>
 
 # Commit log for context
-git log main...<branch> --oneline
+git log dev...<branch> --oneline
 ```
 
-If the branch does not exist or has no commits ahead of main, stop and tell the user.
+If the branch does not exist or has no commits ahead of `dev`, stop and tell the user.
+
+**The base is `dev`, not `main`** — feature branches are cut from `dev` and the `/pr` skill opens
+against `dev`; only `dev` → `main` release PRs use `main` (`project-requirement-details.md §9`).
+Reviewing against `main` would show a diff nobody is being asked to approve.
 
 ---
 
