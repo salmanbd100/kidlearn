@@ -1,196 +1,345 @@
 ---
 name: code-review
-description: Review a local branch against dev before pushing. Invoke as /code-review <branch-name>. Checks document/engineering-standards.md compliance, bugs, content-safety rules (status:"published" guard, i18next), TypeScript/architecture conventions, and packages/ui component layer placement. Use before any PR is opened.
-model: sonnet
+description: Review a kidlearn feature branch against dev before it is pushed. Invoke as /code-review, or /code-review <branch-name>. Use when work on a branch is finished, when the user says "review this", "review my branch", or "check this before I push", and before running /pr.
 ---
 
 # kidlearn Code Review
 
-You are performing a pre-push code review for the **kidlearn** monorepo. The branch to review is provided as args.
+Pre-push review for the **kidlearn** monorepo, against `dev`.
 
-The authoritative standards for this codebase are:
-- **`document/standards/general.md`** — always applies: monorepo layout, TypeScript, imports, naming, testing, enforcement matrix
-- **`document/standards/frontend.md`** — read when the diff touches `packages/ui` or `apps/web`
-- **`document/standards/backend.md`** — read when the diff touches `apps/server`, `packages/db`, or `packages/types`
-- **`document/design.md`** — visual tokens, motion, accessibility (referenced for component changes)
+**Your job is what automation cannot do.** Biome, TypeScript and the Vitest suites run in CI
+(`.github/workflows/ci.yml`, job `gates`). Anything they catch is a build failure, not a review
+finding, and reporting it spends the engineer's attention on something a command would have told
+them in ten seconds. You are here for the `[REVIEW]` tier of `general.md §6` — the rules nothing
+checks — and for bugs.
 
-`document/engineering-standards.md` is an index that routes to the three documents above. Load only the role documents matching the layers the diff touches (established in Step 1).
+## The standards are the authority
+
+| Document | Read when |
+|---|---|
+| `document/standards/general.md` | **Always** — layout, TypeScript, imports, naming, testing, the `[REVIEW]` matrix, GitHub flow |
+| `document/standards/frontend.md` | The diff touches `packages/ui` or `apps/web` |
+| `document/standards/backend.md` | The diff touches `apps/server`, `packages/db` or `packages/types` |
+| `document/design.md` | The diff touches a component or a visual decision |
+
+`document/engineering-standards.md` is an index into those three; never cite it as a rule.
+
+Each document carries **recorded exceptions** — dated, bounded deviations that look exactly like
+violations of a rule written two paragraphs above them. Read the ones covering the layers in this
+diff, and read their scope: the `(admin)` carve-outs stop at `app/(admin)/`, and a `(student)` or
+`(parent)` route doing the same thing is a finding, not an exception.
+
+**A rule you cannot quote is a rule you cannot report.** Every standards finding carries the
+sentence, verbatim. If you cannot find the sentence, it is a bug or it is nothing.
 
 ---
 
-## Step 0 — Get the diff
-
-Run the following to establish the review surface. Store the results for agents in subsequent steps.
+## Step 0 — Establish the surface
 
 ```bash
-# All files changed on the branch vs dev — the same base /pr opens the PR against
+git branch --show-current            # if no branch was passed as an argument
+git status --short                   # uncommitted work
+git log dev..<branch> --oneline
 git diff dev...<branch> --name-only
-
-# Full unified diff
 git diff dev...<branch>
-
-# Commit log for context
-git log dev...<branch> --oneline
 ```
 
-If the branch does not exist or has no commits ahead of `dev`, stop and tell the user.
+**The base is `dev`, not `main`.** Feature branches are cut from `dev` and `/pr` opens against
+`dev`; only a `dev` → `main` release PR uses `main` (`project-requirement-details.md §9`).
 
-**The base is `dev`, not `main`** — feature branches are cut from `dev` and the `/pr` skill opens
-against `dev`; only `dev` → `main` release PRs use `main` (`project-requirement-details.md §9`).
-Reviewing against `main` would show a diff nobody is being asked to approve.
+**If the diff comes back empty, find out why before improvising a base.** Two cases, opposite
+responses:
+
+```bash
+git merge-base --is-ancestor <branch> dev && echo "already merged"
+```
+
+- **Already merged.** There is nothing to review before pushing. Say so, and ask whether the user
+  wants a retrospective review instead. Never swap the base silently and present the result as a
+  pre-push review — the two answer different questions.
+
+  If they do want one, **get the range from the pull request, not from `git`**:
+
+  ```bash
+  gh pr list --state merged --search "<branch>" --json number,headRefName
+  gh pr view <number> --json baseRefOid,headRefOid
+  git diff <baseRefOid>...<headRefOid>
+  ```
+
+  Once a branch is merged, `git` can no longer tell you where it started: `merge-base` with `dev`
+  returns the branch tip, and `<branch>^` returns its own second-to-last commit. **Both silently
+  yield a fraction of the branch.** If there is no PR to read, ask the user for the base commit.
+  Do not guess one, and never fall back to reviewing a single commit as though it were the branch
+  — a review of 4 files out of 46 that does not say so is worse than no review.
+- **Not merged, still empty.** The branch is not ahead of `dev`. Stop and say so.
+
+**Uncommitted changes count.** `git diff dev...<branch>` cannot see the working tree, and a
+pre-push review that ignores it reviews something the engineer is not about to push. If
+`git status --short` is not empty, review `git diff HEAD` alongside it and say so in the output.
 
 ---
 
-## Step 1 — Summarise the change
+## Step 1 — What it does, and what it was meant to do
 
-Use a fast agent to read the diff and return a one-paragraph summary of what the branch does. Identify which layers are touched: `packages/ui`, `packages/db`, `apps/web`, `apps/server`, `document/`.
+State in a paragraph what the branch does and which layers it touches.
+
+Then read the spec. Branch names carry an implementation-file number
+(`14-parent-onboarding-profile-ui` → `document/implementation/14-*.md`); read that file's
+acceptance criteria and FR IDs and check the branch against them. **A branch that ships something
+other than what it was asked for is the most expensive finding available, and no linter will ever
+make it.** Say so if the branch name carries no file number, and skip this.
+
+If the diff touches only `document/**`, `README` or `.github/**`, check the docs against the code
+they describe, report that the diff is documentation-only, and stop.
 
 ---
 
-## Step 2 — Parallel review (5 agents)
+## Step 2 — Parallel review
 
-Launch all five agents in parallel. Each agent reads the full diff and the files it needs. Each returns a list of issues with the violated rule quoted verbatim.
+Launch these in parallel. Run D only if the diff touches `apps/server` or `packages/types`; run E
+only if it touches `packages/ui/` or `apps/web/`. Give each the diff, the spec from Step 1, and
+the layers in scope. Each returns findings with the rule quoted, or a bug with a failure path.
 
-### Agent A — Engineering Standards: `[REVIEW]` rules
+### A — Content safety and access control
 
-Read `document/standards/general.md` in full, plus `frontend.md` and/or `backend.md` for the layers this diff touches. Check every `[REVIEW]`-tagged rule against the diff. The consolidated list of `[REVIEW]` rules is in `general.md §6`. Focus especially on:
+Never dropped as a nitpick. One missing guard shows draft content to a child.
+
+`backend.md §4`: *"Every Prisma query that serves student-facing content **must** include
+`where: { status: "published" }`. A missing filter is a content-safety bug, not a style issue. It
+must have an explicit test."*
+
+Read every Prisma query in the diff — the top-level `where` **and every relation it pulls in**.
+Related rows carry their own `status`, and Prisma cannot filter an `include`, so a published
+lesson pointing at a draft activity serves that payload to a child (this shipped once, fixed in
+`919b2c5`).
+
+The rule lives in one place: `apps/server/src/lib/published-for-child.ts`. Read it. A query is
+expected to call `publishedForChild`, `publishedOnly`, `publishedRelation`,
+`publishedRelationForChild` or `isPublished` rather than hand-write the condition — a new query
+spelling out `status: "published"` itself is a finding even when correct today, because the rule
+then has two homes and one will drift. A gate on the detail endpoint but not the list endpoint is
+a finding on whichever lacks it.
+
+Also:
+
+- A route under `app/(student)/` with no valid-child-session check; `app/(parent)/` exposing data
+  without the PIN gate; `app/(admin)/` without an admin-role check.
+- **Fail-open on a guard state that could not be read.** The most repeated defect in this
+  repository: a gate enforced in the browser but not on the route (`3d433a2`), and a client whose
+  `isLocked` stayed at its initial `false` when the gate-status request failed, so one network
+  blip rendered the whole parent area unlocked. For every guard the diff touches, ask what it
+  does when its input is missing, stale or unreadable. **Unknown means locked.** A branch of a
+  guard with no `else` is the shape to look for.
+- **A guard applied to one verb but not its siblings.** `requirePinVerified` once guarded a single
+  route while `PATCH`/`DELETE` on the same resource needed only a session cookie. When a diff adds
+  a guard, check every verb on that resource, and check that any deliberate exemption is written
+  down rather than implied.
+- **Response leaks.** `packages/types` response schemas are `.strict()`, so an extra field on the
+  wire is a content-safety failure, not a documentation slip (`backend.md §7`, NFR-SAFE-02).
+- **The probe surface.** Unpublished content and another parent's child both return `404`, never
+  `403`, so a probe cannot confirm a row exists. A `403` where the spec says `404` belongs here,
+  not in the status-code nitpicks.
+- Content published without human review — AI output never auto-publishes (`backend.md §4`).
+- A deleted or weakened content-safety test. `general.md §5`: *"A PR that reduces test coverage on
+  a service layer or disables a content-safety test does not merge."*
+
+### B — Correctness
+
+Bugs this branch introduces. Not pre-existing ones, not what `tsc` or Biome already caught.
+**Read the whole file, not the hunk** — the commonest false positive here is flagging a guard the
+twenty lines above the diff already handle.
+
+**Running down a list of React and async clichés is not review** — that is how the bug in
+`75b0884` shipped past a reviewer who checked the effect for stale closures, dependency arrays and
+cleanup, found none, and passed it.
+
+For every value the diff computes, ask what its consumer does with a value outside the range it
+expects, and answer from the platform's documented behaviour rather than from what looks
+reasonable. Then look hardest at the classes that have actually shipped here:
+
+- **Platform limits on data-derived values.** Any timer, counter or offset computed from an API
+  value rather than a constant, checked against its consumer's accepted range and against `NaN`.
+- **Read-modify-write on a shared row.** A lost update on the PIN attempt counter shipped through
+  a fixed-row test stub. Prefer `{ increment: n }` and a transaction over read-then-write.
+- **`Date` arithmetic** — `NaN` from an unparseable string, `getTime()` on an invalid date.
+- Off-by-one, inverted conditionals, missing null/undefined guards.
+- Missing `await`, unhandled rejection, a promise where a value is expected.
+- Prisma query shape: wrong `where`, missing `include`, a field that does not exist.
+- React: stale closure, state mutated in place, a dependency array missing something the effect
+  reads, an effect that reschedules itself every render, cleanup that does not cancel what the
+  effect started.
+
+State the **failure path** for each: the input or state, and the wrong output. A bug with no
+failure path is a suspicion, not a finding.
+
+### C — `[REVIEW]` standards compliance
+
+`general.md §6` holds the definitive list of what a human must catch. Work through every row.
 
 Always:
-- **Cross-package direction** — any import in `packages/*` that resolves to `apps/*`. Rule: `general.md §3`.
-- **Internal barrel files** — a new `index.ts` created inside a package at a path other than `src/index.ts` that re-exports from multiple sibling files. Rule: `general.md §3`.
-- **`enum` usage** — any TypeScript `enum` declaration. Rule: `general.md §2`.
-- **`as` cast without comment** — a type assertion (`as SomeType`) with no inline comment explaining why narrowing is not possible. Rule: `general.md §2`.
-- **`any`** — any explicit `any` type. Rule: `general.md §2`.
 
-Frontend layers only (`packages/ui`, `apps/web`):
-- **Semantic tokens** — any raw hex, CSS color literal, or Tailwind color class (`text-blue-500`, `bg-red-600`) used in a component instead of a semantic token (`text-foreground`, `bg-primary`). Rule: `frontend.md §1`.
-- **i18next** — any JSX string literal or template string that is user-visible and not routed through `i18next`. Rule: `frontend.md §3`; `design.md §10` (content voice).
-- **`'use client'` placement** — boundary added higher in the tree than necessary; a Server Component converted to a Client Component when only a leaf needs interactivity. Rule: `frontend.md §2`.
-- **Component layer** — a component placed in the wrong `packages/ui` subdirectory (e.g. a kid-specific widget in `primitives/`, a pure utility in `kid/`). Rule: `frontend.md §1`.
+- **Cross-package direction** — `packages/*` importing from `apps/*` (`general.md §3`).
+- **Barrel files** — a new `index.ts` inside a package other than `src/index.ts` (`general.md §3`).
+- **`enum`** — `as const` only (`general.md §2`).
+- **`as` cast with no comment** explaining why narrowing is impossible (`general.md §2`).
+- **Testing rules** — the three `[REVIEW]` rules in `general.md §5` nothing else checks: tests
+  co-located beside the file under test (no `__tests__/`); no snapshot tests; Prisma not mocked
+  except under the recorded exception. A suite using that exception is in scope for all four of
+  its bounding rules and the file-header comment citing it — a suite breaking one is **not
+  covered**, and that is a finding quoting the numbered rule. Test names describe observable
+  behaviour, not implementation.
+- **The progress tracker** — `general.md §7` makes it mandatory and tags it `[REVIEW]`: the row in
+  `document/implementation/00-progress-tracker.md` for this branch's file reads `✅ Done` before
+  the branch is pushed. Also: one implementation file per branch, not two.
 
-Backend layers only (`apps/server`, `packages/db`, `packages/types`):
-- **Route handler thickness** — business logic (Prisma queries, conditional branching, calculations) inside a route handler function body rather than a service. Rule: `backend.md §2`.
-- **Zod missing** — a route handler that accepts a request body or params but has no Zod validation call before the service call. Rule: `backend.md §2`.
-- **`new PrismaClient()`** — any direct instantiation in `apps/server` instead of using the `@kidlearn/db` singleton. Rule: `backend.md §3`.
-- **Undocumented endpoint** — a route added or changed in `apps/server/src/routes/` with no matching entry in `apps/server/src/openapi/paths/`, or an entry that omits a status code the route's guards can produce (`requireParent` → 401, `requireConsent`/`requirePinVerified`/`requireActiveChild` → 403, `loadOwnedChild` → 404). Rule: `backend.md §7`. Note `openapi/coverage.test.ts` catches the missing-entry case, so flag it only if the diff also weakens or skips that test — but the *incomplete* entry is yours to catch, because no test can.
-- **Response shape restated** — a response type declared in `apps/web` or hand-written as JSON Schema in `src/openapi/` when it should be Zod in `packages/types/src/api/`, or a response schema using `z.date()` where the wire format is an ISO string. Rule: `backend.md §7`.
-- **Missing contract assertion** — a new successful response path with no `assertContract(Schema, res.body, …)` in its route test. Rule: `backend.md §7`.
+Frontend:
 
-### Agent B — Bugs
+- **Semantic tokens** — raw hex, a CSS colour literal or a Tailwind colour class in component code
+  (`frontend.md §1`).
+- **i18next** — a user-visible string not routed through it (`frontend.md §3`).
+- **`'use client'`** — a boundary higher than the leaf needing it (`frontend.md §2`).
+- **Layer placement** — the wrong `packages/ui` subdirectory, per the table in `frontend.md §1`
+  ("if it matches more than one row, use the most specific match").
+- **Exports** — a new public component missing from `src/index.ts` *or* the `package.json`
+  `exports` map. Both are required.
 
-Read the diff carefully. Look for correctness bugs introduced by this branch:
+Backend:
 
-- Off-by-one errors, incorrect conditional logic, missing null/undefined guards
-- Async/await mistakes (missing `await`, unhandled promise rejections)
-- Incorrect HTTP status codes returned (e.g. `200` for a newly created resource, `200` with an error body)
-- Incorrect Prisma query shape (wrong `where`, missing `include`, wrong field names)
-- React state bugs (stale closure, mutation of state directly, missing dependency array entries in hooks)
-- Missing error boundaries or unhandled throws in route handlers
+- **Thin handlers** — Prisma calls, branching or calculation in the handler rather than a service
+  callable without HTTP (`backend.md §2`).
+- **Zod at the boundary** on every route taking a body, params or query (`backend.md §2`).
+- **`new PrismaClient()`** anywhere in `apps/server`; raw SQL (`backend.md §3`).
+- **Errors thrown, not sent**; semantic status codes, never `200` with an error body.
+- **Server-authoritative progress** — rewards, streaks, screen time or completion computed client
+  side (`backend.md §8`).
 
-Avoid pre-existing issues. Avoid issues the TypeScript compiler or Biome would catch on its own.
+### D — API contract and types
 
-### Agent C — Content-safety audit
+`backend.md §7` splits into rules a test enforces and rules only you can. **Do not report the
+first group** — `coverage.test.ts` and `document.test.ts` already fail the build for an
+undocumented route, a stale registry entry, a missing or duplicate `operationId`, a tag with no
+`x-tagGroups` group, and an example that does not parse. Report those only if the diff weakens or
+skips one of those tests, which *is* a finding.
 
-This is a **hard rule** in kidlearn. A single missing filter exposes draft/review content to children.
+Yours:
 
-Read every Prisma query in the diff. For each query against a content table (Lesson, Activity, Quiz, Story, StoryPage, or any table that carries a `status` field), check:
+- **An incomplete path entry** — registered but omitting a status code its guards produce:
+  `requireParent` → 401; `requireConsent` → 403 `CONSENT_REQUIRED`; `requirePinVerified` → 403
+  `PIN_REQUIRED`/`PIN_VERIFICATION_REQUIRED`; `requireActiveChild` → 403; `loadOwnedChild` →
+  **404, never 403**. No test sees this.
+- **A second source of truth** — a response shape declared in `apps/web` or hand-written as JSON
+  Schema instead of Zod in `packages/types/src/api/`. Request schemas are the Zod objects in
+  `apps/server/src/schemas/` that `validate()` already runs.
+- **`z.date()` in a response schema** — the wire format is an ISO string; use `IsoDateTimeSchema`.
+- **Missing `assertContract(Schema, res.body, "<operation>")`** on a new successful response.
+- **A refinement that vanished** — `.refine()`/`.superRefine()` are dropped in JSON Schema
+  conversion, so a rule like "at least one field required" must be restated in a `description`.
+- **A hand-mirrored Prisma enum in `packages/types`** with no compile-time assertion that it still
+  matches (`src/openapi/paths/children.ts` has the pattern).
+- **`operationId` convention** — `verbResource` camelCase, admin operations prefixed
+  (`getAdminLesson` beside `getLesson`). Uniqueness is tested; the convention is not.
 
-- Does the query include `where: { status: "published" }` or an equivalent condition?
-- Is the route that calls this query student-facing (under `(student)/` route group, or an API route consumed by the student portal)?
+Plus, from `general.md §2`–`§3`: Prisma types redeclared instead of imported from `@kidlearn/db`;
+a type duplicated in both apps that belongs in `packages/types`; a missing return type on an
+exported function; `null` where `undefined` is the application-layer value; a relative import
+crossing a package boundary; `@/*` not used inside `apps/web`.
 
-Also check:
-- Any new route under `(student)/` that does NOT have an auth check for a valid child session
-- Any new `(parent)/` route that does not verify the PIN gate before exposing data
-- Any `(admin)/` route that does not verify admin role
+### E — Design system
 
-### Agent D — TypeScript & architecture conventions
+Read `design.md §11` and `frontend.md §1`.
 
-Read `document/standards/general.md §2` (TypeScript) and `§3` (imports). Check the diff for:
-
-- Prisma types redeclared in app code instead of imported from `@kidlearn/db`
-- Types or interfaces that should be in `packages/types` (shared between frontend and backend) but are duplicated in both
-- Missing explicit return types on exported functions
-- `interface` used where `type` is semantically correct (unions, mapped types, aliases) and vice versa
-- `null` used where `undefined` is correct (application-layer values)
-- Relative imports that cross package boundaries (e.g. `../../packages/db/src/...`)
-- `@/*` alias not used inside `apps/web` (raw `../` chains used instead)
-
-### Agent E — Component & design system audit (run only if the diff touches `packages/ui/` or `apps/web/`)
-
-Read `document/design.md §11` (the PR checklist) and `document/standards/frontend.md §1`. Check:
-
-- `cva` used for all variant logic; no ad-hoc className concatenation
-- `cn()` used to merge classes (not string template literals)
-- Component props expose `variant`/`size`/`tone` — callers are not expected to pass long `className` strings to restyle
-- Theme branching absent in JS (no `if theme === 'kid'` or similar)
-- `kid/` and `parent/` components compose from `primitives/`, not duplicating markup
-- Touch targets: kid surfaces ≥64px, parent surfaces ≥44px
-- Motion: only `transform` and `opacity` animated; `useReducedMotion()` present if motion is used
-- Font families come from tokens (`font-display`, `font-body`, `font-ui`) — no hardcoded font-family
-- `next/image` used (no raw `<img>` tags); `next/font` used (no `<link>` font tags)
-
----
-
-## Step 3 — Confidence scoring
-
-For each issue returned by any agent in Step 2, launch a parallel scoring agent. The scoring agent receives: the issue description, the relevant diff lines, and the rule from the standards documents (`general.md` / `frontend.md` / `backend.md`) that was cited.
-
-Score 0–100 using this rubric (give this rubric to the agent verbatim):
-
-- **0** — False positive. The rule doesn't actually apply here, or this is a pre-existing issue not introduced by this branch.
-- **25** — Possible issue, but could be a false positive. Agent could not fully verify.
-- **50** — Real issue but minor — a nitpick that a senior engineer might let through on a low-risk branch.
-- **75** — Real issue, verified. Will affect functionality or directly violates a named rule in the standards documents. The reviewer would block this.
-- **100** — Certain. The issue is confirmed, will cause a bug or standards violation in production. No ambiguity.
-
-**Content-safety issues (missing `status: "published"` filter, missing auth/PIN checks) are automatically scored 100 regardless of the agent's judgment.** These are never nitpicks.
+- `cva` for every variant API, `cn()` to merge — no ad-hoc `className` concatenation. A caller
+  passing a long `className` to restyle internals means the variant is missing.
+- No theme branching in JS; `data-theme` on the layout boundary only.
+- `kid/`/`parent/` compose from `primitives/` rather than duplicating markup.
+- Touch targets ≥64px kid, ≥44px parent; no text below 20px on kid surfaces (`design.md §7`).
+- Motion animates only `transform` and `opacity` and respects `prefers-reduced-motion`
+  (`design.md §5`).
+- Fonts via the `font-display`/`font-body`/`font-ui` tokens and `next/font`; images via
+  `next/image`.
+- Visible focus ring, keyboard operable on parent surfaces; contrast ≥ AA; meaning never carried
+  by colour alone.
+- No horizontal scroll at 360/768/1024, `dvh` and safe-area insets, layout survives +40% text
+  length from translation (`design.md §11`).
 
 ---
 
-## Step 4 — Filter and report
+## Step 3 — Verify before reporting
 
-Discard any issue with a score below 80.
+Take each finding to the code itself, not the diff hunk, and answer all four:
 
-If no issues remain, output:
+1. **Does the cited rule say what the finding claims?** Re-read the sentence. A paraphrase that
+   drifts is a false positive with a citation attached — the worst kind.
+2. **Is it exempted?** Check the recorded exceptions, by path, and check their stated scope.
+3. **Did this branch introduce it?** `git log -1 -S'<the line>' -- <file>`. If the line predates
+   the branch, drop it — a review that relitigates merged code is noise.
+4. **Does it survive the whole file?** The guard may be four lines above the hunk.
 
----
+Then rate what is left:
 
-### kidlearn code review — `<branch>`
+| | Meaning |
+|---|---|
+| **Blocking** | A content-safety or access-control gap, a bug with a concrete failure path, or a `[REVIEW]` rule violated with the sentence quoted. |
+| **Worth fixing** | Real and verified, but the branch ships without harm — a convention slip, a missing return type, an unclear name. |
+| **Drop** | Anything you could not answer all four questions for. Anything a tool catches. Anything you would preface with "consider" or "might want to". |
 
-No issues found. Checked: engineering standards `[REVIEW]` rules, bugs, content-safety guards, TypeScript conventions, component architecture.
+**Every content-safety and access-control finding is Blocking**, and is never rated down for being
+small — a one-word `where` clause is the whole guard.
 
----
-
-If issues remain, output the following format:
-
----
-
-### kidlearn code review — `<branch>`
-
-Found N issue(s):
-
-**[CONTENT-SAFETY]** / **[STANDARDS]** / **[BUG]** / **[ARCHITECTURE]** (use the correct label)
-
-1. **<one-line description>**
-
-   Rule: `document/standards/<general|frontend|backend>.md §<section>` — *"<exact quote of the rule>"*
-
-   File: `<path/to/file.ts>` (lines approx. <range>)
-
-   ```
-   <the offending code snippet — 3–6 lines of context>
-   ```
-
-   Fix: <one sentence describing what to change>
-
-2. …
+Uncertainty is not a severity. If you are not sure a finding is real, do the work to find out or
+drop it. Do not report it hedged and leave the engineer to check.
 
 ---
 
-**Output rules:**
-- Order issues: CONTENT-SAFETY first, then STANDARDS, then BUG, then ARCHITECTURE.
-- Content-safety issues are always listed even if they are the only finding.
-- Keep descriptions factual. No praise, no encouragement. Be direct.
-- Do not list issues that Biome or TypeScript will catch automatically — those run in CI.
-- Do not flag issues on lines that were not modified by this branch.
-- Quote the rule from the relevant `document/standards/*.md` file verbatim for every standards violation.
+## Step 4 — Report
+
+````markdown
+### kidlearn code review — `<branch>` → `dev`
+
+<N commits, M files. Layers: apps/web, apps/server.>
+<Spec: document/implementation/14-*.md — matches / diverges: …>
+<Includes N uncommitted files.>
+
+**Blocking: N. Worth fixing: M.** | **No issues found.**
+
+---
+
+#### 🔴 CONTENT SAFETY — <one-line description>
+
+`apps/server/src/services/lessonService.ts:42`
+
+> `backend.md §4` — "<the sentence, verbatim>"
+
+```ts
+<3–6 lines>
+```
+
+**Fails when:** <the concrete path to the wrong outcome.>
+**Fix:** <one sentence.>
+````
+
+Labels: `🔴 CONTENT SAFETY`, `🔴 BUG`, `🔴 STANDARDS`, `🔴 API CONTRACT`, `🟡 DESIGN` — 🔴 Blocking,
+🟡 Worth fixing. Order: content safety, bugs, standards, API contract, design; Blocking before
+Worth fixing within each.
+
+A clean branch names what was checked:
+
+```markdown
+### kidlearn code review — `<branch>` → `dev`
+
+**No issues found.**
+
+Checked: content-safety guards including related rows, correctness, the `[REVIEW]` matrix
+(`general.md §6`), testing rules (`§5`), the progress tracker (`§7`), API contract completeness
+(`backend.md §7`), design system (`design.md §11`).
+```
+
+**Rules for the output:**
+
+- Say what is wrong and where. No praise, no summary of the good parts, no encouragement.
+- One finding per issue — three instances of one rule in one file is one finding, three lines.
+- Quote the standards sentence verbatim, or reclassify the finding.
+- Never report what Biome or `tsc` catches. Never report a line this branch did not touch.
+- Never soften a Blocking finding into a suggestion.
+- If you skipped a step — could not find the implementation file, did not read a standards
+  document — say which, in the header. An unstated gap reads as a clean bill.

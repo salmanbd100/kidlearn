@@ -49,7 +49,7 @@ export function buildComponentSchemas(
     // and referenced the second time by a JSON pointer *into* another schema's
     // subtree, e.g. `#/components/schemas/CreateChildBody/properties/firstName`.
     // That is a legal JSON Pointer and an illegal OpenAPI `$ref`: 3.0 allows a
-    // reference only to a component, and Swagger UI resolves nothing else — the
+    // reference only to a component, and a reader resolves nothing else — the
     // affected models render empty, with no error to explain why.
     //
     // `"none"` inlines those instead. The named entries in `definitions` still

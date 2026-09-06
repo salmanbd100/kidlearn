@@ -1,5 +1,26 @@
 # 12a — API Documentation (OpenAPI / Swagger)
 
+> [!NOTE]
+> **The renderer this file specifies was replaced in PR #47.** `/docs` now serves a
+> Scalar API reference; `swagger-ui-express` and `@types/swagger-ui-express` are gone
+> from the repo. Nothing else here changed — the spec-assembly design, the coverage
+> gate, and the "cannot drift" argument in _Goal_ all survived intact and are still
+> the reason the OpenAPI document looks the way it does.
+>
+> **Nothing below this note has been edited.** It records what was asked for in
+> August 2026 (`4b1fb13`), which is the point of a numbered file; four passages are
+> now historical rather than current:
+>
+> | Passage | Then | Now |
+> |---|---|---|
+> | Requirement 8 | Swagger UI, `withCredentials: true` | Scalar. **Send** works off the same-origin session cookie without configuration — Scalar never sets `credentials`, so the request takes the `same-origin` default and the browser attaches the cookie itself |
+> | _Implementation Notes_ dependency list | `swagger-ui-express` + its `@types` | `@scalar/express-api-reference` |
+> | First acceptance criterion | "`GET /docs` serves Swagger UI", 24 operations | Scalar; 109 operations across 20 tags |
+> | _Out of Scope_, final bullet | "Replacing Swagger UI with Redoc or Scalar" | Exactly what PR #47 did, deliberately and later |
+>
+> For the current rules read `document/standards/backend.md §7` and the
+> **API documentation** section of `CLAUDE.md`; both are maintained, this file is not.
+
 > **Estimated effort:** 4–5 hours — above the usual 3–4h chunk. The ~15 response schemas in `packages/types` are the bulk of it; the spec assembly and the coverage gate are each under an hour.
 > **Depends on:** 08, 09, 10, 11, 12
 > **Requirement IDs:** spec §7.3 (API architecture). No FR covers API documentation — see the note under _Context_.

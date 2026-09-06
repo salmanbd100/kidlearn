@@ -239,6 +239,11 @@ const GUARD_RESPONSES = {
   "500": INTERNAL_RESPONSE,
 };
 
+/** `worlds` → `Worlds`, `world` → `World`, for the generated `operationId`s. */
+function pascal(segment: string): string {
+  return segment.charAt(0).toUpperCase() + segment.slice(1);
+}
+
 function docsFor(resource: ResourceDoc): RouteDoc[] {
   const base = `/api/admin/content/${resource.segment}`;
   const id = pathParam("id", `The ${resource.singular}'s id.`, {
@@ -251,7 +256,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
       method: "get",
       path: base,
       operation: {
-        tags: ["Admin CMS"],
+        operationId: `listAdmin${pascal(resource.segment)}`,
+        tags: ["Admin CMS: Curriculum"],
         summary: `List ${resource.segment}`,
         description: [
           resource.summary,
@@ -277,7 +283,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
       method: "post",
       path: base,
       operation: {
-        tags: ["Admin CMS"],
+        operationId: `createAdmin${pascal(resource.singular)}`,
+        tags: ["Admin CMS: Curriculum"],
         summary: `Create a ${resource.singular}`,
         description: [
           `Creates a ${resource.singular} as **\`draft\`** — the only status a create can produce, and not a field the caller supplies.`,
@@ -305,7 +312,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
       method: "get",
       path: `${base}/{id}`,
       operation: {
-        tags: ["Admin CMS"],
+        operationId: `getAdmin${pascal(resource.singular)}`,
+        tags: ["Admin CMS: Curriculum"],
         summary: `Read one ${resource.singular}`,
         description: [
           `One ${resource.singular} in the authoring shape, whatever its status.`,
@@ -328,7 +336,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
       method: "patch",
       path: `${base}/{id}`,
       operation: {
-        tags: ["Admin CMS"],
+        operationId: `updateAdmin${pascal(resource.singular)}`,
+        tags: ["Admin CMS: Curriculum"],
         summary: `Edit a ${resource.singular}`,
         description: [
           `Partial edit. ${AT_LEAST_ONE_FIELD}`,
@@ -361,7 +370,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
       method: "post",
       path: `${base}/{id}/transition`,
       operation: {
-        tags: ["Admin CMS"],
+        operationId: `transitionAdmin${pascal(resource.singular)}`,
+        tags: ["Admin CMS: Curriculum"],
         summary: `Change a ${resource.singular}'s status`,
         description: TRANSITION_DESCRIPTION,
         parameters: [id],
@@ -397,7 +407,8 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
       method: "patch",
       path: `${base}/reorder`,
       operation: {
-        tags: ["Admin CMS"],
+        operationId: `reorderAdmin${pascal(resource.segment)}`,
+        tags: ["Admin CMS: Curriculum"],
         summary: `Reorder ${resource.segment}`,
         description: REORDER_DESCRIPTION,
         requestBody: jsonRequestBody("ContentReorderBody"),
@@ -436,7 +447,8 @@ const CHARACTER_SHEET_ROUTES: RouteDoc[] = [
     method: "get",
     path: CHARACTER_SHEET_BASE,
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "listCharacterSheets",
+      tags: ["Admin CMS: Characters"],
       summary: "List character sheets",
       description: [
         CHARACTER_SHEET_PURPOSE,
@@ -469,7 +481,8 @@ const CHARACTER_SHEET_ROUTES: RouteDoc[] = [
     method: "post",
     path: CHARACTER_SHEET_BASE,
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "createCharacterSheet",
+      tags: ["Admin CMS: Characters"],
       summary: "Create a character sheet",
       description: [
         CHARACTER_SHEET_PURPOSE,
@@ -497,7 +510,8 @@ const CHARACTER_SHEET_ROUTES: RouteDoc[] = [
     method: "post",
     path: `${CHARACTER_SHEET_BASE}/from-job`,
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "createCharacterSheetsFromJob",
+      tags: ["Admin CMS: Characters"],
       summary: "Save a story generation's cast as character sheets",
       description: [
         "Promotes the `characterDescriptions` of a `story` generation into sheets — the one-click **Save as character sheet** action (FR-AI-09).",
@@ -530,7 +544,8 @@ const CHARACTER_SHEET_ROUTES: RouteDoc[] = [
     method: "patch",
     path: `${CHARACTER_SHEET_BASE}/{id}`,
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "updateCharacterSheet",
+      tags: ["Admin CMS: Characters"],
       summary: "Edit a character sheet",
       description: [
         "Rewrites a sheet's `name`, `description` or `worldId`.",

@@ -5,6 +5,7 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
+import { STORY_DETAIL_EXAMPLE } from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
 /**
@@ -41,6 +42,7 @@ export const STORIES_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/stories",
     operation: {
+      operationId: "listStories",
       tags: ["Stories"],
       summary: "List the child's story library",
       description: [
@@ -71,6 +73,7 @@ export const STORIES_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/stories/{id}",
     operation: {
+      operationId: "getStory",
       tags: ["Stories"],
       summary: "Get a story and its pages for the reader",
       description: [
@@ -94,6 +97,7 @@ export const STORIES_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The story, its world, and its pages in reading order.",
           "StoryDetailResponse",
+          STORY_DETAIL_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,

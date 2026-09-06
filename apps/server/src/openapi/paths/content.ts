@@ -5,6 +5,11 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
+import {
+  LESSON_DETAIL_EXAMPLE,
+  WORLD_LESSONS_EXAMPLE,
+  WORLD_LIST_EXAMPLE,
+} from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
 /**
@@ -20,8 +25,8 @@ const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
 
 /**
  * The shared preamble on every operation in this tag. Repeated per operation
- * rather than stated once at the tag level because Swagger UI collapses tag
- * descriptions and a reader landing on one endpoint would miss it.
+ * rather than stated once at the tag level because a reader who deep-links to
+ * one endpoint never sees the tag description.
  */
 const FILTERED = [
   "Filtered to `status = published` and the active child's `gradeLevel`, with text resolved to their `preferredLanguage` (falling back to English).",
@@ -47,6 +52,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/worlds",
     operation: {
+      operationId: "listWorlds",
       tags: ["Content"],
       summary: "List published worlds",
       description: [
@@ -60,6 +66,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "Published worlds, ordered by slug.",
           "WorldListResponse",
+          WORLD_LIST_EXAMPLE,
         ),
         "401": UNAUTHORIZED_RESPONSE,
         "403": NO_ACTIVE_CHILD_RESPONSE,
@@ -71,6 +78,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/worlds/{id}/lessons",
     operation: {
+      operationId: "listWorldLessons",
       tags: ["Content"],
       summary: "List a world's lessons, grouped by topic",
       description: [
@@ -87,6 +95,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "Topic sections, each with its lessons. Empty when the world is published but holds nothing for this child's grade.",
           "WorldLessonsResponse",
+          WORLD_LESSONS_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
@@ -105,6 +114,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/subjects",
     operation: {
+      operationId: "listSubjects",
       tags: ["Content"],
       summary: "List subjects that have content for this child",
       description: [
@@ -129,6 +139,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/subjects/{id}/topics",
     operation: {
+      operationId: "listSubjectTopics",
       tags: ["Content"],
       summary: "List a subject's topics",
       description: `Topics of the subject that have at least one matching lesson. ${FILTERED}`,
@@ -150,6 +161,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/topics/{id}/lessons",
     operation: {
+      operationId: "listTopicLessons",
       tags: ["Content"],
       summary: "List a topic's lessons",
       description: [
@@ -177,6 +189,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/content/lessons/{id}",
     operation: {
+      operationId: "getLesson",
       tags: ["Content"],
       summary: "Get a full lesson for the player",
       description: [
@@ -221,6 +234,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The lesson, its world, and its activity and quiz payloads.",
           "LessonDetailResponse",
+          LESSON_DETAIL_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,

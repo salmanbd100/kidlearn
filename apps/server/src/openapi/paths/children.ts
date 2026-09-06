@@ -8,6 +8,11 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
+import {
+  CHILD_PROFILE_LIST_EXAMPLE,
+  DASHBOARD_SUMMARY_EXAMPLE,
+  WEEKLY_REPORT_LIST_EXAMPLE,
+} from "../examples.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /** `routes/children.ts` — `requireParent` guards the whole router. */
@@ -51,6 +56,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/children",
     operation: {
+      operationId: "createChild",
       tags: ["Children"],
       summary: "Create a child profile",
       description: [
@@ -87,6 +93,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/children",
     operation: {
+      operationId: "listChildren",
       tags: ["Children"],
       summary: "List the parent's child profiles",
       description:
@@ -95,6 +102,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The profiles, oldest first. An empty array for a parent who has not created one yet.",
           "ChildProfileListResponse",
+          CHILD_PROFILE_LIST_EXAMPLE,
         ),
         "401": UNAUTHORIZED_RESPONSE,
         "500": INTERNAL_RESPONSE,
@@ -105,6 +113,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/children/{id}",
     operation: {
+      operationId: "getChild",
       tags: ["Children"],
       summary: "Get one child profile",
       parameters: [CHILD_ID_PARAM],
@@ -121,6 +130,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/children/{id}/characters",
     operation: {
+      operationId: "listChildCharacters",
       tags: ["Characters"],
       summary:
         "List every character, flagged with what this child has unlocked",
@@ -154,6 +164,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/children/{id}/learning-time",
     operation: {
+      operationId: "getChildLearningTime",
       tags: ["Learning Time"],
       summary: "How long this child has learned in one window",
       description: [
@@ -189,6 +200,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/children/{id}/dashboard",
     operation: {
+      operationId: "getChildDashboard",
       tags: ["Dashboard"],
       summary: "Everything the parent dashboard shows for one child",
       description: [
@@ -215,6 +227,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The dashboard. Every array may be empty — a brand-new child gets zero minutes, zero-percent bars, `null` highlights and an empty feed rather than a 404.",
           "DashboardSummaryResponse",
+          DASHBOARD_SUMMARY_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
@@ -228,6 +241,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/children/{id}/reports",
     operation: {
+      operationId: "listChildReports",
       tags: ["Reports"],
       summary: "List this child's weekly reports, newest first",
       description: [
@@ -258,6 +272,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The reports, newest first. An empty array for a child whose first Monday has not passed yet — never a 404.",
           "WeeklyReportListResponse",
+          WEEKLY_REPORT_LIST_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
@@ -271,6 +286,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/children/{id}/screen-time",
     operation: {
+      operationId: "getChildScreenTime",
       tags: ["Screen Time"],
       summary: "Read this child's daily limit and access window",
       description: [
@@ -300,6 +316,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "patch",
     path: "/api/children/{id}/screen-time",
     operation: {
+      operationId: "updateChildScreenTime",
       tags: ["Screen Time"],
       summary: "Set this child's daily limit and access window",
       description: [
@@ -342,6 +359,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "patch",
     path: "/api/children/{id}",
     operation: {
+      operationId: "updateChild",
       tags: ["Children"],
       summary: "Update a child profile",
       description:
@@ -371,6 +389,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "delete",
     path: "/api/children/{id}",
     operation: {
+      operationId: "deleteChild",
       tags: ["Children"],
       summary: "Delete a child profile",
       description: [
@@ -393,6 +412,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/children/{id}/activate",
     operation: {
+      operationId: "activateChild",
       tags: ["Children"],
       summary: "Switch the session's active child",
       description: [

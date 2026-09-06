@@ -2,6 +2,7 @@ import {
   COMPONENT_SCHEMAS,
   DEFAULT_SECURITY,
   SECURITY_SCHEMES,
+  TAG_GROUPS,
   TAGS,
 } from "./components.js";
 import { ALL_ROUTE_DOCS } from "./paths/index.js";
@@ -16,6 +17,8 @@ export type OpenApiDocument = {
   info: JsonSchemaObject;
   servers: JsonSchemaObject[];
   tags: JsonSchemaObject[];
+  /** Sidebar grouping. Readers that do not know the extension ignore it. */
+  "x-tagGroups": JsonSchemaObject[];
   security: JsonSchemaObject[];
   paths: Record<string, JsonSchemaObject>;
   components: JsonSchemaObject;
@@ -40,6 +43,12 @@ const DESCRIPTION = [
   "Google OAuth only, with an httpOnly cookie session — there is no password login, no bearer token, and no sign-up step. Send credentials with every request (`fetch(..., { credentials: 'include' })`); the API accepts one origin only.",
   "",
   "The usual sequence is: `GET /api/auth/google` → `POST /api/parent/consent` → `POST /api/parent/pin` → `POST /api/children` → `POST /api/children/{id}/activate` → the `Content` endpoints.",
+  "",
+  "#### Native clients",
+  "",
+  "**A native app cannot sign in against this server yet, and the reason is here rather than in a changelog because the fix is a server change on a known milestone.** `trustedOrigins` currently holds the web origin alone, better-auth is registered without its Expo plugin, and the Google callback hardcodes a web URL a phone cannot follow back into the app. Mobile milestone `M06` adds all three; until it lands, every native sign-in is refused as an untrusted origin.",
+  "",
+  "What will **not** change is the credential: mobile keeps this same httpOnly cookie session, so **do not wait for a bearer token — none is planned**. The Expo client stores the cookie in the device keychain and attaches it itself, which has one consequence worth designing around now: `credentials: 'include'` is a no-op on native, so every call must go through the one wrapper that adds the cookie rather than calling `fetch` directly. Both gates above — the active child and the PIN grant — stay server-side and are unchanged on native.",
   "",
   "Two further gates sit on top of the session, and both are app-level checks rather than authentication:",
   "",
@@ -87,8 +96,25 @@ export function buildOpenApiDocument({
       version: "0.1.0",
       description: DESCRIPTION,
     },
-    servers: [{ url: serverUrl, description: "This server" }],
+    servers: [
+      { url: serverUrl, description: "This server" },
+      // Documented before they exist. Both hosts are specified in
+      // `project-requirement-details.md §9` but implementation file 38 has not
+      // run, so neither resolves yet — hence descriptions that say so rather
+      // than a **Send** that times out with no explanation. A mobile build
+      // needs these two values for `EXPO_PUBLIC_API_URL` well before it needs
+      // them to answer.
+      {
+        url: "https://api.dev.kidlearn.net",
+        description: "Development — tracks the `dev` branch. Not yet deployed.",
+      },
+      {
+        url: "https://api.kidlearn.net",
+        description: "Production — tracks `main`. Not yet deployed.",
+      },
+    ],
     tags: TAGS,
+    "x-tagGroups": TAG_GROUPS,
     security: DEFAULT_SECURITY,
     paths,
     components: {
