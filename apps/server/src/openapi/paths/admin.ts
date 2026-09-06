@@ -14,6 +14,7 @@ export const ADMIN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/me",
     operation: {
+      operationId: "getCurrentAdmin",
       tags: ["Admin"],
       summary: "Who am I (admin)",
       description: [
@@ -43,6 +44,7 @@ export const ADMIN_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/analytics/overview",
     operation: {
+      operationId: "getPlatformOverview",
       tags: ["Admin"],
       summary: "Platform counters",
       description: [

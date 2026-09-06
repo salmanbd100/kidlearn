@@ -4,6 +4,7 @@ import {
   jsonResponse,
   UNAUTHORIZED_RESPONSE,
 } from "../components.js";
+import { AUTH_ME_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
 /** `routes/auth.ts` — the two routes kidlearn defines itself on `/api/auth`. */
@@ -12,6 +13,7 @@ export const AUTH_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/auth/google",
     operation: {
+      operationId: "startGoogleSignIn",
       tags: ["Auth"],
       summary: "Start Google sign-in",
       description: [
@@ -21,7 +23,7 @@ export const AUTH_ROUTES: RouteDoc[] = [
         "",
         "The response also sets better-auth's OAuth `state` cookie, which the callback verifies — a client that drops it will fail every sign-in on the state check. The post-login destination is server configuration (`PARENT_POST_LOGIN_PATH`), not something the caller passes in.",
         "",
-        "**Try it out will not work from this page**: Swagger UI follows the redirect with `fetch`, which cannot hand the browser to Google. Open the URL in a tab instead.",
+        "**Send will not work from this page**: the client follows the redirect with `fetch`, which cannot hand the browser to Google. Open the URL in a tab instead — that is also how you get the session every other operation here needs.",
       ].join("\n"),
       security: [],
       responses: {
@@ -47,6 +49,7 @@ export const AUTH_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/auth/me",
     operation: {
+      operationId: "getCurrentParent",
       tags: ["Auth"],
       summary: "Who am I",
       description: [
@@ -62,6 +65,7 @@ export const AUTH_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The parent and the active child profile id (`null` until a profile is activated).",
           "AuthMeResponse",
+          AUTH_ME_EXAMPLE,
         ),
         "401": UNAUTHORIZED_RESPONSE,
         "403": errorResponse(
@@ -84,6 +88,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/auth/sign-in/email",
     operation: {
+      operationId: "signInWithEmail",
       tags: ["Admin"],
       summary: "Admin sign-in (better-auth)",
       description: [
@@ -126,6 +131,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/auth/sign-up/email",
     operation: {
+      operationId: "signUpWithEmail",
       tags: ["Admin"],
       summary: "Password sign-up — disabled",
       description: [
@@ -147,6 +153,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/auth/sign-in/social",
     operation: {
+      operationId: "signInSocial",
       tags: ["Auth"],
       summary: "Start Google sign-in (better-auth, POST)",
       description:
@@ -189,6 +196,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/auth/callback/google",
     operation: {
+      operationId: "completeGoogleSignIn",
       tags: ["Auth"],
       summary: "Google OAuth callback (better-auth)",
       description:
@@ -206,6 +214,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/auth/get-session",
     operation: {
+      operationId: "getSession",
       tags: ["Auth"],
       summary: "Read the raw session (better-auth)",
       description:
@@ -223,6 +232,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/auth/sign-out",
     operation: {
+      operationId: "signOut",
       tags: ["Auth"],
       summary: "Sign out (better-auth)",
       description:

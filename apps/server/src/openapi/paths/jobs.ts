@@ -11,6 +11,7 @@ export const JOBS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/jobs/weekly-reports",
     operation: {
+      operationId: "runWeeklyReportsJob",
       tags: ["Jobs"],
       summary: "Generate last week's report for every child",
       description: [

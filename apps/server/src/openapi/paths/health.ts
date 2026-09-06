@@ -7,6 +7,7 @@ export const HEALTH_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/",
     operation: {
+      operationId: "getServiceIdentity",
       tags: ["Health"],
       summary: "Service identity",
       description:
@@ -21,6 +22,7 @@ export const HEALTH_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/health",
     operation: {
+      operationId: "getHealth",
       tags: ["Health"],
       summary: "Liveness probe",
       description:
