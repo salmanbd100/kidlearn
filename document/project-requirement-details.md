@@ -59,7 +59,7 @@ The platform:
 - Supports **multiple languages** natively (English and Bangla at launch).
 - Gives parents full visibility (progress, reports) and control (screen time, time windows).
 - Uses a **generative-AI content pipeline** (lessons, stories, quizzes, narration, illustrations) with mandatory human review, so the curriculum can scale cheaply.
-- Launches on **low-cost hosting** — a single small cloud instance running both a production and a development environment, roughly $23/month (§9) — with an architecture that scales modularly to higher grades and more languages without rework.
+- Launches on **low-cost hosting** — the frontend on Vercel's free tier and one small cloud instance running both environments' APIs, roughly $13.75/month (§9) — with an architecture that scales modularly to higher grades and more languages without rework.
 
 ---
 
@@ -416,34 +416,38 @@ All content entities carry `status` (publishing workflow) and language-scoped ch
 
 ---
 
-## 9. Deployment Strategy (Single-Box AWS)
+## 9. Deployment Strategy (Vercel Frontend + Single AWS Box)
 
-**Two environments, one instance**, each tracking a branch:
+**Two environments, one instance for the APIs**, each tracking a branch:
 
-| Environment     | Branch | Web                    | API                        | Database                       |
-| --------------- | ------ | ---------------------- | -------------------------- | ------------------------------ |
-| **Production**  | `main` | `kidlearn.net`         | `api.kidlearn.net`         | Supabase free project          |
-| **Development** | `dev`  | `dev.kidlearn.net`     | `api.dev.kidlearn.net`     | Postgres container on the box  |
+| Environment     | Branch | Web (Vercel)                          | API (EC2)                  | Database                       |
+| --------------- | ------ | ------------------------------------- | -------------------------- | ------------------------------ |
+| **Production**  | `main` | `kidlearn.net`, `www.kidlearn.net`    | `api.kidlearn.net`         | Supabase free project          |
+| **Development** | `dev`  | `dev.kidlearn.net`                    | `api.dev.kidlearn.net`     | Postgres container on the box  |
 
-Within each environment the web and API hosts share one registrable domain, so they are the same site and the parent session cookie stays `SameSite=Lax` rather than becoming a third-party cookie.
+Within each environment the web and API hosts share one registrable domain, so they are the same site — different origins, but not third-party — and the parent session cookie stays `SameSite=Lax`. The frontend being hosted elsewhere does not change that.
 
 | Layer                   | Platform                                                                        | Notes                                                                                                                                                                                                                     |
 | ----------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Host                    | One EC2 `t4g.medium` (Graviton, 2 vCPU / 4 GiB) in `ap-south-1`, Docker Compose  | Always on — no cold starts. Three Compose projects: an edge stack and one per environment. No load balancer and no NAT gateway: each costs more per month than the instance itself.                                        |
-| Ingress                 | Caddy, the only container binding a host port                                    | Terminates TLS for all five hostnames with automatic Let's Encrypt certificates. Ports 443 and 80 are the only ones open; shell access is SSM Session Manager, so there is no inbound SSH rule. Dev hosts carry `noindex`. |
-| Frontend (`apps/web`)   | Docker container per environment, Next.js standalone output                      | `NEXT_PUBLIC_*` values are inlined at build time, so the web image is built once per environment and the two are not interchangeable.                                                                                     |
+| Frontend (`apps/web`)   | Vercel Hobby, one project per environment, function region `bom1`                | `apps/web` has no route handlers and makes every API call from the browser, so no server secret reaches it. `NEXT_PUBLIC_*` are project-scoped and inlined at build time — changing one needs a redeploy, not a save.        |
+| Host (APIs)             | One EC2 `t4g.small` (Graviton, 2 vCPU / 2 GiB) in `ap-south-1`, Docker Compose   | Always on — no cold starts. Three Compose projects: an edge stack and one per environment. No load balancer and no NAT gateway: each costs more per month than the instance itself.                                        |
+| Ingress (APIs)          | Caddy, the only container binding a host port                                    | Terminates TLS for the two API hostnames with automatic Let's Encrypt certificates. Ports 443 and 80 are the only ones open; shell access is SSM Session Manager, so there is no inbound SSH rule.                        |
 | Backend (`apps/server`) | Docker container per environment, one shared image                               | Configured entirely at runtime. `app.set("trust proxy", 1)` — Caddy is exactly one hop. Both environments run with `NODE_ENV=production`; what differs is hostnames, database, credentials and `ENABLE_API_DOCS`.         |
 | Production database     | Supabase free project (PostgreSQL), `ap-south-1`                                 | Pooled connection (:6543) at runtime, direct (:5432) for migrations. Free ceilings: 500 MB, 5 GB egress/month, two active projects — one used. No point-in-time recovery, so a nightly `pg_dump` to S3 is ours.            |
 | Development database    | `postgres:16-alpine` container, no published host port                           | Deliberately disposable and never backed up — wiping and reseeding it is the documented way to rehearse a migration before it reaches `main`. No `pgbouncer` flags on its connection string.                               |
+| Dev environment gating  | Basic auth in `apps/web/proxy.ts`, plus `X-Robots-Tag: noindex` on both dev hosts | Keeps an unreviewed-content build out of search results and casual reach. The API host is deliberately ungated so the OAuth callback is not interrupted; it holds no production data.                                     |
 | Media assets            | Cloudinary free tier, a separate cloud per environment                           | AI-generated images, audio and short video snippets, CDN-served (NFR-PERF-02). Separate clouds keep test uploads out of the production media library.                                                                     |
-| Secrets                 | AWS SSM Parameter Store, `SecureString` under `/kidlearn/prod/` and `/kidlearn/dev/` | Free on the Standard tier; Secrets Manager would be ~$16/month for the same ~40 values.                                                                                                                                  |
-| Images and deploys      | ECR (`linux/arm64`); GitHub Actions via per-environment OIDC roles and SSM Send-Command | No AWS key, SSH key or database credential is stored in GitHub. `main` accepts pull requests only from `dev`, enforced by a required check.                                                                        |
+| DNS                     | Cloudflare free tier, proxy off                                                   | Five records: three at Vercel, two at the Elastic IP. Route 53 does the same job for $0.50/month.                                                                                                                         |
+| Secrets                 | AWS SSM Parameter Store, `SecureString` under `/kidlearn/prod/` and `/kidlearn/dev/` | Free on the Standard tier; Secrets Manager would be ~$16/month for the same ~35 values. The frontend's non-secret values live in Vercel project settings.                                                                |
+| Images and deploys      | ECR (`linux/arm64`); GitHub Actions via per-environment OIDC roles and SSM Send-Command | Covers the API only — Vercel's Git integration deploys the frontend. No AWS key, SSH key or database credential is stored in GitHub. `main` accepts pull requests only from `dev`, enforced by a required check.  |
 
-**Roughly $23/month** at steady state for both environments — instance, public IPv4 address, EBS, ECR, S3 backups and the Route 53 zone; about $18.50 with a one-year EC2 Instance Savings Plan. The AWS free tier moved to a six-month credit model on 2025-07-15, so nothing here is budgeted as free.
+**Roughly $13.75/month** at steady state for both environments — instance, public IPv4 address, EBS, ECR and S3 backups; about $11.50 with a one-year EC2 Instance Savings Plan. Vercel Hobby and Cloudflare DNS are free. The AWS free tier moved to a six-month credit model on 2025-07-15, so nothing here is budgeted as free.
 
-Data between the environments is fully isolated — separate databases with no shared credential or network path. Runtime is not: one kernel, one disk, one Docker daemon, with memory limits on the dev stack so contention resolves in production's favour. Buying hard isolation means a second instance and nothing else in the design changes.
+Vercel Hobby carries two conditions that are tracked rather than assumed away: it is licensed for non-commercial use, and it has no overage billing — exceeding a ceiling pauses the project rather than charging for the excess. `apps/web/Dockerfile` and `output: "standalone"` therefore stay in the repository, built by CI and deployed by nothing, so the frontend can move back onto the box in an afternoon if either condition fires.
 
-Per-app configuration follows each app's own template file; deployed values live in SSM and never in the repository. The architecture must allow upgrading any single layer — a managed database, a second instance behind a load balancer, a CDN in front — without touching the others.
+Data between the environments is fully isolated — separate databases and separate Vercel projects, with no shared credential or network path. API runtime is not: one kernel, one disk, one Docker daemon, with memory limits on the dev stack so contention resolves in production's favour. Buying hard isolation means a second instance and nothing else in the design changes.
+
+Per-app configuration follows each app's own template file; deployed values live in SSM or Vercel project settings and never in the repository. The architecture must allow upgrading any single layer — a managed database, a second instance behind a load balancer, a CDN in front — without touching the others.
 
 ---
 

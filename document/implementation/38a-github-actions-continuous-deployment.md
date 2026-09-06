@@ -1,6 +1,6 @@
 # 38a — GitHub Actions Continuous Deployment: `dev` and `main`
 
-> **Estimated effort:** 4 hours
+> **Estimated effort:** 3–4 hours
 > **Depends on:** 38, 39
 > **Requirement IDs:** spec §9 (deployment). No FR covers CD — this automates the manual procedure
 > file 38 established, on the same footing as file 39.
@@ -8,18 +8,25 @@
 
 ## Goal
 
-Turn file 38's two hand-run deploys into one job that fires on every push to `dev` or `main`, once
-`gates` is green:
+Turn file 38's two hand-run **API** deploys into one job that fires on every push to `dev` or `main`,
+once `gates` is green:
 
 ```
-feature/x --PR--> dev  ──gates──> deploy ──> dev.kidlearn.net + api.dev.kidlearn.net
+feature/x --PR--> dev  ──gates──> deploy ──> api.dev.kidlearn.net
                    │
-                   └──PR--> main ──gates──> deploy ──> kidlearn.net + api.kidlearn.net
+                   └──PR--> main ──gates──> deploy ──> api.kidlearn.net
 ```
 
 Build the `linux/arm64` images natively, push them to ECR, roll them out over SSM — with **no AWS
 credential, no SSH key and no database credential stored in GitHub**. Add a rollback that takes an
 environment and an image tag.
+
+**The frontend is not this pipeline's job.** File 38 puts `apps/web` on Vercel, whose Git integration
+already deploys `main` to `kidlearn.net` and `dev` to `dev.kidlearn.net` on every push, with its own
+build, its own environment variables and its own Instant Rollback. This workflow therefore builds two
+images rather than four, holds no `NEXT_PUBLIC_*` values, and never needs to worry about a web image
+built with the wrong environment's build arguments. What it must still do is make sure the two halves
+of a release do not disagree — see requirement 10.
 
 Every production change has been live on `dev` first, because `main` accepts pull requests only from
 `dev`, and that rule is enforced by a check rather than by memory.
@@ -110,10 +117,10 @@ Three facts shape the design:
 
 4. **Each role's permissions, kept as narrow as a shared box allows.**
 
-   - ECR: push and pull, but the **dev role is restricted by tag** via a
-     `ecr:ResourceTag`/`aws:RequestTag` condition where the API supports it, and at minimum is granted
-     nothing on the `kidlearn-web` repository beyond what it needs. The production role alone may push
-     `prod-*` tags.
+   - ECR: push and pull on the `kidlearn-api` and `kidlearn-migrate` repositories only. Both images
+     are environment-agnostic and tagged with a bare commit SHA, so there is no tag-prefix condition
+     left to write — the environment-specific `kidlearn-web` repository that motivated one no longer
+     exists.
    - `ssm:SendCommand` on the one instance ARN **and** the `AWS-RunShellScript` document ARN;
      `ssm:GetCommandInvocation` and `ssm:ListCommandInvocations` to read the result.
    - **No `ssm:StartSession`** in either role, so a compromised workflow cannot open an interactive
@@ -164,29 +171,31 @@ Three facts shape the design:
    **Do not make `deploy` a required status check.** `gates` and `promotion-guard` are the merge
    gates; making deployment one means an AWS outage blocks every unrelated pull request.
 
-6. **Build: four images, one commit SHA, environment-aware tags.**
+6. **Build: two images, one commit SHA, no environment-specific tags.**
    `docker/setup-buildx-action@v3` plus `docker/build-push-action@v6`.
 
    | Image | Tag | Built per environment? |
    |---|---|---|
-   | `kidlearn-web` | `${ENV_NAME}-${{ github.sha }}` | **Yes** — `NEXT_PUBLIC_*` is inlined at build time (file 38 requirement 4) |
    | `kidlearn-api` | `${{ github.sha }}` | No — configured entirely at runtime |
-   | `kidlearn-migrate` | `${{ github.sha }}` | No |
+   | `kidlearn-migrate` | `${{ github.sha }}` | No — same Dockerfile, `target: migrate` |
 
-   The web build takes `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` and `MEDIA_ASSET_HOSTS` as
-   `build-args` from the environment's variables. **This is the single most dangerous step in the
-   pipeline**: a web image built with production build args and deployed to dev is a dev site writing
-   to the production database, and it looks entirely normal from the outside. Requirement 10's
-   assertion exists for this.
+   Both are two `--target`s of one `apps/server/Dockerfile` and share every layer up to the build
+   stage, so the second one costs seconds. Neither takes a build argument, and neither can be built
+   for the wrong environment — the class of bug that made this the most dangerous step in the earlier
+   all-Docker version of this file is gone with the web image.
+
+   **`apps/web/Dockerfile` is built by `gates`, not here** — file 38 requirement 5 keeps it as an
+   escape hatch, and building it in CI is what stops it rotting. It is never pushed and never
+   deployed. If that ever changes, this requirement is where the environment-specific build arguments
+   come back, and requirement 10 with them.
 
    Do **not** tag `latest`. Every deploy names an explicit SHA, which is what makes rollback a
    one-line input rather than an archaeology exercise.
 
    Use `cache-from: type=gha` / `cache-to: type=gha,mode=max` for the pnpm install and Prisma
-   generate layers, with a **`scope:` per image and per environment** (`web-dev`, `web-prod`, `api`).
-   Watch the size: **GitHub's Actions cache is 10 GB per repository**, and now four builds across two
-   branches can evict each other and the Turbo cache `gates` depends on. Drop to `mode=min` if the
-   cache starts thrashing; a slower build beats a `gates` job that reinstalls from cold every run.
+   generate layers, with a **`scope:` per image** (`api`, `migrate`). **GitHub's Actions cache is
+   10 GB per repository** and the Turbo cache `gates` depends on shares it; two builds rather than
+   four leaves that comfortable, but drop to `mode=min` if it starts thrashing.
 
 7. **Configuration on each GitHub Environment,** as *variables* rather than secrets — none is a
    credential, and variables are readable in logs where secrets are masked into uselessness for
@@ -198,9 +207,12 @@ Three facts shape the design:
    | `AWS_ROLE_ARN` | the production role | the development role |
    | `ECR_REGISTRY` | `<account-id>.dkr.ecr.ap-south-1.amazonaws.com` | same |
    | `EC2_INSTANCE_ID` | `i-…` | same instance |
-   | `NEXT_PUBLIC_API_URL` | `https://api.kidlearn.net` | `https://api.dev.kidlearn.net` |
-   | `NEXT_PUBLIC_SITE_URL` | `https://kidlearn.net` | `https://dev.kidlearn.net` |
-   | `MEDIA_ASSET_HOSTS` | `https://res.cloudinary.com` | `https://res.cloudinary.com` |
+   | `WEB_ORIGIN` | `https://kidlearn.net` | `https://dev.kidlearn.net` |
+
+   `WEB_ORIGIN` is here only so requirement 10 can assert against the right frontend; the API reads
+   its own copy from SSM. The three `NEXT_PUBLIC_*` and `MEDIA_ASSET_HOSTS` values are **not** here —
+   they live in the Vercel projects (file 38 requirement 12), which is the only place that builds
+   them.
 
    **The repository holds no secrets for deployment at all.** If a `secrets.*` reference appears in
    the deploy job, something has gone wrong with the design — say why in the pull request.
@@ -254,13 +266,12 @@ Three facts shape the design:
       anything restarts** — a failed migration must not take the site down with it. On dev this runs
       against the Postgres container and is gated on its healthcheck.
    6. `docker compose -p kidlearn-$ENV … up -d`.
-   7. Poll that environment's **own** two public URLs, up to ~60 s. Going through Caddy rather than the
-      container ports tests the proxy and the certificate too. Dev's web host is behind basic auth, so
-      poll it with credentials or poll `api.dev.kidlearn.net/health` plus the dev web container's port
-      directly — pick one and say which in a comment.
+   7. Poll that environment's **own** API health URL through Caddy, up to ~60 s — rather than the
+      container port, so the proxy and the certificate are tested too. There is no web host to poll:
+      Vercel owns that half and reports its own build status.
    8. On success, write the tag to `/opt/kidlearn/$ENV/.last-good-tag`. On failure, redeploy the tag in
       that file, restart, and `exit 1`.
-   9. `docker image prune -f`, so a 30 GB volume shared by two environments does not silently fill.
+   9. `docker image prune -f`, so a 20 GB volume shared by two environments does not silently fill.
 
    Migrations being forward-only means the automatic revert restores the *images*, not the schema.
    That is correct, and it is a constraint worth writing in the runbook: **any migration that reaches
@@ -268,24 +279,37 @@ Three facts shape the design:
    step 5 and step 7 the old containers are running against the new schema. Dev is where you find out
    whether it is — which is the concrete reason the promotion guard exists.
 
-10. **Assert the environment after deploying, not just before.** A step that fetches the deployed
-    site and fails the job if it is wrong:
+10. **Assert the two halves agree, after deploying.** The frontend and the API now ship on separate
+    pipelines, so the failure this step guards has changed shape: not a mis-built image, but a
+    frontend pointed at the wrong API, or a frontend Vercel never rebuilt. A step that fetches the
+    deployed site and fails the job if it is wrong:
 
-    - `curl -s https://dev.kidlearn.net` (with basic auth) must **not** contain `api.kidlearn.net`.
-    - `curl -s https://kidlearn.net` must **not** contain `dev.kidlearn.net`.
     - `curl -sf https://api.$ENV_HOST/health` returns the envelope.
+    - `curl -s ${{ vars.WEB_ORIGIN }}` (with basic auth on dev) must reference **this** environment's
+      API host and **not** the other one — `grep` the served bundle for the wrong hostname and fail
+      on a match.
+    - The `Origin` in that same request must be accepted by the API: a `curl` with
+      `-H "Origin: ${{ vars.WEB_ORIGIN }}"` against `/health` returns an
+      `Access-Control-Allow-Origin` for it.
 
-    Cross-wiring the build args is silent, survives every other check in this pipeline, and points a
-    dev deployment at the production database. Ten lines of `grep` is cheap insurance.
+    Ten lines of `grep` is cheap insurance, and it is the only place the two pipelines are checked
+    against each other at all.
+
+    Note the ordering it implies. Vercel deploys on push, this job deploys after `gates`, so for a
+    commit that changes both halves the frontend is usually live first. That is fine as long as the
+    same rule as the migrations holds: **a frontend change must be compatible with the API before
+    it**, which is the rule requirement 9 already states in the other direction. Say so in the
+    runbook.
 
 11. **Rollback as a `workflow_dispatch`.** A `rollback` job — same roles, no build step — taking two
     inputs: `environment` (a `choice` of `dev`/`prod`) and a required `image_tag`, running the same
     `deploy.sh`. Rollback must not depend on a build succeeding; the reason you are rolling back may
     be that builds are broken.
 
-    Remember the tag shapes differ: the web image wants `<env>-<sha>` and the api and migrate images
-    want the bare `<sha>`. Take the bare SHA as the input and let the script compose both, so nobody
-    has to remember which is which at 2am.
+    The tag is a bare `<sha>` for both images, so the input is exactly what a rollback needs and
+    nothing has to be composed. **Rolling back the API does not roll back the frontend** — that is
+    Vercel's Instant Rollback, in a different dashboard, and the runbook must say so beside this,
+    because under load nobody derives it.
 
 12. **Prove it before trusting it, on dev first.** Run the `deploy` job by hand against `dev` via
     `workflow_dispatch`. Then **force a failure** — deploy a nonexistent tag, then break the health
@@ -341,25 +365,23 @@ Sketch of the build-and-deploy chain, after `actions/checkout@v5`:
     cache-from: type=gha,scope=api
     cache-to: type=gha,mode=max,scope=api
 
-- uses: docker/build-push-action@v6          # web — environment-specific
+- uses: docker/build-push-action@v6          # migrate
   with:
     context: .
-    file: apps/web/Dockerfile
+    file: apps/server/Dockerfile
+    target: migrate
     push: true
-    tags: ${{ vars.ECR_REGISTRY }}/kidlearn-web:${{ env.ENV_NAME }}-${{ github.sha }}
-    build-args: |
-      NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
-      NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
-      MEDIA_ASSET_HOSTS=${{ vars.MEDIA_ASSET_HOSTS }}
-    cache-from: type=gha,scope=web-${{ env.ENV_NAME }}
-    cache-to: type=gha,mode=max,scope=web-${{ env.ENV_NAME }}
+    tags: ${{ vars.ECR_REGISTRY }}/kidlearn-migrate:${{ github.sha }}
+    cache-from: type=gha,scope=migrate
+    cache-to: type=gha,mode=max,scope=migrate
 ```
 
-…and a third with `target: migrate` for `kidlearn-migrate`. No `platforms:` key is needed — the
-runner is already arm64, and setting it would push builds through emulation for nothing.
+Both steps are identical but for the target and the tag — no `build-args`, no `${ENV_NAME}` anywhere.
+No `platforms:` key is needed either: the runner is already arm64, and setting it would push builds
+through emulation for nothing.
 
-The web image is the slow one, and there are now two of it across the two branches. If the job creeps
-past a few minutes, the first thing to check is whether the pnpm install layer is being cached — an
+Neither image is slow, because the Next.js build left with the frontend. If the job creeps past a
+couple of minutes, the first thing to check is whether the pnpm install layer is being cached — an
 over-broad `.dockerignore`, or copying the whole repo before the lockfile, invalidates it on every
 commit.
 
@@ -376,8 +398,9 @@ commit.
    and confirm the second run is a no-op. (~50 min)
 5. Add the `deploy` job with a `workflow_dispatch` path; run it manually against **dev** and watch a
    real image reach the box. (~40 min)
-6. Add requirement 10's post-deploy assertions; deliberately cross-wire the build args once to
-   confirm they catch it, then revert. (~25 min)
+6. Add requirement 10's post-deploy assertions; point the dev Vercel project's
+   `NEXT_PUBLIC_API_URL` at production once to confirm they catch it, then revert and redeploy.
+   (~25 min)
 7. Add the `rollback` job; roll dev back to the previous SHA and confirm the older build serves.
    (~20 min)
 8. Break a dev deploy on purpose — nonexistent tag, then a failing health check — and confirm the box
@@ -388,17 +411,20 @@ commit.
 
 ## Acceptance Criteria
 
-- [ ] A push to `dev` builds `kidlearn-web:dev-<sha>` plus the shared api and migrate images and
-      deploys only the dev stack; `kidlearn.net` is untouched — confirm with
+- [ ] A push to `dev` builds `kidlearn-api:<sha>` and `kidlearn-migrate:<sha>` and deploys only the
+      dev API stack; the production containers are untouched — confirm with
       `docker compose -p kidlearn-prod images` before and after.
-- [ ] A push to `main` does the same for production and leaves `dev.kidlearn.net` untouched.
+- [ ] A push to `main` does the same for production and leaves the dev containers untouched.
+- [ ] Neither job builds or pushes a `kidlearn-web` image, and `git grep -n "NEXT_PUBLIC_" .github/`
+      returns nothing.
 - [ ] A pull request from a feature branch directly to `main` **fails** `promotion-guard`; the same
       branch merged to `dev` and promoted by a `dev` → `main` pull request passes.
 - [ ] `deploy` does not run on pull requests, and does not run when `gates` fails.
 - [ ] `gates` and `promotion-guard` are required status checks on `main`, `gates` is required on
       `dev`, and `deploy` is **not** required on either.
 - [ ] The deployed dev bundle contains no `api.kidlearn.net` and the deployed production bundle no
-      `dev.kidlearn.net` — asserted by the job itself (requirement 10), not only by hand.
+      `dev.kidlearn.net` — asserted by the job itself (requirement 10), not only by hand, even though
+      Vercel rather than this workflow built them.
 - [ ] The repository has **no** AWS access key, SSH key or database credential in secrets, and neither
       deploy job references a `secrets.*` value. `git grep -n "secrets\." .github/workflows/` returns
       nothing from the deploy, rollback or guard jobs.
@@ -411,8 +437,9 @@ commit.
       stays on its previous version — demonstrated on dev, not asserted.
 - [ ] A deploy whose health check fails self-reverts to that environment's `.last-good-tag` and the
       job goes **red**; the SSM command's stdout and stderr are readable in the job log.
-- [ ] `workflow_dispatch` rollback restores an arbitrary earlier SHA for the chosen environment, with
-      no image rebuild, and composes the `<env>-<sha>` and bare `<sha>` tags itself.
+- [ ] `workflow_dispatch` rollback restores an arbitrary earlier SHA's API images for the chosen
+      environment with no rebuild, and the runbook says plainly that the frontend rolls back
+      separately, through Vercel.
 - [ ] End-to-end after an automated deploy to each environment: a parent signs in and the session
       survives a reload.
 - [ ] `document/runbook.md` covers the branch flow, per-environment manual deploy, rollback, reading
@@ -429,8 +456,12 @@ commit.
   tested.
 - **Closing the shared-instance `SendCommand` gap.** Requirement 4 narrows it; only a second instance
   removes it. File 38 states the trade.
-- **Preview environments per pull request.** `dev` is the shared preview. A per-PR environment needs a
-  database and a hostname each, which is a different design.
+- **Preview environments per pull request.** `dev` is the shared preview. Vercel will happily build a
+  preview frontend per pull request, but it would have no API of its own to talk to — a real per-PR
+  environment needs a database and an API hostname each, which is a different design.
+- **Deploying the frontend from GitHub Actions.** Vercel's Git integration already does it, with a
+  build cache and rollback this workflow would have to reimplement. Taking it over only makes sense
+  if file 38's escape hatch is ever exercised.
 - **Deploy notifications** — Slack, email, or a GitHub deployment status beyond what the Environments
   already record. Post-MVP.
 - **Turbo remote caching** (`npx turbo link`). Worth doing when build minutes start to hurt; they do
