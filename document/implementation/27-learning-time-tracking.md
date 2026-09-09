@@ -1,5 +1,16 @@
 # 27 — Server-Side Learning Time Tracking
 
+> [!NOTE]
+> **This file is still current.** Its consumer is not: parental screen-time control
+> (file 28, FR-TIME-01..05) was removed on 2026-09-09, so nothing compares these minutes
+> against a limit any more.
+>
+> Everything this file specifies stays — `SessionEvent`, `POST /api/events/heartbeat`,
+> `learningTimeService`, the density rule and `GET /api/children/:id/learning-time`. It
+> serves FR-TIME-06, FR-DASH-02, the weekly report and admin DAU/WAU, none of which
+> depended on the gate. Only the sentences that describe a screen-time limit as a reader
+> of these minutes are out of date. See `project-requirement-details.md` §9 resolution 5.
+>
 > **Estimated effort:** 3–4 hours
 > **Depends on:** 06, 09, 16
 > **Requirement IDs:** FR-TIME-06, FR-DASH-02 (data), FR-LSN-07

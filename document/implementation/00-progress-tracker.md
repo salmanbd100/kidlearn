@@ -17,7 +17,7 @@
 | 4 — Lesson Experience | 16–22 | Lesson player, activity engine, quiz engine |
 | 5 — Gamification | 23–24 | Rewards, badges, characters, streaks |
 | 6 — Stories | 25–26 | Story library + narrated reader |
-| 7 — Time & Dashboards | 27–30 | Learning time, screen time, parent dashboard, reports |
+| 7 — Time & Dashboards | 27–30 | Learning time, ~~screen time~~ (removed 2026-09-09), parent dashboard, reports |
 | 8 — Admin CMS | 31–33 | Admin auth, curriculum management, media + editors |
 | 9 — AI Pipeline | 34–37 | Generators, audio/images, review queue |
 | 10 — Launch | 38–38a | Vercel frontend + one AWS box for both environments' APIs, GitHub Actions CD |
@@ -34,7 +34,7 @@
 | 03 | `03-auth-profile-db-schema.md` | Parent / AdminUser / ChildProfile schema + consent | FR-AUTH-03, FR-PROF-01..02, NFR-SAFE-03 | 02 | 3–4h | ✅ Done |
 | 04 | `04-curriculum-world-db-schema.md` | Subject / Topic / Lesson / World / MediaAsset schema | FR-CURR-01..04, FR-WORLD-01..05 | 02, 03 | 3–4h | ✅ Done |
 | 05 | `05-activity-quiz-story-db-schema.md` | Activity / Quiz / Story schema (JSONB payloads) | FR-ACT-06, FR-QUIZ-07, FR-STORY-* (data) | 04 | 3–4h | ✅ Done |
-| 06 | `06-progress-gamification-db-schema.md` | Progress, rewards, streaks, screen time, reports, AI jobs schema | FR-LSN-06..07, FR-GAM-*, FR-TIME-06, FR-DASH-05, FR-AI-08 (data) | 03, 05 | 3–4h | ✅ Done |
+| 06 | `06-progress-gamification-db-schema.md` | Progress, rewards, streaks, ~~screen time~~ (removed 2026-09-09), reports, AI jobs schema | FR-LSN-06..07, FR-GAM-*, FR-TIME-06, FR-DASH-05, FR-AI-08 (data) | 03, 05 | 3–4h | ✅ Done |
 | 07 | `07-shared-types-activity-quiz-schemas.md` | Versioned Zod/JSON schemas for activities & quizzes in `packages/types` | FR-ACT-06, FR-QUIZ-07, NFR-SCALE-02 | 01 | 3–4h | ✅ Done |
 | 08 | `08-server-foundation-api-architecture.md` | Express app structure, middleware, validation, error handling | §7.3, NFR-PERF-04 | 02 | 3–4h | ✅ Done |
 | 09 | `09-parent-google-oauth.md` | Google OAuth sign-in + profile-scoped sessions | FR-AUTH-02, FR-AUTH-06 | 03, 08 | 3–4h | ✅ Done |
@@ -57,7 +57,7 @@
 | 25 | `25-story-library.md` | Story read API + library browsing UI | FR-STORY-01, FR-STORY-04..05, FR-STORY-08 | 05, 08, 13 | 3–4h | ✅ Done |
 | 26 | `26-story-reader.md` | Page-by-page narrated story reader + completion reward | FR-STORY-02..03, FR-STORY-06..07 | 23, 25 | 3–4h | ✅ Done |
 | 27 | `27-learning-time-tracking.md` | Server-side session heartbeats + learning time aggregation | FR-TIME-06, FR-DASH-02 (data), FR-LSN-07 | 06, 09, 16 | 3–4h | ✅ Done |
-| 28 | `28-screen-time-controls.md` | Daily limits, access windows, friendly lockout enforcement | FR-TIME-01..05 | 14, 27 | 3–4h | ✅ Done |
+| 28 | `28-screen-time-controls.md` | ~~Daily limits, access windows, friendly lockout enforcement~~ (removed 2026-09-09) | ~~FR-TIME-01..05~~ | 14, 27 | 3–4h | ✅ Done, reverted |
 | 29 | `29-parent-dashboard.md` | Per-child summary, subject progress, recent activity | FR-DASH-01..04 | 14, 23, 27 | 3–4h | ✅ Done |
 | 30 | `30-weekly-reports.md` | Weekly report generation job + report history UI | FR-DASH-05..06 | 29 | 3–4h | ✅ Done |
 | 31 | `31-admin-auth-cms-foundation.md` | Admin auth, CMS layout, role guard, basic usage analytics | §4.3, FR-CMS-01 (shell), FR-CMS-07 (basic) | 08, 13 | 3–4h | ✅ Done |
@@ -105,7 +105,7 @@ These are fixed across all implementation files so chunks stay consistent:
 - **AI providers (revised in file 37a — every one on a genuinely usable free tier):** text/quizzes and images both run on one Google AI Studio `GEMINI_API_KEY` — `gemini-2.5-flash` answering against a `responseJsonSchema` generated from the `packages/types` schemas, and `gemini-2.5-flash-image` drawing illustrations. Audio: Google Cloud Text-to-Speech, Standard voices, one voice per language (`GOOGLE_TTS_API_KEY`; its Cloud project needs a billing account attached even though free-tier usage bills $0). Video: partially manual at MVP (FR-AI-06 allowance). Claude and ElevenLabs are gone — no key for either is needed anywhere. The `AI_*_JOBS_PER_DAY` caps are sized to trip before Google's own free-tier quota does; Google no longer publishes per-model daily limits, so read aistudio.google.com/rate-limit before raising them.
 - **Media:** Cloudinary free tier (images, audio, short video).
 - **Publishing rule:** every content row carries `status` (`draft → in_review → approved/rejected → published`); student-facing queries filter `status = published` — always, at the query layer.
-- **Server-authoritative:** rewards, streaks, screen time, completion are computed server-side; the client only reports events.
+- **Server-authoritative:** rewards, streaks, learning time, completion are computed server-side; the client only reports events.
 - **CI (from file 39):** `.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every PR and every push to `main`. A PR is not done until it is green (`gh pr checks`). The test step is serialised (`TURBO_CONCURRENCY=1`) because five concurrent Vitest instances oversubscribe a 4-core runner — not as a flake fix; `apps/server`'s Supertest suites still fail intermittently at the socket level, which is why `gates` is not a required check yet. See file 39's Context. Coverage is reported, never gated on a threshold.
 
 ## Working Agreement

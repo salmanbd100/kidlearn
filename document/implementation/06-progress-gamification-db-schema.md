@@ -1,5 +1,21 @@
 # 06 — Progress, Gamification & Tracking Database Schema
 
+> [!WARNING]
+> **One model in this file was removed on 2026-09-09:** `ScreenTimeSetting`, along with
+> the `screenTime` relation on `ChildProfile`. FR-TIME-01..05 are retired and the table is
+> dropped by `20260909100000_remove_screen_time`. The child cascade is now seven tables,
+> not eight. The reason is simplicity, and the cost is recorded in
+> `project-requirement-details.md` §9 resolution 5.
+>
+> **Every other model in this file is current and unaffected** — `LessonProgress`,
+> `QuizResponse`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `SessionEvent`,
+> `WeeklyReport` and `AIGenerationJob`. `SessionEvent` in particular stays: it serves
+> FR-TIME-06, which is not retired. Do not read this note as lapsing the whole file.
+>
+> **Nothing below this note has been edited.** It records what was asked for at the time,
+> and rewriting it would destroy that record. For the current schema see
+> `packages/db/prisma/schema.prisma` and `document/database-design.md`.
+>
 > **Estimated effort:** 3–4 hours
 > **Depends on:** 03, 05
 > **Requirement IDs:** FR-LSN-06..07, FR-QUIZ-08, FR-GAM-01..08 (data), FR-TIME-01..06 (data), FR-DASH-02..06 (data), FR-AI-08 (data), spec §8

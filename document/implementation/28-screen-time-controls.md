@@ -1,5 +1,24 @@
 # 28 — Screen Time Limits & Access Windows
 
+> [!WARNING]
+> **The feature this file specifies was removed on 2026-09-09.** FR-TIME-01..05 are
+> retired. `services/screenTimeService.ts`, `middleware/enforce-screen-time.ts`,
+> `routes/screen-time.ts`, `schemas/screen-time.ts`, `lib/time-of-day.ts`, the
+> `GET`/`PATCH /api/children/:id/screen-time` endpoints and `GET /api/screen-time/status`,
+> the `ScreenTimeSetting` table, the `TIME_LIMIT_REACHED` and `OUTSIDE_WINDOW` error
+> codes, and the web surface — `ScreenTimeForm`, `ScreenTimeLock`, `screen-time-api.ts`
+> and `use-screen-time-gate.ts` — are all gone. No content endpoint answers `423` any
+> more. The reason is simplicity, and the cost is recorded in
+> `project-requirement-details.md` §9 resolution 5.
+>
+> **The file it depends on survived intact.** File 27's learning-time engine is still
+> current and still serves the parent dashboard, the weekly report and admin analytics —
+> this file was its only screen-time consumer, not its foundation. Read the two apart.
+>
+> **Nothing below this note has been edited.** It records what was asked for at the time,
+> and rewriting it would destroy that record. For current behaviour see
+> `document/user-journey-manual.md` and `document/database-design.md`.
+>
 > **Estimated effort:** 3–4 hours
 > **Depends on:** 14, 27
 > **Requirement IDs:** FR-TIME-01, FR-TIME-02, FR-TIME-03, FR-TIME-04, FR-TIME-05

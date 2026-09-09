@@ -9,6 +9,21 @@
 > build. `mobile-app-plan.md` §7.5 and §12.2 carry the current position, including the open Apple
 > Kids Category parental-gate item.
 
+> [!WARNING]
+> **Parental screen-time control was removed from the web app on 2026-09-09 and
+> FR-TIME-01..05 retired.** These milestone files were written against it and have **not**
+> been rewritten. Treat every mention of a daily limit, an access window, a `423`
+> lockout, `TIME_LIMIT_REACHED`, `OUTSIDE_WINDOW`, `/api/screen-time/status` or
+> `/api/children/:id/screen-time` in M09, M10, M11, M12, M13, M20, M22, M23, M25, M26,
+> M27, M28, M31 and M32 as **superseded**: the endpoints, the error codes and the
+> `ScreenTimeSetting` table no longer exist, so a milestone followed literally will not
+> build. **M25 lapses in full.**
+>
+> **M24 does not.** Learning-time heartbeats (FR-TIME-06) are untouched and still feed
+> the parent dashboard and the weekly report — M24, M26 and M27 keep their reason to
+> exist. The cost of the removal is recorded in `project-requirement-details.md` §9
+> resolution 5.
+
 > **Source plan:** `document/mobile-app-plan.md` (high-level plan)
 > **Source specs:** `document/project-requirement-details.md`, `document/design.md`
 > **Web/server tracker:** `document/implementation/00-progress-tracker.md` — several files here depend on web files, and those dependencies are named per row.
@@ -29,7 +44,7 @@
 | M5 — Quiz | M19–M20 | Engine + four formats, scoring |
 | M6 — Gamification | M21 | Rewards, badges, characters, streaks |
 | M7 — Stories | M22–M23 | Library, narrated reader |
-| M8 — Time & parent dashboard | M24–M27 | Heartbeats, screen-time, dashboard, reports |
+| M8 — Time & parent dashboard | M24–M27 | Heartbeats, ~~screen-time~~ (removed 2026-09-09), dashboard, reports |
 | M9 — Hardening & release | M28–M32 | A11y, performance, store assets, builds, launch |
 
 ---
@@ -62,7 +77,7 @@
 | M22 | `M22-story-library.md` | Story library browsing | FR-STORY-01, 04..05, 08 | M12 | 3–4h | ⬜ Not started |
 | M23 | `M23-story-reader.md` | Page-turn gestures, narration sync, completion reward | FR-STORY-02..03, 06..07 | M21, M22 | 3–4h | ⬜ Not started |
 | M24 | `M24-learning-time-heartbeat.md` | Heartbeats driven by `AppState` | FR-TIME-06, FR-LSN-07 | M13 | 3–4h | ⬜ Not started |
-| M25 | `M25-screen-time-gate-and-lockout.md` | Limits, access windows, friendly lockout, foreground re-check | FR-TIME-01..05 | M24 | 3–4h | ⬜ Not started |
+| M25 | `M25-screen-time-gate-and-lockout.md` | ~~Limits, access windows, friendly lockout, foreground re-check~~ (removed 2026-09-09) | ~~FR-TIME-01..05~~ | M24 | 3–4h | ⬜ Not started, lapsed |
 | M26 | `M26-parent-dashboard.md` | Child switcher, minute cards, subject bars, activity timeline, empty states | FR-DASH-01..04 | M09, M24 | 3–4h | ⬜ Not started |
 | M27 | `M27-weekly-reports.md` | Weekly report list + detail — **blocked on web file 30** | FR-DASH-05..06 | M26, web 30 | 3–4h | ⬜ Not started |
 | M28 | `M28-accessibility-and-device-pass.md` | TalkBack/VoiceOver, target sizes, contrast, reduced motion, tablet + low-end Android, orientations | NFR-A11Y-*, NFR-PERF-01..03 | M21, M26 | 3–4h | ⬜ Not started |
