@@ -150,7 +150,7 @@ import { Button } from "@kidlearn/ui";
 | TypeScript types and interfaces | PascalCase — no `I` prefix, no `Type` suffix | `LessonPayload`, `ActivityKind` |
 | Zod schemas | PascalCase + `Schema` suffix | `ActivityDefinitionSchema`, `McqQuestionSchema` |
 | `cva` variant objects | camelCase + `Variants` suffix | `buttonVariants` |
-| React hooks | `use` prefix | `useScreenTime`, `useChildProfile` |
+| React hooks | `use` prefix | `useHeartbeat`, `useChildProfile` |
 | Context objects | noun + `Context` | `ChildProfileContext` |
 | Event handler props | `on` + noun + verb | `onLessonComplete` |
 | Event handler implementations | `handle` + noun + verb | `handleLessonComplete` |

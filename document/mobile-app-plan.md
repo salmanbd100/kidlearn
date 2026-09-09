@@ -43,7 +43,7 @@ API with the *same* functionality and the *same* design system.
 Three rules hold throughout and are the reason the plan is shaped the way it is:
 
 - **The server does not fork.** No mobile-only business logic, no mobile-only
-  database columns. Rewards, streaks, screen time and completion stay
+  database columns. Rewards, streaks, learning time and completion stay
   server-authoritative (spec §7.3). Where the mobile client genuinely needs a
   server change, this document names it explicitly (§7) rather than leaving it to
   be discovered mid-build.
@@ -90,8 +90,8 @@ match-pair, drag-answer), scoring, the rewards/celebration flow, badges, charact
 streaks, the story library and the narrated story reader, EN/BN narration and copy.
 
 **Parent Dashboard** (`data-theme="parent"` equivalent): sign-in, COPPA consent,
-child profile CRUD (max 5), the per-child progress dashboard,
-screen-time limits and access windows, weekly reports, and account deletion.
+child profile CRUD (max 5), the per-child progress dashboard, weekly reports,
+and account deletion.
 
 Requirement families covered: FR-AUTH, FR-PROF, FR-CURR, FR-WORLD, FR-LSN, FR-ACT,
 FR-QUIZ, FR-STORY, FR-GAM, FR-I18N, FR-DASH, FR-TIME, plus NFR-A11Y, NFR-SAFE and
@@ -134,7 +134,7 @@ apps/
   mobile/                NEW — Expo (React Native), iOS + Android
     app/                 expo-router routes
       (student)/         profile picker, home, world, lesson, stories
-      (parent)/          sign-in, onboarding, children, dashboard, screen-time
+      (parent)/          sign-in, onboarding, children, dashboard, reports
       _layout.tsx        providers: theme, i18n, auth, safe area, gesture handler
     components/          native components — kid/, parent/, activities/, quiz/, rewards/
     lib/                 api client, auth client, audio, heartbeat, theme hooks
@@ -196,7 +196,7 @@ Every web dependency that cannot cross to native, and its replacement:
 | `<video>` | `expo-video` | Lesson video step; needs an explicit fullscreen/orientation policy. |
 | `i18next-browser-languagedetector` | `expo-localization` | Detect device locale, then the same i18next instance and the same JSON. |
 | `localStorage` / cookies | `expo-secure-store` (session) + `@react-native-async-storage/async-storage` (preferences) | Never put the session in AsyncStorage. |
-| `document.visibilitychange` | `AppState` | Load-bearing for learning-time heartbeats and screen-time enforcement. §9. |
+| `document.visibilitychange` | `AppState` | Load-bearing for learning-time heartbeats. §9. |
 | `window.matchMedia('prefers-reduced-motion')` | `AccessibilityInfo.isReduceMotionEnabled` + change listener | design.md §5.2 still applies. |
 | `Intl.RelativeTimeFormat` / `Intl.NumberFormat` | Same API on Hermes — **verify Bengali on Android early** | Android Hermes ICU data is narrower than a browser's. Budget for `@formatjs` polyfills in phase M0. |
 | `next/image` | `expo-image` | Caching, blurhash placeholders, Cloudinary URLs unchanged. |
@@ -313,7 +313,6 @@ Web route → mobile route, with the porting note that matters:
 | `/parent/children`, `/new`, `/[id]/edit` | `(parent)/children/*` | Max-5 rule is server-enforced; surface the error, do not re-implement. |
 | `/parent` (dashboard) | `(parent)/index` | One `GET /api/children/:id/dashboard` call, as on web. Pure-CSS bars become `<View>` widths. Child switcher becomes a native segmented control; the `?child=` URL param becomes a router param. |
 | parent top bar (all `(parent)` pages) | `(parent)/_layout` header | Web's persistent bar — section links, language switch, account menu with sign out (FR-AUTH-07) and *back to kid mode*. On native this is a `Stack.Screen` header plus a bottom tab or segmented control for the three sections; the account menu is an ActionSheet, not a dropdown. Hidden during onboarding, as on web. Sign-out must also clear SecureStore (§7.4). |
-| `/parent/children/[id]/screen-time` | `(parent)/children/[id]/screen-time` | Time pickers must be native, not text inputs. |
 | weekly reports (web file 30) | `(parent)/reports` | Gated on web file 30 existing. §3.3. |
 | Admin CMS | — | Not ported. |
 
@@ -327,9 +326,6 @@ Things with no web counterpart, each of which is a real requirement rather than 
   visibility. On mobile, `AppState` transitions (`active` / `background` / `inactive`)
   start and stop the heartbeat. A backgrounded app must stop accruing learning minutes
   (FR-TIME-06) — otherwise a phone left face-down inflates the parent's dashboard.
-- **Screen-time re-check on foreground.** Returning to the app after hours must
-  re-evaluate the daily limit and access window (FR-TIME-01..05) before showing content,
-  not on a timer that was frozen while backgrounded.
 - **Safe areas and orientation.** `react-native-safe-area-context` everywhere;
   both orientations supported per design.md §6, with the friendly rotate prompt for any
   screen that genuinely needs landscape — never a dead end.
@@ -452,7 +448,7 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | M5 — Quiz | M19–M20 | Engine + four formats, scoring |
 | M6 — Gamification | M21 | Rewards, badges, characters, streaks |
 | M7 — Stories | M22–M23 | Library, narrated reader |
-| M8 — Time & parent dashboard | M24–M27 | Heartbeats, screen-time, dashboard, reports |
+| M8 — Time & parent dashboard | M24–M27 | Heartbeats, ~~screen-time~~ (removed 2026-09-09), dashboard, reports |
 | M9 — Hardening & release | M28–M32 | A11y, performance, store assets, builds, launch |
 
 | # | Feature | Requirement IDs | Depends on | Est. |
@@ -481,7 +477,7 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | M22 | Story library | FR-STORY-01, 04..05, 08 | M12 | 3–4h |
 | M23 | Story reader: page-turn gestures, narration sync, completion reward | FR-STORY-02..03, 06..07 | M21, M22 | 3–4h |
 | M24 | Learning-time heartbeats driven by `AppState` | FR-TIME-06, FR-LSN-07 | M13 | 3–4h |
-| M25 | Screen-time limits, access windows, friendly lockout, foreground re-check | FR-TIME-01..05 | M24 | 3–4h |
+| M25 | ~~Screen-time limits, access windows, friendly lockout, foreground re-check~~ (removed 2026-09-09 — see `M00-progress-tracker.md`) | ~~FR-TIME-01..05~~ | M24 | 3–4h |
 | M26 | Parent dashboard: child switcher, minute cards, subject bars, activity timeline, empty states; the `(parent)` navigation header + account menu (sign out, back to kid mode) | FR-DASH-01..04, FR-AUTH-07 | M09, M24 | 3–4h |
 | M27 | Weekly reports screen (**blocked on web file 30**) | FR-DASH-05..06 | M26 | 3–4h |
 | M28 | Accessibility & device pass: TalkBack/VoiceOver, target sizes, contrast, reduced motion, tablet + low-end Android, both orientations | NFR-A11Y-*, NFR-PERF-01..03 | M21, M26 | 3–4h |

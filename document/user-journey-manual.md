@@ -23,16 +23,14 @@
    - 4.6 [The reward celebration](#46-the-reward-celebration)
    - 4.7 [Badges, characters & streaks](#47-badges-characters--streaks)
    - 4.8 [Story library & reader](#48-story-library--reader)
-   - 4.9 [When time is up — kind boundaries](#49-when-time-is-up--kind-boundaries)
-   - 4.10 [Kid-UX golden rules](#410-kid-ux-golden-rules)
+   - 4.9 [Kid-UX golden rules](#49-kid-ux-golden-rules)
 5. [Parent journey](#5-parent-journey)
    - 5.1 [First-time setup](#51-first-time-setup)
    - 5.2 [Reaching the parent area](#52-reaching-the-parent-area)
    - 5.3 [Managing child profiles](#53-managing-child-profiles)
    - 5.4 [The dashboard](#54-the-dashboard)
    - 5.5 [Weekly reports](#55-weekly-reports)
-   - 5.6 [Screen-time controls](#56-screen-time-controls)
-   - 5.7 [Account & data deletion](#57-account--data-deletion)
+   - 5.6 [Account & data deletion](#56-account--data-deletion)
 6. [Admin journey](#6-admin-journey)
    - 6.1 [Login & workspace](#61-login--workspace)
    - 6.2 [Building the curriculum](#62-building-the-curriculum)
@@ -97,9 +95,7 @@ flowchart LR
     PUB -->|grade + language filtered| SP
 
     PD -->|create up to 5 profiles| PROF[(Child Profiles)]
-    PD -->|daily limit + time window| LIMITS[(Screen-time rules)]
     PROF --> SP
-    LIMITS -->|gates new lessons| SP
 
     SP -->|reports events| SRV[(Server: progress,<br/>streaks, rewards,<br/>learning time)]
     SRV -->|metrics + weekly report| PD
@@ -107,7 +103,7 @@ flowchart LR
 
 **Three architectural truths that shape every journey:**
 
-1. **Server-authoritative progress.** Stars, coins, streaks, completion, and minutes are computed and validated server-side. The client only *reports* events — so a child cannot cheat and a refresh cannot bypass a time limit.
+1. **Server-authoritative progress.** Stars, coins, streaks, completion, and minutes are computed and validated server-side. The client only *reports* events — so a child cannot cheat and a refresh cannot inflate or erase a recorded minute.
 2. **Content-as-data.** Lessons, activities, quizzes, and stories are JSON payloads rendered by generic engines. New content is data, not code — which is why the admin's job is *authoring*, not *programming*.
 3. **Review-gated publishing.** Nothing reaches a child until a human approves it. The student query only ever sees `status = "published"`.
 
@@ -380,23 +376,7 @@ flowchart TD
 - **Orientation:** portrait = illustration on top, text below; landscape = illustration left, text + controls right.
 - **Auto-advance** (on by default) turns each page ~1.5s after narration ends — a hands-free read-along for the youngest users. Manual navigation cancels it.
 
-### 4.9 When time is up — kind boundaries
-
-Screen-time limits (set by the parent) must feel like a caring character saying goodnight, **never** a punishment or error.
-
-```mermaid
-flowchart TD
-    Tap[Child taps a new lesson/story] --> Check{Allowed right now?}
-    Check -->|Yes| Open[Open content ✅]
-    Check -->|Daily limit reached| TU["🌙 Time's-up screen<br/>mascot + 'Time's up for today!'<br/>🗣️ 'Great learning! Rest up for tomorrow!'<br/>→ Back button"]
-    Check -->|Outside allowed hours| OW["⏰ 'See you at 8:00!'<br/>mascot + localized time<br/>🗣️ 'Learning hours coming soon!'<br/>→ Back button"]
-
-    InProgress[Child already mid-lesson] -.always allowed to finish 🔒.-> Open
-```
-
-🎈 **Tone is everything:** no harsh red, no countdown timer, no "you're not allowed." Just the mascot, a warm voice, and a single friendly **Back** button. 🔒 A lesson already in progress is *always* allowed to finish — the child is never cut off mid-activity.
-
-### 4.10 Kid-UX golden rules
+### 4.9 Kid-UX golden rules
 
 These are the non-negotiable rules that protect the child's joy. Every new screen must pass all ten.
 
@@ -430,10 +410,9 @@ flowchart TD
 
     Dash --> D1[Per-child progress]
     Dash --> D2[Weekly reports]
-    Dash --> D3[Screen-time settings]
-    Dash --> D4[Manage profiles]
-    Dash --> D5[Delete account]
-    Dash --> D6["👤 Account menu:<br/>back to kid mode · sign out"]
+    Dash --> D3[Manage profiles]
+    Dash --> D4[Delete account]
+    Dash --> D5["👤 Account menu:<br/>back to kid mode · sign out"]
     D6 -->|Sign out 🔒| Google
 ```
 
@@ -485,7 +464,6 @@ flowchart TD
     Add -->|Yes| Create["+ Add child<br/>name · age · grade · language · avatar"]
     Add -->|No| Hidden["'Add' hidden<br/>'Maximum of 5 children reached'"]
     List --> Edit[✏️ Edit any field anytime]
-    List --> ST[⏱️ Screen-time settings]
     List --> Del["🗑️ Delete<br/>(type child's exact name to confirm)"]
     Del --> Cascade[Removes ALL that child's data:<br/>progress, rewards, streaks, reports 🔒]
     Create --> List
@@ -493,7 +471,7 @@ flowchart TD
 
 - **Up to 5 profiles** per account; the Add button disappears at the limit.
 - **Edit anything, anytime** — name, age, grade, language, avatar.
-- 🔒 **Delete is guarded** — the parent must type the child's exact first name before the delete button enables, preventing accidental one-tap loss. Deletion cascades: all of that child's progress, quiz responses, rewards, streaks, screen-time settings, and reports are removed.
+- 🔒 **Delete is guarded** — the parent must type the child's exact first name before the delete button enables, preventing accidental one-tap loss. Deletion cascades: all of that child's progress, quiz responses, rewards, streaks, and reports are removed.
 
 ### 5.4 The dashboard
 
@@ -549,22 +527,7 @@ flowchart TD
 - The note is chosen from deterministic, localized templates (e.g., *"Amazing! You learned every single day this week!"* for a 7-day week; *"Every little bit counts!"* as a gentle fallback) — positive in every case.
 - Reports are generated lazily on first view and/or by a weekly cron, and are idempotent (re-running never duplicates).
 
-### 5.6 Screen-time controls
-
-```mermaid
-flowchart TD
-    ST["⏱️ Screen-time (per child)"] --> Limit["Daily limit:<br/>Off / 15 / 30 / 45 / 60 / 90 min"]
-    ST --> Window["Access window toggle:<br/>start & end time pickers<br/>(e.g. 08:00–18:00)"]
-    Limit --> Save[Save → 'Settings saved' toast]
-    Window --> Save
-    Save --> Enforce[Server enforces on<br/>lesson/story START only 🔒]
-    Enforce --> InProg[In-progress lessons always finish]
-```
-
-- **Daily limit** and an optional **access-time window** (which may wrap past midnight, e.g., 20:00–07:00).
-- 🔒 Enforcement is **server-side and applies only when starting new content** — so a child can always finish what they're in, and a page refresh can't buy extra minutes.
-
-### 5.7 Account & data deletion
+### 5.6 Account & data deletion
 
 ```mermaid
 flowchart LR
@@ -705,9 +668,8 @@ Tying the three journeys together — the full lifecycle of one lesson, from ide
 flowchart LR
     A1["🛠️ Admin generates/authors lesson"] --> A2["🤖 Review queue"]
     A2 -->|human approves| A3["✅ Published"]
-    P1["👩 Parent creates child profile<br/>(grade + language)"] --> P2["Sets daily limit + window"]
+    P1["👩 Parent creates child profile<br/>(grade + language)"]
     A3 -->|filtered by grade+language| C1["👧 Child sees the lesson tile"]
-    P2 -.gates start.-> C1
     C1 --> C2["Plays 5-step lesson"]
     C2 --> C3["🎉 Earns stars/coins/badges"]
     C3 --> S1["Server records progress + minutes"]
@@ -725,7 +687,7 @@ flowchart LR
 - Predictable structure (same 5 steps) creates safety; celebration creates the pull to return tomorrow.
 
 **For the parent:**
-- Trust through transparency (clear progress, honest reports) and control (screen-time limits) — with minimal friction for the things they do often (switching kids) and deliberate friction for the rare, dangerous things (deleting data).
+- Trust through transparency (clear progress, honest reports, and an honest count of minutes spent) — with minimal friction for the things they do often (switching kids) and deliberate friction for the rare, dangerous things (deleting data).
 
 **For the admin:**
 - Efficiency through AI, safety through the mandatory human gate, and confidence through live previews and a complete audit trail.

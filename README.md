@@ -22,7 +22,7 @@ Every design decision traces back to two real users: my daughters.
 |---|---|
 | **Visual-first, voice-guided** | Children who cannot yet read can navigate and learn independently — every instruction is spoken aloud |
 | **Chunked learning flow** | Each lesson follows the same five-step structure: Introduction → Video → Activity → Quiz → Reward, so children always know what comes next |
-| **Dual portal** | A distraction-free **Student Portal** (no ads, no external links, no social features) and a **Parent Dashboard** for progress reports and screen-time controls |
+| **Dual portal** | A distraction-free **Student Portal** (no ads, no external links, no social features) and a **Parent Dashboard** for progress and weekly reports |
 | **AI content pipeline** | Lessons, stories, quizzes, narration audio, and illustrations are AI-generated at scale — but every piece goes through a mandatory human admin review before any child sees it |
 | **Multilingual from day one** | English and Bangla at launch; the i18n architecture is data-driven, so Arabic, Hindi, and Spanish roll out as asset sets, not code changes |
 | **Gamification** | Stars, coins, badges, character unlocks, and daily learning streaks — all earned through learning, never purchased |
@@ -236,7 +236,7 @@ The first release targets **ages 3–5** (Nursery + KG-1) in **English and Bangl
 - 20 starter stories
 - All four interactive activity types (drag-drop, trace, match, puzzle)
 - All four quiz formats (multiple choice, match-pair, drag-answer, picture selection)
-- Parent dashboard with weekly reports and screen-time controls
+- Parent dashboard with weekly reports
 - AI content pipeline with human review queue
 
 ---

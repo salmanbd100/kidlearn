@@ -224,7 +224,7 @@ Before considering backend work complete:
 - [ ] Errors are thrown, not sent — a single error-handler middleware is last in `index.ts`
 - [ ] Status codes are semantic (no `200` with an error body)
 - [ ] Required env vars validated at boot, failing fast with a clear message
-- [ ] Progress, rewards, streaks, and screen time are computed server-side — the client reports events, the server validates and records
+- [ ] Progress, rewards, streaks, and learning time are computed server-side — the client reports events, the server validates and records
 - [ ] `pnpm typecheck` and `pnpm lint` pass
 
 ---
