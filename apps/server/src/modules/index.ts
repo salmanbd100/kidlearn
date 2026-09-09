@@ -20,7 +20,7 @@ import { screenTimeRouter } from "./screen-time/screen-time.routes.js";
 export const apiRouter = Router();
 
 // File 10 — the parent's own account: PIN, consent, deletion. The router
-// applies `requireParent` itself, and `requirePinVerified` per route.
+// applies `requireParent` itself.
 apiRouter.use("/parent", parentRouter);
 
 apiRouter.use("/children", childrenRouter);

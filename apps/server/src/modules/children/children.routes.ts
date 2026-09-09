@@ -8,7 +8,6 @@ import type {
 import { Router } from "express";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import { requireConsent } from "../../shared/middleware/require-consent.js";
-import { requirePinVerified } from "../../shared/middleware/require-pin-verified.js";
 import { validate, validatedQuery } from "../../shared/middleware/validate.js";
 import {
   type LearningTimeQuery,
@@ -60,9 +59,6 @@ childrenRouter.post(
   // exist (FR-AUTH-03). Creation is the only verb gated this way: the other
   // routes read or amend a profile that consent already covers.
   requireConsent,
-  // Reachable during onboarding because `POST /api/parent/pin` opens the grant
-  // as it stores the PIN — see `setParentPin`.
-  requirePinVerified,
   validate({ body: CreateChildBodySchema }),
   async (req, res, next) => {
     try {
@@ -150,7 +146,6 @@ childrenRouter.get(
  */
 childrenRouter.get(
   "/:id/dashboard",
-  requirePinVerified,
   validate({ params: ChildIdParamsSchema }),
   loadOwnedChild,
   async (req, res, next) => {
@@ -168,7 +163,6 @@ childrenRouter.get(
 /** FR-DASH-05..06 — this child's weekly reports, newest first. */
 childrenRouter.get(
   "/:id/reports",
-  requirePinVerified,
   validate({ params: ChildIdParamsSchema }),
   loadOwnedChild,
   async (req, res, next) => {
@@ -186,7 +180,6 @@ childrenRouter.get(
 /** FR-TIME-01/04/05 — this child's daily limit and access window. */
 childrenRouter.get(
   "/:id/screen-time",
-  requirePinVerified,
   validate({ params: ChildIdParamsSchema }),
   loadOwnedChild,
   async (req, res, next) => {
@@ -206,7 +199,6 @@ childrenRouter.get(
 /** Replaces the whole policy (FR-TIME-01, FR-TIME-04). */
 childrenRouter.patch(
   "/:id/screen-time",
-  requirePinVerified,
   validate({ params: ChildIdParamsSchema, body: ScreenTimeBodySchema }),
   loadOwnedChild,
   async (req, res, next) => {
@@ -226,7 +218,6 @@ childrenRouter.patch(
 
 childrenRouter.patch(
   "/:id",
-  requirePinVerified,
   validate({ params: ChildIdParamsSchema, body: UpdateChildBodySchema }),
   loadOwnedChild,
   async (req, res, next) => {
@@ -246,7 +237,6 @@ childrenRouter.patch(
 
 childrenRouter.delete(
   "/:id",
-  requirePinVerified,
   validate({ params: ChildIdParamsSchema }),
   loadOwnedChild,
   async (req, res, next) => {
