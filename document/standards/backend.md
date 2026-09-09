@@ -181,7 +181,7 @@ Both halves are converted to JSON Schema by `src/openapi/to-json-schema.ts`. Not
 
 ### What a new operation must document
 
-Every status code the route can actually produce, including the ones its middleware produces rather than its handler: `requireParent` → 401; `requireConsent` → 403 `CONSENT_REQUIRED`; `requirePinVerified` → 403 `PIN_REQUIRED` / `PIN_VERIFICATION_REQUIRED`; `requireActiveChild` → 403; `loadOwnedChild` → **404, never 403**.
+Every status code the route can actually produce, including the ones its middleware produces rather than its handler: `requireParent` → 401; `requireConsent` → 403 `CONSENT_REQUIRED`; `requireActiveChild` → 403; `loadOwnedChild` → **404, never 403**.
 
 State the reasoning where a response is deliberately counter-intuitive. The `404` for another parent's child, and the `404` for unpublished content, both exist so that a probe cannot confirm a row exists (§4, NFR-SAFE-02) — an operation description that does not say so invites someone to "fix" it into a `403`.
 
