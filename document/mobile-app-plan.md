@@ -169,7 +169,7 @@ packages/
 Native screen
   → lib/api-client.ts     (typed wrapper: base URL, timeout, retry/cold-start, { data } | { error } envelope)
     → authClient fetch    (attaches the SecureStore-held session cookie)
-      → Express API       (better-auth session → requireParent → requirePinVerified → route)
+      → Express API       (better-auth session → requireParent → route)
         → Zod parse       (the same packages/types schema the server documents)
           → screen state
 ```

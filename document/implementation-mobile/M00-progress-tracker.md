@@ -1,5 +1,14 @@
 # KidLearn Mobile — Implementation Progress Tracker (Master File)
 
+> [!WARNING]
+> **The parental PIN was removed from the web app on 2026-09-09 and FR-AUTH-04 retired.** These
+> milestone files were written against it and have **not** been rewritten — they are the record of
+> what was specified. Treat every mention of `requirePinVerified`, `PinGate`, `pinVerifiedUntil`,
+> `hasPin` or a PIN keypad in M04, M06, M08, M09, M10, M25, M26 and M27 as **superseded**: the
+> guard, the endpoints and the columns no longer exist, so a milestone followed literally will not
+> build. `mobile-app-plan.md` §7.5 and §12.2 carry the current position, including the open Apple
+> Kids Category parental-gate item.
+
 > **Source plan:** `document/mobile-app-plan.md` (high-level plan)
 > **Source specs:** `document/project-requirement-details.md`, `document/design.md`
 > **Web/server tracker:** `document/implementation/00-progress-tracker.md` — several files here depend on web files, and those dependencies are named per row.
