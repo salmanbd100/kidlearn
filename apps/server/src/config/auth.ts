@@ -49,7 +49,6 @@ export const auth = betterAuth({
         // update endpoint — only our validated route may set it.
         input: false,
       },
-      // FR-AUTH-04 — the parental-PIN grant, valid for 15 minutes after
     },
   },
   advanced: {

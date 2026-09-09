@@ -1,5 +1,22 @@
 # 10 — PIN Gate, Consent & Account Deletion
 
+> [!WARNING]
+> **The PIN gate this file specifies was removed on 2026-09-09.** FR-AUTH-04 is retired.
+> `lib/pin.ts`, `middleware/require-pin-verified.ts`, the `/api/parent/pin*` and
+> `/gate-status` endpoints, `Parent.pinHash` with its three lockout counters, and
+> `Session.pinVerifiedUntil` are all gone, along with `argon2`. `parentSecurityService.ts`
+> is now `parentConsentService.ts`. The reason is simplicity, and the cost is recorded in
+> `project-requirement-details.md` §9 resolution 6.
+>
+> **The other two pillars survived intact and are still current:** the COPPA consent
+> record (FR-AUTH-03, NFR-SAFE-03) and the two-step account deletion with its
+> confirmation token (FR-AUTH-05, NFR-SAFE-05..06). The token flow matters *more* now —
+> it is the only thing guarding erasure. Do not read this note as lapsing the whole file.
+>
+> **Nothing below this note has been edited.** It records what was asked for at the time,
+> and rewriting it would destroy that record. For current behaviour see
+> `document/user-journey-manual.md §5.2` and `document/database-design.md`.
+
 > **Estimated effort:** 3–4 hours
 > **Depends on:** 09
 > **Requirement IDs:** FR-AUTH-03, FR-AUTH-04, FR-AUTH-05, NFR-SAFE-03, NFR-SAFE-05, NFR-SAFE-06

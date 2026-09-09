@@ -1,5 +1,16 @@
 # M08 — Consent, PIN Gate & Account Deletion
 
+> [!WARNING]
+> **The PIN gate half of this milestone no longer exists.** The parental PIN was removed
+> from the web app on 2026-09-09 and FR-AUTH-04 retired, so there is no grant to verify
+> and no keypad to build. Consent and account deletion are unchanged and still in scope;
+> M08's estimate drops accordingly (see `mobile-app-plan.md` §13).
+>
+> ⚠️ Apple's Kids Category parental-gate requirement (guideline 1.3 / 5.1.4) was satisfied
+> by this PIN. It is now an **open item** — see `mobile-app-plan.md` §12.2.
+>
+> **Nothing below this note has been edited.**
+
 > **Estimated effort:** 3–4 hours
 > **Depends on:** M07
 > **Requirement IDs:** FR-AUTH-03, FR-AUTH-04, FR-AUTH-05, NFR-SAFE-03, NFR-SAFE-05, NFR-SAFE-06

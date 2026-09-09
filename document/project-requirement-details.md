@@ -76,7 +76,7 @@ A daily learning journey of 30–60 minutes composed of micro-activities (e.g. 1
 ### Pillar C — Dual-Portal System
 
 - **Student Portal:** immersive, distraction-free, gamified. No external links, no ads, no social features.
-- **Parent Dashboard:** secured behind a parental gate (PIN code) for analytics, settings, language management, and screen-time limits.
+- **Parent Dashboard:** reached from the signed-in Google session, for analytics, settings, language management, and screen-time limits.
 
 ### Pillar D — AI-Powered Content Pipeline
 
@@ -102,7 +102,7 @@ Students never register themselves — profiles are always created and managed b
 - Listen to and read stories
 - Switch the display language between available options
 
-A student **cannot**: contact other users, access parent settings (PIN-gated), or see content outside their grade level.
+A student **cannot**: contact other users or see content outside their grade level. Parent settings are a separate surface, but nothing prevents a child who taps the exit from reaching it (see §9 resolution 6).
 
 ### 4.2 Parent
 
@@ -130,10 +130,10 @@ An adult who registers and manages up to 5 child profiles. A parent can:
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | FR-AUTH-02 | Parents can register/sign in with Google OAuth.                                                                                                               | [MVP] |
 | FR-AUTH-03 | Parent consent is required before any child profile can be created (COPPA).                                                                                   | [MVP] |
-| FR-AUTH-04 | The parent dashboard and all settings are protected by a parental gate (PIN code) so a child using the device cannot enter parent areas.                      | [MVP] |
+| ~~FR-AUTH-04~~ | ~~The parent dashboard and all settings are protected by a parental gate (PIN code) so a child using the device cannot enter parent areas.~~ **Retired 2026-09-09** — the PIN gate was removed for simplicity. A signed-in Google session is now the only barrier to the parent area. See resolution 6 in §9. | ~~[MVP]~~ |
 | FR-AUTH-05 | Parents can request deletion of their account and all associated data; deletion removes all child profiles, progress, and personal data.                      | [MVP] |
-| FR-AUTH-06 | Sessions for the student portal are profile-scoped: switching child profiles does not require parent re-authentication, but entering parent areas does (PIN). | [MVP] |
-| FR-AUTH-07 | A parent can sign out from the parent dashboard. Signing out revokes the session, which also ends the PIN grant and the active child profile — the device returns to the sign-in screen for everyone using it. Added 2026-09-06, after the control shipped; recorded here so the requirement is not inferred from the code. | [MVP] |
+| FR-AUTH-06 | Sessions for the student portal are profile-scoped: switching child profiles does not require parent re-authentication. | [MVP] |
+| FR-AUTH-07 | A parent can sign out from the parent dashboard. Signing out revokes the session, which also ends the active child profile — the device returns to the sign-in screen for everyone using it. Added 2026-09-06, after the control shipped; recorded here so the requirement is not inferred from the code. | [MVP] |
 
 ### 5.2 Child Profiles (FR-PROF)
 
@@ -249,7 +249,7 @@ Quizzes end every lesson. They are low-pressure and encouraging — never test-l
 
 | ID         | Requirement                                                                                                                                                                                                                                                          | Scope |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| FR-DASH-01 | After login (and PIN gate), the parent sees a per-child summary of learning activity.                                                                                                                                                                                | [MVP] |
+| FR-DASH-01 | After login, the parent sees a per-child summary of learning activity.                                                                                                                                                                                | [MVP] |
 | FR-DASH-02 | **Learning time:** minutes spent learning today, this week, and this month, per child.                                                                                                                                                                               | [MVP] |
 | FR-DASH-03 | **Subject progress:** completion percentage per subject per child, highlighting strong and weak areas.                                                                                                                                                               | [MVP] |
 | FR-DASH-04 | **Recent activity:** chronological list of lessons completed, stories read, and badges earned, with dates.                                                                                                                                                           | [MVP] |
@@ -264,7 +264,7 @@ Quizzes end every lesson. They are low-pressure and encouraging — never test-l
 | FR-TIME-02 | When the limit is reached, the mascot shows a friendly "time's up" message and the child cannot start a new lesson.                | [MVP]                 |
 | FR-TIME-03 | A lesson already in progress when the limit hits is allowed to finish before lockout.                                              | [MVP]                 |
 | FR-TIME-04 | A parent can set an **access time window** per child (e.g. 8am–8pm); outside the window the app shows a friendly locked screen.    | [MVP]                 |
-| FR-TIME-05 | All screen-time settings are editable by the parent at any time from settings (behind the PIN gate).                               | [MVP]                 |
+| FR-TIME-05 | All screen-time settings are editable by the parent at any time from settings.                                                     | [MVP]                 |
 | FR-TIME-06 | Learning time is measured server-side (activity heartbeats / session events) so limits can't be bypassed by refreshing the client. | [MVP — architectural] |
 
 ### 5.13 AI Content Generation Pipeline (FR-AI)
@@ -394,7 +394,7 @@ kidlearn/
 
 High-level entities (Prisma schema to be derived from this list):
 
-- **Parent** — auth identity, email, PIN hash, consent record.
+- **Parent** — auth identity, email, consent record.
 - **ChildProfile** — name, age, grade level, language preference, avatar/character, belongs to Parent (≤5 per parent).
 - **Subject / Topic / Lesson** — curriculum hierarchy; Lesson carries world tag, grade tags, status, and ordered step content (intro script, video asset refs per language, activity ref, quiz ref).
 - **Activity** — type (drag-drop | trace | match | puzzle) + `JSONB` definition + per-language audio/asset refs.
@@ -473,7 +473,7 @@ The first release validates the core product with real users before expanding.
 - All four activity types + all four quiz formats (FR-ACT, FR-QUIZ)
 - Audio narration in English and Bangla (FR-I18N, FR-AI-04)
 - Rewards: stars, coins, badges, streaks, character unlocks (FR-GAM)
-- Parent account + child profile management, PIN gate (FR-AUTH, FR-PROF)
+- Parent account + child profile management (FR-AUTH, FR-PROF)
 - Parent dashboard with progress + weekly reports (FR-DASH)
 - Screen time controls (FR-TIME)
 - AI content pipeline with admin review queue (FR-AI, FR-CMS)
@@ -501,7 +501,9 @@ Where the two source documents disagreed, this master document resolves as follo
 3. **Package manager:** key-description says npm/yarn workspaces; the repo uses **pnpm 9**. **Resolution:** pnpm + Turborepo.
 4. **Shared packages:** repo currently has `packages/{ui,types,config}` placeholders (no `package.json` yet); key-description plans `packages/db` for Prisma. **Resolution:** target layout in §7.1 — each package must gain a `package.json` with `name` + `dev`/`build`/`typecheck` scripts before use.
 5. **Daily session length:** key-description's 30–60 minute daily journey is adopted as the design intent (Pillar B); the parent-set screen-time limit (FR-TIME-01) is the enforced bound and may be set below or above it.
-6. **Parental gate:** the PIN gate from key-description is adopted as a hard requirement (FR-AUTH-04) even though the Functional Requirements doc didn't specify it — it is necessary for child safety.
+6. **Parental gate:** the PIN gate from key-description was adopted as a hard requirement (FR-AUTH-04) even though the Functional Requirements doc didn't specify it. **Reversed 2026-09-09:** the gate is removed and FR-AUTH-04 retired, for simplicity — it was the most cross-cutting feature in the codebase relative to what it delivered (five columns, three endpoints, eight middleware mounts, a React context with a grant-expiry timer).
+
+   **The cost is on the record.** The Google session persists on a shared family tablet, so the lock icon in the Student Portal is now a one-tap door into a dashboard that can edit and delete child profiles and request account deletion. Two things soften it, both deliberately retained: the exit stays visually dull — an anonymous lock on every screen a child is using, named only on `/select-profile`, where no child is playing yet — and account deletion stays two-step behind a single-use token that expires in 15 minutes. Nothing else asks twice. Re-introducing a parental gate is a product decision, not a bug fix; if it returns it should be designed against this note rather than restored from git history.
 7. **Quiz/activity storage:** key-description's "LLM → JSON → Postgres `JSONB` → dynamic frontend modules" pattern is adopted as the architectural foundation for both activities and quizzes (FR-ACT-06, FR-QUIZ-07).
 8. **Testing:** no test runner exists in the repo yet; one must be added before feature work begins in earnest (assumption: Vitest for both apps — confirm before setup).
 

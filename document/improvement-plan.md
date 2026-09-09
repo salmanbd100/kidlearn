@@ -140,8 +140,8 @@ in this product is a query-shape property — `status: "published"` on every stu
 including on `include`d relations. A stub can assert the `where` clause that was *passed*; only
 Postgres can prove the rows that come *back*. The exception acknowledges this and mitigates it
 with four disciplined rules, but it has already leaked twice. Cascade deletes (account deletion,
-NFR-SAFE-06), transaction isolation (the reward ledger's unique grant, the PIN strike counter)
-and unique constraints are all currently asserted against `schema.prisma` *as text*.
+NFR-SAFE-06), transaction isolation (the reward ledger's unique grant) and unique constraints
+are all currently asserted against `schema.prisma` *as text*.
 
 **Fix — and this is a phased port, not a rewrite:**
 
@@ -150,8 +150,9 @@ and unique constraints are all currently asserted against `schema.prisma` *as te
    transaction). Add factory helpers under `apps/server/src/test/`.
 2. Port in risk order, not file order. The suites whose guarantees a stub *cannot* express go
    first: `content.test.ts` and `stories.test.ts` (the `include`d-relation status gate),
-   `children.test.ts` (cascades), `parent.test.ts` (the PIN counter), `progress.test.ts` and the
-   reward ledger (the once-a-day unique grant).
+   `children.test.ts` (cascades), `progress.test.ts` and the reward ledger (the once-a-day
+   unique grant). `parent.test.ts` was on this list for its PIN counter; the PIN was removed on
+   2026-09-09, so the account-deletion token is what is left worth porting there.
 3. Leave the rest stubbed until they are touched. A stubbed suite that only checks routing and
    validation is not costing anything.
 4. Delete the recorded exception from `general.md §5` when the list in (2) is done — and not
@@ -199,10 +200,11 @@ origin. That is the whole of it. There is no `helmet`, no response security head
 `express.json({ limit })`, no HTTP-level rate limiting, and no `app.set("trust proxy", …)`.
 `apps/web/next.config.ts` sets no `headers()` either.
 
-To be fair to what exists: application-level abuse controls *are* thoughtfully built — the PIN
-gate has escalating lockouts with strike persistence (`parentSecurityService.ts`), and AI
-generation is capped per day per cost bucket (`rate-guard.ts`, `require-generation-budget.ts`).
-The gap is the generic transport layer beneath them.
+To be fair to what exists: AI generation is capped per day per cost bucket (`rate-guard.ts`,
+`require-generation-budget.ts`). The gap is the generic transport layer beneath it. Note that
+the parental PIN gate — which had escalating lockouts with strike persistence, and was the other
+application-level abuse control — was removed on 2026-09-09, so per-IP rate limiting on auth now
+has nothing per-account sitting behind it.
 
 **Why it matters now specifically:** file 38 puts this behind Caddy on an EC2 box, serving
 `api.kidlearn.net` over TLS. Without `trust proxy`, `req.ip` is the proxy's address — which
@@ -215,8 +217,8 @@ debugging it in production.
 - `helmet()` with a CSP that the `/docs` Swagger UI route is exempted from.
 - `express.json({ limit: "1mb" })` — currently unbounded; the admin editors POST large JSONB
   payloads, so size the limit against a real quiz/activity payload rather than guessing.
-- `express-rate-limit` on `/api/auth/*` and the PIN verification route. The app-level lockout is
-  per-parent; this is per-IP, and they defend different attacks.
+- `express-rate-limit` on `/api/auth/*`. This matters more since the PIN gate's per-parent
+  lockout was removed — there is no longer an application-level counterpart to it.
 - `app.set("trust proxy", 1)` behind the deployment's proxy, driven by an env flag so local dev
   is unaffected. **This one bullet is already file 38's requirement 4** — Caddy makes it a
   prerequisite of the first deploy rather than a hardening nicety. The rest of this list is not.
@@ -458,7 +460,7 @@ This plan should enter that process rather than sitting beside it. Proposed rows
 | --- | --- | --- | --- | --- |
 | 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions: lint → build → typecheck → test, pnpm + Turbo caching, branch protection, coverage reporting. Flip every `[CI once tests are configured]` tag in the standards to plain `[CI]`. | — | 2–3h |
 | 40 | `40-docs-and-standards-truth-pass.md` | P1-3 and P1-4: correct `CLAUDE.md`, close the stale-tooling caveats in `general.md §5/§6`, record the `packages/ui` scope decision in `frontend.md §1`, delete `apps/web/README.md`. Update the skills per §5. | 39 | 2–3h |
-| 41 | `41-server-http-hardening.md` | P1-2: helmet, body limits, per-IP rate limiting on auth and PIN routes, web security headers. `trust proxy` is excluded — file 38 requirement 4 ships it. **Do this immediately after file 38: the API is public from that moment.** | 38, 39 | 2–3h |
+| 41 | `41-server-http-hardening.md` | P1-2: helmet, body limits, per-IP rate limiting on auth routes, web security headers. `trust proxy` is excluded — file 38 requirement 4 ships it. **Do this immediately after file 38: the API is public from that moment.** | 38, 39 | 2–3h |
 | 42 | `42-test-database-harness.md` | P0-2 part 1: `globalSetup` + migrate + truncation strategy + factories. No suites ported yet. | 39 | 3–4h |
 | 43 | `43-port-content-safety-suites-to-real-db.md` | P0-2 part 2: port `content`, `stories`, `children`, `parent`, `progress` and the reward-ledger suites. Split `progress.test.ts` while porting. Delete the recorded exception in `general.md §5`. | 42 | 4–6h |
 | 44 | `44-error-and-loading-boundaries.md` | P1-1: `global-error`, per-group `error`/`not-found`/`loading`. Add an error-state section to `design.md` first. | 40 | 3–4h |
