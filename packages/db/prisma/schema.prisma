@@ -28,12 +28,10 @@ model Parent {
   email                String         @unique
   name                 String?
   avatarUrl            String?
-  pinHash              String?
   consentGivenAt       DateTime?
   consentVersion       String?
-  pinFailedCount       Int            @default(0)
-  pinLockoutStrikes    Int            @default(0)
-  pinLockedUntil       DateTime?
+  // File 10 — account-deletion confirmation: a single-use random token with a
+  // short expiry. Both columns disappear with the row on a completed deletion.
   deleteToken          String?
   deleteTokenExpiresAt DateTime?
   createdAt            DateTime       @default(now())
@@ -633,7 +631,6 @@ model Session {
   userId               String
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   activeChildProfileId String?
-  pinVerifiedUntil     DateTime?
 
   @@unique([token])
   @@index([userId])

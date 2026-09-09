@@ -136,12 +136,8 @@ const PARENT: Parent = {
   email: SESSION_USER.email,
   name: SESSION_USER.name,
   avatarUrl: null,
-  pinHash: "hashed-pin",
   consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
   consentVersion: "1.0",
-  pinFailedCount: 0,
-  pinLockoutStrikes: 0,
-  pinLockedUntil: null,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -165,7 +161,9 @@ function childProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
 
 function signInAs({
   child = childProfile(),
-}: { child?: ChildProfile | null } = {}) {
+}: {
+  child?: ChildProfile | null;
+} = {}) {
   // `getSession` returns a deep better-auth type; only the fields the middleware
   // reads are supplied, so the shape is narrowed at this boundary.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({

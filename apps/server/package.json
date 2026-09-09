@@ -22,7 +22,6 @@
     "@kidlearn/db": "workspace:*",
     "@kidlearn/types": "workspace:*",
     "@scalar/express-api-reference": "^0.10.17",
-    "argon2": "^0.45.1",
     "better-auth": "^1.6.25",
     "cloudinary": "^2",
     "cors": "^2.8.6",
