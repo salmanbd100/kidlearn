@@ -3,7 +3,7 @@ import { ParentTopBar } from "@/features/parent/ParentTopBar";
 import { ParentSessionProvider } from "./context/parent-session";
 import { ParentGuard } from "./ParentGuard";
 
-/** Parent Dashboard shell — PIN-gated, calm, dense (design.md §2.2, §6). */
+/** Parent Dashboard shell — calm, dense (design.md §2.2, §6). */
 export default function ParentLayout({ children }: { children: ReactNode }) {
   return (
     <div

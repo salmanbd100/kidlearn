@@ -56,8 +56,6 @@
   },
   "parentCorner": {
     "label": "For grown-ups",
-    "title": "Grown-ups only",
-    "intro": "Enter your PIN to open the parent area.",
     "chipFallback": "Grown-ups"
   },
   "screenTime": {

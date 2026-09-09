@@ -4,7 +4,6 @@ import type {
   ChildProfileCreate,
   ChildProfileResponse,
   ChildProfileUpdate,
-  GateStatusResponse,
   ParentSummaryResponse,
 } from "@kidlearn/types";
 import { CONSENT_VERSION } from "@kidlearn/types";
@@ -26,11 +25,6 @@ export function fetchAuthMe(): Promise<ApiResult<AuthMe>> {
   return apiFetch<AuthMe>("/api/auth/me");
 }
 
-/** Is the parent area open right now (FR-AUTH-04). */
-export function fetchGateStatus(): Promise<ApiResult<GateStatusResponse>> {
-  return apiFetch<GateStatusResponse>("/api/parent/gate-status");
-}
-
 /** Where the browser goes to start the Google round-trip (FR-AUTH-02). */
 export function googleSignInUrl(): string {
   return `${apiBaseUrl()}/api/auth/google`;
@@ -41,28 +35,6 @@ export function submitConsent(): Promise<ApiResult<unknown>> {
   return apiFetch("/api/parent/consent", {
     method: "POST",
     body: JSON.stringify({ accepted: true, version: CONSENT_VERSION }),
-  });
-}
-
-/**
- * Sets the first PIN. Changing an existing one needs `currentPin` (file 29).
- */
-export function setPin(
-  pin: string,
-): Promise<ApiResult<{ hasPin: true; pinVerifiedUntil: string }>> {
-  return apiFetch("/api/parent/pin", {
-    method: "POST",
-    body: JSON.stringify({ pin }),
-  });
-}
-
-/** Opens the 15-minute parent-area grant on this session. */
-export function verifyPin(
-  pin: string,
-): Promise<ApiResult<{ pinVerifiedUntil: string }>> {
-  return apiFetch("/api/parent/pin/verify", {
-    method: "POST",
-    body: JSON.stringify({ pin }),
   });
 }
 

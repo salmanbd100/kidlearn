@@ -3,22 +3,16 @@
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { PinGate } from "@/features/parent/PinGate";
-import {
-  isGateExemptPath,
-  isPublicParentPath,
-  resolveParentRedirect,
-} from "@/features/parent/parent-redirect";
+import { resolveParentRedirect } from "@/features/parent/parent-redirect";
 import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { useParentGate, useParentSession } from "./context/parent-session";
+import { useParentSession } from "./context/parent-session";
 
-/** The two gates every `(parent)` page sits behind. */
+/** The redirect gate every `(parent)` page sits behind. */
 export function ParentGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();
   const pathname = usePathname();
   const { status, parent, children: profiles } = useParentSession();
-  const { isLocked } = useParentGate();
 
   const redirectTo =
     status === "loading" || status === "error"
@@ -54,13 +48,5 @@ export function ParentGuard({ children }: { children: ReactNode }) {
   // wrong one.
   if (redirectTo !== undefined) return null;
 
-  const isGated =
-    !isPublicParentPath(pathname) && !isGateExemptPath(pathname) && isLocked;
-
-  return (
-    <>
-      {children}
-      {isGated ? <PinGate /> : null}
-    </>
-  );
+  return <>{children}</>;
 }

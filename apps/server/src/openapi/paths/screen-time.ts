@@ -30,7 +30,7 @@ export const SCREEN_TIME_ROUTES: RouteDoc[] = [
         "",
         "**This is a hint, not the gate.** The enforcement is `423` on `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}`, computed from the same function this endpoint runs. A client that ignored `allowed: false` and navigated anyway would simply meet the refusal one screen later; a client that trusted a cached `true` cannot extend a limit, because it does not decide anything.",
         "",
-        "**Not PIN-gated, deliberately.** This is a student-portal read scoped to the session's active child. Putting the parental gate in front of it would put the PIN pad between a five-year-old and their own home screen (FR-AUTH-06). It reveals a policy the parent set and minutes the server derived — nothing about what was learned, and nothing about any other child.",
+        "A student-portal read scoped to the session's active child (FR-AUTH-06). It reveals a policy the parent set and minutes the server derived — nothing about what was learned, and nothing about any other child.",
         "",
         "**`hasInProgressLesson` is always `false` here.** The question is 'may I start something new', and the FR-TIME-03 exemption is about one specific lesson the caller has not named — so a child part-way through a lesson may see `allowed: false` here while `GET /api/content/lessons/{id}` for *that* lesson still answers `200`.",
         "",

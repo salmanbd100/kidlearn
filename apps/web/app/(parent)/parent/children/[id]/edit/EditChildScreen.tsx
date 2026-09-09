@@ -2,10 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import {
-  useParentGate,
-  useParentSession,
-} from "@/app/(parent)/context/parent-session";
+import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildProfileForm } from "@/features/children/ChildProfileForm";
 import { updateChild } from "@/features/parent/parent-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
@@ -16,7 +13,6 @@ export function EditChildScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();
   const { children: profiles, refresh } = useParentSession();
-  const { guard } = useParentGate();
 
   const child = profiles?.find((profile) => profile.id === childId);
 
@@ -35,7 +31,7 @@ export function EditChildScreen({ childId }: { childId: string }) {
       </h1>
       <ChildProfileForm
         initial={child}
-        onSubmit={(values) => guard(updateChild(child.id, values))}
+        onSubmit={(values) => updateChild(child.id, values)}
         onSaved={() => {
           void refresh().then(() => router.push(PARENT_ROUTES.children));
         }}

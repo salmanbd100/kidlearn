@@ -15,8 +15,6 @@ const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
-  fetchGateStatus: vi.fn(),
-  verifyPin: vi.fn(),
 }));
 
 /** Widened past the literal so a test can point the guard at another route. */
@@ -36,7 +34,6 @@ const PARENT = {
   email: "parent@example.com",
   name: "Parent One",
   avatarUrl: null,
-  hasPin: true,
   consentGivenAt: "2026-06-01T00:00:00.000Z",
 };
 
@@ -73,14 +70,6 @@ beforeEach(() => {
     data: { parent: PARENT, activeChildProfileId: null },
   });
   api.listChildren.mockResolvedValue({ ok: true, data: [CHILD] });
-  api.fetchGateStatus.mockResolvedValue({
-    ok: true,
-    data: {
-      hasPin: true,
-      isPinVerified: true,
-      pinVerifiedUntil: new Date(Date.now() + 900_000).toISOString(),
-    },
-  });
 });
 
 describe("ParentLayout", () => {
@@ -144,22 +133,6 @@ describe("ParentLayout", () => {
     );
   });
 
-  it("raises the PIN gate over the page when the grant has lapsed", async () => {
-    api.fetchGateStatus.mockResolvedValue({
-      ok: true,
-      data: { hasPin: true, isPinVerified: false, pinVerifiedUntil: null },
-    });
-
-    renderLayout();
-
-    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
-    expect(screen.getByRole("dialog")).toHaveAccessibleName(
-      "Enter your parent PIN",
-    );
-    // Over, not instead of: a form in progress underneath survives the prompt.
-    expect(screen.getByText("dashboard")).toBeInTheDocument();
-  });
-
   it("does not gate the login screen", async () => {
     pathname = PARENT_ROUTES.login;
     api.fetchAuthMe.mockResolvedValue({
@@ -174,149 +147,6 @@ describe("ParentLayout", () => {
     );
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(router.replace).not.toHaveBeenCalled();
-  });
-
-  it("does not gate PIN setup, which would otherwise deadlock", async () => {
-    pathname = PARENT_ROUTES.pinSetup;
-    api.fetchAuthMe.mockResolvedValue({
-      ok: true,
-      data: {
-        parent: { ...PARENT, hasPin: false },
-        activeChildProfileId: null,
-      },
-    });
-    api.listChildren.mockResolvedValue({ ok: true, data: [] });
-    api.fetchGateStatus.mockResolvedValue({
-      ok: true,
-      data: { hasPin: false, isPinVerified: false, pinVerifiedUntil: null },
-    });
-
-    renderLayout();
-
-    await waitFor(() =>
-      expect(screen.getByText("dashboard")).toBeInTheDocument(),
-    );
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("shuts the gate by itself once the grant lapses mid-session", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      api.fetchGateStatus.mockResolvedValue({
-        ok: true,
-        data: {
-          hasPin: true,
-          isPinVerified: true,
-          pinVerifiedUntil: new Date(Date.now() + 1_000).toISOString(),
-        },
-      });
-
-      renderLayout();
-
-      await waitFor(() =>
-        expect(screen.getByText("dashboard")).toBeInTheDocument(),
-      );
-      expect(screen.queryByRole("dialog")).toBeNull();
-
-      await vi.advanceTimersByTimeAsync(1_100);
-
-      // No request needed: `pinVerifiedUntil` is enough to hide the parent area
-      // proactively rather than waiting for the next call to 403.
-      await waitFor(() =>
-        expect(screen.getByRole("dialog")).toBeInTheDocument(),
-      );
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  /**
-   * Real timers on purpose. The bug this covers is `setTimeout`'s 32-bit ceiling
-   * — it clamps any delay above 2**31-1 ms to 1ms — and the fake-timer clock
-   * stores the delay as a plain number, so it cannot reproduce it.
-   */
-  it("keeps the gate open for a grant beyond the setTimeout ceiling", async () => {
-    api.fetchGateStatus.mockResolvedValue({
-      ok: true,
-      data: {
-        hasPin: true,
-        isPinVerified: true,
-        pinVerifiedUntil: new Date(Date.now() + 2 ** 31 + 60_000).toISOString(),
-      },
-    });
-
-    renderLayout();
-
-    await waitFor(() =>
-      expect(screen.getByText("dashboard")).toBeInTheDocument(),
-    );
-
-    // A clamped timer fires after ~1ms, so 50 is generous. The assertion can
-    // only fail in the unsafe direction — a gate that relocked when it should
-    // not have.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("shuts the gate when the grant's expiry cannot be parsed", async () => {
-    api.fetchGateStatus.mockResolvedValue({
-      ok: true,
-      data: {
-        hasPin: true,
-        isPinVerified: true,
-        pinVerifiedUntil: "not-a-date",
-      },
-    });
-
-    renderLayout();
-
-    // Same fail-closed rule as an unreadable gate-status: an expiry the client
-    // cannot read is a grant it cannot vouch for.
-    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
-  });
-
-  /**
-   * The gate has to fail closed. `isLocked` starts `false`, so a version that only
-   * locked when `gate-status` *succeeded* turned one failed request into a bypass:
-   * the parent dashboard rendered ungated for anyone holding the device. `hasPin`
-   * from `/api/auth/me` is enough to decide, and it arrived on a request that did.
-   */
-  it("raises the gate when gate-status cannot be read at all", async () => {
-    api.fetchGateStatus.mockResolvedValue({
-      ok: false,
-      error: { code: "NETWORK_ERROR", message: "Could not reach the API" },
-    });
-
-    renderLayout();
-
-    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
-    expect(screen.getByRole("dialog")).toHaveAccessibleName(
-      "Enter your parent PIN",
-    );
-  });
-
-  it("leaves the gate down when gate-status fails for a parent with no PIN", async () => {
-    // Fail-closed must not mean fail-deadlocked: there is no PIN to enter, so the
-    // pad would be a dead end. `resolveParentRedirect` sends them to setup instead.
-    api.fetchAuthMe.mockResolvedValue({
-      ok: true,
-      data: {
-        parent: { ...PARENT, hasPin: false },
-        activeChildProfileId: null,
-      },
-    });
-    api.fetchGateStatus.mockResolvedValue({
-      ok: false,
-      error: { code: "NETWORK_ERROR", message: "Could not reach the API" },
-    });
-
-    renderLayout();
-
-    await waitFor(() =>
-      expect(router.replace).toHaveBeenCalledWith(PARENT_ROUTES.pinSetup),
-    );
-    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("reports a network failure instead of pretending to be signed out", async () => {

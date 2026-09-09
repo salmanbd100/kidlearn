@@ -16,7 +16,6 @@ function parent(
     email: "salman@example.com",
     name: "Salman Rahman",
     avatarUrl: null,
-    hasPin: true,
     consentGivenAt: "2026-06-01T00:00:00.000Z",
     ...overrides,
   };
