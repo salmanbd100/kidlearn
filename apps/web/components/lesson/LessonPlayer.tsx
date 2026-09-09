@@ -5,7 +5,6 @@ import type {
   LessonDetailResponse,
   LessonStep,
   Locale,
-  ScreenTimeBlockCode,
 } from "@kidlearn/types";
 import { LESSON_STEPS, resumeLessonStep } from "@kidlearn/types";
 import { ArrowLeft } from "lucide-react";
@@ -14,7 +13,6 @@ import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StudentStatus } from "@/app/(student)/StudentGuard";
 import { BigButton } from "@/components/kid/BigButton";
-import { ScreenTimeLock } from "@/components/student/ScreenTimeLock";
 import { getLesson } from "@/lib/content-api";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import {
@@ -22,7 +20,6 @@ import {
   reportStep,
   sendSessionEvent,
 } from "@/lib/progress-api";
-import { isScreenTimeBlock, windowStartFromError } from "@/lib/screen-time-api";
 import { useHeartbeat } from "@/lib/use-heartbeat";
 import { stepAssetFallback } from "./asset-fallback";
 import { ExitConfirm } from "./ExitConfirm";
@@ -61,18 +58,6 @@ type LoadState =
   | { status: "loading" }
   | { status: "ready"; lesson: LessonDetailResponse; resumeAt: LessonStep }
   | { status: "gone" }
-  /**
-   * The parental screen-time gate refused this start (FR-TIME-02, FR-TIME-04).
-   * A state of its own rather than an error, because a child must never be shown
-   * a raw failure for a rule their grown-up set — and because a lesson already
-   * under way is exempt server-side, so reaching this means the child really was
-   * starting something new.
-   */
-  | {
-      status: "blocked";
-      reason: ScreenTimeBlockCode;
-      windowStart: string | null;
-    }
   | { status: "error" };
 
 export interface LessonPlayerProps {
@@ -118,14 +103,6 @@ export function LessonPlayer({
       setIsWakingUp(false);
 
       if (!lessonResult.ok) {
-        if (isScreenTimeBlock(lessonResult.error)) {
-          setLoad({
-            status: "blocked",
-            reason: lessonResult.error.code,
-            windowStart: windowStartFromError(lessonResult.error) ?? null,
-          });
-          return;
-        }
         // A lesson unpublished while the child was on the world screen is a `404` —
         // a door that closed, not a failure to apologise for.
         setLoad({
@@ -180,11 +157,6 @@ export function LessonPlayer({
   }
   if (load.status === "gone") {
     return <StudentStatus tone="status">{t("notFound")}</StudentStatus>;
-  }
-  if (load.status === "blocked") {
-    return (
-      <ScreenTimeLock reason={load.reason} windowStart={load.windowStart} />
-    );
   }
   if (load.status === "error") {
     return <StudentStatus tone="alert">{t("error")}</StudentStatus>;

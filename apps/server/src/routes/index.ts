@@ -11,7 +11,6 @@ import { jobsRouter } from "./jobs.js";
 import { meRouter } from "./me.js";
 import { parentRouter } from "./parent.js";
 import { progressRouter } from "./progress.js";
-import { screenTimeRouter } from "./screen-time.js";
 
 export const apiRouter = Router();
 
@@ -28,11 +27,5 @@ apiRouter.use(
 apiRouter.use("/progress", requireParent, requireActiveChild, progressRouter);
 apiRouter.use("/events", requireParent, requireActiveChild, eventsRouter);
 apiRouter.use("/me", requireParent, requireActiveChild, meRouter);
-apiRouter.use(
-  "/screen-time",
-  requireParent,
-  requireActiveChild,
-  screenTimeRouter,
-);
 apiRouter.use("/admin/jobs", jobsRouter);
 apiRouter.use("/admin", adminRouter);

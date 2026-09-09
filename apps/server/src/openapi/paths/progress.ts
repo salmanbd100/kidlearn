@@ -240,11 +240,11 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
       tags: ["Progress"],
       summary: "Record a lesson-flow session event",
       description: [
-        "Appends one `SessionEvent` row — the raw material the learning-time and screen-time figures are computed from in files 27–28 (FR-LSN-07, FR-TIME-06). This endpoint only records; nothing here aggregates.",
+        "Appends one `SessionEvent` row — the raw material the learning-time figures are computed from in file 27 (FR-LSN-07, FR-TIME-06). This endpoint only records; nothing here aggregates.",
         "",
         "`201` rather than `200`: the log is append-only, so every call creates a resource. The player posts these fire-and-forget — a failure is logged and never blocks a child mid-lesson.",
         "",
-        "**`clientTs` is required and then discarded.** `occurredAt` in the response is the server's own timestamp, and it is the only one stored. That is not a convenience: screen-time limits are derived from these rows, and a client able to backdate an event could spend an afternoon inside a 30-minute budget (FR-TIME-06). The field stays in the contract so the timestamp a client naturally sends is a documented no-op instead of a `400` from the strict body — and comparing it against `occurredAt` is how a client can see its own clock skew.",
+        "**`clientTs` is required and then discarded.** `occurredAt` in the response is the server's own timestamp, and it is the only one stored. That is not a convenience: every minute the parent dashboard and the weekly report show is derived from these rows, and a client able to backdate an event could make an afternoon look like a quarter of an hour (FR-TIME-06). The field stays in the contract so the timestamp a client naturally sends is a documented no-op instead of a `400` from the strict body — and comparing it against `occurredAt` is how a client can see its own clock skew.",
         "",
         "`type` is restricted to the three lesson-flow events. Prisma's `SessionEventType` also holds `heartbeat`, `session_start`, `session_end` and the story events; those have their own producers, and accepting them here would let a client forge the rows a time limit is enforced from.",
         "",

@@ -10,14 +10,12 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { IconTile } from "@/components/kid/IconTile";
 import { RewardStrip } from "@/components/student/RewardStrip";
-import { ScreenTimeLock } from "@/components/student/ScreenTimeLock";
 import { WorldCard } from "@/components/student/WorldCard";
 import { useActiveChild } from "@/lib/active-child";
 import { listWorlds } from "@/lib/content-api";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { getRewardsSummary } from "@/lib/progress-api";
 import { useScreenNarration } from "@/lib/use-screen-narration";
-import { useScreenTimeGate } from "@/lib/use-screen-time-gate";
 import { StudentStatus } from "../StudentGuard";
 
 /** The child's home (FR-WORLD-01..03, FR-GAM-06 display). */
@@ -35,7 +33,6 @@ export function HomeScreen() {
   const [isWakingUp, setIsWakingUp] = useState(false);
 
   useScreenNarration("home");
-  const screenTime = useScreenTimeGate();
 
   useEffect(() => {
     let isCurrent = true;
@@ -65,18 +62,6 @@ export function HomeScreen() {
   // `StudentGuard` does not render this screen without a child, so the fallback
   // is for the frame between a profile switch and the guard's redirect.
   if (child === undefined) return null;
-
-  // Before anything else on the page: the mascot screen replaces the home screen
-  // rather than sitting on top of it, so there is no board of lessons behind it
-  // for a child to keep tapping at.
-  if (screenTime.block != null) {
-    return (
-      <ScreenTimeLock
-        reason={screenTime.block}
-        windowStart={screenTime.windowStart}
-      />
-    );
-  }
 
   const stats =
     rewards === undefined
@@ -114,7 +99,7 @@ export function HomeScreen() {
           icon={<BookOpen aria-hidden="true" />}
           size="lg"
           onPress={() => {
-            void screenTime.guardStart(() => router.push("/stories"));
+            router.push("/stories");
           }}
         />
       </div>
@@ -140,9 +125,7 @@ export function HomeScreen() {
                 <WorldCard
                   world={world}
                   onPress={() => {
-                    void screenTime.guardStart(() =>
-                      router.push(`/world/${world.id}`),
-                    );
+                    router.push(`/world/${world.id}`);
                   }}
                 />
               </li>

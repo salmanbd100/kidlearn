@@ -344,23 +344,6 @@ export const AUTH_ME_EXAMPLE = {
   },
 };
 
-export const SCREEN_TIME_STATUS_EXAMPLE = {
-  data: {
-    // The blocked case, because it is the one a client has to render: `allowed`
-    // false always carries a `reason`, and `reason` is null whenever `allowed`
-    // is true.
-    allowed: false,
-    reason: "TIME_LIMIT_REACHED",
-    minutesToday: 45,
-    dailyLimitMinutes: 45,
-    // `HH:MM` in the household's local time, not UTC and not a full timestamp.
-    // Both null when no window is configured, in which case only the daily
-    // limit applies.
-    windowStart: "16:00",
-    windowEnd: "19:30",
-  },
-};
-
 export const WORLD_LESSONS_EXAMPLE = {
   data: {
     topics: [

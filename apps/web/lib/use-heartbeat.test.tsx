@@ -66,9 +66,9 @@ describe("useHeartbeat", () => {
   });
 
   /**
-   * The lock screen case. `/api/events/heartbeat` is deliberately never screen-time
-   * gated, so a caller that keeps beating through a state where no lesson is on
-   * screen would bill a child for sitting on "time's up".
+   * `enabled` is the whole guard: `/api/events/heartbeat` records whatever
+   * reaches it, so a caller that kept beating through a state where no lesson is
+   * on screen would bill a child for sitting on a loading spinner.
    */
   it("does not beat while disabled", async () => {
     renderHook(() => useHeartbeat({ enabled: false }));

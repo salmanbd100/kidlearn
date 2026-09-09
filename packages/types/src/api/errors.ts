@@ -10,13 +10,6 @@ export const ERROR_CODES = [
   /** COPPA consent has not been recorded for this parent yet. */
   "CONSENT_REQUIRED",
   /**
-   * Today's parental screen-time allowance is used up (FR-TIME-02). A `423` on a
-   * content-start endpoint; the student surface turns it into a mascot screen.
-   */
-  "TIME_LIMIT_REACHED",
-  /** The clock is outside the parent's allowed access window (FR-TIME-04). */
-  "OUTSIDE_WINDOW",
-  /**
    * Today's AI generation cap for this cost bucket is used up (file 36). A `429`
    * on `/api/admin/ai/generate/*`; `error.details` carries `{ used, pending, cap }`
    * so the CMS can say how much budget is left rather than only that there is

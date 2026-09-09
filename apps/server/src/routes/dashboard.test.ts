@@ -5,10 +5,9 @@
  * The route itself lives on `routes/children.ts`, beside the other per-child
  * reads, so this file is named for the endpoint rather than for a module of its
  * own — a deliberate exception to the `<file-under-test>.test.ts` convention in
- * `general.md §4`, not the precedent `screen-time.test.ts` sets (that suite does
- * have a `routes/screen-time.ts`). `children.test.ts` already covers the profile
- * CRUD on that router; folding twenty-four dashboard cases into it would bury
- * both. If a `routes/dashboard.ts` ever appears, this name is already right.
+ * `general.md §4`. `children.test.ts` already covers the profile CRUD on that
+ * router; folding twenty-four dashboard cases into it would bury both. If a
+ * `routes/dashboard.ts` ever appears, this name is already right.
  *
  * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four rules that bound it shape this suite:

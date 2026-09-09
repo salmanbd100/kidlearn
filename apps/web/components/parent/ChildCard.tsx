@@ -6,7 +6,7 @@ import type {
   GradeLevelValue,
 } from "@kidlearn/types";
 import { Button, cn } from "@kidlearn/ui";
-import { Clock, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
@@ -25,8 +25,6 @@ export interface ChildCardProps {
   child: ChildProfileResponse;
   avatars: readonly AvatarCharacterResponse[];
   editHref: string;
-  /** FR-TIME-05 — the daily limit and access window for this child. */
-  screenTimeHref: string;
   onDeleteRequest: () => void;
 }
 
@@ -34,7 +32,6 @@ export function ChildCard({
   child,
   avatars,
   editHref,
-  screenTimeHref,
   onDeleteRequest,
 }: ChildCardProps) {
   const { t } = useTranslation(PARENT_NAMESPACE);
@@ -84,16 +81,6 @@ export function ChildCard({
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          aria-label={t("screenTime.open", { name: child.firstName })}
-        >
-          <Link href={screenTimeHref}>
-            <Clock aria-hidden="true" />
-          </Link>
-        </Button>
         <Button
           asChild
           variant="ghost"

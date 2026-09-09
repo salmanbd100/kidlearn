@@ -58,14 +58,6 @@
     "label": "For grown-ups",
     "chipFallback": "Grown-ups"
   },
-  "screenTime": {
-    "timeUpTitle": "Time's up for today!",
-    "timeUpBody": "See you tomorrow 🌙",
-    "windowTitle": "See you at {{time}}!",
-    "windowTitleNoTime": "Not right now!",
-    "windowBody": "Come back and we'll play then.",
-    "back": "Back to players"
-  },
   "status": {
     "waking": "Waking up…",
     "error": "Let's try that again."

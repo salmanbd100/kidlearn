@@ -2,7 +2,6 @@ import type {
   CharacterUnlockResponse,
   DashboardData,
   LearningTimeResponse,
-  ScreenTimeSettingResponse,
   WeeklyReportList,
 } from "@kidlearn/types";
 import { Router } from "express";
@@ -22,10 +21,6 @@ import {
   type LearningTimeQuery,
   LearningTimeQuerySchema,
 } from "../schemas/events.js";
-import {
-  type ScreenTimeBody,
-  ScreenTimeBodySchema,
-} from "../schemas/screen-time.js";
 import { listCharactersForChild } from "../services/achievementService.js";
 import {
   activateChildProfile,
@@ -38,11 +33,6 @@ import {
 } from "../services/childProfileService.js";
 import { getDashboardSummary } from "../services/dashboardService.js";
 import { getLearningMinutes } from "../services/learningTimeService.js";
-import {
-  getScreenTimeSetting,
-  saveScreenTimeSetting,
-  toScreenTimeSettingResponse,
-} from "../services/screenTimeService.js";
 import { getWeeklyReports } from "../services/weeklyReportService.js";
 
 /** `/api/children` — the parent's own learner profiles (FR-PROF-01..07). */
@@ -167,45 +157,6 @@ childrenRouter.get(
       const reports = await getWeeklyReports(ownedChild(req));
 
       const payload: SuccessEnvelope<WeeklyReportList> = { data: reports };
-      res.json(payload);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-/** FR-TIME-01/04/05 — this child's daily limit and access window. */
-childrenRouter.get(
-  "/:id/screen-time",
-  validate({ params: ChildIdParamsSchema }),
-  loadOwnedChild,
-  async (req, res, next) => {
-    try {
-      const setting = await getScreenTimeSetting(ownedChild(req).id);
-
-      const payload: SuccessEnvelope<ScreenTimeSettingResponse> = {
-        data: toScreenTimeSettingResponse(setting),
-      };
-      res.json(payload);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-/** Replaces the whole policy (FR-TIME-01, FR-TIME-04). */
-childrenRouter.patch(
-  "/:id/screen-time",
-  validate({ params: ChildIdParamsSchema, body: ScreenTimeBodySchema }),
-  loadOwnedChild,
-  async (req, res, next) => {
-    try {
-      const body: ScreenTimeBody = req.body;
-      const setting = await saveScreenTimeSetting(ownedChild(req).id, body);
-
-      const payload: SuccessEnvelope<ScreenTimeSettingResponse> = {
-        data: setting,
-      };
       res.json(payload);
     } catch (error) {
       next(error);

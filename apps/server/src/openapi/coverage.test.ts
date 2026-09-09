@@ -16,7 +16,6 @@ import { jobsRouter } from "../routes/jobs.js";
 import { meRouter } from "../routes/me.js";
 import { parentRouter } from "../routes/parent.js";
 import { progressRouter } from "../routes/progress.js";
-import { screenTimeRouter } from "../routes/screen-time.js";
 import { storiesRouter } from "../routes/stories.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
@@ -58,11 +57,6 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   },
   { prefix: "/api/events", router: eventsRouter, file: "paths/events.ts" },
   { prefix: "/api/me", router: meRouter, file: "paths/me.ts" },
-  {
-    prefix: "/api/screen-time",
-    router: screenTimeRouter,
-    file: "paths/screen-time.ts",
-  },
   { prefix: "/api/admin/jobs", router: jobsRouter, file: "paths/jobs.ts" },
   { prefix: "/api/admin", router: adminRouter, file: "paths/admin.ts" },
   // Nested inside `adminRouter`, for the same reason `storiesRouter` is nested
@@ -95,13 +89,13 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
 ];
 
 /**
- * How many routers are reachable under `/api`, at any depth: the ten
+ * How many routers are reachable under `/api`, at any depth: the nine
  * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`, and
  * `adminContentRouter`, `adminContentEditorsRouter`, `adminMediaRouter` and
  * `adminAiRouter` nested on `adminRouter` (file 33 added the middle two, file 34
  * the last).
  */
-const EXPECTED_ROUTERS_UNDER_API = 15;
+const EXPECTED_ROUTERS_UNDER_API = 14;
 
 /**
  * The shape Express 5's router exposes per registered route. Declared structurally

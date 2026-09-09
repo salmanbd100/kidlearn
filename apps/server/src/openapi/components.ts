@@ -108,10 +108,6 @@ import {
   RewardSummaryResponseSchema,
   RewardSummarySchema,
   RewardTotalsSchema,
-  ScreenTimeSettingResponseSchema,
-  ScreenTimeSettingSchema,
-  ScreenTimeStatusResponseSchema,
-  ScreenTimeStatusSchema,
   ServiceIdentityResponseSchema,
   SessionEventRecordSchema,
   SessionEventResponseSchema,
@@ -190,7 +186,6 @@ import {
   QuizResponsesBodySchema,
   SessionEventBodySchema,
 } from "../schemas/progress.js";
-import { ScreenTimeBodySchema } from "../schemas/screen-time.js";
 import {
   buildComponentSchemas,
   type JsonSchemaObject,
@@ -222,7 +217,6 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ActivityEventBody: ActivityEventBodySchema,
   SessionEventBody: SessionEventBodySchema,
   QuizResponsesBody: QuizResponsesBodySchema,
-  ScreenTimeBody: ScreenTimeBodySchema,
 
   ServiceIdentityResponse: ServiceIdentityResponseSchema,
   HealthResponse: HealthResponseSchema,
@@ -444,11 +438,6 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AiReviewResult: AiReviewResultSchema,
   AiReviewResultResponse: AiReviewResultResponseSchema,
 
-  ScreenTimeSetting: ScreenTimeSettingSchema,
-  ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
-  ScreenTimeStatus: ScreenTimeStatusSchema,
-  ScreenTimeStatusResponse: ScreenTimeStatusResponseSchema,
-
   // --- Rewards ------------------------------------------------------------
   // Response shapes only, and there is no request shape to register: no
   // endpoint accepts a reward amount or type (FR-GAM-08).
@@ -524,14 +513,9 @@ export const TAGS = [
       "Avatar characters. `GET /api/characters` lists the published starter set a brand-new profile picks from; the per-child lists additionally carry the characters that must be *earned*, flagged with whether that child has unlocked them yet (FR-GAM-05). Unlock rules are `Character.unlockRule` JSONB read against the child's ledger totals — nothing about an unlock is decided or reported by a client.",
   },
   {
-    name: "Screen Time",
-    description:
-      "Parental limits on *starting* new content (FR-TIME-01..05): a daily allowance and an access window, both per child and both owned by the parent. The policy is written on `/api/children/{id}/screen-time`, which only the parent's own session reaches; the student surface reads its own verdict from `/api/screen-time/status`, scoped to the session's active child.\n\n**Enforcement is server-side and happens at the start of content, not during it.** `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` answer `423 Locked` when the gate is shut; step, completion and event endpoints never do, so a lesson already under way can always be finished (FR-TIME-03) and its time keeps being recorded (FR-TIME-06). A lesson with an incomplete `LessonProgress` row written in the past 30 minutes is exempt from its own gate — resuming is not starting — while replaying a finished one is a new start and is gated, as is picking up one abandoned longer ago than that.\n\nThe minutes a limit is compared against are the same server-derived figure the parent dashboard shows, from one shared function, so a limit and a dashboard can never disagree about how long a child has been learning.",
-  },
-  {
     name: "Dashboard",
     description:
-      "What the parent dashboard renders for one child (FR-DASH-01..04): learning minutes for three windows, per-subject completion, and the recent-activity feed — all in one request, because the screen reads them together and four calls would be four chances to leave half a dashboard on screen.\n\nEvery figure is the server's. Minutes come from the same `getLearningMinutes` a screen-time limit is checked against, so a dashboard and a limit can never disagree; completion comes from `LessonProgress`; the feed from `LessonProgress` and `RewardLedger`. Nothing a client sends contributes to any of them (FR-TIME-06, spec §7).\n\n**Titles arrive in both locales**, unlike every other localised response in this API. The reader is the parent, their dashboard language is an i18next choice the server never sees, and there is no parent language column — so resolving to the *child's* language here would show an English-reading parent Bangla lesson titles inside English chrome.",
+      "What the parent dashboard renders for one child (FR-DASH-01..04): learning minutes for three windows, per-subject completion, and the recent-activity feed — all in one request, because the screen reads them together and four calls would be four chances to leave half a dashboard on screen.\n\nEvery figure is the server's. Minutes come from `getLearningMinutes`; completion comes from `LessonProgress`; the feed from `LessonProgress` and `RewardLedger`. Nothing a client sends contributes to any of them (FR-TIME-06, spec §7).\n\n**Titles arrive in both locales**, unlike every other localised response in this API. The reader is the parent, their dashboard language is an i18next choice the server never sees, and there is no parent language column — so resolving to the *child's* language here would show an English-reading parent Bangla lesson titles inside English chrome.",
   },
   {
     name: "Reports",
@@ -556,7 +540,7 @@ export const TAGS = [
   {
     name: "Learning Time",
     description:
-      "Where time comes from, and what it adds up to (FR-TIME-06, FR-DASH-02). The student surfaces post a heartbeat every 30 seconds while their tab is visible plus a milestone event now and then; nothing they send carries a timestamp, a duration or a total. The server stamps every row, drops a beat arriving under 20 seconds after the last, and derives minutes from the density of what it stored — so a refresh, a closed tab, cleared storage or an edited client state cannot lower a recorded minute. Aggregation is one service function shared by the heartbeat's own `minutesToday`, the parent dashboard and the weekly report, so a screen-time limit and a dashboard can never disagree about how long a child has been learning.",
+      "Where time comes from, and what it adds up to (FR-TIME-06, FR-DASH-02). The student surfaces post a heartbeat every 30 seconds while their tab is visible plus a milestone event now and then; nothing they send carries a timestamp, a duration or a total. The server stamps every row, drops a beat arriving under 20 seconds after the last, and derives minutes from the density of what it stored — so a refresh, a closed tab, cleared storage or an edited client state cannot lower a recorded minute. Aggregation is one service function shared by the heartbeat's own `minutesToday`, the parent dashboard and the weekly report, so no two surfaces can disagree about how long a child has been learning.",
   },
   {
     name: "Rewards",
@@ -614,14 +598,7 @@ export const TAG_GROUPS = [
   { name: "Getting started", tags: ["Health", "Auth"] },
   {
     name: "Parent & household",
-    tags: [
-      "Parent Account",
-      "Children",
-      "Characters",
-      "Screen Time",
-      "Dashboard",
-      "Reports",
-    ],
+    tags: ["Parent Account", "Children", "Characters", "Dashboard", "Reports"],
   },
   {
     name: "Student experience",

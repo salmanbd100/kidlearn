@@ -43,7 +43,7 @@ export const WeeklyReportMetricsSchema = z
   .object({
     /** Distinct local calendar days with at least one recorded event, 0–7. */
     activeDays: z.number().int().min(0).max(7),
-    /** From the same density rule the dashboard and screen-time limit use. */
+    /** From the same density rule the parent dashboard uses. */
     learningMinutes: z.number().int().min(0),
     newLetters: z.array(z.string()),
     newWords: z.array(z.string()),
