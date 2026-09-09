@@ -4,7 +4,6 @@ import type {
 } from "@kidlearn/types";
 import { type Request, Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
-import { enforceScreenTime } from "../middleware/enforce-screen-time.js";
 import { activeChild } from "../middleware/require-active-child.js";
 import { validate } from "../middleware/validate.js";
 import { ContentIdParamsSchema } from "../schemas/content.js";
@@ -36,10 +35,6 @@ storiesRouter.get("/", async (req, res, next) => {
 storiesRouter.get(
   "/:id",
   validate({ params: ContentIdParamsSchema }),
-  // The story-start gate (FR-TIME-02, FR-TIME-04). No in-progress exemption, and
-  // none is needed: the reader holds every page once it has them, so a story
-  // already open is never interrupted by this gate.
-  enforceScreenTime("story"),
   async (req, res, next) => {
     try {
       const story = await getStoryForChild(activeChild(req), idParam(req));

@@ -46,9 +46,6 @@ const db = vi.hoisted(() => ({
   accountFindFirst: vi.fn(),
   childFindFirst: vi.fn(),
   lessonFindFirst: vi.fn(),
-  screenTimeFindUnique: vi.fn(),
-  sessionEventFindMany: vi.fn(),
-  lessonProgressFindUnique: vi.fn(),
 }));
 
 vi.mock("../lib/prisma.js", () => ({
@@ -58,12 +55,6 @@ vi.mock("../lib/prisma.js", () => ({
     account: { findFirst: db.accountFindFirst },
     childProfile: { findFirst: db.childFindFirst },
     lesson: { findFirst: db.lessonFindFirst },
-    screenTimeSetting: { findUnique: db.screenTimeFindUnique },
-    // Reads only. There is deliberately no `create`, `update` or `upsert` on
-    // either of these: a preview that wrote progress or an event would reach a
-    // `not a function` failure here rather than passing quietly (bound 4).
-    sessionEvent: { findMany: db.sessionEventFindMany },
-    lessonProgress: { findUnique: db.lessonProgressFindUnique },
   },
 }));
 
@@ -234,9 +225,6 @@ beforeEach(() => {
   db.lessonFindFirst.mockImplementation(async (args) =>
     findFirstAgainstTheDraft(args),
   );
-  db.screenTimeFindUnique.mockResolvedValue(null);
-  db.sessionEventFindMany.mockResolvedValue([]);
-  db.lessonProgressFindUnique.mockResolvedValue(null);
 });
 
 afterEach(() => {
