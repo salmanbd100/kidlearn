@@ -44,7 +44,7 @@ export async function confirmAccountDeletion(
 
   await prisma.$transaction(async (tx) => {
     // Each child row cascades to LessonProgress, QuizResponse, RewardLedger,
-    // ChildCharacter, Streak, ScreenTimeSetting, SessionEvent and WeeklyReport
+    // ChildCharacter, Streak, SessionEvent and WeeklyReport
     // (see `onDelete: Cascade` in schema.prisma). Deleting the children first
     // rather than relying solely on the Parent cascade keeps the intent legible
     // and the count assertable.

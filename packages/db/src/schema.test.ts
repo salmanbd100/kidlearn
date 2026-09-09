@@ -62,8 +62,8 @@ describe("right-to-erasure cascades (NFR-SAFE-05/06)", () => {
       .filter((line) => /^\s*child\s+ChildProfile\b/.test(line));
 
     // LessonProgress, QuizResponse, RewardLedger, ChildCharacter, Streak,
-    // ScreenTimeSetting, SessionEvent, WeeklyReport.
-    expect(relations).toHaveLength(8);
+    // SessionEvent, WeeklyReport.
+    expect(relations).toHaveLength(7);
     for (const relation of relations) {
       expect(relation).toContain("onDelete: Cascade");
     }
@@ -133,9 +133,8 @@ describe("per-child uniqueness", () => {
     );
   });
 
-  it("holds one streak and one screen-time setting per child", () => {
+  it("holds one streak per child", () => {
     expect(field("Streak", "childId")).toContain("@unique");
-    expect(field("ScreenTimeSetting", "childId")).toContain("@unique");
   });
 
   it("cannot unlock the same character for a child twice", () => {

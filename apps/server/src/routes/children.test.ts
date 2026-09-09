@@ -1233,8 +1233,8 @@ describe("cascade-delete contract", () => {
       .filter((line) => /^\s*child\s+ChildProfile\b/.test(line));
 
     // LessonProgress, QuizResponse, RewardLedger, ChildCharacter, Streak,
-    // ScreenTimeSetting, SessionEvent, WeeklyReport.
-    expect(relations).toHaveLength(8);
+    // SessionEvent, WeeklyReport.
+    expect(relations).toHaveLength(7);
     for (const relation of relations) {
       expect(relation).toContain("onDelete: Cascade");
     }
