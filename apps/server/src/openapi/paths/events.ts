@@ -46,6 +46,7 @@ export const EVENTS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/events/heartbeat",
     operation: {
+      operationId: "recordHeartbeat",
       tags: ["Learning Time"],
       summary: "Report that the child is still on a learning surface",
       description: [
@@ -78,6 +79,7 @@ export const EVENTS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/events/activity",
     operation: {
+      operationId: "recordActivityEvent",
       tags: ["Learning Time"],
       summary: "Record one discrete thing the child did",
       description: [

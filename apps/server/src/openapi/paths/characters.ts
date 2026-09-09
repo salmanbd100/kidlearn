@@ -11,6 +11,7 @@ export const CHARACTERS_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/characters",
     operation: {
+      operationId: "listAvatarCharacters",
       tags: ["Characters"],
       summary: "List the starter avatars a child profile may wear",
       description: [

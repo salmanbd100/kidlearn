@@ -16,6 +16,7 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
+import { AI_JOB_LIST_EXAMPLE } from "../examples.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
@@ -232,6 +233,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/ai/generate/lesson",
     operation: {
+      operationId: "generateLesson",
       tags: ["Admin AI"],
       summary: "Generate a draft lesson",
       description: GENERATE_LESSON_DESCRIPTION,
@@ -261,6 +263,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/ai/generate/story",
     operation: {
+      operationId: "generateStory",
       tags: ["Admin AI"],
       summary: "Generate a draft story",
       description: GENERATE_STORY_DESCRIPTION,
@@ -283,6 +286,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/ai/generate/quiz",
     operation: {
+      operationId: "generateQuiz",
       tags: ["Admin AI"],
       summary: "Generate draft quiz questions for a lesson",
       description: GENERATE_QUIZ_DESCRIPTION,
@@ -309,6 +313,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/ai/generate/narration",
     operation: {
+      operationId: "generateNarration",
       tags: ["Admin AI"],
       summary: "Record the missing narration for a lesson, story or quiz",
       description: GENERATE_NARRATION_DESCRIPTION,
@@ -333,6 +338,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/ai/generate/illustrations",
     operation: {
+      operationId: "generateIllustrations",
       tags: ["Admin AI"],
       summary: "Draw the missing illustrations for a story",
       description: GENERATE_ILLUSTRATIONS_DESCRIPTION,
@@ -355,6 +361,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/ai/jobs",
     operation: {
+      operationId: "listGenerationJobs",
       tags: ["Admin AI"],
       summary: "List generation jobs awaiting review",
       description: QUEUE_LIST_DESCRIPTION,
@@ -392,6 +399,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "A page of the queue, oldest first, plus the total matching the filters.",
           "AiJobListResponse",
+          AI_JOB_LIST_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
@@ -404,6 +412,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/ai/jobs/count",
     operation: {
+      operationId: "countPendingGenerationJobs",
       tags: ["Admin AI"],
       summary: "How many jobs are awaiting review",
       description:
@@ -423,6 +432,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/ai/jobs/{id}",
     operation: {
+      operationId: "getGenerationJob",
       tags: ["Admin AI"],
       summary: "Read one generation job and everything it produced",
       description: QUEUE_DETAIL_DESCRIPTION,
@@ -444,6 +454,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/ai/jobs/{id}/approve",
     operation: {
+      operationId: "approveGenerationJob",
       tags: ["Admin AI"],
       summary: "Approve a generation, publishing everything it created",
       description: APPROVE_DESCRIPTION,
@@ -474,6 +485,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/ai/jobs/{id}/reject",
     operation: {
+      operationId: "rejectGenerationJob",
       tags: ["Admin AI"],
       summary: "Reject a generation, with a mandatory reason",
       description: REJECT_DESCRIPTION,

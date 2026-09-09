@@ -151,7 +151,11 @@ it("does not return unpublished lessons to students", async () => {
 
 ## 7. API Documentation — OpenAPI
 
-The server publishes an OpenAPI 3.0 document, served as Swagger UI at `/docs` and raw at `/docs.json`. It is assembled at boot in `apps/server/src/openapi/` — there is no checked-in spec file, because a derived artifact in the repository is one more thing to forget to regenerate.
+The server publishes an OpenAPI 3.0 document, served as a [Scalar](https://scalar.com) API reference at `/docs` and raw at `/docs.json`. It is assembled at boot in `apps/server/src/openapi/` — there is no checked-in spec file, because a derived artifact in the repository is one more thing to forget to regenerate.
+
+**Send works off the Google session with no token to paste, and nothing configures that.** Scalar builds its request as `new Request(url, init)` and never sets `credentials`, so it takes the spec default of `same-origin`; `/docs` is served from the same origin as `/api/*`, which is the origin better-auth set the session cookie on, so the browser attaches the httpOnly `better-auth.session_token` itself. No `Cookie` header is set by anyone — script cannot set that header at all, which is precisely why this holds only while the reference and the API share an origin.
+
+Two changes would silently break it, so neither is made: setting `proxyUrl` (every request becomes cross-origin, and Scalar switches to an `X-Scalar-Cookie` header meant for its own proxy to translate — ours would never see a cookie), and serving the reference from anywhere but the API's origin. The `apiKey`/`in: cookie` scheme in `components.ts` still describes the auth honestly, but it is what makes Scalar's generated snippet print a bogus `'Set-Cookie'` header; the request it actually sends is correct.
 
 ### The rule
 
@@ -181,11 +185,27 @@ Every status code the route can actually produce, including the ones its middlew
 
 State the reasoning where a response is deliberately counter-intuitive. The `404` for another parent's child, and the `404` for unpublished content, both exist so that a probe cannot confirm a row exists (§4, NFR-SAFE-02) — an operation description that does not say so invites someone to "fix" it into a `403`.
 
+**Every operation carries an `operationId`, unique across the document.** It is the method name a generated client gets and the anchor a `/docs` link points at, and both fail silently without one — a generator invents a name from the path, a duplicate makes it drop or rename a method. `document.test.ts` asserts presence and uniqueness. **[CI]**
+
+The convention is `verbResource` in camelCase: `listChildren`, `activateChild`, `getLesson`, `transitionAdminLesson`, `reorderAdminTopics`. An admin operation that shadows a student one is prefixed — `getAdminLesson` beside `getLesson`.
+
+**Every tag belongs to exactly one `x-tagGroups` entry** in `components.ts`. The extension drives the sidebar, and a reader that honours it builds its whole navigation from the groups: a tag no group names is silently dropped, taking its operations off the page while leaving them in the document. `document.test.ts` asserts the two lists agree in both directions. **[CI]**
+
+### Examples
+
+Hand-written `2xx` examples live in `src/openapi/examples.ts` and are passed as `jsonResponse`'s third argument. They are for the reads a client is actually built against — a lesson with its activity payload and quiz, a dashboard summary — not for every operation: a reader generates a usable sample for a two-field body on its own, and an example nobody reads is an example that drifts.
+
+Error examples work the same way but through `errorResponse`'s third argument, and are worth supplying only where the failure carries a payload a client acts on — `VALIDATION_FAILED` is the case that matters. `ErrorEnvelope.details` is `z.unknown()` deliberately, so nothing depends on it, which means it renders as an empty schema and the example is the **only** place a reader can see the shape at all.
+
+**Every example is parsed against its own Zod schema** in `document.test.ts`. Not belt-and-braces: JSON Schema conversion drops refinements, so a sample body can satisfy the rendered schema and still be something the API could never send — the first version of the lesson example had a two-option MCQ, which `.min(3)` forbids. **[CI]**
+
 Restate in a `description` any rule that JSON Schema cannot express. Zod `.refine()` and `.superRefine()` are dropped silently in conversion, so a rule like `UpdateChildBodySchema`'s "at least one field required" is invisible in the spec unless it is written out.
 
 ### Exposure
 
-`/docs` is always available outside production. In production it is off unless `ENABLE_API_DOCS=true`, because the document describes the whole API surface. Both routes are mounted behind `isDocsEnabled(env)` in `app.ts`.
+`/docs` is always available outside production. In production it is off unless `ENABLE_API_DOCS=true`, because the document describes the whole API surface. Both routes — `/docs` and `/docs.json` — are mounted behind `isDocsEnabled(env)` in `app.ts`.
+
+Scalar loads its bundle from jsDelivr, so `/docs` needs network access; `/docs.json` does not.
 
 ---
 
@@ -197,6 +217,7 @@ Before considering backend work complete:
 - [ ] Every route accepting user input has a Zod schema at the boundary; invalid input returns `400`
 - [ ] Shared request/response schemas live in `packages/types`, not duplicated per app
 - [ ] Every new or changed endpoint is registered in `src/openapi/paths/`, documenting every status code its guards and handler can produce (§7)
+- [ ] Every new operation has a unique `operationId`, and any new tag sits in an `x-tagGroups` group (§7)
 - [ ] Every successful response is asserted against its `packages/types/src/api` schema in the route test
 - [ ] `prisma` singleton from `@kidlearn/db` used — no `new PrismaClient()`, no raw SQL
 - [ ] Every student-facing query filters `status: "published"`, with an explicit test

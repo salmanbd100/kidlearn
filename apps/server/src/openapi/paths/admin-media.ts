@@ -84,7 +84,8 @@ export const ADMIN_MEDIA_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/media/sign",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "signMediaUpload",
+      tags: ["Admin CMS: Media"],
       summary: "Sign a direct upload to Cloudinary",
       description: SIGN_DESCRIPTION,
       requestBody: jsonRequestBody("MediaSignUploadBody"),
@@ -102,7 +103,8 @@ export const ADMIN_MEDIA_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/media",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "registerMediaAsset",
+      tags: ["Admin CMS: Media"],
       summary: "Register an uploaded asset",
       description: REGISTER_DESCRIPTION,
       requestBody: jsonRequestBody("MediaRegisterAssetBody"),
@@ -123,7 +125,8 @@ export const ADMIN_MEDIA_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/media",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "listMediaAssets",
+      tags: ["Admin CMS: Media"],
       summary: "List media assets",
       description: LIST_DESCRIPTION,
       parameters: [

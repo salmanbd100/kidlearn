@@ -124,7 +124,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/content/quizzes",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "createAdminQuiz",
+      tags: ["Admin CMS: Editors"],
       summary: "Create a quiz",
       description: [
         "Creates an empty quiz as **`draft`**, ready for questions.",
@@ -148,7 +149,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/content/quizzes",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "listAdminQuizzes",
+      tags: ["Admin CMS: Editors"],
       summary: "List quizzes",
       description: [
         "Every quiz, newest first, with the number of questions each holds — so a list needs no second request per row.",
@@ -167,7 +169,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/content/quizzes/{quizId}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "getAdminQuiz",
+      tags: ["Admin CMS: Editors"],
       summary: "Read one quiz with its questions",
       description: [
         "One quiz and every question it holds, in `sortOrder` — the question editor's only read.",
@@ -190,7 +193,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "patch",
     path: "/api/admin/content/quizzes/{quizId}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "updateAdminQuiz",
+      tags: ["Admin CMS: Editors"],
       summary: "Rename a quiz",
       description: [
         "`title` only — the questions are edited through their own operations, and `status` through the transition endpoint.",
@@ -212,7 +216,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/content/quizzes/{quizId}/transition",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "transitionAdminQuiz",
+      tags: ["Admin CMS: Editors"],
       summary: "Change a quiz's status",
       description: transitionDescription("quiz", QUIZ_PUBLISH_EFFECT),
       parameters: [quizId],
@@ -233,7 +238,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/content/quizzes/{quizId}/questions",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "createAdminQuizQuestion",
+      tags: ["Admin CMS: Editors"],
       summary: "Add a question to a quiz",
       description: [
         "Appends a question (FR-CMS-03). `sortOrder` is assigned server-side at the end of the list — it is not a field the caller supplies, for the same reason curriculum position is not.",
@@ -263,7 +269,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "patch",
     path: "/api/admin/content/quizzes/{quizId}/questions/{id}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "updateAdminQuizQuestion",
+      tags: ["Admin CMS: Editors"],
       summary: "Replace a question",
       description: [
         "Replaces a question's `format` and `definition` **whole**. There is no partial edit and there should not be: a definition's parts cross-validate — `correctOptionId` has to name an option still in `options` — so merging a fragment into a stored payload would produce a shape neither the author nor the schema ever saw as a whole. The editor holds the entire form state anyway.",
@@ -304,7 +311,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "delete",
     path: "/api/admin/content/quizzes/{quizId}/questions/{id}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "deleteAdminQuizQuestion",
+      tags: ["Admin CMS: Editors"],
       summary: "Remove a question",
       description: [
         "Deletes the question and **renumbers the survivors** to `0..n-1`.",
@@ -340,7 +348,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/content/activities",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "createAdminActivity",
+      tags: ["Admin CMS: Editors"],
       summary: "Create an activity",
       description: [
         "Creates an activity as **`draft`** (FR-ACT-06). A lesson points at one through `Lesson.activityId`.",
@@ -367,7 +376,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/content/activities",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "listAdminActivities",
+      tags: ["Admin CMS: Editors"],
       summary: "List activities",
       description:
         "Every activity, newest first, each with its whole `definition` — the payloads are small and the editor opens straight into one. Unfiltered by status apart from archived rows.",
@@ -398,7 +408,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/content/activities/{id}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "getAdminActivity",
+      tags: ["Admin CMS: Editors"],
       summary: "Read one activity",
       description: "One activity and its payload, whatever its status.",
       parameters: [
@@ -419,7 +430,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "patch",
     path: "/api/admin/content/activities/{id}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "updateAdminActivity",
+      tags: ["Admin CMS: Editors"],
       summary: "Replace an activity's payload",
       description: [
         "Replaces `type` and `definition` whole, for the reason a question replacement gives: a definition's parts cross-validate, so a fragment merged into a stored payload would produce a shape nothing ever validated as a whole.",
@@ -450,7 +462,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/content/activities/{id}/transition",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "transitionAdminActivity",
+      tags: ["Admin CMS: Editors"],
       summary: "Change an activity's status",
       description: transitionDescription("activity", ACTIVITY_PUBLISH_EFFECT),
       parameters: [
@@ -477,7 +490,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/content/badges",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "createAdminBadge",
+      tags: ["Admin CMS: Editors"],
       summary: "Create a badge",
       description: [
         "Creates a badge as **`draft`** (FR-GAM-04). **Badges are data, not code**: a row carries a `ruleType` and a `rule` payload that a server-side engine interprets, so a new milestone is this request rather than a deploy.",
@@ -517,7 +531,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/content/badges",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "listAdminBadges",
+      tags: ["Admin CMS: Editors"],
       summary: "List badges",
       description:
         "Every badge, by slug, with its rule. Unfiltered by status apart from archived rows — a `draft` badge is authored but inert, and seeing which is which is the point of the manager.",
@@ -533,7 +548,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/admin/content/badges/{id}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "getAdminBadge",
+      tags: ["Admin CMS: Editors"],
       summary: "Read one badge",
       description: "One badge and its rule, whatever its status.",
       parameters: [
@@ -551,7 +567,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "patch",
     path: "/api/admin/content/badges/{id}",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "updateAdminBadge",
+      tags: ["Admin CMS: Editors"],
       summary: "Edit a badge",
       description: [
         "Partial edit. At least one field is required; an empty body is a `400`.",
@@ -583,7 +600,8 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/admin/content/badges/{id}/transition",
     operation: {
-      tags: ["Admin CMS"],
+      operationId: "transitionAdminBadge",
+      tags: ["Admin CMS: Editors"],
       summary: "Change a badge's status",
       description: transitionDescription("badge", BADGE_PUBLISH_EFFECT),
       parameters: [

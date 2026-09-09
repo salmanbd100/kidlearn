@@ -4,6 +4,7 @@ import {
   jsonResponse,
   UNAUTHORIZED_RESPONSE,
 } from "../components.js";
+import { SCREEN_TIME_STATUS_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
 /**
@@ -21,6 +22,7 @@ export const SCREEN_TIME_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/screen-time/status",
     operation: {
+      operationId: "getScreenTimeStatus",
       tags: ["Screen Time"],
       summary: "May the active child start something new right now?",
       description: [
@@ -40,6 +42,7 @@ export const SCREEN_TIME_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The verdict, the minutes it was computed from, and the policy it was computed against.",
           "ScreenTimeStatusResponse",
+          SCREEN_TIME_STATUS_EXAMPLE,
         ),
         "401": UNAUTHORIZED_RESPONSE,
         "403": NO_ACTIVE_CHILD_RESPONSE,

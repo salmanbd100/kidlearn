@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isDocsEnabled } from "../lib/env.js";
+import { SCHEMA_DEFINITIONS } from "./components.js";
 import { buildOpenApiDocument } from "./document.js";
 import { EXTERNAL_ROUTE_DOCS, ROUTE_DOCS } from "./paths/index.js";
 
@@ -37,8 +38,10 @@ function collectRefs(node: unknown, found: string[] = []): string[] {
 
 describe("openapi document", () => {
   it("is OpenAPI 3.0.3", () => {
-    // Not 3.1: the `nullable: true` spelling this document relies on throughout
-    // is 3.0's, and Swagger UI renders 3.1's `type: [x, "null"]` as an empty type.
+    // Not 3.1: `nullable: true` is what `zod-to-json-schema` emits and what this
+    // document relies on throughout. 3.1 spells it `type: [x, "null"]`, which is a
+    // conversion this repo has no reason to make and some readers render as an
+    // empty type.
     expect(document.openapi).toBe("3.0.3");
   });
 
@@ -46,6 +49,50 @@ describe("openapi document", () => {
     expect(operations).toHaveLength(
       ROUTE_DOCS.length + EXTERNAL_ROUTE_DOCS.length,
     );
+  });
+
+  it("gives every operation a unique operationId", () => {
+    // The name a generated client gives the method, and the anchor a `/docs` link
+    // points at. Both break silently: a missing id makes a generator invent one
+    // from the path, and a duplicate makes it drop or rename a method without
+    // saying so. Asserted here so a new route cannot land without one.
+    const ids = operations.map(({ id, operation }) => {
+      expect(operation.operationId, `${id} has no operationId`).toBeTruthy();
+      return operation.operationId as string;
+    });
+
+    const duplicates = ids.filter(
+      (value, index) => ids.indexOf(value) !== index,
+    );
+    expect(
+      duplicates,
+      `Duplicate operationId(s): ${duplicates.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("puts every tag in exactly one sidebar group", () => {
+    // `x-tagGroups` is not additive: a reader that honours it builds its whole
+    // navigation from the groups and silently drops a tag no group names. The
+    // operations stay in the document and disappear from the page, which is
+    // exactly the failure nobody notices — hence both directions.
+    const declared = (document.tags as Array<{ name: string }>).map(
+      (t) => t.name,
+    );
+    const grouped = (
+      document["x-tagGroups"] as Array<{ tags: string[] }>
+    ).flatMap((group) => group.tags);
+
+    expect([...grouped].sort()).toEqual([...declared].sort());
+
+    const usedByOperations = new Set(
+      operations.flatMap(({ operation }) => (operation.tags ?? []) as string[]),
+    );
+    for (const tag of usedByOperations) {
+      expect(
+        declared,
+        `Operation tag "${tag}" is not declared in TAGS`,
+      ).toContain(tag);
+    }
   });
 
   it("gives every operation a summary, a tag, and a documented response", () => {
@@ -64,7 +111,7 @@ describe("openapi document", () => {
     // omitting `security`, which fails closed — a new operation that forgets it is
     // documented as authenticated, not as public. What must not happen is an
     // operation naming a scheme that `components.securitySchemes` does not define:
-    // Swagger UI silently offers no way to authenticate it.
+    // a reader silently offers no way to authenticate it.
     const declaredSchemes = Object.keys(
       document.components.securitySchemes as object,
     );
@@ -139,9 +186,66 @@ describe("openapi document", () => {
     }
   });
 
+  it("parses every hand-written example against its own schema", () => {
+    // An example is the part of the document a reader copies, and nothing else
+    // checks it: JSON Schema conversion drops refinements, and a reader will
+    // happily display a sample body that the API could never send. Parsing with
+    // the Zod object — the same one the route test asserts the real response
+    // against — is what stops a renamed field leaving a plausible-looking lie on
+    // the page.
+    const examples: Array<{ id: string; schema: string; value: unknown }> = [];
+
+    for (const { id, operation } of operations) {
+      const responses = (operation.responses ?? {}) as Record<
+        string,
+        {
+          content?: Record<
+            string,
+            { schema?: { $ref?: string }; example?: unknown }
+          >;
+        }
+      >;
+
+      for (const [status, response] of Object.entries(responses)) {
+        const media = response.content?.["application/json"];
+        if (!media || media.example === undefined) continue;
+        const ref = media.schema?.$ref;
+        expect(
+          ref,
+          `${id} → ${status} has an example but no $ref`,
+        ).toBeTruthy();
+        examples.push({
+          id: `${id} → ${status}`,
+          schema: (ref as string).replace("#/components/schemas/", ""),
+          value: media.example,
+        });
+      }
+    }
+
+    // Guards the walk itself: a refactor that stopped finding examples would
+    // otherwise turn this test into an assertion about an empty list.
+    expect(examples.length).toBeGreaterThan(50);
+
+    for (const { id, schema, value } of examples) {
+      const zodSchema = SCHEMA_DEFINITIONS[schema];
+      expect(
+        zodSchema,
+        `${id} references unregistered schema ${schema}`,
+      ).toBeTruthy();
+
+      const result = zodSchema.safeParse(value);
+      expect(
+        result.success,
+        `${id} example does not satisfy ${schema}: ${
+          result.success ? "" : JSON.stringify(result.error.flatten(), null, 2)
+        }`,
+      ).toBe(true);
+    }
+  });
+
   it("resolves every $ref against components.schemas", () => {
-    // The failure this catches is a page that renders with empty models: Swagger
-    // UI does not complain about a dangling ref, it just shows nothing.
+    // The failure this catches is a page that renders with empty models: a reader
+    // does not complain about a dangling ref, it just shows nothing.
     const schemas = (document.components.schemas ?? {}) as Record<
       string,
       unknown

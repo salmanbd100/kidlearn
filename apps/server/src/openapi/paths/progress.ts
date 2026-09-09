@@ -8,6 +8,11 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
+import {
+  LESSON_COMPLETION_EXAMPLE,
+  LESSON_PROGRESS_READ_EXAMPLE,
+  QUIZ_RESPONSES_EXAMPLE,
+} from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
 /**
@@ -87,6 +92,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/progress/lessons/{id}",
     operation: {
+      operationId: "getLessonProgress",
       tags: ["Progress"],
       summary: "Get the active child's progress in one lesson",
       description: [
@@ -103,6 +109,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "The stored progress, or `null` if this child has not opened the lesson.",
           "LessonProgressReadResponse",
+          LESSON_PROGRESS_READ_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
@@ -116,6 +123,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/progress/lessons/{id}/step",
     operation: {
+      operationId: "recordLessonStep",
       tags: ["Progress"],
       summary: "Record a finished lesson step",
       description: [
@@ -149,6 +157,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/progress/lessons/{id}/complete",
     operation: {
+      operationId: "completeLesson",
       tags: ["Progress"],
       summary: "Finish a lesson and grant what it was worth",
       description: [
@@ -179,6 +188,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "What this call granted, and what the child now has in total.",
           "LessonCompletionResponse",
+          LESSON_COMPLETION_EXAMPLE,
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
@@ -192,6 +202,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/progress/stories/{id}/complete",
     operation: {
+      operationId: "completeStory",
       tags: ["Progress"],
       summary: "Finish a story and grant what it was worth",
       description: [
@@ -225,6 +236,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/progress/events",
     operation: {
+      operationId: "recordSessionEvent",
       tags: ["Progress"],
       summary: "Record a lesson-flow session event",
       description: [
@@ -261,6 +273,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/progress/quizzes/{quizId}/responses",
     operation: {
+      operationId: "submitQuizResponses",
       tags: ["Progress"],
       summary: "Submit a finished quiz and score the lesson",
       description: [
@@ -282,6 +295,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "What this attempt was worth. Nothing here is shown to the child — the score screen draws its stars from the answers it already holds.",
           "QuizResponsesResponse",
+          QUIZ_RESPONSES_EXAMPLE,
         ),
         "400": errorResponse(
           "Zod rejected the body — an empty `responses` array, more than ten of them, the same `questionId` twice, `attempts` below 1, an answer that is neither an option id nor a `{ pairs }` object, or an unknown key — **or** a `questionId` that belongs to some other quiz. The second is a `400` and not a `404` on purpose: the quiz named in the path was found and is this child's to answer, so the request is malformed rather than the resource missing. Nothing is stored either way; the whole submission is rejected.",

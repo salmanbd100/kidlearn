@@ -6,6 +6,7 @@ import {
   UNAUTHORIZED_RESPONSE,
   VALIDATION_RESPONSE,
 } from "../components.js";
+import { GATE_STATUS_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
 // `routes/parent.ts` — `requireParent` guards the whole router.
@@ -21,6 +22,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/parent/gate-status",
     operation: {
+      operationId: "getParentGateStatus",
       tags: ["Parent Account"],
       summary: "Is the parent area open right now?",
       description: [
@@ -36,6 +38,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
         "200": jsonResponse(
           "`pinVerifiedUntil` is `null` whenever `isPinVerified` is false — a lapsed grant is reported as absent rather than as a past timestamp, so no client has to subtract two clocks to interpret it.",
           "GateStatusResponse",
+          GATE_STATUS_EXAMPLE,
         ),
         "401": UNAUTHORIZED_RESPONSE,
         "500": INTERNAL_RESPONSE,
@@ -46,6 +49,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/parent/pin",
     operation: {
+      operationId: "setParentPin",
       tags: ["Parent Account"],
       summary: "Set or change the parental PIN",
       description: [
@@ -81,6 +85,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/parent/pin/verify",
     operation: {
+      operationId: "verifyParentPin",
       tags: ["Parent Account"],
       summary: "Verify the PIN and open the parent-area grant",
       description: [
@@ -109,6 +114,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/parent/consent",
     operation: {
+      operationId: "recordConsent",
       tags: ["Parent Account"],
       summary: "Record COPPA consent",
       description: [
@@ -135,6 +141,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
     method: "post",
     path: "/api/parent/account/delete-request",
     operation: {
+      operationId: "requestAccountDeletion",
       tags: ["Parent Account"],
       summary: "Request account deletion (step 1 of 2)",
       description: [
@@ -162,6 +169,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
     method: "delete",
     path: "/api/parent/account",
     operation: {
+      operationId: "deleteParentAccount",
       tags: ["Parent Account"],
       summary: "Delete the account (step 2 of 2)",
       description: [

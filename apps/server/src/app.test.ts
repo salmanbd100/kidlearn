@@ -43,13 +43,16 @@ describe("API documentation", () => {
     expect(Object.keys(res.body.paths).length).toBeGreaterThan(0);
   });
 
-  it("serves Swagger UI at /docs", async () => {
-    // swagger-ui-express redirects /docs to /docs/ before serving the page.
-    const res = await request(app).get("/docs/");
+  it("serves the Scalar reference at /docs", async () => {
+    const res = await request(app).get("/docs");
 
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/html/);
     expect(res.text).toContain("kidlearn API");
+    // The page fetches the spec rather than inlining it — a ~730 KB document in
+    // the HTML of every page load is the thing this assertion prevents.
+    expect(res.text).toContain("/docs.json");
+    expect(res.text.length).toBeLessThan(50_000);
   });
 });
 

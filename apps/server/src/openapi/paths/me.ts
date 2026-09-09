@@ -21,6 +21,7 @@ export const ME_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/me/rewards/summary",
     operation: {
+      operationId: "getRewardSummary",
       tags: ["Rewards"],
       summary: "Get the active child's star, coin and badge totals",
       description: [
@@ -49,6 +50,7 @@ export const ME_ROUTES: RouteDoc[] = [
     method: "get",
     path: "/api/me/characters",
     operation: {
+      operationId: "listActiveChildCharacters",
       tags: ["Characters"],
       summary:
         "List every character, flagged with what this child has unlocked",
