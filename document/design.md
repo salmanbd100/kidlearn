@@ -259,8 +259,6 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 - Semantic HTML + ARIA only where semantics fall short. Radix (via shadcn) gives correct roles —
   don't override them.
 - Decorative images `alt=""`; meaningful images get real localized alt text.
-- The **parental gate** (PIN) must be genuinely hard for a pre-reader: require reading/typing
-  digits, never a simple "tap to continue".
 - Respect `prefers-reduced-motion` and `prefers-color-scheme` (parent theme).
 
 ---

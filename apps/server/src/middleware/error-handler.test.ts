@@ -17,7 +17,7 @@ function buildTestApp(): Express {
     throw ApiError.forbidden();
   });
   app.get("/with-details", () => {
-    throw new ApiError(401, "UNAUTHORIZED", "PIN required", {
+    throw new ApiError(401, "UNAUTHORIZED", "Sign in required", {
       attemptsLeft: 2,
     });
   });

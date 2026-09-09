@@ -27,7 +27,7 @@
    - 4.10 [Kid-UX golden rules](#410-kid-ux-golden-rules)
 5. [Parent journey](#5-parent-journey)
    - 5.1 [First-time setup](#51-first-time-setup)
-   - 5.2 [The PIN gate](#52-the-pin-gate)
+   - 5.2 [Reaching the parent area](#52-reaching-the-parent-area)
    - 5.3 [Managing child profiles](#53-managing-child-profiles)
    - 5.4 [The dashboard](#54-the-dashboard)
    - 5.5 [Weekly reports](#55-weekly-reports)
@@ -62,7 +62,7 @@
 | **Goal** | Play, learn, feel proud | Watch progress, set safe limits | Produce & approve content |
 | **Reading required?** | **None** — voice-first | Yes | Yes |
 | **Enters via** | Tapping their avatar | Google sign-in | Email + password |
-| **Surface** | Immersive, gamified, world-themed | Clean dashboard behind a PIN | Plain desktop CMS |
+| **Surface** | Immersive, gamified, world-themed | Clean dashboard behind a Google sign-in | Plain desktop CMS |
 | **Can they leave the app?** | No external links, no ads, no chat | — | — |
 | **Theme** | `data-theme="kid"` | `data-theme="parent"` | `data-theme="parent"` |
 
@@ -70,7 +70,7 @@
 flowchart TD
     Device([Shared family device]) --> Login{Who is using it?}
     Login -->|Child taps avatar| Student[👧 Student Portal<br/>immersive & gamified]
-    Login -->|Parent signs in + PIN| Parent[👩 Parent Dashboard<br/>progress & controls]
+    Login -->|Parent signs in| Parent[👩 Parent Dashboard<br/>progress & controls]
     Admin[🛠️ Admin] -->|separate login| CMS[Content Management<br/>+ AI pipeline]
     CMS -.published content.-> Student
     Parent -.creates profiles<br/>sets limits.-> Student
@@ -147,7 +147,7 @@ journey
 ```mermaid
 flowchart TD
     Start([App opens]) --> PS["🗣️ 'Who's learning today?'<br/>Profile picker — big avatar cards<br/>👤 parent chip in the corner"]
-    PS -->|Child taps their face| ACT[Profile activates<br/>no PIN needed 🔒]
+    PS -->|Child taps their face| ACT[Profile activates 🔒]
     ACT --> Lang{Profile language?}
     Lang -->|Bangla| BN[Whole portal switches to Bangla]
     Lang -->|English| EN[English]
@@ -166,13 +166,13 @@ flowchart TD
 
 **Screen-by-screen:**
 
-- **Profile picker (`/select-profile`)** — Full-screen, large avatar cards (≥120px). On load, a voice asks *"Who's learning today?"* The child taps their face. **No PIN** — switching between siblings is friction-free by design (FR-AUTH-06).
-  - **👤 Parent chip** in the top corner: the signed-in grown-up's Google photo and first name (initials when Google supplied no photo; *"Grown-ups"* when it supplied no name either). This is the same PIN-gated door as the lock icon elsewhere — only named. It is named **here and nowhere else**, deliberately: this is the hand-off screen, before any child is playing, and the person looking for the way into the parent area is an adult who should be able to find it. On a screen a child is *using*, a photo of their own parent is the most tappable thing on the page, so every other student screen keeps the anonymous lock (FR-AUTH-04, Pillar C).
+- **Profile picker (`/select-profile`)** — Full-screen, large avatar cards (≥120px). On load, a voice asks *"Who's learning today?"* The child taps their face. Switching between siblings is friction-free by design (FR-AUTH-06).
+  - **👤 Parent chip** in the top corner: the signed-in grown-up's Google photo and first name (initials when Google supplied no photo; *"Grown-ups"* when it supplied no name either). This is the same door as the lock icon elsewhere — only named. It is named **here and nowhere else**, deliberately: this is the hand-off screen, before any child is playing, and the person looking for the way into the parent area is an adult who should be able to find it. On a screen a child is *using*, a photo of their own parent is the most tappable thing on the page, so every other student screen keeps the anonymous lock (Pillar C). Since the PIN gate was removed (§5.2), that dullness is the only thing discouraging the tap.
 - **Home (`/home`)** — Immersive and world-themed:
   - **Reward strip** at top: star count, coin count, and a **streak chip** shown as `🔥 3`. 🎈 For a brand-new child the flame is dimmed with *"Start a streak!"* — the goal is always visible, never hidden.
   - **World cards** — large gradient cards with the world's mascot and name. Tapping one opens that world's lessons; 🎈 the lesson/world name *plays aloud* on tap so pre-readers navigate by ear.
   - **Lesson tiles** — big picture thumbnails with names (≥20px). One tap = open.
-  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the PIN-gated parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ.
+  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ.
 - **Orientation:** portrait stacks cards vertically (lessons 2-up); landscape places them side-by-side (lessons 3–4-up). Never any horizontal scrolling.
 
 ### 4.3 The 5-step lesson adventure
@@ -424,13 +424,9 @@ flowchart TD
     Start([Parent opens app]) --> Google["Sign in with Google<br/>(no email/password)"]
     Google --> Consent{Consent given?}
     Consent -->|No| C["📋 COPPA consent screen<br/>must tick checkbox 🔒"]
-    C --> PIN["🔢 Set a 4-digit PIN<br/>(enter twice)"]
-    PIN --> Child1["👶 Create first child profile"]
+    C --> Child1["👶 Create first child profile"]
     Child1 --> Dash
-    Consent -->|Yes| Gate{PIN verified<br/>in last 15 min?}
-    Gate -->|No| PinModal["🔢 Enter PIN"]
-    Gate -->|Yes| Dash
-    PinModal --> Dash["📊 Parent Dashboard"]
+    Consent -->|Yes| Dash["📊 Parent Dashboard"]
 
     Dash --> D1[Per-child progress]
     Dash --> D2[Weekly reports]
@@ -448,38 +444,38 @@ A mandatory, ordered onboarding the very first time a parent signs in:
 ```mermaid
 flowchart LR
     L["1 · Continue with Google"] --> Co["2 · COPPA consent<br/>(unchecked box must be ticked)"]
-    Co --> P["3 · Set PIN<br/>(4 digits, entered twice)"]
-    P --> Ch["4 · First child profile<br/>name · age · grade · language · avatar"]
+    Co --> Ch["3 · First child profile<br/>name · age · grade · language · avatar"]
     Ch --> Done([Lands on profiles page])
 ```
 
 - **Google only** — there is no email/password field anywhere. One "Continue with Google" button.
 - 🔒 **Consent before any child** — no child-profile UI is reachable until consent is recorded (COPPA). The button stays disabled until the box is ticked.
-- **PIN setup** — a parent-sized numpad; enter the PIN twice. A mismatch clears the field with a calm inline message. The PIN is hashed (argon2id); raw digits are never stored or logged.
 - **First child** — name (1–30 chars), age (3–6), grade (Nursery / KG-1), language (English / Bangla), and an avatar from a starter grid.
 
-### 5.2 The PIN gate
+### 5.2 Reaching the parent area
 
-The PIN is the wall between a curious child and the parent controls.
+There is **no parental gate**. A signed-in Google session reaches every `/parent/*` page directly.
 
 ```mermaid
 flowchart TD
-    Enter[Parent navigates to any /parent/* page] --> Has{PIN set?}
-    Has -->|No| Setup[→ Set-PIN screen]
-    Has -->|Yes| Fresh{Verified in last 15 min?}
-    Fresh -->|Yes| Allow[Show the page ✅]
-    Fresh -->|No| Modal[🔢 Blocking PIN modal<br/>auto-submits on 4th digit]
-    Modal --> Ok{Correct?}
-    Ok -->|Yes| Grant[15-min grant · server-side] --> Allow
-    Ok -->|No| Fail[Wrong PIN]
-    Fail --> Lock{5 failures?}
-    Lock -->|Yes| Locked[🔒 Locked 60s]
-    Lock -->|No| Modal
+    Enter[Parent navigates to any /parent/* page] --> Signed{Signed in?}
+    Signed -->|No| Login[→ Continue with Google]
+    Signed -->|Yes| Onboarded{Consent + at least one profile?}
+    Onboarded -->|No| Steps[→ The missing onboarding step]
+    Onboarded -->|Yes| Allow[Show the page ✅]
 ```
 
-- A successful PIN grants **15 minutes** of access (tracked server-side in the session).
-- 🔒 **Brute-force protection:** 5 wrong attempts → 60-second lockout.
-- **Exempt from PIN:** the login page, onboarding, **switching between child profiles**, and the entire student portal. Switching kids is intentionally frictionless; entering parent settings is not.
+The PIN gate that used to sit here — a 15-minute server-side grant, a blocking modal, escalating
+lockouts — was **removed on 2026-09-09** for simplicity, retiring FR-AUTH-04.
+
+**What that costs, stated plainly:** the Google session persists on a shared family tablet, so the
+lock icon in the Student Portal is a one-tap door into the parent area, and the parent area can
+edit and delete child profiles. The two things that soften it are deliberate and documented:
+
+- The exit stays **visually dull** — an anonymous lock on every screen a child is using, named
+  only on `/select-profile` where no child is playing yet (see §4.2).
+- **Account deletion is still two-step**, behind a single-use token that expires in 15 minutes.
+  It is the one action that asks twice.
 
 ### 5.3 Managing child profiles
 
@@ -515,10 +511,10 @@ flowchart LR
 
 - **Three section links** — Progress, Children, Weekly report — with the current one marked (`aria-current="page"`). On a phone they wrap to a second row rather than hiding behind a hamburger; three short labels fit, and a menu to reach three places is worse than no menu.
 - **The account menu** carries the parent's Google name and email, *Back to kid mode*, and *Sign out*. **Back to kid mode is the only route from the dashboard to the student portal** — before it existed the parent had to edit the URL.
-- 🔒 **Sign out** revokes the session server-side (FR-AUTH-07), which ends the PIN grant and the active child profile with it, and returns to the sign-in screen.
-- **The bar is absent during onboarding** (consent, PIN setup, first child) and on the login page. There is nowhere to navigate to yet, and a sign-out control mid-consent is a dead end rather than an escape.
+- 🔒 **Sign out** revokes the session server-side (FR-AUTH-07), which ends the active child profile with it, and returns to the sign-in screen.
+- **The bar is absent during onboarding** (consent, first child) and on the login page. There is nowhere to navigate to yet, and a sign-out control mid-consent is a dead end rather than an escape.
 
-After the PIN gate, the parent sees a per-child summary. A child-switcher (tabs) sits below the bar; the selected child persists in the URL.
+The parent sees a per-child summary. A child-switcher (tabs) sits below the bar; the selected child persists in the URL.
 
 ```mermaid
 flowchart TD
@@ -542,7 +538,7 @@ A digest generated per child, per week (Monday–Sunday), viewable anytime.
 
 ```mermaid
 flowchart TD
-    Open["📈 Reports page (PIN-gated)"] --> Latest["Latest week card"]
+    Open["📈 Reports page"] --> Latest["Latest week card"]
     Latest --> Stats["Stats grid:<br/>active days · learning time ·<br/>lessons · stories · quiz accuracy ·<br/>new letters/words/numbers"]
     Latest --> BadgesW[🏅 Badges earned this week]
     Latest --> Note["💬 Encouraging note in a<br/>mascot speech bubble"]
@@ -557,7 +553,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    ST["⏱️ Screen-time (per child, PIN-gated)"] --> Limit["Daily limit:<br/>Off / 15 / 30 / 45 / 60 / 90 min"]
+    ST["⏱️ Screen-time (per child)"] --> Limit["Daily limit:<br/>Off / 15 / 30 / 45 / 60 / 90 min"]
     ST --> Window["Access window toggle:<br/>start & end time pickers<br/>(e.g. 08:00–18:00)"]
     Limit --> Save[Save → 'Settings saved' toast]
     Window --> Save
@@ -572,7 +568,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    Req["Request deletion<br/>(PIN-gated)"] --> Token["Confirmation token issued<br/>(valid 15 min)"]
+    Req["Request deletion"] --> Token["Confirmation token issued<br/>(valid 15 min)"]
     Token --> Confirm["Confirm with token"]
     Confirm --> Wipe["🔒 Single transaction wipes:<br/>all children + all their data<br/>+ parent + auth account"]
     Wipe --> Gone([Permanent · GDPR erasure])
@@ -729,7 +725,7 @@ flowchart LR
 - Predictable structure (same 5 steps) creates safety; celebration creates the pull to return tomorrow.
 
 **For the parent:**
-- Trust through transparency (clear progress, honest reports) and control (PIN, limits) — with minimal friction for the things they do often (switching kids) and deliberate friction for the rare, dangerous things (deleting data).
+- Trust through transparency (clear progress, honest reports) and control (screen-time limits) — with minimal friction for the things they do often (switching kids) and deliberate friction for the rare, dangerous things (deleting data).
 
 **For the admin:**
 - Efficiency through AI, safety through the mandatory human gate, and confidence through live previews and a complete audit trail.

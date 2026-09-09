@@ -114,7 +114,7 @@ The app has three distinct surfaces. Each lives in its own App Router route grou
 ```
 app/
 ├── (student)/      # Student Portal — kid theme, full-bleed, gamified
-├── (parent)/       # Parent Dashboard — parent theme, PIN-gated
+├── (parent)/       # Parent Dashboard — parent theme, Google session only
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
