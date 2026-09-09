@@ -119,15 +119,11 @@ function makeParentFixture(key: string): ParentFixture {
       email: user.email,
       name: user.name,
       avatarUrl: null,
-      pinHash: "$argon2id$fixture",
       // Consented by default: `POST /api/children` sits behind `requireConsent`,
       // so an unconsented fixture would 403 every creation test. `beforeEach`
       // restores this, and the consent tests clear it deliberately.
       consentGivenAt: CONSENTED_AT,
       consentVersion: "1.0",
-      pinFailedCount: 0,
-      pinLockoutStrikes: 0,
-      pinLockedUntil: null,
       deleteToken: null,
       deleteTokenExpiresAt: null,
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -703,18 +699,17 @@ describe("write verbs need only an authenticated parent", () => {
     ["delete", "/api/children/:id", undefined],
   ] as const;
 
-  it.each(WRITE_ROUTES)(
-    "answers %s %s without a 403",
-    async (method, path, body) => {
-      const child = seedChild(PARENT_A);
+  it.each(
+    WRITE_ROUTES,
+  )("answers %s %s without a 403", async (method, path, body) => {
+    const child = seedChild(PARENT_A);
 
-      const url = path.replace(":id", child.id);
-      const request_ = authedAgentFor(PARENT_A)[method](url);
-      const res = await (body === undefined ? request_ : request_.send(body));
+    const url = path.replace(":id", child.id);
+    const request_ = authedAgentFor(PARENT_A)[method](url);
+    const res = await (body === undefined ? request_ : request_.send(body));
 
-      expect(res.status).toBeLessThan(400);
-    },
-  );
+    expect(res.status).toBeLessThan(400);
+  });
 
   it("leaves reads and activate open — the Student Portal calls them (FR-AUTH-06)", async () => {
     const child = seedChild(PARENT_A);
@@ -1071,7 +1066,6 @@ describe("GET /api/children/:id/characters", () => {
     expect(res.status).toBe(401);
     expect(db.characterFindMany).not.toHaveBeenCalled();
   });
-
 });
 
 describe("DELETE /api/children/:id", () => {

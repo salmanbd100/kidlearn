@@ -184,10 +184,7 @@ import {
   UpdateChildBodySchema,
 } from "../schemas/children.js";
 import { ActivityEventBodySchema } from "../schemas/events.js";
-import {
-  ConsentSchema,
-  DeleteAccountSchema,
-} from "../schemas/parent.js";
+import { ConsentSchema, DeleteAccountSchema } from "../schemas/parent.js";
 import {
   LessonStepBodySchema,
   QuizResponsesBodySchema,

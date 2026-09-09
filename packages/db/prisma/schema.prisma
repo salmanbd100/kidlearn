@@ -40,22 +40,8 @@ model Parent {
   email                String         @unique
   name                 String?
   avatarUrl            String?
-  pinHash              String?
   consentGivenAt       DateTime?
   consentVersion       String?
-  // File 10 — PIN brute-force guard. The counters live on the durable Parent
-  // row rather than on the session, so clearing cookies cannot reset a lockout.
-  //
-  // Two counters, because they answer different questions and are forgiven at
-  // different times. `pinFailedCount` is the allowance *within* the current
-  // window — it is what the atomic slot claim in `parentSecurityService`
-  // compares against, and a served cool-off restores it. `pinLockoutStrikes` is
-  // how many cool-offs have been served in a row; it survives them and drives
-  // the doubling, so the escalation cannot be reset by simply waiting. Only a
-  // correct PIN clears both.
-  pinFailedCount       Int            @default(0)
-  pinLockoutStrikes    Int            @default(0)
-  pinLockedUntil       DateTime?
   // File 10 — account-deletion confirmation: a single-use random token with a
   // short expiry. Both columns disappear with the row on a completed deletion.
   deleteToken          String?
@@ -803,9 +789,6 @@ model Session {
   userId               String
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   activeChildProfileId String?
-  // File 10 — the 15-minute parental-PIN grant (FR-AUTH-04). A session field,
-  // not a separate cookie: one source of truth, and signing out ends the grant.
-  pinVerifiedUntil     DateTime?
 
   @@unique([token])
   @@index([userId])

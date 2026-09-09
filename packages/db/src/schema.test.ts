@@ -191,28 +191,29 @@ describe("child-facing curriculum names are translatable (FR-I18N-01)", () => {
   });
 });
 
-describe("the PIN brute-force guard's columns", () => {
+describe("the parental PIN is gone (was FR-AUTH-04)", () => {
   /**
-   * `parentSecurityService` claims an attempt with an atomic conditional `UPDATE`
-   * on `pinFailedCount`, and escalates the cool-off from `pinLockoutStrikes`. Both
-   * must be non-null with a zero default, or the predicate `pinFailedCount < 5`
-   * silently never matches for a row that predates them and the parent is locked
-   * out for good.
+   * Asserted as an absence, because a re-added column is how this change would
+   * quietly come back: `prisma db pull` against a database whose migration was
+   * never applied rewrites the schema from the *database*, and would restore
+   * every one of these.
    */
   it.each([
-    "pinFailedCount",
-    "pinLockoutStrikes",
-  ])("declares %s as a non-null Int defaulting to 0", (column) => {
-    const line = field("Parent", column);
-    expect(line).toMatch(/\bInt\b/);
-    expect(line).not.toContain("Int?");
-    expect(line).toContain("@default(0)");
+    ["Parent", "pinHash"],
+    ["Parent", "pinFailedCount"],
+    ["Parent", "pinLockoutStrikes"],
+    ["Parent", "pinLockedUntil"],
+    ["Session", "pinVerifiedUntil"],
+  ])("declares no %s.%s", (model, column) => {
+    const line = modelBlock(model).find((l) =>
+      new RegExp(`^\\s*${column}\\s`).test(l),
+    );
+    expect(line).toBeUndefined();
   });
 
-  it("keeps the lockout and grant expiries nullable", () => {
-    // `null` means "no cool-off running" / "no grant", which is the resting state.
-    expect(field("Parent", "pinLockedUntil")).toContain("DateTime?");
-    expect(field("Session", "pinVerifiedUntil")).toContain("DateTime?");
+  it("keeps the deletion token, which is now the only guard on erasure", () => {
+    expect(field("Parent", "deleteToken")).toContain("String?");
+    expect(field("Parent", "deleteTokenExpiresAt")).toContain("DateTime?");
   });
 });
 

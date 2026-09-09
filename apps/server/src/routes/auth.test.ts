@@ -53,12 +53,8 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
     email: SESSION_USER.email,
     name: SESSION_USER.name,
     avatarUrl: null,
-    pinHash: null,
     consentGivenAt: null,
     consentVersion: null,
-    pinFailedCount: 0,
-    pinLockoutStrikes: 0,
-    pinLockedUntil: null,
     deleteToken: null,
     deleteTokenExpiresAt: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -113,7 +109,6 @@ describe("GET /api/auth/me", () => {
           email: SESSION_USER.email,
           name: SESSION_USER.name,
           avatarUrl: null,
-          hasPin: false,
           consentGivenAt: null,
         },
         activeChildProfileId: null,
@@ -154,19 +149,35 @@ describe("GET /api/auth/me", () => {
     expect(res.body.data.parent.avatarUrl).toBeNull();
   });
 
-  it("reports hasPin without ever exposing the hash", async () => {
+  /**
+   * `toParentSummary` copies named fields rather than spreading the row, so a
+   * column added to `Parent` is invisible to HTTP until someone opts it in. This
+   * used to be asserted through `pinHash`; the PIN is gone, so it is asserted
+   * through an arbitrary extra column instead — the property is the allow-list,
+   * not the particular secret.
+   */
+  it("never echoes a column the summary does not name", async () => {
     mockSession();
-    db.parentFindUnique.mockResolvedValue(
-      parentRow({ pinHash: "$argon2id$v=19$m=65536,t=3,p=4$secret" }),
-    );
+    db.parentFindUnique.mockResolvedValue({
+      ...parentRow(),
+      // Not a real column. If the summary ever starts spreading the row, this
+      // string appears in the body and the test fails.
+      internalSecret: "must-not-be-serialised",
+    });
 
     const res = await request(app).get("/api/auth/me");
 
-    expect(res.body.data.parent.hasPin).toBe(true);
-    // Grep the raw body, not the parsed object: catches the hash appearing under
-    // any key, at any depth.
-    expect(res.text).not.toContain("pinHash");
-    expect(res.text).not.toContain("argon2id");
+    // Grep the raw body, not the parsed object: catches the value appearing
+    // under any key, at any depth.
+    expect(res.text).not.toContain("must-not-be-serialised");
+    expect(res.text).not.toContain("internalSecret");
+    expect(Object.keys(res.body.data.parent).sort()).toEqual([
+      "avatarUrl",
+      "consentGivenAt",
+      "email",
+      "id",
+      "name",
+    ]);
   });
 
   it("surfaces the session's activeChildProfileId so the client can resume the right profile", async () => {
