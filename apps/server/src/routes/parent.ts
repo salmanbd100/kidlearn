@@ -1,7 +1,6 @@
 import { Router } from "express";
 import type { SuccessEnvelope } from "../lib/errors.js";
 import { authContext, requireParent } from "../middleware/require-parent.js";
-import { requirePinVerified } from "../middleware/require-pin-verified.js";
 import { validate } from "../middleware/validate.js";
 import {
   ConsentSchema,
@@ -122,32 +121,27 @@ parentRouter.post(
 );
 
 /**
- * Step one of account deletion (FR-AUTH-05). PIN-gated: this is the most
- * destructive action in the product, so it must not be reachable from a
- * session someone left open on the kitchen tablet.
+ * Step one of account deletion (FR-AUTH-05). The confirmation token this mints
+ * is the whole guard on erasure: it is single-use, expires in 15 minutes, and
+ * `DELETE /account` does nothing without it. Issuing one is itself harmless.
  */
-parentRouter.post(
-  "/account/delete-request",
-  requirePinVerified,
-  async (req, res, next) => {
-    try {
-      const { parent } = authContext(req);
+parentRouter.post("/account/delete-request", async (req, res, next) => {
+  try {
+    const { parent } = authContext(req);
 
-      const request = await requestAccountDeletion(parent.id);
+    const request = await requestAccountDeletion(parent.id);
 
-      const body: DeleteRequestResponse = { data: request };
-      res.json(body);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+    const body: DeleteRequestResponse = { data: request };
+    res.json(body);
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * Step two: irreversible, synchronous erasure of the parent, every child
  * profile and all of their data (NFR-SAFE-05/06). Guarded by the confirmation
- * token rather than by `requirePinVerified` — the token was itself issued
- * behind the PIN gate and expires in 15 minutes.
+ * token, which is single-use and expires in 15 minutes.
  */
 parentRouter.delete(
   "/account",

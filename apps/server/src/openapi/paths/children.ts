@@ -34,12 +34,6 @@ const CHILD_NOT_FOUND_RESPONSE = errorResponse(
   ["NOT_FOUND"],
 );
 
-/** The PIN gate's two `403` codes, on every route that writes a profile. */
-const PIN_GATE_RESPONSE = errorResponse(
-  "The parental gate is shut. `PIN_REQUIRED` — no PIN is set on this account, so send the parent to setup. `PIN_VERIFICATION_REQUIRED` — a PIN exists but this session has no live grant; call `POST /api/parent/pin/verify`.",
-  ["PIN_REQUIRED", "PIN_VERIFICATION_REQUIRED"],
-);
-
 const CHILD_ID_PARAM = pathParam(
   "id",
   "The child profile id. Validated as a non-empty string rather than a uuid, so a malformed id yields the same `404` as an unknown one.",
@@ -78,8 +72,8 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         ),
         "401": UNAUTHORIZED_RESPONSE,
         "403": errorResponse(
-          "One of three gates is shut. `CONSENT_REQUIRED` — COPPA consent has not been recorded; call `POST /api/parent/consent` first. `PIN_REQUIRED` / `PIN_VERIFICATION_REQUIRED` — the parental gate (FR-AUTH-04). Onboarding does not normally meet the PIN codes here, because `POST /api/parent/pin` opens the grant as it stores the PIN.",
-          ["CONSENT_REQUIRED", "PIN_REQUIRED", "PIN_VERIFICATION_REQUIRED"],
+          "`CONSENT_REQUIRED` — COPPA consent has not been recorded; call `POST /api/parent/consent` first. This is the only gate on creating a profile.",
+          ["CONSENT_REQUIRED"],
         ),
         "409": errorResponse(
           "The household already holds five profiles (FR-PROF-01). Delete one first.",
@@ -141,7 +135,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "",
         "**Locked characters are in the list, and that is the point.** A picker showing only what a child already has cannot show them what there is to earn, so the whole published set comes back and `isUnlocked` says which of them may be worn. `isUnlocked` is `true` for every `isDefault` character and for anything this child has earned.",
         "",
-        "Not PIN-gated, matching the other reads on this router. The write it feeds is.",
+        "Needs only an authenticated parent, like every route on this router.",
         "",
         "Identical in shape to `GET /api/me/characters`, which answers the same question for the *student* session; this one takes a child id because a parent may hold five profiles and none of them active.",
         "",
@@ -178,7 +172,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "",
         "One timezone for the whole deployment, from `APP_TIMEZONE`. A per-parent timezone is post-MVP.",
         "",
-        "Not PIN-gated, matching the other reads on this router: it reports minutes and nothing about what was learned, and the dashboard rendering it sits behind the client-side parental gate (FR-AUTH-04).",
+        "Reports minutes and nothing about what was learned.",
       ].join("\n"),
       parameters: [CHILD_ID_PARAM, LEARNING_TIME_RANGE_PARAM],
       responses: {
@@ -206,9 +200,9 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
       description: [
         "The whole `/parent` screen in one request (FR-DASH-01..04): learning minutes for today, this week and this month, per-subject completion with the strongest and weakest subject named, and the last 20 lessons completed, stories read and badges earned.",
         "",
-        "**One endpoint rather than four.** The screen reads all of it every time it opens, and four PIN-gated calls would be four chances for a lapsed grant to leave half a dashboard rendered.",
+        "**One endpoint rather than four.** The screen reads all of it every time it opens, and one request cannot leave half a dashboard rendered.",
         "",
-        "**PIN-gated, unlike `/{id}/learning-time`.** That route reports minutes and nothing else. This one reports what a child has and has not learned — the household's private record, and exactly what FR-AUTH-04 puts the parental gate in front of.",
+        "**Unlike `/{id}/learning-time`**, which reports minutes and nothing else, this reports what a child has and has not learned — the household's private record.",
         "",
         "**Minutes are the same figure a screen-time limit is checked against**, from one shared function, so the dashboard can never disagree with the limit that blocked a lesson. All three windows are calendar periods in the deployment's `APP_TIMEZONE`; `week` starts Monday.",
         "",
@@ -231,7 +225,6 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -263,7 +256,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "",
         '**`metrics.noteKey` is a key, not a sentence.** Render it as `t("reports.notes." + noteKey, noteParams)` so the encouraging note is Bangla for a Bangla-reading parent — the server has no parent-language column to resolve it with (the same reason the dashboard sends both locales of every title). `note` carries the rendered **English** sentence as a fallback and a debugging aid; a client with the locale files should ignore it. The note is chosen by a deterministic ordered rule list, not an LLM.',
         "",
-        "**PIN-gated**, like `/{id}/dashboard`: a report says what a child did and did not learn, which is the household's private record (FR-AUTH-04).",
+        "Like `/{id}/dashboard`, a report says what a child did and did not learn — the household's private record.",
         "",
         "**Unpublished content never appears in the figures** (`backend.md §4`). Two of them render authored strings — badge names and concept tokens — so the guard on a parent-facing screen is the same as on a child-facing one. `storiesCompleted` and `quizAccuracy` are numbers and are gated anyway: a story pulled from the catalogue should not go on being counted as something the week achieved. Grade deliberately is not in the gate: a child promoted mid-term keeps the week they actually had.",
       ].join("\n"),
@@ -276,7 +269,6 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -294,7 +286,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "",
         '**A child with no policy gets all-nulls, not a `404`.** "No limits set" is a decision, not a missing resource, so the form has no "not configured yet" branch and the shape it renders is the shape it submits.',
         "",
-        "**PIN-gated, unlike every other read on this router.** The other `GET`s here feed screens a child may legitimately be looking at — the profile picker, an avatar list. This one is the control a child would most like to change, so both verbs sit behind the parental gate (FR-AUTH-04, FR-TIME-05). The student surface reads its own allowance from `GET /api/screen-time/status`, which is scoped to the session's active child.",
+        "The control a child would most like to change (FR-TIME-05). The student surface reads its own allowance from `GET /api/screen-time/status`, which is scoped to the session's active child and never reveals another child's policy.",
         "",
         "Times are `\"HH:MM\"` in the deployment's `APP_TIMEZONE`, round-tripping the exact strings the write accepted. A window is a wall-clock fact about a household's evening, so it is never sent as a timestamp — a timestamp would carry a date and a zone that mean nothing here.",
       ].join("\n"),
@@ -306,7 +298,6 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -320,7 +311,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
       tags: ["Screen Time"],
       summary: "Set this child's daily limit and access window",
       description: [
-        "Stores the whole policy (FR-TIME-01, FR-TIME-04). PIN-gated (FR-AUTH-04, FR-TIME-05).",
+        "Stores the whole policy (FR-TIME-01, FR-TIME-04, FR-TIME-05).",
         "",
         '**`PATCH` by verb, total by body.** All three fields are required and nullable, so switching something off is a value the parent sends rather than a key they omit — a partial body would make "clear the window" and "leave the window alone" the same request.',
         "",
@@ -349,7 +340,6 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -363,7 +353,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
       tags: ["Children"],
       summary: "Update a child profile",
       description:
-        "Partial update (FR-PROF-05..06). Send only the fields that change. PIN-gated (FR-AUTH-04) — editing a profile is a parent-dashboard action.",
+        "Partial update (FR-PROF-05..06). Send only the fields that change.",
       parameters: [CHILD_ID_PARAM],
       requestBody: jsonRequestBody(
         "UpdateChildBody",
@@ -379,7 +369,6 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -395,14 +384,13 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
       description: [
         "Removes the profile and everything belonging to it (FR-PROF-07) — progress, quiz responses, rewards, streaks and screen-time settings all cascade.",
         "",
-        "PIN-gated (FR-AUTH-04). This is the most destructive thing a parent can do short of deleting the account, and the client's modal gate is what stops a child, not what stops everything else.",
+        "The most destructive thing a parent can do short of deleting the account. The client confirms before calling it; nothing on the server does.",
       ].join("\n"),
       parameters: [CHILD_ID_PARAM],
       responses: {
         "200": jsonResponse("The profile is gone.", "DeletedResponse"),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": PIN_GATE_RESPONSE,
         "404": CHILD_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -420,7 +408,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
         "",
         "**Every `/api/content/*` route requires this first** — without an active child there is no grade or language to filter by, and they answer `403`.",
         "",
-        "Deliberately not PIN-gated: a five-year-old handing the tablet to a sibling must not hit a parental gate, and the switch can only ever land on a profile the already-authenticated parent owns.",
+        "A five-year-old handing the tablet to a sibling must not hit any barrier, and the switch can only ever land on a profile the already-authenticated parent owns (FR-AUTH-06).",
       ].join("\n"),
       parameters: [CHILD_ID_PARAM],
       responses: {
