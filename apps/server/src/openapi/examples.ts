@@ -335,25 +335,12 @@ export const AUTH_ME_EXAMPLE = {
       name: "Rumana Hoque",
       avatarUrl:
         "https://lh3.googleusercontent.com/a/ACg8ocKq1x2v3w4y5z6a7b8c9d0e1f2g3h4i5j6=s96-c",
-      hasPin: true,
       consentGivenAt: "2026-02-11T09:02:44.118Z",
     },
     // Null until `POST /api/children/{id}/activate`, and every `/api/content/*`
     // read answers 403 while it is. This field is the cheapest way for a client
     // to know whether it must send the user through the profile picker.
     activeChildProfileId: CHILD_ID,
-  },
-};
-
-export const GATE_STATUS_EXAMPLE = {
-  data: {
-    hasPin: true,
-    // The two always agree, and a lapsed grant is reported as absent rather
-    // than as a past timestamp: whenever this is `false`, `pinVerifiedUntil` is
-    // `null`. So no client ever compares timestamps to read the gate — branch
-    // on the boolean, and use the timestamp only to schedule the re-lock.
-    isPinVerified: true,
-    pinVerifiedUntil: "2026-09-07T10:38:12.004Z",
   },
 };
 

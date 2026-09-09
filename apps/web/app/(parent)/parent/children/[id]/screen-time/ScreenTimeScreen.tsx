@@ -3,10 +3,7 @@
 import type { ScreenTimeSettingResponse } from "@kidlearn/types";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  useParentGate,
-  useParentSession,
-} from "@/app/(parent)/context/parent-session";
+import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ScreenTimeForm } from "@/components/parent/ScreenTimeForm";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 import { PARENT_ROUTES } from "@/lib/parent-redirect";
@@ -16,7 +13,6 @@ import { getScreenTime, updateScreenTime } from "@/lib/screen-time-api";
 export function ScreenTimeScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles } = useParentSession();
-  const { guard } = useParentGate();
 
   const [setting, setSetting] = useState<
     ScreenTimeSettingResponse | undefined
@@ -29,7 +25,7 @@ export function ScreenTimeScreen({ childId }: { childId: string }) {
   useEffect(() => {
     let isCurrent = true;
 
-    void guard(getScreenTime(childId)).then((result) => {
+    void getScreenTime(childId).then((result) => {
       if (!isCurrent) return;
       if (result.ok) {
         setSetting(result.data);
@@ -42,10 +38,7 @@ export function ScreenTimeScreen({ childId }: { childId: string }) {
     return () => {
       isCurrent = false;
     };
-    // Keyed on the child alone. `guard` is a new closure whenever the gate's
-    // state changes, and depending on it would re-fetch the policy every time the
-    // PIN pad opened or closed.
-  }, [childId, guard]);
+  }, [childId]);
 
   const child = profiles?.find((profile) => profile.id === childId);
 
@@ -89,7 +82,7 @@ export function ScreenTimeScreen({ childId }: { childId: string }) {
           <ScreenTimeForm
             childName={child.firstName}
             initial={setting}
-            onSubmit={(values) => guard(updateScreenTime(child.id, values))}
+            onSubmit={(values) => updateScreenTime(child.id, values)}
             onSaved={(saved) => {
               setSetting(saved);
               setIsSaved(true);

@@ -18,8 +18,6 @@ const api = vi.hoisted(() => ({
   listChildren: vi.fn(),
   listAvatars: vi.fn(),
   activateChild: vi.fn(),
-  fetchGateStatus: vi.fn(),
-  verifyPin: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -61,10 +59,6 @@ describe("ParentCorner", () => {
     });
     api.listChildren.mockResolvedValue({ ok: true, data: [] });
     api.listAvatars.mockResolvedValue({ ok: true, data: [] });
-    api.fetchGateStatus.mockResolvedValue({
-      ok: true,
-      data: { hasPin: true, isPinVerified: false, pinVerifiedUntil: null },
-    });
   });
 
   it("names the grown-up on the profile-select screen", async () => {
@@ -113,29 +107,8 @@ describe("ParentCorner", () => {
     expect(screen.queryByText("Salman Rahman")).not.toBeInTheDocument();
   });
 
-  it("still raises the PIN pad when the chip is tapped", async () => {
+  it("opens the parent area when the chip is tapped", async () => {
     navigation.pathname = "/select-profile";
-    renderCorner();
-
-    await screen.findByText("Salman Rahman");
-    fireEvent.click(screen.getByRole("button", { name: "For grown-ups" }));
-
-    await waitFor(() =>
-      expect(screen.getByText("Grown-ups only")).toBeInTheDocument(),
-    );
-    expect(router.push).not.toHaveBeenCalled();
-  });
-
-  it("opens the parent area without a PIN pad when the gate is already passed", async () => {
-    navigation.pathname = "/select-profile";
-    api.fetchGateStatus.mockResolvedValue({
-      ok: true,
-      data: {
-        hasPin: true,
-        isPinVerified: true,
-        pinVerifiedUntil: "2026-09-06T12:00:00.000Z",
-      },
-    });
     renderCorner();
 
     await screen.findByText("Salman Rahman");
@@ -144,5 +117,19 @@ describe("ParentCorner", () => {
     await waitFor(() =>
       expect(router.push).toHaveBeenCalledWith("/parent/children"),
     );
+  });
+
+  it("opens the parent area from the anonymous lock too", async () => {
+    navigation.pathname = "/home";
+    renderCorner();
+
+    fireEvent.click(screen.getByRole("button", { name: "For grown-ups" }));
+
+    // No prompt stands between the tap and the parent area any more, on either
+    // appearance of this control.
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith("/parent/children"),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

@@ -19,8 +19,6 @@ const api = vi.hoisted(() => ({
   listChildren: vi.fn(),
   listAvatars: vi.fn(),
   activateChild: vi.fn(),
-  fetchGateStatus: vi.fn(),
-  verifyPin: vi.fn(),
 }));
 const content = vi.hoisted(() => ({
   listWorlds: vi.fn(),
@@ -136,10 +134,6 @@ describe("no external links anywhere in the Student Portal", () => {
     });
     api.listChildren.mockResolvedValue({ ok: true, data: [CHILD] });
     api.listAvatars.mockResolvedValue({ ok: true, data: [] });
-    api.fetchGateStatus.mockResolvedValue({
-      ok: true,
-      data: { hasPin: true, isPinVerified: false, pinVerifiedUntil: null },
-    });
     content.listWorlds.mockResolvedValue({
       ok: true,
       data: { worlds: WORLDS },

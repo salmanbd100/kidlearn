@@ -5,7 +5,6 @@ import type { ParentSummaryResponse } from "@kidlearn/types";
 export const PARENT_ROUTES = {
   login: "/parent/login",
   consent: "/parent/onboarding/consent",
-  pinSetup: "/parent/onboarding/pin",
   firstChild: "/parent/onboarding/child",
   /** The progress dashboard, and where the Google callback lands (file 29). */
   dashboard: "/parent",
@@ -24,29 +23,17 @@ export type ParentSessionState = {
 /** Reachable without a session at all. Everything else redirects to login. */
 const PUBLIC_PATHS: readonly string[] = [PARENT_ROUTES.login];
 
-/** Pages exempt from the PIN gate. */
-const GATE_EXEMPT_PATHS: readonly string[] = [
-  PARENT_ROUTES.login,
-  PARENT_ROUTES.consent,
-  PARENT_ROUTES.pinSetup,
-];
-
 /**
  * The first-run steps, which stop being destinations once onboarding is finished.
  */
 const ONBOARDING_PATHS: readonly string[] = [
   PARENT_ROUTES.login,
   PARENT_ROUTES.consent,
-  PARENT_ROUTES.pinSetup,
   PARENT_ROUTES.firstChild,
 ];
 
 export function isPublicParentPath(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname);
-}
-
-export function isGateExemptPath(pathname: string): boolean {
-  return GATE_EXEMPT_PATHS.includes(pathname);
 }
 
 export function isOnboardingPath(pathname: string): boolean {
@@ -68,12 +55,6 @@ export function resolveParentRedirect(
     return pathname === PARENT_ROUTES.consent
       ? undefined
       : PARENT_ROUTES.consent;
-  }
-
-  if (!parent.hasPin) {
-    return pathname === PARENT_ROUTES.pinSetup
-      ? undefined
-      : PARENT_ROUTES.pinSetup;
   }
 
   if (childCount === undefined) return undefined;

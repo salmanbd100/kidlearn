@@ -5,12 +5,12 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { PARENT_NAMESPACE } from "@/lib/i18n";
 
-// Chrome shared by the three first-run steps (FR-AUTH-03..04, FR-PROF-01).
+// Chrome shared by the two first-run steps (FR-AUTH-03, FR-PROF-01).
 
-export const ONBOARDING_STEP_COUNT = 3;
+export const ONBOARDING_STEP_COUNT = 2;
 
 /** 1-based, matching the `step` prop, so the segments key on themselves. */
-const STEP_NUMBERS = [1, 2, 3] as const;
+const STEP_NUMBERS = [1, 2] as const;
 
 export interface OnboardingStepProps {
   /** 1-based, matching what the progress line says. */
@@ -42,7 +42,7 @@ export function OnboardingStep({
         <div aria-hidden="true" className="flex gap-1.5">
           {STEP_NUMBERS.map((number) => (
             <span
-              // The step number, not the array index: the segments are three fixed
+              // The step number, not the array index: the segments are two fixed
               // steps, so the number is their identity.
               key={number}
               className={cn(

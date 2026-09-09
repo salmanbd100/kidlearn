@@ -55,7 +55,7 @@ export function ParentTopBar() {
   const { status, parent, refresh } = useParentSession();
   const [hasSignOutFailed, setHasSignOutFailed] = useState(false);
 
-  // Onboarding steps stay bare: a parent who has not set a PIN yet has nowhere
+  // Onboarding steps stay bare: a parent part-way through first-run has nowhere
   // to navigate to, and a sign-out control mid-consent is a dead end.
   if (
     status !== "ready" ||

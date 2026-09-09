@@ -1,19 +1,20 @@
-import { act, render, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The gate's *identities*, not its behaviour — which `PinGate.test.tsx` covers.
+ * What the provider reports for each shape of `GET /api/auth/me`. The branch
+ * that matters is the 401: it is the ordinary signed-out case and must not be
+ * reported as an error, or a signed-out visitor meets a failure message instead
+ * of the login screen.
  */
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
-  fetchGateStatus: vi.fn(),
-  verifyPin: vi.fn(),
 }));
 
 vi.mock("@/lib/parent-api", () => api);
 
-const { ParentSessionProvider, useParentGate } = await import(
+const { ParentSessionProvider, useParentSession } = await import(
   "./parent-session"
 );
 
@@ -22,18 +23,17 @@ const PARENT = {
   email: "parent@example.com",
   name: "Parent One",
   avatarUrl: null,
-  hasPin: true,
   consentGivenAt: "2026-06-01T00:00:00.000Z",
 };
 
-type Gate = ReturnType<typeof useParentGate>;
+type Session = ReturnType<typeof useParentSession>;
 
-/** Every render's gate value, so identities can be compared across a flip. */
-function renderGate(): Gate[] {
-  const seen: Gate[] = [];
+/** Every render's session value, so identities can be compared across loads. */
+function renderSession(): Session[] {
+  const seen: Session[] = [];
 
   function Probe() {
-    seen.push(useParentGate());
+    seen.push(useParentSession());
     return null;
   }
 
@@ -47,54 +47,71 @@ function renderGate(): Gate[] {
 }
 
 beforeEach(() => {
-  api.fetchAuthMe.mockResolvedValue({ ok: true, data: { parent: PARENT } });
-  api.listChildren.mockResolvedValue({ ok: true, data: [] });
-  api.fetchGateStatus.mockResolvedValue({
+  api.fetchAuthMe.mockResolvedValue({
     ok: true,
-    data: {
-      hasPin: true,
-      isPinVerified: true,
-      pinVerifiedUntil: "2099-01-01T00:00:00.000Z",
-    },
+    data: { parent: PARENT, activeChildProfileId: null },
   });
+  api.listChildren.mockResolvedValue({ ok: true, data: [] });
 });
 
-describe("ParentSessionProvider — gate action identity", () => {
-  it("keeps `guard` stable when the gate locks", async () => {
-    const seen = renderGate();
-    await waitFor(() => expect(seen.at(-1)?.isLocked).toBe(false));
+describe("ParentSessionProvider", () => {
+  it("reports the parent once both requests land", async () => {
+    const seen = renderSession();
 
-    const before = seen.at(-1);
-    if (before === undefined) throw new Error("gate never rendered");
-
-    await act(async () => {
-      before.relock();
-    });
-
-    const after = seen.at(-1);
-    // The flip happened...
-    expect(after?.isLocked).toBe(true);
-    // ...and did not hand any consumer a new callback to re-run an effect on.
-    expect(after?.guard).toBe(before.guard);
-    expect(after?.relock).toBe(before.relock);
-    expect(after?.unlock).toBe(before.unlock);
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("ready"));
+    expect(seen.at(-1)?.parent).toEqual(PARENT);
+    expect(seen.at(-1)?.children).toEqual([]);
+    expect(seen.at(-1)?.error).toBeUndefined();
   });
 
-  it("keeps `guard` stable when the gate unlocks again", async () => {
-    const seen = renderGate();
-    await waitFor(() => expect(seen.at(-1)?.isLocked).toBe(false));
-
-    const first = seen.at(-1);
-    if (first === undefined) throw new Error("gate never rendered");
-
-    await act(async () => {
-      first.relock();
-    });
-    await act(async () => {
-      first.unlock("2099-01-01T00:00:00.000Z");
+  it("treats a 401 as signed out rather than as an error", async () => {
+    api.fetchAuthMe.mockResolvedValue({
+      ok: false,
+      error: { code: "UNAUTHORIZED", message: "no session" },
     });
 
-    expect(seen.at(-1)?.isLocked).toBe(false);
-    expect(seen.at(-1)?.guard).toBe(first.guard);
+    const seen = renderSession();
+
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("signedOut"));
+    expect(seen.at(-1)?.parent).toBeUndefined();
+    // A signed-out visitor is routed to login; an error message here would be
+    // reported as a fault instead.
+    expect(seen.at(-1)?.error).toBeUndefined();
+  });
+
+  it("reports any other failure as an error", async () => {
+    api.fetchAuthMe.mockResolvedValue({
+      ok: false,
+      error: { code: "NETWORK_ERROR", message: "offline" },
+    });
+
+    const seen = renderSession();
+
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("error"));
+    expect(seen.at(-1)?.error?.code).toBe("NETWORK_ERROR");
+  });
+
+  it("leaves the profiles undefined when only that request fails", async () => {
+    api.listChildren.mockResolvedValue({
+      ok: false,
+      error: { code: "NETWORK_ERROR", message: "offline" },
+    });
+
+    const seen = renderSession();
+
+    // The parent is still known, so the shell renders; only the list is missing.
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("ready"));
+    expect(seen.at(-1)?.parent).toEqual(PARENT);
+    expect(seen.at(-1)?.children).toBeUndefined();
+  });
+
+  it("keeps `refresh` stable across a load, so effects do not re-run on it", async () => {
+    const seen = renderSession();
+
+    const first = seen[0];
+    if (first === undefined) throw new Error("provider never rendered");
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("ready"));
+
+    expect(seen.at(-1)?.refresh).toBe(first.refresh);
   });
 });

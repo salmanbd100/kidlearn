@@ -18,8 +18,6 @@ const api = vi.hoisted(() => ({
   listChildren: vi.fn(),
   listAvatars: vi.fn(),
   activateChild: vi.fn(),
-  fetchGateStatus: vi.fn(),
-  verifyPin: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({

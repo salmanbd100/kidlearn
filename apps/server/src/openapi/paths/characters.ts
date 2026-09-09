@@ -19,7 +19,7 @@ export const CHARACTERS_ROUTES: RouteDoc[] = [
         "",
         "Filtered to `isDefault = true` **and** `status = published`, which is exactly the check the write routes apply. Two consequences worth stating: an unpublished character never appears here (`backend.md §4` — a draft character must not become a child's avatar), and this list can never offer an avatar that creation would reject.",
         "",
-        "Not PIN-gated, deliberately: a parent reaches the profile form during first-run onboarding, before any PIN exists.",
+        "Needs only an authenticated parent: this feeds the profile form, which a parent reaches during first-run onboarding.",
         "",
         "`imageUrl` is `null` for every character today — the illustrated character sheet comes from the content pipeline (design.md §9) and the web client draws a placeholder keyed on `slug` until it lands. It is in the contract now so the artwork is a data change rather than a schema change.",
         "",

@@ -1,7 +1,6 @@
 import type { ParentSummaryResponse } from "@kidlearn/types";
 import { describe, expect, it } from "vitest";
 import {
-  isGateExemptPath,
   isOnboardingPath,
   PARENT_ROUTES,
   resolveParentRedirect,
@@ -20,7 +19,6 @@ function parent(
     email: "parent@example.com",
     name: "Parent One",
     avatarUrl: null,
-    hasPin: true,
     consentGivenAt: "2026-06-01T00:00:00.000Z",
     ...overrides,
   };
@@ -29,7 +27,6 @@ function parent(
 const ALL_PATHS = [
   PARENT_ROUTES.login,
   PARENT_ROUTES.consent,
-  PARENT_ROUTES.pinSetup,
   PARENT_ROUTES.firstChild,
   PARENT_ROUTES.dashboard,
   PARENT_ROUTES.children,
@@ -73,37 +70,15 @@ describe("resolveParentRedirect — consent missing", () => {
     }
   });
 
-  it("is checked before the PIN, so consent is never asked for second", () => {
-    // A parent with neither goes to consent, not to PIN setup: securing an
-    // account they have not agreed to open is the wrong order.
+  it("is checked before the profile form, so consent is never asked for second", () => {
+    // A parent with neither goes to consent, not to the profile form: creating a
+    // child profile on an account nobody has agreed to open is the wrong order.
     const neither = {
-      parent: parent({ consentGivenAt: null, hasPin: false }),
+      parent: parent({ consentGivenAt: null }),
       childCount: 0,
     };
-    expect(resolveParentRedirect(neither, PARENT_ROUTES.pinSetup)).toBe(
+    expect(resolveParentRedirect(neither, PARENT_ROUTES.firstChild)).toBe(
       PARENT_ROUTES.consent,
-    );
-  });
-});
-
-describe("resolveParentRedirect — PIN missing", () => {
-  const noPin = { parent: parent({ hasPin: false }), childCount: 0 };
-
-  it("lets PIN setup render", () => {
-    expect(
-      resolveParentRedirect(noPin, PARENT_ROUTES.pinSetup),
-    ).toBeUndefined();
-  });
-
-  it("sends the profile list to PIN setup", () => {
-    expect(resolveParentRedirect(noPin, PARENT_ROUTES.children)).toBe(
-      PARENT_ROUTES.pinSetup,
-    );
-  });
-
-  it("does not let a consented parent go back to the consent screen", () => {
-    expect(resolveParentRedirect(noPin, PARENT_ROUTES.consent)).toBe(
-      PARENT_ROUTES.pinSetup,
     );
   });
 });
@@ -146,7 +121,6 @@ describe("resolveParentRedirect — fully onboarded", () => {
     for (const path of [
       PARENT_ROUTES.login,
       PARENT_ROUTES.consent,
-      PARENT_ROUTES.pinSetup,
       PARENT_ROUTES.firstChild,
     ]) {
       // The dashboard, not the profile list: a parent signing back in wants to
@@ -169,40 +143,12 @@ describe("resolveParentRedirect — profiles not loaded yet", () => {
   });
 });
 
-describe("gate exemptions", () => {
-  it("exempts only the steps reachable before a PIN exists", () => {
-    // Without these the flow deadlocks: the gate would ask for a PIN the parent
-    // has not created yet.
-    expect(isGateExemptPath(PARENT_ROUTES.login)).toBe(true);
-    expect(isGateExemptPath(PARENT_ROUTES.consent)).toBe(true);
-    expect(isGateExemptPath(PARENT_ROUTES.pinSetup)).toBe(true);
-  });
-
-  it("does not exempt the first-child step, whose write is PIN-gated", () => {
-    // A parent walking the normal path never sees the pad here, because
-    // `POST /api/parent/pin` opens the grant as it stores the PIN. Exempting the
-    // path would only hide the pad in the case it is needed — a grant that did
-    // not survive the trip, leaving the server refusing a form the client thinks
-    // is fine.
-    expect(isGateExemptPath(PARENT_ROUTES.firstChild)).toBe(false);
-  });
-
-  it("does not exempt the profile list or its sub-pages", () => {
-    expect(isGateExemptPath(PARENT_ROUTES.dashboard)).toBe(false);
-    expect(isGateExemptPath(PARENT_ROUTES.children)).toBe(false);
-    expect(isGateExemptPath("/parent/children/new")).toBe(false);
-  });
-
-  /**
-   * The exempt list and the onboarding list hold overlapping paths and mean
-   * different things. They were once the same array, and the day the first-child
-   * step left one it silently left the other — stranding a finished parent on a
-   * form they had already completed.
-   */
-  it("keeps the onboarding list separate from the exempt list", () => {
+describe("onboarding paths", () => {
+  it("names the two first-run steps and nothing past them", () => {
+    expect(isOnboardingPath(PARENT_ROUTES.consent)).toBe(true);
     expect(isOnboardingPath(PARENT_ROUTES.firstChild)).toBe(true);
-    expect(isGateExemptPath(PARENT_ROUTES.firstChild)).toBe(false);
     expect(isOnboardingPath(PARENT_ROUTES.dashboard)).toBe(false);
     expect(isOnboardingPath(PARENT_ROUTES.children)).toBe(false);
+    expect(isOnboardingPath("/parent/children/new")).toBe(false);
   });
 });

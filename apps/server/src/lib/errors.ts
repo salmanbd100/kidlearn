@@ -8,11 +8,10 @@ import { ERROR_CODES, type ErrorCode } from "@kidlearn/types";
 
 // --- Error vocabulary -----------------------------------------------------
 // `ERROR_CODES` moved to `@kidlearn/types` in file 12a, because the parent UI
-// branches on it: `CONSENT_REQUIRED`, `PIN_REQUIRED` and
-// `PIN_VERIFICATION_REQUIRED` are three different destinations behind the same
-// 403, and a client that tells them apart by matching message strings breaks the
-// first time someone rewords a message. Distinct top-level codes rather than a
-// `details.reason` discriminator, for the same reason.
+// branches on it: `CONSENT_REQUIRED` and `FORBIDDEN` are different destinations
+// behind the same 403, and a client that tells them apart by matching message
+// strings breaks the first time someone rewords a message. Distinct top-level
+// codes rather than a `details.reason` discriminator, for the same reason.
 //
 // Re-exported so `ApiError` and every existing import keep working: within
 // `apps/server`, `lib/errors.js` remains the place to import an error code from.

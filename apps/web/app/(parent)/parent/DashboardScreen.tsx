@@ -6,10 +6,7 @@ import { CalendarRange } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  useParentGate,
-  useParentSession,
-} from "@/app/(parent)/context/parent-session";
+import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildSwitcher } from "@/components/parent/ChildSwitcher";
 import { DashboardSummary } from "@/components/parent/DashboardSummary";
 import { getDashboard } from "@/lib/dashboard-api";
@@ -24,7 +21,6 @@ export function DashboardScreen({
 }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles } = useParentSession();
-  const { guard } = useParentGate();
 
   /** The payload and the instant it arrived, as one value. */
   const [loaded, setLoaded] = useState<
@@ -48,15 +44,13 @@ export function DashboardScreen({
     // figures under the new child's name until the request lands.
     setLoaded(undefined);
 
-    void guard(
-      getDashboard(childId, {
-        // The API sleeps on its free tier; the first request after idle takes
-        // seconds. Saying so beats a spinner that looks broken (NFR-PERF-04).
-        onColdStart: () => {
-          if (isCurrent) setStatus("waking");
-        },
-      }),
-    ).then((result) => {
+    void getDashboard(childId, {
+      // The API sleeps on its free tier; the first request after idle takes
+      // seconds. Saying so beats a spinner that looks broken (NFR-PERF-04).
+      onColdStart: () => {
+        if (isCurrent) setStatus("waking");
+      },
+    }).then((result) => {
       if (!isCurrent) return;
       if (result.ok) {
         setLoaded({ data: result.data, at: new Date() });
@@ -69,11 +63,7 @@ export function DashboardScreen({
     return () => {
       isCurrent = false;
     };
-    // Keyed on the child alone, which is what `guard` being a stable callback
-    // buys (see `parent-session.tsx`): were it rebuilt on each lock/unlock, an
-    // expiring grant would re-run this effect, clear the figures below and leave
-    // a 403's error state under the PIN pad.
-  }, [childId, guard]);
+  }, [childId]);
 
   // `ParentGuard` does not render this screen until the profiles have loaded and
   // there is at least one, but a parent who just deleted their last profile sees

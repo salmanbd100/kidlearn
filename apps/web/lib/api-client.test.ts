@@ -74,17 +74,17 @@ describe("apiFetch", () => {
   it("returns the server error code so callers can branch on it", async () => {
     const fetchMock = stubFetch(
       jsonResponse(403, {
-        error: { code: "PIN_VERIFICATION_REQUIRED", message: "PIN required" },
+        error: { code: "CONSENT_REQUIRED", message: "Consent required" },
       }),
     );
 
-    const result = await apiFetch("/api/parent/pin/status");
+    const result = await apiFetch("/api/children");
 
     expect(result).toEqual({
       ok: false,
       error: {
-        code: "PIN_VERIFICATION_REQUIRED",
-        message: "PIN required",
+        code: "CONSENT_REQUIRED",
+        message: "Consent required",
         status: 403,
       },
     });

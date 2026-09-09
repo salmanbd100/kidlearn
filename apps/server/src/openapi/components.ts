@@ -66,8 +66,6 @@ import {
   DeletedResponseSchema,
   DeletionRequestResponseSchema,
   ErrorEnvelopeSchema,
-  GateStatusResponseSchema,
-  GateStatusSchema,
   GenerationJobRefResponseSchema,
   GenerationJobRefSchema,
   HealthResponseSchema,
@@ -96,8 +94,6 @@ import {
   NewBadgeSchema,
   NewCharacterSchema,
   ParentSummarySchema,
-  PinGrantResponseSchema,
-  PinStatusResponseSchema,
   PlatformOverviewResponseSchema,
   PlatformOverviewSchema,
   PromotedCharacterSheetsResponseSchema,
@@ -191,8 +187,6 @@ import { ActivityEventBodySchema } from "../schemas/events.js";
 import {
   ConsentSchema,
   DeleteAccountSchema,
-  SetPinSchema,
-  VerifyPinSchema,
 } from "../schemas/parent.js";
 import {
   LessonStepBodySchema,
@@ -225,8 +219,6 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
 
   CreateChildBody: CreateChildBodySchema,
   UpdateChildBody: UpdateChildBodySchema,
-  SetPinBody: SetPinSchema,
-  VerifyPinBody: VerifyPinSchema,
   ConsentBody: ConsentSchema,
   DeleteAccountBody: DeleteAccountSchema,
   LessonStepBody: LessonStepBodySchema,
@@ -241,10 +233,6 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ParentSummary: ParentSummarySchema,
   AuthMe: AuthMeSchema,
   AuthMeResponse: AuthMeResponseSchema,
-  PinStatusResponse: PinStatusResponseSchema,
-  PinGrantResponse: PinGrantResponseSchema,
-  GateStatus: GateStatusSchema,
-  GateStatusResponse: GateStatusResponseSchema,
   ConsentRecordResponse: ConsentRecordResponseSchema,
   DeletionRequestResponse: DeletionRequestResponseSchema,
   DeletedResponse: DeletedResponseSchema,
@@ -526,7 +514,7 @@ export const TAGS = [
   {
     name: "Parent Account",
     description:
-      "The parent's own account: the parental PIN gate, COPPA consent, and account deletion.",
+      "The parent's own account: COPPA consent and account deletion.",
   },
   {
     name: "Children",
@@ -541,12 +529,12 @@ export const TAGS = [
   {
     name: "Screen Time",
     description:
-      "Parental limits on *starting* new content (FR-TIME-01..05): a daily allowance and an access window, both per child and both owned by the parent. The policy is written behind the PIN gate on `/api/children/{id}/screen-time`; the student surface reads its own verdict from `/api/screen-time/status` without one, because a five-year-old must never meet a PIN pad on their own home screen.\n\n**Enforcement is server-side and happens at the start of content, not during it.** `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` answer `423 Locked` when the gate is shut; step, completion and event endpoints never do, so a lesson already under way can always be finished (FR-TIME-03) and its time keeps being recorded (FR-TIME-06). A lesson with an incomplete `LessonProgress` row written in the past 30 minutes is exempt from its own gate — resuming is not starting — while replaying a finished one is a new start and is gated, as is picking up one abandoned longer ago than that.\n\nThe minutes a limit is compared against are the same server-derived figure the parent dashboard shows, from one shared function, so a limit and a dashboard can never disagree about how long a child has been learning.",
+      "Parental limits on *starting* new content (FR-TIME-01..05): a daily allowance and an access window, both per child and both owned by the parent. The policy is written on `/api/children/{id}/screen-time`, which only the parent's own session reaches; the student surface reads its own verdict from `/api/screen-time/status`, scoped to the session's active child.\n\n**Enforcement is server-side and happens at the start of content, not during it.** `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` answer `423 Locked` when the gate is shut; step, completion and event endpoints never do, so a lesson already under way can always be finished (FR-TIME-03) and its time keeps being recorded (FR-TIME-06). A lesson with an incomplete `LessonProgress` row written in the past 30 minutes is exempt from its own gate — resuming is not starting — while replaying a finished one is a new start and is gated, as is picking up one abandoned longer ago than that.\n\nThe minutes a limit is compared against are the same server-derived figure the parent dashboard shows, from one shared function, so a limit and a dashboard can never disagree about how long a child has been learning.",
   },
   {
     name: "Dashboard",
     description:
-      "What the parent dashboard renders for one child (FR-DASH-01..04): learning minutes for three windows, per-subject completion, and the recent-activity feed — all in one request, because the screen reads them together and four PIN-gated calls would be four chances for a lapsed grant to leave half a dashboard on screen.\n\nEvery figure is the server's. Minutes come from the same `getLearningMinutes` a screen-time limit is checked against, so a dashboard and a limit can never disagree; completion comes from `LessonProgress`; the feed from `LessonProgress` and `RewardLedger`. Nothing a client sends contributes to any of them (FR-TIME-06, spec §7).\n\n**Titles arrive in both locales**, unlike every other localised response in this API. The reader is the parent, their dashboard language is an i18next choice the server never sees, and there is no parent language column — so resolving to the *child's* language here would show an English-reading parent Bangla lesson titles inside English chrome.",
+      "What the parent dashboard renders for one child (FR-DASH-01..04): learning minutes for three windows, per-subject completion, and the recent-activity feed — all in one request, because the screen reads them together and four calls would be four chances to leave half a dashboard on screen.\n\nEvery figure is the server's. Minutes come from the same `getLearningMinutes` a screen-time limit is checked against, so a dashboard and a limit can never disagree; completion comes from `LessonProgress`; the feed from `LessonProgress` and `RewardLedger`. Nothing a client sends contributes to any of them (FR-TIME-06, spec §7).\n\n**Titles arrive in both locales**, unlike every other localised response in this API. The reader is the parent, their dashboard language is an i18next choice the server never sees, and there is no parent language column — so resolving to the *child's* language here would show an English-reading parent Bangla lesson titles inside English chrome.",
   },
   {
     name: "Reports",
@@ -581,7 +569,7 @@ export const TAGS = [
   {
     name: "Admin",
     description:
-      "The administrator surface (spec §4.3, FR-CMS-01). A **separate principal** from a parent, not a parent with extra rights: an admin has no children, no PIN and no consent record, and nothing on these paths takes a parent or child id.\n\nAdmins and parents share one better-auth instance and one `user` table — one session store, one cookie, one CORS configuration — so what separates them is a domain row rather than infrastructure: an `AdminUser` exists for an admin's identity and never for a Google sign-in, and `Parent` provisioning requires a Google account. Each side's guard therefore rejects the other's session with a `403`, in both directions.\n\nThere is **no self-service signup**. `POST /api/auth/sign-up/email` is disabled for everybody, so the only way an admin exists is `pnpm --filter server seed:admin`, and re-running that seed is how a forgotten password is recovered — there is no self-service reset flow. A signed-in admin can change their own password through better-auth's `POST /api/auth/change-password`, undocumented here because `apps/web` does not call it. Rate limiting on the login route lands with file 38.\n\nAnalytics here is platform-wide aggregate only (FR-CMS-07, basic tier) — no response names a household, and detailed analytics are Phase 2.",
+      "The administrator surface (spec §4.3, FR-CMS-01). A **separate principal** from a parent, not a parent with extra rights: an admin has no children and no consent record, and nothing on these paths takes a parent or child id.\n\nAdmins and parents share one better-auth instance and one `user` table — one session store, one cookie, one CORS configuration — so what separates them is a domain row rather than infrastructure: an `AdminUser` exists for an admin's identity and never for a Google sign-in, and `Parent` provisioning requires a Google account. Each side's guard therefore rejects the other's session with a `403`, in both directions.\n\nThere is **no self-service signup**. `POST /api/auth/sign-up/email` is disabled for everybody, so the only way an admin exists is `pnpm --filter server seed:admin`, and re-running that seed is how a forgotten password is recovered — there is no self-service reset flow. A signed-in admin can change their own password through better-auth's `POST /api/auth/change-password`, undocumented here because `apps/web` does not call it. Rate limiting on the login route lands with file 38.\n\nAnalytics here is platform-wide aggregate only (FR-CMS-07, basic tier) — no response names a household, and detailed analytics are Phase 2.",
   },
   {
     name: "Admin CMS: Curriculum",

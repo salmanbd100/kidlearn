@@ -29,7 +29,8 @@ export function ConsentScreen() {
     const result = await submitConsent();
 
     if (result.ok) {
-      // Re-reads `consentGivenAt`, which is what moves the guard on to PIN setup.
+      // Re-reads `consentGivenAt`, which is what moves the guard on to the
+      // first-profile step.
       // Deliberately not a local "done" flag: the server's record is the only
       // thing that decides whether consent exists.
       await refresh();

@@ -9,7 +9,7 @@ import { ReportHistoryList } from "./ReportHistoryList";
  * Which week is showing is a URL, so the assertions are about hrefs — the same
  * behaviour `ChildSwitcher.test.tsx` pins, and worth pinning for the same reason: a
  * list built from buttons and `router.replace` would lose the parent's place on the
- * reload a lapsed PIN grant causes, and no week could be bookmarked.
+ * reload causes, and no week could be bookmarked.
  */
 
 function report(

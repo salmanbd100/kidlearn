@@ -18,7 +18,7 @@ export function getScreenTimeStatus(
   });
 }
 
-/** One child's stored policy. PIN-gated — wrap the call in `useParentGate().guard`. */
+/** One child's stored policy. */
 export function getScreenTime(
   childId: string,
 ): Promise<ApiResult<ScreenTimeSettingResponse>> {
@@ -27,7 +27,7 @@ export function getScreenTime(
   );
 }
 
-/** Replaces one child's whole policy. PIN-gated. */
+/** Replaces one child's whole policy. */
 export function updateScreenTime(
   childId: string,
   values: ScreenTimeUpdate,
