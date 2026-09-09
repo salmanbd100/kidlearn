@@ -31,9 +31,6 @@ describe("GET /", () => {
 });
 
 describe("API documentation", () => {
-  // NODE_ENV is `test` here, so the docs are mounted (see `isDocsEnabled`). The
-  // production-off branch is covered in `openapi/document.test.ts`, which can
-  // test the predicate directly rather than rebuilding the app.
   it("serves the raw spec at /docs.json", async () => {
     const res = await request(app).get("/docs.json");
 
@@ -49,8 +46,6 @@ describe("API documentation", () => {
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/html/);
     expect(res.text).toContain("kidlearn API");
-    // The page fetches the spec rather than inlining it — a ~730 KB document in
-    // the HTML of every page load is the thing this assertion prevents.
     expect(res.text).toContain("/docs.json");
     expect(res.text.length).toBeLessThan(50_000);
   });

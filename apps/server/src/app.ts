@@ -30,9 +30,6 @@ export function buildApp(): Express {
   );
 
   app.use("/api/auth", authRouter);
-  // better-auth reads the raw request stream, so it must be mounted *before*
-  // express.json() — with a JSON parser in front, its client calls hang.
-  // `{*any}` is Express 5's named-wildcard syntax; a bare `*` no longer matches.
 
   app.all("/api/auth/{*any}", toNodeHandler(auth));
 
@@ -40,7 +37,6 @@ export function buildApp(): Express {
 
   app.use(healthRouter);
 
-  // API documentation
   if (isDocsEnabled(env)) {
     app.use(docsRouter);
   }
