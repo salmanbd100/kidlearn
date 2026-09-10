@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
 /**
  * `/admin/login` — the only password form in the product (file 31, spec §4.3).
@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => ADMIN_ROUTES.login,
 }));
 
-vi.mock("@/lib/admin-api", () => api);
+vi.mock("@/features/admin/admin-api", () => api);
 
 const { AdminSessionProvider } = await import(
   "@/app/(admin)/context/admin-session"

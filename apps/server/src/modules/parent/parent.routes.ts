@@ -1,28 +1,25 @@
 import { Router } from "express";
+import type { SuccessEnvelope } from "../../shared/errors/errors.js";
+import { requirePinVerified } from "../../shared/middleware/require-pin-verified.js";
+import { validate } from "../../shared/middleware/validate.js";
+import {
+  confirmAccountDeletion,
+  requestAccountDeletion,
+} from "./account-deletion.service.js";
 import {
   ConsentSchema,
   DeleteAccountSchema,
   SetPinSchema,
   VerifyPinSchema,
-} from "../../schemas/parent.js";
-import {
-  confirmAccountDeletion,
-  requestAccountDeletion,
-} from "../../services/accountDeletionService.js";
+} from "./parent.schema.js";
 import {
   type GateStatus,
   readGateStatus,
   recordParentConsent,
   setParentPin,
   verifyParentPinForSession,
-} from "../../services/parentSecurityService.js";
-import type { SuccessEnvelope } from "../../shared/errors/errors.js";
-import {
-  authContext,
-  requireParent,
-} from "../../shared/middleware/require-parent.js";
-import { requirePinVerified } from "../../shared/middleware/require-pin-verified.js";
-import { validate } from "../../shared/middleware/validate.js";
+} from "./parent-security.service.js";
+import { authContext, requireParent } from "./require-parent.middleware.js";
 
 /** `/api/parent` — the parent's own account: PIN, consent, deletion. */
 export const parentRouter = Router();

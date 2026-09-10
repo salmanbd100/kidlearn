@@ -1,16 +1,16 @@
 import type { ActivityEventResponse, HeartbeatResponse } from "@kidlearn/types";
 import { Router } from "express";
-import {
-  type ActivityEventBody,
-  ActivityEventBodySchema,
-} from "../../schemas/events.js";
-import {
-  recordActivityEvent,
-  recordHeartbeat,
-} from "../../services/learningTimeService.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import { activeChild } from "../../shared/middleware/require-active-child.js";
 import { validate } from "../../shared/middleware/validate.js";
+import {
+  recordActivityEvent,
+  recordHeartbeat,
+} from "../progress/learning-time.service.js";
+import {
+  type ActivityEventBody,
+  ActivityEventBodySchema,
+} from "./events.schema.js";
 
 /**
  * `/api/events` — the presence signal learning time is derived from (FR-TIME-06).

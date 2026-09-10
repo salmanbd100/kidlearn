@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
 /** `/admin` — no page of its own. */
 export default function AdminIndexPage() {

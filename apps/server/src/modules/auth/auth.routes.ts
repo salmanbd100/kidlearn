@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { auth } from "../../config/auth.js";
 import { env } from "../../config/env.js";
+import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import {
   type ParentSummary,
   toParentSummary,
-} from "../../services/parentService.js";
-import type { SuccessEnvelope } from "../../shared/errors/errors.js";
+} from "../parent/parent.service.js";
 import {
   authContext,
   requireParent,
-} from "../../shared/middleware/require-parent.js";
+} from "../parent/require-parent.middleware.js";
 
 /** Routes that live *alongside* better-auth's own handler. */
 export const authRouter = Router();

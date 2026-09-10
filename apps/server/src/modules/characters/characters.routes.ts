@@ -1,10 +1,10 @@
 import { Router } from "express";
+import type { SuccessEnvelope } from "../../shared/errors/errors.js";
+import { requireParent } from "../parent/require-parent.middleware.js";
 import {
   type AvatarCharacter,
   listStarterAvatars,
-} from "../../services/characterService.js";
-import type { SuccessEnvelope } from "../../shared/errors/errors.js";
-import { requireParent } from "../../shared/middleware/require-parent.js";
+} from "./characters.service.js";
 
 /** `/api/characters` — the avatars a child profile may wear (FR-PROF-02). */
 export const charactersRouter = Router();

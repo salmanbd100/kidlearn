@@ -16,8 +16,8 @@ import {
   fetchWorlds,
   updateBadge,
   updateContent,
-} from "@/lib/admin-api";
-import { optionValue } from "@/lib/select-option";
+} from "@/features/admin/admin-api";
+import { optionValue } from "@/features/admin/select-option";
 
 /**
  * Points an owning row's foreign key at one asset (FR-CMS-02, requirement 3).

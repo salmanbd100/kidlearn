@@ -7,7 +7,7 @@ import { AiQueueScreen } from "./AiQueueScreen";
 
 const fetchAiJobs = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/admin-api", () => ({ fetchAiJobs }));
+vi.mock("@/features/admin/admin-api", () => ({ fetchAiJobs }));
 
 const JOB: AiJobSummary = {
   id: "aaaaaaaa-0000-4000-8000-000000000001",

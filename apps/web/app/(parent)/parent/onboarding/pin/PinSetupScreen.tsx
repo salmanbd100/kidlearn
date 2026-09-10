@@ -5,10 +5,10 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { OnboardingStep } from "@/components/parent/OnboardingStep";
-import { PinSetup } from "@/components/parent/PinSetup";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { setPin } from "@/lib/parent-api";
+import { OnboardingStep } from "@/features/parent/OnboardingStep";
+import { PinSetup } from "@/features/parent/PinSetup";
+import { setPin } from "@/features/parent/parent-api";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Step two: choose the parental PIN (FR-AUTH-04). */
 export function PinSetupScreen() {

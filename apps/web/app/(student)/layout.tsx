@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { ParentCorner } from "@/components/student/ParentCorner";
-import { ActiveChildProvider } from "@/lib/active-child";
+import { ActiveChildProvider } from "@/features/children/active-child";
+import { ParentCorner } from "@/features/student/ParentCorner";
 
 /** Student Portal shell — ages 3–5. */
 export default function StudentLayout({ children }: { children: ReactNode }) {

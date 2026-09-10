@@ -12,8 +12,8 @@ import {
   registerMediaAsset,
   signMediaUpload,
   uploadToCloudinary,
-} from "@/lib/admin-api";
-import { optionValue } from "@/lib/select-option";
+} from "@/features/admin/admin-api";
+import { optionValue } from "@/features/admin/select-option";
 
 // Sign → upload → register, as one form (FR-CMS-02).
 

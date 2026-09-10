@@ -23,7 +23,9 @@ vi.mock("../../config/prisma.js", () => ({
 
 const { auth } = await import("../../config/auth.js");
 const { errorHandler } = await import("./error-handler.js");
-const { requireParent } = await import("./require-parent.js");
+const { requireParent } = await import(
+  "../../modules/parent/require-parent.middleware.js"
+);
 const { requirePinVerified } = await import("./require-pin-verified.js");
 
 const SESSION_USER = {

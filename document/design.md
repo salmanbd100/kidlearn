@@ -286,14 +286,15 @@ packages/ui/                 # shared, theme-agnostic component library (shadcn 
 - `apps/web` consumes `@kidlearn/ui`; quiz/game renderers map JSON payloads (see brief §B) to
   `kid/` components.
 
-> **Status, 2026-09-06:** `@kidlearn/ui` is an active workspace. What exists is `primitives/`
-> (button, dialog, dropdown-menu, input, label, select, textarea), `lib/cn.ts` and
-> `styles/tokens.css`. There is no `kid/` or `parent/` directory: surface-specific components live
-> in the app that renders them, under `apps/web/components/<surface>/`. The tree above is the
-> shape this document originally specified, not the shape on disk —
-> `improvement-plan.md §3 P1-4` explains why the split never earned its keep with one consumer,
-> and implementation file 40 is where both this section and `standards/frontend.md §1` get
-> corrected. Do not move files to match the diagram in the meantime.
+> **Status, 2026-09-10:** `@kidlearn/ui` is an active workspace holding `primitives/`
+> (button, dialog, dropdown-menu, input, label, select, textarea), `lib/` (`cn`, the a11y
+> preference store) and `hooks/` (`useIsMotionReduced`), plus `styles/tokens.css`. There is still
+> no `kid/` or `parent/` directory: surface-specific components live in the app that renders
+> them, under `apps/web/features/<domain>/`, with the kid-surface layer at
+> `apps/web/shared/components/kid/`. The tree above is the shape this document originally
+> specified, not the shape on disk — `improvement-plan.md §3 P1-4` explains why the split never
+> earned its keep with one consumer. A component is promoted only when a second consumer needs it
+> *and* it depends on nothing app-owned. Do not move files to match the diagram otherwise.
 
 ### Variants & styling
 

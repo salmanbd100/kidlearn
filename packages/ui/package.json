@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./styles/tokens.css": "./src/styles/tokens.css",
-    "./lib/cn": "./src/lib/cn.ts",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": "./src/lib/*.ts",
     "./primitives/*": "./src/primitives/*.tsx"
   },
   "scripts": {

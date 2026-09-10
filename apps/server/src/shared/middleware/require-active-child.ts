@@ -1,8 +1,8 @@
 import type { ChildProfile } from "@kidlearn/db";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { prisma } from "../../config/prisma.js";
+import { authContext } from "../../modules/parent/require-parent.middleware.js";
 import { ApiError } from "../errors/errors.js";
-import { authContext } from "./require-parent.js";
 
 /**
  * Resolves *which child is learning* for every `/api/content/*` request

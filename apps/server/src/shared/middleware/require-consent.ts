@@ -1,6 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { authContext } from "../../modules/parent/require-parent.middleware.js";
 import { ApiError } from "../errors/errors.js";
-import { authContext } from "./require-parent.js";
 
 /**
  * The COPPA gate (FR-AUTH-03, NFR-SAFE-03). Mount it after `requireParent` on

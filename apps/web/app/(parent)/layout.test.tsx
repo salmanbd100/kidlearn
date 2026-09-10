@@ -1,8 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Providers } from "@/components/Providers";
-import { resetI18nForTests } from "@/lib/i18n";
-import { PARENT_ROUTES } from "@/lib/parent-redirect";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { Providers } from "@/shared/components/Providers";
+import { resetI18nForTests } from "@/shared/lib/i18n";
 
 /**
  * The layout is now more than a theme boundary: it wraps everything in the session
@@ -27,7 +27,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
 }));
 
-vi.mock("@/lib/parent-api", () => api);
+vi.mock("@/features/parent/parent-api", () => api);
 
 const { default: ParentLayout } = await import("./layout");
 

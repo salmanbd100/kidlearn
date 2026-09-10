@@ -1,8 +1,8 @@
 import type { ChildProfileResponse } from "@kidlearn/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Providers } from "@/components/Providers";
-import { resetI18nForTests } from "@/lib/i18n";
+import { Providers } from "@/shared/components/Providers";
+import { resetI18nForTests } from "@/shared/lib/i18n";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const api = vi.hoisted(() => ({
@@ -13,9 +13,11 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-vi.mock("@/lib/parent-api", () => api);
+vi.mock("@/features/parent/parent-api", () => api);
 
-const { ActiveChildProvider } = await import("@/lib/active-child");
+const { ActiveChildProvider } = await import(
+  "@/features/children/active-child"
+);
 const { SelectProfileScreen } = await import("./SelectProfileScreen");
 
 function child(

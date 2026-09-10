@@ -6,10 +6,10 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { ChildProfileForm } from "@/components/parent/ChildProfileForm";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { createChild } from "@/lib/parent-api";
-import { PARENT_ROUTES } from "@/lib/parent-redirect";
+import { ChildProfileForm } from "@/features/children/ChildProfileForm";
+import { createChild } from "@/features/parent/parent-api";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Add a second-through-fifth profile (FR-PROF-01). */
 export function NewChildScreen() {

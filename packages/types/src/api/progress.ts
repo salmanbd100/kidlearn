@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LessonStepSchema } from "../progress.js";
+import { LessonStepSchema } from "../domain/progress.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
 /**

@@ -7,10 +7,13 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { ScreenTimeForm } from "@/components/parent/ScreenTimeForm";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { PARENT_ROUTES } from "@/lib/parent-redirect";
-import { getScreenTime, updateScreenTime } from "@/lib/screen-time-api";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { ScreenTimeForm } from "@/features/screen-time/ScreenTimeForm";
+import {
+  getScreenTime,
+  updateScreenTime,
+} from "@/features/screen-time/screen-time-api";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** One child's screen-time settings (FR-TIME-01, FR-TIME-04..05). */
 export function ScreenTimeScreen({ childId }: { childId: string }) {

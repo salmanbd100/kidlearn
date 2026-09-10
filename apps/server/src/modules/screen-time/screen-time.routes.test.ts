@@ -31,7 +31,7 @@ import {
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
-import { LESSON_RESUME_GRACE_MS } from "../../services/screenTimeService.js";
+import { LESSON_RESUME_GRACE_MS } from "./screen-time.service.js";
 
 const CHILD_ID = "child_1";
 const OTHER_CHILD_ID = "child_2";

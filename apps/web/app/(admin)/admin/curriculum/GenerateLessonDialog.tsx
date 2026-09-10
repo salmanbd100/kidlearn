@@ -21,8 +21,8 @@ import {
   Select,
 } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
-import { generateLesson } from "@/lib/admin-api";
-import { GRADE_LABELS, LOCALE_LABELS } from "@/lib/admin-labels";
+import { generateLesson } from "@/features/admin/admin-api";
+import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 
 /**
  * "Write this lesson for me" — the admin end of the AI Lesson Generator

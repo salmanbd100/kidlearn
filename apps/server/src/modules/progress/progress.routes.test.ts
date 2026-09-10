@@ -2191,7 +2191,7 @@ describe("reward grant contract (FR-GAM-07..08)", () => {
     // A second writer is how a purchase path gets built by accident: any route
     // that could insert a row could be handed an amount from a request body.
     expect(writers.map((path) => path.split("/src/")[1])).toEqual([
-      "services/rewardService.ts",
+      "modules/rewards/reward.service.ts",
     ]);
   });
 });

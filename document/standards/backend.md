@@ -28,15 +28,14 @@
 
 ```
 apps/server/src/
-├── modules/        # One directory per business domain — routes and their tests
+├── modules/        # One directory per business domain — everything it owns
 │   ├── index.ts    # The `/api` aggregator: every resource router is mounted here
-│   ├── children/   # children.routes.ts + children.routes.test.ts
-│   └── admin/      # admin.routes.ts, plus a directory per sub-surface (ai/, media/)
-├── services/       # Business logic — plain async functions, no Express types
-├── schemas/        # Zod request schemas, one file per resource
+│   ├── children/   # children.routes.ts, children.schema.ts, dashboard.service.ts, …
+│   ├── rewards/    # services only — no routes of its own
+│   └── admin/      # plus a directory per sub-surface (ai/, media/, content/)
 ├── openapi/        # The OpenAPI document — see §7
 ├── shared/
-│   ├── middleware/ # Express middleware (auth, validation, error handling)
+│   ├── middleware/ # Middleware that reaches no further than config/ and errors/
 │   ├── errors/     # `ApiError`, the envelopes, `ERROR_CODES`
 │   ├── utils/      # Pure utility functions
 │   └── types/      # Ambient declarations (`express.d.ts`)
@@ -45,27 +44,40 @@ apps/server/src/
 └── server.ts       # Bootstrap only: listen, and drain on SIGINT/SIGTERM
 ```
 
-A module is a **business domain**, not a file type. Its routes and the suites that
-cover them sit together; a route file is `<domain>.routes.ts` and its suite
-`<domain>.routes.test.ts`.
+A module is a **business domain**, not a file type. Everything the domain owns
+sits in one directory — its routes, its Zod request schemas, its services, the
+middleware only it uses, and every suite that covers them — under one dotted
+naming family so the folder sorts into a readable group:
 
-Two rules keep the layout from drifting back into a grab-bag:
+| File | Suffix | Example |
+|---|---|---|
+| Express router | `.routes.ts` | `children.routes.ts` |
+| Zod request schemas | `.schema.ts` | `children.schema.ts` |
+| Business logic | `.service.ts` | `dashboard.service.ts` |
+| Middleware owned by one module | `.middleware.ts` | `load-owned-child.middleware.ts` |
+
+Tests take the name of the file under test plus `.test` — `children.routes.test.ts`.
+In `shared/middleware/` the directory already says what the files are, so those
+keep a bare name (`require-admin.ts`); the suffix exists to disambiguate inside a
+mixed module folder.
+
+Three rules keep the layout from drifting back into a grab-bag:
 
 - **Shared stays shared.** A utility, middleware or error type used by more than
   one module lives under `shared/`, never inside the module that happened to need
   it first.
+- **`shared/` never imports a module.** That inversion is what kept `services/`
+  top-level for as long as it existed. A middleware that needs a domain service
+  is not shared — it belongs to that domain.
 - **No speculative layers.** `controllers/`, `repositories/`, `use-cases/`, `dto/`
   and `factories/` are not part of this structure. A route delegates to a service;
   that is the whole indirection budget.
 
-`services/` and `schemas/` stay at the top level rather than inside modules,
-because several of them are genuinely cross-domain — `screenTimeService` serves
-both `children` and `screen-time`, `schemas/admin-ai.ts` serves four admin
-surfaces. Colocating those would only relocate the coupling.
-
-Naming: route files are `<plural noun>.routes.ts` (`lessons.routes.ts`), service
-files are singular noun + `Service` (`lessonService.ts`). See
-[`general.md §4`](./general.md#4-naming-conventions).
+Modules may import each other's services — `me` reads `rewards`, `children` reads
+`progress`. The constraint is acyclic, not isolated: if two modules need each
+other, the shared piece belongs in `shared/` or in a third module. A module with
+no routes is legitimate when its services only make sense together, which is what
+`rewards` is.
 
 ---
 
@@ -78,7 +90,7 @@ Route handlers validate the request and delegate to a service function. No busin
 ```ts
 // Correct
 router.get("/:id", validateParams(LessonParamsSchema), async (req, res) => {
-  const lesson = await lessonService.findById(req.params.id);
+  const lesson = await findLessonById(req.params.id);
   if (!lesson) return res.status(404).json({ error: "Not found" });
   res.json(lesson);
 });
@@ -195,7 +207,7 @@ This is enforced, not requested: `src/openapi/coverage.test.ts` walks the live E
 
 | | Where | Why |
 |---|---|---|
-| **Request** schemas | `apps/server/src/schemas/<resource>.ts` | The same Zod object `validate()` runs at the boundary. The spec imports it; it is never restated. |
+| **Request** schemas | `apps/server/src/modules/<domain>/<domain>.schema.ts` | The same Zod object `validate()` runs at the boundary. The spec imports it; it is never restated. |
 | **Response** schemas | `packages/types/src/api/<resource>.ts` | Shared with `apps/web`, so the client never redeclares a response shape (§2). |
 
 Both halves are converted to JSON Schema by `src/openapi/to-json-schema.ts`. Nothing in `src/openapi/` may describe a shape by hand that a Zod schema already describes — a hand-written duplicate is a second source of truth and will drift.

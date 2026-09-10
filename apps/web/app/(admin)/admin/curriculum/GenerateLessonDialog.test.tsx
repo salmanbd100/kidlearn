@@ -7,7 +7,7 @@ import { GenerateLessonDialog } from "./GenerateLessonDialog";
 
 const generateLesson = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/admin-api", () => ({ generateLesson }));
+vi.mock("@/features/admin/admin-api", () => ({ generateLesson }));
 
 const TIMESTAMPS = {
   createdAt: "2026-08-01T00:00:00.000Z",

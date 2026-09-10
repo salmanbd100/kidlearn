@@ -167,4 +167,4 @@ Run `/pr` to commit, push, and open the pull request against `dev`.
 Two rules for that report:
 
 - **Never claim a check passed unless you ran it and saw it pass.** Anything you could not verify belongs under **Needs you**, stated plainly.
-- **Pre-commit checks the engineer should make themselves** go under **Needs you**, drawn from the review checklist of whichever role document you loaded (`frontend.md §5`, `backend.md §8`) — but only the items this branch actually touches. A backend-only branch has no touch targets to check; listing them anyway trains the engineer to skim.
+- **Pre-commit checks the engineer should make themselves** go under **Needs you**, drawn from the review checklist of whichever role document you loaded (`frontend.md §6`, `backend.md §8`) — but only the items this branch actually touches. A backend-only branch has no touch targets to check; listing them anyway trains the engineer to skim.

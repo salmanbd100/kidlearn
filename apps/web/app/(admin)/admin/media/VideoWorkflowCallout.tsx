@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
 /** How a lesson video gets made (FR-AI-06). */
 export function VideoWorkflowCallout() {

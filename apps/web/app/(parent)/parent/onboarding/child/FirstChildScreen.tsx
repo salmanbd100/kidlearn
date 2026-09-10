@@ -5,10 +5,10 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { ChildProfileForm } from "@/components/parent/ChildProfileForm";
-import { OnboardingStep } from "@/components/parent/OnboardingStep";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { createChild } from "@/lib/parent-api";
+import { ChildProfileForm } from "@/features/children/ChildProfileForm";
+import { OnboardingStep } from "@/features/parent/OnboardingStep";
+import { createChild } from "@/features/parent/parent-api";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Step three: the first child profile (FR-PROF-01..02). */
 export function FirstChildScreen() {

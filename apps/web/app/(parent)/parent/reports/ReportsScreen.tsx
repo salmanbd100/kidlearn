@@ -10,12 +10,12 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { ChildSwitcher } from "@/components/parent/ChildSwitcher";
-import { ReportCard } from "@/components/parent/ReportCard";
-import { ReportHistoryList } from "@/components/parent/ReportHistoryList";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { PARENT_ROUTES } from "@/lib/parent-redirect";
-import { getWeeklyReports } from "@/lib/reports-api";
+import { ChildSwitcher } from "@/features/children/ChildSwitcher";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { ReportCard } from "@/features/reports/ReportCard";
+import { ReportHistoryList } from "@/features/reports/ReportHistoryList";
+import { getWeeklyReports } from "@/features/reports/reports-api";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** `/parent/reports` — every week this child has had (FR-DASH-05..06). */
 export function ReportsScreen({

@@ -3,10 +3,10 @@ import type {
   RewardSummaryResponse,
 } from "@kidlearn/types";
 import { Router } from "express";
-import { listCharactersForChild } from "../../services/achievementService.js";
-import { getRewardSummary } from "../../services/rewardService.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import { activeChild } from "../../shared/middleware/require-active-child.js";
+import { listCharactersForChild } from "../rewards/achievement.service.js";
+import { getRewardSummary } from "../rewards/reward.service.js";
 
 /**
  * `/api/me` — what the *signed-in child* has, as opposed to what the curriculum

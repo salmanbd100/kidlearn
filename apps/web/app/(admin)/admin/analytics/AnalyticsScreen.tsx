@@ -3,8 +3,8 @@
 import type { PlatformOverview } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { useCallback, useEffect, useState } from "react";
-import { AdminStatCard } from "@/components/admin/AdminStatCard";
-import { fetchPlatformOverview } from "@/lib/admin-api";
+import { AdminStatCard } from "@/features/admin/AdminStatCard";
+import { fetchPlatformOverview } from "@/features/admin/admin-api";
 
 /** `/admin/analytics` — the four platform counters (FR-CMS-07, basic tier). */
 const CARDS: ReadonlyArray<{

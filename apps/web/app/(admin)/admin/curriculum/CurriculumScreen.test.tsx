@@ -20,7 +20,7 @@ const api = vi.hoisted(() => ({
   reorderContent: vi.fn(),
 }));
 
-vi.mock("@/lib/admin-api", () => api);
+vi.mock("@/features/admin/admin-api", () => api);
 
 const { CurriculumScreen } = await import("./CurriculumScreen");
 

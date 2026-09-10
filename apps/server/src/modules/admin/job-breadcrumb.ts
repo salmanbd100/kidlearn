@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import { logger } from "../../config/logger.js";
-import type { JobBreadcrumbQuery } from "../../schemas/admin-ai.js";
-import { recordEditDecision } from "../../services/ai/review.js";
 import { adminContext } from "../../shared/middleware/require-admin.js";
 import { optionalValidatedQuery } from "../../shared/middleware/validate.js";
+import type { JobBreadcrumbQuery } from "./admin-ai.schema.js";
+import { recordEditDecision } from "./ai/review.js";
 
 /**
  * Edit-then-approve, as a breadcrumb the queue puts in a URL (file 37,

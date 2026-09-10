@@ -19,7 +19,7 @@ import {
   fetchBadges,
   transitionEditorContent,
   updateBadge,
-} from "@/lib/admin-api";
+} from "@/features/admin/admin-api";
 import { BadgeForm } from "./BadgeForm";
 
 // `/admin/badges` — the badge manager (FR-GAM-04).

@@ -1,15 +1,15 @@
 import { Router } from "express";
-import { adminLessonPreview } from "../shared/middleware/admin-lesson-preview.js";
 import { requireActiveChild } from "../shared/middleware/require-active-child.js";
-import { requireParent } from "../shared/middleware/require-parent.js";
 import { adminRouter } from "./admin/admin.routes.js";
 import { charactersRouter } from "./characters/characters.routes.js";
 import { childrenRouter } from "./children/children.routes.js";
+import { adminLessonPreview } from "./content/admin-lesson-preview.middleware.js";
 import { contentRouter } from "./content/content.routes.js";
 import { eventsRouter } from "./events/events.routes.js";
 import { jobsRouter } from "./jobs/jobs.routes.js";
 import { meRouter } from "./me/me.routes.js";
 import { parentRouter } from "./parent/parent.routes.js";
+import { requireParent } from "./parent/require-parent.middleware.js";
 import { progressRouter } from "./progress/progress.routes.js";
 import { screenTimeRouter } from "./screen-time/screen-time.routes.js";
 

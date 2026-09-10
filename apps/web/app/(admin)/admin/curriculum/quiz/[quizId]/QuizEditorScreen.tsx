@@ -14,21 +14,21 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
-import { GenerateNarrationButton } from "@/components/admin/GenerateNarrationButton";
-import { QuizQuestionEditor } from "@/components/admin/QuizQuestionEditor";
-import {
-  draftFromDefinition,
-  emptyQuestionDraft,
-  type QuestionDraft,
-} from "@/components/admin/quiz-draft";
 import {
   createQuestion,
   deleteQuestion,
   fetchQuiz,
   replaceQuestion,
   transitionEditorContent,
-} from "@/lib/admin-api";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+} from "@/features/admin/admin-api";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
+import { QuizQuestionEditor } from "@/features/admin/QuizQuestionEditor";
+import {
+  draftFromDefinition,
+  emptyQuestionDraft,
+  type QuestionDraft,
+} from "@/features/admin/quiz-draft";
 
 /**
  * `/admin/curriculum/quiz/[quizId]` — one quiz's ordered questions (FR-CMS-03).

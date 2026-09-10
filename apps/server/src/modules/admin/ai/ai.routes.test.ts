@@ -74,23 +74,23 @@ const service = vi.hoisted(() => ({
   generateIllustrationBatch: vi.fn(),
 }));
 
-vi.mock("../../../services/ai/generators/lesson.js", () => ({
+vi.mock("./generators/lesson.js", () => ({
   generateLesson: service.generateLesson,
 }));
 
-vi.mock("../../../services/ai/generators/story.js", () => ({
+vi.mock("./generators/story.js", () => ({
   generateStory: service.generateStory,
 }));
 
-vi.mock("../../../services/ai/generators/quiz.js", () => ({
+vi.mock("./generators/quiz.js", () => ({
   generateQuiz: service.generateQuiz,
 }));
 
-vi.mock("../../../services/ai/generators/narration.js", () => ({
+vi.mock("./generators/narration.js", () => ({
   generateNarrationBatch: service.generateNarrationBatch,
 }));
 
-vi.mock("../../../services/ai/generators/illustration.js", () => ({
+vi.mock("./generators/illustration.js", () => ({
   generateIllustrationBatch: service.generateIllustrationBatch,
 }));
 

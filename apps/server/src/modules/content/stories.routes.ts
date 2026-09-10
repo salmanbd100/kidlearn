@@ -3,15 +3,12 @@ import type {
   StorySummaryResponse,
 } from "@kidlearn/types";
 import { type Request, Router } from "express";
-import { ContentIdParamsSchema } from "../../schemas/content.js";
-import {
-  getStoryForChild,
-  listStoriesForChild,
-} from "../../services/storyService.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
-import { enforceScreenTime } from "../../shared/middleware/enforce-screen-time.js";
 import { activeChild } from "../../shared/middleware/require-active-child.js";
 import { validate } from "../../shared/middleware/validate.js";
+import { enforceScreenTime } from "../screen-time/enforce-screen-time.middleware.js";
+import { ContentIdParamsSchema } from "./content.schema.js";
+import { getStoryForChild, listStoriesForChild } from "./story.service.js";
 
 /** The Story Library read API (FR-STORY-01, 04, 05, 08). */
 export const storiesRouter = Router();

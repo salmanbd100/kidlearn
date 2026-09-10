@@ -6,7 +6,7 @@ import { GenerateQuizButton } from "./GenerateQuizButton";
 
 const generateQuiz = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/admin-api", () => ({ generateQuiz }));
+vi.mock("@/features/admin/admin-api", () => ({ generateQuiz }));
 
 const LESSON_ID = "dddddddd-0000-4000-8000-000000000001";
 

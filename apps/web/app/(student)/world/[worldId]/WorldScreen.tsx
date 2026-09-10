@@ -5,11 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BigButton } from "@/components/kid/BigButton";
-import { LessonTile } from "@/components/student/LessonTile";
-import { listWorldLessons } from "@/lib/content-api";
-import { STUDENT_NAMESPACE } from "@/lib/i18n";
-import { useScreenNarration } from "@/lib/use-screen-narration";
+import { listWorldLessons } from "@/features/content/content-api";
+import { LessonTile } from "@/features/content/LessonTile";
+import { BigButton } from "@/shared/components/kid/BigButton";
+import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
+import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { StudentStatus } from "../../StudentGuard";
 
 /** Everything inside one world, as pictures (FR-PROF-03). */

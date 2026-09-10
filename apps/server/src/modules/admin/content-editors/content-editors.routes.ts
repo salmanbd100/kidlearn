@@ -1,7 +1,13 @@
 import type { QuestionDeleted } from "@kidlearn/types";
 import { type Request, Router } from "express";
-import { JobBreadcrumbQuerySchema } from "../../../schemas/admin-ai.js";
-import { TransitionSchema } from "../../../schemas/admin-content.js";
+import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
+import {
+  validate,
+  validatedQuery,
+} from "../../../shared/middleware/validate.js";
+import { JobBreadcrumbQuerySchema } from "../admin-ai.schema.js";
+import { TransitionSchema } from "../admin-content.schema.js";
+import { noteJobEdit } from "../job-breadcrumb.js";
 import {
   type ActivityListQuery,
   ActivityListQuerySchema,
@@ -16,7 +22,7 @@ import {
   QuizCreateSchema,
   QuizIdParamsSchema,
   QuizUpdateSchema,
-} from "../../../schemas/admin-editors.js";
+} from "./content-editors.schema.js";
 import {
   type AdminActivityDto,
   type AdminBadgeDto,
@@ -40,13 +46,7 @@ import {
   updateActivity,
   updateBadge,
   updateQuiz,
-} from "../../../services/adminEditorService.js";
-import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
-import {
-  validate,
-  validatedQuery,
-} from "../../../shared/middleware/validate.js";
-import { noteJobEdit } from "../job-breadcrumb.js";
+} from "./content-editors.service.js";
 
 /**
  * `/api/admin/content/{quizzes,activities,badges}` — the guided editors

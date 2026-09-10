@@ -9,7 +9,7 @@ import {
   fetchWorlds,
   promoteJobCharacters,
   updateCharacterSheet,
-} from "@/lib/admin-api";
+} from "@/features/admin/admin-api";
 
 // The Characters tab on `/admin/media` (file 36, FR-AI-09).
 

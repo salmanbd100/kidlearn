@@ -6,12 +6,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Chip, StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { JsonInspector } from "@/components/admin/JsonInspector";
-import { RejectDialog } from "@/components/admin/RejectDialog";
-import { approveAiJob, fetchAiJob, rejectAiJob } from "@/lib/admin-api";
-import { GRADE_LABELS, LOCALE_LABELS } from "@/lib/admin-labels";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
-import { FOCUS_RING } from "@/lib/focus-ring";
+import {
+  approveAiJob,
+  fetchAiJob,
+  rejectAiJob,
+} from "@/features/admin/admin-api";
+import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { FOCUS_RING } from "@/features/admin/focus-ring";
+import { JsonInspector } from "@/features/admin/JsonInspector";
+import { RejectDialog } from "@/features/admin/RejectDialog";
 import {
   AI_JOB_STATUS_LABELS,
   AI_JOB_TYPE_LABELS,

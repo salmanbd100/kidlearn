@@ -15,10 +15,11 @@
 ## Table of Contents
 
 1. [`packages/ui` Component Architecture](#1-packagesui-component-architecture)
-2. [React & Next.js Conventions](#2-react--nextjs-conventions)
-3. [Assets and Strings](#3-assets-and-strings)
-4. [Frontend Testing](#4-frontend-testing)
-5. [Frontend Review Checklist](#5-frontend-review-checklist)
+2. [`apps/web` Layout](#2-appsweb-layout)
+3. [React & Next.js Conventions](#3-react--nextjs-conventions)
+4. [Assets and Strings](#4-assets-and-strings)
+5. [Frontend Testing](#5-frontend-testing)
+6. [Frontend Review Checklist](#6-frontend-review-checklist)
 
 ---
 
@@ -29,12 +30,17 @@
 ```
 packages/ui/src/
 ├── primitives/     # shadcn/ui components — theme-agnostic, no surface assumptions
-├── kid/            # kid-surface components & game widgets
-├── parent/         # parent dashboard components
 ├── hooks/          # shared React hooks — no UI rendering
-├── lib/            # cn() and pure utility functions — no JSX
+├── lib/            # cn(), a11y prefs, pure utility functions — no JSX
 └── styles/         # tokens.css + theme blocks — CSS only, no TS
 ```
+
+`kid/` and `parent/` layers are described in the table below but do not exist
+yet, and nothing should be created there speculatively. A surface component
+earns promotion out of `apps/web` only once it has a second consumer **and**
+depends on nothing app-owned. `BigButton` and `IconTile` are the closest
+candidates and still fail the second test: both call `useAudio`, whose provider
+loads assets from `apps/web/public`.
 
 ### Layer decision rules
 
@@ -77,7 +83,48 @@ Everything public is exported from `src/index.ts`. Individual `primitives/*` are
 
 ---
 
-## 2. React & Next.js Conventions
+## 2. `apps/web` Layout
+
+```
+apps/web/
+├── app/            # Next.js App Router — route groups, pages, layouts, screens
+├── features/       # One directory per domain, named after the server module
+├── shared/
+│   ├── api/        # api-client + the clients more than one feature calls
+│   ├── components/ # Providers and cross-feature components (kid/ surface layer)
+│   ├── hooks/      # Cross-feature React hooks
+│   └── lib/        # i18n, locale and formatting helpers — no JSX
+└── locales/        # i18next resource bundles
+```
+
+A feature owns everything one domain needs: its components, its hooks, its pure
+helpers, its API client, and every suite that covers them. `features/screen-time/`
+holds the parent's limit form, the student's lock screen, the API client, the
+heartbeat hook and the duration formatter — the split by portal that used to
+scatter these across `components/parent`, `components/student` and `lib/` is the
+mistake this layout exists to prevent.
+
+Rules:
+
+- **Feature names track the server.** Where a domain exists on both sides it has
+  the same name in `apps/web/features/` and `apps/server/src/modules/`. Server
+  routes grouped under one module group the same way here — dashboard code lives
+  in `features/children/`, as `dashboard.routes.ts` does. **[REVIEW]**
+- **`shared/` is for the second consumer, not the first.** A component used by
+  one feature lives in that feature. It moves to `shared/` when a second feature
+  imports it, not in anticipation. **[REVIEW]**
+- **`app/` holds routing, not logic.** Pages, layouts and the screen components
+  they render stay under `app/`; anything a second route could reuse belongs in a
+  feature. **[REVIEW]**
+- **No barrel files.** Imports name the file: `@/features/quiz/QuizEngine`. See
+  [`general.md §3`](./general.md#3-module--import-rules). **[REVIEW]**
+- Components stay PascalCase, everything else kebab-case, per
+  [`general.md §4`](./general.md#4-naming-conventions). The server's dotted
+  `.service` / `.schema` suffixes are a server convention and do not apply here.
+
+---
+
+## 3. React & Next.js Conventions
 
 > **Read `apps/web/AGENTS.md` before writing any Next.js code.** Next.js 16 has breaking changes from prior versions. Consult `node_modules/next/dist/docs/` for current API behaviour. The principles below are stable across versions; specifics are not.
 
@@ -127,7 +174,7 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 
 ---
 
-## 3. Assets and Strings
+## 4. Assets and Strings
 
 - All images use `next/image`. No raw `<img>` tags. **[REVIEW]**
 - All fonts use `next/font` (self-hosted, no layout shift). No external font `<link>` tags. **[REVIEW]**
@@ -151,7 +198,7 @@ path is not covered by it, whichever directory the component lives in.
 
 ---
 
-## 4. Frontend Testing
+## 5. Frontend Testing
 
 > Shared testing rules — co-location, no snapshot tests, test naming, CI gate — are in [`general.md §5`](./general.md#5-testing-standards--shared-rules). This section covers only what is frontend-specific.
 
@@ -165,7 +212,7 @@ Test rendered, observable output — not internal state or markup structure.
 
 ---
 
-## 5. Frontend Review Checklist
+## 6. Frontend Review Checklist
 
 Before considering frontend work complete:
 

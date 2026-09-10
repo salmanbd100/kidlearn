@@ -24,7 +24,9 @@ vi.mock("../../config/prisma.js", () => ({
 
 const { auth } = await import("../../config/auth.js");
 const { errorHandler } = await import("./error-handler.js");
-const { requireParent } = await import("./require-parent.js");
+const { requireParent } = await import(
+  "../../modules/parent/require-parent.middleware.js"
+);
 const { activeChild, requireActiveChild } = await import(
   "./require-active-child.js"
 );

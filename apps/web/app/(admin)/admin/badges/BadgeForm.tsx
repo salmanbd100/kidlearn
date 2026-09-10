@@ -4,9 +4,9 @@ import type { AdminBadge, BadgeRuleType } from "@kidlearn/types";
 import { BADGE_RULE_PARAMETERS, BADGE_RULE_TYPES } from "@kidlearn/types";
 import { Button, Input, Label, Select, Textarea } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
-import { MediaPicker } from "@/components/admin/MediaPicker";
-import type { ContentDraft } from "@/lib/admin-api";
-import { optionValue } from "@/lib/select-option";
+import type { ContentDraft } from "@/features/admin/admin-api";
+import { MediaPicker } from "@/features/admin/MediaPicker";
+import { optionValue } from "@/features/admin/select-option";
 
 // The guided badge form (FR-GAM-04).
 

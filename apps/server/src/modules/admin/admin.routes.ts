@@ -1,12 +1,12 @@
 import type { AdminIdentity, PlatformOverview } from "@kidlearn/types";
 import { Router } from "express";
-import { getPlatformOverview } from "../../services/adminAnalyticsService.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import {
   adminContext,
   requireAdmin,
 } from "../../shared/middleware/require-admin.js";
 import { adminAiRouter } from "./ai/ai.routes.js";
+import { getPlatformOverview } from "./analytics.service.js";
 import { adminContentRouter } from "./content/content.routes.js";
 import { adminContentEditorsRouter } from "./content-editors/content-editors.routes.js";
 import { adminMediaRouter } from "./media/media.routes.js";
