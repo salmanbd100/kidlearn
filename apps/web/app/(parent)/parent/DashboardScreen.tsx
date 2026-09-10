@@ -10,11 +10,11 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { ChildSwitcher } from "@/components/parent/ChildSwitcher";
-import { DashboardSummary } from "@/components/parent/DashboardSummary";
-import { getDashboard } from "@/lib/dashboard-api";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { PARENT_ROUTES } from "@/lib/parent-redirect";
+import { ChildSwitcher } from "@/features/children/ChildSwitcher";
+import { DashboardSummary } from "@/features/children/DashboardSummary";
+import { getDashboard } from "@/features/children/dashboard-api";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** `/parent` — the dashboard a parent lands on (FR-DASH-01..04). */
 export function DashboardScreen({

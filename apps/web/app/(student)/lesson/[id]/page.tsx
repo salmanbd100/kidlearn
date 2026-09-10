@@ -1,4 +1,4 @@
-import { LessonPlayer } from "@/components/lesson/LessonPlayer";
+import { LessonPlayer } from "@/features/lesson/LessonPlayer";
 import { StudentGuard } from "../../StudentGuard";
 import { LessonPreviewGate } from "./LessonPreviewGate";
 

@@ -2,9 +2,9 @@
 
 import { Button } from "@kidlearn/ui";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { googleSignInUrl } from "@/lib/parent-api";
+import { googleSignInUrl } from "@/features/parent/parent-api";
+import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Google, and nothing else (FR-AUTH-02). */
 export function LoginScreen() {

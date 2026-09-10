@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ParentTopBar } from "@/components/parent/ParentTopBar";
+import { ParentTopBar } from "@/features/parent/ParentTopBar";
 import { ParentSessionProvider } from "./context/parent-session";
 import { ParentGuard } from "./ParentGuard";
 

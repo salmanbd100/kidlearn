@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useActiveChild } from "@/lib/active-child";
-import { STUDENT_NAMESPACE } from "@/lib/i18n";
-import { STUDENT_ROUTES } from "@/lib/student-routes";
+import { useActiveChild } from "@/features/children/active-child";
+import { STUDENT_ROUTES } from "@/features/student/student-routes";
+import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** What every student screen that needs a child sits behind. */
 export function StudentGuard({ children }: { children: ReactNode }) {

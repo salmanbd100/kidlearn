@@ -4,11 +4,11 @@ import { Button } from "@kidlearn/ui";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParentSession } from "@/app/(parent)/context/parent-session";
-import { OnboardingStep } from "@/components/parent/OnboardingStep";
-import type { ApiFailure } from "@/lib/api-client";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { submitConsent } from "@/lib/parent-api";
-import { generalErrorKey } from "@/lib/parent-errors";
+import { OnboardingStep } from "@/features/parent/OnboardingStep";
+import { submitConsent } from "@/features/parent/parent-api";
+import { generalErrorKey } from "@/features/parent/parent-errors";
+import type { ApiFailure } from "@/shared/api/api-client";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** COPPA consent (FR-AUTH-03). */
 export function ConsentScreen() {

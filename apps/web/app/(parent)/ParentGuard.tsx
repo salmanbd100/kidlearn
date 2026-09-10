@@ -3,13 +3,13 @@
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { PinGate } from "@/components/parent/PinGate";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
+import { PinGate } from "@/features/parent/PinGate";
 import {
   isGateExemptPath,
   isPublicParentPath,
   resolveParentRedirect,
-} from "@/lib/parent-redirect";
+} from "@/features/parent/parent-redirect";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 import { useParentGate, useParentSession } from "./context/parent-session";
 
 /** The two gates every `(parent)` page sits behind. */

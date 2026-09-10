@@ -6,10 +6,10 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { ChildProfileForm } from "@/components/parent/ChildProfileForm";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { updateChild } from "@/lib/parent-api";
-import { PARENT_ROUTES } from "@/lib/parent-redirect";
+import { ChildProfileForm } from "@/features/children/ChildProfileForm";
+import { updateChild } from "@/features/parent/parent-api";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Edit a profile (FR-PROF-05). */
 export function EditChildScreen({ childId }: { childId: string }) {

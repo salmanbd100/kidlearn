@@ -4,7 +4,7 @@ import type { Locale } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { useState } from "react";
-import { generateQuiz } from "@/lib/admin-api";
+import { generateQuiz } from "@/features/admin/admin-api";
 
 /**
  * "Generate questions with AI" — the admin end of the AI Quiz Generator

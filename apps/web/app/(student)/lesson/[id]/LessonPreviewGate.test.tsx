@@ -1,17 +1,17 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Providers } from "@/components/Providers";
-import { resetI18nForTests } from "@/lib/i18n";
+import { Providers } from "@/shared/components/Providers";
+import { resetI18nForTests } from "@/shared/lib/i18n";
 
 // Who `?preview=1` actually gets the preview (file 33, FR-CMS-04).
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 
 const admin = vi.hoisted(() => ({ fetchAdminMe: vi.fn() }));
-vi.mock("@/lib/admin-api", () => admin);
+vi.mock("@/features/admin/admin-api", () => admin);
 
 const player = vi.hoisted(() => ({ render: vi.fn() }));
-vi.mock("@/components/lesson/LessonPlayer", () => ({
+vi.mock("@/features/lesson/LessonPlayer", () => ({
   LessonPlayer: (props: Record<string, unknown>) => {
     player.render(props);
     return <p>player</p>;

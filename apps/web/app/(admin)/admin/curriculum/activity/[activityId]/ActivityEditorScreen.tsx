@@ -7,17 +7,17 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
-import { ActivityEditor } from "@/components/admin/ActivityEditor";
+import { ActivityEditor } from "@/features/admin/ActivityEditor";
 import {
   type ActivityDraft,
   draftFromActivity,
-} from "@/components/admin/activity-draft";
+} from "@/features/admin/activity-draft";
 import {
   fetchActivity,
   transitionEditorContent,
   updateActivity,
-} from "@/lib/admin-api";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+} from "@/features/admin/admin-api";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
 /**
  * `/admin/curriculum/activity/[activityId]` — one activity's payload (FR-ACT-06).

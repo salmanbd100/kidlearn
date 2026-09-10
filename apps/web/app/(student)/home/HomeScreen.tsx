@@ -8,16 +8,16 @@ import { BookOpen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { IconTile } from "@/components/kid/IconTile";
-import { RewardStrip } from "@/components/student/RewardStrip";
-import { ScreenTimeLock } from "@/components/student/ScreenTimeLock";
-import { WorldCard } from "@/components/student/WorldCard";
-import { useActiveChild } from "@/lib/active-child";
-import { listWorlds } from "@/lib/content-api";
-import { STUDENT_NAMESPACE } from "@/lib/i18n";
-import { getRewardsSummary } from "@/lib/progress-api";
-import { useScreenNarration } from "@/lib/use-screen-narration";
-import { useScreenTimeGate } from "@/lib/use-screen-time-gate";
+import { useActiveChild } from "@/features/children/active-child";
+import { listWorlds } from "@/features/content/content-api";
+import { WorldCard } from "@/features/content/WorldCard";
+import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
+import { useScreenTimeGate } from "@/features/screen-time/use-screen-time-gate";
+import { RewardStrip } from "@/features/student/RewardStrip";
+import { getRewardsSummary } from "@/shared/api/progress-api";
+import { IconTile } from "@/shared/components/kid/IconTile";
+import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
+import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { StudentStatus } from "../StudentGuard";
 
 /** The child's home (FR-WORLD-01..03, FR-GAM-06 display). */

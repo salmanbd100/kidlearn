@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
 /**
  * The CMS shell: the guard's verdict, and that no page is rendered to someone it
@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
 }));
 
-vi.mock("@/lib/admin-api", () => api);
+vi.mock("@/features/admin/admin-api", () => api);
 
 const { default: AdminCmsLayout } = await import("./layout");
 

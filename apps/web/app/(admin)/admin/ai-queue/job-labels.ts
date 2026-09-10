@@ -1,5 +1,5 @@
 import type { AiJobStatus, AiJobType, AiReviewDecision } from "@kidlearn/types";
-import { formatRelative } from "@/lib/relative-time";
+import { formatRelative } from "@/shared/lib/relative-time";
 
 // How the review queue names a job (file 37, FR-CMS-05).
 

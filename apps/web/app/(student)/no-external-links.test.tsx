@@ -6,8 +6,8 @@ import type {
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Providers } from "@/components/Providers";
-import { resetI18nForTests } from "@/lib/i18n";
+import { Providers } from "@/shared/components/Providers";
+import { resetI18nForTests } from "@/shared/lib/i18n";
 
 // NFR-SAFE-07 — nothing on the Student Portal leaves it.
 
@@ -31,15 +31,17 @@ vi.mock("next/navigation", () => ({
   useRouter: () => router,
   usePathname: () => navigation.pathname,
 }));
-vi.mock("@/lib/parent-api", () => api);
-vi.mock("@/lib/content-api", () => content);
-vi.mock("@/components/AudioProvider", () => ({
+vi.mock("@/features/parent/parent-api", () => api);
+vi.mock("@/features/content/content-api", () => content);
+vi.mock("@/shared/components/AudioProvider", () => ({
   useAudio: () => audio,
   AudioProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
-const { ActiveChildProvider } = await import("@/lib/active-child");
-const { ParentCorner } = await import("@/components/student/ParentCorner");
+const { ActiveChildProvider } = await import(
+  "@/features/children/active-child"
+);
+const { ParentCorner } = await import("@/features/student/ParentCorner");
 const { SelectProfileScreen } = await import(
   "./select-profile/SelectProfileScreen"
 );

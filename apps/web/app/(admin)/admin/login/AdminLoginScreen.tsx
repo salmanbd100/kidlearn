@@ -4,8 +4,8 @@ import { Button, Input, Label } from "@kidlearn/ui";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useAdminSession } from "@/app/(admin)/context/admin-session";
-import { adminSignIn } from "@/lib/admin-api";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+import { adminSignIn } from "@/features/admin/admin-api";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
 /**
  * `/admin/login` — email and password, and nothing else (file 31, spec §4.3).

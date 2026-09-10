@@ -18,7 +18,7 @@ import {
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { fetchMediaAssets } from "@/lib/admin-api";
+import { fetchMediaAssets } from "@/features/admin/admin-api";
 import { AttachDialog } from "./AttachDialog";
 import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";

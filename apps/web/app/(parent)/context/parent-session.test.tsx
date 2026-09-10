@@ -11,7 +11,7 @@ const api = vi.hoisted(() => ({
   verifyPin: vi.fn(),
 }));
 
-vi.mock("@/lib/parent-api", () => api);
+vi.mock("@/features/parent/parent-api", () => api);
 
 const { ParentSessionProvider, useParentGate } = await import(
   "./parent-session"

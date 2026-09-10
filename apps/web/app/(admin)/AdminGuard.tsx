@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
-import { ADMIN_ROUTES, isPublicAdminPath } from "@/lib/admin-routes";
+import { ADMIN_ROUTES, isPublicAdminPath } from "@/features/admin/admin-routes";
 import { useAdminSession } from "./context/admin-session";
 
 /** The one gate every CMS page sits behind (file 31, spec §4.3). */

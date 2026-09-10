@@ -10,7 +10,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { adminSignOut, fetchAdminMe } from "@/lib/admin-api";
+import { adminSignOut, fetchAdminMe } from "@/features/admin/admin-api";
 
 // Who is signed in to the CMS, loaded once (file 31, FR-CMS-01).
 

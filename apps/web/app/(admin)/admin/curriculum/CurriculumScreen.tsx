@@ -20,7 +20,6 @@ import {
 } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GenerateNarrationButton } from "@/components/admin/GenerateNarrationButton";
 import {
   type ContentDraft,
   createContent,
@@ -32,8 +31,9 @@ import {
   reorderContent,
   transitionContent,
   updateContent,
-} from "@/lib/admin-api";
-import { ADMIN_ROUTES } from "@/lib/admin-routes";
+} from "@/features/admin/admin-api";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 import { ContentForm } from "./ContentForm";
 import { GenerateLessonDialog } from "./GenerateLessonDialog";

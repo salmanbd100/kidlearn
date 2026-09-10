@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ProfileCard } from "@/components/student/ProfileCard";
-import { useActiveChild } from "@/lib/active-child";
-import { STUDENT_NAMESPACE } from "@/lib/i18n";
-import { useScreenNarration } from "@/lib/use-screen-narration";
+import { useActiveChild } from "@/features/children/active-child";
+import { ProfileCard } from "@/features/student/ProfileCard";
+import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
+import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { StudentStatus } from "../StudentGuard";
 
 /** "Who's learning today?" — the child's front door (FR-AUTH-06). */

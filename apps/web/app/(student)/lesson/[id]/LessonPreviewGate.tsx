@@ -3,9 +3,9 @@
 import type { Locale } from "@kidlearn/types";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { LessonPlayer } from "@/components/lesson/LessonPlayer";
-import { fetchAdminMe } from "@/lib/admin-api";
-import { LESSON_NAMESPACE } from "@/lib/i18n";
+import { fetchAdminMe } from "@/features/admin/admin-api";
+import { LessonPlayer } from "@/features/lesson/LessonPlayer";
+import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { StudentGuard, StudentStatus } from "../../StudentGuard";
 
 /** Who `?preview=1` actually gets the preview (file 33, FR-CMS-04). */

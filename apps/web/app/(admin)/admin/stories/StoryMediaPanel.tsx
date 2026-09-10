@@ -2,8 +2,8 @@
 
 import { Button, Input, Label } from "@kidlearn/ui";
 import { useState } from "react";
-import { GenerateNarrationButton } from "@/components/admin/GenerateNarrationButton";
-import { generateIllustrations } from "@/lib/admin-api";
+import { generateIllustrations } from "@/features/admin/admin-api";
+import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
 
 /**
  * Narration and illustrations for one generated story (file 36, FR-AI-04,

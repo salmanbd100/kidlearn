@@ -13,10 +13,10 @@ import {
   useParentGate,
   useParentSession,
 } from "@/app/(parent)/context/parent-session";
-import { ChildCard } from "@/components/parent/ChildCard";
-import { DeleteChildDialog } from "@/components/parent/DeleteChildDialog";
-import { PARENT_NAMESPACE } from "@/lib/i18n";
-import { deleteChild, listAvatars } from "@/lib/parent-api";
+import { ChildCard } from "@/features/children/ChildCard";
+import { DeleteChildDialog } from "@/features/children/DeleteChildDialog";
+import { deleteChild, listAvatars } from "@/features/parent/parent-api";
+import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** FR-PROF-01 — a household may hold at most five learner profiles. */
 const MAX_CHILDREN = 5;

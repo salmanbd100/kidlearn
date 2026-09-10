@@ -14,8 +14,12 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ApiFailure, ApiResult } from "@/lib/api-client";
-import { fetchAuthMe, fetchGateStatus, listChildren } from "@/lib/parent-api";
+import {
+  fetchAuthMe,
+  fetchGateStatus,
+  listChildren,
+} from "@/features/parent/parent-api";
+import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
 
 /**
  * Everything the `(parent)` route group knows about the visitor, loaded once.
