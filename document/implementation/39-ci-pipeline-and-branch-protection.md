@@ -13,6 +13,19 @@
 > **Source:** `document/improvement-plan.md` P0-1, plus the harness updates in its §5.1–§5.5 that
 > are gated on this file landing.
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
+>
+> **Re-verified 2026-09-10.** Requirements 1–5 and 7–9 have landed on `main` (#45, plus the
+> correction on `39-ci-pipeline-and-branch-protection-fix`); the pipeline has run green on every
+> pull request that reached it. Two things are outstanding, and the second is new:
+> **requirement 6** — ruleset 17802318 still carries only `deletion` and `non_fast_forward`, so
+> `gates` is still reported rather than required — and **requirement 10**, added on re-verification,
+> which is the urgent one. The repository adopted a `dev` integration branch on **2026-09-06**
+> (`general.md §7`), two days after this file was written, and the workflow still triggers on `main`
+> only. Three pull requests (#46, #47, #49) have merged into `dev` with **no CI run at all**.
+>
+> **Requirement 10 was implemented on `39-ci-pipeline-and-branch-protection-fix-2`.** Its own pull
+> request against `dev` is the verification: if `gates` reports on it, the requirement is met, and
+> if it does not, the trigger list is still wrong. Nothing else about the branch proves it.
 
 ## Goal
 
@@ -53,10 +66,21 @@ Per-package test counts: `server` 1,354 · `web` 991 · `@kidlearn/types` 163 ·
 `@kidlearn/ui` 18. (`improvement-plan.md` §1 says 2,526 — it omitted `@kidlearn/db`'s 51 schema
 assertions. 2,577 is the real figure.)
 
+**Re-measured 2026-09-10**, after the module reorganisation (#49): **166 files, 2,614 tests**
+(`server` 1,359 · `web` 1,014 · `@kidlearn/types` 163 · `@kidlearn/db` 51 · `@kidlearn/ui` 27),
+all green, 23.6s. Both figures are dated readings, not targets — what the row is for is the order
+of magnitude and the wall time, and neither has moved. A later reader chasing "2,577" against the
+suite will not find it; the number is in this file to date the measurement, nothing more.
+
 Cold, uncached, sequential, that is **under 40 seconds of actual work**. A CI run will be dominated
 by `pnpm install` and the Node/pnpm setup, not by the checks. There is no performance argument for
 splitting this into parallel jobs, and a single job keeps the required-status-check configuration
 to one context name.
+
+**Confirmed once the pipeline was live:** a full `gates` run is **~3m15s** (runs `33865953628`,
+`34318016407`), against ~40s of checks — so setup and install are roughly four times the work they
+set up. That is what requirement 3's caching is for, and it is the stronger argument against
+splitting the job: every extra job pays that setup again, in full.
 
 `packages/config` declares no scripts at all, so it appears in none of these task counts — that is
 correct, it ships three tsconfig files and nothing to check.
@@ -69,13 +93,15 @@ correct, it ships three tsconfig files and nothing to check.
   be pure cost. **File 42 is where that changes** — it adds the real harness, and it will add the
   service container to this workflow as part of its own scope.
 - **No environment variables.** Three separate things could have needed them, and none does:
-  - `apps/server/vitest.setup.ts` assigns every variable `lib/env.ts` requires with `??=`, so the
-    suite is self-sufficient by design.
+  - `apps/server/vitest.setup.ts` assigns every variable `src/config/env.ts` requires with `??=`, so
+    the suite is self-sufficient by design. (That file was `lib/env.ts` when this was measured; #49
+    moved it. The property is unchanged.)
   - `prisma generate` (inside `@kidlearn/db`'s `build`) was run against a copy of `schema.prisma`
     with `DATABASE_URL` and `DIRECT_URL` unset: it succeeded. Prisma resolves datasource
     environment variables when the client is *instantiated*, not when it is generated.
   - `next build` reads only `MEDIA_ASSET_HOSTS` (`next.config.ts` returns `[]` when unset) and
-    `NEXT_PUBLIC_API_URL` (`lib/api-client.ts` falls back to `DEFAULT_API_URL`).
+    `NEXT_PUBLIC_API_URL` (`shared/api/api-client.ts` — `lib/api-client.ts` before #49 — falls back
+    to `DEFAULT_API_URL`).
 
   So the workflow declares **no secrets and no `env:` block**. If a future file makes a gate
   env-dependent, that file adds the variable — do not pre-emptively seed dummies here, because a
@@ -92,7 +118,8 @@ Two things here contradict what the harness currently claims, and both matter to
   `ubuntu-24.04-arm` runners file 38a builds its Graviton images on are public-repo-only; and the
   classic branch-protection API is available, which it would not be on a private repo on GitHub
   Free.
-  Correct the line while updating that file per requirement 8.
+  Correct the line while updating that file per requirement 8. **Done** — that file now says
+  `public`. It still calls `main` the "only long-lived branch", which requirement 10 fixes.
 - **A ruleset already protects `main` — partially.** Repository ruleset **17802318**, "Protect Main
   Branch", is `active` on `~DEFAULT_BRANCH` with two rules: `deletion` and `non_fast_forward`. It
   has **no** `required_status_checks` rule and **no** `pull_request` rule, and it carries one
@@ -311,11 +338,15 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    a second ruleset and do not use the classic `branches/main/protection` API — that would leave
    two overlapping mechanisms on one branch, which is how a protection rule gets misread later.
 
-   > **Forward note (file 38a).** File 38a makes `dev` a deployable branch, so the ruleset's target
-   > has to widen from `~DEFAULT_BRANCH` to **both `main` and `dev`**, and `main` gains a second
-   > required context, `promotion-guard`, which fails any pull request into `main` that did not come
-   > from `dev`. That amendment belongs to file 38a — do not pre-empt it here — but write the
-   > ruleset payload in a way that is easy to extend rather than one that assumes a single branch.
+   > **Forward note.** `dev` already exists and is already the integration branch (requirement 10),
+   > so this ruleset's target has to widen from `~DEFAULT_BRANCH` to **both `main` and `dev`** —
+   > `gates` required on each. Do that here, with requirement 10's triggers, rather than leaving it
+   > to file 38a: a required check on `dev` is what `general.md §7`'s branch lifecycle already
+   > assumes, and it does not depend on anything being deployed.
+   >
+   > What stays with **file 38a** is the second required context on `main`, `promotion-guard`, which
+   > fails any pull request into `main` that did not come from `dev`. Do not pre-empt that, but write
+   > the ruleset payload so adding a context to one branch is an edit rather than a rewrite.
 
    Add to the existing ruleset's `rules` array, keeping `deletion` and `non_fast_forward`:
 
@@ -340,8 +371,11 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    because they were omitted from the payload is the specific failure mode to check for.
 
    **Ordering, and this is the one real judgement call in the file:** do not make `gates` required
-   until flake family 2 is fixed on its own branch (`14-parent-onboarding-profile-ui-fix`, per the
-   Context section). A required check that fails a quarter of the time does not gate anything — it
+   while a green run is not the normal outcome. When this was written that meant waiting on flake
+   family 2; **that landed in #44**, and the blocker is now family 1 — `apps/server`'s Supertest
+   listener lifecycle, which files 42–43 own and which the tracker's **Open follow-up fixes** table
+   records as ⬜ Not started. A required check that fails a quarter of the time does not gate
+   anything — it
    teaches the one person with the bypass to use the bypass, and a gate everybody routes around is
    worth less than no gate, because it also costs the credibility of `general.md §6`'s whole
    enforcement table. Land the workflow first and let it run; add the ruleset rule once a green run
@@ -407,12 +441,60 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    lying around. `improvement-plan.md` §P3 does not list it; add it to this file's scope because it
    is one line and it is a lockfile in a file about lockfile-frozen installs.
 
+10. **Trigger on `dev` as well as `main` — this is now the most load-bearing requirement in the
+    file, and it was not in the original scope.** The repository adopted a `dev` integration branch
+    on 2026-09-06, two days after this file was written. `general.md §7` documents the flow, `/pr`
+    opens pull requests against `dev`, `/code-review` diffs against `dev`, and
+    `/start-implementation` refuses to branch off a red `dev`. The workflow triggers on `main` only,
+    so none of that works:
+
+    - Pull requests **#46**, **#47** and **#49** merged into `dev` with no CI run at all
+      (`gh run list --branch dev` returns nothing; `gh pr checks 49` says "no checks reported").
+      Three merges' worth of code has reached the integration branch ungated.
+    - `general.md §7`'s branch lifecycle says a PR is not ready for review until `gates` is green.
+      On a PR into `dev`, `gates` cannot be green because it never starts — the rule is not merely
+      unenforced, it is unsatisfiable.
+    - `.claude/skills/start-implementation/SKILL.md` step 4 runs
+      `gh run list --branch dev --workflow ci.yml --limit 1` and treats a non-green result as a
+      reason to stop. An empty result is not a failure, so the precondition passes vacuously — the
+      worst kind of check.
+
+    The change is two lines:
+
+    ```yaml
+    on:
+      push:
+        branches: [main, dev]
+      pull_request:
+        branches: [main, dev]
+    ```
+
+    `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` already reads correctly for
+    both — `dev` receives merges as pushes, and a superseded push to an integration branch deserves
+    a verdict for the same reason `main` does. Update the comment beside it to say "either
+    long-lived branch". This does not double any run: a feature branch is still only checked
+    through its pull request.
+
+    **File 38a's requirement 1 previously owned this**, and it should not: 38a is blocked behind
+    file 38 (8–9 hours of AWS work, ⬜ Not started), so the trigger fix was queued behind a
+    deployment. It costs one line and it is the difference between the standards being true and
+    being aspirational. Strike it from 38a's scope when this lands, and take `gates` required on
+    `dev` with it (requirement 6's forward note).
+
+    While in `.claude/settings.json`, correct `autoMode.environment`'s "default and only long-lived
+    branch `main`" — `dev` is the integration branch and `main` the release branch, which is what
+    `general.md §7` says. Four other places describe the triggers as "`main`" and need the same
+    widening: `CLAUDE.md`'s CI section, `README.md`'s pipeline line, `general.md §6`'s CI subsection,
+    and the tracker's Shared Technical Decisions entry. Harden
+    `.claude/skills/start-implementation/SKILL.md` step 4 in the same pass — the fix is one sentence
+    saying that no output is not a pass.
+
 ## Technical Approach & Suggestions
 
-Files to create:
+Files to create — **both exist as of #45**; requirement 10 edits the first rather than creating it:
 
 ```
-.github/workflows/ci.yml                     # the pipeline (requirements 1–5)
+.github/workflows/ci.yml                     # the pipeline (requirements 1–5), + dev triggers (10)
 .github/scripts/coverage-summary.mjs         # $GITHUB_STEP_SUMMARY table (requirement 5)
 ```
 
@@ -442,14 +524,16 @@ document/standards/backend.md                # §4 and §7 [CI] tags
 CLAUDE.md                                    # CI section only
 README.md                                    # badge + one line
 .claude/skills/start-implementation/SKILL.md  # Step 0 precondition
-.claude/settings.json                        # autoMode line, public-repo fix, gh read permissions
+.claude/settings.json                        # autoMode line, public-repo fix, gh read permissions,
+                                             #   and the stale "only long-lived branch" claim (10)
 document/implementation/00-progress-tracker.md # row + Shared Technical Decisions
 ```
 
 Repository settings changed (outside the tree, requirement 6):
 
 ```
-ruleset 17802318 "Protect Main Branch" — add pull_request + required_status_checks(gates)
+ruleset 17802318 "Protect Main Branch" — target main + dev; add pull_request +
+                                          required_status_checks(gates) to each
 ```
 
 ### Sketch of the workflow
@@ -459,14 +543,14 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev] # requirement 10 — dev is the integration branch
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # A superseded PR run is noise. A superseded push to main leaves a commit with
-  # no verdict, which is worse than a wasted minute.
+  # A superseded PR run is noise. A superseded push to either long-lived branch
+  # leaves a commit with no verdict, which is worse than a wasted minute.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -481,12 +565,12 @@ jobs:
       - uses: actions/checkout@v5
       # Before setup-node: its pnpm cache needs `pnpm store path` to resolve.
       # No `version` input — pnpm/action-setup reads `packageManager` from package.json.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 22 # file 46 replaces this with node-version-file: .nvmrc
           cache: pnpm
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -500,7 +584,7 @@ jobs:
       - if: always()
         run: node .github/scripts/coverage-summary.mjs
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: |
@@ -509,9 +593,11 @@ jobs:
           retention-days: 14
 ```
 
-Action major versions above are the current ones; the first CI run is the verification. If a
-version does not resolve, GitHub fails the run with an unambiguous message — pin down from there
-rather than guessing pre-emptively.
+The major versions above are the ones that actually landed, corrected from the first draft's guesses
+after the first run: `pnpm/action-setup@v6`, `actions/cache@v6` and `actions/upload-artifact@v7`
+were all a major ahead of what this file assumed. That is the expected outcome of the approach —
+guess, run, and let GitHub's unambiguous failure message pin the version down, rather than
+researching versions that will have moved again by the time anyone reads this.
 
 ### The ruleset amendment
 
@@ -574,38 +660,55 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
    paths and the `pnpm`-before-`setup-node` ordering are the likely stumbles, and every one of them
    fails loudly. (~30 min)
 
-6. **Amend the ruleset — but only after the file 14 flake fix has landed**, per requirement 6's
-   ordering note, and once a `gates` context exists for GitHub to match. Read the ruleset back and
-   confirm all four rule types, then confirm from a PR page that `gates` shows as a **required**
-   check rather than an informational one. If file 14's fix is not ready, this step carries over;
-   everything else in this file stands on its own. (~15 min)
+6. **Extend the triggers to `dev`** (requirement 10) and correct the `.claude/settings.json`
+   branch claim. Verify by opening the next feature-branch pull request against `dev` and watching
+   `gh pr checks` report `gates` — the check is that a PR into `dev` gets a run at all, which no
+   pull request since 2026-09-06 has. (~10 min)
 
-7. **Standards and harness.** Requirements 7 and 8: the four `[CI]` edits plus the §7 GitHub Flow
+   This step is **out of dependency order on purpose**: it is the only part of the file that is
+   currently causing harm, and it is independent of everything else here.
+
+7. **Amend the ruleset — but only once a green `gates` run is the normal outcome**, per
+   requirement 6's ordering note, and once a `gates` context exists on both branches for GitHub to
+   match. Target `main` and `dev`, read the ruleset back and confirm the rule types, then confirm
+   from a PR page that `gates` shows as a **required** check rather than an informational one.
+   The blocker is `apps/server`'s Supertest listener lifecycle (files 42–43), not file 14 — that
+   landed in #44. Until then this step carries over; everything else in this file stands on its
+   own. (~15 min)
+
+8. **Standards and harness.** Requirements 7 and 8: the four `[CI]` edits plus the §7 GitHub Flow
    additions; the `CLAUDE.md` CI section; the README badge and line; the
    `start-implementation` precondition; the `.claude/settings.json` changes. Delete
    `package-lock.json` (requirement 9). Re-run `pnpm lint` — Biome checks the JSON and Markdown in
    this list. (~35 min)
 
-8. **Close out.** Flip the tracker row to `✅ Done`, push, confirm `gates` is still green on the
+9. **Close out.** Flip the tracker row to `✅ Done`, push, confirm `gates` is still green on the
    final commit, and leave the PR for manual review per `general.md §7`. (~10 min)
 
 ## Acceptance Criteria
 
-- [ ] `.github/workflows/ci.yml` exists and its `gates` job has run green on this branch's PR —
+- [x] `.github/workflows/ci.yml` exists and its `gates` job has run green on this branch's PR —
       verified with `gh run list --branch 39-ci-pipeline-and-branch-protection`, not assumed.
+      (Run `33865953628`, 3m28s.)
 - [ ] The run's log shows all four gates as separately-named steps, each passing: `pnpm lint`,
       `pnpm build`, `pnpm typecheck`, `pnpm test:coverage`.
 - [ ] The workflow declares no secrets and no `env:` block, and the run passes anyway — proving the
       "CI needs no database and no environment variables" finding in Context.
 - [ ] `gh api repos/salmanbd100/kidlearn/rulesets/17802318 --jq '[.rules[].type]'` returns all four
       of `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks` — the two
-      pre-existing rules survived the `PUT`.
-- [ ] The PR page shows `gates` as a **required** check, and a PR cannot be merged while it is
-      failing (confirm by observing the merge button's state, not by reading the ruleset back a
-      second time). **Deferred until the file 14 fix lands** — see requirement 6's ordering note.
-      Until then this file is complete without it, and the tracker row says so.
-- [ ] All 2,577 tests pass under v8 instrumentation, and the coverage step's wall time is recorded
-      in the PR description alongside the plain-`test` baseline.
+      pre-existing rules survived the `PUT`. **Outstanding at 2026-09-10:** that call returns
+      `["deletion","non_fast_forward"]`, and the ruleset's `conditions` still name
+      `~DEFAULT_BRANCH` alone rather than `main` and `dev`.
+- [ ] The PR page shows `gates` as a **required** check on both `main` and `dev`, and a PR cannot be
+      merged while it is failing (confirm by observing the merge button's state, not by reading the
+      ruleset back a second time). **Deferred until `apps/server`'s Supertest listener lifecycle is
+      fixed** (files 42–43) — see requirement 6's ordering note. The file 14 fix this criterion
+      originally waited on landed in #44. Until then this file is complete without it, and the
+      tracker row says so.
+- [x] The whole suite passes under v8 instrumentation, and the coverage step's wall time is recorded
+      in the PR description alongside the plain-`test` baseline. (2,577 tests at the time; **2,614
+      across 166 files as re-measured 2026-09-10**, 23.6s — assert against the suite, not against
+      either number.)
 - [ ] The test step sets `TURBO_CONCURRENCY: 1` with a comment giving the runner-size reasoning and
       **not** claiming it fixes the flake. The suite was run enough times, in enough
       configurations, to state the `apps/server` failure rate honestly rather than to conclude it
@@ -630,8 +733,14 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
       those, and `git diff CLAUDE.md` on this branch should be additive only.
 - [ ] `.claude/settings.json` no longer describes the repository as private.
 - [ ] `package-lock.json` is gone from the repository root.
-- [ ] `pnpm lint && pnpm typecheck && pnpm build && pnpm test` all pass locally, and the same four
+- [x] `pnpm lint && pnpm typecheck && pnpm build && pnpm test` all pass locally, and the same four
       pass in CI — the point of the file is that these two facts are no longer independent.
+- [ ] **A pull request into `dev` reports `gates`** — `gh pr checks <n>` on the next PR against
+      `dev` names the check instead of answering "no checks reported", and
+      `gh run list --branch dev --workflow ci.yml` returns runs. This is requirement 10, and it is
+      the criterion that currently fails: #46, #47 and #49 all merged into `dev` unchecked.
+- [ ] `.claude/skills/start-implementation/SKILL.md`'s step 4 precondition can actually fail —
+      an empty `gh run list --branch dev` result no longer passes it vacuously.
 
 ## Out of Scope
 
@@ -648,6 +757,10 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
   this same workflow, gated `needs: gates`, once file 38 has deployed by hand at least once. As
   written here the workflow verifies; it does not ship. Note for whoever does that: `gates` is the
   required status-check context, so do not rename it, and do not make `deploy` required.
+- **The `promotion-guard` job, and everything else about `dev` that depends on deployment.** Still
+  file 38a. What has moved *out* of 38a and *into* this file is only the trigger list and `gates`
+  being required on `dev` (requirement 10) — because those were sitting behind 8–9 hours of AWS
+  work for no reason, and the standards already assume them.
 - **Dependabot, Renovate, CodeQL, or any other GitHub app.** Dependency upgrades are file 46's
   subject and `improvement-plan.md` §5.3 proposes an `/upgrade-dependency` skill for the mechanical
   part. Adding a bot that opens PRs before the pipeline has run a single week is how a new pipeline

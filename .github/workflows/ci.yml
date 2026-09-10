@@ -1,15 +1,19 @@
 name: CI
 
 on:
+  # Both long-lived branches: `dev` is the integration branch feature branches
+  # merge into, `main` the release branch it is promoted to. A feature branch is
+  # still checked once, through its pull request.
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # A superseded pull-request run is noise. A superseded push to `main` would
-  # leave that commit with no verdict at all, which is worse than a wasted run.
+  # A superseded pull-request run is noise. A superseded push to either
+  # long-lived branch would leave that commit with no verdict at all, which is
+  # worse than a wasted run.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -18,8 +22,8 @@ permissions:
 jobs:
   gates:
     # This name is the status check context that ruleset 17802318 will require
-    # on `main` (pending — see the file 39 spec's requirement 6). Renaming the
-    # job after that lands silently un-gates the branch.
+    # on `main` and `dev` (pending — see the file 39 spec's requirement 6).
+    # Renaming the job after that lands silently un-gates both branches.
     name: gates
     runs-on: ubuntu-latest
     # The four gates measure under a minute cold. This is a hang detector.

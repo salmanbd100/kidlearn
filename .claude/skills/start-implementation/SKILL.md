@@ -43,6 +43,11 @@ If there are uncommitted changes, stop: ask the engineer to stash or commit them
 
 If the latest CI run on `dev` is failing, say so and ask whether to branch anyway. Starting new work on a red `dev` means the first CI failure on the new branch is somebody else's — better to know that before writing code than while debugging it.
 
+**An empty result from step 4 is not a pass.** `gh run list` prints nothing when the workflow has
+never run on the branch, so treat no output the same as a failure and say so rather than proceeding
+— that is the state the branch was in until `ci.yml` gained its `dev` triggers, and it is how three
+pull requests merged unchecked.
+
 ---
 
 ## Step 1 — Create the feature branch and mark In Progress

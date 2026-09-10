@@ -214,7 +214,7 @@ Port conflicts belong in `docker-compose.override.yml` — see step 2.
 
 ### CI
 
-`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every pull request and every push to `main`. It needs no secrets and no database. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
+`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every pull request and every push to `main` or `dev`. It needs no secrets and no database. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
 
 ### Production build
 
