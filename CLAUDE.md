@@ -62,26 +62,33 @@ pnpm test:coverage    # same suite as pnpm test, plus a coverage report
 
 `gates` is not yet a *required* status check on `main`: `apps/server`'s Supertest suites fail intermittently under load for reasons that have nothing to do with the code under test — see **Open follow-up fixes** in `document/implementation/00-progress-tracker.md`. Until that is fixed the pipeline reports; it does not block. A red `gates` on a PR is worth re-running once before assuming it found something.
 
-CI needs no secrets, no environment variables and no database: `apps/server/vitest.setup.ts` supplies everything `lib/env.ts` requires, and no test opens a connection. That changes when the test-database harness lands.
+CI needs no secrets, no environment variables and no database: `apps/server/vitest.setup.ts` supplies everything `config/env.ts` requires, and no test opens a connection. That changes when the test-database harness lands.
 
 ## Layout & current state
 
 ```
 apps/
   web/        Next.js 16 (App Router) + React 19 + Tailwind CSS v4
+    app/          routing only — route groups, pages, layouts, screens
+    features/     one directory per domain, mirroring the server's modules
+    shared/       api/ components/ hooks/ lib/ — the second consumer's home
   server/     Express 5 + TypeScript (ESM, tsx dev) — REST API
+    modules/      one directory per domain: .routes / .schema / .service / .middleware
+    shared/       middleware, errors, utils, types — never imports a module
+    config/       configured singletons: env, prisma, auth, logger
+    openapi/      the assembled OpenAPI document
 packages/
   ui/         @kidlearn/ui — shared React component library (Radix + shadcn primitives)
   db/         @kidlearn/db — Prisma schema + client (Supabase/PostgreSQL)
-  types/      placeholder — no package.json yet
-  config/     placeholder — no package.json yet
+  types/      @kidlearn/types — versioned content payloads + HTTP contracts
+  config/     @kidlearn/config — shared tsconfig bases, no source
 document/     design.md, project-requirement-details.md, key-description.md
 ```
 
-- **`apps/web`** — Next.js 16 App Router. Path alias `@/*` maps to the app root. Tailwind v4 via `postcss.config.mjs` (no `tailwind.config`). Imports `@kidlearn/ui`. Read `apps/web/AGENTS.md` before writing Next.js code — v16 has breaking changes from prior versions.
+- **`apps/web`** — Next.js 16 App Router. `app/` is routing only; everything else lives in `features/<domain>/` (named after the server module) or `shared/{api,components,hooks,lib}/`. Path alias `@/*` maps to the app root; there are no barrel files, so imports name the file (`@/features/quiz/QuizEngine`). Tailwind v4 via `postcss.config.mjs` (no `tailwind.config`). Imports `@kidlearn/ui`. Read `apps/web/AGENTS.md` before writing Next.js code — v16 has breaking changes from prior versions.
 - **`apps/server`** — Express 5 ESM, port 4000. Imports `@kidlearn/db`. Copy `packages/db/.env.example` → `packages/db/.env` (Supabase connection strings) before running.
 - **`packages/db`** — Prisma 6 against Supabase PostgreSQL. Entry: `src/index.ts` exports `prisma` singleton + all Prisma types. Schema: `Parent` ↔ `Child[]`. Runtime uses the pooled `DATABASE_URL` (port 6543, `?pgbouncer=true`); migrations use `DIRECT_URL` (port 5432).
-- **`packages/ui`** — shadcn/ui "new-york" style. `src/primitives/` holds copied shadcn components (own the code — no upstream dependency). `src/styles/tokens.css` is the token contract. `src/lib/cn.ts` is `clsx` + `tailwind-merge`. No build step — exports raw TypeScript via `exports` map.
+- **`packages/ui`** — shadcn/ui "new-york" style. `src/primitives/` holds copied shadcn components (own the code — no upstream dependency). `src/styles/tokens.css` is the token contract. `src/lib/` is `cn()` plus the a11y preference store; `src/hooks/` is `useIsMotionReduced`. No build step — exports raw TypeScript via `exports` map.
 
 ## Architecture
 
@@ -95,7 +102,7 @@ Token values swap at runtime via CSS variables (`--primary`, `--background`, etc
 
 ### Content-as-data
 
-Activities (drag-drop, trace, match, puzzle) and quizzes are stored as versioned `JSONB` payloads in Postgres. The frontend ships generic engines that render whatever the JSON describes. New content is data, not code. Shared schemas live in `packages/types` (placeholder — create this package before adding schemas).
+Activities (drag-drop, trace, match, puzzle) and quizzes are stored as versioned `JSONB` payloads in Postgres. The frontend ships generic engines that render whatever the JSON describes. New content is data, not code. Shared schemas live in `packages/types` — `src/activity/` and `src/quiz/` for the payloads, `src/api/` for the HTTP contracts, `src/domain/` for the vocabulary both sides share.
 
 ### Progress is server-authoritative
 
@@ -105,7 +112,7 @@ Rewards, streaks, screen time, and lesson completion are computed server-side. T
 
 The server assembles an OpenAPI 3.0 document at boot from `apps/server/src/openapi/`, served as a Scalar API reference at `/docs` and raw at `/docs.json` (always outside production; in production only with `ENABLE_API_DOCS=true`). Read `/docs` before writing any client code against the API. **Send** on that page works off the Google session with no token to paste — Scalar never sets `credentials`, so its requests take the `same-origin` default and the browser attaches the session cookie itself. That holds only because `/docs` shares an origin with `/api/*`; do not set a `proxyUrl`.
 
-Nothing in the document is hand-written twice: request schemas are the Zod objects the routes already validate with (`apps/server/src/schemas/`), response schemas are Zod in `packages/types/src/api/` and shared with `apps/web`. **A new endpoint must be registered in `src/openapi/paths/<resource>.ts` in the same change** — `src/openapi/coverage.test.ts` walks the live Express routers and fails the suite otherwise. It also needs a unique `operationId`, and a new tag needs an `x-tagGroups` group in `components.ts` (a tag no group names is silently dropped from the sidebar); `src/openapi/document.test.ts` asserts both. Successful responses are asserted against their schemas in the route tests via `assertContract`, and the hand-written examples in `src/openapi/examples.ts` are parsed against theirs. Full rules in `document/standards/backend.md §7`.
+Nothing in the document is hand-written twice: request schemas are the Zod objects the routes already validate with (each module's `<domain>.schema.ts`), response schemas are Zod in `packages/types/src/api/` and shared with `apps/web`. **A new endpoint must be registered in `src/openapi/paths/<resource>.ts` in the same change** — `src/openapi/coverage.test.ts` walks the live Express routers and fails the suite otherwise. It also needs a unique `operationId`, and a new tag needs an `x-tagGroups` group in `components.ts` (a tag no group names is silently dropped from the sidebar); `src/openapi/document.test.ts` asserts both. Successful responses are asserted against their schemas in the route tests via `assertContract`, and the hand-written examples in `src/openapi/examples.ts` are parsed against theirs. Full rules in `document/standards/backend.md §7`.
 
 ### Publishing workflow
 
@@ -127,4 +134,4 @@ All content has a `status` field (`draft → in_review → approved/rejected →
 
 ## Workspace wiring
 
-New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. `packages/types` and `packages/config` are not yet active workspaces.
+New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. All four of `ui`, `db`, `types` and `config` are active workspaces.

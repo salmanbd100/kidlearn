@@ -196,8 +196,8 @@ Frontend:
 
 - **Semantic tokens** — raw hex, a CSS colour literal or a Tailwind colour class in component code
   (`frontend.md §1`).
-- **i18next** — a user-visible string not routed through it (`frontend.md §3`).
-- **`'use client'`** — a boundary higher than the leaf needing it (`frontend.md §2`).
+- **i18next** — a user-visible string not routed through it (`frontend.md §4`).
+- **`'use client'`** — a boundary higher than the leaf needing it (`frontend.md §3`).
 - **Layer placement** — the wrong `packages/ui` subdirectory, per the table in `frontend.md §1`
   ("if it matches more than one row, use the most specific match").
 - **Exports** — a new public component missing from `src/index.ts` *or* the `package.json`
@@ -229,7 +229,7 @@ Yours:
   **404, never 403**. No test sees this.
 - **A second source of truth** — a response shape declared in `apps/web` or hand-written as JSON
   Schema instead of Zod in `packages/types/src/api/`. Request schemas are the Zod objects in
-  `apps/server/src/schemas/` that `validate()` already runs.
+  each module's `.schema.ts` that `validate()` already runs.
 - **`z.date()` in a response schema** — the wire format is an ISO string; use `IsoDateTimeSchema`.
 - **Missing `assertContract(Schema, res.body, "<operation>")`** on a new successful response.
 - **A refinement that vanished** — `.refine()`/`.superRefine()` are dropped in JSON Schema
@@ -306,7 +306,7 @@ drop it. Do not report it hedged and leave the engineer to check.
 
 #### 🔴 CONTENT SAFETY — <one-line description>
 
-`apps/server/src/services/lessonService.ts:42`
+`apps/server/src/modules/content/story.service.ts:42`
 
 > `backend.md §4` — "<the sentence, verbatim>"
 

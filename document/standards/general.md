@@ -43,7 +43,7 @@ A new package in `packages/` is not a workspace package until:
 - [ ] Its consumer app lists it as a workspace dependency (`"@kidlearn/<name>": "workspace:*"`)
 - [ ] `turbo.json` has any required `dependsOn` wiring for the pipeline
 
-`packages/types` and `packages/config` are placeholders and are **not active workspaces** until this checklist is completed.
+All four packages — `ui`, `db`, `types`, `config` — have completed this checklist and are active workspaces. `config` ships only shared tsconfig bases, so it has no `dev`/`build`/`typecheck` scripts of its own.
 
 ### Environment files
 
@@ -116,6 +116,7 @@ Import order is auto-organised by Biome's `organizeImports` on every `pnpm forma
 ### Barrel files
 
 - Barrel files (`index.ts` that re-exports everything) are permitted **only** at the public entry point of a package (`src/index.ts`). Deep internal barrel files obscure the dependency graph, slow TypeScript's module resolution, and make tree-shaking unreliable. Do not create them. **[REVIEW]**
+- This applies inside `apps/web` too: `features/*` and `shared/*` have no `index.ts`, so imports name the file — `@/features/quiz/QuizEngine`, not `@/features/quiz`. **[REVIEW]**
 
 ### Side-effect imports
 
@@ -138,7 +139,7 @@ import { Button } from "@kidlearn/ui";
 | All other source files | kebab-case | `lesson-service.ts` |
 | Directories | kebab-case | `game-widgets/`, `kid/` |
 | Next.js reserved files | lowercase per framework | `page.tsx`, `layout.tsx` |
-| Test files | same name as file under test + `.test` | `lessonService.test.ts` |
+| Test files | same name as file under test + `.test` | `children.routes.test.ts` |
 
 ### Identifiers
 
@@ -155,7 +156,9 @@ import { Button } from "@kidlearn/ui";
 | Event handler props | `on` + noun + verb | `onLessonComplete` |
 | Event handler implementations | `handle` + noun + verb | `handleLessonComplete` |
 | Express route files | plural noun + `.routes` | `lessons.routes.ts`, `children.routes.ts` |
-| Service files | singular noun + `Service` | `lessonService.ts` |
+| Server service files | domain noun + `.service` | `dashboard.service.ts`, `reward.service.ts` |
+| Server request-schema files | domain noun + `.schema` | `children.schema.ts` |
+| Module-owned middleware | behaviour + `.middleware` | `load-owned-child.middleware.ts` |
 
 ### Additional rules
 
@@ -184,7 +187,7 @@ import { Button } from "@kidlearn/ui";
 
 > **Tooling is not yet configured.** Vitest is the chosen runner for `apps/server` and `packages/*`. React Testing Library is the chosen tool for component tests in `apps/web`. This section defines the standards that apply once tooling is added. The standards are not aspirational — they are required before any feature is considered production-ready.
 >
-> Layer-specific "what to test" guidance lives in [`frontend.md §4`](./frontend.md#4-frontend-testing) and [`backend.md §6`](./backend.md#6-backend-testing).
+> Layer-specific "what to test" guidance lives in [`frontend.md §5`](./frontend.md#5-frontend-testing) and [`backend.md §6`](./backend.md#6-backend-testing).
 
 ### File co-location
 
@@ -192,12 +195,12 @@ Test files live next to the file under test:
 
 ```
 src/
-├── services/
-│   ├── lessonService.ts
-│   └── lessonService.test.ts     # ← co-located
+├── modules/children/
+│   ├── dashboard.service.ts
+│   └── dashboard.service.test.ts  # ← co-located
 ├── primitives/
 │   ├── button.tsx
-│   └── button.test.tsx           # ← co-located
+│   └── button.test.tsx            # ← co-located
 ```
 
 No separate `__tests__` directories. **[REVIEW]**
@@ -239,7 +242,7 @@ it("applies the kid size class when size='kid'")
 
 // Wrong
 it("test lesson endpoint")
-it("lessonService.findById")
+it("dashboard.service getDashboardSummary")
 it("button renders")
 ```
 

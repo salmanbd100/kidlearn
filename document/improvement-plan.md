@@ -69,7 +69,7 @@ churn.
   machine enforces, not a rule a reviewer remembers.
 - **`assertContract` on every successful response.** Response schemas in `packages/types` that
   document *and* test, without policing bodies at runtime, is the right trade.
-- **Env validation** (`apps/server/src/lib/env.ts`). Zod-parsed, frozen, fail-fast at boot, with
+- **Env validation** (`apps/server/src/config/env.ts`). Zod-parsed, frozen, fail-fast at boot, with
   the *why* commented on the non-obvious entries (`APP_TIMEZONE`, the TTS voice regex). Nothing
   to improve.
 - **Error handling.** One terminal handler, `ApiError`/`ZodError` mapped to envelopes, unknown
@@ -260,11 +260,10 @@ there.
 placing files into them, and makes "component sits in the correct layer" the first item on the
 frontend review checklist.
 
-What actually exists is `primitives/` (6 components, 597 lines total), `lib/cn.ts` and
-`styles/tokens.css`. There is no `kid/`, no `parent/`, no `hooks/`. Meanwhile `apps/web` holds
-`components/kid/`, `components/parent/`, `components/activities/`, `components/quiz/`,
-`components/rewards/`, `components/student/`, `components/admin/` and `hooks/` — roughly 157
-non-test component files.
+**Partly resolved.** `hooks/` now exists and holds `useIsMotionReduced`, which fifteen files
+across six features call and which depends on nothing app-owned; `lib/` gained the a11y
+preference store it reads. `kid/` and `parent/` are still empty, and `frontend.md §1` now says
+so explicitly rather than implying occupants. What remains of this item is the rule below.
 
 **The rule is not being broken by accident; it is being broken because it has no payoff.**
 `packages/ui` has exactly one consumer. `document/mobile-app-plan.md §4.2` settles the question
@@ -286,8 +285,9 @@ refactor anyone should do.
 - Amend `frontend.md §1` to say what `packages/ui` actually is: the theme-agnostic primitive
   layer (`primitives/`, `lib/`, `styles/`) plus anything a *second* consumer genuinely needs.
 - State the placement rule that is actually in force: surface-specific components live in the app
-  that renders them, under `apps/web/components/<surface>/`, and the existing
-  `kid/` / `parent/` / `student/` / `admin/` split is the layering.
+  that renders them, under `apps/web/features/<domain>/`, with `shared/components/kid/` as the
+  kid-surface layer. Promotion to `packages/ui` needs a second consumer *and* no app-owned
+  dependency — the test `BigButton` and `IconTile` fail on `useAudio`.
 - Replace the review-checklist item with the rule being applied: *a component that two surfaces
   render belongs in `packages/ui/src/primitives/`; one that a single surface renders stays in
   `apps/web`.*
@@ -320,7 +320,7 @@ highest-leverage sequencing decision in the plan.
   generator that emits `tokens.css` for the web build. `document/design.md` stays the prose
   source of truth; the TS file becomes the machine-readable one. Add a test asserting the two
   agree on the values design.md names.
-- `packages/i18n` — move `apps/web/locales/*` in wholesale, update `apps/web/lib/i18n.ts`, and add
+- `packages/i18n` — move `apps/web/locales/*` in wholesale, update `apps/web/shared/lib/i18n.ts`, and add
   the test the current setup lacks: **every key present in `en` is present in `bn`, and vice
   versa.** There is no such check today, so a missing Bangla string is invisible until a Bangla
   reader hits it.
@@ -337,7 +337,7 @@ guarantees:
 
 - `apps/server/src/lib/locale.ts` — `pickLocale()` returns `{ value, locale }` so the client is
   told *which* locale it actually got (FR-PROF-03), with English as the one safe fallback.
-- `apps/web/lib/localized-label.ts` — `pickLabel()` returns a bare string, silently falling back
+- `apps/web/shared/lib/localized-label.ts` — `pickLabel()` returns a bare string, silently falling back
   to `en` without reporting it.
 
 These will diverge. When a Bangla label is missing, the server tells the caller so and the web
@@ -402,17 +402,17 @@ struggle:
 
 | File | Lines | Observation |
 | --- | --- | --- |
-| `apps/server/src/routes/progress.test.ts` | 2,202 | One file covering rewards, streaks, sessions and completion |
-| `apps/server/src/routes/admin/content.test.ts` | 2,095 | Four resources' CRUD plus the transition matrix |
-| `apps/server/src/services/ai/review.ts` | 900 | 30 functions: listing, detail assembly, asset attachment, approve/reject, chain walking |
-| `apps/server/src/services/adminContentService.ts` | 894 | Four near-identical CRUD blocks (world/subject/topic/lesson) + transitions + reordering |
-| `apps/web/lib/admin-api.ts` | 641 | 50 exports spanning auth, content, media, editors, AI and characters |
+| `apps/server/src/modules/progress/progress.routes.test.ts` | 2,202 | One file covering rewards, streaks, sessions and completion |
+| `apps/server/src/modules/admin/content/content.routes.test.ts` | 2,095 | Four resources' CRUD plus the transition matrix |
+| `apps/server/src/modules/admin/ai/review.ts` | 900 | 30 functions: listing, detail assembly, asset attachment, approve/reject, chain walking |
+| `apps/server/src/modules/admin/content/content.service.ts` | 894 | Four near-identical CRUD blocks (world/subject/topic/lesson) + transitions + reordering |
+| `apps/web/features/admin/admin-api.ts` | 641 | 50 exports spanning auth, content, media, editors, AI and characters |
 | `apps/web/app/(admin)/admin/curriculum/CurriculumScreen.tsx` | 782 | The largest client component |
 
 **Fix, in priority order:**
 
-1. **`admin-api.ts` — split by resource** (`admin/content-api.ts`, `admin/media-api.ts`,
-   `admin/ai-api.ts`, `admin/editors-api.ts`). This is the cheapest and clearest win: it is a flat
+1. **`admin-api.ts` — split by resource** (`features/admin/content-api.ts`, `media-api.ts`,
+   `ai-api.ts`, `editors-api.ts`). This is the cheapest and clearest win: it is a flat
    list of independent functions, mechanical to split, and it mirrors the server's own route
    grouping. Note `general.md §3` bans barrel files beyond a package entry point, so these are
    imported directly, not re-exported through an index.
@@ -571,7 +571,7 @@ and a PR is not done until it is green.
 
 A refactor plan is only as useful as the work it talks you out of.
 
-- **Do not hoist `apps/web/components/**` into `packages/ui`.** The standard that implies it is
+- **Do not hoist `apps/web/features/**` into `packages/ui`.** The standard that implies it is
   the thing that is wrong (P1-4). Fix the document.
 - **Do not collapse the four CRUD blocks in `adminContentService.ts`** into a generic engine.
   They differ in ways that a generic engine would hide behind configuration.

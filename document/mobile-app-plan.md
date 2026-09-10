@@ -158,10 +158,10 @@ packages/
 | API response/request contracts (`packages/types/src/api/`) | **Yes** | The single most valuable share. Mobile parses responses with the same Zod schemas the OpenAPI document is generated from, so a server change surfaces as a mobile type error. |
 | Activity & quiz payload schemas (`packages/types/src/activity`, `/quiz`) | **Yes** | The content-as-data contract. The mobile renderers are new; the schemas they render are not. |
 | Design tokens | **Yes**, via new `packages/tokens` | Values only. Web keeps `tokens.css`; mobile builds a TS theme from the same numbers. |
-| Locale strings | **Yes**, via new `packages/i18n` | Requires moving `apps/web/locales/*` and updating `apps/web/lib/i18n.ts`. Small, real change to the web app. |
+| Locale strings | **Yes**, via new `packages/i18n` | Requires moving `apps/web/locales/*` and updating `apps/web/shared/lib/i18n.ts`. Small, real change to the web app. |
 | Pure logic worth lifting | **Case by case** | `evaluate.ts` (activity grading), `evaluate-answer.ts` (quiz grading), `duration.ts`, `worlds.ts`, `avatars.ts` are platform-free. Lift into a shared package **only when the mobile file would otherwise be a copy-paste** — do not pre-emptively extract. |
 | React components (`packages/ui`, `apps/web/components`) | **No** | Radix primitives are DOM-bound, Tailwind v4's `@theme` CSS variables do not exist in React Native, and every gesture-driven kid widget needs a native reimplementation regardless. Sharing here means rewriting the web app, not saving mobile work. |
-| Fetch helpers (`apps/web/lib/*-api.ts`) | **No, at first** | Mobile needs its own client because auth headers differ (§7.2). Extracting a shared `packages/api-client` later is a fair refactor once both sides have settled. |
+| Fetch helpers (`apps/web/shared/api/*` and each feature's `*-api.ts`) | **No, at first** | Mobile needs its own client because auth headers differ (§7.2). Extracting a shared `packages/api-client` later is a fair refactor once both sides have settled. |
 
 ### 4.3 Request flow
 
@@ -247,7 +247,7 @@ carry no browser `Origin`.
 
 ### 7.2 Server: a mobile-aware OAuth callback
 
-`apps/server/src/routes/auth.ts` today hardcodes
+`apps/server/src/modules/auth/auth.routes.ts` today hardcodes
 `callbackURL: ${env.WEB_ORIGIN}${env.PARENT_POST_LOGIN_PATH}`. A phone cannot follow that
 back into the app. The route needs to resolve its callback per client — a validated
 `?client=mobile` (or a separate `/api/auth/google/mobile`) returning the `kidlearn://`
@@ -321,7 +321,7 @@ Web route → mobile route, with the porting note that matters:
 
 Things with no web counterpart, each of which is a real requirement rather than polish:
 
-- **App lifecycle drives time tracking.** `apps/web/lib/use-heartbeat.ts` keys off page
+- **App lifecycle drives time tracking.** `apps/web/features/screen-time/use-heartbeat.ts` keys off page
   visibility. On mobile, `AppState` transitions (`active` / `background` / `inactive`)
   start and stop the heartbeat. A backgrounded app must stop accruing learning minutes
   (FR-TIME-06) — otherwise a phone left face-down inflates the parent's dashboard.
