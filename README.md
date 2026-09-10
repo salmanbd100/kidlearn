@@ -22,7 +22,7 @@ Every design decision traces back to two real users: my daughters.
 |---|---|
 | **Visual-first, voice-guided** | Children who cannot yet read can navigate and learn independently — every instruction is spoken aloud |
 | **Chunked learning flow** | Each lesson follows the same five-step structure: Introduction → Video → Activity → Quiz → Reward, so children always know what comes next |
-| **Dual portal** | A distraction-free **Student Portal** (no ads, no external links, no social features) and a PIN-gated **Parent Dashboard** for progress reports and screen-time controls |
+| **Dual portal** | A distraction-free **Student Portal** (no ads, no external links, no social features) and a **Parent Dashboard** for progress reports and screen-time controls |
 | **AI content pipeline** | Lessons, stories, quizzes, narration audio, and illustrations are AI-generated at scale — but every piece goes through a mandatory human admin review before any child sees it |
 | **Multilingual from day one** | English and Bangla at launch; the i18n architecture is data-driven, so Arabic, Hindi, and Spanish roll out as asset sets, not code changes |
 | **Gamification** | Stars, coins, badges, character unlocks, and daily learning streaks — all earned through learning, never purchased |
@@ -165,7 +165,7 @@ Turborepo starts all apps in parallel:
 | OpenAPI spec (raw JSON) | http://localhost:4000/docs.json |
 | Health check | http://localhost:4000/health |
 
-**Start at [`/docs`](http://localhost:4000/docs) before writing any client code against the API.** It documents every endpoint — request and response schemas, every status code, and which of the session / consent / PIN / active-child gates each route sits behind. Because Swagger UI is served from the same origin the session cookie belongs to, signing in once at [`/api/auth/google`](http://localhost:4000/api/auth/google) makes **Try it out** work on every authenticated endpoint, with no token to copy around.
+**Start at [`/docs`](http://localhost:4000/docs) before writing any client code against the API.** It documents every endpoint — request and response schemas, every status code, and which of the session / consent / active-child gates each route sits behind. Because the reference is served from the same origin the session cookie belongs to, signing in once at [`/api/auth/google`](http://localhost:4000/api/auth/google) makes **Try it out** work on every authenticated endpoint, with no token to copy around.
 
 The page is generated from the code at boot, not maintained by hand: request schemas are the same Zod objects the routes validate with, and response schemas are shared with the web app via `packages/types/src/api/`. A test fails if an endpoint is missing from it. It is always available outside production; in production it requires `ENABLE_API_DOCS=true`.
 

@@ -6,10 +6,7 @@ import { LineChart } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  useParentGate,
-  useParentSession,
-} from "@/app/(parent)/context/parent-session";
+import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildSwitcher } from "@/features/children/ChildSwitcher";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { ReportCard } from "@/features/reports/ReportCard";
@@ -27,7 +24,6 @@ export function ReportsScreen({
 }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles } = useParentSession();
-  const { guard } = useParentGate();
 
   const [reports, setReports] = useState<WeeklyReport[] | undefined>();
   const [status, setStatus] = useState<
@@ -48,17 +44,15 @@ export function ReportsScreen({
     // report under the new child's name until the request lands.
     setReports(undefined);
 
-    void guard(
-      getWeeklyReports(childId, {
-        // The API sleeps on its free tier, and this endpoint may also be
-        // generating last week's report on the way — so the first request after
-        // idle is the slowest one in the app. Saying so beats a spinner that looks
-        // broken (NFR-PERF-04).
-        onColdStart: () => {
-          if (isCurrent) setStatus("waking");
-        },
-      }),
-    ).then((result) => {
+    void getWeeklyReports(childId, {
+      // The API sleeps on its free tier, and this endpoint may also be
+      // generating last week's report on the way — so the first request after
+      // idle is the slowest one in the app. Saying so beats a spinner that looks
+      // broken (NFR-PERF-04).
+      onColdStart: () => {
+        if (isCurrent) setStatus("waking");
+      },
+    }).then((result) => {
       if (!isCurrent) return;
       if (result.ok) {
         setReports(result.data.reports);
@@ -71,12 +65,9 @@ export function ReportsScreen({
     return () => {
       isCurrent = false;
     };
-    // Keyed on the child alone, which is what `guard` being a stable callback
-    // buys (see `parent-session.tsx`): were it rebuilt on each lock/unlock, an
-    // expiring grant would re-run this effect and leave a 403's error state under
-    // the PIN pad. `selectedWeekStart` is deliberately absent — the fetch returns
-    // every week, so changing which one is shown must not refetch.
-  }, [childId, guard]);
+    // `selectedWeekStart` is deliberately absent from the deps — the fetch
+    // returns every week, so changing which one is shown must not refetch.
+  }, [childId]);
 
   // `ParentGuard` does not render this screen until the profiles have loaded and
   // there is at least one, but a parent who just deleted their last profile sees

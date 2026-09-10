@@ -105,7 +105,7 @@ describe("SelectProfileScreen", () => {
     expect(api.activateChild).toHaveBeenCalledWith("child_2");
   });
 
-  it("asks for no PIN to switch profiles (FR-AUTH-06)", async () => {
+  it("asks for nothing to switch profiles (FR-AUTH-06)", async () => {
     api.activateChild.mockResolvedValue({
       ok: true,
       data: { activeChildProfileId: "child_1" },
@@ -117,9 +117,8 @@ describe("SelectProfileScreen", () => {
     );
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/home"));
-    // A sibling picking up the tablet must not meet a parental gate — the PIN
-    // guards `/parent/*`, not who is playing.
-    expect(screen.queryByRole("button", { name: /Digit/ })).toBeNull();
+    // A sibling picking up the tablet must not meet any prompt at all.
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("tells a child with no profile yet to fetch a grown-up", async () => {

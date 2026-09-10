@@ -43,7 +43,7 @@ export interface ActiveChildValue {
   child: ChildProfileResponse | undefined;
   /** True once a request has been retried — the API is asleep (NFR-PERF-04). */
   isWakingUp: boolean;
-  /** FR-AUTH-06 — scopes the session to a child. No PIN, by design. */
+  /** FR-AUTH-06 — scopes the session to a child. */
   activate: (
     childId: string,
   ) => Promise<ApiResult<{ activeChildProfileId: string }>>;

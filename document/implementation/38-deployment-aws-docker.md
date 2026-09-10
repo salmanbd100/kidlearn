@@ -12,11 +12,12 @@
 > below is repointed, and file 39's pipeline landed *without* the Docker build requirement 5
 > assumes. The Dockerfile sketch also named the wrong entry file. All corrected in place.
 >
-> **One thing to settle before starting: `main` and `dev` have diverged.** The parental PIN gate was
-> removed on `main` (#48, six commits) while `dev` moved the same files to new paths (#49) and still
-> contains them. A promotion PR will conflict across all of them or silently reintroduce the gate.
-> Requirement 20's smoke test and spec §9 both describe whichever behaviour wins, so resolve the
-> divergence first — deploying a build whose parent flow you cannot name is not a deployment.
+> **Settled 2026-09-10: there is no parental PIN gate.** `main` and `dev` had diverged — the gate was
+> removed on `main` (#48) while `dev` moved the same files to new paths (#49) and still contained
+> them — and `main` was then force-pushed to match `dev`, which discarded the removal. It has been
+> replayed onto `dev` at the new paths. The parent area is reached by Google sign-in alone; account
+> deletion keeps its single-use confirmation token, which is now the whole guard on it. Requirement
+> 20's smoke test reflects that.
 
 ## Goal
 
@@ -807,14 +808,13 @@ entries; (19) dev smoke test; (20) runbook and spec §9.
 - [ ] The same sign-in works in **Safari on iOS** with cross-site tracking prevention enabled.
 - [ ] A request with a forged `Origin` header gets no CORS allow header — file 08's lockdown intact.
 - [ ] Smoke test passes end-to-end on a phone: (1) parent signs in with Google; (2) the parent area
-      opens — **consent, plus PIN setup only if the PIN gate is still in the deployed build**; (3)
-      child profile created; (4) a seeded lesson plays through all five steps with audio; (5) the
-      parent dashboard shows the learning time just spent; (6) `/admin/ai-queue` loads for the admin
-      user and lists and filters jobs.
+      opens on consent alone — **there is no PIN step**; (3) child profile created; (4) a seeded
+      lesson plays through all five steps with audio; (5) the parent dashboard shows the learning
+      time just spent; (6) `/admin/ai-queue` loads for the admin user and lists and filters jobs.
 
-      Step (2) is deliberately conditional: #48 removed the PIN gate on `main`, `dev` still carries
-      it, and the two have not been reconciled (see the header note). Settle that before running the
-      smoke test rather than discovering mid-test which flow you deployed.
+      Step (2) had a PIN setup screen until 2026-09-09 (FR-AUTH-04, retired). If a deployed build
+      ever asks for one, it is running an image older than that — which makes this step a useful
+      check on *which* build you actually deployed.
 - [ ] `https://api.kidlearn.net/docs` returns **404** — `ENABLE_API_DOCS` is `false` in production.
 - [ ] `https://kidlearn.net` carries **no** `X-Robots-Tag` header — `SITE_NOINDEX` is unset there.
 - [ ] Media on lesson and story screens is served from `res.cloudinary.com` (NFR-PERF-02).
@@ -881,8 +881,8 @@ entries; (19) dev smoke test; (20) runbook and spec §9.
 - **Anything else in the CI pipeline.** This file adds exactly one step to `gates` — requirement 5's
   web-image build. The triggers, the coverage reporting and the ruleset amendment are file 39's,
   and the `deploy` job is file 38a's.
-- **Reconciling `main` and `dev`.** The PIN-gate divergence in the header note is a branch problem,
-  not a deployment one; it blocks this file rather than belonging to it.
+- **Reconciling `main` and `dev`.** Resolved before this file starts — see the header note. It was
+  a branch problem, never a deployment one.
 - **Hard isolation between the two environments.** The limits are stated above under "The isolation
   this design does and does not give you". Buying more of it means a second instance, and that is a
   cost decision to revisit, not a design to build now.

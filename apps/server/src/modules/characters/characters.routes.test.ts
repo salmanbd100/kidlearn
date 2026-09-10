@@ -43,7 +43,6 @@ const PARENT_ROW = {
   id: "parent_1",
   userId: SESSION_USER.id,
   email: SESSION_USER.email,
-  pinHash: null,
   consentGivenAt: null,
 };
 
@@ -74,7 +73,6 @@ beforeEach(() => {
       id: "session_1",
       userId: SESSION_USER.id,
       activeChildProfileId: null,
-      pinVerifiedUntil: null,
     },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 });

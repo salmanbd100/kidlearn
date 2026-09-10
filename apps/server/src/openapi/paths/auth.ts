@@ -57,7 +57,7 @@ export const AUTH_ROUTES: RouteDoc[] = [
         "",
         "Also the endpoint that **provisions** the `Parent` row on a brand-new parent's first request: kidlearn has no sign-up step, so the domain row is created lazily here. That is why this can answer `403` or `409` on a session that authenticated perfectly well.",
         "",
-        "Never returns the PIN or its hash — only `hasPin`, which is what a client needs to choose between 'set a PIN' and 'enter your PIN'.",
+        "Returns no credential-shaped field — the `Parent` row's columns are opted into this response one at a time, so nothing can leak by accident.",
         "",
         "`name` and `avatarUrl` are the display name and photo Google supplied at sign-in, and are both `null` for an account that carries neither — every client rendering them needs a fallback.",
       ].join("\n"),
@@ -218,7 +218,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
       tags: ["Auth"],
       summary: "Read the raw session (better-auth)",
       description:
-        "Owned by better-auth. Returns better-auth's own user and session objects, including the custom `activeChildProfileId` and `pinVerifiedUntil` fields. Both are `input: false` — the client cannot write them; only `POST /api/children/{id}/activate` and `POST /api/parent/pin/verify` can. Prefer `GET /api/auth/me`, which returns the kidlearn domain shape.",
+        "Owned by better-auth. Returns better-auth's own user and session objects, including the custom `activeChildProfileId` field. It is `input: false` — the client cannot write it; only `POST /api/children/{id}/activate` can. Prefer `GET /api/auth/me`, which returns the kidlearn domain shape.",
       responses: {
         "200": {
           description:
@@ -236,7 +236,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
       tags: ["Auth"],
       summary: "Sign out (better-auth)",
       description:
-        "Owned by better-auth. Revokes the session and clears the cookie. The PIN grant and active child selection live on the session row, so both are dropped with it.",
+        "Owned by better-auth. Revokes the session and clears the cookie. The active child selection lives on the session row, so it is dropped with it.",
       responses: {
         "200": {
           description: "The session was revoked.",

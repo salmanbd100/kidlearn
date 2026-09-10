@@ -122,12 +122,8 @@ const PARENT: Parent = {
   email: SESSION_USER.email,
   name: SESSION_USER.name,
   avatarUrl: null,
-  pinHash: "hashed-pin",
   consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
   consentVersion: "1.0",
-  pinFailedCount: 0,
-  pinLockoutStrikes: 0,
-  pinLockedUntil: null,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -151,14 +147,9 @@ function childProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
 
 type SignInOptions = {
   child?: ChildProfile | null;
-  /** Whether this session holds a live PIN grant. */
-  isPinVerified?: boolean;
 };
 
-function signInAs({
-  child = childProfile(),
-  isPinVerified = true,
-}: SignInOptions = {}) {
+function signInAs({ child = childProfile() }: SignInOptions = {}) {
   // `getSession` returns a deep better-auth type; only the fields the middleware
   // reads are supplied, so the shape is narrowed at this boundary.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
@@ -167,9 +158,6 @@ function signInAs({
       id: "session_1",
       userId: SESSION_USER.id,
       activeChildProfileId: child?.id ?? null,
-      pinVerifiedUntil: isPinVerified
-        ? new Date(Date.now() + 15 * 60_000).toISOString()
-        : null,
     },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
   db.parentFindUnique.mockResolvedValue(PARENT);
@@ -336,14 +324,12 @@ describe("GET /api/children/:id/screen-time", () => {
     expect(res.body.error.code).toBe("UNAUTHORIZED");
   });
 
-  it("returns 403 PIN_VERIFICATION_REQUIRED without a live PIN grant", async () => {
-    signInAs({ isPinVerified: false });
+  it("answers a signed-in parent with no further ceremony", async () => {
+    signInAs();
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/screen-time`);
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("PIN_VERIFICATION_REQUIRED");
-    expect(db.screenTimeFindUnique).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
   });
 });
 
@@ -477,20 +463,6 @@ describe("PATCH /api/children/:id/screen-time", () => {
     );
 
     expect(res.status).toBe(404);
-    expect(db.screenTimeUpsert).not.toHaveBeenCalled();
-  });
-
-  it("returns 403 without a live PIN grant, writing nothing", async () => {
-    signInAs({ isPinVerified: false });
-
-    const res = await patch({
-      dailyLimitMinutes: 30,
-      windowStart: null,
-      windowEnd: null,
-    });
-
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("PIN_VERIFICATION_REQUIRED");
     expect(db.screenTimeUpsert).not.toHaveBeenCalled();
   });
 

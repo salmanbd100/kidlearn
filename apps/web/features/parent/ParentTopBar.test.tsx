@@ -15,8 +15,6 @@ const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
-  fetchGateStatus: vi.fn(),
-  verifyPin: vi.fn(),
 }));
 const client = vi.hoisted(() => ({ signOut: vi.fn(async () => true) }));
 
@@ -39,7 +37,6 @@ const PARENT = {
   email: "salman@example.com",
   name: "Salman Rahman",
   avatarUrl: null,
-  hasPin: true,
   consentGivenAt: "2026-06-01T00:00:00.000Z",
 };
 
@@ -84,14 +81,6 @@ beforeEach(() => {
     data: { parent: PARENT, activeChildProfileId: null },
   });
   api.listChildren.mockResolvedValue({ ok: true, data: [CHILD] });
-  api.fetchGateStatus.mockResolvedValue({
-    ok: true,
-    data: {
-      hasPin: true,
-      isPinVerified: true,
-      pinVerifiedUntil: new Date(Date.now() + 900_000).toISOString(),
-    },
-  });
 });
 
 describe("ParentTopBar", () => {
@@ -122,7 +111,7 @@ describe("ParentTopBar", () => {
   });
 
   it("stays out of the way on the onboarding steps", async () => {
-    pathname = PARENT_ROUTES.pinSetup;
+    pathname = PARENT_ROUTES.consent;
     renderBar();
 
     // Nothing to navigate to yet, and a sign-out control mid-consent is a dead

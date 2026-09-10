@@ -19,8 +19,8 @@ import { screenTimeRouter } from "./screen-time/screen-time.routes.js";
  */
 export const apiRouter = Router();
 
-// File 10 — the parent's own account: PIN, consent, deletion. The router
-// applies `requireParent` itself, and `requirePinVerified` per route.
+// File 10 — the parent's own account: consent and deletion. The router
+// applies `requireParent` itself.
 apiRouter.use("/parent", parentRouter);
 
 apiRouter.use("/children", childrenRouter);
@@ -58,10 +58,9 @@ apiRouter.use("/events", requireParent, requireActiveChild, eventsRouter);
 apiRouter.use("/me", requireParent, requireActiveChild, meRouter);
 
 // Whether the active child may start something new (file 28). A student-surface
-// read behind the same guards, and deliberately not PIN-gated: the home screen
-// checks it before every tile tap, so a blocked child meets a mascot rather than
-// a parental gate. The settings it reflects are written on `/api/children/:id`,
-// which is PIN-gated.
+// read behind the same guards: the home screen checks it before every tile tap,
+// so a blocked child meets a mascot rather than a dead end. The settings it
+// reflects are written on `/api/children/:id`.
 apiRouter.use(
   "/screen-time",
   requireParent,

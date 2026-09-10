@@ -136,12 +136,8 @@ const PARENT: Parent = {
   email: SESSION_USER.email,
   name: SESSION_USER.name,
   avatarUrl: null,
-  pinHash: "hashed-pin",
   consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
   consentVersion: "1.0",
-  pinFailedCount: 0,
-  pinLockoutStrikes: 0,
-  pinLockedUntil: null,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -165,12 +161,8 @@ function childProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
 
 function signInAs({
   child = childProfile(),
-  hasPin = true,
-  isPinVerified = true,
 }: {
   child?: ChildProfile | null;
-  hasPin?: boolean;
-  isPinVerified?: boolean;
 } = {}) {
   // `getSession` returns a deep better-auth type; only the fields the middleware
   // reads are supplied, so the shape is narrowed at this boundary.
@@ -180,15 +172,9 @@ function signInAs({
       id: "session_1",
       userId: SESSION_USER.id,
       activeChildProfileId: child?.id ?? null,
-      pinVerifiedUntil: isPinVerified
-        ? new Date(Date.now() + 15 * 60_000).toISOString()
-        : null,
     },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
-  db.parentFindUnique.mockResolvedValue({
-    ...PARENT,
-    pinHash: hasPin ? PARENT.pinHash : null,
-  });
+  db.parentFindUnique.mockResolvedValue(PARENT);
   db.childFindFirst.mockResolvedValue(child);
 }
 
@@ -585,24 +571,12 @@ describe("GET /api/children/:id/reports — scoping", () => {
     expect(res.body.error.code).toBe("UNAUTHORIZED");
   });
 
-  it("returns 403 PIN_VERIFICATION_REQUIRED without a live PIN grant", async () => {
-    signInAs({ isPinVerified: false });
+  it("answers a signed-in parent with no further ceremony", async () => {
+    signInAs();
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // A report says what a child did and did not learn — the household's private
-    // record, and what FR-AUTH-04 puts the parental gate in front of.
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("PIN_VERIFICATION_REQUIRED");
-  });
-
-  it("returns 403 PIN_REQUIRED for an account with no PIN at all", async () => {
-    signInAs({ hasPin: false, isPinVerified: false });
-
-    const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
-
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("PIN_REQUIRED");
+    expect(res.status).toBe(200);
   });
 
   it("returns 404 for another parent's child", async () => {

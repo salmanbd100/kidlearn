@@ -16,7 +16,7 @@ function renderDialog(props: { isDismissable?: boolean; closeLabel?: string }) {
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent {...props}>
         <DialogHeader>
-          <DialogTitle>Enter your PIN</DialogTitle>
+          <DialogTitle>Confirm your choice</DialogTitle>
           <DialogDescription>Four digits.</DialogDescription>
         </DialogHeader>
       </DialogContent>
@@ -76,7 +76,9 @@ describe("DialogContent — isDismissable={false}", () => {
 describe("DialogContent accessibility", () => {
   it("takes its accessible name from the title", () => {
     renderDialog({ isDismissable: false });
-    expect(screen.getByRole("dialog")).toHaveAccessibleName("Enter your PIN");
+    expect(screen.getByRole("dialog")).toHaveAccessibleName(
+      "Confirm your choice",
+    );
   });
 
   it("keeps a description association, so the prompt is announced too", () => {

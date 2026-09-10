@@ -23,14 +23,13 @@ export type AuthenticatedUser = {
 /**
  * Shape returned to the client. An allowlist, not an omission: new columns on
  * `Parent` stay invisible to HTTP until someone adds them here deliberately, so
- * `pinHash` and file 10's PIN-lockout counters cannot leak by accident.
+ * no credential-shaped column can leak by accident.
  */
 export type ParentSummary = {
   id: string;
   email: string;
   name: string | null;
   avatarUrl: string | null;
-  hasPin: boolean;
   consentGivenAt: Date | null;
 };
 
@@ -99,9 +98,6 @@ export function toParentSummary(parent: Parent): ParentSummary {
     // send: it is the profile Google already shows the same person.
     name: parent.name,
     avatarUrl: parent.avatarUrl,
-    // Never the hash itself — only whether one is set, so the client knows
-    // whether to show "set a PIN" or "enter your PIN" (file 10).
-    hasPin: parent.pinHash !== null,
     consentGivenAt: parent.consentGivenAt,
   };
 }

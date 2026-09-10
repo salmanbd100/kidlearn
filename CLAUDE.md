@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`kidlearn` is a **pnpm + Turborepo monorepo** — an educational platform for early learners (ages 3–6) with a dual-portal architecture: a gamified Student Portal and a PIN-gated Parent Dashboard. The master requirements are in `document/project-requirement-details.md`; the design system is in `document/design.md`.
+`kidlearn` is a **pnpm + Turborepo monorepo** — an educational platform for early learners (ages 3–6) with a dual-portal architecture: a gamified Student Portal and a Parent Dashboard. The master requirements are in `document/project-requirement-details.md`; the design system is in `document/design.md`.
 
 ## Commands
 
@@ -96,7 +96,7 @@ document/     design.md, project-requirement-details.md, key-description.md
 
 The app has two distinct surfaces sharing one component library:
 - **Student Portal** — ages 3–5, visual-first, large touch targets (≥64px), no text below 20px, gamified. Apply `data-theme="kid"` at the layout boundary.
-- **Parent Dashboard** — PIN-gated, dense, professional. Apply `data-theme="parent"`.
+- **Parent Dashboard** — dense, professional, reached from the signed-in Google session. Apply `data-theme="parent"`.
 
 Token values swap at runtime via CSS variables (`--primary`, `--background`, etc.) — components never branch on theme in JS.
 

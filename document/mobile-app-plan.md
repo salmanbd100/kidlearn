@@ -70,7 +70,7 @@ Settled. Revisit only with a dated note appended to this section.
 | **Routing** | **`expo-router`** (file-based) | Mirrors the App Router mental model already in `apps/web`, including route groups for `(student)` / `(parent)`. |
 | **Styling** | **NativeWind v4** + a shared token package | Tailwind class names carry over from the web app. v4 is the stable line; **v5 is pre-release, Tailwind-v4-only and yarn-only** — not for this project yet. |
 | **Animation** | **React Native Reanimated** (+ `react-native-gesture-handler`) | The native equivalent of Motion: runs on the UI thread, spring-based, honours reduced-motion. Required for tracing and drag activities to feel right. |
-| **Auth** | **better-auth Expo plugin** (`@better-auth/expo` + `expo-secure-store`) | Keeps the *existing* cookie session model. No parallel JWT system, no second source of truth for `pinVerifiedUntil` / `activeChildProfileId`. |
+| **Auth** | **better-auth Expo plugin** (`@better-auth/expo` + `expo-secure-store`) | Keeps the *existing* cookie session model. No parallel JWT system, no second source of truth for `activeChildProfileId`. |
 | **Sign-in methods** | Google **and Sign in with Apple** | App Store Review Guideline 4.8 requires Sign in with Apple where social login is the only option. This is an addition to the server, not optional. See §7.3 and §16. |
 | **Tests** | **`jest-expo` + `@testing-library/react-native`** for `apps/mobile`; Vitest everywhere else | React Native cannot run under the existing Vitest/jsdom setup. A documented, contained exception to "Vitest everywhere". |
 | **Build & submit** | **EAS Build / EAS Submit / EAS Update** | One command per platform, credentials managed for you, OTA fixes for JS-only bugs without a store review. |
@@ -89,8 +89,8 @@ lesson browsing, the five-step lesson player with resume, all four activity type
 match-pair, drag-answer), scoring, the rewards/celebration flow, badges, characters,
 streaks, the story library and the narrated story reader, EN/BN narration and copy.
 
-**Parent Dashboard** (`data-theme="parent"` equivalent): sign-in, COPPA consent, PIN
-setup and the PIN gate, child profile CRUD (max 5), the per-child progress dashboard,
+**Parent Dashboard** (`data-theme="parent"` equivalent): sign-in, COPPA consent,
+child profile CRUD (max 5), the per-child progress dashboard,
 screen-time limits and access windows, weekly reports, and account deletion.
 
 Requirement families covered: FR-AUTH, FR-PROF, FR-CURR, FR-WORLD, FR-LSN, FR-ACT,
@@ -169,12 +169,12 @@ packages/
 Native screen
   → lib/api-client.ts     (typed wrapper: base URL, timeout, retry/cold-start, { data } | { error } envelope)
     → authClient fetch    (attaches the SecureStore-held session cookie)
-      → Express API       (better-auth session → requireParent → requirePinVerified → route)
+      → Express API       (better-auth session → requireParent → route)
         → Zod parse       (the same packages/types schema the server documents)
           → screen state
 ```
 
-Same envelope, same error codes, same PIN-grant semantics as the web app. The only new
+Same envelope and same error codes as the web app. The only new
 link in the chain is the cookie-attaching fetch.
 
 ---
@@ -234,7 +234,7 @@ mechanism:
 
 ## 7. Authentication & session on native
 
-The existing model — better-auth, httpOnly cookie session, Google-only for parents, PIN
+The existing model — better-auth, httpOnly cookie session, Google-only for parents
 grant and `activeChildProfileId` stored *on the session* — survives intact. Three
 concrete changes are needed.
 
@@ -281,11 +281,13 @@ requests. Consequences for `lib/api-client.ts`:
 
 ### 7.5 What does *not* change
 
-The PIN gate (FR-AUTH-04) stays a server-side 15-minute grant on the session; the mobile
-app just renders a native numeric keypad and calls `POST /api/parent/pin/verify`. The gate
-must remain genuinely hard for a pre-reader (design.md §7) — no biometric shortcut that a
-child's face or finger unlocks. `activeChildProfileId` continues to be set only by
-`POST /api/children/:id/activate`.
+> **Superseded 2026-09-09.** This section described the parental PIN gate carrying over to
+> native. The PIN was removed and FR-AUTH-04 retired; there is no grant to render a keypad for.
+> See §12.2 — the Apple Kids Category parental-gate requirement is now an **open item**, not a
+> solved one.
+
+`activeChildProfileId` continues to be set only by `POST /api/children/:id/activate`, and stays
+the one gate the server enforces on content reads.
 
 ---
 
@@ -295,7 +297,7 @@ Web route → mobile route, with the porting note that matters:
 
 | Web route | Mobile route | Porting note |
 | --- | --- | --- |
-| `/select-profile` | `(student)/select-profile` | Avatar grid; sets active child via the API, not local state. Carries the **named parent chip** (photo + first name from `/api/auth/me`) rather than the anonymous lock the other student screens use — same PIN gate, named only here. See `user-journey-manual.md §4.2`. |
+| `/select-profile` | `(student)/select-profile` | Avatar grid; sets active child via the API, not local state. Carries the **named parent chip** (photo + first name from `/api/auth/me`) rather than the anonymous lock the other student screens use — same door, named only here. See `user-journey-manual.md §4.2`. |
 | `/home` | `(student)/home` | World-themed home, streak display. Full-bleed, no nav chrome; waypoints in the thumb zone. |
 | `/world/[worldId]` | `(student)/world/[worldId]` | Lesson map. `expo-image` for world art. |
 | `/lesson/[id]` | `(student)/lesson/[id]` | The five-step machine and resume logic port almost directly — it is state, not DOM. Add hardware-back handling: a child must not be able to swipe out mid-quiz without the exit confirmation. |
@@ -307,7 +309,7 @@ Web route → mobile route, with the porting note that matters:
 | `/stories` | `(student)/stories` | Library grid. |
 | `/stories/[id]` | `(student)/stories/[id]` | Page-turn gesture instead of buttons-only; keep the narration sync and completion reward. |
 | `/parent/login` | `(parent)/login` | Google + Apple buttons (§7.3), `expo-web-browser` session. |
-| `/parent/onboarding/{consent,pin,child}` | `(parent)/onboarding/*` | Consent text must be legible on a phone; PIN keypad native. |
+| `/parent/onboarding/{consent,child}` | `(parent)/onboarding/*` | Consent text must be legible on a phone. Two steps, not three — the PIN step was removed on 2026-09-09. |
 | `/parent/children`, `/new`, `/[id]/edit` | `(parent)/children/*` | Max-5 rule is server-enforced; surface the error, do not re-implement. |
 | `/parent` (dashboard) | `(parent)/index` | One `GET /api/children/:id/dashboard` call, as on web. Pure-CSS bars become `<View>` widths. Child switcher becomes a native segmented control; the `?child=` URL param becomes a router param. |
 | parent top bar (all `(parent)` pages) | `(parent)/_layout` header | Web's persistent bar — section links, language switch, account menu with sign out (FR-AUTH-07) and *back to kid mode*. On native this is a `Stack.Screen` header plus a bottom tab or segmented control for the three sections; the account menu is an ActionSheet, not a dropdown. Hidden during onboarding, as on web. Sign-out must also clear SecureStore (§7.4). |
@@ -342,9 +344,9 @@ Things with no web counterpart, each of which is a real requirement rather than 
   marketing needs them later.
 - **Kid-safety in a native shell.** No outbound links from student screens, no ads, no
   third-party analytics SDK on kid surfaces (§12), external links on parent screens open
-  in a browser sheet behind the PIN gate.
+  in a browser sheet. **They no longer open behind a parental gate — see §12.2.**
 - **Splash, icon, notch, keyboard.** `expo-splash-screen` held until fonts and session
-  resolve; adaptive Android icon; `KeyboardAvoidingView` on the PIN and profile forms.
+  resolve; adaptive Android icon; `KeyboardAvoidingView` on the profile forms.
 
 ---
 
@@ -353,9 +355,9 @@ Things with no web counterpart, each of which is a real requirement rather than 
 | Level | Tool | What it covers |
 | --- | --- | --- |
 | Unit / logic | `jest-expo` | Grading (`evaluate`, `evaluate-answer`), lesson step machine, heartbeat/AppState reducer, duration and relative-time helpers, Zod parsing of fixtures from `packages/types/src/__fixtures__`. |
-| Component | `@testing-library/react-native` | Renderers, PIN gate, dashboard cards, empty states, a11y labels. |
+| Component | `@testing-library/react-native` | Renderers, dashboard cards, empty states, a11y labels. |
 | Contract | reuse of `packages/types` | Mobile parses fixtures with the same schemas the server asserts with `assertContract`. Drift becomes a type or parse error, not a runtime surprise. |
-| E2E (optional) | Maestro | The two flows worth automating: parent onboarding through PIN, and one full lesson to reward. Cheap to write, catches native regressions nothing else does. |
+| E2E (optional) | Maestro | The two flows worth automating: parent onboarding through the first child profile, and one full lesson to reward. Cheap to write, catches native regressions nothing else does. |
 | Manual device matrix | — | A low-end Android phone (the realistic target), a modern iPhone, and one tablet. Screen-reader passes with TalkBack and VoiceOver. |
 
 The existing working agreement holds: TDD for logic-producing chunks; `pnpm lint` and
@@ -397,9 +399,17 @@ calendar lead time that code cannot compress.
 
 - **Apple Kids Category** (guideline 1.3, 5.1.4): no third-party advertising, no
   third-party analytics without verifiable parental consent, a parental gate before any
-  external link or purchase, privacy policy URL. Your PIN gate satisfies the gate
-  requirement; your existing "no ads" position satisfies the rest — provided nobody adds
-  an analytics SDK to a kid screen.
+  external link or purchase, privacy policy URL. Your "no ads" position satisfies most of
+  it — provided nobody adds an analytics SDK to a kid screen.
+
+  ⚠️ **The parental-gate requirement is an open item.** The PIN gate used to satisfy it and was
+  removed on 2026-09-09. Today nothing is *strictly* out of compliance, because no student screen
+  has an outbound link at all (`apps/web/app/(student)/no-external-links.test.tsx` enforces that)
+  — the requirement is met by absence, not by a gate. **The moment any external link, purchase or
+  parent-facing browser sheet ships, a gate has to exist.** Apple accepts a simple
+  adult-verification challenge (e.g. typing a spelled-out number), which is far cheaper than the
+  PIN that was removed — so this is a small build, but it must be built before M30, not
+  discovered during review.
 - **Google Play Families / Designed for Families**: declare the target age group,
   complete the **Data Safety** form honestly (child first name and age *are* personal
   data), complete the IARC content-rating questionnaire, and meet the ads policy (none).
@@ -435,7 +445,7 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | Phase | Files | Theme |
 | --- | --- | --- |
 | M0 — Foundation | M01–M05 | Expo scaffold, monorepo wiring, tokens, i18n, API client |
-| M1 — Auth & parent onboarding | M06–M09 | Server auth changes, sign-in, consent, PIN, child profiles |
+| M1 — Auth & parent onboarding | M06–M09 | Server auth changes, sign-in, consent, child profiles |
 | M2 — Student shell | M10–M12 | Profile picker, home, world navigation |
 | M3 — Lesson player | M13–M15 | Step engine, intro/video, audio layer |
 | M4 — Activities | M16–M18 | Engine + drag-drop, tracing, match/puzzle |
@@ -454,7 +464,7 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | M05 | Native primitives: BigButton, IconTile, Card, Sheet, keypad, safe-area layout, reduced-motion hook, a11y label conventions | NFR-A11Y-01..06 | M02 | 3–4h |
 | M06 | **Server**: `expo()` plugin, `kidlearn://` trusted origin, whitelisted mobile OAuth callback, Sign in with Apple provider (+ OpenAPI update) | FR-AUTH-02, guideline 4.8 | M04 | 3–4h |
 | M07 | Mobile auth client: `expoClient` + SecureStore, Google + Apple sign-in, session bootstrap behind the splash, sign-out, `/me` | FR-AUTH-02, FR-AUTH-06 | M06 | 3–4h |
-| M08 | Consent screen, PIN setup, PIN gate + 15-minute grant, account deletion entry point | FR-AUTH-03..05, NFR-SAFE-05..06 | M07 | 3–4h |
+| M08 | Consent screen, account deletion entry point | FR-AUTH-03, FR-AUTH-05, NFR-SAFE-05..06 | M07 | 2–3h |
 | M09 | Child profile CRUD (max 5), avatar picker, activate-child | FR-PROF-01..07 | M08 | 3–4h |
 | M10 | Profile picker + active-child context, incl. the named parent chip | FR-AUTH-06, FR-PROF-03 | M09 | 3–4h |
 | M11 | World-themed home: waypoints in the thumb zone, streak display, `expo-image` art, both orientations | FR-WORLD-01..03, FR-GAM-06 | M10 | 3–4h |
@@ -523,7 +533,7 @@ Google's one-off $25 on top of that, and nothing else recurring.
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
 | **Sign in with Apple missed until review** | Rejection, a lost submission cycle | Built in phase M06, before any UI depends on the sign-in shape. |
-| **Kids Category rejection** (analytics/ads/parental gate) | Weeks of delay | No third-party SDK on kid surfaces; PIN gate before every external link; read guideline 1.3 and 5.1.4 before M30. |
+| **Kids Category rejection** (analytics/ads/parental gate) | Weeks of delay | No third-party SDK on kid surfaces. **No parental gate exists any more** (§12.2) — build an adult-verification challenge before shipping any external link or purchase; read guideline 1.3 and 5.1.4 before M30. |
 | **New Play account 12-tester / 14-day rule** | Two extra weeks before production | Recruit testers during phase M8; start the closed test as soon as M31 produces a build. |
 | **Gesture-driven activities feel worse than the web versions** | Core experience regression | Build M16 early on a real low-end Android; treat it as a spike whose result can change library choices. |
 | **NativeWind version churn** | Rework | Pin v4.x. v5 is pre-release, Tailwind-v4-only and yarn-only — do not adopt on this project. |

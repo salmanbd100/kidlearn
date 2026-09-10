@@ -7,14 +7,6 @@ export const ERROR_CODES = [
   "NOT_FOUND",
   "CONFLICT",
   "INTERNAL",
-  /** No PIN has been set on this account yet — route to PIN setup. */
-  "PIN_REQUIRED",
-  /** A PIN exists but this session has no live 15-minute grant. */
-  "PIN_VERIFICATION_REQUIRED",
-  /** The submitted PIN was wrong. */
-  "PIN_INVALID",
-  /** Too many wrong attempts; the account is in its cool-off window. */
-  "PIN_LOCKED",
   /** COPPA consent has not been recorded for this parent yet. */
   "CONSENT_REQUIRED",
   /**

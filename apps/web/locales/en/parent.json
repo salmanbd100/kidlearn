@@ -19,7 +19,6 @@
   "onboarding": {
     "stepOf": "Step {{current}} of {{total}}",
     "consent": "Permission",
-    "pin": "Parent PIN",
     "child": "First profile"
   },
   "consent": {
@@ -37,23 +36,6 @@
     "checkbox": "I am this child's parent or guardian, and I agree to the above.",
     "submit": "I agree — continue",
     "outdated": "The permission text has changed. Please read it again and agree to continue."
-  },
-  "pin": {
-    "setupTitle": "Create a parent PIN",
-    "setupIntro": "Four digits, asked for whenever someone opens the parent area. Pick something your child would not guess.",
-    "choosePrompt": "Choose your PIN",
-    "confirmPrompt": "Enter it once more",
-    "mismatch": "Those two PINs did not match. Let's start again.",
-    "gateTitle": "Enter your parent PIN",
-    "gateIntro": "This keeps the parent area out of little hands.",
-    "invalid": "That PIN is not right. Please try again.",
-    "locked": "Too many tries. Please wait a short while before trying again.",
-    "notSet": "This account has no PIN yet. Let's set one up.",
-    "entered": "{{filled}} of {{length}} digits entered",
-    "backspace": "Delete the last digit",
-    "digit": "Digit {{digit}}",
-    "checking": "Checking…",
-    "empty": "Enter your four-digit PIN."
   },
   "form": {
     "newTitle": "Add a child",

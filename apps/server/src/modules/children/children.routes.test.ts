@@ -34,8 +34,6 @@ type SessionRow = {
   id: string;
   userId: string;
   activeChildProfileId: string | null;
-  /** The parental-PIN grant the write routes sit behind (FR-AUTH-04). */
-  pinVerifiedUntil: Date | null;
 };
 
 const state = vi.hoisted(() => ({
@@ -121,19 +119,11 @@ function makeParentFixture(key: string): ParentFixture {
       email: user.email,
       name: user.name,
       avatarUrl: null,
-      // Set by default for the same reason `consentGivenAt` is: the write routes
-      // sit behind `requirePinVerified`, so a PIN-less fixture would 403 every
-      // creation, update and delete test. The gate tests clear it deliberately.
-      // Never compared against — only its presence is read.
-      pinHash: "$argon2id$fixture",
       // Consented by default: `POST /api/children` sits behind `requireConsent`,
       // so an unconsented fixture would 403 every creation test. `beforeEach`
       // restores this, and the consent tests clear it deliberately.
       consentGivenAt: CONSENTED_AT,
       consentVersion: "1.0",
-      pinFailedCount: 0,
-      pinLockoutStrikes: 0,
-      pinLockedUntil: null,
       deleteToken: null,
       deleteTokenExpiresAt: null,
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -263,15 +253,11 @@ beforeEach(() => {
       id: fixture.sessionId,
       userId: fixture.user.id,
       activeChildProfileId: null,
-      // A live grant, so the PIN-gated write routes are reachable. The gate tests
-      // below expire or remove it deliberately.
-      pinVerifiedUntil: new Date(Date.now() + 15 * 60_000),
     });
     // The fixture parents are module-level objects, so a test that revokes
-    // consent or the PIN would otherwise leak into every test after it.
+    // consent would otherwise leak into every test after it.
     fixture.parent.consentGivenAt = CONSENTED_AT;
     fixture.parent.consentVersion = "1.0";
-    fixture.parent.pinHash = "$argon2id$fixture";
   }
 
   for (const spy of Object.values(db)) spy.mockReset();
@@ -701,55 +687,32 @@ describe("POST /api/children", () => {
   });
 });
 
-/** The parental gate on the write verbs (FR-AUTH-04). */
-describe("parental PIN gate on writes (FR-AUTH-04)", () => {
+/**
+ * A signed-in parent reaches every verb on this router with no further
+ * ceremony. This suite replaces the parental-PIN gate tests: the gate is gone,
+ * so what needs proving is that nothing was left half-guarding these routes.
+ */
+describe("write verbs need only an authenticated parent", () => {
   const WRITE_ROUTES = [
     ["post", "/api/children", VALID_BODY],
     ["patch", "/api/children/:id", { firstName: "Nabila" }],
     ["delete", "/api/children/:id", undefined],
   ] as const;
 
-  function expire(fixture: typeof PARENT_A) {
-    const session = state.sessions.get(fixture.sessionId);
-    if (session) session.pinVerifiedUntil = new Date(Date.now() - 1_000);
-  }
-
   it.each(
     WRITE_ROUTES,
-  )("refuses %s %s with 403 PIN_VERIFICATION_REQUIRED once the grant has lapsed", async (method, path, body) => {
+  )("answers %s %s without a 403", async (method, path, body) => {
     const child = seedChild(PARENT_A);
-    expire(PARENT_A);
-    const before = state.children.length;
 
     const url = path.replace(":id", child.id);
     const request_ = authedAgentFor(PARENT_A)[method](url);
     const res = await (body === undefined ? request_ : request_.send(body));
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("PIN_VERIFICATION_REQUIRED");
-    // Nothing was created, changed or removed.
-    expect(state.children).toHaveLength(before);
-    expect(state.children[0]?.firstName).toBe(child.firstName);
-  });
-
-  it.each(
-    WRITE_ROUTES,
-  )("refuses %s %s with 403 PIN_REQUIRED when the account has no PIN at all", async (method, path, body) => {
-    const child = seedChild(PARENT_A);
-    PARENT_A.parent.pinHash = null;
-
-    const url = path.replace(":id", child.id);
-    const request_ = authedAgentFor(PARENT_A)[method](url);
-    const res = await (body === undefined ? request_ : request_.send(body));
-
-    expect(res.status).toBe(403);
-    // A different code, because the client's next screen is setup, not the pad.
-    expect(res.body.error.code).toBe("PIN_REQUIRED");
+    expect(res.status).toBeLessThan(400);
   });
 
   it("leaves reads and activate open — the Student Portal calls them (FR-AUTH-06)", async () => {
     const child = seedChild(PARENT_A);
-    expire(PARENT_A);
 
     const list = await authedAgentFor(PARENT_A).get("/api/children");
     const detail = await authedAgentFor(PARENT_A).get(
@@ -761,14 +724,11 @@ describe("parental PIN gate on writes (FR-AUTH-04)", () => {
 
     expect(list.status).toBe(200);
     expect(detail.status).toBe(200);
-    // A child switching profiles must never meet a parental gate.
     expect(activate.status).toBe(200);
   });
 
-  it("refuses another parent's child with 404 before the gate reports 403", async () => {
-    // Ordering matters: `requirePinVerified` runs before `loadOwnedChild`, so a
-    // locked session probing someone else's id learns "locked", not "exists".
-    // Either way it must not learn that the row is real (NFR-SAFE-02).
+  it("answers 404 for another parent's child, never 403", async () => {
+    // A cross-parent probe must not learn that the row is real (NFR-SAFE-02).
     const theirChild = seedChild(PARENT_B);
 
     const res = await authedAgentFor(PARENT_A).delete(
@@ -1106,19 +1066,6 @@ describe("GET /api/children/:id/characters", () => {
     expect(res.status).toBe(401);
     expect(db.characterFindMany).not.toHaveBeenCalled();
   });
-
-  it("is reachable without a live PIN grant, like the reads beside it", async () => {
-    const child = seedChild(PARENT_A);
-    const session = state.sessions.get(PARENT_A.sessionId);
-    if (session === undefined) throw new Error("no session fixture");
-    session.pinVerifiedUntil = null;
-
-    const res = await authedAgentFor(PARENT_A).get(
-      `/api/children/${child.id}/characters`,
-    );
-
-    expect(res.status).toBe(200);
-  });
 });
 
 describe("DELETE /api/children/:id", () => {
@@ -1212,7 +1159,7 @@ describe("POST /api/children/:id/activate", () => {
     expect(me.body.data.activeChildProfileId).toBe(child.id);
   });
 
-  it("switches between profiles without any PIN step (FR-AUTH-06)", async () => {
+  it("switches between profiles without re-authenticating (FR-AUTH-06)", async () => {
     const first = seedChild(PARENT_A);
     const second = seedChild(PARENT_A);
 

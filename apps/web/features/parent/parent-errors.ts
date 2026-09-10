@@ -32,20 +32,6 @@ export function generalErrorKey(failure: ApiFailure): ParentMessageKey {
   return failure.code === "NETWORK_ERROR" ? "errors.network" : "errors.generic";
 }
 
-/** The message for a rejected PIN. */
-export function pinErrorKey(failure: ApiFailure): ParentMessageKey {
-  switch (failure.code) {
-    case "PIN_INVALID":
-      return "pin.invalid";
-    case "PIN_LOCKED":
-      return "pin.locked";
-    case "PIN_REQUIRED":
-      return "pin.notSet";
-    default:
-      return generalErrorKey(failure);
-  }
-}
-
 /** Which field of the profile form an issue belongs to, and what it says. */
 export type FieldErrors = Partial<Record<string, ParentMessageKey>>;
 

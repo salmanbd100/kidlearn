@@ -130,10 +130,10 @@ Also:
   blip rendered the whole parent area unlocked. For every guard the diff touches, ask what it
   does when its input is missing, stale or unreadable. **Unknown means locked.** A branch of a
   guard with no `else` is the shape to look for.
-- **A guard applied to one verb but not its siblings.** `requirePinVerified` once guarded a single
-  route while `PATCH`/`DELETE` on the same resource needed only a session cookie. When a diff adds
-  a guard, check every verb on that resource, and check that any deliberate exemption is written
-  down rather than implied.
+- **A guard applied to one verb but not its siblings.** The now-removed `requirePinVerified` once
+  guarded a single route while `PATCH`/`DELETE` on the same resource needed only a session cookie.
+  When a diff adds a guard, check every verb on that resource, and check that any deliberate
+  exemption is written down rather than implied.
 - **Response leaks.** `packages/types` response schemas are `.strict()`, so an extra field on the
   wire is a content-safety failure, not a documentation slip (`backend.md §7`, NFR-SAFE-02).
 - **The probe surface.** Unpublished content and another parent's child both return `404`, never
@@ -224,9 +224,8 @@ skips one of those tests, which *is* a finding.
 Yours:
 
 - **An incomplete path entry** — registered but omitting a status code its guards produce:
-  `requireParent` → 401; `requireConsent` → 403 `CONSENT_REQUIRED`; `requirePinVerified` → 403
-  `PIN_REQUIRED`/`PIN_VERIFICATION_REQUIRED`; `requireActiveChild` → 403; `loadOwnedChild` →
-  **404, never 403**. No test sees this.
+  `requireParent` → 401; `requireConsent` → 403 `CONSENT_REQUIRED`; `requireActiveChild` → 403;
+  `loadOwnedChild` → **404, never 403**. No test sees this.
 - **A second source of truth** — a response shape declared in `apps/web` or hand-written as JSON
   Schema instead of Zod in `packages/types/src/api/`. Request schemas are the Zod objects in
   each module's `.schema.ts` that `validate()` already runs.
