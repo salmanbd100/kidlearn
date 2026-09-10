@@ -10,6 +10,16 @@ import type {
   StoryCompletionResponse,
 } from "@kidlearn/types";
 import { type Request, Router } from "express";
+import type { SuccessEnvelope } from "../../shared/errors/errors.js";
+import { activeChild } from "../../shared/middleware/require-active-child.js";
+import { validate } from "../../shared/middleware/validate.js";
+import {
+  completeLesson,
+  getLessonProgress,
+  recordQuizResponses,
+  recordSessionEvent,
+  reportLessonStep,
+} from "./lesson-progress.service.js";
 import {
   LessonIdParamsSchema,
   LessonStepBodySchema,
@@ -17,18 +27,8 @@ import {
   QuizResponsesBodySchema,
   SessionEventBodySchema,
   StoryIdParamsSchema,
-} from "../../schemas/progress.js";
-import {
-  completeLesson,
-  getLessonProgress,
-  recordQuizResponses,
-  recordSessionEvent,
-  reportLessonStep,
-} from "../../services/lessonProgressService.js";
-import { completeStory } from "../../services/storyProgressService.js";
-import type { SuccessEnvelope } from "../../shared/errors/errors.js";
-import { activeChild } from "../../shared/middleware/require-active-child.js";
-import { validate } from "../../shared/middleware/validate.js";
+} from "./progress.schema.js";
+import { completeStory } from "./story-progress.service.js";
 
 /** Where the lesson player writes what a child has done (FR-LSN-06..07). */
 export const progressRouter = Router();

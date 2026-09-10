@@ -1,8 +1,8 @@
 import type { ScreenTimeStatusResponse } from "@kidlearn/types";
 import { Router } from "express";
-import { getScreenTimeStatus } from "../../services/screenTimeService.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import { activeChild } from "../../shared/middleware/require-active-child.js";
+import { getScreenTimeStatus } from "./screen-time.service.js";
 
 /**
  * `/api/screen-time` — the student surface's own view of its allowance

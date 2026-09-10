@@ -155,7 +155,7 @@ import {
   GenerateStorySchema,
   JobBreadcrumbQuerySchema,
   RejectJobSchema,
-} from "../schemas/admin-ai.js";
+} from "../modules/admin/admin-ai.schema.js";
 import {
   CharacterSheetCreateSchema,
   CharacterSheetUpdateSchema,
@@ -170,7 +170,7 @@ import {
   TransitionSchema,
   WorldCreateSchema,
   WorldUpdateSchema,
-} from "../schemas/admin-content.js";
+} from "../modules/admin/admin-content.schema.js";
 import {
   ActivityUpsertSchema,
   BadgeCreateSchema,
@@ -178,28 +178,28 @@ import {
   QuestionUpsertSchema,
   QuizCreateSchema,
   QuizUpdateSchema,
-} from "../schemas/admin-editors.js";
+} from "../modules/admin/content-editors/content-editors.schema.js";
 import {
   RegisterAssetSchema,
   SignUploadSchema,
-} from "../schemas/admin-media.js";
+} from "../modules/admin/media/media.schema.js";
 import {
   CreateChildBodySchema,
   UpdateChildBodySchema,
-} from "../schemas/children.js";
-import { ActivityEventBodySchema } from "../schemas/events.js";
+} from "../modules/children/children.schema.js";
+import { ActivityEventBodySchema } from "../modules/events/events.schema.js";
 import {
   ConsentSchema,
   DeleteAccountSchema,
   SetPinSchema,
   VerifyPinSchema,
-} from "../schemas/parent.js";
+} from "../modules/parent/parent.schema.js";
 import {
   LessonStepBodySchema,
   QuizResponsesBodySchema,
   SessionEventBodySchema,
-} from "../schemas/progress.js";
-import { ScreenTimeBodySchema } from "../schemas/screen-time.js";
+} from "../modules/progress/progress.schema.js";
+import { ScreenTimeBodySchema } from "../modules/screen-time/screen-time.schema.js";
 import {
   buildComponentSchemas,
   type JsonSchemaObject,

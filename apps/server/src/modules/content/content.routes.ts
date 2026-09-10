@@ -1,5 +1,9 @@
 import { type Request, Router } from "express";
-import { ContentIdParamsSchema } from "../../schemas/content.js";
+import type { SuccessEnvelope } from "../../shared/errors/errors.js";
+import { activeChild } from "../../shared/middleware/require-active-child.js";
+import { validate } from "../../shared/middleware/validate.js";
+import { enforceScreenTime } from "../screen-time/enforce-screen-time.middleware.js";
+import { ContentIdParamsSchema } from "./content.schema.js";
 import {
   getLessonForChild,
   type LessonDetail,
@@ -13,11 +17,7 @@ import {
   type TopicSummary,
   type WorldSummary,
   type WorldTopicLessons,
-} from "../../services/contentService.js";
-import type { SuccessEnvelope } from "../../shared/errors/errors.js";
-import { enforceScreenTime } from "../../shared/middleware/enforce-screen-time.js";
-import { activeChild } from "../../shared/middleware/require-active-child.js";
-import { validate } from "../../shared/middleware/validate.js";
+} from "./content.service.js";
 import { storiesRouter } from "./stories.routes.js";
 
 /** The student-facing curriculum read API. */

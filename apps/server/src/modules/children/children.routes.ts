@@ -6,22 +6,29 @@ import type {
   WeeklyReportList,
 } from "@kidlearn/types";
 import { Router } from "express";
-import {
-  ChildIdParamsSchema,
-  type CreateChildBody,
-  CreateChildBodySchema,
-  type UpdateChildBody,
-  UpdateChildBodySchema,
-} from "../../schemas/children.js";
+import type { SuccessEnvelope } from "../../shared/errors/errors.js";
+import { requireConsent } from "../../shared/middleware/require-consent.js";
+import { requirePinVerified } from "../../shared/middleware/require-pin-verified.js";
+import { validate, validatedQuery } from "../../shared/middleware/validate.js";
 import {
   type LearningTimeQuery,
   LearningTimeQuerySchema,
-} from "../../schemas/events.js";
+} from "../events/events.schema.js";
+import {
+  authContext,
+  requireParent,
+} from "../parent/require-parent.middleware.js";
+import { getLearningMinutes } from "../progress/learning-time.service.js";
+import { listCharactersForChild } from "../rewards/achievement.service.js";
 import {
   type ScreenTimeBody,
   ScreenTimeBodySchema,
-} from "../../schemas/screen-time.js";
-import { listCharactersForChild } from "../../services/achievementService.js";
+} from "../screen-time/screen-time.schema.js";
+import {
+  getScreenTimeSetting,
+  saveScreenTimeSetting,
+  toScreenTimeSettingResponse,
+} from "../screen-time/screen-time.service.js";
 import {
   activateChildProfile,
   type ChildProfileDto,
@@ -30,27 +37,17 @@ import {
   listChildProfiles,
   toChildProfileDto,
   updateChildProfile,
-} from "../../services/childProfileService.js";
-import { getDashboardSummary } from "../../services/dashboardService.js";
-import { getLearningMinutes } from "../../services/learningTimeService.js";
+} from "./child-profile.service.js";
 import {
-  getScreenTimeSetting,
-  saveScreenTimeSetting,
-  toScreenTimeSettingResponse,
-} from "../../services/screenTimeService.js";
-import { getWeeklyReports } from "../../services/weeklyReportService.js";
-import type { SuccessEnvelope } from "../../shared/errors/errors.js";
-import {
-  loadOwnedChild,
-  ownedChild,
-} from "../../shared/middleware/load-owned-child.js";
-import { requireConsent } from "../../shared/middleware/require-consent.js";
-import {
-  authContext,
-  requireParent,
-} from "../../shared/middleware/require-parent.js";
-import { requirePinVerified } from "../../shared/middleware/require-pin-verified.js";
-import { validate, validatedQuery } from "../../shared/middleware/validate.js";
+  ChildIdParamsSchema,
+  type CreateChildBody,
+  CreateChildBodySchema,
+  type UpdateChildBody,
+  UpdateChildBodySchema,
+} from "./children.schema.js";
+import { getDashboardSummary } from "./dashboard.service.js";
+import { loadOwnedChild, ownedChild } from "./load-owned-child.middleware.js";
+import { getWeeklyReports } from "./weekly-report.service.js";
 
 /** `/api/children` — the parent's own learner profiles (FR-PROF-01..07). */
 export const childrenRouter = Router();

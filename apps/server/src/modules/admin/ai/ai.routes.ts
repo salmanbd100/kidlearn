@@ -4,6 +4,12 @@ import type {
   GenerationJobRef,
 } from "@kidlearn/types";
 import { type Request, Router } from "express";
+import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
+import { adminContext } from "../../../shared/middleware/require-admin.js";
+import {
+  validate,
+  validatedQuery,
+} from "../../../shared/middleware/validate.js";
 import {
   AiJobIdParamsSchema,
   type AiJobListQuery,
@@ -14,12 +20,13 @@ import {
   GenerateQuizSchema,
   GenerateStorySchema,
   RejectJobSchema,
-} from "../../../schemas/admin-ai.js";
-import { generateIllustrationBatch } from "../../../services/ai/generators/illustration.js";
-import { generateLesson } from "../../../services/ai/generators/lesson.js";
-import { generateNarrationBatch } from "../../../services/ai/generators/narration.js";
-import { generateQuiz } from "../../../services/ai/generators/quiz.js";
-import { generateStory } from "../../../services/ai/generators/story.js";
+} from "../admin-ai.schema.js";
+import { generateIllustrationBatch } from "./generators/illustration.js";
+import { generateLesson } from "./generators/lesson.js";
+import { generateNarrationBatch } from "./generators/narration.js";
+import { generateQuiz } from "./generators/quiz.js";
+import { generateStory } from "./generators/story.js";
+import { requireGenerationBudget } from "./require-generation-budget.middleware.js";
 import {
   type AiJobDetailDto,
   type AiJobListDto,
@@ -29,14 +36,7 @@ import {
   getJob,
   listJobs,
   rejectJob,
-} from "../../../services/ai/review.js";
-import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
-import { adminContext } from "../../../shared/middleware/require-admin.js";
-import { requireGenerationBudget } from "../../../shared/middleware/require-generation-budget.js";
-import {
-  validate,
-  validatedQuery,
-} from "../../../shared/middleware/validate.js";
+} from "./review.js";
 
 /** `/api/admin/ai` — the generation pipeline (file 34, FR-AI-01, FR-AI-08). */
 export const adminAiRouter = Router();

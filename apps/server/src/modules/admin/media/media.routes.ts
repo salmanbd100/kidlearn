@@ -1,22 +1,22 @@
 import { Router } from "express";
+import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
+import {
+  validate,
+  validatedQuery,
+} from "../../../shared/middleware/validate.js";
 import {
   type MediaListQuery,
   MediaListQuerySchema,
   RegisterAssetSchema,
   SignUploadSchema,
-} from "../../../schemas/admin-media.js";
+} from "./media.schema.js";
 import {
   listAssets,
   type MediaAssetDto,
   registerAsset,
   signUploadParams,
   type UploadSignature,
-} from "../../../services/mediaService.js";
-import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
-import {
-  validate,
-  validatedQuery,
-} from "../../../shared/middleware/validate.js";
+} from "./media.service.js";
 
 /** `/api/admin/media` — the media library (file 33, FR-CMS-02). */
 export const adminMediaRouter = Router();

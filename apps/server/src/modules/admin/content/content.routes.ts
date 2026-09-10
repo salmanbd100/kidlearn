@@ -1,7 +1,13 @@
 import type { ReorderedIds } from "@kidlearn/types";
 import { type Request, Router } from "express";
 import type { ZodType } from "zod";
-import { JobBreadcrumbQuerySchema } from "../../../schemas/admin-ai.js";
+import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
+import { adminContext } from "../../../shared/middleware/require-admin.js";
+import {
+  validate,
+  validatedQuery,
+} from "../../../shared/middleware/validate.js";
+import { JobBreadcrumbQuerySchema } from "../admin-ai.schema.js";
 import {
   AdminContentIdParamsSchema,
   type AdminContentListQuery,
@@ -25,7 +31,16 @@ import {
   TransitionSchema,
   WorldCreateSchema,
   WorldUpdateSchema,
-} from "../../../schemas/admin-content.js";
+} from "../admin-content.schema.js";
+import { noteJobEdit } from "../job-breadcrumb.js";
+import {
+  type CharacterSheetDto,
+  createCharacterSheet,
+  listCharacterSheets,
+  type PromotedCharacterSheets,
+  promoteJobCharacters,
+  updateCharacterSheet,
+} from "./character-sheet.service.js";
 import {
   type AdminContentDto,
   type ContentResource,
@@ -48,22 +63,7 @@ import {
   updateSubject,
   updateTopic,
   updateWorld,
-} from "../../../services/adminContentService.js";
-import {
-  type CharacterSheetDto,
-  createCharacterSheet,
-  listCharacterSheets,
-  type PromotedCharacterSheets,
-  promoteJobCharacters,
-  updateCharacterSheet,
-} from "../../../services/characterSheetService.js";
-import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
-import { adminContext } from "../../../shared/middleware/require-admin.js";
-import {
-  validate,
-  validatedQuery,
-} from "../../../shared/middleware/validate.js";
-import { noteJobEdit } from "../job-breadcrumb.js";
+} from "./content.service.js";
 
 /**
  * `/api/admin/content/*` — CRUD over the curriculum hierarchy (file 32,
