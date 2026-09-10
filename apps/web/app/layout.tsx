@@ -1,3 +1,4 @@
+import { A11Y_BOOTSTRAP_SCRIPT } from "@kidlearn/ui";
 import type { Metadata, Viewport } from "next";
 import {
   Fredoka,
@@ -9,7 +10,6 @@ import {
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/Providers";
-import { A11Y_BOOTSTRAP_SCRIPT } from "@/lib/a11y-prefs";
 import { LOCALE_COOKIE_NAME, toLocale } from "@/lib/locale";
 import "./globals.css";
 

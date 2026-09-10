@@ -1,10 +1,10 @@
 "use client";
 
+import { useIsMotionReduced } from "@kidlearn/ui";
 import { Award } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
 // A badge or a character, revealed one at a time (FR-GAM-04, FR-GAM-05).

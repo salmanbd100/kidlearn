@@ -1,10 +1,10 @@
 "use client";
 
 import type { Locale } from "@kidlearn/types";
+import { useIsMotionReduced } from "@kidlearn/ui";
 import confetti from "canvas-confetti";
 import { type RefObject, useCallback, useMemo, useRef } from "react";
 import { useAudio } from "@/components/AudioProvider";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
 // The two things every activity says back to a child (FR-ACT-05).
 

@@ -1,12 +1,11 @@
 "use client";
 
 import type { WorldSummaryResponse } from "@kidlearn/types";
-import { cn } from "@kidlearn/ui";
+import { cn, useIsMotionReduced } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { STUDENT_NAMESPACE } from "@/lib/i18n";
 import { worldGradientStyle } from "@/lib/worlds";
 

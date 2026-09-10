@@ -2,7 +2,7 @@
 
 import { useReducedMotion } from "motion/react";
 import { useCallback, useSyncExternalStore } from "react";
-import { A11Y_PREF_CLASSES } from "@/lib/a11y-prefs";
+import { A11Y_PREF_CLASSES } from "../lib/a11y-prefs";
 
 /**
  * Whether animation should be suppressed, from either source that can ask for

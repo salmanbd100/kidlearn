@@ -12,11 +12,10 @@ import type {
   PuzzleActivity as PuzzleDefinition,
   PuzzleSlot,
 } from "@kidlearn/types";
-import { cn } from "@kidlearn/ui";
+import { cn, useIsMotionReduced } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import {
   evaluatePiecePlacement,

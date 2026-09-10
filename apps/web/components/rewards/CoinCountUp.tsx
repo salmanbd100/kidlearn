@@ -1,8 +1,8 @@
 "use client";
 
+import { useIsMotionReduced } from "@kidlearn/ui";
 import { Coins } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
 // Coins ticking up (FR-GAM-02, FR-LSN-05).
 

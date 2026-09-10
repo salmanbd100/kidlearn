@@ -1,8 +1,8 @@
 import type { LessonDetailResponse } from "@kidlearn/types";
+import { A11Y_PREF_CLASSES } from "@kidlearn/ui";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/components/Providers";
-import { A11Y_PREF_CLASSES } from "@/lib/a11y-prefs";
 import { resetI18nForTests } from "@/lib/i18n";
 
 // The celebration, driven by a mocked completion response.

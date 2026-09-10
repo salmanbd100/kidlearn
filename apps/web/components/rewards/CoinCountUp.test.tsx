@@ -1,6 +1,6 @@
+import { A11Y_PREF_CLASSES } from "@kidlearn/ui";
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { A11Y_PREF_CLASSES } from "@/lib/a11y-prefs";
 import { CoinCountUp } from "./CoinCountUp";
 
 /**

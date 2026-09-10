@@ -1,12 +1,11 @@
 "use client";
 
-import { cn } from "@kidlearn/ui";
+import { cn, useIsMotionReduced } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import { motion } from "motion/react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useAudio } from "@/components/AudioProvider";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
 /**
  * A big illustrated square: how a pre-reader chooses anything — a world, a

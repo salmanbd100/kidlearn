@@ -1,11 +1,10 @@
 "use client";
 
-import { Button, type ButtonProps } from "@kidlearn/ui";
+import { Button, type ButtonProps, useIsMotionReduced } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { useAudio } from "@/components/AudioProvider";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
 // The one thing a child taps.
 

@@ -5,12 +5,12 @@ import {
   type Locale,
   safeParseActivityDefinition,
 } from "@kidlearn/types";
+import { useIsMotionReduced } from "@kidlearn/ui";
 import { Volume2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/components/AudioProvider";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import { ActivityUnavailable } from "./ActivityUnavailable";
 import { FeedbackLayer } from "./FeedbackLayer";

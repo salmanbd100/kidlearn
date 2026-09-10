@@ -1,8 +1,8 @@
 "use client";
 
+import { useIsMotionReduced } from "@kidlearn/ui";
 import { Star } from "lucide-react";
 import { motion } from "motion/react";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 
 /**
  * The stars a lesson just earned, popping in one at a time (FR-GAM-01,

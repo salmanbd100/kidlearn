@@ -1,6 +1,7 @@
 "use client";
 
 import type { LessonCompletionResponse } from "@kidlearn/types";
+import { useIsMotionReduced } from "@kidlearn/ui";
 import type { TFunction } from "i18next";
 import { Coins, Sparkles, Star } from "lucide-react";
 import { motion } from "motion/react";
@@ -17,7 +18,6 @@ import {
 } from "@/components/rewards/CoinCountUp";
 import { STAR_STAGGER_MS, StarBurst } from "@/components/rewards/StarBurst";
 import { StreakCelebration } from "@/components/rewards/StreakCelebration";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 import { toLocale } from "@/lib/locale";
 import { completeLesson } from "@/lib/progress-api";

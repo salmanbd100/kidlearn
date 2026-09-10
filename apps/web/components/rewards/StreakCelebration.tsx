@@ -1,10 +1,10 @@
 "use client";
 
 import type { StreakMilestone } from "@kidlearn/types";
+import { useIsMotionReduced } from "@kidlearn/ui";
 import { Flame } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { useIsMotionReduced } from "@/hooks/use-reduced-motion";
 import { LESSON_NAMESPACE } from "@/lib/i18n";
 
 // The three- and seven-day streak party (FR-GAM-06).
