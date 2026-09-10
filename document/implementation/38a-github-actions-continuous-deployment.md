@@ -5,6 +5,18 @@
 > **Requirement IDs:** spec §9 (deployment). No FR covers CD — this automates the manual procedure
 > file 38 established, on the same footing as file 39.
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
+>
+> **Re-verified 2026-09-10.** Of the two dependencies, **38 is ⬜ Not started** — there is no
+> `apps/server/Dockerfile`, no `deploy/` directory and no AWS resources, so nothing here can be
+> built yet — and **39 has landed except for its ruleset amendment**. Two things changed under this
+> file since it was written, and both narrow its scope:
+>
+> - **`dev` exists** (created 2026-09-06) and is already the integration branch. Step 1's "create
+>   `dev`" is done, and `general.md §7` documents the flow.
+> - **Requirement 1 (extending `ci.yml`'s triggers to `dev`) has moved to file 39**, as its new
+>   requirement 10. It was blocking on 8–9 hours of AWS work for no reason, and three pull requests
+>   merged into `dev` unchecked while it waited. `gates` being *required* on `dev` moved with it.
+>   What remains here is only what genuinely depends on deployment.
 
 ## Goal
 
@@ -37,18 +49,26 @@ File 38 left both environments working and a `deploy/deploy.sh` that already doe
 images, run migrations, restart, poll health, revert on failure. It takes the environment as its
 first argument. This file's job is to *invoke* it safely from CI, not to reimplement it.
 
-`.github/workflows/ci.yml` (file 39) runs one job, `gates`, on pull requests to and pushes on `main`:
-install → `pnpm lint` → `pnpm build` → `pnpm typecheck` → `pnpm test:coverage`, with pnpm and Turbo
-caching and a coverage artefact. Its `concurrency` block sets `cancel-in-progress: false` for pushes
-to `main`, so a superseded push still gets a verdict — the behaviour a deploy needs, and which now
-has to extend to `dev`.
+`.github/workflows/ci.yml` (file 39) runs one job, `gates`, on pull requests to and pushes on the
+long-lived branches: install → `pnpm lint` → `pnpm build` → `pnpm typecheck` → `pnpm test:coverage`,
+with pnpm and Turbo caching and a coverage artefact. A run takes ~3m15s, almost all of it install
+and setup. Its `concurrency` block evaluates `cancel-in-progress` to `false` for any push, so a
+superseded push still gets a verdict — the behaviour a deploy needs. **File 39 requirement 10 is
+what extends those triggers to `dev`**; confirm it has landed before starting here, or the `deploy`
+job will never fire on a `dev` push.
 
 **`gates` is the status-check context file 39's branch ruleset requires.** Renaming that job silently
 un-gates the branch. Nothing here renames it.
 
-**There is no `dev` branch yet.** Every file so far has gone `NN-feature` → pull request → `main`
-directly; step 1 below creates `dev` from `main` and that habit changes from this file onwards. The
-`NN-feature` branch naming stays — only its target moves.
+**`dev` now exists**, created from `main` on 2026-09-06 — before this file, not by it. Feature
+branches are already cut from `dev` and merged back into it (`general.md §7`), the `/pr`,
+`/code-review` and `/start-implementation` skills all target it, and pull requests #46, #47 and #49
+have already gone that way. The `NN-feature` branch naming stays.
+
+What is *not* true yet is the second half of that flow. `general.md §7` says `main` "accepts pull
+requests only from `dev`, enforced by a required check" — **there is no such check**;
+`promotion-guard` is requirement 2 of this file and does not exist. Until it does, the standards
+overstate what is enforced, and requirement 13 has to reconcile them.
 
 Three facts shape the design:
 
@@ -64,16 +84,11 @@ Three facts shape the design:
 
 ## Detailed Requirements
 
-1. **`ci.yml` triggers extend to `dev`.** `push: branches: [main, dev]` and
-   `pull_request: branches: [main, dev]`. Extend the existing `cancel-in-progress` expression so a
-   superseded push to *either* deployable branch still gets a verdict:
-
-   ```yaml
-   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-   ```
-
-   — which already reads correctly, since both `main` and `dev` arrive as `push`. Update the comment
-   beside it to say "either deployable branch" rather than "`main`".
+1. ~~**`ci.yml` triggers extend to `dev`.**~~ **Moved to file 39, requirement 10.** Extending
+   `push`/`pull_request` to `[main, dev]` costs one line, is required for `general.md §7` to be
+   satisfiable at all, and has nothing to do with deployment — keeping it here queued it behind
+   file 38. Confirm it is in place before requirement 5, because `deploy` triggers off a `dev` push
+   that will not otherwise produce a run. Nothing else about it belongs to this file.
 
 2. **A promotion guard, so the branch flow is real.** GitHub rulesets cannot restrict which *source*
    branch may merge into a target, so a small job does it:
@@ -91,7 +106,9 @@ Three facts shape the design:
    ```
 
    Make it a **required status check on `main`** alongside `gates`. Without that it is advisory, and
-   an advisory rule about release process is a rule that stops being followed in a hurry. A genuine
+   an advisory rule about release process is a rule that stops being followed in a hurry.
+   `general.md §7` already describes it in the present tense, so until this lands the standards
+   claim a check that does not exist — requirement 13 either makes that sentence true or dates it. A genuine
    emergency is a hotfix branch merged to `dev` and promoted in two pull requests, or an admin
    override — both leave a trace, which is the point.
 
@@ -137,21 +154,53 @@ Three facts shape the design:
    workflow:
 
    ```yaml
+   on:
+     workflow_dispatch:
+       inputs:
+         job:
+           type: choice
+           options: [deploy, rollback]
+           default: deploy
+         environment:
+           type: choice
+           options: [dev, prod]
+           required: true
+         image_tag: # required for rollback; deploy uses the checked-out SHA
+           type: string
+
    deploy:
      name: deploy
      needs: gates
      if: >-
-       github.event_name == 'push' &&
-       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+       (github.event_name == 'push' &&
+         (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) ||
+       (github.event_name == 'workflow_dispatch' && inputs.job == 'deploy')
      runs-on: ubuntu-24.04-arm
-     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+     environment: ${{ (inputs.environment || github.ref_name) == 'main' && 'production' ||
+                      inputs.environment == 'prod' && 'production' || 'development' }}
      permissions: { id-token: write, contents: read }
      concurrency:
-       group: deploy-${{ github.ref_name }}
+       group: deploy-${{ inputs.environment || github.ref_name }}
        cancel-in-progress: false
      env:
-       ENV_NAME: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+       ENV_NAME: ${{ inputs.environment || (github.ref_name == 'main' && 'prod' || 'dev') }}
    ```
+
+   **The `workflow_dispatch` path is not optional, and an earlier draft of this file left it out of
+   the trigger while requirement 12 and step 5 both assumed it.** `if: github.event_name == 'push'`
+   alone makes "run the deploy job by hand against dev" impossible, which is the one thing
+   requirement 12 insists on doing before trusting the pipeline. Three consequences of adding it,
+   all of which bite silently:
+
+   - Every environment and path expression that reads `github.ref_name` has to fall back to
+     `inputs.environment`, or a manual run deploys whatever the branch implies rather than what was
+     asked for. That is the whole class of bug this design was meant to avoid.
+   - `gates` has no `if:` guard, so a dispatch runs it too — ~3m15s before anything deploys.
+     **Leave it that way** for `deploy`: `needs: gates` skipping because its dependency skipped
+     would hand you a manual deploy of unverified code, and the alternative (`if: always() && ...`)
+     is exactly how that mistake gets made.
+   - `rollback` must have **no `needs:`** for the same reason requirement 11 gives — and therefore
+     must not be reachable by the `push` triggers at all.
 
    `needs: gates` is the whole point: nothing deploys that has not passed lint, build, typecheck and
    tests. Selecting the environment by expression means the environment-scoped `vars` in
@@ -184,10 +233,18 @@ Three facts shape the design:
    for the wrong environment — the class of bug that made this the most dangerous step in the earlier
    all-Docker version of this file is gone with the web image.
 
-   **`apps/web/Dockerfile` is built by `gates`, not here** — file 38 requirement 5 keeps it as an
-   escape hatch, and building it in CI is what stops it rotting. It is never pushed and never
-   deployed. If that ever changes, this requirement is where the environment-specific build arguments
-   come back, and requirement 10 with them.
+   **`apps/web/Dockerfile` is meant to be built by `gates`, not here** — file 38 requirement 5 keeps
+   it as an escape hatch, and building it in CI is what stops it rotting. It is never pushed and
+   never deployed. If that ever changes, this requirement is where the environment-specific build
+   arguments come back, and requirement 10 with them.
+
+   **As landed, `gates` builds no image at all** — `.github/workflows/ci.yml` runs four `pnpm`
+   steps and nothing else, and no `Dockerfile` exists in the repository yet. So that sentence
+   describes an intention, not the pipeline. Whoever adds the Dockerfiles in file 38 must add the
+   `docker build` step for the web image to `gates` in the same change, or delete the escape-hatch
+   claim: an unbuilt Dockerfile checked into a repository is worse than no Dockerfile, because it
+   will be reached for in an emergency and will not work. If file 38 lands without it, add it here
+   and say so.
 
    Do **not** tag `latest`. Every deploy names an explicit SHA, which is what makes rollback a
    one-line input rather than an archaeology exercise.
@@ -208,9 +265,14 @@ Three facts shape the design:
    | `ECR_REGISTRY` | `<account-id>.dkr.ecr.ap-south-1.amazonaws.com` | same |
    | `EC2_INSTANCE_ID` | `i-…` | same instance |
    | `WEB_ORIGIN` | `https://kidlearn.net` | `https://dev.kidlearn.net` |
+   | `API_ORIGIN` | `https://api.kidlearn.net` | `https://api.dev.kidlearn.net` |
 
-   `WEB_ORIGIN` is here only so requirement 10 can assert against the right frontend; the API reads
-   its own copy from SSM. The three `NEXT_PUBLIC_*` and `MEDIA_ASSET_HOSTS` values are **not** here —
+   `WEB_ORIGIN` and `API_ORIGIN` are here only so requirement 10 can assert against the right pair
+   of hosts; the API reads its own copies from SSM. **`API_ORIGIN` was missing from an earlier
+   draft** while requirement 10's health check interpolated an `$ENV_HOST` that nothing ever set —
+   which in `bash` expands to the empty string and turns the assertion into a request to
+   `https://api./health`. Under `curl -sf` that fails loudly, but the same shape elsewhere fails
+   *quietly*; name every host in this table and interpolate nothing that is not in it. The three `NEXT_PUBLIC_*` and `MEDIA_ASSET_HOSTS` values are **not** here —
    they live in the Vercel projects (file 38 requirement 12), which is the only place that builds
    them.
 
@@ -284,7 +346,7 @@ Three facts shape the design:
     frontend pointed at the wrong API, or a frontend Vercel never rebuilt. A step that fetches the
     deployed site and fails the job if it is wrong:
 
-    - `curl -sf https://api.$ENV_HOST/health` returns the envelope.
+    - `curl -sf ${{ vars.API_ORIGIN }}/health` returns the envelope.
     - `curl -s ${{ vars.WEB_ORIGIN }}` (with basic auth on dev) must reference **this** environment's
       API host and **not** the other one — `grep` the served bundle for the wrong hostname and fail
       on a match.
@@ -301,10 +363,13 @@ Three facts shape the design:
     it**, which is the rule requirement 9 already states in the other direction. Say so in the
     runbook.
 
-11. **Rollback as a `workflow_dispatch`.** A `rollback` job — same roles, no build step — taking two
-    inputs: `environment` (a `choice` of `dev`/`prod`) and a required `image_tag`, running the same
-    `deploy.sh`. Rollback must not depend on a build succeeding; the reason you are rolling back may
-    be that builds are broken.
+11. **Rollback as a `workflow_dispatch`.** A `rollback` job — same roles, no build step — reading
+    requirement 5's shared inputs: `environment` (a `choice` of `dev`/`prod`) and `image_tag`,
+    running the same `deploy.sh`. Guard it as
+    `if: github.event_name == 'workflow_dispatch' && inputs.job == 'rollback'` and give it **no
+    `needs:`** — rollback must not depend on a build, or on `gates`, succeeding; the reason you are
+    rolling back may be that builds are broken. Fail the job in its first step if `image_tag` is
+    empty, since `workflow_dispatch` cannot make one input conditionally required.
 
     The tag is a bare `<sha>` for both images, so the input is exactly what a rollback needs and
     nothing has to be composed. **Rolling back the API does not roll back the frontend** — that is
@@ -325,11 +390,22 @@ Three facts shape the design:
     the existing comment about the `gates` context, that `gates` and `promotion-guard` are the
     required checks and `deploy` is deliberately not.
 
-14. **File 39's branch ruleset needs extending,** and this file is where it happens because it is
-    where `dev` becomes deployable. Ruleset 17802318 currently targets `~DEFAULT_BRANCH` only. It must
-    cover **both** `main` and `dev`: `gates` required on each, plus `promotion-guard` required on
-    `main`. Record the change in file 39's requirement 6 as well, so the two files do not disagree
-    about what protects what.
+    Also **reconcile `general.md §7`**, which already says `main` "accepts pull requests only from
+    `dev`, enforced by a required check". Requirement 2 is what makes that sentence true; it is
+    false until then. Whichever way it resolves — the check lands, or the sentence gets dated the
+    way §7's own "Changed 2026-09-06" note does — the standards must not claim an enforcement tier
+    the repository does not have. That is the exact failure file 39 was written to end.
+
+14. **Add `promotion-guard` to the branch ruleset on `main`.** Widening ruleset 17802318 from
+    `~DEFAULT_BRANCH` to both branches, and requiring `gates` on each, belongs to **file 39
+    requirement 6** — `dev` was already the integration branch before this file, so that is not a
+    consequence of deployment. What this file adds is the **second required context on `main`**,
+    `promotion-guard`, which only exists once requirement 2 lands.
+
+    Whichever of the two lands second inherits a live ruleset, so read it back before and after the
+    `PUT` (file 39's requirement 6 has the commands) and keep every rule that is already there.
+    Record the final rule set in file 39's requirement 6 too, so the two files never disagree about
+    what protects what.
 
 ## Technical Approach & Suggestions
 
@@ -387,9 +463,10 @@ commit.
 
 ## Step-by-Step Plan
 
-1. Create `dev` from `main` and push it. Extend `ci.yml`'s triggers to `dev`; add
-   `promotion-guard` and prove it by opening a throwaway pull request from a feature branch straight
-   to `main` and watching it fail. (~30 min)
+1. **`dev` already exists** (2026-09-06) and its `ci.yml` triggers are file 39 requirement 10 —
+   confirm both, do not redo them. Then add `promotion-guard` and prove it by opening a throwaway
+   pull request from a feature branch straight to `main` and watching it fail, and a `dev` → `main`
+   one and watching it pass. (~20 min)
 2. Create the OIDC provider and both roles with requirement 4's policies; verify each trust condition
    names its own environment. (~40 min)
 3. Create the `development` and `production` GitHub Environments and their variables. (~20 min)
@@ -421,7 +498,14 @@ commit.
       branch merged to `dev` and promoted by a `dev` → `main` pull request passes.
 - [ ] `deploy` does not run on pull requests, and does not run when `gates` fails.
 - [ ] `gates` and `promotion-guard` are required status checks on `main`, `gates` is required on
-      `dev`, and `deploy` is **not** required on either.
+      `dev` (file 39 requirement 6), and `deploy` is **not** required on either.
+- [ ] A manual `workflow_dispatch` run deploys the environment named in `inputs.environment`, not
+      the one the branch implies — verified by dispatching `prod` from a non-`main` ref in a dry run
+      and reading `ENV_NAME` out of the job log before it does anything.
+- [ ] `rollback` has no `needs:` and cannot be reached by a `push` trigger; a dispatch with an empty
+      `image_tag` fails in the job's first step rather than deploying something arbitrary.
+- [ ] Every host the post-deploy assertions interpolate comes from the environment's `vars` —
+      `git grep -n 'ENV_HOST' .github/` returns nothing.
 - [ ] The deployed dev bundle contains no `api.kidlearn.net` and the deployed production bundle no
       `dev.kidlearn.net` — asserted by the job itself (requirement 10), not only by hand, even though
       Vercel rather than this workflow built them.

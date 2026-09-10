@@ -48,7 +48,7 @@ cd apps/server && pnpm dev     # tsx watch → http://localhost:4000
 
 ## CI
 
-`.github/workflows/ci.yml` runs one job, `gates`, on every pull request and every push to `main`:
+`.github/workflows/ci.yml` runs one job, `gates`, on every pull request and every push to `main` or `dev`:
 
 ```
 pnpm install --frozen-lockfile
