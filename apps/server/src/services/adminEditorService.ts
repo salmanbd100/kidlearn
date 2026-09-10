@@ -18,9 +18,7 @@ import {
   type QuizQuestionType,
 } from "@kidlearn/types";
 import type { z } from "zod";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
-import { withSerializationRetry } from "../lib/serializable-retry.js";
+import { prisma } from "../config/prisma.js";
 import type {
   ActivityUpsertBody,
   BadgeCreateBody,
@@ -29,6 +27,8 @@ import type {
   QuizCreateBody,
   QuizUpdateBody,
 } from "../schemas/admin-editors.js";
+import { ApiError } from "../shared/errors/errors.js";
+import { withSerializationRetry } from "../shared/utils/serializable-retry.js";
 import {
   assertAiPublishable,
   assertEditable,
@@ -523,7 +523,7 @@ type BadgeRow = Prisma.BadgeGetPayload<{ select: typeof badgeSelect }>;
 
 /**
  * `Badge.ruleType` is a plain `String` column — the engine looks a rule up by it
- * and warns on an unknown one (`lib/badge-rules.ts`), so the database
+ * and warns on an unknown one (`shared/utils/badge-rules.ts`), so the database
  * deliberately does not constrain it. Every row this API writes went through
  * `BadgeRuleTypeSchema`, and the cast asserts that rather than narrowing unknown
  * data; a legacy row naming something else would fail the route test's

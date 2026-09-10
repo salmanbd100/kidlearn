@@ -1,7 +1,7 @@
 /**
  * The generation-job lifecycle (file 34, FR-AI-08).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* One `aiGenerationJob` array. `create` pushes a
@@ -30,7 +30,7 @@ const store = vi.hoisted(() => ({
   statusWrites: [] as string[],
 }));
 
-vi.mock("../../lib/prisma.js", () => {
+vi.mock("../../config/prisma.js", () => {
   const client = {
     aIGenerationJob: {
       create: async ({ data }: { data: Record<string, unknown> }) => {

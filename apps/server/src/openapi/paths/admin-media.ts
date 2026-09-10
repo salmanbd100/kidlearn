@@ -10,7 +10,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/** `routes/admin/media.ts` — the media library (file 33, FR-CMS-02). */
+/** `modules/admin/media/media.routes.ts` — the media library (file 33, FR-CMS-02). */
 type _KindsAgree = MediaKind extends AssetKind
   ? AssetKind extends MediaKind
     ? true

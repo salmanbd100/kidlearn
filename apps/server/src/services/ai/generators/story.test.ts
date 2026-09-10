@@ -1,7 +1,7 @@
 /**
  * The AI Story Generator (file 35, FR-AI-02, FR-AI-07).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
@@ -14,7 +14,7 @@
  *     assertion on the return value would prove nothing.
  *  3. *`where` clauses are not the whole guard.* Not applicable: this file only
  *     writes. That a draft story answers `404` on the student library is asserted
- *     in `routes/stories.test.ts`, against the `status: "published"` filter every
+ *     in `modules/content/stories.routes.test.ts`, against the `status: "published"` filter every
  *     read there carries.
  *  4. *Name what the stub cannot prove.* Two things. That `@@unique([storyId,
  *     sortOrder])` and `Story.slug @unique` are real constraints is the database's
@@ -48,7 +48,7 @@ vi.mock("../gemini-text.js", () => ({
   generateStructured: ai.generateStructured,
 }));
 
-vi.mock("../../../lib/prisma.js", () => {
+vi.mock("../../../config/prisma.js", () => {
   let counter = 0;
   function nextId(prefix: string): string {
     counter += 1;

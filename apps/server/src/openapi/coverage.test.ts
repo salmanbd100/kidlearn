@@ -1,23 +1,23 @@
 import type { Router } from "express";
 import { describe, expect, it } from "vitest";
-import { adminAiRouter } from "../routes/admin/ai.js";
-import { adminContentRouter } from "../routes/admin/content.js";
-import { adminContentEditorsRouter } from "../routes/admin/content-editors.js";
-import { adminRouter } from "../routes/admin/index.js";
-import { adminMediaRouter } from "../routes/admin/media.js";
-import { authRouter } from "../routes/auth.js";
-import { charactersRouter } from "../routes/characters.js";
-import { childrenRouter } from "../routes/children.js";
-import { contentRouter } from "../routes/content.js";
-import { eventsRouter } from "../routes/events.js";
-import { healthRouter } from "../routes/health.js";
-import { apiRouter } from "../routes/index.js";
-import { jobsRouter } from "../routes/jobs.js";
-import { meRouter } from "../routes/me.js";
-import { parentRouter } from "../routes/parent.js";
-import { progressRouter } from "../routes/progress.js";
-import { screenTimeRouter } from "../routes/screen-time.js";
-import { storiesRouter } from "../routes/stories.js";
+import { adminRouter } from "../modules/admin/admin.routes.js";
+import { adminAiRouter } from "../modules/admin/ai/ai.routes.js";
+import { adminContentRouter } from "../modules/admin/content/content.routes.js";
+import { adminContentEditorsRouter } from "../modules/admin/content-editors/content-editors.routes.js";
+import { adminMediaRouter } from "../modules/admin/media/media.routes.js";
+import { authRouter } from "../modules/auth/auth.routes.js";
+import { charactersRouter } from "../modules/characters/characters.routes.js";
+import { childrenRouter } from "../modules/children/children.routes.js";
+import { contentRouter } from "../modules/content/content.routes.js";
+import { storiesRouter } from "../modules/content/stories.routes.js";
+import { eventsRouter } from "../modules/events/events.routes.js";
+import { healthRouter } from "../modules/health/health.routes.js";
+import { apiRouter } from "../modules/index.js";
+import { jobsRouter } from "../modules/jobs/jobs.routes.js";
+import { meRouter } from "../modules/me/me.routes.js";
+import { parentRouter } from "../modules/parent/parent.routes.js";
+import { progressRouter } from "../modules/progress/progress.routes.js";
+import { screenTimeRouter } from "../modules/screen-time/screen-time.routes.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
 
@@ -25,7 +25,7 @@ import { toOpenApiPath } from "./route-doc.js";
 
 /**
  * Every router that serves documented routes, with the prefix `app.ts` and
- * `routes/index.ts` mount it at.
+ * `modules/index.ts` mount it at.
  */
 const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   { prefix: "", router: healthRouter, file: "paths/health.ts" },
@@ -96,7 +96,7 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
 
 /**
  * How many routers are reachable under `/api`, at any depth: the ten
- * `routes/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`, and
+ * `modules/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`, and
  * `adminContentRouter`, `adminContentEditorsRouter`, `adminMediaRouter` and
  * `adminAiRouter` nested on `adminRouter` (file 33 added the middle two, file 34
  * the last).

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { logger } from "../lib/logger.js";
+import { logger } from "../config/logger.js";
 import {
   meetsUnlockCriteria,
   type UnlockTotals,
@@ -8,7 +8,7 @@ import {
 /**
  * Character unlock criteria, tested where they are pure (`general.md §5`). The
  * Prisma half — which characters are candidates, and the `ChildCharacter` write
- * — is exercised through `routes/progress.test.ts`.
+ * — is exercised through `modules/progress/progress.routes.test.ts`.
  */
 
 function totals(overrides: Partial<UnlockTotals> = {}): UnlockTotals {

@@ -1,8 +1,8 @@
 import type { GradeLevel, Prisma } from "@kidlearn/db";
 import { type Locale, safeParseQuizQuestion } from "@kidlearn/types";
-import { ApiError } from "../../../lib/errors.js";
-import { prisma } from "../../../lib/prisma.js";
-import { slugify } from "../../../lib/slug.js";
+import { prisma } from "../../../config/prisma.js";
+import { ApiError } from "../../../shared/errors/errors.js";
+import { slugify } from "../../../shared/utils/slug.js";
 import { generateStructured } from "../gemini-text.js";
 import { withPlaceholderAssets } from "../placeholder-assets.js";
 import {

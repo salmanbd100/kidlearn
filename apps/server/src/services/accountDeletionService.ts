@@ -3,8 +3,8 @@
  */
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Parent } from "@kidlearn/db";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
 
 /** How long a deletion confirmation token stays usable. */
 const DELETE_TOKEN_TTL_MS = 15 * 60_000;

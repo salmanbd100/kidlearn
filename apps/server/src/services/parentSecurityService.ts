@@ -3,9 +3,9 @@
 // below is a runtime member of the namespace.
 import { type Parent, Prisma } from "@kidlearn/db";
 import { CONSENT_VERSION } from "@kidlearn/types";
-import { ApiError } from "../lib/errors.js";
-import { hashPin, verifyPin } from "../lib/pin.js";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
+import { hashPin, verifyPin } from "../shared/utils/pin.js";
 
 /** How long one successful PIN entry keeps the parent area unlocked. */
 export const PIN_GRANT_MS = 15 * 60_000;

@@ -1,14 +1,17 @@
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express, { type Express } from "express";
-import { auth } from "./lib/auth.js";
-import { env, isDocsEnabled } from "./lib/env.js";
-import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
-import { requestLogger } from "./middleware/request-logger.js";
-import { authRouter } from "./routes/auth.js";
-import { docsRouter } from "./routes/docs.js";
-import { healthRouter } from "./routes/health.js";
-import { apiRouter } from "./routes/index.js";
+import { auth } from "./config/auth.js";
+import { env, isDocsEnabled } from "./config/env.js";
+import { authRouter } from "./modules/auth/auth.routes.js";
+import { docsRouter } from "./modules/docs/docs.routes.js";
+import { healthRouter } from "./modules/health/health.routes.js";
+import { apiRouter } from "./modules/index.js";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./shared/middleware/error-handler.js";
+import { requestLogger } from "./shared/middleware/request-logger.js";
 
 /**
  * Builds the Express application without binding a port, so tests can drive it

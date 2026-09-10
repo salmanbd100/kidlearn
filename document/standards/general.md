@@ -154,7 +154,7 @@ import { Button } from "@kidlearn/ui";
 | Context objects | noun + `Context` | `ChildProfileContext` |
 | Event handler props | `on` + noun + verb | `onLessonComplete` |
 | Event handler implementations | `handle` + noun + verb | `handleLessonComplete` |
-| Express route files | plural noun | `lessons.ts`, `children.ts` |
+| Express route files | plural noun + `.routes` | `lessons.routes.ts`, `children.routes.ts` |
 | Service files | singular noun + `Service` | `lessonService.ts` |
 
 ### Additional rules
@@ -206,11 +206,11 @@ No separate `__tests__` directories. **[REVIEW]**
 
 Service tests and route integration tests run against a real test database. Do not mock Prisma. The lesson from `document/project-requirement-details.md §12` (assumption 8) applies: mock/real divergence masks broken migrations. The only permitted mocks are external network boundaries — AI generation APIs, text-to-speech APIs, media hosting APIs. **[REVIEW]**
 
-#### Recorded exception — `apps/server` stubs `lib/prisma.js` until the test database lands
+#### Recorded exception — `apps/server` stubs `config/prisma.js` until the test database lands
 
 **Status: active as of 2026-08-05. Remove this section the day the harness exists.**
 
-No test database is provisioned yet, so every route and service suite in `apps/server` stubs `../lib/prisma.js` instead. This is a deliberate, documented deviation, not an oversight — recording it here is what keeps it from reading as an unnoticed violation on review.
+No test database is provisioned yet, so every route and service suite in `apps/server` stubs `config/prisma.js` instead. This is a deliberate, documented deviation, not an oversight — recording it here is what keeps it from reading as an unnoticed violation on review.
 
 The deviation is bounded by four rules. A suite that breaks one of them is not covered by this exception:
 

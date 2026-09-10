@@ -10,10 +10,7 @@ import {
   ORDERABLE_CONTENT_RESOURCES,
   type OrderableContentResourceName,
 } from "@kidlearn/types";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
-import { withSerializationRetry } from "../lib/serializable-retry.js";
-import { asSlugConflict } from "../lib/slug-conflict.js";
+import { prisma } from "../config/prisma.js";
 import type {
   LessonCreateBody,
   LessonUpdateBody,
@@ -24,6 +21,9 @@ import type {
   WorldCreateBody,
   WorldUpdateBody,
 } from "../schemas/admin-content.js";
+import { ApiError } from "../shared/errors/errors.js";
+import { withSerializationRetry } from "../shared/utils/serializable-retry.js";
+import { asSlugConflict } from "../shared/utils/slug-conflict.js";
 import {
   assertAiPublishable,
   assertEditable,

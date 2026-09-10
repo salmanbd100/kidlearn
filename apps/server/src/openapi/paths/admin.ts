@@ -7,7 +7,7 @@ import {
 import type { RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/admin/index.ts` — the administrator surface (spec §4.3, FR-CMS-01/07).
+ * `modules/admin/admin.routes.ts` — the administrator surface (spec §4.3, FR-CMS-01/07).
  */
 export const ADMIN_ROUTES: RouteDoc[] = [
   {

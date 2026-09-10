@@ -4,13 +4,13 @@ import type {
   NewCharacterResponse,
 } from "@kidlearn/types";
 import { z } from "zod";
+import { logger } from "../config/logger.js";
+import { prisma } from "../config/prisma.js";
 import {
   type BadgeFacts,
   badgeRuleTopicSlug,
   evaluateBadgeRule,
-} from "../lib/badge-rules.js";
-import { logger } from "../lib/logger.js";
-import { prisma } from "../lib/prisma.js";
+} from "../shared/utils/badge-rules.js";
 
 // Badge milestones and character unlocks (FR-GAM-04, FR-GAM-05).
 

@@ -9,7 +9,7 @@ import {
 import { GATE_STATUS_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
-// `routes/parent.ts` — `requireParent` guards the whole router.
+// `modules/parent/parent.routes.ts` — `requireParent` guards the whole router.
 
 /** Both PIN routes share the brute-force bookkeeping, so both can lock out. */
 const PIN_LOCKED_RESPONSE = errorResponse(

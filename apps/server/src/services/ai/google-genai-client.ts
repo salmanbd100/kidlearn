@@ -1,5 +1,5 @@
 import type { GoogleGenAI } from "@google/genai";
-import { env } from "../../lib/env.js";
+import { env } from "../../config/env.js";
 
 /**
  * The one `@google/genai` client, shared by the text generators (file 37a) and

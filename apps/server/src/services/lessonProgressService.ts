@@ -8,13 +8,13 @@ import {
   type QuizScoreResponse,
   type SessionEventReport,
 } from "@kidlearn/types";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
 import {
   publishedForChild,
   publishedRelation,
-} from "../lib/published-for-child.js";
-import { withSerializationRetry } from "../lib/serializable-retry.js";
+} from "../shared/utils/published-for-child.js";
+import { withSerializationRetry } from "../shared/utils/serializable-retry.js";
 import {
   type CompletionRewards,
   grantLessonCompletion,

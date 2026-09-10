@@ -6,14 +6,14 @@ import {
   type LocalizedLabel,
   RECENT_ACTIVITY_LIMIT,
 } from "@kidlearn/types";
-import { type Lang, toLocaleMap } from "../lib/locale.js";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
+import { type Lang, toLocaleMap } from "../shared/utils/locale.js";
 import {
   publishedForChild,
   publishedOnly,
   publishedRelation,
   publishedRelationForChild,
-} from "../lib/published-for-child.js";
+} from "../shared/utils/published-for-child.js";
 import { getLearningMinutes } from "./learningTimeService.js";
 import { STORY_COMPLETION } from "./rewardService.js";
 

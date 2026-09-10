@@ -5,7 +5,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/** `routes/jobs.ts` — `requireCronSecret` guards the whole router. */
+/** `modules/jobs/jobs.routes.ts` — `requireCronSecret` guards the whole router. */
 export const JOBS_ROUTES: RouteDoc[] = [
   {
     method: "post",

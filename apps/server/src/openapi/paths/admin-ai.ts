@@ -20,7 +20,7 @@ import { AI_JOB_LIST_EXAMPLE } from "../examples.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/admin/ai.ts` — the AI generation pipeline (files 34–36, FR-AI-01..06,
+ * `modules/admin/ai/ai.routes.ts` — the AI generation pipeline (files 34–36, FR-AI-01..06,
  * FR-AI-08, FR-AI-09).
  */
 

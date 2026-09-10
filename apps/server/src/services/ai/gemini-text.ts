@@ -1,7 +1,7 @@
 import type { GenerateContentResponse } from "@google/genai";
 import type { ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { env } from "../../lib/env.js";
+import { env } from "../../config/env.js";
 import { getClient } from "./google-genai-client.js";
 import type { StructuredGeneration } from "./types.js";
 

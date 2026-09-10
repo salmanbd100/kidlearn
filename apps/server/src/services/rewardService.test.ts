@@ -8,7 +8,7 @@ import {
 /**
  * The grant table, tested where it is pure (`general.md §5` — no database
  * needed, so none is stubbed). Everything that touches the ledger is covered in
- * `routes/progress.test.ts`, where the idempotency guard is what is interesting.
+ * `modules/progress/progress.routes.test.ts`, where the idempotency guard is what is interesting.
  */
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";

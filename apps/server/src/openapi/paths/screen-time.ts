@@ -8,7 +8,7 @@ import { SCREEN_TIME_STATUS_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/screen-time.ts` — mounted behind `requireParent` + `requireActiveChild`.
+ * `modules/screen-time/screen-time.routes.ts` — mounted behind `requireParent` + `requireActiveChild`.
  */
 
 /** The `403` `requireActiveChild` produces on every student-surface route. */

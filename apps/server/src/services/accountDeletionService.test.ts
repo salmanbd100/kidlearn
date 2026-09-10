@@ -1,6 +1,6 @@
 /**
- * See the note at the top of `middleware/require-parent.test.ts`: no test
- * database exists yet, so `lib/prisma.js` is stubbed. That limits what this
+ * See the note at the top of `shared/middleware/require-parent.test.ts`: no test
+ * database exists yet, so `config/prisma.js` is stubbed. That limits what this
  * suite can prove — it asserts the *order and scope* of the deletes and that
  * they all run inside one transaction, but the cascade from `ChildProfile` to
  * the eight child-owned tables is a database guarantee (declared in
@@ -18,7 +18,7 @@ const db = vi.hoisted(() => ({
   transaction: vi.fn(),
 }));
 
-vi.mock("../lib/prisma.js", () => ({
+vi.mock("../config/prisma.js", () => ({
   prisma: {
     parent: { update: db.parentUpdate, delete: db.parentDelete },
     childProfile: { deleteMany: db.childProfileDeleteMany },
@@ -27,7 +27,7 @@ vi.mock("../lib/prisma.js", () => ({
   },
 }));
 
-const { ApiError } = await import("../lib/errors.js");
+const { ApiError } = await import("../shared/errors/errors.js");
 const { confirmAccountDeletion, requestAccountDeletion } = await import(
   "./accountDeletionService.js"
 );

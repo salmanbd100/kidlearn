@@ -13,8 +13,8 @@ import {
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/content.ts` — mounted behind `requireParent` **and**
- * `requireActiveChild` in `routes/index.ts` rather than inside the route file, so
+ * `modules/content/content.routes.ts` — mounted behind `requireParent` **and**
+ * `requireActiveChild` in `modules/index.ts` rather than inside the route file, so
  * that every present and future `/api/content/*` path is covered by construction.
  */
 

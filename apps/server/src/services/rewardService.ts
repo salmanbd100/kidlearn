@@ -5,11 +5,11 @@ import type {
   NewCharacterResponse,
   StoryCompletionResponse,
 } from "@kidlearn/types";
-import { env } from "../lib/env.js";
-import { localDateIn } from "../lib/local-date.js";
-import { prisma } from "../lib/prisma.js";
-import { isPublished } from "../lib/published-for-child.js";
-import { withSerializationRetry } from "../lib/serializable-retry.js";
+import { env } from "../config/env.js";
+import { prisma } from "../config/prisma.js";
+import { localDateIn } from "../shared/utils/local-date.js";
+import { isPublished } from "../shared/utils/published-for-child.js";
+import { withSerializationRetry } from "../shared/utils/serializable-retry.js";
 import {
   findNewlyEarnedBadges,
   unlockCharacters,

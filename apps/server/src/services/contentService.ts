@@ -9,21 +9,21 @@ import {
   safeParseActivityDefinition,
   safeParseQuizQuestion,
 } from "@kidlearn/types";
-import { ApiError } from "../lib/errors.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
 import {
   type Lang,
   type LocalePick,
   pickLocale,
   toLocaleMap,
-} from "../lib/locale.js";
-import { prisma } from "../lib/prisma.js";
+} from "../shared/utils/locale.js";
 import {
   isPublished,
   publishedForChild,
   publishedOnly,
   publishedRelation,
   publishedRelationForChild,
-} from "../lib/published-for-child.js";
+} from "../shared/utils/published-for-child.js";
 
 /**
  * Student-facing curriculum reads (FR-CURR-01..02, FR-WORLD-01..05, spec §7.3.4).

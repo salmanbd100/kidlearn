@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { previousLocalDate } from "../lib/local-date.js";
+import { previousLocalDate } from "../shared/utils/local-date.js";
 import { computeStreakUpdate, type StreakState } from "./streakService.js";
 
 /**
  * The day-boundary rule, tested where it is pure (`general.md §5`). The Prisma
  * half — reading the `@db.Date` column and upserting the row — is exercised
- * through `routes/progress.test.ts`, where a seeded streak is what makes the
+ * through `modules/progress/progress.routes.test.ts`, where a seeded streak is what makes the
  * badge integration meaningful.
  */
 

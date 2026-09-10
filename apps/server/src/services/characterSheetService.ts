@@ -1,8 +1,11 @@
 import type { Prisma } from "@kidlearn/db";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
-import { slugify } from "../lib/slug.js";
-import { asSlugConflict, isSlugConflict } from "../lib/slug-conflict.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
+import { slugify } from "../shared/utils/slug.js";
+import {
+  asSlugConflict,
+  isSlugConflict,
+} from "../shared/utils/slug-conflict.js";
 
 /**
  * Character sheets — the prompt text that keeps a recurring character

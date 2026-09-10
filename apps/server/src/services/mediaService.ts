@@ -1,7 +1,7 @@
 import type { Language, MediaKind, Prisma } from "@kidlearn/db";
 import { v2 as cloudinary, type UploadApiErrorResponse } from "cloudinary";
-import { env } from "../lib/env.js";
-import { prisma } from "../lib/prisma.js";
+import { env } from "../config/env.js";
+import { prisma } from "../config/prisma.js";
 
 // The media library (file 33, FR-CMS-02).
 

@@ -9,7 +9,7 @@ import { STORY_DETAIL_EXAMPLE } from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/stories.ts` — nested on `contentRouter` at `/stories`, so it carries the
+ * `modules/content/stories.routes.ts` — nested on `contentRouter` at `/stories`, so it carries the
  * same `requireParent` + `requireActiveChild` guards as the rest of
  * `/api/content/*` and can produce the same 401 and 403.
  */

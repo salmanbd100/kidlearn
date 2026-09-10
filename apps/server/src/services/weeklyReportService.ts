@@ -9,8 +9,10 @@ import type {
   WeeklyReportMetrics,
 } from "@kidlearn/types";
 import { isConceptPrefix, WeeklyReportMetricsSchema } from "@kidlearn/types";
-import { env } from "../lib/env.js";
-import { ApiError } from "../lib/errors.js";
+import { env } from "../config/env.js";
+import { logger } from "../config/logger.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
 import {
   addLocalDays,
   DAYS_PER_WEEK,
@@ -19,13 +21,11 @@ import {
   localWeekBounds,
   localWeekEndInclusive,
   mondayOfLocalWeek,
-} from "../lib/local-date.js";
-import { logger } from "../lib/logger.js";
-import { prisma } from "../lib/prisma.js";
+} from "../shared/utils/local-date.js";
 import {
   publishedOnly,
   publishedRelation,
-} from "../lib/published-for-child.js";
+} from "../shared/utils/published-for-child.js";
 import { computeLearningMinutes } from "./learningTimeService.js";
 import { STORY_COMPLETION } from "./rewardService.js";
 

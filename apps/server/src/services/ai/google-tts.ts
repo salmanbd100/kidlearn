@@ -1,5 +1,5 @@
 import type { Locale } from "@kidlearn/types";
-import { env } from "../../lib/env.js";
+import { env } from "../../config/env.js";
 
 /**
  * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
@@ -18,7 +18,7 @@ const VOICE_BY_LOCALE: Record<Locale, { languageCode: string; name: string }> =
 
 function languageOf(name: string): { languageCode: string; name: string } {
   // `en-US-Standard-C` → `en-US`. The shape is guaranteed by `ttsVoice()` in
-  // `lib/env.ts`, which refuses to boot on anything else.
+  // `config/env.ts`, which refuses to boot on anything else.
   return { languageCode: name.split("-").slice(0, 2).join("-"), name };
 }
 

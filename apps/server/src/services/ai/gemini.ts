@@ -1,5 +1,5 @@
 import type { CharacterSheet } from "@kidlearn/db";
-import { env } from "../../lib/env.js";
+import { env } from "../../config/env.js";
 import { getClient } from "./google-genai-client.js";
 
 /**

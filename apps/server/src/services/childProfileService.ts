@@ -5,10 +5,10 @@
 // `Prisma` is a value import, not a type-only one: the isolation level below is
 // a runtime member of the namespace.
 import { type ChildProfile, Prisma } from "@kidlearn/db";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
-import { withSerializationRetry } from "../lib/serializable-retry.js";
+import { prisma } from "../config/prisma.js";
 import type { CreateChildBody, UpdateChildBody } from "../schemas/children.js";
+import { ApiError } from "../shared/errors/errors.js";
+import { withSerializationRetry } from "../shared/utils/serializable-retry.js";
 
 /** FR-PROF-01 — a household may hold at most five learner profiles. */
 export const MAX_CHILDREN_PER_PARENT = 5;

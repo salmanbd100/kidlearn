@@ -5,13 +5,13 @@ import type {
   ScreenTimeStatusResponse,
   ScreenTimeUpdate,
 } from "@kidlearn/types";
-import { env } from "../lib/env.js";
-import { prisma } from "../lib/prisma.js";
+import { env } from "../config/env.js";
+import { prisma } from "../config/prisma.js";
 import {
   dateToTimeOfDay,
   timeOfDayToDate,
   toMinutesOfDay,
-} from "../lib/time-of-day.js";
+} from "../shared/utils/time-of-day.js";
 import { getLearningMinutes } from "./learningTimeService.js";
 
 // Parental screen-time control (FR-TIME-01..05).
@@ -73,7 +73,7 @@ export function localTimeOfDay(instant: Date = new Date()): string {
     hour: "2-digit",
     minute: "2-digit",
     // `hour12: false` renders midnight as hour 24 on some ICU builds; `h23` is
-    // the cycle that does not. Same reason as `lib/local-date.ts`.
+    // the cycle that does not. Same reason as `shared/utils/local-date.ts`.
     hourCycle: "h23",
   }).format(instant);
 }

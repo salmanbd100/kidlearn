@@ -2,7 +2,7 @@
  * Selectable avatar characters (FR-PROF-02). No Express types cross this
  * boundary — every function here is callable from a test without an HTTP layer.
  */
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
 
 /** One avatar the profile form may offer. */
 export type AvatarCharacter = {

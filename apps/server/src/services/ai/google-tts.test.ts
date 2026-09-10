@@ -5,7 +5,7 @@
  * network boundary is the one allowed mock. Nothing here touches the database, so
  * the Prisma exception does not apply.
  *
- * The voice names are the defaults `lib/env.ts` supplies, which is what
+ * The voice names are the defaults `config/env.ts` supplies, which is what
  * `vitest.setup.ts` deliberately leaves unset.
  */
 

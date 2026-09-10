@@ -5,13 +5,13 @@ import type {
   StorySummaryResponse,
 } from "@kidlearn/types";
 import { NarrationTimingsSchema } from "@kidlearn/types";
-import { ApiError } from "../lib/errors.js";
-import { type Lang, pickLocale, toLocaleMap } from "../lib/locale.js";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
+import { type Lang, pickLocale, toLocaleMap } from "../shared/utils/locale.js";
 import {
   publishedForChild,
   publishedRelation,
-} from "../lib/published-for-child.js";
+} from "../shared/utils/published-for-child.js";
 import type { GrantSource } from "./rewardService.js";
 
 // The Story Library's read side (FR-STORY-01, 04, 05, 08).

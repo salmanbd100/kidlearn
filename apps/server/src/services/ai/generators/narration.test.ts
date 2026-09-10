@@ -1,7 +1,7 @@
 /**
  * Batch narration (file 36, FR-AI-04, FR-I18N-05, FR-CMS-05, FR-AI-07).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
@@ -59,7 +59,7 @@ vi.mock("../../mediaService.js", async (importOriginal) => ({
   uploadBuffer: upload.uploadBuffer,
 }));
 
-vi.mock("../../../lib/prisma.js", () => {
+vi.mock("../../../config/prisma.js", () => {
   let counter = 0;
   const nextId = (prefix: string): string => {
     counter += 1;
@@ -715,7 +715,7 @@ describe("re-running the batch", () => {
 
 describe("the daily audio cap", () => {
   it("refuses the whole batch rather than narrating part of it", async () => {
-    const { env } = await import("../../../lib/env.js");
+    const { env } = await import("../../../config/env.js");
     for (let index = 0; index < env.AI_AUDIO_JOBS_PER_DAY - 1; index += 1) {
       store.jobs.push({
         id: `filler-${index}`,

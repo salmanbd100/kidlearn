@@ -13,7 +13,7 @@
  *
  * File 37's `assertAiPublishable` is the exception and is covered at the foot of
  * this file. It has to read the creating job, so this suite stubs
- * `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* One `jobs` array the tests write rows into, read
@@ -28,17 +28,17 @@
  *     reads student-facing content.
  *  4. *Name what the stub cannot prove.* That the guard actually runs on a real
  *     publish is a property of the two call sites, asserted over HTTP in
- *     `routes/admin/content.test.ts` and `routes/admin/ai-review.test.ts`.
+ *     `modules/admin/content/content.routes.test.ts` and `modules/admin/ai/ai-review.routes.test.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "../lib/errors.js";
+import { ApiError } from "../shared/errors/errors.js";
 
 const store = vi.hoisted(() => ({
   jobs: [] as { id: string; status: string; decision: string | null }[],
   questions: [] as { quizId: string; aiJobId: string | null }[],
 }));
 
-vi.mock("../lib/prisma.js", () => ({
+vi.mock("../config/prisma.js", () => ({
   prisma: {
     aIGenerationJob: {
       findMany: async ({ where }: { where: { id: { in: string[] } } }) =>

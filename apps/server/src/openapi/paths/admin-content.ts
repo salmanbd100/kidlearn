@@ -11,7 +11,7 @@ import {
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/admin/content.ts` — the curriculum CMS (file 32, FR-CURR-04,
+ * `modules/admin/content/content.routes.ts` — the curriculum CMS (file 32, FR-CURR-04,
  * FR-CMS-01, FR-CMS-06).
  */
 type _StatusesCoverPrisma = ContentStatus extends ContentStatusValue

@@ -1,7 +1,7 @@
 /**
  * `seedAdmin()` — the only way an administrator comes into existence (file 31).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5`. Rule 1
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`. Rule 1
  * (stub state, not answers) is the whole point here: `store.admins` is a table and
  * the stubbed `upsert` matches on `email`, so "running twice leaves one row" is a
  * row count rather than a mock told to return the same object twice.
@@ -45,13 +45,13 @@ const db = vi.hoisted(() => ({
   adminUpsert: vi.fn(),
 }));
 
-vi.mock("../lib/prisma.js", () => ({
+vi.mock("../config/prisma.js", () => ({
   prisma: {
     adminUser: { findUnique: db.adminFindUnique, upsert: db.adminUpsert },
   },
 }));
 
-const { auth } = await import("../lib/auth.js");
+const { auth } = await import("../config/auth.js");
 const { seedAdmin } = await import("./seed-admin.js");
 const context = await auth.$context;
 

@@ -16,8 +16,8 @@ import {
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/progress.ts` — mounted behind `requireParent` **and**
- * `requireActiveChild` in `routes/index.ts`, so every present and future
+ * `modules/progress/progress.routes.ts` — mounted behind `requireParent` **and**
+ * `requireActiveChild` in `modules/index.ts`, so every present and future
  * `/api/progress/*` path is covered by construction.
  */
 type _LessonStepsCoverPrisma = PrismaLessonStep extends LessonStep

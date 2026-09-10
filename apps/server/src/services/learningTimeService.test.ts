@@ -3,7 +3,7 @@
  * two instants.
  */
 import { describe, expect, it } from "vitest";
-import { localDayStartUtc } from "../lib/local-date.js";
+import { localDayStartUtc } from "../shared/utils/local-date.js";
 import {
   computeLearningMinutes,
   LEARNING_TIME_GAP_MS,

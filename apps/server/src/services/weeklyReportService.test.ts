@@ -2,7 +2,7 @@
  * The pure half of the weekly report: rows → metrics, and metrics → a note key.
  */
 import { describe, expect, it } from "vitest";
-import { localDayStartUtc } from "../lib/local-date.js";
+import { localDayStartUtc } from "../shared/utils/local-date.js";
 import {
   assertMondayWeekStart,
   computeWeeklyMetrics,

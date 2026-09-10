@@ -3,8 +3,8 @@
  * here is callable from a test without an HTTP layer.
  */
 import { type Parent, Prisma } from "@kidlearn/db";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
 
 /** better-auth writes this into `account.providerId` for Google sign-ins. */
 const GOOGLE_PROVIDER_ID = "google";

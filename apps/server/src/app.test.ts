@@ -5,7 +5,7 @@ import {
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { app } from "./app.js";
-import { env } from "./lib/env.js";
+import { env } from "./config/env.js";
 import { assertContract } from "./openapi/assert-contract.js";
 
 describe("GET /health", () => {

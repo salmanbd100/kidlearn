@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDocsEnabled } from "../lib/env.js";
+import { isDocsEnabled } from "../config/env.js";
 import { SCHEMA_DEFINITIONS } from "./components.js";
 import { buildOpenApiDocument } from "./document.js";
 import { EXTERNAL_ROUTE_DOCS, ROUTE_DOCS } from "./paths/index.js";

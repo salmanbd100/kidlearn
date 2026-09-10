@@ -1,6 +1,6 @@
 import type { AIJobType, Prisma } from "@kidlearn/db";
 import type { z } from "zod";
-import { prisma } from "../../lib/prisma.js";
+import { prisma } from "../../config/prisma.js";
 import type { GenerationStopReason, TokenUsage } from "./types.js";
 
 // The `AIGenerationJob` lifecycle, shared by every generator (FR-AI-08).

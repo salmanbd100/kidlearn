@@ -6,15 +6,15 @@ import type {
   LearningTimeRange,
   LearningTimeResponse,
 } from "@kidlearn/types";
-import { env } from "../lib/env.js";
+import { env } from "../config/env.js";
+import { prisma } from "../config/prisma.js";
 import {
   addLocalDays,
   localDateIn,
   localDayStartUtc,
   localWeekBounds,
   mondayOfLocalWeek,
-} from "../lib/local-date.js";
-import { prisma } from "../lib/prisma.js";
+} from "../shared/utils/local-date.js";
 import { requireVisibleLessonId } from "./lessonProgressService.js";
 import { requireVisibleStoryId } from "./storyService.js";
 
@@ -82,7 +82,7 @@ export function learningTimeWindow(
 
   if (range === "week") {
     // Monday start (FR-DASH-02), and the bounds themselves from
-    // `lib/local-date.ts` so this window and the weekly report (file 30) cannot
+    // `shared/utils/local-date.ts` so this window and the weekly report (file 30) cannot
     // disagree about which seven days a week is.
     return localWeekBounds(timeZone, mondayOfLocalWeek(today));
   }

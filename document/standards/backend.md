@@ -28,16 +28,44 @@
 
 ```
 apps/server/src/
-├── routes/         # Express Router files — one file per resource (plural noun)
+├── modules/        # One directory per business domain — routes and their tests
+│   ├── index.ts    # The `/api` aggregator: every resource router is mounted here
+│   ├── children/   # children.routes.ts + children.routes.test.ts
+│   └── admin/      # admin.routes.ts, plus a directory per sub-surface (ai/, media/)
 ├── services/       # Business logic — plain async functions, no Express types
-├── middleware/     # Express middleware (auth, validation, error handling)
 ├── schemas/        # Zod request schemas, one file per resource
 ├── openapi/        # The OpenAPI document — see §7
-├── lib/            # Pure utility functions
-└── index.ts        # App bootstrap only — no routes or business logic inline
+├── shared/
+│   ├── middleware/ # Express middleware (auth, validation, error handling)
+│   ├── errors/     # `ApiError`, the envelopes, `ERROR_CODES`
+│   ├── utils/      # Pure utility functions
+│   └── types/      # Ambient declarations (`express.d.ts`)
+├── config/         # Configured singletons: env, prisma, auth, logger
+├── app.ts          # Express wiring — middleware order and mounts, no port binding
+└── server.ts       # Bootstrap only: listen, and drain on SIGINT/SIGTERM
 ```
 
-Naming: route files are plural nouns (`lessons.ts`), service files are singular noun + `Service` (`lessonService.ts`). See [`general.md §4`](./general.md#4-naming-conventions).
+A module is a **business domain**, not a file type. Its routes and the suites that
+cover them sit together; a route file is `<domain>.routes.ts` and its suite
+`<domain>.routes.test.ts`.
+
+Two rules keep the layout from drifting back into a grab-bag:
+
+- **Shared stays shared.** A utility, middleware or error type used by more than
+  one module lives under `shared/`, never inside the module that happened to need
+  it first.
+- **No speculative layers.** `controllers/`, `repositories/`, `use-cases/`, `dto/`
+  and `factories/` are not part of this structure. A route delegates to a service;
+  that is the whole indirection budget.
+
+`services/` and `schemas/` stay at the top level rather than inside modules,
+because several of them are genuinely cross-domain — `screenTimeService` serves
+both `children` and `screen-time`, `schemas/admin-ai.ts` serves four admin
+surfaces. Colocating those would only relocate the coupling.
+
+Naming: route files are `<plural noun>.routes.ts` (`lessons.routes.ts`), service
+files are singular noun + `Service` (`lessonService.ts`). See
+[`general.md §4`](./general.md#4-naming-conventions).
 
 ---
 
@@ -104,7 +132,7 @@ Content moves through `draft → in_review → approved/rejected → published`.
 
 ### Error handling
 
-- A single error-handler middleware (last `app.use` in `index.ts`) catches all thrown errors from route handlers. Route handlers do not send error responses directly — they throw. **[REVIEW]**
+- A single error-handler middleware (last `app.use` in `app.ts`) catches all thrown errors from route handlers. Route handlers do not send error responses directly — they throw. **[REVIEW]**
 - HTTP status codes are semantic. Never return `200` with an error payload in the body. **[REVIEW]**
 
 | Status | When to use |
@@ -221,7 +249,7 @@ Before considering backend work complete:
 - [ ] Every successful response is asserted against its `packages/types/src/api` schema in the route test
 - [ ] `prisma` singleton from `@kidlearn/db` used — no `new PrismaClient()`, no raw SQL
 - [ ] Every student-facing query filters `status: "published"`, with an explicit test
-- [ ] Errors are thrown, not sent — a single error-handler middleware is last in `index.ts`
+- [ ] Errors are thrown, not sent — a single error-handler middleware is last in `app.ts`
 - [ ] Status codes are semantic (no `200` with an error body)
 - [ ] Required env vars validated at boot, failing fast with a clear message
 - [ ] Progress, rewards, streaks, and screen time are computed server-side — the client reports events, the server validates and records

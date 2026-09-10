@@ -6,8 +6,8 @@ import {
   type NarrationEntity,
 } from "@kidlearn/types";
 import { z } from "zod";
-import { ApiError } from "../../../lib/errors.js";
-import { prisma } from "../../../lib/prisma.js";
+import { prisma } from "../../../config/prisma.js";
+import { ApiError } from "../../../shared/errors/errors.js";
 import {
   registerAsset,
   resourceTypeFor,

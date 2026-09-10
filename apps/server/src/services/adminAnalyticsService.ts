@@ -1,6 +1,6 @@
 import type { PlatformOverview } from "@kidlearn/types";
-import { env } from "../lib/env.js";
-import { prisma } from "../lib/prisma.js";
+import { env } from "../config/env.js";
+import { prisma } from "../config/prisma.js";
 import { learningTimeWindow } from "./learningTimeService.js";
 
 /** Platform analytics for the admin CMS (FR-CMS-07, basic tier). */

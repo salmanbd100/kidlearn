@@ -5,8 +5,8 @@ import {
   isContentEditable,
   nextContentStatuses,
 } from "@kidlearn/types";
-import { ApiError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../config/prisma.js";
+import { ApiError } from "../shared/errors/errors.js";
 
 // The publishing workflow (file 32, FR-CMS-06) — one matrix, one authority.
 

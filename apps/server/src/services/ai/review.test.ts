@@ -1,7 +1,7 @@
 /**
  * The human gate (file 37, FR-AI-07, FR-AI-08, FR-CMS-05..06).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* One array per table, and every write lands in
@@ -15,18 +15,18 @@
  *  3. *`where` clauses are not the whole guard.* Not applicable directly: nothing
  *     here reads student-facing content. That a `rejected` row cannot reach a
  *     child is a property of the student API's filter, asserted in
- *     `routes/content.test.ts` and `routes/stories.test.ts`; what this file
+ *     `modules/content/content.routes.test.ts` and `modules/content/stories.routes.test.ts`; what this file
  *     proves is that the row lands on `rejected` in the first place.
  *  4. *Name what the stub cannot prove.* Two things. Atomicity is Postgres's:
  *     the stub runs the `$transaction` callback directly and rethrows, so a
  *     failure mid-chain is asserted as "the job was not decided" rather than as a
  *     rollback. And Serializable isolation is asserted against the options passed
- *     to `$transaction`, matching `children.test.ts`, rather than by racing two
+ *     to `$transaction`, matching `children.routes.test.ts`, rather than by racing two
  *     callers.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "../../lib/errors.js";
+import { ApiError } from "../../shared/errors/errors.js";
 import { PLACEHOLDER_ASSET_HOST } from "./placeholder-assets.js";
 
 type Row = Record<string, unknown> & { id: string };
@@ -47,7 +47,7 @@ const store = vi.hoisted(() => ({
   transactions: [] as unknown[],
 }));
 
-vi.mock("../../lib/prisma.js", () => {
+vi.mock("../../config/prisma.js", () => {
   // `{ id: { in: [...] } }` and `{ aiJobId: { not: null } }` are the two Prisma
   // filter objects file 37 uses; everything else in these suites is equality.
   function matches(row: Row, where: Record<string, unknown>): boolean {
@@ -521,7 +521,7 @@ describe("approveJob", () => {
   it("runs at Serializable isolation", async () => {
     // Two admins deciding the same job at once must not both read
     // `awaiting_review`. The stub cannot race them, so the guarantee is asserted
-    // against the level requested — same approach as `children.test.ts`.
+    // against the level requested — same approach as `children.routes.test.ts`.
     await approveJob(seedLessonJob(), REVIEWER);
 
     expect(store.transactions[0]).toMatchObject({

@@ -15,10 +15,10 @@ import type {
   Locale,
 } from "@kidlearn/types";
 import { GRADE_LEVELS, LOCALES } from "@kidlearn/types";
-import { ApiError } from "../../lib/errors.js";
-import { prisma } from "../../lib/prisma.js";
-import { withSerializationRetry } from "../../lib/serializable-retry.js";
+import { prisma } from "../../config/prisma.js";
 import type { AiJobListQuery } from "../../schemas/admin-ai.js";
+import { ApiError } from "../../shared/errors/errors.js";
+import { withSerializationRetry } from "../../shared/utils/serializable-retry.js";
 import {
   assertAiPublishable,
   readQuizAiJobIds,

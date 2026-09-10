@@ -1,7 +1,7 @@
 /**
  * The AI Lesson Generator (file 34, FR-AI-01, FR-AI-07).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
@@ -13,7 +13,7 @@
  *     assertion on the response shape would prove nothing.
  *  3. *`where` clauses are not the whole guard.* Not applicable here: this file
  *     only writes. That a generated lesson answers `404` on the student API is
- *     asserted in `routes/content.test.ts`, against the `status: "published"`
+ *     asserted in `modules/content/content.routes.test.ts`, against the `status: "published"`
  *     filter every read there carries.
  *  4. *Name what the stub cannot prove.* Two things. That a failed `persist`
  *     leaves no rows behind is Postgres's transaction guarantee — the stub runs
@@ -49,7 +49,7 @@ vi.mock("../gemini-text.js", () => ({
   generateStructured: ai.generateStructured,
 }));
 
-vi.mock("../../../lib/prisma.js", () => {
+vi.mock("../../../config/prisma.js", () => {
   let counter = 0;
   function nextId(prefix: string): string {
     counter += 1;

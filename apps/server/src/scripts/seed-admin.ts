@@ -2,8 +2,8 @@ import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { AdminUser } from "@kidlearn/db";
 import { z } from "zod";
-import { ADMIN_MIN_PASSWORD_LENGTH, auth } from "../lib/auth.js";
-import { prisma } from "../lib/prisma.js";
+import { ADMIN_MIN_PASSWORD_LENGTH, auth } from "../config/auth.js";
+import { prisma } from "../config/prisma.js";
 
 // Creates or refreshes an administrator (file 31, spec §4.3).
 

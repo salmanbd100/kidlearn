@@ -65,7 +65,7 @@ const DESCRIPTION = [
 ].join("\n");
 
 /**
- * `serverUrl` is a parameter, not an `env` import, and deliberately so: `lib/env.ts`
+ * `serverUrl` is a parameter, not an `env` import, and deliberately so: `config/env.ts`
  * calls `process.exit(1)` on a missing `.env`, which would kill the
  * `openapi:write` script and make this function untestable.
  */

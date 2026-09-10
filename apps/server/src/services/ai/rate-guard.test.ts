@@ -1,7 +1,7 @@
 /**
  * The daily generation cap (file 36).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* One `jobs` array standing in for the table, and
@@ -20,14 +20,14 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { env } from "../../lib/env.js";
-import { ApiError } from "../../lib/errors.js";
+import { env } from "../../config/env.js";
+import { ApiError } from "../../shared/errors/errors.js";
 
 type Job = { type: string; createdAt: Date };
 
 const store = vi.hoisted(() => ({ jobs: [] as Job[] }));
 
-vi.mock("../../lib/prisma.js", () => ({
+vi.mock("../../config/prisma.js", () => ({
   prisma: {
     aIGenerationJob: {
       count: async ({

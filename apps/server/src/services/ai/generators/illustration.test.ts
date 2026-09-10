@@ -1,7 +1,7 @@
 /**
  * Batch illustration (file 36, FR-AI-05, FR-AI-09, FR-CMS-05, FR-AI-07).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
@@ -54,7 +54,7 @@ vi.mock("../../mediaService.js", async (importOriginal) => ({
   uploadBuffer: upload.uploadBuffer,
 }));
 
-vi.mock("../../../lib/prisma.js", () => {
+vi.mock("../../../config/prisma.js", () => {
   let counter = 0;
   const nextId = (prefix: string): string => {
     counter += 1;
@@ -418,7 +418,7 @@ describe("what an illustration job records", () => {
 
 describe("the daily image cap", () => {
   it("refuses the whole batch rather than drawing part of it", async () => {
-    const { env } = await import("../../../lib/env.js");
+    const { env } = await import("../../../config/env.js");
     for (let index = 0; index < env.AI_IMAGE_JOBS_PER_DAY - 1; index += 1) {
       store.jobs.push({
         id: `filler-${index}`,

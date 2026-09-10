@@ -1,10 +1,10 @@
 import { STREAK_MILESTONE_DAYS, type StreakMilestone } from "@kidlearn/types";
+import type { prisma } from "../config/prisma.js";
 import {
   localDateIn,
   localDateToUtcMidnight,
   previousLocalDate,
-} from "../lib/local-date.js";
-import type { prisma } from "../lib/prisma.js";
+} from "../shared/utils/local-date.js";
 
 /**
  * Learning streaks (FR-GAM-06) — consecutive local days with at least one

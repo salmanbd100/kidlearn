@@ -9,7 +9,7 @@ import {
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/admin/content-editors.ts` — the guided editors (file 33, FR-CMS-03,
+ * `modules/admin/content-editors/content-editors.routes.ts` — the guided editors (file 33, FR-CMS-03,
  * FR-GAM-04).
  */
 

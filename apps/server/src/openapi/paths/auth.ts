@@ -7,7 +7,7 @@ import {
 import { AUTH_ME_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/** `routes/auth.ts` — the two routes kidlearn defines itself on `/api/auth`. */
+/** `modules/auth/auth.routes.ts` — the two routes kidlearn defines itself on `/api/auth`. */
 export const AUTH_ROUTES: RouteDoc[] = [
   {
     method: "get",

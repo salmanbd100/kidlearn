@@ -1,8 +1,11 @@
 import type { AIJobType } from "@kidlearn/db";
-import { env } from "../../lib/env.js";
-import { ApiError } from "../../lib/errors.js";
-import { localDateIn, localDayStartUtc } from "../../lib/local-date.js";
-import { prisma } from "../../lib/prisma.js";
+import { env } from "../../config/env.js";
+import { prisma } from "../../config/prisma.js";
+import { ApiError } from "../../shared/errors/errors.js";
+import {
+  localDateIn,
+  localDayStartUtc,
+} from "../../shared/utils/local-date.js";
 
 // The daily ceiling on generation jobs (file 36).
 

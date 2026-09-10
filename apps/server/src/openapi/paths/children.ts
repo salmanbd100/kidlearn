@@ -15,7 +15,7 @@ import {
 } from "../examples.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
-/** `routes/children.ts` — `requireParent` guards the whole router. */
+/** `modules/children/children.routes.ts` — `requireParent` guards the whole router. */
 type _GradeLevelsCoverPrisma = GradeLevel extends GradeLevelValue
   ? true
   : never;

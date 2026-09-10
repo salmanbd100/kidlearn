@@ -1,7 +1,7 @@
 /**
  * The AI Quiz Generator (file 35, FR-AI-03, FR-AI-07).
  *
- * Stubs `lib/prisma.js` under the recorded exception in `general.md §5` — no test
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
  * database exists yet. The four bounds that exception sets are met as follows:
  *
  *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
@@ -13,7 +13,7 @@
  *     quiz is refused before any job row exists.
  *  3. *`where` clauses are not the whole guard.* Not applicable: this file writes.
  *     That a draft quiz's questions never reach a child is asserted in
- *     `routes/content.test.ts`.
+ *     `modules/content/content.routes.test.ts`.
  *  4. *Name what the stub cannot prove.* `@@unique([quizId, sortOrder])` is a
  *     database constraint; what is asserted here is the append the generator does
  *     in front of it. And that a failed `persist` leaves nothing behind is
@@ -48,7 +48,7 @@ vi.mock("../gemini-text.js", () => ({
   generateStructured: ai.generateStructured,
 }));
 
-vi.mock("../../../lib/prisma.js", () => {
+vi.mock("../../../config/prisma.js", () => {
   let counter = 0;
   function nextId(prefix: string): string {
     counter += 1;

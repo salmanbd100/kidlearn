@@ -10,8 +10,8 @@ import {
 import type { RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/events.ts` — mounted behind `requireParent` **and**
- * `requireActiveChild` in `routes/index.ts`, so every present and future
+ * `modules/events/events.routes.ts` — mounted behind `requireParent` **and**
+ * `requireActiveChild` in `modules/index.ts`, so every present and future
  * `/api/events/*` path is covered by construction.
  */
 type _ActivityTypesExistInPrisma = ActivityEventType extends SessionEventType

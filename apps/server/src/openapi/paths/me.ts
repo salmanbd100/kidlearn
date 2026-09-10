@@ -7,8 +7,8 @@ import {
 import type { RouteDoc } from "../route-doc.js";
 
 /**
- * `routes/me.ts` — mounted behind `requireParent` **and** `requireActiveChild`
- * in `routes/index.ts`, like `/api/content/*` and `/api/progress/*`.
+ * `modules/me/me.routes.ts` — mounted behind `requireParent` **and** `requireActiveChild`
+ * in `modules/index.ts`, like `/api/content/*` and `/api/progress/*`.
  */
 
 const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
