@@ -5,6 +5,18 @@
 > **Depends on:** 16, 29, 37, 37a
 > **Requirement IDs:** spec §9, NFR-PERF-02, NFR-PERF-04
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
+>
+> **Re-verified 2026-09-10.** Still ⬜ Not started, and still accurate on cost, topology and the
+> cookie story. Two changes since it was written have invalidated details inside it: the module
+> reorganisation (#49) deleted `apps/server/src/lib/` and moved `apps/web/lib/`, so every path
+> below is repointed, and file 39's pipeline landed *without* the Docker build requirement 5
+> assumes. The Dockerfile sketch also named the wrong entry file. All corrected in place.
+>
+> **One thing to settle before starting: `main` and `dev` have diverged.** The parental PIN gate was
+> removed on `main` (#48, six commits) while `dev` moved the same files to new paths (#49) and still
+> contains them. A promotion PR will conflict across all of them or silently reintroduce the gate.
+> Requirement 20's smoke test and spec §9 both describe whichever behaviour wins, so resolve the
+> divergence first — deploying a build whose parent flow you cannot name is not a deployment.
 
 ## Goal
 
@@ -24,7 +36,7 @@ deploys from GitHub Actions, while Vercel's Git integration deploys the frontend
 
 The domain being bought *before* the first deploy is what makes this work. Every hostname shares one
 registrable domain, so within each environment web and API are the **same site** even though they
-are different origins, and `src/lib/auth.ts` keeps the `sameSite: "lax"` it already has. Moving the
+are different origins, and `src/config/auth.ts` keeps the `sameSite: "lax"` it already has. Moving the
 frontend to Vercel does not touch that: `kidlearn.net` and `api.kidlearn.net` were already separate
 origins under the previous all-Docker design. The `SameSite=None; Secure` cross-origin workaround an
 earlier version of this file required is never written, and Safari's cross-site tracking prevention
@@ -38,19 +50,22 @@ credentials.
 
 What already exists and does *not* need building:
 
-- `apps/server/src/lib/env.ts` Zod-parses every variable and refuses to boot on a missing or
+- `apps/server/src/config/env.ts` Zod-parses every variable and refuses to boot on a missing or
   malformed one (file 08). It reads `PORT`, so a container port is configuration, not code.
-- `GET /health` is DB-free and cheap (file 08) — the health gate the deploy script polls.
+  (`src/lib/env.ts` until #49 — that directory no longer exists.)
+- `GET /health` is DB-free and cheap (file 08, now `src/modules/health/health.routes.ts`) — the
+  health gate the deploy script polls.
 - `apps/server/src/app.ts` passes `origin: [env.WEB_ORIGIN]` to `cors({ credentials: true })` —
   exactly one origin, no wildcard. Per environment, that is exactly right, and it stays right with
   the frontend on Vercel.
-- `apps/server/src/lib/auth.ts` already pins
+- `apps/server/src/config/auth.ts` already pins
   `advanced.defaultCookieAttributes = { httpOnly: true, sameSite: "lax", secure: NODE_ENV === "production" }`.
   **Leave it alone.** It is already correct for both environments.
 - `packages/db/prisma/schema.prisma` already declares `url = env("DATABASE_URL")` and
   `directUrl = env("DIRECT_URL")`. No schema change is needed.
-- `apps/web/lib/api-client.ts` reads `NEXT_PUBLIC_API_URL`, falling back to `http://localhost:4000`,
-  and sends `credentials: "include"`.
+- `apps/web/shared/api/api-client.ts` reads `NEXT_PUBLIC_API_URL`, falling back to
+  `http://localhost:4000`, and sends `credentials: "include"`. (`apps/web/lib/api-client.ts` until
+  #49.)
 - **`apps/web` has no route handlers, no `middleware.ts`/`proxy.ts` and no server-side API calls.**
   The only server-side API it touches is `cookies()` in `app/layout.tsx`, to read the locale. Every
   call to the Express API is made from the browser. This is the fact that makes the frontend a clean
@@ -60,9 +75,9 @@ What already exists and does *not* need building:
   machine. It is not the file deployed here, and the dev environment's Postgres is a different
   container on a different host — do not conflate them.
 
-What does not exist: `apps/server/Dockerfile`, `apps/web/Dockerfile`, any `.dockerignore`,
-`apps/web/proxy.ts`, `output: "standalone"` in `apps/web/next.config.ts`,
-`app.set("trust proxy", …)`, and `document/runbook.md`.
+What does not exist, re-confirmed 2026-09-10: `apps/server/Dockerfile`, `apps/web/Dockerfile`, any
+`.dockerignore`, `apps/web/proxy.ts`, `output: "standalone"` in `apps/web/next.config.ts`,
+`app.set("trust proxy", …)`, `deploy/`, and `document/runbook.md`.
 
 ### Costs, at steady state
 
@@ -284,6 +299,23 @@ changes.
    about thirty minutes. CI builds it so it cannot rot; no ECR repository holds it and no Compose file
    references it.
 
+   **"CI builds it" is work this file has to do, not a fact it can rely on.** File 39's pipeline
+   landed with four `pnpm` steps and no Docker step of any kind, and `.github/workflows/ci.yml` was
+   not in this file's *Files to modify* list — so as originally written, the acceptance criterion
+   "`apps/web/Dockerfile` builds green in CI" could never pass. Add a step to the `gates` job in the
+   same change that creates the Dockerfile:
+
+   ```yaml
+   # An escape hatch that has never been built is not an escape hatch — file 38 req 5.
+   # Never pushed and never deployed; this step exists only to stop it rotting.
+   - run: docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000 .
+   ```
+
+   It runs on `ubuntu-latest`, which is x86 — that is fine and deliberate. The point is that the
+   Dockerfile still describes a buildable image, not that CI produces a deployable arm64 artefact.
+   Expect it to add a minute or two to a run whose current cost is ~3m15s; if that becomes annoying,
+   gate it on `paths:` rather than deleting it.
+
    `document/runbook.md` carries the procedure: build and push `kidlearn-web:<env>-<sha>` with the
    three `NEXT_PUBLIC_*` build arguments, add a `web` service to `deploy/app/compose.yml` with a
    `${ENV_NAME}-web` alias, add the web hostnames back to the Caddyfile, and repoint the two
@@ -318,7 +350,7 @@ changes.
    distinguishes them is hostnames, database, credentials and `ENABLE_API_DOCS` — nothing else. Vercel
    builds both frontend projects as production builds for the same reason.
 
-   Do **not** touch `advanced.defaultCookieAttributes` in `src/lib/auth.ts`.
+   Do **not** touch `advanced.defaultCookieAttributes` in `src/config/auth.ts`.
 
 8. **Caddy as the only exposed process on the box,** in its own Compose project so that redeploying
    either API stack never restarts the thing holding the certificates. Two hostnames, not five —
@@ -373,8 +405,8 @@ changes.
     protecting; it is a dev speed bump, Vercel stores it encrypted, and duplicating it into SSM would
     give two places to forget to rotate.
 
-12. **Environment variable matrix.** `src/lib/env.ts` is the enforcement for the API half; this is the
-    inventory. "Vercel" means a project-settings variable; a `NEXT_PUBLIC_` one is inlined at build
+12. **Environment variable matrix.** `src/config/env.ts` is the enforcement for the API half; this is
+    the inventory. "Vercel" means a project-settings variable; a `NEXT_PUBLIC_` one is inlined at build
     time and needs a **redeploy**, not a save, to take effect.
 
     | Var | Where | Production | Development |
@@ -553,8 +585,13 @@ apps/web/app/layout.tsx             # metadataBase, openGraph, "KidLearn" casing
 apps/server/src/app.ts              # app.set("trust proxy", 1) in production
 apps/server/.env.example            # production values; replace the cron-job.org comment block
 apps/web/.env.local.example         # NEXT_PUBLIC_SITE_URL, MEDIA_ASSET_HOSTS, SITE_NOINDEX, DEV_SITE_BASIC_AUTH
+.github/workflows/ci.yml            # the web-image build step req 5 depends on
 document/project-requirement-details.md   # §9 — Vercel frontend, two environments
 ```
+
+`.github/workflows/ci.yml` exists as of file 39 and is edited, not created. Its `gates` job name is
+the status-check context file 39's ruleset amendment will require — do not rename it, and add the
+build step inside that job rather than as a second job.
 
 ### Image builds
 
@@ -577,9 +614,15 @@ WORKDIR /repo
 
 FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Every workspace manifest, not just the ones the server needs. pnpm-workspace.yaml
+# globs apps/* and packages/*, so a missing package.json is a missing lockfile
+# importer, and --frozen-lockfile is expected to reject that as an outdated
+# lockfile. Two lines against a first-build failure — see the note below.
 COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/
 COPY packages/types/package.json packages/types/
+COPY packages/ui/package.json packages/ui/
 COPY packages/config/package.json packages/config/
 RUN pnpm install --frozen-lockfile
 
@@ -601,14 +644,32 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=prune /prod/server ./
 USER node
-CMD ["node", "dist/index.js"]
+# dist/server.js, NOT dist/index.js: the entry is src/server.ts, and
+# apps/server/package.json's `main` and `start` both name dist/server.js.
+CMD ["node", "dist/server.js"]
 ```
+
+**Two traps in the stage above, both of which fail on the first build rather than later.**
+
+The entry filename is the nastier one. An earlier draft of this file said `dist/index.js`, and a
+stale `dist/index.js` from before #49 still sits in a local build directory — so the wrong name
+survives a casual check of `ls dist/` and only fails inside the container, as an immediate exit with
+`Cannot find module`. There is no `src/index.ts`; prefer `CMD ["pnpm", "start"]` if you would rather
+the image read the manifest than repeat it.
+
+The manifests are the likelier one. Copying only the four packages `apps/server` needs leaves
+`apps/web` and `packages/ui` out of a workspace whose globs claim them, which normally surfaces as
+`ERR_PNPM_OUTDATED_LOCKFILE`. **This was not reproduced** — the check was attempted and not run — so
+treat it as the prediction it is and settle it in step 2, where a two-line fix costs nothing and the
+alternative is debugging an install inside a build stage. `pnpm fetch` followed by
+`pnpm install --offline --frozen-lockfile` is the other documented shape if the manifest copying
+gets unwieldy.
 
 **Verify `pnpm deploy` before building the rest of the file.** pnpm 9's `deploy` has to inject the
 `@kidlearn/db` and `@kidlearn/types` workspace packages into the output tree; if it does not under the
 default isolated linker, the documented fallbacks are `--legacy` or setting
 `inject-workspace-packages=true` in the workspace's pnpm config. Prove it produces a tree that
-`node dist/index.js` actually starts from before writing anything downstream of it.
+`node dist/server.js` actually starts from before writing anything downstream of it.
 
 `apps/web/Dockerfile` is the same idea ending at `.next/standalone`, taking `NEXT_PUBLIC_API_URL`,
 `NEXT_PUBLIC_SITE_URL` and `MEDIA_ASSET_HOSTS` as build arguments. It exists only for requirement 5,
@@ -694,8 +755,11 @@ entries; (19) dev smoke test; (20) runbook and spec §9.
    `pnpm lint && pnpm typecheck && pnpm test` pass. (~50 min)
 2. Write `apps/server/Dockerfile`, `apps/web/Dockerfile` and `.dockerignore`; build both for
    `linux/arm64` locally and run the server container against your local Postgres to prove it boots
-   before AWS is involved. This is where `pnpm deploy` and `argon2` either work or need the documented
-   fallbacks. (~70 min)
+   before AWS is involved. This is where `pnpm deploy`, `argon2`, the workspace-manifest question and
+   the `dist/server.js` entry either work or need the documented fallbacks — all four are cheap here
+   and expensive on the box. Add requirement 5's web-image build step to `gates` in the same commit,
+   while the Dockerfile is fresh in mind. **"It boots" means `curl localhost:4000/health` returns the
+   envelope from inside the container**, not that `docker run` printed a banner. (~75 min)
 3. AWS account setup: region, $20 budget alarm, two ECR repositories with lifecycle policies, push the
    first `kidlearn-api` and `kidlearn-migrate` images. (~35 min)
 4. Production Supabase project in `ap-south-1`; `prisma migrate deploy` against `DIRECT_URL`, then
@@ -739,13 +803,18 @@ entries; (19) dev smoke test; (20) runbook and spec §9.
       valid, automatically issued certificates.
 - [ ] A parent signs in with Google on `https://kidlearn.net` and the session **survives a reload**.
 - [ ] The session cookie is `Secure; HttpOnly; SameSite=Lax` — **not** `SameSite=None`.
-      `src/lib/auth.ts` contains no `SameSite=None` override.
+      `src/config/auth.ts` contains no `SameSite=None` override.
 - [ ] The same sign-in works in **Safari on iOS** with cross-site tracking prevention enabled.
 - [ ] A request with a forged `Origin` header gets no CORS allow header — file 08's lockdown intact.
-- [ ] Smoke test passes end-to-end on a phone: (1) parent signs in with Google; (2) consent + PIN
-      setup; (3) child profile created; (4) a seeded lesson plays through all five steps with audio;
-      (5) the parent dashboard shows the learning time just spent; (6) `/admin/ai-queue` loads for the
-      admin user and lists and filters jobs.
+- [ ] Smoke test passes end-to-end on a phone: (1) parent signs in with Google; (2) the parent area
+      opens — **consent, plus PIN setup only if the PIN gate is still in the deployed build**; (3)
+      child profile created; (4) a seeded lesson plays through all five steps with audio; (5) the
+      parent dashboard shows the learning time just spent; (6) `/admin/ai-queue` loads for the admin
+      user and lists and filters jobs.
+
+      Step (2) is deliberately conditional: #48 removed the PIN gate on `main`, `dev` still carries
+      it, and the two have not been reconciled (see the header note). Settle that before running the
+      smoke test rather than discovering mid-test which flow you deployed.
 - [ ] `https://api.kidlearn.net/docs` returns **404** — `ENABLE_API_DOCS` is `false` in production.
 - [ ] `https://kidlearn.net` carries **no** `X-Robots-Tag` header — `SITE_NOINDEX` is unset there.
 - [ ] Media on lesson and story screens is served from `res.cloudinary.com` (NFR-PERF-02).
@@ -785,13 +854,18 @@ entries; (19) dev smoke test; (20) runbook and spec §9.
       Instant Rollback.
 - [ ] `free -m` on the box under both stacks shows at least ~700 MB available, and the dev containers
       carry their `mem_limit` values (`docker stats`).
-- [ ] `apps/web/Dockerfile` builds green in CI even though nothing deploys it (requirement 5), and the
+- [ ] `apps/web/Dockerfile` builds green in CI even though nothing deploys it (requirement 5) —
+      which requires **adding** that step to `.github/workflows/ci.yml`, since file 39's pipeline
+      landed with no Docker build. Verify from a run log, not from the Dockerfile's existence. The
       escape-hatch procedure is written in the runbook.
 - [ ] The AWS Budgets alarm exists at $20/month and the first full day's Cost Explorer figure is within
       ~10% of the table above.
 - [ ] Every variable in requirement 12 exists in the right SSM path, Compose file or Vercel project,
       and both `.env.example` files match the matrix.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass.
+- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass locally, and `gates` is green on the pull
+      request (`gh pr checks`) — since file 39 those are no longer independent facts.
+- [ ] The API container's `CMD` starts `dist/server.js` (or `pnpm start`), proven by the container
+      answering `/health` — not by the image building.
 
 ## Out of Scope
 
@@ -804,6 +878,11 @@ entries; (19) dev smoke test; (20) runbook and spec §9.
   code change with its own tests, not a deployment step.
 - **Actually executing the escape hatch.** Requirement 5 keeps the frontend Dockerfile working and
   writes down the procedure. Running it is a response to a trigger, not a task in this file.
+- **Anything else in the CI pipeline.** This file adds exactly one step to `gates` — requirement 5's
+  web-image build. The triggers, the coverage reporting and the ruleset amendment are file 39's,
+  and the `deploy` job is file 38a's.
+- **Reconciling `main` and `dev`.** The PIN-gate divergence in the header note is a branch problem,
+  not a deployment one; it blocks this file rather than belonging to it.
 - **Hard isolation between the two environments.** The limits are stated above under "The isolation
   this design does and does not give you". Buying more of it means a second instance, and that is a
   cost decision to revisit, not a design to build now.
