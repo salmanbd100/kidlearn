@@ -8,16 +8,9 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: kidlearn
     ports:
-      # host:container — 5432 must be free. If you already run a local Postgres,
-      # remap the host side in a gitignored docker-compose.override.yml rather
-      # than here (see the README), and match the new port in all three
-      # connection strings: DATABASE_URL and DIRECT_URL in packages/db/.env, and
-      # DATABASE_URL in apps/server/.env.
       - "5432:5432"
     volumes:
       - kidlearn-pgdata:/var/lib/postgresql/data
-      # Runs ONCE, on first creation of the volume. Creates the extra database
-      # the vitest suite expects (apps/server/vitest.setup.ts).
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d kidlearn"]

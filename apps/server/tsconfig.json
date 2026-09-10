@@ -9,10 +9,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "outDir": "dist",
-    "rootDir": "src",
     "sourceMap": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "vitest.setup.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

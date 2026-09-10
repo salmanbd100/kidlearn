@@ -1,7 +1,3 @@
-// Prisma schema for kidlearn — Supabase (PostgreSQL).
-// Domain models are added incrementally by implementation files 03–06.
-//
-// Docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -9,9 +5,7 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  // Pooled connection (Supabase pooler, port 6543, ?pgbouncer=true) — runtime.
   url       = env("DATABASE_URL")
-  // Direct connection (port 5432) — Prisma CLI migrations/introspection.
   directUrl = env("DIRECT_URL")
 }
 
@@ -28,12 +22,6 @@ enum Language {
 
 model Parent {
   id                   String         @id @default(uuid())
-  // File 09 — the better-auth identity this domain row belongs to. Required:
-  // a Parent that maps to no `User` could never sign in. The row is created
-  // lazily on the first authenticated request (apps/server requireParent), so
-  // "sign up" and "sign in" are one flow. Cascade means deleting the identity
-  // deletes the domain row and, through ChildProfile, all of the child's data —
-  // the synchronous right-to-erasure path (NFR-SAFE-05/06, wired up in file 10).
   userId               String         @unique
   user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   googleId             String         @unique
@@ -43,21 +31,9 @@ model Parent {
   pinHash              String?
   consentGivenAt       DateTime?
   consentVersion       String?
-  // File 10 — PIN brute-force guard. The counters live on the durable Parent
-  // row rather than on the session, so clearing cookies cannot reset a lockout.
-  //
-  // Two counters, because they answer different questions and are forgiven at
-  // different times. `pinFailedCount` is the allowance *within* the current
-  // window — it is what the atomic slot claim in `parentSecurityService`
-  // compares against, and a served cool-off restores it. `pinLockoutStrikes` is
-  // how many cool-offs have been served in a row; it survives them and drives
-  // the doubling, so the escalation cannot be reset by simply waiting. Only a
-  // correct PIN clears both.
   pinFailedCount       Int            @default(0)
   pinLockoutStrikes    Int            @default(0)
   pinLockedUntil       DateTime?
-  // File 10 — account-deletion confirmation: a single-use random token with a
-  // short expiry. Both columns disappear with the row on a completed deletion.
   deleteToken          String?
   deleteTokenExpiresAt DateTime?
   createdAt            DateTime       @default(now())
@@ -70,20 +46,6 @@ model AdminUser {
   email      String            @unique
   name       String
   role       String            @default("admin")
-  // No passwordHash: admin credentials live on the better-auth `User` row
-  // (provider `credential`), reached through `authUserId`. File 31 shares the one
-  // better-auth instance with parents rather than standing up a second identity
-  // store — see the note at the top of apps/server/src/lib/auth.ts.
-  //
-  // Nullable, because this row is what *makes* somebody an admin (spec §4.3) and
-  // it is written before the credential user exists: the seed script creates the
-  // link. A row with no link cannot sign in, which is the correct state for a
-  // revoked admin whose review history must survive.
-  //
-  // `SetNull` rather than `Cascade`: deleting the identity must not delete the
-  // AdminUser row, because `AIGenerationJob.reviewer` points at it and an audit
-  // trail that loses its reviewer is worse than one naming a disabled account
-  // (FR-AI-08). Re-running the seed re-links it.
   authUserId String?           @unique
   authUser   User?             @relation(fields: [authUserId], references: [id], onDelete: SetNull)
   createdAt  DateTime          @default(now())
@@ -94,7 +56,7 @@ model AdminUser {
 model ChildProfile {
   id                String             @id @default(uuid())
   firstName         String
-  age               Int // 3–6; validated by Zod at the API layer (file 11)
+  age               Int
   gradeLevel        GradeLevel
   preferredLanguage Language           @default(en)
   avatarCharacterId String?
@@ -135,7 +97,6 @@ model MediaAsset {
   url                    String
   kind                   MediaKind
   language               Language?
-  // The job that generated this row — see `Lesson.aiJobId` (file 34).
   aiJobId                String?
   aiJob                  AIGenerationJob?          @relation(fields: [aiJobId], references: [id])
   createdAt              DateTime                  @default(now())
@@ -157,7 +118,6 @@ model MediaAsset {
 model World {
   id   String @id @default(uuid())
   slug String @unique
-  // The admin label, not the child-facing name — see `WorldTranslation`.
   name String
 
   palette       Json
@@ -166,10 +126,6 @@ model World {
   status        ContentStatus      @default(draft)
   lessons       Lesson[]
   translations  WorldTranslation[]
-  // File 32 — the `AdminUser.id` that last created, edited, reordered or
-  // transitioned this row. Not a foreign key: an audit stamp must outlive the
-  // account that made it, and the only delete behaviours a FK could offer here
-  // erase that fact or make a revoked admin undeletable.
   updatedBy     String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
@@ -178,12 +134,7 @@ model World {
   characterSheets CharacterSheet[]
 }
 
-// The child-facing world name, per locale.
-//
-// Split from `World.name` because the two answer different questions: the column
-// is the internal label a CMS list and an audit trail are built from, this is what
-// a Bangla learner reads on the tile. Without it the read API could only ever
-// serve one language's names while serving that child's narration in another.
+
 model WorldTranslation {
   id       String   @id @default(uuid())
   worldId  String
@@ -197,7 +148,6 @@ model WorldTranslation {
 model Subject {
   id   String @id @default(uuid())
   slug String @unique
-  // The admin label — see `SubjectTranslation` for what a child reads.
   name String
 
   sortOrder    Int                  @default(0)
@@ -205,7 +155,6 @@ model Subject {
   status       ContentStatus        @default(draft)
   topics       Topic[]
   translations SubjectTranslation[]
-  // Who last touched this row — see `World.updatedBy`.
   updatedBy    String?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
@@ -213,7 +162,6 @@ model Subject {
   @@index([sortOrder])
 }
 
-/// The child-facing subject name, per locale. See `WorldTranslation`.
 model SubjectTranslation {
   id        String   @id @default(uuid())
   subjectId String
@@ -229,7 +177,6 @@ model Topic {
   subjectId String
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   slug      String
-  // The admin label — see `TopicTranslation` for what a child reads.
   name      String
 
   sortOrder    Int                @default(0)
@@ -237,7 +184,6 @@ model Topic {
   status       ContentStatus      @default(draft)
   lessons      Lesson[]
   translations TopicTranslation[]
-  // Who last touched this row — see `World.updatedBy`.
   updatedBy    String?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -246,7 +192,6 @@ model Topic {
   @@index([subjectId, sortOrder])
 }
 
-/// The child-facing topic name, per locale. See `WorldTranslation`.
 model TopicTranslation {
   id       String   @id @default(uuid())
   topicId  String
@@ -264,7 +209,6 @@ model Lesson {
   worldId            String
   world              World               @relation(fields: [worldId], references: [id])
   slug               String
-  // The admin label — see `LessonTranslation.title` for what a child reads.
   title              String
   sortOrder          Int                 @default(0)
   gradeLevels        GradeLevel[]
@@ -273,27 +217,11 @@ model Lesson {
   activity           Activity?           @relation(fields: [activityId], references: [id])
   quizId             String?
   quiz               Quiz?               @relation(fields: [quizId], references: [id])
-  // File 30 — what a child meets for the first time in this lesson, as prefixed
-  // tokens: `letter:A`, `word:apple`, `number:7`. The weekly report unions these
-  // across the lessons a child *first completed* inside the week, which is what
-  // makes "new letters this week" answerable without a second history table.
-  //
-  // A denormalised list rather than a join table: the aggregator only ever reads
-  // the whole array, an unknown prefix is ignored rather than fatal, and a
-  // `letter:A` typed twice across two lessons is deduped in the report. The admin
-  // lesson editor (file 32) is what fills this in beyond the seeds.
+
   conceptsIntroduced String[]            @default([])
   translations       LessonTranslation[]
-  // Who last touched this row — see `World.updatedBy`.
   updatedBy          String?
-  // File 34 — the `AIGenerationJob` that generated this row, NULL when a person
-  // authored it. Nullable and additive: every row written before the AI pipeline
-  // existed keeps NULL, which is exactly what "human-authored" means here.
-  //
-  // The link exists so file 37 can refuse to publish generated content no
-  // administrator has approved (FR-AI-07). This file only writes the column; the
-  // guard that reads it lands with the review queue. Six models carry it — the
-  // six a generator can create.
+
   aiJobId            String?
   aiJob              AIGenerationJob?    @relation(fields: [aiJobId], references: [id])
   createdAt          DateTime            @default(now())
@@ -310,17 +238,14 @@ model LessonTranslation {
   lessonId           String
   lesson             Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   language           Language
-  /// The child-facing lesson title. See `WorldTranslation` for why it is here
-  /// rather than only on `Lesson.title`.
+
   title              String
   introScript        String
   introAudioAssetId  String?
   introAudioAsset    MediaAsset? @relation("LessonIntroAudio", fields: [introAudioAssetId], references: [id])
   videoAssetId       String?
   videoAsset         MediaAsset? @relation("LessonVideo", fields: [videoAssetId], references: [id])
-  // The still frame the player shows before the video can play (file 17,
-  // NFR-PERF-02). Per-locale alongside the video because a poster with a word
-  // burnt into it belongs to the language its video was produced in.
+
   videoPosterAssetId String?
   videoPosterAsset   MediaAsset? @relation("LessonVideoPoster", fields: [videoPosterAssetId], references: [id])
 
@@ -349,7 +274,6 @@ model Activity {
   status        ContentStatus         @default(draft)
   translations  ActivityTranslation[]
   lessons       Lesson[]
-  // The job that generated this row — see `Lesson.aiJobId` (file 34).
   aiJobId       String?
   aiJob         AIGenerationJob?      @relation(fields: [aiJobId], references: [id])
   createdAt     DateTime              @default(now())
@@ -373,7 +297,6 @@ model Quiz {
   status    ContentStatus    @default(draft)
   questions QuizQuestion[]
   lessons   Lesson[]
-  // The job that generated this row — see `Lesson.aiJobId` (file 34).
   aiJobId   String?
   aiJob     AIGenerationJob? @relation(fields: [aiJobId], references: [id])
   createdAt DateTime         @default(now())
@@ -388,7 +311,6 @@ model QuizQuestion {
   definition    Json
   schemaVersion Int                       @default(1)
   sortOrder     Int
-  // The job that generated this row — see `Lesson.aiJobId` (file 34).
   aiJobId       String?
   aiJob         AIGenerationJob?          @relation(fields: [aiJobId], references: [id])
   translations  QuizQuestionTranslation[]
@@ -411,11 +333,8 @@ model QuizQuestionTranslation {
 model Story {
   id    String @id @default(uuid())
   slug  String @unique
-  // The admin label, not the child-facing name — see `StoryTranslation`.
   title String
 
-  // The authoring label for the moral (FR-STORY-03), same relationship to
-  // `StoryTranslation.moral` as `title` has to the translated title.
   theme        String
   worldId      String
   world        World              @relation(fields: [worldId], references: [id])
@@ -425,24 +344,12 @@ model Story {
   status       ContentStatus      @default(draft)
   pages        StoryPage[]
   translations StoryTranslation[]
-  // The job that generated this row — see `Lesson.aiJobId` (file 34).
   aiJobId      String?
   aiJob        AIGenerationJob?   @relation(fields: [aiJobId], references: [id])
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 }
 
-// The child-facing story title and moral, per locale (file 25, FR-STORY-05).
-//
-// Added by file 25 for the reason `document/database-design.md` recorded when file
-// 05 settled the schema: `Story.title` and `Story.theme` are admin labels, and a
-// library screen that read them directly would show a Bangla learner English
-// covers over Bangla page text — the same defect the curriculum name translations
-// fixed for lesson tiles.
-//
-// `titleAudioAsset` is what makes a cover tappable for a pre-reader: the title
-// read aloud in their language. Nullable because the voice pipeline (file 36)
-// records it, and a story is publishable before its narration exists.
 model StoryTranslation {
   id                String      @id @default(uuid())
   storyId           String
@@ -452,11 +359,6 @@ model StoryTranslation {
   moral             String?
   titleAudioAssetId String?
   titleAudioAsset   MediaAsset? @relation("StoryTitleNarration", fields: [titleAudioAssetId], references: [id])
-
-  // The moral read aloud, for the reader's finish screen (file 26, FR-STORY-03).
-  // Added because the moral is the one line of a story that is *only* text: the
-  // pages have narration and the cover has its title spoken, so without this the
-  // lesson of the story is the single thing a pre-reader cannot receive.
   moralAudioAssetId String?
   moralAudioAsset   MediaAsset? @relation("StoryMoralNarration", fields: [moralAudioAssetId], references: [id])
 
@@ -470,15 +372,6 @@ model StoryPage {
   sortOrder           Int
   illustrationAssetId String?
   illustrationAsset   MediaAsset?            @relation("StoryPageIllustration", fields: [illustrationAssetId], references: [id])
-  // File 35 — the English scene description the story generator wrote for this
-  // page, which file 36's image pipeline draws from and then attaches the result
-  // to `illustrationAssetId`. Kept as a column rather than left in the job's
-  // `rawOutput` because it survives editing: a reviewer who rewrites a page's
-  // text has to be able to rewrite the picture brief with it, and a value only a
-  // JSONB audit record holds is not editable content.
-  //
-  // Nullable: every hand-authored page has none, and a generated page keeps its
-  // prompt after the illustration exists so the picture can be redrawn.
   illustrationPrompt  String?
   translations        StoryPageTranslation[]
 
@@ -493,15 +386,6 @@ model StoryPageTranslation {
   text                  String
   narrationAudioAssetId String?
   narrationAudioAsset   MediaAsset? @relation("StoryPageNarration", fields: [narrationAudioAssetId], references: [id])
-
-  // Follow-along highlight timings for the recording above (file 26,
-  // FR-STORY-02): `{ unit, spans: [{ start, end, tMs }] }`, validated against
-  // `NarrationTimingsSchema` before it is served.
-  //
-  // On the translation row rather than on `MediaAsset` because the spans are
-  // character offsets into *this row's* `text` — an asset shared between two
-  // rows would carry offsets that only fit one of them. Null everywhere until
-  // the voice pipeline (file 36) produces them; the reader renders plain text.
   narrationTimings Json?
 
   @@unique([storyPageId, language])
@@ -527,9 +411,6 @@ enum SessionEventType {
   session_start
   session_end
   lesson_start
-  // Added in file 16: the five per-step markers between lesson_start and
-  // lesson_complete. Without them the time aggregation in file 27 can only see a
-  // lesson's two endpoints, so an abandoned lesson contributes nothing.
   step_complete
   lesson_complete
   story_start
@@ -572,9 +453,6 @@ model LessonProgress {
   updatedAt    DateTime     @updatedAt
 
   @@unique([childId, lessonId])
-  // File 30 — the weekly report selects one child's completions inside a
-  // `[weekStart, weekEnd)` window. Without this the same query is a scan of the
-  // child's whole history, once per report generated.
   @@index([childId, completedAt])
 }
 
@@ -586,8 +464,6 @@ model QuizResponse {
   question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
   answer     Json
   isCorrect  Boolean
-  // Taps until the question was answered right. `isCorrect` is only ever "the
-  // first one was", so without this a struggle and a walkover are the same row.
   attempts   Int          @default(1)
   answeredAt DateTime     @default(now())
 
@@ -599,8 +475,8 @@ model Badge {
   slug        String         @unique
   name        String
   description String?
-  ruleType    String // interpreted by the badge engine (file 24)
-  rule        Json // e.g. { "count": 26, "topicSlug": "alphabet" }
+  ruleType    String
+  rule        Json
   iconAssetId String?
   iconAsset   MediaAsset?    @relation("BadgeIcon", fields: [iconAssetId], references: [id])
   status      ContentStatus  @default(draft)
@@ -612,9 +488,9 @@ model RewardLedger {
   childId    String
   child      ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
   rewardType RewardType
-  amount     Int // stars/coins granted; 1 for badge rows
-  sourceType String // "lesson_completion" | "quiz_completion" | "quiz_correct_answers" | "story_completion" | "daily_activity" | ...
-  sourceId   String? // id of the lesson/quiz/story that triggered the grant, or the local date for a once-a-day grant
+  amount     Int
+  sourceType String
+  sourceId   String?
   badgeId    String?
   badge      Badge?       @relation(fields: [badgeId], references: [id])
   createdAt  DateTime     @default(now())
@@ -630,7 +506,7 @@ model Character {
   assetId    String?
   asset      MediaAsset?      @relation("CharacterAsset", fields: [assetId], references: [id])
   isDefault  Boolean          @default(false)
-  unlockRule Json // e.g. { "coins": 50 } — interpreted in file 24
+  unlockRule Json
   status     ContentStatus    @default(draft)
   unlocks    ChildCharacter[]
   avatars    ChildProfile[]
@@ -675,8 +551,6 @@ model SessionEvent {
   payload    Json?
 
   @@index([childId, occurredAt])
-  // File 31 — the admin DAU count is the first query here with no `childId` to
-  // narrow on, so the composite index above cannot serve its day window.
   @@index([occurredAt])
 }
 
@@ -701,18 +575,11 @@ model AIGenerationJob {
   reviewerId String?
   reviewer   AdminUser?        @relation(fields: [reviewerId], references: [id])
   decision   AIReviewDecision?
-  // Why the reviewer refused (file 37, FR-AI-08). Mandatory on a rejection at the
-  // API boundary and nowhere else: "rejected" on its own tells whoever regenerates
-  // the content nothing about what was wrong with it, and the prompt that produced
-  // it is the thing they have to change.
   reviewNote String?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
   reviewedAt DateTime?
 
-  // The draft rows this job created (file 34). Six collections rather than a
-  // polymorphic table, because a foreign key is the only version of this the
-  // database can enforce — and file 37's publish guard has to trust it.
   lessons       Lesson[]
   quizzes       Quiz[]
   quizQuestions QuizQuestion[]
@@ -723,23 +590,6 @@ model AIGenerationJob {
   @@index([status, createdAt])
 }
 
-// The stable visual description of one recurring character (file 36, FR-AI-09).
-//
-// An image model draws whatever the prompt says and remembers nothing between
-// calls, so "the rabbit" on page 3 and "the rabbit" on page 7 come back as two
-// different rabbits. This row is the fix: its `description` is prepended verbatim
-// to every illustration prompt that features the character, which is the only
-// mechanism that makes a mascot recognisable across a story and across stories.
-//
-// `description` is therefore not free-form notes — it is prompt text, and editing
-// it changes every picture drawn from then on. Existing illustrations are not
-// redrawn; consistency holds forward, not backward.
-//
-// `worldId` is nullable and `SetNull` on delete: a character that belongs to one
-// world is scoped to it so the illustration generator can pick the right sheets
-// for a story, and a character used everywhere (a narrator, a child protagonist)
-// belongs to none. Deleting a world must not delete the sheets — the prompt text
-// is the asset, and it outlives the theme it was written for.
 model CharacterSheet {
   id          String   @id @default(uuid())
   slug        String   @unique
@@ -754,20 +604,7 @@ model CharacterSheet {
 }
 
 //--------part-9 · better-auth (identity) -------------------------------------
-// GENERATED by `npx @better-auth/cli generate --config apps/server/src/lib/auth.ts`
-// (better-auth 1.6.x). Do not hand-edit the field lists: re-run the CLI after
-// changing `session.additionalFields` or adding a plugin in auth.ts.
-//
-// These four tables are better-auth's, not ours — hence the lowercase `@@map`
-// names and string ids it generates for itself. Our domain rows link in by
-// unique FK: `Parent.userId` (below) and `AdminUser.authUserId` (file 31).
-//
-// `Session.activeChildProfileId` comes from `session.additionalFields` in
-// auth.ts (FR-AUTH-06). It is intentionally NOT a Prisma relation to
-// ChildProfile: better-auth writes this column through its own adapter and
-// knows nothing about our FKs, so the reference is validated at the API layer
-// when the profile is activated (file 11). `Verification` is unused at MVP but
-// the adapter requires it to exist.
+
 model User {
   id            String     @id
   name          String
@@ -778,13 +615,6 @@ model User {
   updatedAt     DateTime   @updatedAt
   sessions      Session[]
   accounts      Account[]
-  // Hand-added (not CLI-generated): the back-references for Parent.userId and
-  // AdminUser.authUserId. Keep them when re-running the better-auth CLI.
-  //
-  // Both are optional and at most one is ever set: a Google sign-in provisions a
-  // Parent and never an AdminUser, and the admin seed script provisions an
-  // AdminUser and never a Parent. That disjointness is what keeps the two
-  // principals separate (spec §4.3) while sharing one session store.
   parent        Parent?
   adminUser     AdminUser?
 
@@ -803,8 +633,6 @@ model Session {
   userId               String
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   activeChildProfileId String?
-  // File 10 — the 15-minute parental-PIN grant (FR-AUTH-04). A session field,
-  // not a separate cookie: one source of truth, and signing out ends the grant.
   pinVerifiedUntil     DateTime?
 
   @@unique([token])
