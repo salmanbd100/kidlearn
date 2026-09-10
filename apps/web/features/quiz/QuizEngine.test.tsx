@@ -191,11 +191,16 @@ describe("QuizEngine", () => {
 
       expect(onFinish).toHaveBeenCalledTimes(1);
       expect(onFinish).toHaveBeenCalledWith([
-        { questionId: "q1", answer: "apple", isCorrect: true, attempts: 1 },
+        {
+          questionId: "q1",
+          answer: "apple",
+          isFirstAttemptCorrect: true,
+          attempts: 1,
+        },
         {
           questionId: "q2",
           answer: "triangle",
-          isCorrect: true,
+          isFirstAttemptCorrect: true,
           attempts: 1,
         },
       ]);
@@ -211,7 +216,12 @@ describe("QuizEngine", () => {
       settle();
 
       expect(onFinish).toHaveBeenCalledWith([
-        { questionId: "q1", answer: "apple", isCorrect: false, attempts: 2 },
+        {
+          questionId: "q1",
+          answer: "apple",
+          isFirstAttemptCorrect: false,
+          attempts: 2,
+        },
       ]);
     });
 

@@ -94,6 +94,7 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 | `--border` | sky-100 | slate-200 | Hairlines |
 | `--input` | sky-100 | slate-200 | Field borders |
 | `--ring` | sky `#36B3F5` | indigo-500 | Focus ring |
+| `--shine` | white 65% | white 55% | Decorative sweep across a surface (puzzle tile) |
 
 > **Rule:** components reference semantic tokens (`bg-primary`, `text-foreground`,
 > `border-border`). They must never reference brand or raw hues directly. Decorative

@@ -21,8 +21,7 @@ import {
   isPublished,
   publishedForChild,
   publishedOnly,
-  publishedRelation,
-  publishedRelationForChild,
+  visibleLessonWhere,
 } from "../../shared/utils/published-for-child.js";
 
 /**
@@ -324,10 +323,10 @@ export async function listLessonsForChild(
   }
 
   const lessons = await prisma.lesson.findMany({
-    // `world` is gated here as well as in `getLessonForChild` so the two agree:
-    // a lesson the detail endpoint 404s must not appear as a tile that opens
-    // onto nothing.
-    where: { topicId: topic.id, ...visible, world: publishedRelation },
+    // The same `visibleLessonWhere` the detail endpoint applies, so the two
+    // agree by construction: a lesson the detail endpoint 404s must not appear
+    // as a tile that opens onto nothing, and vice versa.
+    where: { topicId: topic.id, ...visibleLessonWhere(child) },
     orderBy: { sortOrder: "asc" },
     include: { translations: { select: { language: true, title: true } } },
   });
@@ -355,15 +354,8 @@ export async function listWorldLessonsForChild(
     throw ApiError.notFound("World not found");
   }
 
-  const visible = publishedForChild(child);
   const lessons = await prisma.lesson.findMany({
-    where: {
-      worldId: world.id,
-      ...visible,
-      topic: {
-        is: { ...visible, subject: publishedRelationForChild(child) },
-      },
-    },
+    where: { worldId: world.id, ...visibleLessonWhere(child) },
     orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
     include: {
       topic: { include: { translations: true } },
@@ -399,8 +391,7 @@ export async function getLessonForChild(
 ): Promise<LessonDetail> {
   const lesson = await findLessonRow({
     id: lessonId,
-    ...publishedForChild(child),
-    world: publishedRelation,
+    ...visibleLessonWhere(child),
   });
   if (!lesson) {
     throw ApiError.notFound("Lesson not found");

@@ -34,7 +34,18 @@ export type ChildProfileDto = {
   };
 };
 
-export function toChildProfileDto(child: ChildProfile): ChildProfileDto {
+/** A profile with nothing earned yet — what a just-created row is worth. */
+const NO_STATS: ChildProfileDto["stats"] = {
+  stars: 0,
+  coins: 0,
+  badges: 0,
+  currentStreak: 0,
+};
+
+export function toChildProfileDto(
+  child: ChildProfile,
+  stats: ChildProfileDto["stats"] = NO_STATS,
+): ChildProfileDto {
   return {
     id: child.id,
     firstName: child.firstName,
@@ -43,8 +54,58 @@ export function toChildProfileDto(child: ChildProfile): ChildProfileDto {
     preferredLanguage: child.preferredLanguage,
     avatarCharacterId: child.avatarCharacterId,
     createdAt: child.createdAt,
-    stats: { stars: 0, coins: 0, badges: 0, currentStreak: 0 },
+    stats,
   };
+}
+
+/**
+ * The reward figures for a set of children, in two queries rather than two per
+ * child (FR-GAM-06).
+ *
+ * `stats` used to be hardcoded to zero on every read, which made four published
+ * contract fields permanently untrue and gave the student home screen a reward
+ * strip that rendered "0 stars" for a frame before `/api/me/rewards/summary`
+ * replaced it. The figures come from the same ledger `getRewardSummary` sums, so
+ * the two endpoints cannot disagree.
+ */
+export async function readChildStats(
+  childIds: readonly string[],
+): Promise<Map<string, ChildProfileDto["stats"]>> {
+  const stats = new Map<string, ChildProfileDto["stats"]>();
+  if (childIds.length === 0) return stats;
+
+  const ids = [...childIds];
+  const [ledger, streaks] = await Promise.all([
+    prisma.rewardLedger.groupBy({
+      by: ["childId", "rewardType"],
+      where: { childId: { in: ids } },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    prisma.streak.findMany({
+      where: { childId: { in: ids } },
+      select: { childId: true, current: true },
+    }),
+  ]);
+
+  for (const childId of ids) stats.set(childId, { ...NO_STATS });
+
+  for (const row of ledger) {
+    const entry = stats.get(row.childId);
+    if (entry === undefined) continue;
+    // A badge is a row you have, not an amount you accumulate — `readTotals` in
+    // `reward.service.ts` counts them the same way.
+    if (row.rewardType === "star") entry.stars = row._sum.amount ?? 0;
+    else if (row.rewardType === "coin") entry.coins = row._sum.amount ?? 0;
+    else if (row.rewardType === "badge") entry.badges = row._count._all;
+  }
+
+  for (const streak of streaks) {
+    const entry = stats.get(streak.childId);
+    if (entry !== undefined) entry.currentStreak = streak.current;
+  }
+
+  return stats;
 }
 
 /** The slice of the Prisma client these functions need, so a transaction

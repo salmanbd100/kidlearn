@@ -42,7 +42,12 @@ describe("quizSessionReducer", () => {
     const state = run(initialQuizSession(2), ...rightFirstTime);
 
     expect(state.records).toEqual([
-      { questionId: "q1", answer: "apple", isCorrect: true, attempts: 1 },
+      {
+        questionId: "q1",
+        answer: "apple",
+        isFirstAttemptCorrect: true,
+        attempts: 1,
+      },
     ]);
   });
 
@@ -55,7 +60,12 @@ describe("quizSessionReducer", () => {
     );
 
     expect(state.records).toEqual([
-      { questionId: "q1", answer: "apple", isCorrect: false, attempts: 2 },
+      {
+        questionId: "q1",
+        answer: "apple",
+        isFirstAttemptCorrect: false,
+        attempts: 2,
+      },
     ]);
   });
 
@@ -68,7 +78,7 @@ describe("quizSessionReducer", () => {
       { type: "COMMIT", questionId: "q1", answer: "apple" },
     );
 
-    expect(state.records[0]?.isCorrect).toBe(true);
+    expect(state.records[0]?.isFirstAttemptCorrect).toBe(true);
     expect(state.records[0]?.attempts).toBe(3);
   });
 
@@ -95,8 +105,18 @@ describe("quizSessionReducer", () => {
     );
 
     expect(state.records).toEqual([
-      { questionId: "q1", answer: "apple", isCorrect: true, attempts: 1 },
-      { questionId: "q2", answer: "triangle", isCorrect: false, attempts: 2 },
+      {
+        questionId: "q1",
+        answer: "apple",
+        isFirstAttemptCorrect: true,
+        attempts: 1,
+      },
+      {
+        questionId: "q2",
+        answer: "triangle",
+        isFirstAttemptCorrect: false,
+        attempts: 2,
+      },
     ]);
   });
 
@@ -151,8 +171,18 @@ describe("useQuizSession", () => {
 
     expect(onFinish).toHaveBeenCalledTimes(1);
     expect(onFinish).toHaveBeenCalledWith([
-      { questionId: "q1", answer: "apple", isCorrect: true, attempts: 1 },
-      { questionId: "q2", answer: "triangle", isCorrect: false, attempts: 2 },
+      {
+        questionId: "q1",
+        answer: "apple",
+        isFirstAttemptCorrect: true,
+        attempts: 1,
+      },
+      {
+        questionId: "q2",
+        answer: "triangle",
+        isFirstAttemptCorrect: false,
+        attempts: 2,
+      },
     ]);
   });
 

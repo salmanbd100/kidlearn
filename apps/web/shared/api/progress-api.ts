@@ -33,8 +33,10 @@ export function reportStep(
   return apiFetch(`/api/progress/lessons/${lessonId}/step`, {
     method: "POST",
     body: JSON.stringify(report),
-    // A step report is a write. Retrying it on a 5xx is safe — the endpoint is
-    // idempotent by construction, since `currentStep` never moves backwards.
+    // Retrying this on a 5xx is safe — the endpoint is idempotent by
+    // construction, since `currentStep` never moves backwards and an already-set
+    // `completedAt` is never rewritten. `POST` does not retry without this.
+    isIdempotent: true,
   });
 }
 
@@ -44,6 +46,9 @@ export function completeLesson(
 ): Promise<ApiResult<LessonCompletionResponse>> {
   return apiFetch(`/api/progress/lessons/${lessonId}/complete`, {
     method: "POST",
+    // Every grant is guarded by the ledger's unique index, so a replayed
+    // completion writes nothing twice — it is the definition of idempotent here.
+    isIdempotent: true,
   });
 }
 
@@ -56,6 +61,8 @@ export function completeStory(
 ): Promise<ApiResult<StoryCompletionResponse>> {
   return apiFetch(`/api/progress/stories/${storyId}/complete`, {
     method: "POST",
+    // Same guard as the lesson completion: `skipDuplicates` over a unique index.
+    isIdempotent: true,
   });
 }
 

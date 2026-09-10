@@ -475,8 +475,23 @@ describe("POST /api/events/activity", () => {
       gradeLevels: { has: "KG1" },
       world: { is: { status: "published" } },
     };
+    // A lesson carries two more gates than a story does: it hangs off a topic
+    // and a subject that each have their own status and grade tags. A story
+    // hangs off a world alone.
     expect(db.lessonFindFirst).toHaveBeenCalledWith({
-      where: { id: LESSON_ID, ...expected },
+      where: {
+        id: LESSON_ID,
+        ...expected,
+        topic: {
+          is: {
+            status: "published",
+            gradeLevels: { has: "KG1" },
+            subject: {
+              is: { status: "published", gradeLevels: { has: "KG1" } },
+            },
+          },
+        },
+      },
       select: { id: true },
     });
     expect(db.storyFindFirst).toHaveBeenCalledWith({

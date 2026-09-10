@@ -13,6 +13,7 @@ import {
   publishedOnly,
   publishedRelation,
   publishedRelationForChild,
+  visibleLessonWhere,
 } from "../../shared/utils/published-for-child.js";
 import { getLearningMinutes } from "../progress/learning-time.service.js";
 import { STORY_COMPLETION } from "../rewards/reward.service.js";
@@ -218,15 +219,8 @@ export async function getDashboardSummary(
   child: ChildProfile,
 ): Promise<DashboardData> {
   const visible = publishedForChild(child);
-  /**
-   * A lesson is visible only if its world, its topic and that topic's subject
-   * are too.
-   */
-  const visibleLesson = {
-    ...visible,
-    world: publishedRelation,
-    topic: { is: { ...visible, subject: publishedRelationForChild(child) } },
-  };
+  /** All four lesson gates, from the one place they are defined. */
+  const visibleLesson = visibleLessonWhere(child);
   /** The feed's gate: status and world, deliberately no grade (see the header). */
   const publishedLesson = {
     is: { ...publishedOnly, world: publishedRelation },

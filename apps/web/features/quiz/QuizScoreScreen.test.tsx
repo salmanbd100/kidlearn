@@ -24,7 +24,7 @@ function record(questionId: string, isCorrect: boolean): QuizAnswerRecord {
   return {
     questionId,
     answer: "apple",
-    isCorrect,
+    isFirstAttemptCorrect: isCorrect,
     attempts: isCorrect ? 1 : 2,
   };
 }

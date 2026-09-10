@@ -1,6 +1,9 @@
 import { Prisma } from "@kidlearn/db";
 import { describe, expect, it, vi } from "vitest";
-import { withSerializationRetry } from "./serializable-retry.js";
+import {
+  MAX_SERIALIZATION_RETRIES,
+  withSerializationRetry,
+} from "./serializable-retry.js";
 
 function serializationFailure(): Error {
   return new Prisma.PrismaClientKnownRequestError(
@@ -30,11 +33,25 @@ describe("withSerializationRetry", () => {
     expect(run).toHaveBeenCalledTimes(2);
   });
 
-  it("gives up after one retry rather than looping", async () => {
+  it("gives up after the retry budget rather than looping", async () => {
     const run = vi.fn().mockRejectedValue(serializationFailure());
 
     await expect(withSerializationRetry(run)).rejects.toThrow();
-    expect(run).toHaveBeenCalledTimes(2);
+    expect(run).toHaveBeenCalledTimes(MAX_SERIALIZATION_RETRIES + 1);
+  });
+
+  it("succeeds on a later retry, not only the first", async () => {
+    // One immediate retry re-enters the same contention window that caused the
+    // abort — two writers finishing a lesson at once could both lose. The extra
+    // attempts, spaced with jitter, are what make that recoverable.
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(serializationFailure())
+      .mockRejectedValueOnce(serializationFailure())
+      .mockResolvedValue("granted");
+
+    await expect(withSerializationRetry(run)).resolves.toBe("granted");
+    expect(run).toHaveBeenCalledTimes(3);
   });
 
   it("rethrows any other Prisma error without retrying", async () => {

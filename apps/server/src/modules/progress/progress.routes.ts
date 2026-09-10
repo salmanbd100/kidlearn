@@ -193,6 +193,7 @@ progressRouter.post(
         activeChild(req),
         quizIdParam(req),
         req.body as QuizResponsesSubmit,
+        req.log,
       );
       const body: SuccessEnvelope<QuizScoreResponse> = { data: score };
       res.json(body);

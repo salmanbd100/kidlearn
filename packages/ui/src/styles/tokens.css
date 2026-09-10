@@ -56,6 +56,9 @@
   --border: #d6eefc;
   --input: #d6eefc;
   --ring: #36b3f5;
+  /* Decorative sweep across a surface — the puzzle tile's shine. Light on
+     the kid theme's cream ground; see design.md §2.2. */
+  --shine: rgb(255 255 255 / 0.65);
 
   /* base radius for this surface = rounded-lg (design.md §4.2) */
   --radius: var(--radius-lg);
@@ -86,6 +89,7 @@
   --border: #e2e8f0;
   --input: #e2e8f0;
   --ring: #6366f1;
+  --shine: rgb(255 255 255 / 0.55);
 
   /* base radius for this surface = rounded-md */
   --radius: var(--radius-md);

@@ -173,7 +173,6 @@ describe("QuizResponsesSubmitSchema", () => {
   const pickOne = {
     questionId: "question_1",
     answer: "apple",
-    isCorrect: true,
     attempts: 1,
   };
   const paired = {
@@ -184,7 +183,6 @@ describe("QuizResponsesSubmitSchema", () => {
         { leftId: "cat", rightId: "meow" },
       ],
     },
-    isCorrect: false,
     attempts: 3,
   };
 
@@ -194,6 +192,14 @@ describe("QuizResponsesSubmitSchema", () => {
 
   it("accepts a chosen option id from a pick-one format", () => {
     expect(submit(pickOne).success).toBe(true);
+  });
+
+  it("rejects a client-supplied verdict on its own answer", () => {
+    // The whole point of the strict object: whether an answer was right is the
+    // server's judgement, made against the stored payload (`backend.md §8`). A
+    // request carrying `isCorrect` used to be believed, which let any client
+    // name its own coin payout.
+    expect(submit({ ...pickOne, isCorrect: true }).success).toBe(false);
   });
 
   it("accepts the pair set a match_pair question ends with", () => {

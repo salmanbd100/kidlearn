@@ -139,7 +139,7 @@ Rules:
 **Status: active as of 2026-08-22 (file 31), widened to the curriculum tree in
 file 32.** The admin session cookie belongs to the API origin, not the Next
 server, so a Server Component calling `/api/admin/*` sends no credentials and
-gets a `401` — see the comment at the head of `lib/admin-api.ts`. Server-side
+gets a `401` — see the comment at the head of `features/admin/admin-api.ts`. Server-side
 fetching is not merely inconvenient here; it cannot authenticate.
 
 The CMS screens therefore hold their own data: `AnalyticsScreen`,
@@ -184,8 +184,8 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 
 **Status: active as of 2026-08-22 (file 31).** FR-I18N covers the child and parent
 surfaces, which are the ones a family reads. The CMS is an internal tool used by
-the team, so strings in `app/(admin)/`, `components/admin/` and
-`lib/admin-routes.ts` stay hard-coded English rather than wiring a fourth i18next
+the team, so strings in `app/(admin)/` and `features/admin/`
+(including `features/admin/admin-routes.ts`) stay hard-coded English rather than wiring a fourth i18next
 namespace — the alternative is a Bangla translation of "AI Queue" that nobody has
 asked for.
 
@@ -193,7 +193,7 @@ This is bounded to the `(admin)` surface. A string on any `(student)` or `(paren
 path is not covered by it, whichever directory the component lives in.
 
 **Exit condition:** the day a reviewer outside the team is onboarded.
-`lib/admin-routes.ts` holds the nav labels, so it and the screens under
+`features/admin/admin-routes.ts` holds the nav labels, so it and the screens under
 `app/(admin)/` are what change; delete this section then.
 
 ---
