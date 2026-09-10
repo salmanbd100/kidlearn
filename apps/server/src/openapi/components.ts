@@ -182,18 +182,12 @@ import {
 import {
   CreateChildBodySchema,
   UpdateChildBodySchema,
-<<<<<<< HEAD
 } from "../modules/children/children.schema.js";
 import { ActivityEventBodySchema } from "../modules/events/events.schema.js";
 import {
   ConsentSchema,
   DeleteAccountSchema,
 } from "../modules/parent/parent.schema.js";
-=======
-} from "../schemas/children.js";
-import { ActivityEventBodySchema } from "../schemas/events.js";
-import { ConsentSchema, DeleteAccountSchema } from "../schemas/parent.js";
->>>>>>> d020f5d (refactor(db): drop the parental PIN columns)
 import {
   LessonStepBodySchema,
   QuizResponsesBodySchema,
