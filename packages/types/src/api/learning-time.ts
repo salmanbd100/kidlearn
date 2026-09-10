@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   ActivityEventTypeSchema,
   LearningTimeRangeSchema,
-} from "../learning-time.js";
+} from "../domain/learning-time.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
 /**

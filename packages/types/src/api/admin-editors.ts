@@ -3,7 +3,7 @@ import {
   ActivityDefinitionSchema,
   ActivityTypeSchema,
 } from "../activity/schemas.js";
-import { BadgeRuleSchema, BadgeRuleTypeSchema } from "../badges.js";
+import { BadgeRuleSchema, BadgeRuleTypeSchema } from "../domain/badges.js";
 import { QuizQuestionSchema, QuizQuestionTypeSchema } from "../quiz/schemas.js";
 import { ContentStatusSchema } from "./admin-content.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";

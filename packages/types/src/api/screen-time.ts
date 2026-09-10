@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { ScreenTimeBlockCodeSchema, TimeOfDaySchema } from "../screen-time.js";
+import {
+  ScreenTimeBlockCodeSchema,
+  TimeOfDaySchema,
+} from "../domain/screen-time.js";
 import { ok } from "./envelope.js";
 
 /**
