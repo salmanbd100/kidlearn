@@ -1,6 +1,3 @@
-/**
- * Route-boundary schemas for `/api/admin/content/*` (file 32, `backend.md §2`).
- */
 import {
   ContentStatusSchema,
   GradeLevelSchema,

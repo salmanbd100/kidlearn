@@ -1,18 +1,3 @@
-/**
- * `/api/admin/*` — the guard and the analytics endpoint (file 31).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. Rule 1 (stub state, not answers) is what makes the counts
- * below mean anything: `store` holds tables and the stubbed `count`/`groupBy`
- * apply the route's real `where` clause to them, so "2 lessons this week" is a
- * consequence of the window rather than a mock told to return 2. Rule 2 is why the
- * window edges are asserted directly as well.
- *
- * Rule 4 — what the stub cannot prove: that `AdminUser.authUserId` is unique and
- * that `ON DELETE SET NULL` keeps a revoked admin's review history. Both are
- * assertions against `schema.prisma` at the bottom of this file until a real
- * database can be pointed at them.
- */
 import {
   AdminIdentityResponseSchema,
   PlatformOverviewResponseSchema,
