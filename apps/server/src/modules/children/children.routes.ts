@@ -34,6 +34,7 @@ import {
   createChildProfile,
   deleteChildProfile,
   listChildProfiles,
+  readChildStats,
   toChildProfileDto,
   updateChildProfile,
 } from "./child-profile.service.js";
@@ -80,9 +81,12 @@ childrenRouter.get("/", async (req, res, next) => {
   try {
     const { parent } = authContext(req);
     const children = await listChildProfiles(parent.id);
+    const stats = await readChildStats(children.map((child) => child.id));
 
     const payload: SuccessEnvelope<ChildProfileDto[]> = {
-      data: children.map(toChildProfileDto),
+      data: children.map((child) =>
+        toChildProfileDto(child, stats.get(child.id)),
+      ),
     };
     res.json(payload);
   } catch (error) {
@@ -94,11 +98,18 @@ childrenRouter.get(
   "/:id",
   validate({ params: ChildIdParamsSchema }),
   loadOwnedChild,
-  (req, res) => {
-    const payload: SuccessEnvelope<ChildProfileDto> = {
-      data: toChildProfileDto(ownedChild(req)),
-    };
-    res.json(payload);
+  async (req, res, next) => {
+    try {
+      const child = ownedChild(req);
+      const stats = await readChildStats([child.id]);
+
+      const payload: SuccessEnvelope<ChildProfileDto> = {
+        data: toChildProfileDto(child, stats.get(child.id)),
+      };
+      res.json(payload);
+    } catch (error) {
+      next(error);
+    }
   },
 );
 
@@ -224,9 +235,10 @@ childrenRouter.patch(
     try {
       const body: UpdateChildBody = req.body;
       const child = await updateChildProfile(ownedChild(req).id, body);
+      const stats = await readChildStats([child.id]);
 
       const payload: SuccessEnvelope<ChildProfileDto> = {
-        data: toChildProfileDto(child),
+        data: toChildProfileDto(child, stats.get(child.id)),
       };
       res.json(payload);
     } catch (error) {

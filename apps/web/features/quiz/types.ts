@@ -24,9 +24,18 @@ export type PlayableQuestion =
   | DragAnswerQuestion;
 
 /**
- * One answered question, as the engine accumulates it and the endpoint stores it.
+ * One answered question, as the engine accumulates it.
+ *
+ * A superset of the wire shape: `isFirstAttemptCorrect` is the client's own
+ * knowledge of whether the child got it right on the first tap, which is what
+ * `QuizScoreScreen` draws a star or a sparkle from. It is **not** sent — the
+ * server derives its own verdict from `answer` and `attempts` against the stored
+ * payload (`QuizResponseRecordSchema`, `backend.md §8`). `QuizStep` narrows this
+ * to `QuizResponseRecord` when it posts.
  */
-export type QuizAnswerRecord = QuizResponseRecord;
+export type QuizAnswerRecord = QuizResponseRecord & {
+  isFirstAttemptCorrect: boolean;
+};
 
 export interface QuestionProps<T extends PlayableQuestion = PlayableQuestion> {
   definition: T;

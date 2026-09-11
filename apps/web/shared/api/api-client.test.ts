@@ -158,6 +158,67 @@ describe("apiFetch", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("never retries a POST — the write may already have landed", async () => {
+    // The regression this pins. Every method used to retry a dropped connection
+    // and a 5xx, so `POST /api/children` that committed before the response was
+    // lost was sent again and made a second child profile. A dropped response is
+    // indistinguishable from a dropped request here, so the safe reading is that
+    // the write happened.
+    const fetchMock = stubFetch(new TypeError("Failed to fetch"));
+
+    const result = await apiFetch("/api/children", {
+      method: "POST",
+      body: JSON.stringify({ firstName: "Ava" }),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("never retries a POST on a 5xx either", async () => {
+    const fetchMock = stubFetch(
+      jsonResponse(503, { error: { code: "INTERNAL", message: "starting" } }),
+      jsonResponse(200, { data: { id: "child_1" } }),
+    );
+
+    const result = await apiFetch("/api/children", { method: "POST" });
+
+    expect(result.ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("retries a POST that opts in with isIdempotent", async () => {
+    const fetchMock = stubFetch(
+      new TypeError("Failed to fetch"),
+      jsonResponse(200, { data: { recorded: true } }),
+    );
+
+    const pending = apiFetch("/api/progress/lessons/lesson_1/complete", {
+      method: "POST",
+      isIdempotent: true,
+    });
+    await vi.advanceTimersByTimeAsync(RETRY_BACKOFF_MS[0]);
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      data: { recorded: true },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a DELETE without an opt-in — the method is idempotent already", async () => {
+    const fetchMock = stubFetch(
+      new TypeError("Failed to fetch"),
+      jsonResponse(200, { data: { deleted: true } }),
+    );
+
+    const pending = apiFetch("/api/children/child_1", { method: "DELETE" });
+    await vi.advanceTimersByTimeAsync(RETRY_BACKOFF_MS[0]);
+
+    await pending;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("reports a malformed body rather than handing back undefined data", async () => {
     stubFetch(jsonResponse(200, { child: { id: "child_1" } }));
 

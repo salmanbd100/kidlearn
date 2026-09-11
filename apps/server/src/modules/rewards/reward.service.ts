@@ -286,14 +286,20 @@ export async function grantStoryCompletion(
   childId: string,
   storyId: string,
 ): Promise<StoryCompletionResponse> {
+  // Read once and passed in for the reason `grantLessonCompletion` gives: a
+  // retry must not straddle local midnight and move the streak under two
+  // different dates.
+  const localDate = localDateIn(env.APP_TIMEZONE, new Date());
+
   return withSerializationRetry(() =>
-    grantStoryCompletionOnce(childId, storyId),
+    grantStoryCompletionOnce(childId, storyId, localDate),
   );
 }
 
 function grantStoryCompletionOnce(
   childId: string,
   storyId: string,
+  localDate: string,
 ): Promise<StoryCompletionResponse> {
   const specs: GrantSpec[] = [
     {
@@ -319,16 +325,56 @@ function grantStoryCompletionOnce(
         skipDuplicates: true,
       });
 
-      if (written.count === 0) {
-        return { alreadyCompleted: true, granted: null };
+      // Reading a story is a learning activity, so it moves the streak whether
+      // or not it paid out — FR-GAM-06 counts days with ≥1 activity, and a
+      // re-read is still a day the child turned up. `updateStreakForActivity` is
+      // itself a no-op on a day already counted.
+      const streak = await updateStreakForActivity(tx, childId, localDate);
+
+      // The same three steps a lesson completion runs, in the same load-bearing
+      // order (file 24 §8). Without them the `stories_completed` badge
+      // ("Reading Star — 10 stories", FR-GAM-04) could only ever be awarded by
+      // the child's next *lesson*, and a child who only reads would never earn
+      // it at all.
+      const newBadges = await findNewlyEarnedBadges(
+        tx,
+        childId,
+        streak.current,
+      );
+      if (newBadges.length > 0) {
+        await tx.rewardLedger.createMany({
+          data: newBadges.map((badge) => ({
+            childId,
+            rewardType: "badge" as const,
+            amount: 1,
+            sourceType: "badge_unlock" satisfies GrantSource,
+            sourceId: badge.slug,
+            badgeId: badge.id,
+          })),
+          skipDuplicates: true,
+        });
       }
 
+      const totals = await readTotals(tx, childId);
+      const newCharacters = await unlockCharacters(tx, childId, {
+        stars: totals.stars,
+        coins: totals.coins,
+        badges: totals.badgeCount,
+      });
+
       return {
-        alreadyCompleted: false,
-        granted: {
-          stars: REWARD_RULES.storyCompletionStars,
-          coins: REWARD_RULES.storyCompletionCoins,
-        },
+        alreadyCompleted: written.count === 0,
+        granted:
+          written.count === 0
+            ? null
+            : {
+                stars: REWARD_RULES.storyCompletionStars,
+                coins: REWARD_RULES.storyCompletionCoins,
+              },
+        newBadges,
+        newCharacters,
+        streak: { current: streak.current, milestone: streak.milestone },
+        totals: { stars: totals.stars, coins: totals.coins },
       };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

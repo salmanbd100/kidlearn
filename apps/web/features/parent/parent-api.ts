@@ -35,6 +35,9 @@ export function submitConsent(): Promise<ApiResult<unknown>> {
   return apiFetch("/api/parent/consent", {
     method: "POST",
     body: JSON.stringify({ accepted: true, version: CONSENT_VERSION }),
+    // Re-posting the current version refreshes the timestamp and nothing else —
+    // `recordParentConsent` is explicitly idempotent.
+    isIdempotent: true,
   });
 }
 
@@ -89,5 +92,10 @@ export function deleteChild(id: string): Promise<ApiResult<{ deleted: true }>> {
 export function activateChild(
   id: string,
 ): Promise<ApiResult<{ activeChildProfileId: string }>> {
-  return apiFetch(`/api/children/${id}/activate`, { method: "POST" });
+  // Points the session at a child — writing the same id twice is the same
+  // outcome, so a dropped response is safe to retry.
+  return apiFetch(`/api/children/${id}/activate`, {
+    method: "POST",
+    isIdempotent: true,
+  });
 }

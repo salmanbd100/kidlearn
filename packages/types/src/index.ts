@@ -47,5 +47,6 @@ export * from "./domain/progress.js";
 // form validates against and the server enforces from.
 export * from "./domain/screen-time.js";
 export * from "./primitives.js";
+export * from "./quiz/evaluate.js";
 export * from "./quiz/parse.js";
 export * from "./quiz/schemas.js";

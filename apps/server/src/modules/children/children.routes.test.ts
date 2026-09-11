@@ -36,13 +36,29 @@ type SessionRow = {
   activeChildProfileId: string | null;
 };
 
-const state = vi.hoisted(() => ({
-  children: [] as ChildProfile[],
-  sessions: new Map<string, SessionRow>(),
+/** The store the stub models (`general.md §5`, stub exception rule 1). */
+type StubState = {
+  children: ChildProfile[];
+  sessions: Map<string, SessionRow>;
   /** `ChildCharacter` rows — the characters a child has earned (file 24). */
-  unlocks: [] as { childId: string; characterId: string }[],
-  nextChildId: 0,
-}));
+  unlocks: { childId: string; characterId: string }[];
+  /** `RewardLedger` rows, so `stats` is summed rather than answered. */
+  ledger: { childId: string; rewardType: string; amount: number }[];
+  /** `Streak` rows, keyed by child. */
+  streaks: Map<string, number>;
+  nextChildId: number;
+};
+
+const state = vi.hoisted(
+  (): StubState => ({
+    children: [],
+    sessions: new Map(),
+    unlocks: [],
+    ledger: [],
+    streaks: new Map(),
+    nextChildId: 0,
+  }),
+);
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -57,6 +73,8 @@ const db = vi.hoisted(() => ({
   characterFindMany: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionUpdateMany: vi.fn(),
+  rewardLedgerGroupBy: vi.fn(),
+  streakFindMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -77,6 +95,8 @@ vi.mock("../../config/prisma.js", () => {
       findMany: db.characterFindMany,
     },
     session: { update: db.sessionUpdate, updateMany: db.sessionUpdateMany },
+    rewardLedger: { groupBy: db.rewardLedgerGroupBy },
+    streak: { findMany: db.streakFindMany },
     // Interactive transaction: the callback gets the same stubbed client, so
     // `tx.childProfile.count` and the real client's spy are one and the same.
     // Rollback is not simulated — the limit test asserts `create` was never
@@ -246,6 +266,8 @@ function matches(child: ChildProfile, where: ChildWhere): boolean {
 beforeEach(() => {
   state.children = [];
   state.unlocks = [];
+  state.ledger = [];
+  state.streaks.clear();
   state.nextChildId = 0;
   state.sessions.clear();
   for (const fixture of FIXTURES.values()) {
@@ -273,6 +295,46 @@ beforeEach(() => {
     async ({ where }: { where: { userId: string } }) =>
       [...FIXTURES.values()].find((f) => f.user.id === where.userId)?.parent ??
       null,
+  );
+
+  // Sums the modelled ledger the way Postgres would, so `stats` is a figure
+  // derived from rows rather than a fixed answer (stub exception rule 1). A
+  // badge is counted, not summed — as `readTotals` does.
+  db.rewardLedgerGroupBy.mockImplementation(
+    async ({ where }: { where: { childId: { in: string[] } } }) => {
+      const scoped = state.ledger.filter((row) =>
+        where.childId.in.includes(row.childId),
+      );
+      const groups = new Map<
+        string,
+        { childId: string; rewardType: string; sum: number; count: number }
+      >();
+      for (const row of scoped) {
+        const key = `${row.childId}|${row.rewardType}`;
+        const group = groups.get(key) ?? {
+          childId: row.childId,
+          rewardType: row.rewardType,
+          sum: 0,
+          count: 0,
+        };
+        group.sum += row.amount;
+        group.count += 1;
+        groups.set(key, group);
+      }
+      return [...groups.values()].map((group) => ({
+        childId: group.childId,
+        rewardType: group.rewardType,
+        _sum: { amount: group.sum },
+        _count: { _all: group.count },
+      }));
+    },
+  );
+
+  db.streakFindMany.mockImplementation(
+    async ({ where }: { where: { childId: { in: string[] } } }) =>
+      [...state.streaks.entries()]
+        .filter(([childId]) => where.childId.in.includes(childId))
+        .map(([childId, current]) => ({ childId, current })),
   );
 
   // Models the real `where`: the status gate is unconditional, and selectability
@@ -803,6 +865,54 @@ describe("GET /api/children/:id", () => {
       badges: 0,
       currentStreak: 0,
     });
+  });
+
+  it("reports the stars, coins, badges and streak the child has actually earned", async () => {
+    // `stats` was hardcoded to four zeros on every read, which made four
+    // published contract fields permanently untrue and gave the student home
+    // screen a reward strip that flashed "0 stars" before the separate
+    // `/api/me/rewards/summary` read replaced it.
+    const child = seedChild(PARENT_A);
+    state.ledger.push(
+      { childId: child.id, rewardType: "star", amount: 2 },
+      { childId: child.id, rewardType: "star", amount: 1 },
+      { childId: child.id, rewardType: "coin", amount: 5 },
+      { childId: child.id, rewardType: "badge", amount: 1 },
+      { childId: child.id, rewardType: "badge", amount: 1 },
+    );
+    state.streaks.set(child.id, 4);
+
+    const res = await authedAgentFor(PARENT_A).get(`/api/children/${child.id}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.stats).toEqual({
+      // Summed for stars and coins; counted for badges — a badge is a row you
+      // have, not an amount, exactly as `readTotals` treats it.
+      stars: 3,
+      coins: 5,
+      badges: 2,
+      currentStreak: 4,
+    });
+  });
+
+  it("scopes each child's stats to that child on the list endpoint", async () => {
+    const first = seedChild(PARENT_A);
+    const second = seedChild(PARENT_A);
+    state.ledger.push(
+      { childId: first.id, rewardType: "star", amount: 7 },
+      { childId: second.id, rewardType: "star", amount: 1 },
+    );
+    state.streaks.set(second.id, 2);
+
+    const res = await authedAgentFor(PARENT_A).get("/api/children");
+
+    expect(res.status).toBe(200);
+    expect(
+      res.body.data.map((child: { stats: unknown }) => child.stats),
+    ).toEqual([
+      { stars: 7, coins: 0, badges: 0, currentStreak: 0 },
+      { stars: 1, coins: 0, badges: 0, currentStreak: 2 },
+    ]);
   });
 
   it("answers 404 — never 403 — for another parent's child, indistinguishably from a nonexistent id", async () => {

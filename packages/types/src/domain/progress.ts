@@ -92,12 +92,25 @@ export const QuizAnswerValueSchema = z.union([
 
 export type QuizAnswerValue = z.infer<typeof QuizAnswerValueSchema>;
 
-/** One question, as the child answered it. */
+/**
+ * One question, as the child answered it.
+ *
+ * **No `isCorrect`.** Whether an answer was right is the server's verdict, not
+ * the client's report (`backend.md §8`): `recordQuizResponses` evaluates `answer`
+ * against the stored `QuizQuestion.definition` with `evaluateAnswer`, and stores
+ * `QuizResponse.isCorrect` from that. A client that could name its own verdict
+ * could name its own coin balance — the reward grant counts those rows.
+ *
+ * `attempts` still comes from the client because only the client can see a tap.
+ * It is the one remaining self-report, and it is a bounded integer rather than a
+ * free verdict: the stored row is recomputable from `(answer, attempts,
+ * definition)` at any time, which the old shape was not.
+ */
 export const QuizResponseRecordSchema = z
   .object({
     questionId: z.string().min(1),
+    /** The answer the child settled on — the one the engine committed. */
     answer: QuizAnswerValueSchema,
-    isCorrect: z.boolean(),
     attempts: z.number().int().min(1).max(50),
   })
   .strict();

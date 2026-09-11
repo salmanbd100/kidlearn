@@ -252,7 +252,7 @@ export function PuzzleActivity({
               type="button"
               data-testid="puzzle-shine"
               aria-label={t("activity.skip")}
-              className="absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,rgb(255_255_255/0.65)_50%,transparent_65%)] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-inset motion-safe:animate-shine"
+              className="absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,var(--shine)_50%,transparent_65%)] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-inset motion-safe:animate-shine"
               onClick={skipShine}
             />
           ) : null}

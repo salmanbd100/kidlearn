@@ -125,8 +125,12 @@ describe("QuizStep", () => {
 
     answerTheQuiz();
 
+    // `isFirstAttemptCorrect` is deliberately absent from the wire shape: the
+    // server grades `answer` against the stored payload and reads first-time
+    // success off `attempts` (`backend.md §8`). The engine still tracks it
+    // locally, for the stars on the score screen.
     expect(progress.submitQuizResponses).toHaveBeenCalledWith(QUIZ_ID, [
-      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+      { questionId: "q_1", answer: "apple", attempts: 1 },
     ]);
   });
 

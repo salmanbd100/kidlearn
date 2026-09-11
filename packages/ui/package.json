@@ -11,6 +11,8 @@
     "./primitives/*": "./src/primitives/*.tsx"
   },
   "scripts": {
+    "dev": "echo '@kidlearn/ui exports raw TypeScript - nothing to watch'",
+    "build": "echo '@kidlearn/ui exports raw TypeScript - nothing to build'",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"

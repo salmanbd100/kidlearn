@@ -82,12 +82,29 @@ export type LessonCompletionResponse = z.infer<typeof LessonCompletionSchema>;
 
 export const LessonCompletionResponseSchema = ok(LessonCompletionSchema);
 
-/** The answer to `POST /api/progress/stories/{id}/complete` (FR-STORY-07). */
+/**
+ * The answer to `POST /api/progress/stories/{id}/complete` (FR-STORY-07).
+ *
+ * Carries the same unlock fields as `LessonCompletionSchema` because finishing a
+ * story runs the same three steps: reading is a learning activity, so it moves
+ * the streak (FR-GAM-06), and the `stories_completed` badge (FR-GAM-04, "Reading
+ * Star — 10 stories") has to be earnable by a child who only ever reads.
+ * `alreadyCompleted` governs `granted` alone — a replay pays no stars but can
+ * still be the day that extends a streak or the read that earns the badge.
+ */
 export const StoryCompletionSchema = z
   .object({
     alreadyCompleted: z.boolean(),
     /** `{ stars: 1, coins: 5 }` on the first finish, `null` on every replay. */
     granted: RewardTotalsSchema.nullable(),
+    /** Badges this read unlocked. Empty when it unlocked none (FR-GAM-04). */
+    newBadges: z.array(NewBadgeSchema),
+    /** Avatar characters this read unlocked (FR-GAM-05). */
+    newCharacters: z.array(NewCharacterSchema),
+    /** The streak as it stands after this read (FR-GAM-06). */
+    streak: CompletionStreakSchema,
+    /** Running balances after this read, so the home strip need not re-fetch. */
+    totals: RewardTotalsSchema,
   })
   .strict();
 

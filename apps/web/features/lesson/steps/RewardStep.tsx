@@ -9,7 +9,6 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback";
-import { BadgeReveal } from "@/features/rewards/BadgeReveal";
 import {
   COIN_COUNT_DURATION_MS,
   CoinCountUp,
@@ -18,9 +17,11 @@ import { STAR_STAGGER_MS, StarBurst } from "@/features/rewards/StarBurst";
 import { StreakCelebration } from "@/features/rewards/StreakCelebration";
 import { completeLesson } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { BadgeReveal } from "@/shared/components/kid/BadgeReveal";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { toLocale } from "@/shared/lib/locale";
+import { unlockNames } from "@/shared/lib/unlock-names";
 import type { LessonStepProps } from "./lesson-step-props";
 
 // The celebration (FR-LSN-05, FR-GAM-01..02).
@@ -290,13 +291,13 @@ function announce(
   const unlocks = [
     newBadges.length > 0
       ? t("reward.announce.badges", {
-          names: names(t, newBadges),
+          names: unlockNames(t, newBadges),
           count: newBadges.length,
         })
       : undefined,
     newCharacters.length > 0
       ? t("reward.announce.characters", {
-          names: names(t, newCharacters),
+          names: unlockNames(t, newCharacters),
           count: newCharacters.length,
         })
       : undefined,
@@ -306,19 +307,6 @@ function announce(
   ].filter((sentence): sentence is string => sentence !== undefined);
 
   return [earned, ...unlocks].join(" ");
-}
-
-/** "Leo", or "Leo and Mia" — joined through i18next, because the conjunction
- *  and the separator are both language-specific. */
-function names(t: TFunction, items: ReadonlyArray<{ name: string }>): string {
-  if (items.length === 1) return items[0].name;
-  return t("reward.announce.nameList", {
-    first: items
-      .slice(0, -1)
-      .map((item) => item.name)
-      .join(t("reward.announce.nameSeparator")),
-    last: items[items.length - 1].name,
-  });
 }
 
 /** The mascot, bouncing, once the counting is over. */

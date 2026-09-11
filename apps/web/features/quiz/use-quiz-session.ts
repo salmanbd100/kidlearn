@@ -14,7 +14,7 @@ export interface QuizSessionState {
   currentIndex: number;
   /** Taps on the question currently on screen. */
   attempts: number;
-  /** Latched on the first attempt and left alone after it — see `isCorrect`. */
+  /** Latched on the first attempt and left alone after it. */
   isFirstAttemptCorrect: boolean;
   records: readonly QuizAnswerRecord[];
 }
@@ -64,7 +64,8 @@ export function quizSessionReducer(
           {
             questionId: event.questionId,
             answer: event.answer,
-            isCorrect: state.isFirstAttemptCorrect,
+            // Local only — the server grades `answer` and `attempts` itself.
+            isFirstAttemptCorrect: state.isFirstAttemptCorrect,
             // A commit is always preceded by the attempt that produced it, so
             // this floor never binds in the app. It is here because `attempts:
             // 0` on a question a child answered is a number file 22 would put

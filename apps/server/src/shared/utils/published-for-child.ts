@@ -41,6 +41,37 @@ export function publishedRelationForChild(child: ChildProfile): {
 }
 
 /**
+ * **Every gate a lesson is subject to**, as one `where` fragment — the lesson's
+ * own status and grade, its world's status, its topic's status and grade, and
+ * that topic's subject's status and grade.
+ *
+ * All four gates in one place because they used to be in two: the world-screen
+ * list applied all of them and `getLessonForChild` applied only the first two, so
+ * withdrawing a *topic* to draft removed its lessons from every list while a
+ * bookmarked lesson URL still played, still recorded progress and still paid out.
+ * A lesson is not visible on its own merits — its curriculum position is part of
+ * the claim that it is for this child (`openapi/paths/content.ts`, the
+ * `/worlds/{id}/lessons` description).
+ */
+export function visibleLessonWhere(child: ChildProfile): {
+  readonly status: typeof PUBLISHED_STATUS;
+  readonly gradeLevels: { readonly has: GradeLevel };
+  readonly world: typeof publishedRelation;
+  readonly topic: {
+    readonly is: PublishedForChildWhere & {
+      readonly subject: { readonly is: PublishedForChildWhere };
+    };
+  };
+} {
+  const visible = publishedForChild(child);
+  return {
+    ...visible,
+    world: publishedRelation,
+    topic: { is: { ...visible, subject: publishedRelationForChild(child) } },
+  };
+}
+
+/**
  * Post-fetch form of the same rule, for an **optional** relation that must not
  * take its parent down with it. `Lesson.activity` and `Lesson.quiz` are both
  * nullable and the lesson player already renders a lesson without either, so an

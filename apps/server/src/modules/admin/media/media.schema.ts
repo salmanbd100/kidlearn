@@ -1,7 +1,7 @@
 /** Route-boundary schemas for `/api/admin/media/*` (file 33, FR-CMS-02). */
 import { AssetKindSchema, LocaleSchema } from "@kidlearn/types";
 import { z } from "zod";
-import { deliveryUrlPrefix } from "./media.service.js";
+import { isDeliveryUrl } from "./media.service.js";
 
 export const MediaKindSchema = AssetKindSchema;
 export const MediaLanguageSchema = LocaleSchema;
@@ -22,7 +22,7 @@ export const RegisterAssetSchema = z
     language: MediaLanguageSchema.nullable().default(null),
   })
   .strict()
-  .refine((value) => value.url.startsWith(deliveryUrlPrefix()), {
+  .refine((value) => isDeliveryUrl(value.url), {
     path: ["url"],
     message: "url must be a Cloudinary delivery URL for this cloud",
   });
