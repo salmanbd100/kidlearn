@@ -15,12 +15,12 @@ checks — and for bugs.
 
 ## The standards are the authority
 
-| Document | Read when |
-|---|---|
-| `document/standards/general.md` | **Always** — layout, TypeScript, imports, naming, testing, the `[REVIEW]` matrix, GitHub flow |
-| `document/standards/frontend.md` | The diff touches `packages/ui` or `apps/web` |
-| `document/standards/backend.md` | The diff touches `apps/server`, `packages/db` or `packages/types` |
-| `document/design.md` | The diff touches a component or a visual decision |
+| Document                         | Read when                                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------------------- |
+| `document/standards/general.md`  | **Always** — layout, TypeScript, imports, naming, testing, the `[REVIEW]` matrix, GitHub flow |
+| `document/standards/frontend.md` | The diff touches `packages/ui` or `apps/web`                                                  |
+| `document/standards/backend.md`  | The diff touches `apps/server`, `packages/db` or `packages/types`                             |
+| `document/design.md`             | The diff touches a component or a visual decision                                             |
 
 `document/engineering-standards.md` is an index into those three; never cite it as a rule.
 
@@ -71,6 +71,7 @@ git merge-base --is-ancestor <branch> dev && echo "already merged"
   yield a fraction of the branch.** If there is no PR to read, ask the user for the base commit.
   Do not guess one, and never fall back to reviewing a single commit as though it were the branch
   — a review of 4 files out of 46 that does not say so is worse than no review.
+
 - **Not merged, still empty.** The branch is not ahead of `dev`. Stop and say so.
 
 **Uncommitted changes count.** `git diff dev...<branch>` cannot see the working tree, and a
@@ -104,16 +105,16 @@ the layers in scope. Each returns findings with the rule quoted, or a bug with a
 
 Never dropped as a nitpick. One missing guard shows draft content to a child.
 
-`backend.md §4`: *"Every Prisma query that serves student-facing content **must** include
+`backend.md §4`: _"Every Prisma query that serves student-facing content **must** include
 `where: { status: "published" }`. A missing filter is a content-safety bug, not a style issue. It
-must have an explicit test."*
+must have an explicit test."_
 
 Read every Prisma query in the diff — the top-level `where` **and every relation it pulls in**.
 Related rows carry their own `status`, and Prisma cannot filter an `include`, so a published
 lesson pointing at a draft activity serves that payload to a child (this shipped once, fixed in
 `919b2c5`).
 
-The rule lives in one place: `apps/server/src/lib/published-for-child.ts`. Read it. A query is
+The rule lives in one place: `apps/server/src/shared/utils/published-for-child.ts`. Read it. A query is
 expected to call `publishedForChild`, `publishedOnly`, `publishedRelation`,
 `publishedRelationForChild` or `isPublished` rather than hand-write the condition — a new query
 spelling out `status: "published"` itself is a finding even when correct today, because the rule
@@ -140,8 +141,8 @@ Also:
   `403`, so a probe cannot confirm a row exists. A `403` where the spec says `404` belongs here,
   not in the status-code nitpicks.
 - Content published without human review — AI output never auto-publishes (`backend.md §4`).
-- A deleted or weakened content-safety test. `general.md §5`: *"A PR that reduces test coverage on
-  a service layer or disables a content-safety test does not merge."*
+- A deleted or weakened content-safety test. `general.md §5`: _"A PR that reduces test coverage on
+  a service layer or disables a content-safety test does not merge."_
 
 ### B — Correctness
 
@@ -200,7 +201,7 @@ Frontend:
 - **`'use client'`** — a boundary higher than the leaf needing it (`frontend.md §3`).
 - **Layer placement** — the wrong `packages/ui` subdirectory, per the table in `frontend.md §1`
   ("if it matches more than one row, use the most specific match").
-- **Exports** — a new public component missing from `src/index.ts` *or* the `package.json`
+- **Exports** — a new public component missing from `src/index.ts` _or_ the `package.json`
   `exports` map. Both are required.
 
 Backend:
@@ -219,7 +220,7 @@ Backend:
 first group** — `coverage.test.ts` and `document.test.ts` already fail the build for an
 undocumented route, a stale registry entry, a missing or duplicate `operationId`, a tag with no
 `x-tagGroups` group, and an example that does not parse. Report those only if the diff weakens or
-skips one of those tests, which *is* a finding.
+skips one of those tests, which _is_ a finding.
 
 Yours:
 
@@ -276,11 +277,11 @@ Take each finding to the code itself, not the diff hunk, and answer all four:
 
 Then rate what is left:
 
-| | Meaning |
-|---|---|
-| **Blocking** | A content-safety or access-control gap, a bug with a concrete failure path, or a `[REVIEW]` rule violated with the sentence quoted. |
-| **Worth fixing** | Real and verified, but the branch ships without harm — a convention slip, a missing return type, an unclear name. |
-| **Drop** | Anything you could not answer all four questions for. Anything a tool catches. Anything you would preface with "consider" or "might want to". |
+|                  | Meaning                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Blocking**     | A content-safety or access-control gap, a bug with a concrete failure path, or a `[REVIEW]` rule violated with the sentence quoted.           |
+| **Worth fixing** | Real and verified, but the branch ships without harm — a convention slip, a missing return type, an unclear name.                             |
+| **Drop**         | Anything you could not answer all four questions for. Anything a tool catches. Anything you would preface with "consider" or "might want to". |
 
 **Every content-safety and access-control finding is Blocking**, and is never rated down for being
 small — a one-word `where` clause is the whole guard.
@@ -296,7 +297,7 @@ drop it. Do not report it hedged and leave the engineer to check.
 ### kidlearn code review — `<branch>` → `dev`
 
 <N commits, M files. Layers: apps/web, apps/server.>
-<Spec: document/implementation/14-*.md — matches / diverges: …>
+<Spec: document/implementation/14-\*.md — matches / diverges: …>
 <Includes N uncommitted files.>
 
 **Blocking: N. Worth fixing: M.** | **No issues found.**

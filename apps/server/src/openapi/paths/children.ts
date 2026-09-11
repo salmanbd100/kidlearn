@@ -63,7 +63,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
       requestBody: jsonRequestBody("CreateChildBody"),
       responses: {
         "201": jsonResponse(
-          "The created profile. `stats` counters are zero placeholders until files 23–24 wire the reward ledger.",
+          "The created profile. `stats` is all zeros here and only here — a profile created a moment ago has earned nothing. Every read of an existing profile sums the reward ledger.",
           "ChildProfileResponse",
         ),
         "400": errorResponse(

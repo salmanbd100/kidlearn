@@ -1,11 +1,11 @@
+import { describe, expect, it } from "vitest";
 import {
   validDragAnswer,
   validMatchPair,
   validMcq,
   validPictureSelect,
-} from "@kidlearn/types";
-import { describe, expect, it } from "vitest";
-import { evaluateAnswer } from "./evaluate-answer";
+} from "../__fixtures__/quiz.js";
+import { evaluateAnswer } from "./evaluate.js";
 
 describe("evaluateAnswer", () => {
   describe("mcq (FR-QUIZ-01)", () => {

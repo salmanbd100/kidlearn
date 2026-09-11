@@ -1,5 +1,6 @@
 "use client";
 
+import type { QuizResponseRecord } from "@kidlearn/types";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityUnavailable } from "@/features/activities/ActivityUnavailable";
@@ -38,7 +39,20 @@ export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
       // belong to, and the endpoint would refuse an admin session anyway.
       if (isPreview) return;
 
-      void submitQuizResponses(quizId, records).then((result) => {
+      // `isFirstAttemptCorrect` is dropped here rather than sent: the server
+      // grades `answer` against the stored payload and reads first-time success
+      // off `attempts` (`backend.md §8`). The screen behind this shows the
+      // client's own stars, which is why the two derivations have to agree —
+      // `evaluateAnswer` is the shared function that makes them.
+      const wire: QuizResponseRecord[] = records.map(
+        ({ questionId, answer, attempts }) => ({
+          questionId,
+          answer,
+          attempts,
+        }),
+      );
+
+      void submitQuizResponses(quizId, wire).then((result) => {
         if (!result.ok) {
           console.warn(
             `[kidlearn] quiz responses not recorded: ${result.error.code}`,

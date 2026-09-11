@@ -3,6 +3,7 @@
   "tasks": {
     "dev": { "cache": false, "persistent": true },
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "@kidlearn/ui#build": { "dependsOn": ["^build"], "outputs": [] },
     "typecheck": { "dependsOn": ["^build"] },
     "test": { "dependsOn": ["^build"] },
     "test:coverage": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },

@@ -30,7 +30,7 @@ import { trackEvent, useHeartbeat } from "@/features/screen-time/use-heartbeat";
 import { completeStory } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-import { FinishScreen } from "./FinishScreen";
+import { FinishScreen, type StoryFinishReward } from "./FinishScreen";
 import {
   initialReaderState,
   type ReaderEvent,
@@ -54,9 +54,12 @@ const HIGHLIGHT_TICK_MS = 100;
  * Written here rather than asked for: the reader posts the completion once per
  * mount, so the second ending has no reply of its own to show.
  */
-const REPLAY_COMPLETION: StoryCompletionResponse = {
-  alreadyCompleted: true,
+const REPLAY_COMPLETION: StoryFinishReward = {
   granted: null,
+  // A re-read inside one mount unlocks nothing new — the badge and character
+  // evaluation ran on the reading that has already been posted.
+  newBadges: [],
+  newCharacters: [],
 };
 
 type LoadState =

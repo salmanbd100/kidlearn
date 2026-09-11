@@ -1,7 +1,16 @@
-import type { QuizQuestionDefinition } from "@kidlearn/types";
-import type { QuizAnswerValue } from "./types";
+import type { QuizAnswerValue } from "../domain/progress.js";
+import type { QuizQuestionDefinition } from "./schemas.js";
 
-/** What counts as a right answer, for every quiz format (FR-QUIZ-01..04). */
+/**
+ * What counts as a right answer, for every quiz format (FR-QUIZ-01..04).
+ *
+ * Lives here rather than in `apps/web` because the **server** is the authority on
+ * whether an answer was right (`backend.md §8`): the player runs this to decide
+ * whether to celebrate or ask again, and `recordQuizResponses` runs the same
+ * function against the same stored `definition` before writing
+ * `QuizResponse.isCorrect`. One definition, so the two cannot disagree about what
+ * a correct answer is.
+ */
 export function evaluateAnswer(
   question: QuizQuestionDefinition,
   answer: QuizAnswerValue,
@@ -23,7 +32,8 @@ function isMatchComplete(
 ): boolean {
   // A pick-one answer handed to a pairing question: wrong, not a crash. The
   // engine keys each question's component by id, so a stale commit from the
-  // previous question is the shape that would arrive here.
+  // previous question is the shape that would arrive here — and on the server it
+  // is simply what a hand-written request body looks like.
   if (typeof answer === "string") return false;
 
   const key = (leftId: string, rightId: string) => `${leftId}::${rightId}`;

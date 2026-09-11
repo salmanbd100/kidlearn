@@ -371,6 +371,22 @@ Both edits to `00-progress-tracker.md` are left unstaged alongside the implement
 
 Do not combine two implementation files into one branch. If work on file `07` reveals a bug in file `05`'s output, fix it in a separate branch named `05-<filename>-fix` and open a separate PR.
 
+#### Recorded exception — a whole-codebase review pass ships as one branch
+
+**Status: active as of 2026-09-10 for `whole-codebase-review-remediation`. Delete this section once that branch merges.**
+
+The two rules above assume a branch is *derived from* one implementation file. A review pass that reads the whole codebase at once is not: it finds defects wherever they are, and the seven it found belong to files 02, 11–12, 21–22, 23–26, 13–14 and 33. Splitting them into seven branches would mean seven PRs whose only relationship to their file numbers is where the defect happened to land — and two of the seven (`visibleLessonWhere`, the `evaluateAnswer` move) are single changes that no one file owns.
+
+The deviation is bounded by three rules. A branch that breaks one of them is not covered:
+
+1. **The findings are enumerated in the tracker row, one numbered entry each**, with the defect, its consequence and its fix — so the row does the work seven PR descriptions would have.
+2. **It is named for what it is, not for a file number.** `NN-` prefixes belong to implementation files; taking one for unrelated work collides with the spec that number is reserved for (`improvement-plan.md §4` reserves 40–46).
+3. **No new feature.** A review pass fixes what is there. Anything that adds behaviour leaves the pass and gets its own file and branch.
+
+**What this exception costs, so the cost is on the record:** one PR carrying seven unrelated fixes cannot be reverted per-fix, and a reviewer cannot approve six of them and reject the seventh. That is the trade accepted for not fragmenting a single review into seven.
+
+**Exit condition:** file 40 (`40-docs-and-standards-truth-pass.md`) is the planned home for the next docs pass. A review pass that finds code defects rather than documentation drift still needs this section; delete it if a future one is small enough to sit under a single file.
+
 ---
 
 _General Standards v1 — kidlearn. Update this document first; update the code second. If a pattern in the codebase contradicts this document, the document wins unless a deliberate decision is recorded here._

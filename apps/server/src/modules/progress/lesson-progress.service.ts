@@ -1,18 +1,20 @@
 import type { ChildProfile, LessonProgress, SessionEvent } from "@kidlearn/db";
 import { Prisma } from "@kidlearn/db";
 import {
+  evaluateAnswer,
   LESSON_STEPS,
   type LessonStep,
   type LessonStepReport,
   type QuizResponsesSubmit,
   type QuizScoreResponse,
   type SessionEventReport,
+  safeParseQuizQuestion,
 } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
 import {
-  publishedForChild,
   publishedRelation,
+  visibleLessonWhere,
 } from "../../shared/utils/published-for-child.js";
 import { withSerializationRetry } from "../../shared/utils/serializable-retry.js";
 import {
@@ -40,11 +42,7 @@ export async function requireVisibleLessonId(
   lessonId: string,
 ): Promise<string> {
   const lesson = await prisma.lesson.findFirst({
-    where: {
-      id: lessonId,
-      ...publishedForChild(child),
-      world: publishedRelation,
-    },
+    where: { id: lessonId, ...visibleLessonWhere(child) },
     select: { id: true },
   });
   if (!lesson) {
@@ -154,17 +152,19 @@ export async function recordQuizResponses(
   child: ChildProfile,
   quizId: string,
   submit: QuizResponsesSubmit,
+  log: QuizLogger,
 ): Promise<QuizScoreResponse> {
   const lesson = await prisma.lesson.findFirst({
     where: {
       quizId,
-      ...publishedForChild(child),
-      world: publishedRelation,
+      ...visibleLessonWhere(child),
       quiz: publishedRelation,
     },
     select: {
       id: true,
-      quiz: { select: { questions: { select: { id: true } } } },
+      quiz: {
+        select: { questions: { select: { id: true, definition: true } } },
+      },
     },
   });
   // `quiz` is nullable on the row even though the filter above cannot match
@@ -173,9 +173,11 @@ export async function recordQuizResponses(
     throw ApiError.notFound("Quiz not found");
   }
 
-  const known = new Set(lesson.quiz.questions.map((question) => question.id));
+  const questions = new Map(
+    lesson.quiz.questions.map((question) => [question.id, question]),
+  );
   const foreign = submit.responses.find(
-    (response) => !known.has(response.questionId),
+    (response) => !questions.has(response.questionId),
   );
   if (foreign !== undefined) {
     throw new ApiError(
@@ -185,35 +187,92 @@ export async function recordQuizResponses(
     );
   }
 
+  const graded = submit.responses.map((response) => ({
+    ...response,
+    // `questions.has` was just checked for every response, so this is a lost
+    // narrowing rather than an unchecked claim.
+    isCorrect: gradeResponse(
+      questions.get(response.questionId)?.definition,
+      response,
+      log,
+    ),
+  }));
+
   const totalQuestions = lesson.quiz.questions.length;
-  const correctCount = submit.responses.filter(
-    (response) => response.isCorrect,
-  ).length;
+  const correctCount = graded.filter((response) => response.isCorrect).length;
   const score = Math.round((100 * correctCount) / totalQuestions);
 
   await withSerializationRetry(() =>
-    recordQuizResponsesOnce(child.id, lesson.id, submit, score),
+    recordQuizResponsesOnce(child.id, lesson.id, graded, score),
   );
 
   return { lessonId: lesson.id, score, correctCount, totalQuestions };
 }
 
+/**
+ * The subset of `pino`'s logger this module needs, declared structurally so the
+ * service stays callable without an HTTP request (`backend.md §2`). Mirrors
+ * `ContentLogger`.
+ */
+export type QuizLogger = {
+  error: (context: Record<string, unknown>, message: string) => void;
+};
+
+/** One response, graded against the stored payload rather than reported. */
+type GradedResponse = QuizResponsesSubmit["responses"][number] & {
+  isCorrect: boolean;
+};
+
+/**
+ * The server's verdict on one answer (FR-QUIZ-08, `backend.md §8`).
+ *
+ * Two conditions, because `QuizResponse.isCorrect` has always meant *right first
+ * time* rather than *right eventually*: a quiz here has no fail state — the child
+ * retries until the answer is accepted (spec §5.7) — so the committed answer is
+ * correct by construction and "ever answered correctly" would be a constant
+ * `true`. `attempts === 1` is what carries the distinction the reward grant, the
+ * `quiz_correct_in_topic` badge and the weekly report's accuracy all read.
+ *
+ * A definition that no longer parses grades as incorrect and is logged: the row
+ * is a content bug on a *published* question, and paying out on a payload the
+ * server cannot read would be paying out on nothing.
+ */
+function gradeResponse(
+  definition: Prisma.JsonValue | undefined,
+  response: QuizResponsesSubmit["responses"][number],
+  log: QuizLogger,
+): boolean {
+  const parsed = safeParseQuizQuestion(definition);
+  if (!parsed.success) {
+    log.error(
+      { questionId: response.questionId, issues: parsed.error.issues },
+      "corrupt published quiz question definition — grading the answer as incorrect",
+    );
+    return false;
+  }
+
+  return (
+    response.attempts === 1 && evaluateAnswer(parsed.data, response.answer)
+  );
+}
+
 function recordQuizResponsesOnce(
   childId: string,
   lessonId: string,
-  submit: QuizResponsesSubmit,
+  graded: readonly GradedResponse[],
   score: number,
 ): Promise<void> {
   return prisma.$transaction(
     async (tx) => {
       await tx.quizResponse.createMany({
-        data: submit.responses.map((response) => ({
+        data: graded.map((response) => ({
           childId,
           questionId: response.questionId,
           // Zod parsed this into a string or a `{ pairs }` object, both of which
           // are valid JSON — but `InputJsonValue` is a recursive type Prisma
           // cannot infer a union into, so the boundary is asserted here.
           answer: response.answer as Prisma.InputJsonValue,
+          // `gradeResponse`'s verdict, never the request's.
           isCorrect: response.isCorrect,
           attempts: response.attempts,
         })),

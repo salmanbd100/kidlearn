@@ -1,9 +1,8 @@
 "use client";
 
 import type { DragEndEvent } from "@dnd-kit/core";
-import type { DragAnswerQuestion } from "@kidlearn/types";
+import { type DragAnswerQuestion, evaluateAnswer } from "@kidlearn/types";
 import { useCallback, useState } from "react";
-import { evaluateAnswer } from "./evaluate-answer";
 import type { QuestionProps } from "./types";
 
 /**

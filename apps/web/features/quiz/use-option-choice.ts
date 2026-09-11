@@ -1,7 +1,7 @@
 "use client";
 
+import { evaluateAnswer } from "@kidlearn/types";
 import { useCallback, useState } from "react";
-import { evaluateAnswer } from "./evaluate-answer";
 import type { PlayableQuestion, QuestionProps } from "./types";
 
 // Tap one, and that is your answer (FR-QUIZ-01, FR-QUIZ-04).

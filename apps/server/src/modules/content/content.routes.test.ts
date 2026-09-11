@@ -448,6 +448,10 @@ describe("GET /api/content/worlds/:id/lessons", () => {
         // A lesson tagged for this child can still sit under a topic tagged for
         // another grade, or under a subject still in draft. Both say the lesson
         // is not for this child, and neither is visible in the lesson's own row.
+        // The world gate rides along because all four now come from one
+        // `visibleLessonWhere` — which is what stops the detail endpoint and
+        // this one from disagreeing again.
+        world: { is: { status: "published" } },
         topic: {
           is: {
             status: "published",
@@ -671,9 +675,19 @@ describe("GET /api/content/topics/:id/lessons", () => {
         topicId: TOPIC_ID,
         status: "published",
         gradeLevels: { has: "NURSERY" },
-        // The lesson's world carries its own status, and the list must agree
-        // with the detail endpoint about which lessons exist.
+        // The lesson's world, topic and subject each carry their own status,
+        // and the list must agree with the detail endpoint about which lessons
+        // exist — both compose the same `visibleLessonWhere`.
         world: { is: { status: "published" } },
+        topic: {
+          is: {
+            status: "published",
+            gradeLevels: { has: "NURSERY" },
+            subject: {
+              is: { status: "published", gradeLevels: { has: "NURSERY" } },
+            },
+          },
+        },
       },
       orderBy: { sortOrder: "asc" },
       include: { translations: { select: { language: true, title: true } } },
@@ -998,7 +1012,46 @@ describe("leak-proofing (FR-CURR-02, spec §7.3.4)", () => {
           status: "published",
           gradeLevels: { has: "NURSERY" },
           world: { is: { status: "published" } },
+          topic: {
+            is: {
+              status: "published",
+              gradeLevels: { has: "NURSERY" },
+              subject: {
+                is: { status: "published", gradeLevels: { has: "NURSERY" } },
+              },
+            },
+          },
         },
+      }),
+    );
+  });
+
+  it("returns 404 for a lesson whose topic has been withdrawn to draft", async () => {
+    signInAs(childProfile({ gradeLevel: "NURSERY" }));
+    // The regression this pins: the detail endpoint used to gate the lesson and
+    // its world but not its topic or subject, while every list endpoint gated
+    // all four. Withdrawing a topic therefore removed its lessons from every
+    // screen and left a bookmarked lesson URL playing — recording progress and
+    // paying out against unreviewed curriculum. The `where` is the guard, so the
+    // `where` is what is asserted (`general.md §5`, stub exception rule 2).
+    db.lessonFindFirst.mockResolvedValue(null);
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe("NOT_FOUND");
+    expect(db.lessonFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          topic: {
+            is: expect.objectContaining({
+              status: "published",
+              subject: expect.objectContaining({
+                is: expect.objectContaining({ status: "published" }),
+              }),
+            }),
+          },
+        }),
       }),
     );
   });

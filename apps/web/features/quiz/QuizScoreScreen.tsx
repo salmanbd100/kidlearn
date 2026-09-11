@@ -59,7 +59,9 @@ export function QuizScoreScreen({
           <motion.li
             key={record.questionId}
             data-testid={
-              record.isCorrect ? "quiz-score-star" : "quiz-score-sparkle"
+              record.isFirstAttemptCorrect
+                ? "quiz-score-star"
+                : "quiz-score-sparkle"
             }
             className="flex"
             // Reduced motion gets the finished screen, not a slower version of
@@ -74,7 +76,7 @@ export function QuizScoreScreen({
               delay: Math.min(index * STAR_STAGGER_S, STAR_STAGGER_CAP_S),
             }}
           >
-            {record.isCorrect ? (
+            {record.isFirstAttemptCorrect ? (
               <Star className="size-14 fill-accent text-accent" />
             ) : (
               <Sparkles className="size-14 text-accent/70" strokeWidth={2.5} />

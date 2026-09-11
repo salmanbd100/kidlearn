@@ -39,6 +39,13 @@ export interface ApiFetchInit extends RequestInit {
   retries?: number;
   /** Fired once, before the first retry, so the UI can show a waking-up state. */
   onColdStart?: () => void;
+  /**
+   * Opts a `POST` back into retrying. Set it only where a second identical
+   * request provably changes nothing — `POST /progress/lessons/:id/step` upserts
+   * a step that never moves backwards, so it qualifies; `POST /children` creates
+   * a row, so it does not. Ignored for methods that are idempotent anyway.
+   */
+  isIdempotent?: boolean;
 }
 
 /** Base URL of `apps/server`. Overridden per environment at build time. */
@@ -50,7 +57,13 @@ export async function apiFetch<T>(
   path: string,
   init: ApiFetchInit = {},
 ): Promise<ApiResult<T>> {
-  const { retries = DEFAULT_RETRIES, onColdStart, ...requestInit } = init;
+  const {
+    retries = DEFAULT_RETRIES,
+    onColdStart,
+    isIdempotent = false,
+    ...requestInit
+  } = init;
+  const canRetry = isIdempotent || isIdempotentMethod(requestInit);
   const url = `${apiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 
   let hasSignalledColdStart = false;
@@ -68,7 +81,7 @@ export async function apiFetch<T>(
       await sleep(backoffFor(attempt));
     }
 
-    const outcome = await attemptRequest<T>(url, requestInit);
+    const outcome = await attemptRequest<T>(url, requestInit, canRetry);
     if (outcome.kind === "settled") return outcome.result;
     lastFailure = outcome.failure;
   }
@@ -80,9 +93,29 @@ type Attempt<T> =
   | { kind: "settled"; result: ApiResult<T> }
   | { kind: "retryable"; failure: ApiFailure };
 
+/**
+ * Methods a retry cannot duplicate anything with. `POST` is deliberately absent:
+ * a `POST` that reached the server and committed before the connection dropped
+ * looks identical, from here, to one that never arrived — and sending it again
+ * creates a second row. `createChild` made two child profiles that way.
+ *
+ * A `POST` whose endpoint really is idempotent opts back in with `isIdempotent`.
+ * That is the right default direction: forgetting to opt in costs one failed
+ * request the caller can see and report, and forgetting to opt out costs a
+ * duplicate nobody notices.
+ */
+const IDEMPOTENT_METHODS: readonly string[] = ["GET", "HEAD", "PUT", "DELETE"];
+
+function isIdempotentMethod(requestInit: RequestInit): boolean {
+  return IDEMPOTENT_METHODS.includes(
+    (requestInit.method ?? "GET").toUpperCase(),
+  );
+}
+
 async function attemptRequest<T>(
   url: string,
   requestInit: RequestInit,
+  canRetry: boolean,
 ): Promise<Attempt<T>> {
   let response: Response;
   try {
@@ -93,13 +126,15 @@ async function attemptRequest<T>(
       headers: buildHeaders(requestInit),
     });
   } catch {
-    return {
-      kind: "retryable",
-      failure: {
-        code: "NETWORK_ERROR",
-        message: `Could not reach ${url}.`,
-      },
+    const failure: ApiFailure = {
+      code: "NETWORK_ERROR",
+      message: `Could not reach ${url}.`,
     };
+    // The request may well have arrived and committed — a dropped response is
+    // indistinguishable from a dropped request here.
+    return canRetry
+      ? { kind: "retryable", failure }
+      : { kind: "settled", result: { ok: false, error: failure } };
   }
 
   if (response.status === 204) {
@@ -111,8 +146,11 @@ async function attemptRequest<T>(
 
   if (!response.ok) {
     const failure = toFailure(response.status, body);
-    // 5xx is the cold-start signature; 4xx is a decision and stands.
-    return response.status >= 500
+    // 5xx is the cold-start signature; 4xx is a decision and stands. A 5xx on a
+    // non-idempotent method is not retried for the same reason a dropped
+    // connection is not: the write may already have landed before the handler
+    // failed.
+    return response.status >= 500 && canRetry
       ? { kind: "retryable", failure }
       : { kind: "settled", result: { ok: false, error: failure } };
   }

@@ -30,6 +30,7 @@ import {
   QuizResponsesResponseSchema,
   SessionEventResponseSchema,
   StoryCompletionResponseSchema,
+  validMcq,
 } from "@kidlearn/types";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -298,7 +299,9 @@ beforeEach(() => {
   // `id`, so carrying it here costs them nothing.
   db.lessonFindFirst.mockResolvedValue({
     id: LESSON_ID,
-    quiz: { questions: QUESTION_IDS.map((id) => ({ id })) },
+    quiz: {
+      questions: QUESTION_IDS.map((id) => ({ id, definition: validMcq })),
+    },
   });
 
   // The story the reader finishes is visible unless a test says otherwise. Only
@@ -311,7 +314,7 @@ beforeEach(() => {
   db.lessonFindUnique.mockResolvedValue({
     quiz: {
       status: "published",
-      questions: QUESTION_IDS.map((id) => ({ id })),
+      questions: QUESTION_IDS.map((id) => ({ id, definition: validMcq })),
     },
   });
 
@@ -794,7 +797,6 @@ describe("POST /api/progress/lessons/:id/complete", () => {
         responses: QUESTION_IDS.map((questionId, index) => ({
           questionId,
           answer: "apple",
-          isCorrect: index < correct,
           attempts: index < correct ? 1 : 2,
         })),
       });
@@ -989,7 +991,7 @@ describe("POST /api/progress/lessons/:id/complete", () => {
     db.lessonFindUnique.mockResolvedValue({
       quiz: {
         status: "in_review",
-        questions: QUESTION_IDS.map((id) => ({ id })),
+        questions: QUESTION_IDS.map((id) => ({ id, definition: validMcq })),
       },
     });
     await answerTheQuiz(4);
@@ -1561,12 +1563,17 @@ describe("POST /api/progress/events", () => {
 });
 
 describe("POST /api/progress/quizzes/:quizId/responses", () => {
-  /** Three of the four right on the first go — 75%. */
+  /**
+   * Three of the four right on the first go — 75%.
+   *
+   * No `isCorrect`: the server grades `answer` against `validMcq`, whose
+   * `correctOptionId` is `"apple"`, and reads first-time success off `attempts`.
+   * A "wrong" answer here is therefore one the child needed a second go at.
+   */
   function answers(overrides: Partial<Record<string, boolean>> = {}) {
     return QUESTION_IDS.map((questionId, index) => ({
       questionId,
       answer: "apple",
-      isCorrect: overrides[questionId] ?? index < 3,
       attempts: (overrides[questionId] ?? index < 3) ? 1 : 2,
     }));
   }
@@ -1634,21 +1641,73 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
     signInAs(childProfile());
 
     await submit([
-      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+      { questionId: "q_1", answer: "apple", attempts: 1 },
       {
         questionId: "q_2",
         answer: { pairs: [{ leftId: "dog", rightId: "woof" }] },
-        isCorrect: false,
         attempts: 3,
       },
     ]);
 
-    // `isCorrect` alone cannot tell a walkover from a struggle — this is the
-    // column that can.
+    // The attempt count is what tells a walkover from a struggle, and it is now
+    // also half the server's verdict — see `gradeResponse`.
     expect(storedResponses()).toEqual([
       expect.objectContaining({ questionId: "q_1", attempts: 1 }),
       expect.objectContaining({ questionId: "q_2", attempts: 3 }),
     ]);
+  });
+
+  it("grades the answer itself — a wrong option scores zero however few attempts it claims", async () => {
+    signInAs(childProfile());
+
+    // The regression this pins. `isCorrect` used to be a field on the request
+    // and was written to `QuizResponse` verbatim, so a client could report a
+    // perfect quiz it never answered and collect `coinsPerCorrectAnswer` for
+    // every question (`backend.md §8`). The verdict is now computed here, from
+    // `validMcq.correctOptionId`.
+    const res = await submit(
+      QUESTION_IDS.map((questionId) => ({
+        questionId,
+        answer: "leaf",
+        attempts: 1,
+      })),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ score: 0, correctCount: 0 });
+    expect(storedResponses().every((row) => row.isCorrect === false)).toBe(
+      true,
+    );
+  });
+
+  it("refuses a request that tries to name its own verdict", async () => {
+    signInAs(childProfile());
+
+    const res = await submit([
+      { questionId: "q_1", answer: "apple", attempts: 1, isCorrect: true },
+    ]);
+
+    // `QuizResponseRecordSchema` is `.strict()`, so the old field is now an
+    // unknown key rather than a believed one — the request never reaches the
+    // service.
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+    expect(storedResponses()).toHaveLength(0);
+  });
+
+  it("counts a right answer that took two goes as incorrect, not as correct", async () => {
+    signInAs(childProfile());
+
+    const res = await submit([
+      { questionId: "q_1", answer: "apple", attempts: 2 },
+    ]);
+
+    // A quiz here has no fail state — the child retries until the answer is
+    // accepted — so the committed answer is right by construction and
+    // `attempts === 1` is what carries "right first time". That is the figure
+    // the coin grant, the topic badge and the weekly report's accuracy read.
+    expect(res.body.data.correctCount).toBe(0);
+    expect(storedResponses()[0].isCorrect).toBe(false);
   });
 
   it("stores a match_pair answer as the pair set the child ended with", async () => {
@@ -1658,9 +1717,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
       { leftId: "cat", rightId: "meow" },
     ];
 
-    await submit([
-      { questionId: "q_1", answer: { pairs }, isCorrect: true, attempts: 1 },
-    ]);
+    await submit([{ questionId: "q_1", answer: { pairs }, attempts: 1 }]);
 
     expect(storedResponses()[0].answer).toEqual({ pairs });
   });
@@ -1706,7 +1763,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
     // One of four, and it was right. A denominator taken from the submission
     // would score this 100% for skipping the three that went badly.
     const res = await submit([
-      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+      { questionId: "q_1", answer: "apple", attempts: 1 },
     ]);
 
     expect(res.body.data).toMatchObject({
@@ -1720,11 +1777,10 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
     signInAs(childProfile());
 
     const res = await submit([
-      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
+      { questionId: "q_1", answer: "apple", attempts: 1 },
       {
         questionId: "someone_elses_question",
         answer: "apple",
-        isCorrect: true,
         attempts: 1,
       },
     ]);
@@ -1747,7 +1803,6 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
       Array.from({ length: 5 }, () => ({
         questionId: "q_1",
         answer: "apple",
-        isCorrect: true,
         attempts: 1,
       })),
     );
@@ -1771,7 +1826,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
     signInAs(childProfile());
 
     const res = await submit([
-      { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 0 },
+      { questionId: "q_1", answer: "apple", attempts: 0 },
     ]);
 
     expect(res.status).toBe(400);
@@ -1872,9 +1927,15 @@ describe("POST /api/progress/stories/:id/complete", () => {
       res.body,
       "POST /api/progress/stories/{id}/complete",
     );
-    expect(res.body.data).toEqual({
+    expect(res.body.data).toMatchObject({
       alreadyCompleted: false,
       granted: { stars: 1, coins: 5 },
+      // The unlock fields a lesson completion has always carried. Both empty
+      // here — the fixture child has earned nothing else — but present, because
+      // finishing a story now runs the same evaluation.
+      newBadges: [],
+      newCharacters: [],
+      streak: { current: 1, milestone: null },
     });
     expect(ledger()).toEqual([
       {
@@ -1901,7 +1962,12 @@ describe("POST /api/progress/stories/:id/complete", () => {
     const res = await finish();
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual({ alreadyCompleted: true, granted: null });
+    expect(res.body.data).toMatchObject({
+      alreadyCompleted: true,
+      granted: null,
+      newBadges: [],
+      newCharacters: [],
+    });
     // Two rows, not four: reading again is free and unlimited, and the endpoint
     // stays callable every time rather than being withheld by the client.
     expect(ledger()).toHaveLength(2);
@@ -1976,17 +2042,45 @@ describe("POST /api/progress/stories/:id/complete", () => {
     });
   });
 
-  it("does not advance the streak or evaluate badges", async () => {
+  it("advances the streak and evaluates badges, as a lesson completion does", async () => {
     signInAs(childProfile());
 
     await finish();
 
-    // Finishing a story pays its own small reward and nothing else: file 24's
-    // milestone engine counts these rows the next time a *lesson* completes, so
-    // a bedtime story does not turn into a six-phase celebration.
+    // **This reverses an earlier decision, deliberately.** The rule used to be
+    // that a story paid its small reward and nothing else, so that "a bedtime
+    // story does not turn into a six-phase celebration" — and file 24's engine
+    // would pick the rows up on the child's next *lesson*.
+    //
+    // That made two MVP requirements unsatisfiable. FR-GAM-04 names "Reading
+    // Star (10 stories)" as a launch badge, and a child who only ever reads
+    // could never earn it. FR-GAM-06 counts "consecutive days with ≥1 learning
+    // activity", and a day spent reading did not count as one.
+    //
+    // The celebration concern was about presentation, and it is answered in the
+    // presentation layer: `FinishScreen` reveals a badge inline rather than
+    // running the lesson player's six phases.
+    expect(db.streakUpsert).toHaveBeenCalled();
+    expect(db.badgeFindMany).toHaveBeenCalled();
+  });
+
+  it("still evaluates the streak on a re-read, and still pays nothing", async () => {
+    signInAs(childProfile());
+    await finish();
+    db.streakFindUnique.mockClear();
+    db.streakUpsert.mockClear();
+
+    const res = await finish();
+
+    // `alreadyCompleted` governs the stars, not the streak — turning up is what
+    // FR-GAM-06 counts and a second reading is still turning up. The *write* is
+    // skipped because `computeStreakUpdate` is a no-op on a day already counted,
+    // which is the same thing a second lesson on one day does.
+    expect(res.body.data.alreadyCompleted).toBe(true);
+    expect(res.body.data.granted).toBeNull();
+    expect(db.streakFindUnique).toHaveBeenCalled();
     expect(db.streakUpsert).not.toHaveBeenCalled();
-    expect(db.badgeFindMany).not.toHaveBeenCalled();
-    expect(db.childCharacterCreateMany).not.toHaveBeenCalled();
+    expect(res.body.data.streak).toEqual({ current: 1, milestone: null });
   });
 });
 
@@ -2003,6 +2097,19 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
     status: "published",
     gradeLevels: { has: "NURSERY" },
     world: { is: { status: "published" } },
+    // The topic and subject gates the content API's list endpoints have always
+    // applied. They were missing here and on `GET /api/content/lessons/{id}`,
+    // so withdrawing a topic to draft left its lessons recordable — and
+    // payable — through a bookmarked id.
+    topic: {
+      is: {
+        status: "published",
+        gradeLevels: { has: "NURSERY" },
+        subject: {
+          is: { status: "published", gradeLevels: { has: "NURSERY" } },
+        },
+      },
+    },
   };
 
   it("resolves the lesson through the published + grade filter before writing a step", async () => {
@@ -2054,9 +2161,7 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
     const quiz = await request(app)
       .post(`/api/progress/quizzes/${MISSING_ID}/responses`)
       .send({
-        responses: [
-          { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
-        ],
+        responses: [{ questionId: "q_1", answer: "apple", attempts: 1 }],
       });
 
     for (const res of [step, read, event, quiz]) {
@@ -2076,9 +2181,7 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
     await request(app)
       .post(`/api/progress/quizzes/${QUIZ_ID}/responses`)
       .send({
-        responses: [
-          { questionId: "q_1", answer: "apple", isCorrect: true, attempts: 1 },
-        ],
+        responses: [{ questionId: "q_1", answer: "apple", attempts: 1 }],
       });
 
     // A `Quiz` carries a status but no grade tags, so resolving it by id alone
@@ -2090,11 +2193,22 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
         status: "published",
         gradeLevels: { has: "NURSERY" },
         world: { is: { status: "published" } },
+        topic: {
+          is: {
+            status: "published",
+            gradeLevels: { has: "NURSERY" },
+            subject: {
+              is: { status: "published", gradeLevels: { has: "NURSERY" } },
+            },
+          },
+        },
         quiz: { is: { status: "published" } },
       },
       select: {
         id: true,
-        quiz: { select: { questions: { select: { id: true } } } },
+        quiz: {
+          select: { questions: { select: { id: true, definition: true } } },
+        },
       },
     });
   });

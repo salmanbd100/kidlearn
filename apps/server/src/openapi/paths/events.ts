@@ -28,9 +28,11 @@ const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
 /**
  * Identical in cause and reasoning to the content API's `404`, and deliberately
  * so: an event must not be recordable against content the child cannot open.
+ * A lesson and a story do not carry the same number of gates, so the two halves
+ * are stated separately rather than under one sentence.
  */
 const REF_NOT_FOUND_RESPONSE = errorResponse(
-  "`refId` names no lesson (or story) this child can see: it does not exist, it is not published, its world is not published, or it is not tagged for this child's grade. All of them are the same `404`, matching `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` exactly — a `403` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4). Which table is consulted follows from `type`, so a `story_start` naming a lesson id is a `404` rather than a match.",
+  "`refId` names no lesson (or story) this child can see. A **lesson** fails on any one of its four gates — its own `status` and grade tags, its world's `status`, its topic's `status` and grade tags, or that topic's subject's — matching `GET /api/content/lessons/{id}`, because the two resolve through the same clause. A **story** hangs off a world alone, so it fails on its own `status` or grade tags or its world's `status`, matching `GET /api/content/stories/{id}`. All of them are the same `404` — a `403` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4). Which table is consulted follows from `type`, so a `story_start` naming a lesson id is a `404` rather than a match.",
   ["NOT_FOUND"],
 );
 

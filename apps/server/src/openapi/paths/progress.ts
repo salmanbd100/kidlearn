@@ -42,7 +42,7 @@ const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
  * so: the two endpoints must agree about which lessons exist for a child.
  */
 const LESSON_NOT_FOUND_RESPONSE = errorResponse(
-  "No such lesson, **or** it is not published, **or** its world is not published, **or** it is not tagged for this child's grade. All four are the same `404`, matching `GET /api/content/lessons/{id}` exactly: a `403` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4). The agreement matters — a lesson the content API will not serve must not be one this API will record progress against.",
+  "No such lesson, **or** any one of its four gates is shut: the lesson's own `status` and grade tags, its world's `status`, its topic's `status` and grade tags, or that topic's subject's. All of them are the same `404`, matching `GET /api/content/lessons/{id}` exactly: a `403` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4). The agreement matters — a lesson the content API will not serve must not be one this API will record progress against, or pay out for.",
   ["NOT_FOUND"],
 );
 
@@ -52,7 +52,7 @@ const LESSON_NOT_FOUND_RESPONSE = errorResponse(
  * `404` above applies here too, plus the quiz's own status.
  */
 const QUIZ_NOT_FOUND_RESPONSE = errorResponse(
-  "No such quiz, **or** it is not published, **or** no lesson this child can see points at it — the lesson is unpublished, its world is unpublished, or it is not tagged for this child's grade. All of them are the same `404`, for the reason the lesson `404` gives: a `403` would confirm the row exists (spec §7.3.4). A quiz is reached *through* its lesson because it has no grade tags of its own; resolving it by id alone would let a child post answers into another grade's content.",
+  "No such quiz, **or** it is not published, **or** no lesson this child can see points at it — the lesson, its world, its topic or that topic's subject is unpublished, or the lesson, topic or subject is not tagged for this child's grade. All of them are the same `404`, for the reason the lesson `404` gives: a `403` would confirm the row exists (spec §7.3.4). A quiz is reached *through* its lesson because it has no grade tags of its own; resolving it by id alone would let a child post answers into another grade's content.",
   ["NOT_FOUND"],
 );
 
@@ -214,14 +214,16 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "",
         "**There is no request body.** The amounts are constants in `services/rewardService.ts`; no endpoint in this API accepts a reward type, amount or source (FR-GAM-08).",
         "",
-        "Deliberately smaller than a lesson completion: no streak, no badge and no character announcement. Those hang off finishing a lesson. A story writes its ledger rows here, and the milestone engine counts them the next time it runs — which is also where the library screen's `completed` checkmark comes from, so the badge on the cover and the balance in the reward strip cannot disagree.",
+        '**Smaller than a lesson completion in stars, identical in everything else.** It runs the same three steps a lesson does — streak, then badges, then characters — in the same order, so `newBadges`, `newCharacters` and `streak` are on this response too. Reading is a learning activity: FR-GAM-06 counts days with at least one, and FR-GAM-04 names "Reading Star (10 stories)" as a launch badge, which a child who only ever reads could not otherwise earn. This used to defer both to the child\'s next *lesson*, and a reading-only child therefore earned neither.',
+        "",
+        "**`alreadyCompleted` governs `granted` alone.** A re-read pays no stars and still counts as turning up, so it can extend a streak, and — because the badge evaluation runs on every call — it can be the reading that crosses a milestone. The streak *write* is skipped on a day already counted, exactly as a second lesson on one day is.",
         "",
         "`200`, not `201`: a replay creates nothing at all.",
       ].join("\n"),
       parameters: [STORY_ID_PARAM],
       responses: {
         "200": jsonResponse(
-          "Whether this reading had already been paid for, and what it granted if not.",
+          "Whether this reading had already been paid for, what it granted if not, and anything it unlocked. `newBadges` and `newCharacters` are usually empty; the reader reveals them inline rather than running the lesson player's six-phase celebration.",
           "StoryCompletionResponse",
         ),
         "400": VALIDATION_RESPONSE,
@@ -281,7 +283,9 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "",
         "**The whole quiz is posted once, after the last question** — not one call per answer. A child answers a handful of questions in about ninety seconds, and a round trip between each is a chance for the celebration to sit waiting on a network that is not there. The player posts this alongside the score screen and never blocks on it: a failure here loses a record, and a child who is stuck mid-lesson loses the lesson.",
         "",
-        '**`isCorrect` means the *first* attempt was correct, not that the child eventually got there.** A quiz has no fail state — the child stays on a question, retrying among the options still available, until it is right (spec §5.7) — so "answered correctly in the end" is a constant `true` and worth nothing. `attempts` carries how hard it was.',
+        "**The body carries no verdict — the server grades it.** `answer` is evaluated against the stored `QuizQuestion.definition` with the same `evaluateAnswer` the player runs, and `QuizResponse.isCorrect` is written from that. The request used to carry `isCorrect` and it was believed, which meant any client could report a perfect quiz it never answered and collect `coinsPerCorrectAnswer` for every question. The field is now an unknown key on a `.strict()` object, so sending it is a `400`.",
+        "",
+        '**`isCorrect` means the *first* attempt was correct, not that the child eventually got there.** A quiz has no fail state — the child stays on a question, retrying among the options still available, until it is right (spec §5.7) — so "answered correctly in the end" is a constant `true` and worth nothing. The stored verdict is therefore `attempts === 1` **and** an answer that matches the payload; `attempts` is the one figure only the client can see, and it is a bounded integer rather than a free verdict.',
         "",
         "**The score is computed over the quiz, not over the submission.** `totalQuestions` is how many questions the quiz has, so posting only the questions that went well cannot raise the percentage. A question the player dropped as unrenderable therefore scores as missed, which is the fail-closed direction. The other end of that is the `400` on a repeated `questionId`: without it a submission could count more correct answers than the quiz has questions.",
         "",
@@ -298,7 +302,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
           QUIZ_RESPONSES_EXAMPLE,
         ),
         "400": errorResponse(
-          "Zod rejected the body — an empty `responses` array, more than ten of them, the same `questionId` twice, `attempts` below 1, an answer that is neither an option id nor a `{ pairs }` object, or an unknown key — **or** a `questionId` that belongs to some other quiz. The second is a `400` and not a `404` on purpose: the quiz named in the path was found and is this child's to answer, so the request is malformed rather than the resource missing. Nothing is stored either way; the whole submission is rejected.",
+          "Zod rejected the body — an empty `responses` array, more than ten of them, the same `questionId` twice, `attempts` below 1, an answer that is neither an option id nor a `{ pairs }` object, or an unknown key (`isCorrect` is one: the verdict is the server's) — **or** a `questionId` that belongs to some other quiz. The second is a `400` and not a `404` on purpose: the quiz named in the path was found and is this child's to answer, so the request is malformed rather than the resource missing. Nothing is stored either way; the whole submission is rejected.",
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,

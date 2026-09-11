@@ -8,9 +8,15 @@ export const GradeLevelSchema = z.enum(GRADE_LEVELS);
 export type GradeLevelValue = z.infer<typeof GradeLevelSchema>;
 
 /**
- * Placeholder counters so the profile card renders in its final shape from day
- * one (FR-PROF-04). The server returns zeros until files 23–24 wire the reward
- * ledger and streaks; the response contract does not change when they do.
+ * What this child has earned (FR-PROF-04, FR-GAM-06).
+ *
+ * These began as placeholder zeros so the profile card could render in its final
+ * shape before there was a reward ledger to read. Files 23–24 built the ledger
+ * and nobody came back for them, so four published fields stayed permanently
+ * untrue — and the student home screen's reward strip flashed "0 stars" before
+ * the separate `/api/me/rewards/summary` read replaced it. They are summed from
+ * the ledger now, by the same rules `getRewardSummary` uses, so the two
+ * endpoints cannot disagree.
  */
 export const ChildStatsSchema = z
   .object({
