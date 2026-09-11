@@ -21,13 +21,17 @@ export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
   return (
     <nav
       aria-label="Admin sections"
-      className="flex shrink-0 flex-col gap-4 border-border border-b bg-card p-3 md:h-dvh md:w-56 md:border-r md:border-b-0 md:p-4"
+      // No `h-dvh`: as a flex-row child the rail already stretches to the frame,
+      // and a second viewport-sized box inside one was what made the page scroll.
+      className="flex shrink-0 flex-col gap-4 border-border border-b bg-card p-3 md:w-56 md:border-r md:border-b-0 md:p-4"
     >
       <p className="px-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.08em]">
         kidlearn CMS
       </p>
 
-      <ul className="-mx-1 flex flex-1 gap-1 overflow-x-auto px-1 md:flex-col md:overflow-x-visible">
+      {/* Scrolls itself on a short window so the footer stays reachable — the
+          frame clips, so an unscrollable rail would simply lose its last item. */}
+      <ul className="-mx-1 flex min-h-0 flex-1 gap-1 overflow-x-auto px-1 md:flex-col md:overflow-y-auto">
         {ADMIN_NAV.map(({ href, label }) => {
           const isActive = href === activeHref;
           const count = badges?.[href] ?? 0;
