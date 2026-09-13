@@ -73,11 +73,19 @@ export function SelectProfileScreen() {
           </p>
         </div>
       ) : (
-        // Two up on the smallest phone, wider as the screen allows. Portrait and
-        // landscape both work because the count, not the orientation, decides.
-        <ul className="grid w-full max-w-3xl grid-cols-2 gap-6 sm:grid-cols-3">
+        // Wrapping flex rather than a grid: a grid's unused columns keep their
+        // width, so two children on a three-column grid sat hard against the
+        // left edge while the title above them stayed centred. A short row of
+        // flex items centres itself. The widths below are the column widths a
+        // grid would have given — two up on the smallest phone, three from `sm`,
+        // in portrait and landscape alike, because the count decides, not the
+        // orientation.
+        <ul className="flex w-full max-w-3xl flex-wrap justify-center gap-6">
           {profiles.map((child) => (
-            <li key={child.id} className="contents">
+            <li
+              key={child.id}
+              className="w-[calc(50%-0.75rem)] sm:w-[calc((100%-3rem)/3)]"
+            >
               <ProfileCard
                 child={child}
                 avatars={avatars}

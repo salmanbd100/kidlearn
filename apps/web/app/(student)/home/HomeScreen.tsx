@@ -4,7 +4,7 @@ import type {
   RewardSummaryResponse,
   WorldSummaryResponse,
 } from "@kidlearn/types";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,9 @@ import { WorldCard } from "@/features/content/WorldCard";
 import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
 import { useScreenTimeGate } from "@/features/screen-time/use-screen-time-gate";
 import { RewardStrip } from "@/features/student/RewardStrip";
+import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { getRewardsSummary } from "@/shared/api/progress-api";
+import { BigButton } from "@/shared/components/kid/BigButton";
 import { IconTile } from "@/shared/components/kid/IconTile";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
@@ -94,9 +96,24 @@ export function HomeScreen() {
       <header className="flex flex-col gap-4">
         {/* Right-padded past the parent-corner lock so a long Bangla name never
             runs under it (design.md §1.7 — layouts absorb ±40% text swings). */}
-        <h1 className="pr-14 font-display text-2xl text-foreground sm:text-3xl">
-          {t("home.greeting", { name: child.firstName })}
-        </h1>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 pr-14">
+          <h1 className="font-display text-2xl text-foreground sm:text-3xl">
+            {t("home.greeting", { name: child.firstName })}
+          </h1>
+
+          {/* Home is where picking a profile lands, and until now the only way
+              back out of it was the browser's own back button — nothing a child
+              on a tablet has. It sits beside the name it changes rather than at
+              the top-left, where a world screen puts its Back: this is not a
+              step backwards through the app, it is "that is not me". */}
+          <BigButton
+            variant="secondary"
+            icon={<Users aria-hidden="true" />}
+            onPress={() => router.push(STUDENT_ROUTES.selectProfile)}
+          >
+            {t("home.switchProfile")}
+          </BigButton>
+        </div>
         <RewardStrip stats={stats} />
       </header>
 
