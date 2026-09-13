@@ -71,6 +71,16 @@ export async function readDailyBudget(
     where: {
       type: { in: TYPES_BY_BUCKET[bucket] },
       createdAt: { gte: startOfTodayInAppTz(now) },
+      // A job that failed before its first call spent nothing: no request was
+      // made, no tokens were billed, no provider quota moved. Counting those
+      // lets an outage — an unreachable model, a bad key — burn the whole day's
+      // budget without a single request, and lock the admin out of retrying once
+      // it is fixed. Everything else counts, including a job that failed *after*
+      // calling: those calls were billed.
+      NOT: {
+        status: "failed",
+        rawOutput: { path: ["usage", "attempts"], equals: 0 },
+      },
     },
   });
 
