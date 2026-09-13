@@ -85,10 +85,14 @@ async function seedStory(
     const titleAudioAssetId = translation.titleAudio
       ? await upsertAsset(prisma, translation.titleAudio)
       : null;
+    const moralAudioAssetId = translation.moralAudio
+      ? await upsertAsset(prisma, translation.moralAudio)
+      : null;
     const data = {
       title: translation.title,
       moral: translation.moral ?? null,
       titleAudioAssetId,
+      moralAudioAssetId,
     };
 
     await prisma.storyTranslation.upsert({

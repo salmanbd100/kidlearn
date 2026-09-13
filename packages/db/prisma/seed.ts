@@ -1,5 +1,6 @@
 import { validDragDrop, validMcq, validPictureSelect } from "@kidlearn/types";
 import { type Prisma, PrismaClient } from "@prisma/client";
+import { seedJourney } from "./journey.js";
 import { seedStories } from "./seed-stories.js";
 
 const prisma = new PrismaClient();
@@ -349,90 +350,12 @@ async function main() {
     },
   });
 
-  //    2 pages, each with en + bn StoryPageTranslation rows.
-
-  const sharingMonkeyStory = await prisma.story.upsert({
-    where: { slug: "the-sharing-monkey" },
-    update: {},
-    create: {
-      slug: "the-sharing-monkey",
-      title: "The Sharing Monkey",
-      theme: "sharing",
-      status: "published",
-      worldId: jungle.id,
-      gradeLevels: ["NURSERY", "KG1"],
-    },
-  });
-
-  // Page 1
-  const storyPage1 = await prisma.storyPage.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000301" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000301",
-      storyId: sharingMonkeyStory.id,
-      sortOrder: 1,
-    },
-  });
-
-  await prisma.storyPageTranslation.upsert({
-    where: {
-      storyPageId_language: { storyPageId: storyPage1.id, language: "en" },
-    },
-    update: {},
-    create: {
-      storyPageId: storyPage1.id,
-      language: "en",
-      text: "Momo the monkey found a big juicy mango.",
-    },
-  });
-
-  await prisma.storyPageTranslation.upsert({
-    where: {
-      storyPageId_language: { storyPageId: storyPage1.id, language: "bn" },
-    },
-    update: {},
-    create: {
-      storyPageId: storyPage1.id,
-      language: "bn",
-      text: "মোমো বানর একটা বড় রসালো আম খুঁজে পেল।",
-    },
-  });
-
-  // Page 2
-  const storyPage2 = await prisma.storyPage.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000302" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000302",
-      storyId: sharingMonkeyStory.id,
-      sortOrder: 2,
-    },
-  });
-
-  await prisma.storyPageTranslation.upsert({
-    where: {
-      storyPageId_language: { storyPageId: storyPage2.id, language: "en" },
-    },
-    update: {},
-    create: {
-      storyPageId: storyPage2.id,
-      language: "en",
-      text: "Momo shared the mango with all his friends.",
-    },
-  });
-
-  await prisma.storyPageTranslation.upsert({
-    where: {
-      storyPageId_language: { storyPageId: storyPage2.id, language: "bn" },
-    },
-    update: {},
-    create: {
-      storyPageId: storyPage2.id,
-      language: "bn",
-      text: "মোমো তার সব বন্ধুদের সাথে আমটা ভাগ করে খেল।",
-    },
-  });
+  // The dev story library is `stories.ts` + `seedStories()`, not this file.
+  // An inline `the-sharing-monkey` used to live here with two pages on fixed
+  // ids; `seedStory` deletes and recreates a story's pages on every run, so on
+  // the second seed those ids were gone and recreating sortOrder 1 collided
+  // with the page `seedStories` had just written — `db:seed` was not
+  // idempotent. One owner for the story removes the collision entirely.
 
   //------------part-6-----------
   // ---------- Default Character ----------
@@ -748,7 +671,12 @@ async function main() {
     where: {
       lessonId_language: { lessonId: letterASounds.id, language: "en" },
     },
-    update: { title: "The Letter A" },
+    update: {
+      title: "The Letter A",
+      videoAssetId: letterAVideoEn.id,
+      videoPosterAssetId: letterAPosterEn.id,
+      introAudioAssetId: letterAIntroAudioEn.id,
+    },
     create: {
       lessonId: letterASounds.id,
       language: "en",
@@ -764,7 +692,7 @@ async function main() {
     where: {
       lessonId_language: { lessonId: letterASounds.id, language: "bn" },
     },
-    update: { title: "অক্ষর A" },
+    update: { title: "অক্ষর A", videoAssetId: letterAVideoBn.id },
     create: {
       lessonId: letterASounds.id,
       language: "bn",
@@ -802,7 +730,11 @@ async function main() {
     where: {
       lessonId_language: { lessonId: letterAPractice.id, language: "en" },
     },
-    update: { title: "Practise the Letter A" },
+    update: {
+      title: "Practise the Letter A",
+      videoAssetId: letterAVideoEn.id,
+      videoPosterAssetId: letterAPosterEn.id,
+    },
     create: {
       lessonId: letterAPractice.id,
       language: "en",
@@ -851,6 +783,11 @@ async function main() {
   // world by slug and both worlds are created above. Also runnable on its own as
   // `pnpm --filter @kidlearn/db seed:stories`.
   await seedStories(prisma);
+
+  // File 18–22 — the activity types `letter-a*` does not cover, and the lessons
+  // Ocean World was published without. Last, because it resolves its worlds,
+  // subjects and reused video assets by the ids created above.
+  await seedJourney(prisma);
 }
 
 main()
