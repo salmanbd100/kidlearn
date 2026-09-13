@@ -165,6 +165,7 @@ vi.mock("../../../../config/prisma.js", () => {
 
 const { generateLesson } = await import("./lesson.js");
 const { PLACEHOLDER_ASSET_HOST } = await import("../placeholder-assets.js");
+const { LESSON_QUESTION_COUNT } = await import("../schemas/lesson.js");
 
 const TOPIC_ID = "11111111-1111-4111-8111-111111111111";
 const SUBJECT_ID = "22222222-2222-4222-8222-222222222222";
@@ -193,7 +194,8 @@ function mcq(promptEn: string, audioUrl?: string) {
   };
 }
 
-function validOutput(languages: Array<"en" | "bn"> = ["en", "bn"]) {
+/** Everything but the questions — what the generator's first call asks for. */
+function validBody(languages: Array<"en" | "bn"> = ["en", "bn"]) {
   const script = (text: string) =>
     Object.fromEntries(languages.map((one) => [one, `${text} (${one})`]));
 
@@ -202,8 +204,34 @@ function validOutput(languages: Array<"en" | "bn"> = ["en", "bn"]) {
     learningObjectives: ["Recognise the letter A", "Say the /a/ sound"],
     introScript: script("Hello there"),
     narrationScript: script("A is for apple"),
-    quizQuestions: [mcq("q1"), mcq("q2"), mcq("q3")],
   };
+}
+
+function validQuestions() {
+  return [mcq("q1"), mcq("q2"), mcq("q3"), mcq("q4")];
+}
+
+/** The calls one attempt makes: the body, then one per question. */
+const CALLS_PER_ATTEMPT = 1 + LESSON_QUESTION_COUNT;
+
+/**
+ * Answers the body call and each question call in the order
+ * `generators/lesson.ts` makes them, for as many attempts as the job takes.
+ */
+function mockGeneration(
+  round: (attempt: number) => { body: unknown; questions: unknown[] },
+) {
+  let call = 0;
+  ai.generateStructured.mockImplementation(async () => {
+    const { body, questions } = round(Math.floor(call / CALLS_PER_ATTEMPT));
+    const index = call % CALLS_PER_ATTEMPT;
+    call += 1;
+    return {
+      raw: index === 0 ? body : questions[index - 1],
+      usage: USAGE,
+      stopReason: "stop",
+    };
+  });
 }
 
 function request(overrides: Record<string, unknown> = {}) {
@@ -249,7 +277,7 @@ beforeEach(() => {
   store.jobs = [];
   store.creates = [];
   ai.generateStructured.mockReset();
-  ai.generateStructured.mockResolvedValue({ raw: validOutput(), usage: USAGE });
+  mockGeneration(() => ({ body: validBody(), questions: validQuestions() }));
 });
 
 describe("what a successful generation writes", () => {
@@ -259,7 +287,7 @@ describe("what a successful generation writes", () => {
     expect(result.status).toBe("awaiting_review");
     expect(store.lessons).toHaveLength(2);
     expect(store.quizzes).toHaveLength(1);
-    expect(store.questions).toHaveLength(3);
+    expect(store.questions).toHaveLength(LESSON_QUESTION_COUNT);
     expect(store.jobs[0].status).toBe("awaiting_review");
   });
 
@@ -296,7 +324,7 @@ describe("what a successful generation writes", () => {
     await generateLesson(request());
 
     expect(creates("quizQuestion").map((one) => one.sortOrder)).toEqual([
-      1, 2, 3,
+      1, 2, 3, 4,
     ]);
   });
 
@@ -320,10 +348,10 @@ describe("what a successful generation writes", () => {
   });
 
   it("writes one translation per requested locale and no more", async () => {
-    ai.generateStructured.mockResolvedValue({
-      raw: validOutput(["en"]),
-      usage: USAGE,
-    });
+    mockGeneration(() => ({
+      body: validBody(["en"]),
+      questions: validQuestions(),
+    }));
 
     await generateLesson(request({ languages: ["en"] }));
 
@@ -355,22 +383,28 @@ describe("what a successful generation writes", () => {
     expect(input.userPrompt).toContain("Letters");
     expect(input.userPrompt).toContain("English");
     expect(input.systemPrompt).toContain("aged 3 to 6");
+
+    // The questions are asked for one at a time, so the prompt a reviewer needs
+    // for question three is not the lesson prompt (FR-AI-08).
+    const questionPrompts = (store.jobs[0].input as Record<string, string[]>)
+      .questionPrompts;
+    expect(questionPrompts).toHaveLength(LESSON_QUESTION_COUNT);
+    expect(questionPrompts[1]).toContain("question 2 of 4");
+    expect(questionPrompts[1]).toContain("match_pair");
   });
 });
 
 describe("asset URLs", () => {
   it("rewrites every generated URL onto the reserved placeholder host", async () => {
-    ai.generateStructured.mockResolvedValue({
-      raw: {
-        ...validOutput(),
-        quizQuestions: [
-          mcq("q1", "https://cdn.evil.example/audio/en/q1.mp3"),
-          mcq("q2"),
-          mcq("q3"),
-        ],
-      },
-      usage: USAGE,
-    });
+    mockGeneration(() => ({
+      body: validBody(),
+      questions: [
+        mcq("q1", "https://cdn.evil.example/audio/en/q1.mp3"),
+        mcq("q2"),
+        mcq("q3"),
+        mcq("q4"),
+      ],
+    }));
 
     await generateLesson(request());
 
@@ -456,20 +490,19 @@ describe("what is refused before a token is spent", () => {
 
 describe("when the model gets it wrong", () => {
   it("retries once when a requested locale is missing, then succeeds", async () => {
-    ai.generateStructured
-      .mockResolvedValueOnce({
-        // English only, when both were asked for.
-        raw: validOutput(["en"]),
-        usage: USAGE,
-      })
-      .mockResolvedValueOnce({ raw: validOutput(), usage: USAGE });
+    mockGeneration((attempt) => ({
+      // English only on the first attempt, when both were asked for.
+      body: attempt === 0 ? validBody(["en"]) : validBody(),
+      questions: validQuestions(),
+    }));
 
     const result = await generateLesson(request());
 
     expect(result.status).toBe("awaiting_review");
-    expect(ai.generateStructured).toHaveBeenCalledTimes(2);
+    expect(ai.generateStructured).toHaveBeenCalledTimes(CALLS_PER_ATTEMPT * 2);
 
-    const retry = ai.generateStructured.mock.calls[1][0] as {
+    // The first call of the second attempt — the body, asked for again.
+    const retry = ai.generateStructured.mock.calls[CALLS_PER_ATTEMPT][0] as {
       messages: Array<{ content: string }>;
     };
     expect(retry.messages).toHaveLength(2);
@@ -478,10 +511,11 @@ describe("when the model gets it wrong", () => {
   });
 
   it("fails the job and writes nothing after two invalid responses", async () => {
-    ai.generateStructured.mockResolvedValue({
-      raw: { ...validOutput(), quizQuestions: [mcq("q1")] },
-      usage: USAGE,
-    });
+    // Two questions where the schema's floor is three.
+    mockGeneration(() => ({
+      body: validBody(),
+      questions: [mcq("q1"), mcq("q2")],
+    }));
 
     const result = await generateLesson(request());
 

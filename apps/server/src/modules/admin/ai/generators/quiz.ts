@@ -1,8 +1,15 @@
 import type { Prisma } from "@kidlearn/db";
-import { type Locale, safeParseQuizQuestion } from "@kidlearn/types";
+import {
+  type Locale,
+  type QuizQuestionType,
+  safeParseQuizQuestion,
+} from "@kidlearn/types";
 import { prisma } from "../../../../config/prisma.js";
 import { ApiError } from "../../../../shared/errors/errors.js";
-import { generateStructured } from "../gemini-text.js";
+import {
+  generateQuestions,
+  planQuestionFormats,
+} from "../generate-questions.js";
 import { withPlaceholderAssets } from "../placeholder-assets.js";
 import { KIDLEARN_SYSTEM_PROMPT } from "../prompts/lesson.js";
 import { buildQuizUserPrompt } from "../prompts/quiz.js";
@@ -57,13 +64,17 @@ export async function generateQuiz(
   const lessonContext = await buildLessonContext(lesson);
 
   const schema = buildQuizGenerationOutputSchema(count);
-  const userPrompt = buildQuizUserPrompt({
-    lessonTitle: lesson.title,
-    gradeLevels: lesson.gradeLevels,
-    lessonContext,
-    languages: input.languages,
-    count,
-  });
+  const formats = planQuestionFormats(count);
+  const buildPrompt = (format: QuizQuestionType, position: number) =>
+    buildQuizUserPrompt({
+      lessonTitle: lesson.title,
+      gradeLevels: lesson.gradeLevels,
+      lessonContext,
+      languages: input.languages,
+      format,
+      position,
+      total: count,
+    });
 
   // Set by `persist` when the re-read below finds the quiz published, and read
   // after the job has landed. A flag rather than a thrown `ApiError`, because
@@ -82,23 +93,26 @@ export async function generateQuiz(
       languages: input.languages,
       lessonContext,
       systemPrompt: KIDLEARN_SYSTEM_PROMPT,
-      userPrompt,
+      userPrompts: formats.map(buildPrompt),
     },
     schema,
-    generate: (retryFeedback) =>
-      generateStructured({
+    // One call per question. The retry feedback rides along on each of them as a
+    // second *user* turn rather than replaying the rejected attempt as an
+    // assistant turn — see `generators/lesson.ts` for why.
+    generate: async (retryFeedback) => {
+      const quiz = await generateQuestions({
         system: KIDLEARN_SYSTEM_PROMPT,
-        // A second *user* turn rather than replaying the rejected attempt as an
-        // assistant turn — see `generators/lesson.ts` for why.
-        messages:
-          retryFeedback === undefined
-            ? [{ role: "user", content: userPrompt }]
-            : [
-                { role: "user", content: userPrompt },
-                { role: "user", content: retryFeedback },
-              ],
-        outputSchema: schema,
-      }),
+        formats,
+        buildPrompt,
+        ...(retryFeedback === undefined ? {} : { retryFeedback }),
+      });
+      return {
+        raw: { questions: quiz.questions },
+        usage: quiz.usage,
+        stopReason: quiz.stopReason,
+        ...(quiz.refusal === undefined ? {} : { refusal: quiz.refusal }),
+      };
+    },
     persist: async (parsed, jobId, tx) => {
       if (await isPublished(tx, lesson.quiz?.id)) {
         publishedMidGeneration = true;

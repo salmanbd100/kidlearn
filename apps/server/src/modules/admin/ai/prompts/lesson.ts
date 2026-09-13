@@ -1,5 +1,5 @@
 import type { GradeLevel } from "@kidlearn/db";
-import type { Locale } from "@kidlearn/types";
+import type { Locale, QuizQuestionType } from "@kidlearn/types";
 import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
 import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
@@ -32,7 +32,7 @@ export function buildLessonUserPrompt(input: LessonPromptInput): string {
     .map((language) => LOCALE_LABELS[language])
     .join(", ");
 
-  return `Generate a complete lesson plan.
+  return `Generate a lesson plan.
 
 Grade level: ${GRADE_LABELS[input.gradeLevel]}
 Subject: ${input.subjectName}
@@ -48,13 +48,44 @@ Produce:
    what they will learn today, per language. (FR-LSN-01)
 4. narrationScript — 60 to 120 spoken words teaching the concept with simple examples a
    3–6 year old sees in daily life, per language. (source text for video narration)
-5. quizQuestions — 3 to 5 questions matched to the grade level, using a mix of the four
-   formats (mcq, match_pair, drag_answer, picture_select), each conforming to the question
-   schema, with prompts in every requested language.
 
-Every audio and image URL in the quiz questions is a placeholder: the narration and the
-artwork are produced separately, and yours are replaced before anything reaches a child.
-Use ${PLACEHOLDER_ASSET_HOST}/<kind>/<locale>/<short-slug>.<ext> and nothing else — never a
-real or invented CDN address. Write the \`alt\` text properly, because that is what the
-illustrator and the screen reader both work from.`;
+The quiz is asked for separately, one question at a time.`;
 }
+
+export interface LessonQuestionPromptInput extends LessonPromptInput {
+  format: QuizQuestionType;
+  /** 1-based, and named to the model so each question differs from the last. */
+  position: number;
+  total: number;
+}
+
+/** One question of a generated lesson's quiz (FR-AI-01). */
+export function buildLessonQuestionUserPrompt(
+  input: LessonQuestionPromptInput,
+): string {
+  const languages = input.languages
+    .map((language) => LOCALE_LABELS[language])
+    .join(", ");
+
+  return `Write question ${input.position} of ${input.total} for this lesson's quiz.
+
+Grade level: ${GRADE_LABELS[input.gradeLevel]}
+Subject: ${input.subjectName}
+Topic: ${input.topicName}
+Lesson focus: ${input.lessonFocus}
+Languages: ${languages}
+Format: ${input.format}
+
+Rules:
+- Answerable from what this lesson teaches, and matched to the grade level.
+- The prompt is spoken aloud: phrase it as a friendly question, in every language.
+- Ask something the lesson's other questions would not. This is question
+  ${input.position} of ${input.total}, and they are written one at a time.
+${PLACEHOLDER_RULE}`;
+}
+
+const PLACEHOLDER_RULE = `- Every audio and image URL is a placeholder: the narration and the artwork are produced
+  separately, and yours are replaced before anything reaches a child. Use
+  ${PLACEHOLDER_ASSET_HOST}/<kind>/<locale>/<short-slug>.<ext> and nothing else — never a real
+  or invented CDN address. Write the \`alt\` text properly, because that is what the
+  illustrator and the screen reader both work from.`;

@@ -156,10 +156,37 @@ const LESSON_JOB_ID = "job-lesson-1";
 const USAGE = { inputTokens: 800, outputTokens: 1600 };
 
 /** Four questions across four formats — the shape the prompt asks for. */
-function validOutput(
-  questions = [validMcq, validMatchPair, validDragAnswer, validPictureSelect],
-) {
-  return { questions };
+function validQuestions() {
+  return [validMcq, validMatchPair, validDragAnswer, validPictureSelect];
+}
+
+/**
+ * Answers one question per call, in the order `generators/quiz.ts` asks for them,
+ * for as many attempts as the job takes. Every attempt makes the same number of
+ * calls, because the count is fixed before the job starts.
+ */
+function mockGeneration(round: (attempt: number) => unknown[]) {
+  // Counted from the first real call rather than up front: a round that changes
+  // the world (publishing the quiz mid-generation) must not run before the job
+  // has started.
+  let perAttempt: number | undefined;
+  let call = 0;
+  ai.generateStructured.mockImplementation(async () => {
+    const questions = round(
+      perAttempt === undefined ? 0 : Math.floor(call / perAttempt),
+    );
+    perAttempt ??= questions.length;
+    const raw = questions[call % perAttempt];
+    call += 1;
+    return { raw, usage: USAGE, stopReason: "stop" };
+  });
+}
+
+/** Every question prompt the job recorded, as one searchable string. */
+function prompts(job: Record<string, unknown>): string {
+  return ((job.input as { userPrompts: string[] }).userPrompts ?? []).join(
+    "\n",
+  );
 }
 
 function request(overrides: Record<string, unknown> = {}) {
@@ -203,7 +230,7 @@ beforeEach(() => {
   store.jobs = [];
   store.creates = [];
   ai.generateStructured.mockReset();
-  ai.generateStructured.mockResolvedValue({ raw: validOutput(), usage: USAGE });
+  mockGeneration(() => validQuestions());
 });
 
 describe("what a successful generation writes", () => {
@@ -262,10 +289,7 @@ describe("what a successful generation writes", () => {
   });
 
   it("honours the count the admin asked for", async () => {
-    ai.generateStructured.mockResolvedValue({
-      raw: validOutput([validMcq, validMatchPair, validDragAnswer]),
-      usage: USAGE,
-    });
+    mockGeneration(() => [validMcq, validMatchPair, validDragAnswer]);
 
     await generateQuiz(request({ count: 3 }));
 
@@ -340,9 +364,9 @@ describe("the published-quiz refusal (FR-AI-07)", () => {
     // is read again under the write transaction.
     store.quizzes = [{ id: "quiz-draft", status: "draft" }];
     store.lessons[0].quizId = "quiz-draft";
-    ai.generateStructured.mockImplementation(async () => {
+    mockGeneration(() => {
       store.quizzes[0].status = "published";
-      return { raw: validOutput(), usage: USAGE };
+      return validQuestions();
     });
 
     await expect(generateQuiz(request())).rejects.toMatchObject({
@@ -360,9 +384,9 @@ describe("the published-quiz refusal (FR-AI-07)", () => {
     // (FR-AI-08).
     store.quizzes = [{ id: "quiz-draft", status: "draft" }];
     store.lessons[0].quizId = "quiz-draft";
-    ai.generateStructured.mockImplementation(async () => {
+    mockGeneration(() => {
       store.quizzes[0].status = "published";
-      return { raw: validOutput(), usage: USAGE };
+      return validQuestions();
     });
 
     const error = await generateQuiz(request()).catch((one: unknown) => one);
@@ -403,13 +427,10 @@ describe("what the prompt is grounded in", () => {
 
     await generateQuiz(request());
 
-    const input = store.jobs[store.jobs.length - 1].input as Record<
-      string,
-      string
-    >;
-    expect(input.userPrompt).toContain("Recognise the letter A");
-    expect(input.userPrompt).toContain("A is for apple, and for ant.");
-    expect(input.userPrompt).toContain("A মানে আপেল।");
+    const asked = prompts(store.jobs[store.jobs.length - 1]);
+    expect(asked).toContain("Recognise the letter A");
+    expect(asked).toContain("A is for apple, and for ant.");
+    expect(asked).toContain("A মানে আপেল।");
   });
 
   it("falls back to the intro scripts and says so, for a hand-authored lesson", async () => {
@@ -417,9 +438,9 @@ describe("what the prompt is grounded in", () => {
     // is what stops the model inventing material a child was never shown.
     await generateQuiz(request());
 
-    const input = store.jobs[0].input as Record<string, string>;
-    expect(input.userPrompt).toContain("Today we meet the letter A.");
-    expect(input.userPrompt).toContain("do not invent material");
+    const asked = prompts(store.jobs[0]);
+    expect(asked).toContain("Today we meet the letter A.");
+    expect(asked).toContain("do not invent material");
   });
 
   it("falls back when the linked job's audit record holds nothing usable", async () => {
@@ -428,20 +449,31 @@ describe("what the prompt is grounded in", () => {
 
     await generateQuiz(request());
 
-    const input = store.jobs[store.jobs.length - 1].input as Record<
-      string,
-      string
-    >;
-    expect(input.userPrompt).toContain("Today we meet the letter A.");
+    expect(prompts(store.jobs[store.jobs.length - 1])).toContain(
+      "Today we meet the letter A.",
+    );
   });
 
   it("embeds the question schema and the grade the lesson is written for", async () => {
     await generateQuiz(request());
 
     const input = store.jobs[0].input as Record<string, string>;
-    expect(input.userPrompt).toContain("KG-1 (ages 4–5)");
-    expect(input.userPrompt).toContain('"picture_select"');
+    expect(prompts(store.jobs[0])).toContain("KG-1 (ages 4–5)");
     expect(input.systemPrompt).toContain("aged 3 to 6");
+  });
+
+  it("quotes one format per prompt, because a question is asked for one at a time", async () => {
+    // The whole four-format union is past what `responseJsonSchema` accepts — see
+    // `generate-questions.ts` — so each call carries only the format it asks for.
+    await generateQuiz(request());
+
+    const asked = (store.jobs[0].input as { userPrompts: string[] })
+      .userPrompts;
+    expect(asked).toHaveLength(4);
+    expect(asked[0]).toContain("Format: mcq");
+    expect(asked[0]).not.toContain('"picture_select"');
+    expect(asked[3]).toContain("Format: picture_select");
+    expect(asked[3]).toContain('"picture_select"');
   });
 });
 
@@ -449,24 +481,21 @@ describe("asset URLs", () => {
   it("rewrites every generated URL onto the reserved placeholder host", async () => {
     // A plausible-looking CDN address would survive a review that read the words
     // rather than the links, and a text model can neither draw nor record.
-    ai.generateStructured.mockResolvedValue({
-      raw: validOutput([
-        {
-          ...validMcq,
-          promptAudio: {
-            ...validMcq.promptAudio,
-            en: {
-              ...validMcq.promptAudio.en,
-              url: "https://cdn.evil.example/audio/en/q1.mp3",
-            },
+    mockGeneration(() => [
+      {
+        ...validMcq,
+        promptAudio: {
+          ...validMcq.promptAudio,
+          en: {
+            ...validMcq.promptAudio.en,
+            url: "https://cdn.evil.example/audio/en/q1.mp3",
           },
         },
-        validMatchPair,
-        validDragAnswer,
-        validPictureSelect,
-      ]),
-      usage: USAGE,
-    });
+      },
+      validMatchPair,
+      validDragAnswer,
+      validPictureSelect,
+    ]);
 
     await generateQuiz(request());
 
@@ -496,24 +525,19 @@ describe("when the model gets it wrong", () => {
       options: validMcq.options.slice(0, 2),
     };
 
-    ai.generateStructured
-      .mockResolvedValueOnce({
-        raw: validOutput([
-          twoOptions,
-          validMatchPair,
-          validDragAnswer,
-          validPictureSelect,
-        ]),
-        usage: USAGE,
-      })
-      .mockResolvedValueOnce({ raw: validOutput(), usage: USAGE });
+    mockGeneration((attempt) =>
+      attempt === 0
+        ? [twoOptions, validMatchPair, validDragAnswer, validPictureSelect]
+        : validQuestions(),
+    );
 
     const result = await generateQuiz(request());
 
     expect(result.status).toBe("awaiting_review");
-    expect(ai.generateStructured).toHaveBeenCalledTimes(2);
+    expect(ai.generateStructured).toHaveBeenCalledTimes(8);
 
-    const retry = ai.generateStructured.mock.calls[1][0] as {
+    // The first call of the second attempt.
+    const retry = ai.generateStructured.mock.calls[4][0] as {
       messages: Array<{ content: string }>;
     };
     expect(retry.messages).toHaveLength(2);
@@ -523,27 +547,29 @@ describe("when the model gets it wrong", () => {
   });
 
   it("retries once when the set leans on a single format", async () => {
-    ai.generateStructured
-      .mockResolvedValueOnce({
-        raw: validOutput([validMcq, validMcq, validMcq, validMcq]),
-        usage: USAGE,
-      })
-      .mockResolvedValueOnce({ raw: validOutput(), usage: USAGE });
+    mockGeneration((attempt) =>
+      attempt === 0
+        ? [validMcq, validMcq, validMcq, validMcq]
+        : validQuestions(),
+    );
 
     const result = await generateQuiz(request());
 
     expect(result.status).toBe("awaiting_review");
-    const retry = ai.generateStructured.mock.calls[1][0] as {
+    const retry = ai.generateStructured.mock.calls[4][0] as {
       messages: Array<{ content: string }>;
     };
     expect(retry.messages[1].content).toContain("at least 3");
   });
 
   it("fails the job and writes nothing after two invalid responses", async () => {
-    ai.generateStructured.mockResolvedValue({
-      raw: validOutput([validMcq, validMatchPair]),
-      usage: USAGE,
-    });
+    // A question the payload contract rejects, so the set never validates.
+    mockGeneration(() => [
+      { ...validMcq, options: validMcq.options.slice(0, 2) },
+      validMatchPair,
+      validDragAnswer,
+      validPictureSelect,
+    ]);
 
     const result = await generateQuiz(request());
 

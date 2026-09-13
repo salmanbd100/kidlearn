@@ -1,4 +1,4 @@
-import type { GenerateContentResponse } from "@google/genai";
+import type { GenerateContentResponse, ThinkingLevel } from "@google/genai";
 import type { ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { env } from "../../../config/env.js";
@@ -17,8 +17,16 @@ import type { StructuredGeneration } from "./types.js";
  */
 const MAX_OUTPUT_TOKENS = 16000;
 
-/** Thinking off (`0` is the SDK's DISABLED). */
-const THINKING_BUDGET = 0;
+/**
+ * The floor of the Gemini 3 thinking scale. Thinking cannot be switched off on
+ * these models — `thinkingBudget: 0`, which the 2.x models took, is a `400
+ * INVALID_ARGUMENT` here — and its tokens are billed and rate-limited as output,
+ * so the lowest level is what keeps the free-tier allowance going furthest.
+ */
+// Cast rather than imported as a value: `ThinkingLevel` is a TypeScript enum, and
+// naming a member would pull the SDK's ten seconds of module evaluation onto the
+// boot path that `google-genai-client.ts` exists to keep it off (NFR-PERF-04).
+const THINKING_LEVEL = "MINIMAL" as ThinkingLevel;
 
 export interface GenerateStructuredOptions {
   system: string;
@@ -50,7 +58,7 @@ export async function generateStructured(
       responseMimeType: "application/json",
       responseJsonSchema: toResponseJsonSchema(options.outputSchema),
       maxOutputTokens: MAX_OUTPUT_TOKENS,
-      thinkingConfig: { thinkingBudget: THINKING_BUDGET },
+      thinkingConfig: { thinkingLevel: THINKING_LEVEL },
     },
   });
 
@@ -61,9 +69,9 @@ export async function generateStructured(
     usage: {
       inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
       // Thinking tokens are counted as output because they are billed and
-      // rate-limited as output. They are zero while `THINKING_BUDGET` is, and an
-      // operator who raises it should see what it cost rather than a total that
-      // silently stops adding up (FR-AI-08).
+      // rate-limited as output. `THINKING_LEVEL` keeps them low rather than at
+      // zero, and an operator who raises it should see what it cost rather than a
+      // total that silently stops adding up (FR-AI-08).
       outputTokens:
         (response.usageMetadata?.candidatesTokenCount ?? 0) +
         (response.usageMetadata?.thoughtsTokenCount ?? 0),
