@@ -15,8 +15,8 @@
  */
 
 import {
+  QUIZ_QUESTION_SCHEMAS,
   QUIZ_QUESTION_TYPES,
-  QuizQuestionSchema,
   validDragAnswer,
   validMatchPair,
   validMcq,
@@ -24,7 +24,7 @@ import {
 } from "@kidlearn/types";
 import { describe, expect, it } from "vitest";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { QUIZ_QUESTION_JSON_SCHEMA } from "../prompts/quiz.js";
+import { QUIZ_QUESTION_JSON_SCHEMAS } from "../prompts/quiz.js";
 import {
   buildQuizGenerationOutputSchema,
   MIN_DISTINCT_FORMATS,
@@ -131,29 +131,38 @@ describe("the questions themselves", () => {
 });
 
 describe("the schema embedded in the prompt", () => {
-  it("is byte-identical to the payload contract's own JSON Schema", () => {
+  it("is byte-identical to the payload contract's own JSON Schema, per format", () => {
     // The acceptance criterion for FR-AI-03: one schema, three consumers. If this
     // fails, the prompt has grown a second copy of the question contract and the
     // two will drift the first time a format gains a field.
-    const expected = JSON.stringify(
-      zodToJsonSchema(QuizQuestionSchema, {
-        target: "jsonSchema7",
-        $refStrategy: "none",
-      }),
-      null,
-      2,
-    );
+    for (const type of QUIZ_QUESTION_TYPES) {
+      const expected = JSON.stringify(
+        zodToJsonSchema(QUIZ_QUESTION_SCHEMAS[type], {
+          target: "jsonSchema7",
+          $refStrategy: "none",
+        }),
+        null,
+        2,
+      );
 
-    expect(QUIZ_QUESTION_JSON_SCHEMA).toBe(expected);
+      expect(QUIZ_QUESTION_JSON_SCHEMAS[type]).toBe(expected);
+    }
   });
 
-  it("carries every question format, inlined rather than referenced", () => {
+  it("quotes one format per prompt, because a question is asked for one at a time", () => {
+    // The whole four-format union is past what `responseJsonSchema` accepts — see
+    // `generate-questions.ts` — so each prompt carries only the format it asks for.
+    expect(QUIZ_QUESTION_JSON_SCHEMAS.mcq).toContain('"mcq"');
+    expect(QUIZ_QUESTION_JSON_SCHEMAS.mcq).not.toContain('"match_pair"');
+  });
+
+  it("inlines every format rather than referencing it", () => {
     // `$refStrategy: "none"` is what makes the embedded document readable on its
     // own: a `$ref` into a `definitions` block the message does not carry would
     // describe nothing.
     for (const type of QUIZ_QUESTION_TYPES) {
-      expect(QUIZ_QUESTION_JSON_SCHEMA).toContain(`"${type}"`);
+      expect(QUIZ_QUESTION_JSON_SCHEMAS[type]).toContain(`"${type}"`);
+      expect(QUIZ_QUESTION_JSON_SCHEMAS[type]).not.toContain('"$ref"');
     }
-    expect(QUIZ_QUESTION_JSON_SCHEMA).not.toContain('"$ref"');
   });
 });

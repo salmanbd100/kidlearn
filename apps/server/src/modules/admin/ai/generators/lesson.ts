@@ -4,14 +4,21 @@ import { prisma } from "../../../../config/prisma.js";
 import { ApiError } from "../../../../shared/errors/errors.js";
 import { slugify } from "../../../../shared/utils/slug.js";
 import { generateStructured } from "../gemini-text.js";
+import {
+  generateQuestions,
+  planQuestionFormats,
+} from "../generate-questions.js";
 import { withPlaceholderAssets } from "../placeholder-assets.js";
 import {
+  buildLessonQuestionUserPrompt,
   buildLessonUserPrompt,
   KIDLEARN_SYSTEM_PROMPT,
 } from "../prompts/lesson.js";
 import { runGenerationJob } from "../run-generation-job.js";
 import {
+  buildLessonBodyOutputSchema,
   buildLessonGenerationOutputSchema,
+  LESSON_QUESTION_COUNT,
   type LessonGenerationOutput,
 } from "../schemas/lesson.js";
 
@@ -52,13 +59,16 @@ export async function generateLesson(
   const worldId = await resolveWorldId(input);
 
   const schema = buildLessonGenerationOutputSchema(input.languages);
-  const userPrompt = buildLessonUserPrompt({
+  const bodySchema = buildLessonBodyOutputSchema(input.languages);
+  const promptInput = {
     gradeLevel: input.gradeLevel,
     subjectName: topic.subject.name,
     topicName: topic.name,
     lessonFocus: input.lessonFocus,
     languages: input.languages,
-  });
+  };
+  const userPrompt = buildLessonUserPrompt(promptInput);
+  const formats = planQuestionFormats(LESSON_QUESTION_COUNT);
 
   return runGenerationJob<LessonGenerationOutput>({
     type: "lesson",
@@ -76,10 +86,18 @@ export async function generateLesson(
       languages: input.languages,
       systemPrompt: KIDLEARN_SYSTEM_PROMPT,
       userPrompt,
+      questionPrompts: formats.map((format, index) =>
+        buildLessonQuestionUserPrompt({
+          ...promptInput,
+          format,
+          position: index + 1,
+          total: formats.length,
+        }),
+      ),
     },
     schema,
-    generate: (retryFeedback) =>
-      generateStructured({
+    generate: async (retryFeedback) => {
+      const body = await generateStructured({
         system: KIDLEARN_SYSTEM_PROMPT,
         // The retry is a second *user* message rather than a model turn carrying
         // the rejected answer, because that answer is not something to echo back:
@@ -94,11 +112,54 @@ export async function generateLesson(
                 { role: "user", content: userPrompt },
                 { role: "user", content: retryFeedback },
               ],
-        outputSchema: schema,
-      }),
+        outputSchema: bodySchema,
+      });
+
+      // A body that stopped short is the whole lesson stopping short: the
+      // questions would be written for a lesson whose narration does not exist.
+      if (body.stopReason === "refusal" || body.stopReason === "max_tokens") {
+        return body;
+      }
+
+      const quiz = await generateQuestions({
+        system: KIDLEARN_SYSTEM_PROMPT,
+        formats,
+        buildPrompt: (format, position) =>
+          buildLessonQuestionUserPrompt({
+            ...promptInput,
+            format,
+            position,
+            total: formats.length,
+          }),
+        ...(retryFeedback === undefined ? {} : { retryFeedback }),
+      });
+
+      return {
+        raw: assemble(body.raw, quiz.questions),
+        usage: {
+          inputTokens: body.usage.inputTokens + quiz.usage.inputTokens,
+          outputTokens: body.usage.outputTokens + quiz.usage.outputTokens,
+        },
+        stopReason: quiz.stopReason,
+        ...(quiz.refusal === undefined ? {} : { refusal: quiz.refusal }),
+      };
+    },
     persist: (parsed, jobId, tx) =>
       persistLesson({ input, parsed, jobId, tx, topicId: topic.id, worldId }),
   });
+}
+
+/**
+ * The body and the questions as one object, for the schema that validates the
+ * whole lesson. A body that is not an object is left alone rather than wrapped:
+ * it is about to fail validation, and the reviewer needs to see what the model
+ * actually answered (FR-AI-08).
+ */
+function assemble(body: unknown, quizQuestions: unknown[]): unknown {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return body;
+  }
+  return { ...body, quizQuestions };
 }
 
 /** Which world the lesson is themed from. */

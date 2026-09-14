@@ -150,13 +150,12 @@ describe("ParentTopBar", () => {
     );
   });
 
-  it("offers the way back to the student portal, which nothing else did", async () => {
+  it("offers the way back to the student portal on the bar, not in the menu", async () => {
     renderBar();
-    await openMenu();
 
-    const link = await screen.findByRole("menuitem", {
-      name: "Back to kid mode",
-    });
+    // On the bar itself: inside the account menu it took a tap on an unlabelled
+    // avatar to reach, and that is what made it unfindable.
+    const link = await screen.findByRole("link", { name: "Back to kid mode" });
     expect(link).toHaveAttribute("href", "/select-profile");
   });
 

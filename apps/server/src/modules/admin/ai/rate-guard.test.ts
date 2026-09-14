@@ -23,26 +23,55 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "../../../config/env.js";
 import { ApiError } from "../../../shared/errors/errors.js";
 
-type Job = { type: string; createdAt: Date };
+type Job = {
+  type: string;
+  createdAt: Date;
+  status: string;
+  /** Null until the job finishes, exactly as the column is. */
+  rawOutput: { usage?: { attempts?: number } } | null;
+};
 
 const store = vi.hoisted(() => ({ jobs: [] as Job[] }));
+
+type CountWhere = {
+  type: { in: string[] };
+  createdAt: { gte: Date };
+  NOT: {
+    status: string;
+    rawOutput: { path: string[]; equals: number };
+  };
+};
 
 vi.mock("../../../config/prisma.js", () => ({
   prisma: {
     aIGenerationJob: {
-      count: async ({
-        where,
-      }: {
-        where: { type: { in: string[] }; createdAt: { gte: Date } };
-      }) =>
+      count: async ({ where }: { where: CountWhere }) =>
         store.jobs.filter(
           (job) =>
             where.type.in.includes(job.type) &&
-            job.createdAt.getTime() >= where.createdAt.gte.getTime(),
+            job.createdAt.getTime() >= where.createdAt.gte.getTime() &&
+            !excludedBy(where.NOT, job),
         ).length,
     },
   },
 }));
+
+/**
+ * Postgres's own reading of the `NOT` clause: a row is excluded only when *every*
+ * term matches. A JSON path into a null column matches nothing, so an in-flight
+ * job is never excluded.
+ */
+function excludedBy(not: CountWhere["NOT"], job: Job): boolean {
+  if (job.status !== not.status) return false;
+  const value = not.rawOutput.path.reduce<unknown>(
+    (node, key) =>
+      typeof node === "object" && node !== null
+        ? (node as Record<string, unknown>)[key]
+        : undefined,
+    job.rawOutput,
+  );
+  return value === not.rawOutput.equals;
+}
 
 const { assertWithinDailyCap, readDailyBudget, startOfTodayInAppTz } =
   await import("./rate-guard.js");
@@ -50,10 +79,20 @@ const { assertWithinDailyCap, readDailyBudget, startOfTodayInAppTz } =
 /** `Asia/Dhaka` is UTC+6 and observes no DST, so local midnight is 18:00 UTC. */
 const TIMEZONE_OFFSET_HOURS = 6;
 
+/** A job that reached the model and was billed for it — the ordinary case. */
 function add(type: string, count: number, createdAt = new Date()): void {
   for (let index = 0; index < count; index += 1) {
-    store.jobs.push({ type, createdAt });
+    store.jobs.push({
+      type,
+      createdAt,
+      status: "awaiting_review",
+      rawOutput: { usage: { attempts: 1 } },
+    });
   }
+}
+
+function addJob(type: string, job: Omit<Job, "type" | "createdAt">): void {
+  store.jobs.push({ type, createdAt: new Date(), ...job });
 }
 
 beforeEach(() => {
@@ -114,6 +153,60 @@ describe("the daily cap", () => {
     await expect(assertWithinDailyCap("audio", 16)).rejects.toBeInstanceOf(
       ApiError,
     );
+  });
+});
+
+describe("what a job has to have cost to count", () => {
+  it("does not bill a job that failed before it ever called the model", async () => {
+    // The case this rule exists for: an unreachable model or a bad key fails every
+    // job instantly, at no cost. Counting those spends the day's budget on nothing
+    // and locks the admin out of retrying once the cause is fixed.
+    addJob("lesson", {
+      status: "failed",
+      rawOutput: { usage: { attempts: 0 } },
+    });
+
+    await expect(readDailyBudget("lesson")).resolves.toMatchObject({
+      used: 0,
+      remaining: env.AI_TEXT_JOBS_PER_DAY,
+    });
+  });
+
+  it("bills a job that failed after calling, because those calls were billed", async () => {
+    addJob("lesson", {
+      status: "failed",
+      rawOutput: { usage: { attempts: 2 } },
+    });
+
+    await expect(readDailyBudget("lesson")).resolves.toMatchObject({ used: 1 });
+  });
+
+  it("bills a job still in flight, which is about to spend", async () => {
+    // `rawOutput` is null until the job finishes, so there is no usage to read —
+    // and a job that has not finished is not a job that cost nothing.
+    addJob("lesson", { status: "generating", rawOutput: null });
+
+    await expect(readDailyBudget("lesson")).resolves.toMatchObject({ used: 1 });
+  });
+
+  it("bills a job that succeeded", async () => {
+    addJob("lesson", {
+      status: "awaiting_review",
+      rawOutput: { usage: { attempts: 1 } },
+    });
+
+    await expect(readDailyBudget("lesson")).resolves.toMatchObject({ used: 1 });
+  });
+
+  it("lets a day of free failures leave the budget untouched", async () => {
+    for (let index = 0; index < env.AI_TEXT_JOBS_PER_DAY * 3; index += 1) {
+      addJob("lesson", {
+        status: "failed",
+        rawOutput: { usage: { attempts: 0 } },
+      });
+    }
+
+    await expect(assertWithinDailyCap("lesson")).resolves.toBeUndefined();
   });
 });
 

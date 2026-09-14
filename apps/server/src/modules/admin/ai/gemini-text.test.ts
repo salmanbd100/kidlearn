@@ -114,13 +114,15 @@ describe("the request", () => {
     ]);
   });
 
-  it("disables thinking, whose tokens come out of the same free-tier limit", async () => {
+  it("asks for the least thinking, whose tokens come out of the same free-tier limit", async () => {
     sdk.generateContent.mockResolvedValue(response({ text: "{}" }));
 
     await generate();
 
+    // `thinkingBudget: 0` is a 400 on the Gemini 3 models — the scale is named,
+    // not numeric, and has no off.
     expect(sdk.generateContent.mock.calls[0][0].config.thinkingConfig).toEqual({
-      thinkingBudget: 0,
+      thinkingLevel: "MINIMAL",
     });
   });
 });

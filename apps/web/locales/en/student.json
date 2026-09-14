@@ -8,6 +8,7 @@
   },
   "home": {
     "greeting": "Hi, {{name}}!",
+    "switchProfile": "Switch player",
     "pickWorld": "Pick a world!",
     "open": "Go to {{name}}",
     "empty": "New worlds are coming soon!"

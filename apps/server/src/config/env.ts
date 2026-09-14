@@ -63,7 +63,7 @@ const EnvSchema = z.object({
    * 34–35, FR-AI-01..03) and the one that draws pictures (file 36, FR-AI-05).
    */
   GEMINI_API_KEY: z.string().min(1),
-  GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+  GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-3.6-flash"),
   GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-2.5-flash-image"),
   /**
    * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
@@ -75,8 +75,13 @@ const EnvSchema = z.object({
   /**
    * How many generation jobs a single `APP_TIMEZONE` day may create, per cost
    * bucket (file 36, resized against the free tiers in file 37a).
+   *
+   * A text job is no longer one request: the body is one call and every quiz
+   * question is another, so a lesson is five and a retried one is ten. Google's
+   * free tier allows twenty requests a day per text model, and this cap exists to
+   * trip before that one does.
    */
-  AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(8),
+  AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(3),
   AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
   AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(15),
   ENABLE_API_DOCS: z

@@ -8,6 +8,7 @@
   },
   "home": {
     "greeting": "হাই, {{name}}!",
+    "switchProfile": "খেলোয়াড় বদলাও",
     "pickWorld": "একটি জগৎ বেছে নাও!",
     "open": "{{name}}-এ যাও",
     "empty": "নতুন জগৎ শিগগিরই আসছে!"

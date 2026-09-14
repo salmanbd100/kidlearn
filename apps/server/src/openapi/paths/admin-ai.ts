@@ -123,7 +123,7 @@ const RATE_LIMITED_RESPONSE = errorResponse(
   [
     'Today\'s generation cap for this operation\'s cost bucket is used up. `error.details` carries `{ bucket, cap, used, pending }` — the arithmetic, not just the verdict, so a client can say "40 of 50 used, this needs 16" rather than "try again tomorrow".',
     "",
-    "**Three independent ceilings, not one budget.** `text` covers the lesson, story and quiz operations; `audio` covers narration; `image` covers illustrations. The three cost wildly different amounts per call, and one shared ceiling would let a morning of narration work block the afternoon's lesson writing. Defaults are 50 / 200 / 100 per day (`AI_TEXT_JOBS_PER_DAY`, `AI_AUDIO_JOBS_PER_DAY`, `AI_IMAGE_JOBS_PER_DAY`).",
+    "**Three independent ceilings, not one budget.** `text` covers the lesson, story and quiz operations; `audio` covers narration; `image` covers illustrations. The three cost wildly different amounts per call, and one shared ceiling would let a morning of narration work block the afternoon's lesson writing. Defaults are 3 / 100 / 15 per day (`AI_TEXT_JOBS_PER_DAY`, `AI_AUDIO_JOBS_PER_DAY`, `AI_IMAGE_JOBS_PER_DAY`).",
     "",
     "**The day is the calendar day in the deployment's `APP_TIMEZONE`** — the same day the reward grant and the streak roll-over use — so the counter resets at *local* midnight, not UTC.",
     "",

@@ -26,6 +26,7 @@ A full-stack task loads all three. A task that is purely schema or API work does
 | [`database-design.md`](./database-design.md) | Authoritative schema design. Load with `standards/backend.md` for schema or migration work. |
 | [`project-requirement-details.md`](./project-requirement-details.md) | Product requirements and feature scope. |
 | [`user-journey-manual.md`](./user-journey-manual.md) | End-to-end user flows across both portals. |
+| [`admin-account-guide.md`](./admin-account-guide.md) | How to create an administrator locally and on a deployed server, and what an admin does in the CMS. |
 | [`implementation/`](./implementation/) | Per-feature implementation specs; `00-progress-tracker.md` is the source of truth for status. |
 
 ---

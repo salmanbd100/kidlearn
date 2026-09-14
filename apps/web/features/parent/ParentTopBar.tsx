@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -120,6 +121,20 @@ export function ParentTopBar() {
       ) : null}
 
       <div className="ml-auto flex items-center gap-2">
+        {/* The control a parent reaches for most often, and the only route back
+            into the child's half of the app. It spent long enough inside the
+            account menu, two taps deep behind an avatar, that nobody found it —
+            so it sits on the bar itself, in the filled variant, ahead of the
+            quieter outline controls beside it. */}
+        <Button asChild size="default">
+          <Link href={STUDENT_ROUTES.selectProfile}>
+            <Baby aria-hidden="true" />
+            {/* The label carries the accessible name at every width; below `sm`
+                a third labelled pill would wrap the row, so only the icon shows. */}
+            <span className="max-sm:sr-only">{t("nav.backToKidMode")}</span>
+          </Link>
+        </Button>
+
         <LanguageSwitch size="default" />
 
         <DropdownMenu>
@@ -142,13 +157,6 @@ export function ParentTopBar() {
             </DropdownMenuLabel>
 
             <DropdownMenuSeparator />
-
-            <DropdownMenuItem asChild>
-              <Link href={STUDENT_ROUTES.selectProfile}>
-                <Baby aria-hidden="true" />
-                {t("nav.backToKidMode")}
-              </Link>
-            </DropdownMenuItem>
 
             <DropdownMenuItem
               onSelect={() => {

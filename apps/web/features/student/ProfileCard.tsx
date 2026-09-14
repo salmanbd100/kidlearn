@@ -15,7 +15,7 @@ import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 // How a child says "that one is me" (FR-AUTH-06).
 
 const profileCardVariants = cva(
-  "flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+  "flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
 );
 
 /** Big enough to recognise across a room; the tap target is the card around it. */

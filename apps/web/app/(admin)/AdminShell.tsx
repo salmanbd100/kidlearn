@@ -48,7 +48,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col md:flex-row">
+    // Fills the frame the group layout sizes rather than claiming a viewport of
+    // its own. `md:min-h-0` is what lets the content pane below actually scroll:
+    // without it a flex child refuses to shrink under its content.
+    <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
       <AdminSidebar
         pathname={pathname}
         badges={{ [ADMIN_ROUTES.aiQueue]: awaitingReview }}
@@ -71,7 +74,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </div>
         }
       />
-      <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+      {/* The one scroll container in the CMS from `md` up. */}
+      <main className="min-w-0 flex-1 p-4 md:min-h-0 md:overflow-y-auto md:p-6">
+        {children}
+      </main>
     </div>
   );
 }
