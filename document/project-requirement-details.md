@@ -450,6 +450,8 @@ Data between the environments is fully isolated — separate databases and separ
 
 Per-app configuration follows each app's own template file; deployed values live in SSM or Vercel project settings and never in the repository. The architecture must allow upgrading any single layer — a managed database, a second instance behind a load balancer, a CDN in front — without touching the others.
 
+**`document/runbook.md` is the operational companion to this section.** It holds the full per-environment variable inventory, both deploy and rollback procedures, the DNS records, the backup and restore steps, and the escape-hatch procedure — everything this section states as a decision, it states as a command.
+
 ---
 
 ## 10. MVP Scope

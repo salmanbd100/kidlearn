@@ -50,9 +50,29 @@ const fontVariables = [
   notoSansBengali.variable,
 ].join(" ");
 
+const SITE_NAME = "KidLearn";
+
 export const metadata: Metadata = {
-  title: "kidlearn",
+  /**
+   * Absolute base for every URL-based metadata field, so a relative `url` or a
+   * future OG image resolves against the environment that rendered it rather
+   * than warning at build time — and so the dev build's canonical URLs point at
+   * dev instead of at production (file 38 req 19).
+   *
+   * `|| `, not `?? `: an omitted `--build-arg` in apps/web/Dockerfile and a
+   * blank Vercel project variable both produce a defined EMPTY string, which
+   * `??` passes straight through to `new URL("")` — that throws at module
+   * scope in the root layout and fails every route in the build, not one page.
+   */
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000",
+  ),
+  title: SITE_NAME,
   description: "Playful, gamified early-learning for ages 3–5.",
+  openGraph: {
+    siteName: SITE_NAME,
+    url: "/",
+  },
 };
 
 // Primary devices are phones & tablets — cover the safe area on notched screens.

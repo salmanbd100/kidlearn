@@ -1,0 +1,103 @@
+# One file, two environments. Parameterised by ENV_NAME, ECR_REGISTRY and
+# IMAGE_TAG, which come from /opt/kidlearn/<env>/compose.env — written by
+# deploy/deploy.sh and passed with --env-file. THAT FLAG IS NOT OPTIONAL on a
+# hand-run command: without it every ${...} below interpolates to a blank
+# string, and the first thing that fails is `env_file: /opt/kidlearn//app.env`.
+#
+# (compose.env supplies the substitutions in THIS file. app.env, referenced
+# below, is the environment handed to the container. Different jobs.)
+#
+#   production   docker compose --env-file /opt/kidlearn/prod/compose.env \
+#                  -p kidlearn-prod -f compose.yml up -d
+#   development  docker compose --env-file /opt/kidlearn/dev/compose.env \
+#                  -p kidlearn-dev -f compose.yml -f compose.dev.yml up -d
+#
+# What the two environments SHARE is here; compose.dev.yml describes exactly how
+# they differ. That is the property that stops them drifting apart.
+#
+# NOTHING HERE PUBLISHES A HOST PORT. Only Caddy binds 80 and 443 — `ss -tlnp` on
+# the box should show nothing else.
+
+services:
+  api:
+    image: ${ECR_REGISTRY}/kidlearn-api:${IMAGE_TAG}
+    container_name: ${ENV_NAME}-api
+    restart: unless-stopped
+    # Written by deploy.sh from SSM Parameter Store: root-owned, mode 0600, one
+    # file per environment. No secret is committed, baked into an image, or held
+    # by GitHub.
+    # Block style, not the flow form `[...]`: a YAML flow sequence cannot hold an
+    # unquoted `${ENV_NAME}` — the brace opens a flow mapping and the parse fails.
+    env_file:
+      - /opt/kidlearn/${ENV_NAME}/app.env
+    environment:
+      # BOTH ENVIRONMENTS RUN NODE_ENV=production. "Development" names the
+      # environment, not the Node mode — a dev deployment that runs React in
+      # development mode and sets non-Secure cookies is not testing what
+      # production will do. Hostnames, database, credentials and ENABLE_API_DOCS
+      # are the whole difference.
+      NODE_ENV: production
+      PORT: "4000"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # /docs describes the entire API surface, so production says false and
+      # answers 404. Dev says true — it is where you read it.
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
+      PARENT_POST_LOGIN_PATH: /parent
+      APP_TIMEZONE: Asia/Dhaka
+      GEMINI_TEXT_MODEL: ${GEMINI_TEXT_MODEL:-gemini-3.6-flash}
+      GEMINI_IMAGE_MODEL: ${GEMINI_IMAGE_MODEL:-gemini-2.5-flash-image}
+      GOOGLE_TTS_VOICE_EN: en-US-Standard-C
+      GOOGLE_TTS_VOICE_BN: bn-IN-Standard-A
+      # Dev must not be able to spend production's share of the SHARED Google
+      # Cloud TTS allowance — the one third-party account the two environments
+      # have in common (file 38 req 15).
+      AI_TEXT_JOBS_PER_DAY: ${AI_TEXT_JOBS_PER_DAY:-8}
+      AI_AUDIO_JOBS_PER_DAY: ${AI_AUDIO_JOBS_PER_DAY:-100}
+      AI_IMAGE_JOBS_PER_DAY: ${AI_IMAGE_JOBS_PER_DAY:-15}
+    networks:
+      kidlearn-edge:
+        # The alias the Caddyfile names. NOT the service name: both stacks call
+        # this service `api`, and on a shared network Compose registers the
+        # service name as an alias too — `reverse_proxy api:4000` would resolve to
+        # whichever stack answered DNS first, arbitrarily, and could put dev
+        # traffic on the production database.
+        aliases: ["${ENV_NAME}-api"]
+      internal:
+    healthcheck:
+      # /health is DB-free, so this reports the process rather than the database.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      # pino writes JSON to stdout and nothing rotates it. Without this the API's
+      # log fills the 20 GB EBS volume, and a full disk takes the production
+      # container down with it (file 38, "API runtime is soft-isolated").
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  migrate:
+    image: ${ECR_REGISTRY}/kidlearn-migrate:${IMAGE_TAG}
+    container_name: ${ENV_NAME}-migrate
+    # Run on demand, never as part of `up`:
+    #   docker compose -p kidlearn-<env> --profile migrate run --rm migrate
+    profiles: [migrate]
+    env_file:
+      - /opt/kidlearn/${ENV_NAME}/app.env
+    # `migrate deploy` uses DIRECT_URL, which is in app.env alongside DATABASE_URL.
+    # Not on the edge network: it talks to the database, never to Caddy.
+    networks: [internal]
+
+networks:
+  # Created by deploy/edge/compose.yml. Bring the edge stack up first.
+  kidlearn-edge:
+    external: true
+    name: kidlearn-edge
+  internal:

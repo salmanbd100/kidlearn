@@ -1,0 +1,61 @@
+# Overlay for the DEVELOPMENT API stack only. Everything the two environments
+# share is in compose.yml; this file is exactly how they differ.
+#
+#   docker compose --env-file /opt/kidlearn/dev/compose.env \
+#     -p kidlearn-dev -f compose.yml -f compose.dev.yml up -d
+#
+# Production never loads this file, so it never gets a Postgres container and its
+# API is never memory-capped.
+
+services:
+  api:
+    depends_on:
+      dev-postgres:
+        condition: service_healthy
+    # NOT to save memory — to make the kernel's choice deterministic. Under
+    # pressure the OOM killer should take a dev container, and without limits it
+    # picks by heuristic and does not know which container is production.
+    # bootstrap.sh also provisions 2 GB of swap: not to run in, but so that a
+    # spike degrades instead of being killed.
+    mem_limit: 400m
+
+  migrate:
+    depends_on:
+      dev-postgres:
+        condition: service_healthy
+
+  dev-postgres:
+    image: postgres:16-alpine
+    container_name: dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kidlearn
+      POSTGRES_DB: kidlearn
+      # From /kidlearn/dev/POSTGRES_PASSWORD in SSM, written into the env file by
+      # deploy.sh. Must match the credentials inside the dev DATABASE_URL.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for the dev stack}
+    # NO `ports:` — deliberately. Nothing outside this stack may reach it, and
+    # `ss -tlnp` on the box must show only Caddy on 80/443.
+    networks: [internal]
+    volumes:
+      - dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The migrate job must not race the database on first boot. Without this
+      # gate, `migrate deploy` starts against a Postgres that is still running its
+      # init scripts and fails in a way that looks like a bad migration.
+      test: ["CMD-SHELL", "pg_isready -U kidlearn -d kidlearn"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    mem_limit: 400m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  # DELIBERATELY DISPOSABLE AND NEVER BACKED UP. That is the point of it: dev is
+  # where a migration gets tried against a real deploy, and a bad one is undone
+  # with `docker compose -p kidlearn-dev down -v`, then migrate, then seed. The
+  # one-liner is in document/runbook.md, where it can be found in a hurry.
+  dev_pgdata:

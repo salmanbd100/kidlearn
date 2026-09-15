@@ -1,0 +1,41 @@
+# The edge stack — Caddy, and the network both API stacks attach to.
+#
+#   docker compose -p kidlearn-edge -f deploy/edge/compose.yml up -d
+#
+# Its own Compose project so that redeploying either API stack never restarts the
+# process holding the certificates. Three projects on one box: kidlearn-edge,
+# kidlearn-prod, kidlearn-dev.
+#
+# Bring this up FIRST. It creates the `kidlearn-edge` network the application
+# stacks declare as `external: true`.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: kidlearn-caddy
+    restart: unless-stopped
+    # The only host ports bound anywhere on this box. 80 is ACME's HTTP-01
+    # challenge and the redirect to 443; 443/udp is HTTP/3.
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # LOAD-BEARING. `caddy_data` holds the ACME account key and both
+      # certificates. Losing it on every deploy re-requests them until Let's
+      # Encrypt's rate limit (5 duplicate certificates per week) locks you out —
+      # which is a week of no TLS, not an inconvenience. A named volume, never a
+      # bind mount into a directory a deploy script might clean.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [kidlearn-edge]
+
+networks:
+  # Declared here and only here; both application stacks join it as external.
+  kidlearn-edge:
+    name: kidlearn-edge
+
+volumes:
+  caddy_data:
+  caddy_config:
