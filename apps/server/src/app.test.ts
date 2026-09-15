@@ -3,7 +3,7 @@ import {
   ServiceIdentityResponseSchema,
 } from "@kidlearn/types";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { assertContract } from "./openapi/assert-contract.js";
@@ -97,5 +97,41 @@ describe("CORS", () => {
       .set("Access-Control-Request-Method", "GET");
 
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
+
+describe("trust proxy", () => {
+  // Caddy terminates TLS in front of the API container in both deployed
+  // environments (file 38 req 7). Without this, `req.protocol` is `http` inside
+  // the container and better-auth refuses to set a `Secure` session cookie — a
+  // failure that only appears once the app is behind a real proxy.
+  async function buildWith(nodeEnv: "production" | "test") {
+    vi.resetModules();
+    vi.doMock("./config/env.js", async () => {
+      const actual =
+        await vi.importActual<typeof import("./config/env.js")>(
+          "./config/env.js",
+        );
+      return { ...actual, env: { ...actual.env, NODE_ENV: nodeEnv } };
+    });
+    const { buildApp } = await import("./app.js");
+    return buildApp();
+  }
+
+  afterEach(() => {
+    vi.doUnmock("./config/env.js");
+    vi.resetModules();
+  });
+
+  it("trusts exactly one proxy hop in production", async () => {
+    const production = await buildWith("production");
+
+    expect(production.get("trust proxy")).toBe(1);
+  });
+
+  it("trusts no proxy outside production, so req.ip cannot be forged", async () => {
+    const outsideProduction = await buildWith("test");
+
+    expect(outsideProduction.get("trust proxy")).toBe(false);
   });
 });

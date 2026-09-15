@@ -1,0 +1,89 @@
+# Build context for apps/server/Dockerfile and apps/web/Dockerfile, both of which
+# are built from the REPOSITORY ROOT — pnpm workspaces need the lockfile and every
+# workspace manifest, so a context rooted at one app cannot resolve.
+#
+# EVERY PATTERN IS WRITTEN IN BOTH FORMS, and that is not belt-and-braces. A
+# .dockerignore pattern with no leading `**` is anchored to the context ROOT, so a
+# bare `.env` excludes only /.env and a bare `dist` excludes only /dist — neither
+# touches packages/db/.env, apps/web/.env.local or apps/server/dist, which is
+# where this repository's credentials and stale build output actually live. The
+# single-form version of this file was written first and verified by building the
+# image and listing it: it shipped a developer's .env and a pre-#49 dist/index.js.
+
+# --- Credentials. The load-bearing part of this file ------------------------
+# Without these, `COPY . .` bakes a developer's real Supabase and Google
+# credentials into a layer that is then pushed to ECR. The `.env.example`
+# exceptions mirror .gitignore — templates hold variable names, not values. The
+# npm/pnpm rc files are here for the same reason: a registry auth token in one
+# would otherwise ride along in a pushed layer.
+# The re-includes need BOTH spellings for the same anchoring reason as the
+# excludes, and `.env.local.example` needs its own: `*.env.example` requires the
+# name to END in `.env.example`, which `.env.local.example` does not — it was
+# silently excluded while the comment claimed these mirror .gitignore.
+.env
+.env.*
+**/.env
+**/.env.*
+!*.env.example
+!**/*.env.example
+!*.env.*.example
+!**/*.env.*.example
+.npmrc
+**/.npmrc
+*.pem
+**/*.pem
+*.key
+**/*.key
+
+# --- Installed and generated inside the image -------------------------------
+# Copying a host node_modules in is both slow and wrong: arm64-vs-x86 native
+# binaries, and symlinks into a pnpm store that does not exist in the container.
+node_modules
+**/node_modules
+.pnpm-store
+**/.pnpm-store
+
+# --- Build output, regenerated inside the image -----------------------------
+# A stale host copy is worse than none: `tsc` overwrites what it emits but never
+# deletes what it does not, so a leftover dist/index.js from before the module
+# reorganisation survives into the image and fails only at container start.
+dist
+**/dist
+build
+**/build
+out
+**/out
+.next
+**/.next
+.turbo
+**/.turbo
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# --- Never needed at build or runtime ---------------------------------------
+coverage
+**/coverage
+.git
+.github
+.vercel
+**/.vercel
+document
+deploy
+docker
+docker-compose.yml
+docker-compose.override.yml
+**/Dockerfile
+**/README.md
+**/*.test.ts
+**/*.test.tsx
+**/AGENTS.md
+**/CLAUDE.md
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.vscode
+.idea
+*.swp
+*.swo
+npm-debug.log*
+.pnpm-debug.log*
