@@ -5,6 +5,11 @@
 > written to be read in a hurry. Design rationale lives in
 > `document/implementation/38-deployment-aws-docker.md`; this file is procedure.
 >
+> **Bringing this into existence for the first time?** You want
+> `document/deployment-walkthrough.md`, not this file. It is the same work in
+> beginner's order, with every command spelled out and the AWS vocabulary
+> explained. Come back here once production is up.
+>
 > **Status:** the repository half of file 38 is implemented and verified locally.
 > **No AWS, Vercel, Cloudflare or Supabase resource has been provisioned yet.**
 > Every value written `<like-this>` is a placeholder to be filled in on the day it
@@ -59,16 +64,77 @@ else in the design changes.
 
 ## 2. Getting a shell — and the logs
 
-**There is no SSH. The security group has no port 22 rule at all.**
+**The security group has no port 22 rule, and does not need one.** There are
+three ways in, all through Session Manager, which needs no inbound rule and
+leaves an audit trail.
+
+If none of them works, the instance role has lost `AmazonSSMManagedInstanceCore`
+or the agent is down — that is the thing to fix, not a temporary port 22 rule.
+
+**1. Browser.** EC2 console → tick the instance → **Connect** → **Session
+Manager** → Connect. Nothing to install; useful from a machine that is not yours.
+
+**2. Terminal, quickest.**
 
 ```bash
 aws ssm start-session --target <instance-id> --region ap-south-1
 sudo su -
 ```
 
-Session Manager needs no inbound rule and leaves an audit trail. If this does not
-work, the instance role has lost `AmazonSSMManagedInstanceCore` or the agent is
-down — that is the thing to fix, not a temporary port 22 rule.
+**3. Real SSH from your own terminal — `ssh`, `scp`, `rsync`, `ssh -L`, VS Code
+Remote.** Still over Session Manager: the transport is the SSM tunnel, so there
+is no open port and the session is still audited. See §2a for the one-time setup;
+afterwards it is:
+
+```bash
+ssh kidlearn                                   # a shell
+scp -r deploy/ kidlearn:/tmp/                  # copy files up
+rsync -az --delete deploy/ kidlearn:/tmp/deploy/
+ssh -L 5432:dev-postgres:5432 kidlearn         # tunnel a port to your machine
+```
+
+### 2a. One-time setup for SSH over Session Manager
+
+**On your Mac:**
+
+```bash
+brew install --cask session-manager-plugin
+session-manager-plugin                          # should print a version
+
+ssh-keygen -t ed25519 -f ~/.ssh/kidlearn -C "kidlearn-ec2"   # no passphrase needed
+```
+
+**Put the public key on the box**, once, using method 2 above:
+
+```bash
+aws ssm start-session --target <instance-id> --region ap-south-1
+sudo -u ec2-user bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh \
+  && echo "<paste the contents of ~/.ssh/kidlearn.pub>" >> ~/.ssh/authorized_keys \
+  && chmod 600 ~/.ssh/authorized_keys'
+```
+
+**Then add to `~/.ssh/config` on your Mac:**
+
+```sshconfig
+Host kidlearn
+  HostName <instance-id>          # i-0abc…, NOT the Elastic IP
+  User ec2-user
+  IdentityFile ~/.ssh/kidlearn
+  ProxyCommand sh -c "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p' --region ap-south-1"
+```
+
+`HostName` is the **instance ID**, not an address — there is no address involved.
+`ssh` runs the `ProxyCommand`, which opens an SSM tunnel and speaks SSH through
+it.
+
+Your IAM **user** needs `ssm:StartSession` on the instance and on
+`arn:aws:ssm:*::document/AWS-StartSSHSession`. An account administrator already
+has it; the instance role from the walkthrough's A9 covers the other end.
+
+You land as `ec2-user`; `sudo su -` for root as usual.
+
+> Rotating or revoking access is `authorized_keys` on the box plus the IAM
+> permission — there is still nothing listening on port 22 to attack.
 
 ```bash
 # API logs, per environment
@@ -569,6 +635,9 @@ nmap <elastic-ip>                                # only 80 and 443 open
 ---
 
 ## 15. First-time provisioning order ⬜ not yet done
+
+**`document/deployment-walkthrough.md` is this list with the commands filled in.**
+Follow that; this is the summary to check yourself against.
 
 Production first, completely, then dev — so a half-finished dev environment can
 never be the reason production is not up. Within production, the API comes up
