@@ -13,7 +13,6 @@ import { Providers } from "@/shared/components/Providers";
 import { LOCALE_COOKIE_NAME, toLocale } from "@/shared/lib/locale";
 import "./globals.css";
 
-// Design-system fonts (document/design.md §3.1). Variable fonts → no weights.
 const fredoka = Fredoka({
   variable: "--font-fredoka",
   subsets: ["latin"],
@@ -34,8 +33,7 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
 });
-// Bengali glyph coverage for the whole interface — the `:lang(bn)` stack in
-// globals.css puts this in front of the Latin families (FR-I18N-01).
+
 const notoSansBengali = Noto_Sans_Bengali({
   variable: "--font-noto-bengali",
   subsets: ["bengali", "latin"],
@@ -53,17 +51,6 @@ const fontVariables = [
 const SITE_NAME = "KidLearn";
 
 export const metadata: Metadata = {
-  /**
-   * Absolute base for every URL-based metadata field, so a relative `url` or a
-   * future OG image resolves against the environment that rendered it rather
-   * than warning at build time — and so the dev build's canonical URLs point at
-   * dev instead of at production (file 38 req 19).
-   *
-   * `|| `, not `?? `: an omitted `--build-arg` in apps/web/Dockerfile and a
-   * blank Vercel project variable both produce a defined EMPTY string, which
-   * `??` passes straight through to `new URL("")` — that throws at module
-   * scope in the root layout and fails every route in the build, not one page.
-   */
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000",
   ),
@@ -82,26 +69,17 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-/**
- * Every route in this app is dynamic (`ƒ` in the build output), and that is a
- * decision rather than an oversight — recorded here because it looks like one.
- */
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
-  // Read here rather than detecting in the browser: the server has to emit the
-  // right language in the first response, or a Bangla visitor gets a flash of
-  // English and a hydration mismatch. See the note in `lib/i18n.ts`.
   const cookieStore = await cookies();
   const locale = toLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
 
   return (
     <html
       lang={locale}
-      // The bootstrap script below edits this element's class list before React
-      // hydrates, which is the point — the difference is expected.
       suppressHydrationWarning
       className={`${fontVariables} h-full antialiased`}
     >
