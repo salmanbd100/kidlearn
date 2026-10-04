@@ -21,7 +21,7 @@
 | 3 | R-03 | Quiz submission bypasses the screen-time lock | Medium | server | — | 1h | 🟨 In progress | `assertMayOpenLesson` before grading — only blocks when no progress row exists, so a lesson under way still finishes |
 | 4 | R-04 | Quiz responses not awaited before `completeLesson` — rewards lost | Medium | web, server | — | 2h | 🟨 In progress | `RewardStep` awaits a per-lesson `PendingWrites` before completing (bounded by the 20s fetch timeout). Submission still `retries: 0` — making it idempotent per question/attempt is left open, so a dropped upload still loses the quiz reward |
 | 5 | R-05 | One invalid payload 500s the whole lesson | Medium | server | — | 1h | 🟨 In progress | Corrupt or mismatched activity → `null`, question → omitted, all questions → `quiz: null`; each still logged at `error` |
-| 6 | R-10 | Parent lock overlaps kid controls in lesson and story | High | web | — | 1h | ⬜ Not started | Measure the overlap first |
+| 6 | R-10 | Parent lock overlaps kid controls in lesson and story | High | web | — | 1h | 🟨 In progress | Overlap computed from classes, not measured on a device: lock covers a 36×36px patch of the exit X. Lock now hidden on `/lesson/*` and `/stories/[id]` |
 | 7 | R-07 | Child-profile deletion uses the 5s transaction default | Medium | server | — | 1h | ⬜ Not started | |
 | 8 | R-08 | Weekly-report job reports success on failure; curl retry runs it twice | Medium | server, deploy | — | 2h | ⬜ Not started | |
 | 9 | R-06 | Lesson/story completion without play-through | Low/Med | server | R-03 | 2h | ⬜ Not started | |
