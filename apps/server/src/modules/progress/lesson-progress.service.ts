@@ -201,6 +201,10 @@ export async function recordQuizResponses(
     throw ApiError.notFound("Quiz not found");
   }
 
+  // Recording the responses creates the progress row when none exists, so it is
+  // held to the same gate as the first step report.
+  await assertMayOpenLesson(child.id, lesson.id);
+
   const questions = new Map(
     lesson.quiz.questions.map((question) => [question.id, question]),
   );

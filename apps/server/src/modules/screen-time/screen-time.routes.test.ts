@@ -827,7 +827,8 @@ describe("the gate on GET /api/content/stories/:id", () => {
  * means the endpoints it finishes *through* are not gated — otherwise the
  * exemption on the read would hand a child a lesson they could not complete.
  *
- * The one exception is the report that would *create* the progress row: a row
+ * The exception is any write that would *create* the progress row — the first
+ * step report, or a quiz submission on a lesson never opened: a row
  * under 30 minutes old is what makes the read allow a lesson past the limit, so
  * letting a blocked child write one would be a way to mint the exemption.
  */
@@ -881,6 +882,28 @@ describe("endpoints the gate never touches", () => {
     expect(res.status).toBe(423);
     expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
     expect(db.progressCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses the quiz submission that would open a lesson while the child is blocked", async () => {
+    // R-03. A quiz submission also creates the progress row when none exists,
+    // so without the same gate it mints the resume exemption just as a first
+    // step report would.
+    signInAs();
+    store.lessonProgress = null;
+    db.lessonFindFirst.mockResolvedValue({
+      id: LESSON_ID,
+      quiz: { questions: [{ id: "q_1", definition: {} }] },
+    });
+
+    const res = await request(app)
+      .post(`/api/progress/quizzes/${OTHER_LESSON_ID}/responses`)
+      .send({
+        responses: [{ questionId: "q_1", answer: "apple", attempts: 1 }],
+      });
+
+    expect(res.status).toBe(423);
+    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 
   it("keeps accepting heartbeats while the child is blocked", async () => {
