@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch, RETRY_BACKOFF_MS, signOut } from "./api-client";
+import {
+  apiFetch,
+  DEFAULT_TIMEOUT_MS,
+  RETRY_BACKOFF_MS,
+  signOut,
+} from "./api-client";
 
 /**
  * `fetch` is the only thing stubbed here — the envelope handling, the retry
@@ -147,6 +152,102 @@ describe("apiFetch", () => {
     if (result.ok) throw new Error("expected a failure");
     expect(result.error.code).toBe("NETWORK_ERROR");
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  describe("timeout", () => {
+    /** A fetch that never settles on its own, as on a stalled connection. */
+    function stubStalledFetch() {
+      const fetchMock = vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError")),
+            );
+          }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    it("gives up on a request that never answers instead of hanging", async () => {
+      stubStalledFetch();
+
+      const pending = apiFetch("/api/health", { retries: 0 });
+      await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+      const result = await pending;
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected a failure");
+      expect(result.error.code).toBe("NETWORK_ERROR");
+      expect(result.error.message).toMatch(/timed out/i);
+    });
+
+    it("retries a stalled read, so a dead connection gets another go", async () => {
+      const fetchMock = stubStalledFetch();
+
+      const pending = apiFetch("/api/health", { retries: 1 });
+      await vi.advanceTimersByTimeAsync(
+        DEFAULT_TIMEOUT_MS + RETRY_BACKOFF_MS[0] + DEFAULT_TIMEOUT_MS,
+      );
+      await pending;
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("honours a timeoutMs override", async () => {
+      stubStalledFetch();
+
+      const pending = apiFetch("/api/health", { retries: 0, timeoutMs: 500 });
+      await vi.advanceTimersByTimeAsync(500);
+
+      await expect(pending).resolves.toMatchObject({ ok: false });
+    });
+
+    it("passes a caller's abort through to the request", async () => {
+      stubStalledFetch();
+      const caller = new AbortController();
+
+      const pending = apiFetch("/api/health", {
+        retries: 0,
+        signal: caller.signal,
+      });
+      caller.abort();
+
+      await expect(pending).resolves.toMatchObject({
+        ok: false,
+        error: { code: "NETWORK_ERROR" },
+      });
+    });
+
+    it("does not time out a request that answers in time", async () => {
+      stubFetch(jsonResponse(200, { data: { ok: true } }));
+
+      const result = await apiFetch("/api/health");
+      await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+
+      expect(result).toEqual({ ok: true, data: { ok: true } });
+    });
+  });
+
+  it("maps a non-envelope error body to a code from its status", async () => {
+    const html = (status: number) =>
+      new Response("<html>gateway</html>", { status });
+    const results = await Promise.all(
+      [400, 401, 403, 404, 409].map((status) => {
+        stubFetch(html(status));
+        return apiFetch("/api/health", { retries: 0 });
+      }),
+    );
+
+    expect(
+      results.map((result) => (result.ok ? "ok" : result.error.code)),
+    ).toEqual([
+      "VALIDATION_FAILED",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "NOT_FOUND",
+      "CONFLICT",
+    ]);
   });
 
   it("honours a retries override of 0", async () => {

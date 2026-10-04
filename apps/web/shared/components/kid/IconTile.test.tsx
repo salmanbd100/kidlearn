@@ -93,9 +93,7 @@ describe("IconTile", () => {
   it("keeps a visible focus ring for keyboard users", () => {
     renderWithAudio(<IconTile label="Numbers" />);
 
-    expect(screen.getByRole("button")).toHaveClass(
-      "focus-visible:ring-2",
-      "focus-visible:ring-ring",
-    );
+    // `focus-ring` is the one utility that carries the ring (app/globals.css).
+    expect(screen.getByRole("button")).toHaveClass("focus-ring");
   });
 });

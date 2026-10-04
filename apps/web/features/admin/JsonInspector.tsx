@@ -2,7 +2,6 @@
 
 import { Button, cn } from "@kidlearn/ui";
 import { useState } from "react";
-import { FOCUS_RING } from "@/features/admin/focus-ring";
 
 /** The audit record, readable (file 37, FR-AI-08, FR-CMS-05). */
 export interface JsonInspectorProps {
@@ -37,7 +36,7 @@ export function JsonInspector({ title, value, className }: JsonInspectorProps) {
       <summary
         className={cn(
           "flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-[var(--radius)] px-3 font-medium text-foreground text-sm",
-          FOCUS_RING,
+          "focus-ring",
         )}
       >
         {title}

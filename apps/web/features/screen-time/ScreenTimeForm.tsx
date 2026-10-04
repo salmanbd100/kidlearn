@@ -14,8 +14,8 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { screenTimeErrorKey } from "@/features/parent/parent-errors";
 import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
+import { SegmentedField } from "@/shared/components/SegmentedField";
 import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { SegmentedField } from "../../shared/components/SegmentedField";
 
 /**
  * The parent's screen-time controls for one child (FR-TIME-01, FR-TIME-04..05).

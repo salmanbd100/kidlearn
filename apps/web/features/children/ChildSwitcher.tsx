@@ -39,7 +39,7 @@ export function ChildSwitcher({
                 className={cn(
                   // 44px minimum touch target on a parent surface (design.md §7).
                   "flex min-h-11 items-center gap-2 rounded-[var(--radius)] border px-3 py-2 font-medium text-sm transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "focus-ring",
                   isSelected
                     ? "border-primary bg-primary/10 text-foreground"
                     : "border-border bg-card text-muted-foreground hover:text-foreground",

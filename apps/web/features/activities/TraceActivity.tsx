@@ -1,12 +1,14 @@
 "use client";
 
 import type { TraceActivity as TraceDefinition } from "@kidlearn/types";
-import { useId, useMemo } from "react";
+import { useEffect, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { ActivityUnavailable } from "./ActivityUnavailable";
 import type { ActivityRendererProps } from "./registry";
 import { arrowsAlong, type Point, toPathUnits } from "./trace/geometry";
 import { useTraceState } from "./trace/use-trace-state";
+import { oopsAudioUrl } from "./use-activity-feedback";
 
 // Draw the letter with your finger (FR-ACT-02).
 
@@ -38,6 +40,7 @@ function toPolyline(points: readonly Point[]): string {
 
 export function TraceActivity({
   definition,
+  locale,
   feedback,
   onActivityComplete,
 }: ActivityRendererProps<TraceDefinition>) {
@@ -57,6 +60,18 @@ export function TraceActivity({
     handlePointerUp,
     handleKeyDown,
   } = useTraceState(definition, feedback, onActivityComplete);
+
+  const hasNoStrokes = strokes.length === 0;
+
+  useEffect(() => {
+    if (!hasNoStrokes) return;
+    // `pathData` passes the schema without being parseable as SVG, so the engine's
+    // validation never sees it — this line is the only trace of the content incident.
+    console.error(
+      "[kidlearn] trace path produced no strokes",
+      definition.glyph,
+    );
+  }, [hasNoStrokes, definition.glyph]);
 
   const currentStroke = strokes[strokeIndex];
   const isFinished = strokes.length > 0 && strokeIndex >= strokes.length;
@@ -82,6 +97,16 @@ export function TraceActivity({
   // Where the child should put their finger: the start of the stroke, or wherever
   // they got to if they have already begun and lifted off.
   const startPoint = currentStroke?.points[Math.max(frontier, 0)];
+
+  if (hasNoStrokes) {
+    return (
+      <ActivityUnavailable
+        message={t("activity.oops")}
+        audioUrl={oopsAudioUrl(locale)}
+        onSkip={onActivityComplete}
+      />
+    );
+  }
 
   return (
     <div
@@ -131,7 +156,7 @@ export function TraceActivity({
         role="application"
         aria-label={t("activity.trace.label", { glyph: definition.glyph })}
         aria-describedby={instructionsId}
-        className="h-full max-h-[70vh] w-auto max-w-full touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="h-full max-h-[70vh] w-auto max-w-full touch-none select-none focus-ring"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

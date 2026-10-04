@@ -34,7 +34,7 @@ const heartbeat = vi.hoisted(() => ({
 const audio = vi.hoisted(() => ({
   play: vi.fn(),
   stop: vi.fn(),
-  finishCurrentClip: () => {},
+  finishCurrentClip: (_outcome: "ended" | "unplayed" = "ended") => {},
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -97,9 +97,9 @@ function currentPage(): string | null {
 }
 
 /** Ends the narration and runs out the hold before the page turns itself. */
-async function finishNarrationAndWait() {
+async function finishNarrationAndWait(outcome: "ended" | "unplayed" = "ended") {
   await act(async () => {
-    audio.finishCurrentClip();
+    audio.finishCurrentClip(outcome);
     await vi.advanceTimersByTimeAsync(1500);
   });
 }
@@ -110,7 +110,8 @@ beforeEach(() => {
   router.push.mockReset();
   audio.stop.mockReset();
   audio.play.mockReset().mockImplementation(async (_url, opts) => {
-    audio.finishCurrentClip = () => opts?.onFinished?.();
+    audio.finishCurrentClip = (outcome = "ended") =>
+      opts?.onFinished?.(outcome);
   });
   content.getStory.mockReset().mockResolvedValue({
     ok: true,
@@ -207,6 +208,16 @@ describe("auto-advance", () => {
     await finishNarrationAndWait();
 
     expect(currentPage()).toBe("2");
+  });
+
+  it("does not turn the page when the clip was never heard", async () => {
+    await renderReader();
+
+    await finishNarrationAndWait("unplayed");
+
+    // Muted, blocked or failed to load: flipping on would carry the child past
+    // text they have not read, with no voice to tell them the page changed.
+    expect(currentPage()).toBe("1");
   });
 
   it("holds the page while the narration is still playing", async () => {

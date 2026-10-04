@@ -1,4 +1,4 @@
-import { StudentGuard } from "../StudentGuard";
+import { StudentGuard } from "@/app/(student)/StudentGuard";
 import { StoriesScreen } from "./StoriesScreen";
 
 /** The story library, reachable from the main menu at any time (FR-STORY-01). */

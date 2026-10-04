@@ -16,13 +16,13 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import type { ApiResult } from "../../shared/api/api-client";
 import {
   activateChild,
   fetchAuthMe,
   listAvatars,
   listChildren,
-} from "../parent/parent-api";
+} from "@/features/parent/parent-api";
+import type { ApiResult } from "@/shared/api/api-client";
 
 // Who is playing, for the whole `(student)` route group.
 
@@ -47,6 +47,7 @@ export interface ActiveChildValue {
   activate: (
     childId: string,
   ) => Promise<ApiResult<{ activeChildProfileId: string }>>;
+  /** Reloads from the loading state, so the screen shows something is happening. */
   refresh: () => Promise<void>;
 }
 
@@ -114,6 +115,11 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     setStatus("ready");
   }, []);
 
+  const refresh = useCallback(async () => {
+    setStatus("loading");
+    await load();
+  }, [load]);
+
   useEffect(() => {
     void load();
     return () => {
@@ -153,9 +159,9 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
       child,
       isWakingUp,
       activate,
-      refresh: load,
+      refresh,
     }),
-    [status, parent, profiles, avatars, child, isWakingUp, activate, load],
+    [status, parent, profiles, avatars, child, isWakingUp, activate, refresh],
   );
 
   return (

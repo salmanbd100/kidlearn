@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AudioProvider, useAudio } from "./AudioProvider";
+import { AudioProvider, type PlayOptions, useAudio } from "./AudioProvider";
 
 /**
  * `HTMLAudioElement` is the external boundary here — jsdom has no media stack,
@@ -13,7 +14,10 @@ class MockAudio {
   play = vi.fn(() => Promise.resolve());
   pause = vi.fn();
   currentTime = 0;
-  addEventListener = vi.fn();
+  listeners: Record<string, () => void> = {};
+  addEventListener = vi.fn((type: string, listener: () => void) => {
+    this.listeners[type] = listener;
+  });
   removeEventListener = vi.fn();
 
   constructor(public readonly src: string) {
@@ -149,5 +153,133 @@ describe("AudioProvider", () => {
 
     expect(MockAudio.instances[0].pause).toHaveBeenCalledOnce();
     expect(screen.getByRole("status")).toHaveTextContent("silent");
+  });
+
+  describe("onFinished", () => {
+    function ClipHarness({ options }: { options: PlayOptions }) {
+      const { play, stop } = useAudio();
+      return (
+        <div>
+          <button type="button" onClick={() => void play("/a.mp3", options)}>
+            play-a
+          </button>
+          <button type="button" onClick={() => void play("/b.mp3")}>
+            play-b
+          </button>
+          <button type="button" onClick={stop}>
+            stop-clip
+          </button>
+        </div>
+      );
+    }
+
+    function renderClip(options: PlayOptions) {
+      return render(
+        <AudioProvider>
+          <ClipHarness options={options} />
+        </AudioProvider>,
+      );
+    }
+
+    it("reports ended when the clip plays to its end", async () => {
+      const onFinished = vi.fn();
+      renderClip({ onFinished });
+
+      fireEvent.click(screen.getByText("play-a"));
+      await waitFor(() => expect(MockAudio.instances).toHaveLength(1));
+      MockAudio.instances[0].listeners.ended?.();
+
+      expect(onFinished).toHaveBeenCalledExactlyOnceWith("ended");
+    });
+
+    it("reports unplayed when the clip fails to load", async () => {
+      const onFinished = vi.fn();
+      renderClip({ onFinished });
+
+      fireEvent.click(screen.getByText("play-a"));
+      await waitFor(() => expect(MockAudio.instances).toHaveLength(1));
+      MockAudio.instances[0].listeners.error?.();
+
+      expect(onFinished).toHaveBeenCalledExactlyOnceWith("unplayed");
+    });
+
+    it("reports unplayed when autoplay policy rejects the clip", async () => {
+      const onFinished = vi.fn();
+      vi.stubGlobal(
+        "Audio",
+        class extends MockAudio {
+          play = vi.fn(() =>
+            Promise.reject(new DOMException("blocked", "NotAllowedError")),
+          );
+        },
+      );
+      renderClip({ onFinished });
+
+      fireEvent.click(screen.getByText("play-a"));
+
+      await waitFor(() =>
+        expect(onFinished).toHaveBeenCalledExactlyOnceWith("unplayed"),
+      );
+    });
+
+    it("stays silent when a newer clip aborts a pending one", async () => {
+      const onFinished = vi.fn();
+      let rejectFirst: (reason: unknown) => void = () => {};
+      let isFirst = true;
+      vi.stubGlobal(
+        "Audio",
+        class extends MockAudio {
+          play = vi.fn(() => {
+            if (!isFirst) return Promise.resolve();
+            isFirst = false;
+            return new Promise<void>((_resolve, reject) => {
+              rejectFirst = reject;
+            });
+          });
+        },
+      );
+      renderClip({ onFinished });
+
+      fireEvent.click(screen.getByText("play-a"));
+      await waitFor(() => expect(MockAudio.instances).toHaveLength(1));
+      fireEvent.click(screen.getByText("play-b"));
+      // What `pause()` does to a `play()` still pending.
+      rejectFirst(new DOMException("interrupted", "AbortError"));
+      await Promise.resolve();
+
+      expect(onFinished).not.toHaveBeenCalled();
+    });
+
+    it("stays silent when stop() cuts the clip off", async () => {
+      const onFinished = vi.fn();
+      renderClip({ onFinished });
+
+      fireEvent.click(screen.getByText("play-a"));
+      await waitFor(() => expect(MockAudio.instances).toHaveLength(1));
+      fireEvent.click(screen.getByText("stop-clip"));
+      MockAudio.instances[0].listeners.error?.();
+
+      expect(onFinished).not.toHaveBeenCalled();
+    });
+  });
+
+  it("silences a clip a child effect started before the stored mute was read", async () => {
+    window.localStorage.setItem("kidlearn_audio_muted", "true");
+    function PlaysOnMount() {
+      const { play } = useAudio();
+      useEffect(() => {
+        void play("/audio/first-screen.mp3");
+      }, [play]);
+      return null;
+    }
+
+    render(
+      <AudioProvider>
+        <PlaysOnMount />
+      </AudioProvider>,
+    );
+
+    await waitFor(() => expect(MockAudio.instances).toHaveLength(1));
+    expect(MockAudio.instances[0].pause).toHaveBeenCalled();
   });
 });

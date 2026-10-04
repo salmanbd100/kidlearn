@@ -73,14 +73,19 @@ function mediaRemotePatterns(): RemotePatterns {
  * The API host carries the same header from a Caddy `header` directive; this
  * covers the web host only.
  */
-const noindexHeaders: NonNullable<NextConfig["headers"]> = async () => {
-  if (process.env.SITE_NOINDEX !== "true") return [];
-  return [
-    {
-      source: "/:path*",
-      headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
-    },
+const siteHeaders: NonNullable<NextConfig["headers"]> = async () => {
+  const headers = [
+    // The parent dashboard can edit or delete a child's profile on a tablet where
+    // the Google session persists, so no page may be framed by another origin.
+    { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+    { key: "X-Content-Type-Options", value: "nosniff" },
+    // `?child=<id>` is in dashboard URLs; keep it out of any outbound Referer.
+    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   ];
+  if (process.env.SITE_NOINDEX === "true") {
+    headers.push({ key: "X-Robots-Tag", value: "noindex, nofollow" });
+  }
+  return [{ source: "/:path*", headers }];
 };
 
 const nextConfig: NextConfig = {
@@ -105,7 +110,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: mediaRemotePatterns(),
   },
-  headers: noindexHeaders,
+  headers: siteHeaders,
 };
 
 export default nextConfig;

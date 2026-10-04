@@ -9,7 +9,7 @@ import Image from "next/image";
 // One answer, as something a child taps (FR-QUIZ-01, FR-QUIZ-04).
 
 const optionCardVariants = cva(
-  "relative flex w-full flex-col items-center justify-center gap-2 rounded-lg border-4 bg-card p-3 text-card-foreground shadow-md transition-opacity [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "relative flex w-full flex-col items-center justify-center gap-2 rounded-lg border-4 bg-card p-3 text-card-foreground shadow-md transition-opacity [touch-action:manipulation] focus-ring",
   {
     variants: {
       shape: {

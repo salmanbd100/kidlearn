@@ -3,10 +3,11 @@
 import type { Locale } from "@kidlearn/types";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { StudentGuard } from "@/app/(student)/StudentGuard";
 import { fetchAdminMe } from "@/features/admin/admin-api";
 import { LessonPlayer } from "@/features/lesson/LessonPlayer";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
-import { StudentGuard, StudentStatus } from "../../StudentGuard";
 
 /** Who `?preview=1` actually gets the preview (file 33, FR-CMS-04). */
 export function LessonPreviewGate({

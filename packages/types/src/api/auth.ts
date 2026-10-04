@@ -31,4 +31,6 @@ export const AuthMeSchema = z
   })
   .strict();
 
+export type AuthMeResponse = z.infer<typeof AuthMeSchema>;
+
 export const AuthMeResponseSchema = ok(AuthMeSchema);

@@ -1,5 +1,5 @@
 import type { ZodIssue } from "zod";
-import type { ApiFailure } from "../../shared/api/api-client";
+import type { ApiFailure } from "@/shared/api/api-client";
 
 // Turning failures into i18next keys.
 

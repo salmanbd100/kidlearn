@@ -16,7 +16,10 @@ const audio = vi.hoisted(() => {
   const play = vi.fn(
     async (
       _url: string,
-      _opts?: { interrupt?: boolean; onFinished?: () => void },
+      _opts?: {
+        interrupt?: boolean;
+        onFinished?: (outcome: "ended" | "unplayed") => void;
+      },
     ) => {},
   );
   return {
@@ -89,7 +92,7 @@ function finishNarration(): void {
   // The mock's argument tuple is typed from the stub above, not from the real
   // hook, so the options object arrives wider than `PlayOptions`.
   const options = lastCall?.[1] as PlayOptions | undefined;
-  act(() => options?.onFinished?.());
+  act(() => options?.onFinished?.("ended"));
 }
 
 describe("IntroStep", () => {

@@ -6,7 +6,7 @@ import type {
   WorldSummaryResponse,
   WorldTopicLessonsResponse,
 } from "@kidlearn/types";
-import { type ApiResult, apiFetch } from "../../shared/api/api-client";
+import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
 // Typed wrappers over the student-facing curriculum API.
 

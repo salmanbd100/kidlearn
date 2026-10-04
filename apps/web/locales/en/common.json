@@ -9,7 +9,8 @@
     "next": "Next",
     "back": "Back",
     "tryAgain": "Try again",
-    "done": "Done!"
+    "done": "Done!",
+    "goHome": "Go home"
   },
   "loading": {
     "default": "Loading…",
@@ -18,7 +19,8 @@
   },
   "errors": {
     "network": "We can't reach KidLearn right now.",
-    "unknown": "Something went wrong."
+    "unknown": "Something went wrong.",
+    "notFound": "We can't find that page."
   },
   "language": {
     "label": "Language",

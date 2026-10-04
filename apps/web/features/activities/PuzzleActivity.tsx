@@ -34,7 +34,7 @@ const pieceVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a
   // 100ms hold, so the browser can keep owning scroll gestures that start on a
   // piece — which matters most here, where the tray is the thing that scrolls.
-  "size-20 shrink-0 cursor-grab rounded-md [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "size-20 shrink-0 cursor-grab rounded-md [touch-action:manipulation] focus-ring",
   {
     variants: {
       isDragging: {

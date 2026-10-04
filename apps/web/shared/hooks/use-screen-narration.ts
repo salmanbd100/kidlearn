@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
-import { type Locale, toLocale } from "../lib/locale";
+import { type Locale, toLocale } from "@/shared/lib/locale";
 
 /**
  * Says out loud what a screen is for, on arrival (NFR-A11Y-01, design.md §1).

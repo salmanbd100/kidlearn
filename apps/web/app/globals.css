@@ -7,6 +7,12 @@
    names would be purged. Explicitly register its source for class detection. */
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
+/* The visible focus ring design.md §7 requires on every interactive element.
+   One definition, so retuning its width, offset or contrast is one edit. */
+@utility focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
 /* Activity feedback (FR-ACT-05) — the "not quite, try again" shake.
    CSS rather than a Motion transform because the element already carries
    dnd-kit's own translate, which a second JS-written transform would fight.

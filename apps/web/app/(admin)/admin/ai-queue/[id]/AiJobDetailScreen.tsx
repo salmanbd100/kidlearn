@@ -5,6 +5,12 @@ import { Button, cn } from "@kidlearn/ui";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import {
+  AI_JOB_STATUS_LABELS,
+  AI_JOB_TYPE_LABELS,
+  decisionLabel,
+  formatRelativeAge,
+} from "@/app/(admin)/admin/ai-queue/job-labels";
 import { Chip, StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import {
   approveAiJob,
@@ -13,15 +19,8 @@ import {
 } from "@/features/admin/admin-api";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { FOCUS_RING } from "@/features/admin/focus-ring";
 import { JsonInspector } from "@/features/admin/JsonInspector";
 import { RejectDialog } from "@/features/admin/RejectDialog";
-import {
-  AI_JOB_STATUS_LABELS,
-  AI_JOB_TYPE_LABELS,
-  decisionLabel,
-  formatRelativeAge,
-} from "../job-labels";
 
 /**
  * `/admin/ai-queue/[id]` — read it, then decide (file 37, FR-CMS-05..06,
@@ -135,7 +134,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
           href={ADMIN_ROUTES.aiQueue}
           className={cn(
             "inline-flex min-h-11 items-center rounded-[var(--radius)] text-muted-foreground text-sm hover:text-foreground",
-            FOCUS_RING,
+            "focus-ring",
           )}
         >
           ← Back to the queue

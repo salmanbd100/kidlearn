@@ -15,8 +15,8 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { formatWeekRange } from "@/features/reports/week-range";
 import { formatMinutes } from "@/features/screen-time/duration";
+import { StatCard } from "@/shared/components/StatCard";
 import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { StatCard } from "../../shared/components/StatCard";
 
 /** One week, as the card at the top of `/parent/reports` (FR-DASH-05). */
 export interface ReportCardProps {

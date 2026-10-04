@@ -96,7 +96,7 @@ export function ConsentScreen() {
             type="checkbox"
             checked={isAccepted}
             onChange={(event) => setIsAccepted(event.target.checked)}
-            className="mt-0.5 size-5 shrink-0 accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="mt-0.5 size-5 shrink-0 accent-[var(--primary)] focus-ring"
           />
           <span>{t("consent.checkbox")}</span>
         </label>

@@ -13,7 +13,7 @@ import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 // One story, as a cover a pre-reader can choose (FR-STORY-01).
 
 const storyCardVariants = cva(
-  "group relative flex w-full flex-col items-stretch gap-3 overflow-hidden rounded-xl border-4 bg-card p-3 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "group relative flex w-full flex-col items-stretch gap-3 overflow-hidden rounded-xl border-4 bg-card p-3 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-ring",
   {
     variants: {
       isSelected: {

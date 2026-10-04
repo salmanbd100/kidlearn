@@ -207,7 +207,7 @@ This is enforced, not requested: `src/openapi/coverage.test.ts` walks the live E
 
 | | Where | Why |
 |---|---|---|
-| **Request** schemas | `apps/server/src/modules/<domain>/<domain>.schema.ts` | The same Zod object `validate()` runs at the boundary. The spec imports it; it is never restated. |
+| **Request** schemas | `apps/server/src/modules/<domain>/<domain>.schema.ts` — or `packages/types/src/api/<resource>.ts`, re-exported from the module schema, when `apps/web` sends the request too (`GenerateLessonSchema` and its siblings in `admin-ai.ts`) | The same Zod object `validate()` runs at the boundary. The spec imports it; it is never restated. A request the client builds is inferred from it, so the client never redeclares the shape. |
 | **Response** schemas | `packages/types/src/api/<resource>.ts` | Shared with `apps/web`, so the client never redeclares a response shape (§2). |
 
 Both halves are converted to JSON Schema by `src/openapi/to-json-schema.ts`. Nothing in `src/openapi/` may describe a shape by hand that a Zod schema already describes — a hand-written duplicate is a second source of truth and will drift.

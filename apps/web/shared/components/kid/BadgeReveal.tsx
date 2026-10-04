@@ -53,7 +53,7 @@ export function BadgeReveal({ name, imageUrl, kind }: BadgeRevealProps) {
       </span>
 
       <p aria-hidden="true" className="flex flex-col items-center gap-1">
-        <span className="font-body text-base text-muted-foreground">
+        <span className="font-body text-lg text-muted-foreground">
           {kind === "badge"
             ? t("reward.badgeCaption")
             : t("reward.characterCaption")}

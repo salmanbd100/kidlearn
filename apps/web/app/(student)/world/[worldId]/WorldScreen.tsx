@@ -8,12 +8,27 @@ import { useTranslation } from "react-i18next";
 import { listWorldLessons } from "@/features/content/content-api";
 import { LessonTile } from "@/features/content/LessonTile";
 import { BigButton } from "@/shared/components/kid/BigButton";
+import { Retryable } from "@/shared/components/kid/Retryable";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-import { StudentStatus } from "../../StudentGuard";
 
 /** Everything inside one world, as pictures (FR-PROF-03). */
 export function WorldScreen({ worldId }: { worldId: string }) {
+  return (
+    <Retryable>
+      {(retry) => <WorldContent worldId={worldId} onRetry={retry} />}
+    </Retryable>
+  );
+}
+
+function WorldContent({
+  worldId,
+  onRetry,
+}: {
+  worldId: string;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
   const [topics, setTopics] = useState<WorldTopicLessonsResponse[]>([]);
@@ -69,7 +84,9 @@ export function WorldScreen({ worldId }: { worldId: string }) {
           {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
         </StudentStatus>
       ) : status === "error" ? (
-        <StudentStatus tone="alert">{t("status.error")}</StudentStatus>
+        <StudentStatus tone="alert" onRetry={onRetry}>
+          {t("status.error")}
+        </StudentStatus>
       ) : status === "gone" ? (
         <StudentStatus tone="status">{t("world.notFound")}</StudentStatus>
       ) : !hasLessons ? (

@@ -1,5 +1,5 @@
+import { StudentGuard } from "@/app/(student)/StudentGuard";
 import { StoryReader } from "@/features/stories/reader/StoryReader";
-import { StudentGuard } from "../../StudentGuard";
 
 /** One story, read a page at a time (FR-STORY-02..03, FR-STORY-06..07). */
 export default async function StoryReaderPage({

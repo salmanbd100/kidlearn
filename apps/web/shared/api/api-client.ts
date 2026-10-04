@@ -5,6 +5,15 @@ import type { ErrorCode } from "@kidlearn/types";
 const DEFAULT_API_URL = "http://localhost:4000";
 const DEFAULT_RETRIES = 2;
 
+/**
+ * Per attempt. A phone on a stalled connection — captive Wi-Fi, a 3G dead zone —
+ * leaves `fetch` neither resolving nor rejecting, so without a ceiling no retry
+ * ever fires and the screen sits on "loading" for as long as the browser allows.
+ * Generous enough for a cold-starting API (NFR-PERF-04); every call that outlives
+ * it is a job reference or a read, never a long-running upload.
+ */
+export const DEFAULT_TIMEOUT_MS = 20_000;
+
 /** Waits between retries. Attempt n uses index n-1, clamped to the last entry. */
 export const RETRY_BACKOFF_MS = [1500, 4000] as const;
 
@@ -39,6 +48,8 @@ export interface ApiFetchInit extends RequestInit {
   retries?: number;
   /** Fired once, before the first retry, so the UI can show a waking-up state. */
   onColdStart?: () => void;
+  /** Ceiling for each attempt, retries included separately. Default 20s. */
+  timeoutMs?: number;
   /**
    * Opts a `POST` back into retrying. Set it only where a second identical
    * request provably changes nothing — `POST /progress/lessons/:id/step` upserts
@@ -60,6 +71,7 @@ export async function apiFetch<T>(
   const {
     retries = DEFAULT_RETRIES,
     onColdStart,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
     isIdempotent = false,
     ...requestInit
   } = init;
@@ -81,7 +93,12 @@ export async function apiFetch<T>(
       await sleep(backoffFor(attempt));
     }
 
-    const outcome = await attemptRequest<T>(url, requestInit, canRetry);
+    const outcome = await attemptRequest<T>(
+      url,
+      requestInit,
+      canRetry,
+      timeoutMs,
+    );
     if (outcome.kind === "settled") return outcome.result;
     lastFailure = outcome.failure;
   }
@@ -116,11 +133,48 @@ async function attemptRequest<T>(
   url: string,
   requestInit: RequestInit,
   canRetry: boolean,
+  timeoutMs: number,
+): Promise<Attempt<T>> {
+  // `AbortSignal.timeout` and `AbortSignal.any` are missing from the older
+  // tablets this app is meant for, so the ceiling is a controller of our own,
+  // and a caller's own signal is forwarded onto it.
+  const controller = new AbortController();
+  let hasTimedOut = false;
+  const timer = setTimeout(() => {
+    hasTimedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const callerSignal = requestInit.signal;
+  const forwardAbort = () => controller.abort();
+  if (callerSignal?.aborted) controller.abort();
+  callerSignal?.addEventListener("abort", forwardAbort, { once: true });
+
+  try {
+    return await settleAttempt<T>(
+      url,
+      requestInit,
+      canRetry,
+      controller,
+      () => hasTimedOut,
+    );
+  } finally {
+    clearTimeout(timer);
+    callerSignal?.removeEventListener("abort", forwardAbort);
+  }
+}
+
+async function settleAttempt<T>(
+  url: string,
+  requestInit: RequestInit,
+  canRetry: boolean,
+  controller: AbortController,
+  hasTimedOut: () => boolean,
 ): Promise<Attempt<T>> {
   let response: Response;
   try {
     response = await fetch(url, {
       ...requestInit,
+      signal: controller.signal,
       // The session cookie is set by better-auth on the API origin.
       credentials: "include",
       headers: buildHeaders(requestInit),
@@ -128,7 +182,9 @@ async function attemptRequest<T>(
   } catch {
     const failure: ApiFailure = {
       code: "NETWORK_ERROR",
-      message: `Could not reach ${url}.`,
+      message: hasTimedOut()
+        ? `Timed out waiting for ${url}.`
+        : `Could not reach ${url}.`,
     };
     // The request may well have arrived and committed — a dropped response is
     // indistinguishable from a dropped request here.

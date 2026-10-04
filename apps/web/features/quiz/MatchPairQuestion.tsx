@@ -25,7 +25,7 @@ import type { QuestionProps, QuizAnswerValue } from "./types";
 const matchCardVariants = cva(
   // 96px square before its contents — the same floor the match activity sets,
   // half again the 64px kid minimum, because two are tapped in sequence.
-  "flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform [touch-action:manipulation] focus-ring",
   {
     variants: {
       state: {

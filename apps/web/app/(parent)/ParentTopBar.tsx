@@ -36,7 +36,7 @@ const NAV_ITEMS = [
 ] as const;
 
 const navLinkVariants = cva(
-  "inline-flex h-11 shrink-0 items-center rounded-[var(--radius)] px-3 font-medium text-sm transition-colors [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "inline-flex h-11 shrink-0 items-center rounded-[var(--radius)] px-3 font-medium text-sm transition-colors [touch-action:manipulation] focus-ring",
   {
     variants: {
       isActive: {
@@ -140,7 +140,7 @@ export function ParentTopBar() {
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label={t("nav.menuLabel")}
-            className="inline-flex h-11 items-center gap-1 rounded-pill pr-2 pl-1 text-muted-foreground transition-colors [touch-action:manipulation] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex h-11 items-center gap-1 rounded-pill pr-2 pl-1 text-muted-foreground transition-colors [touch-action:manipulation] hover:text-foreground focus-ring"
           >
             <ParentAvatar parent={parent} size="sm" />
             <ChevronDown aria-hidden="true" className="size-4" />

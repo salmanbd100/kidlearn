@@ -89,7 +89,7 @@ export function StepContainer({
           type="button"
           // 64px, because this is a control a *child* uses (design.md §7) —
           // unlike the parent-corner lock, which is deliberately small.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill text-muted-foreground transition-colors [touch-action:manipulation] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill text-muted-foreground transition-colors [touch-action:manipulation] hover:text-foreground focus-ring"
           aria-label={t("exit.open")}
           onClick={onExit}
         >

@@ -1,0 +1,84 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Providers } from "@/shared/components/Providers";
+import { resetI18nForTests } from "@/shared/lib/i18n";
+
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const activeChild = vi.hoisted(() => ({
+  value: {} as Record<string, unknown>,
+  refresh: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("@/features/children/active-child", () => ({
+  useActiveChild: () => ({
+    ...activeChild.value,
+    refresh: activeChild.refresh,
+  }),
+}));
+
+const { StudentGuard } = await import("./StudentGuard");
+
+const child = { id: "child_1", firstName: "Mim" };
+
+function renderGuard(value: Record<string, unknown>) {
+  activeChild.value = { isWakingUp: false, ...value };
+  return render(
+    <Providers locale="en">
+      <StudentGuard>
+        <p>student screen</p>
+      </StudentGuard>
+    </Providers>,
+  );
+}
+
+describe("StudentGuard", () => {
+  beforeEach(() => {
+    resetI18nForTests();
+    router.replace.mockReset();
+    activeChild.refresh.mockReset();
+  });
+
+  it("shows the screen to a signed-in parent with a child selected", () => {
+    renderGuard({ status: "ready", child });
+
+    expect(screen.getByText("student screen")).toBeInTheDocument();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("holds the screen back while the session loads", () => {
+    renderGuard({ status: "loading", child: undefined });
+
+    expect(screen.queryByText("student screen")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+
+  it("sends a signed-out visitor to the parent login without showing the screen", () => {
+    renderGuard({ status: "signedOut", child: undefined });
+
+    expect(router.replace).toHaveBeenCalledWith("/parent/login");
+    expect(screen.queryByText("student screen")).not.toBeInTheDocument();
+  });
+
+  it("sends a ready session with no child to the profile picker", () => {
+    renderGuard({ status: "ready", child: undefined });
+
+    expect(router.replace).toHaveBeenCalledWith("/select-profile");
+    expect(screen.queryByText("student screen")).not.toBeInTheDocument();
+  });
+
+  it("never renders the screen when the session could not be read", () => {
+    renderGuard({ status: "error", child });
+
+    expect(screen.queryByText("student screen")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("lets a child retry from the error screen", () => {
+    renderGuard({ status: "error", child: undefined });
+
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+
+    expect(activeChild.refresh).toHaveBeenCalledTimes(1);
+  });
+});

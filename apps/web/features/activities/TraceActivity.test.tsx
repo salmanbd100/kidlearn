@@ -568,6 +568,28 @@ describe("TraceActivity", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/finished/i);
   });
 
+  it("offers a way past a path that parses to no strokes instead of an empty board", () => {
+    const onActivityComplete = vi.fn();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    render(
+      <Providers locale="en">
+        <TraceActivity
+          definition={{ ...validTrace, pathData: "L 10 10" }}
+          locale="en"
+          feedback={feedbackSpy()}
+          onActivityComplete={onActivityComplete}
+        />
+      </Providers>,
+    );
+
+    expect(screen.getByTestId("activity-oops")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /go on/i }));
+    expect(onActivityComplete).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
+
   it("shows no error iconography anywhere on the board (FR-ACT-05)", () => {
     renderTrace();
 

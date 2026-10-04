@@ -56,7 +56,7 @@ export function ReportHistoryList({
                   className={cn(
                     // 44px minimum touch target on a parent surface (design.md §7).
                     "-mx-2 flex min-h-11 items-center gap-3 rounded-[var(--radius-sm)] px-2 py-2 transition-colors hover:bg-muted",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "focus-ring",
                   )}
                 >
                   <span className="flex min-w-0 flex-1 flex-col">

@@ -18,12 +18,17 @@ import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { getRewardsSummary } from "@/shared/api/progress-api";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { IconTile } from "@/shared/components/kid/IconTile";
+import { Retryable } from "@/shared/components/kid/Retryable";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-import { StudentStatus } from "../StudentGuard";
 
 /** The child's home (FR-WORLD-01..03, FR-GAM-06 display). */
 export function HomeScreen() {
+  return <Retryable>{(retry) => <HomeContent onRetry={retry} />}</Retryable>;
+}
+
+function HomeContent({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
   const { child } = useActiveChild();
@@ -137,7 +142,9 @@ export function HomeScreen() {
       </div>
 
       {status === "error" ? (
-        <StudentStatus tone="alert">{t("status.error")}</StudentStatus>
+        <StudentStatus tone="alert" onRetry={onRetry}>
+          {t("status.error")}
+        </StudentStatus>
       ) : status === "loading" ? (
         <StudentStatus tone="status">
           {isWakingUp ? t("status.waking") : t("selectProfile.loading")}

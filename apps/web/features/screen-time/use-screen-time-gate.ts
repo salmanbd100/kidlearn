@@ -6,6 +6,12 @@ import { getScreenTimeStatus } from "./screen-time-api";
 
 /**
  * The student surface's view of the screen-time gate (FR-TIME-02, FR-TIME-04).
+ *
+ * A hint, not the gate: the server answers `423` on the lesson and story fetches
+ * whatever this hook believes. So a status read that fails is treated as "not
+ * blocked" — failing closed would turn one dropped request into a locked-out
+ * child on a connection that is merely slow, while failing open costs a lock
+ * screen one navigation late.
  */
 
 export type ScreenTimeGate = {
@@ -31,7 +37,7 @@ export function useScreenTimeGate(): ScreenTimeGate {
 
     void getScreenTimeStatus().then((result) => {
       if (!isCurrent) return;
-      // A failed read is not a block — see the file header.
+      // A failed read is not a block: the server still enforces on the fetch.
       setBlock(result.ok ? result.data.reason : null);
       if (result.ok) setWindowStart(result.data.windowStart);
     });

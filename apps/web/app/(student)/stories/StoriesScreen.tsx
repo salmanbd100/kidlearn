@@ -8,12 +8,17 @@ import { useTranslation } from "react-i18next";
 import { listStories } from "@/features/content/content-api";
 import { StoryGrid } from "@/features/stories/StoryGrid";
 import { BigButton } from "@/shared/components/kid/BigButton";
+import { Retryable } from "@/shared/components/kid/Retryable";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-import { StudentStatus } from "../StudentGuard";
 
 /** The Story Library (FR-STORY-01). */
 export function StoriesScreen() {
+  return <Retryable>{(retry) => <StoriesContent onRetry={retry} />}</Retryable>;
+}
+
+function StoriesContent({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
   const [stories, setStories] = useState<StorySummaryResponse[]>([]);
@@ -69,7 +74,9 @@ export function StoriesScreen() {
           {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
         </StudentStatus>
       ) : status === "error" ? (
-        <StudentStatus tone="alert">{t("status.error")}</StudentStatus>
+        <StudentStatus tone="alert" onRetry={onRetry}>
+          {t("status.error")}
+        </StudentStatus>
       ) : stories.length === 0 ? (
         <StudentStatus tone="status">{t("stories.empty")}</StudentStatus>
       ) : (

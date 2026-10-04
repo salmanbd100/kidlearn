@@ -130,7 +130,7 @@ function PlayableActivity({
           type="button"
           // 64px square, the same control the intro step offers, in the same
           // place: a child who learned it there does not learn it twice.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-ring"
           aria-label={t("activity.replay")}
           onClick={speakInstruction}
         >

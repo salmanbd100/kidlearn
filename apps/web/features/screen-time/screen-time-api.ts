@@ -4,8 +4,8 @@ import type {
   ScreenTimeUpdate,
 } from "@kidlearn/types";
 import { SCREEN_TIME_BLOCK_CODES } from "@kidlearn/types";
-import type { ApiFailure, ApiResult } from "../../shared/api/api-client";
-import { apiFetch } from "../../shared/api/api-client";
+import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
+import { apiFetch } from "@/shared/api/api-client";
 
 // Typed wrappers over the screen-time API (FR-TIME-01..05).
 

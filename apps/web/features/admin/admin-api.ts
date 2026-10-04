@@ -21,11 +21,14 @@ import type {
   ContentResourceName,
   ContentStatusValue,
   EditorContentResourceName,
+  GenerateLessonBody,
+  GenerateNarrationBody,
+  GenerateQuizBody,
+  GenerateStoryBody,
   GenerationJobRef,
   GradeLevelValue,
   Locale,
   MediaAsset,
-  NarrationEntity,
   OrderableContentResourceName,
   PlatformOverview,
   PromotedCharacterSheets,
@@ -39,7 +42,7 @@ import {
   apiBaseUrl,
   apiFetch,
   signOut,
-} from "../../shared/api/api-client";
+} from "@/shared/api/api-client";
 
 /**
  * Typed wrappers over `/api/admin/*` and the two better-auth calls the CMS makes.
@@ -446,7 +449,7 @@ export function transitionEditorContent<TResult>(
  * Ask for a draft lesson. Answers with a job to look up, never with the lesson.
  */
 export function generateLesson(
-  body: GenerateLessonRequest,
+  body: GenerateLessonBody,
 ): Promise<ApiResult<GenerationJobRef>> {
   return apiFetch<GenerationJobRef>("/api/admin/ai/generate/lesson", {
     method: "POST",
@@ -455,20 +458,11 @@ export function generateLesson(
   });
 }
 
-export interface GenerateLessonRequest {
-  gradeLevel: GradeLevelValue;
-  subjectId: string;
-  topicId: string;
-  worldId?: string;
-  lessonFocus: string;
-  languages: Locale[];
-}
-
 /**
  * Ask for a draft story. Answers with a job to look up, never with the story.
  */
 export function generateStory(
-  body: GenerateStoryRequest,
+  body: GenerateStoryBody,
 ): Promise<ApiResult<GenerationJobRef>> {
   return apiFetch<GenerationJobRef>("/api/admin/ai/generate/story", {
     method: "POST",
@@ -477,19 +471,11 @@ export function generateStory(
   });
 }
 
-export interface GenerateStoryRequest {
-  gradeLevels: GradeLevelValue[];
-  theme: string;
-  worldId: string;
-  languages: Locale[];
-  pageCount?: number;
-}
-
 /**
  * Ask for draft quiz questions on an existing lesson. `retries: 0`, as above.
  */
 export function generateQuiz(
-  body: GenerateQuizRequest,
+  body: GenerateQuizBody,
 ): Promise<ApiResult<GenerationJobRef>> {
   return apiFetch<GenerationJobRef>("/api/admin/ai/generate/quiz", {
     method: "POST",
@@ -498,28 +484,17 @@ export function generateQuiz(
   });
 }
 
-export interface GenerateQuizRequest {
-  lessonId: string;
-  count?: number;
-  languages: Locale[];
-}
-
 /**
  * Ask for the missing narration on a lesson, story or quiz (file 36, FR-AI-04).
  */
 export function generateNarration(
-  body: GenerateNarrationRequest,
+  body: GenerateNarrationBody,
 ): Promise<ApiResult<BatchGenerationRef>> {
   return apiFetch<BatchGenerationRef>("/api/admin/ai/generate/narration", {
     method: "POST",
     retries: 0,
     body: JSON.stringify(body),
   });
-}
-
-export interface GenerateNarrationRequest {
-  entity: NarrationEntity;
-  id: string;
 }
 
 /**

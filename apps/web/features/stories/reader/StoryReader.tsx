@@ -19,7 +19,6 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { StudentStatus } from "@/app/(student)/StudentGuard";
 import { getStory } from "@/features/content/content-api";
 import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
 import {
@@ -29,6 +28,8 @@ import {
 import { trackEvent, useHeartbeat } from "@/features/screen-time/use-heartbeat";
 import { completeStory } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { Retryable } from "@/shared/components/kid/Retryable";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { FinishScreen, type StoryFinishReward } from "./FinishScreen";
 import {
@@ -79,6 +80,20 @@ type LoadState =
   | { status: "error" };
 
 export function StoryReader({ storyId }: { storyId: string }) {
+  return (
+    <Retryable>
+      {(retry) => <StoryLoader storyId={storyId} onRetry={retry} />}
+    </Retryable>
+  );
+}
+
+function StoryLoader({
+  storyId,
+  onRetry,
+}: {
+  storyId: string;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [isWakingUp, setIsWakingUp] = useState(false);
@@ -133,7 +148,11 @@ export function StoryReader({ storyId }: { storyId: string }) {
     );
   }
   if (load.status === "error") {
-    return <StudentStatus tone="alert">{t("status.error")}</StudentStatus>;
+    return (
+      <StudentStatus tone="alert" onRetry={onRetry}>
+        {t("status.error")}
+      </StudentStatus>
+    );
   }
   if (load.story.pages.length === 0) {
     // A published story whose pages were all removed. Not an error screen —
@@ -226,7 +245,11 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
       setNarrationStartedAt(performance.now());
       void play(url, {
         interrupt: true,
-        onFinished: () => {
+        onFinished: (outcome) => {
+          // A clip nobody heard — muted, blocked, failed to load — must not turn
+          // the page: the child would be flipped past text they have not read.
+          if (outcome !== "ended") return;
+          cancelPendingAdvance();
           advanceTimer.current = setTimeout(() => {
             advanceTimer.current = undefined;
             dispatch({ type: "NARRATION_ENDED" });
@@ -234,7 +257,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
         },
       });
     },
-    [play],
+    [play, cancelPendingAdvance],
   );
 
   // Narration follows the page — keyed on the page itself, not on its url, so a
@@ -424,7 +447,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
  * A round 64px control — the kid touch-target floor (design.md §7, NFR-A11Y-02).
  */
 const iconControlVariants = cva(
-  "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors [touch-action:manipulation] focus-ring",
   {
     variants: {
       tone: {

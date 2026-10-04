@@ -326,7 +326,7 @@ function FilterChip({
 
 /**
  * Inline preview per kind. The image goes through `next/image` with `unoptimized`
- * — see `components/admin/MediaPicker.tsx` for why the CMS bypasses the optimizer
+ * — see `features/admin/MediaPicker.tsx` for why the CMS bypasses the optimizer
  * rather than widening the app's remote-image allowlist.
  */
 function AssetPreview({ asset }: { asset: MediaAsset }) {

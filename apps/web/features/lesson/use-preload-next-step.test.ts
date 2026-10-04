@@ -11,7 +11,7 @@ import {
 const ACTIVITY_ID = "activity_letter_a";
 // From the canonical drag-drop fixture: an item's image and a target's, so the
 // walk is proved against the real payload shape rather than one written to suit
-// it. The audio urls in the same fixture are warmed too, which is harmless.
+// it. The fixture's audio urls sit in the same payload and must be left alone.
 const ITEM_IMAGE = "https://cdn.kidlearn.test/images/cow.png";
 const TARGET_IMAGE = "https://cdn.kidlearn.test/images/farm.png";
 
@@ -91,6 +91,40 @@ describe("usePreloadNextStep", () => {
 
     expect(requestedUrls).toContain(ITEM_IMAGE);
     expect(requestedUrls).toContain(TARGET_IMAGE);
+  });
+
+  it("leaves narration and clips alone — an Image cannot use them", () => {
+    const lesson = lessonDetail();
+    renderHook(() => usePreloadNextStep(lesson, true));
+
+    const audioOrVideo = requestedUrls.filter((url) =>
+      /\.(mp3|wav|ogg|m4a|aac|mp4|webm)(\?|$)/i.test(url),
+    );
+    expect(audioOrVideo).toEqual([]);
+  });
+
+  it("warms no more than a handful of images however large the activity", () => {
+    const manyItems = Array.from({ length: 30 }, (_, index) => ({
+      ...validDragDrop.items[0],
+      id: `piece-${index}`,
+      image: {
+        kind: "image" as const,
+        url: `https://cdn.kidlearn.test/images/piece-${index}.png`,
+        alt: { en: "A piece", bn: "একটি টুকরো" },
+      },
+    }));
+    const lesson = lessonDetail({
+      activity: {
+        id: ACTIVITY_ID,
+        type: "drag_drop",
+        schemaVersion: 1,
+        definition: { ...validDragDrop, items: manyItems },
+      },
+    });
+
+    renderHook(() => usePreloadNextStep(lesson, true));
+
+    expect(requestedUrls).toHaveLength(8);
   });
 
   it("publishes the activity payload under the key file 18 reads", () => {

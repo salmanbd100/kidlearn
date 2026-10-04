@@ -12,7 +12,6 @@ import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { StudentStatus } from "@/app/(student)/StudentGuard";
 import { getLesson } from "@/features/content/content-api";
 import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
 import {
@@ -26,6 +25,8 @@ import {
   sendSessionEvent,
 } from "@/shared/api/progress-api";
 import { BigButton } from "@/shared/components/kid/BigButton";
+import { Retryable } from "@/shared/components/kid/Retryable";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { stepAssetFallback } from "./asset-fallback";
 import { ExitConfirm } from "./ExitConfirm";
@@ -86,11 +87,20 @@ export interface LessonPlayerProps {
   previewLanguage?: Locale;
 }
 
-export function LessonPlayer({
+export function LessonPlayer(props: LessonPlayerProps) {
+  return (
+    <Retryable>
+      {(retry) => <LessonPlayerContent {...props} onRetry={retry} />}
+    </Retryable>
+  );
+}
+
+function LessonPlayerContent({
   lessonId,
   isPreview = false,
   previewLanguage,
-}: LessonPlayerProps) {
+  onRetry,
+}: LessonPlayerProps & { onRetry: () => void }) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const router = useRouter();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
@@ -190,7 +200,11 @@ export function LessonPlayer({
     );
   }
   if (load.status === "error") {
-    return <StudentStatus tone="alert">{t("error")}</StudentStatus>;
+    return (
+      <StudentStatus tone="alert" onRetry={onRetry}>
+        {t("error")}
+      </StudentStatus>
+    );
   }
 
   const { lesson } = load;

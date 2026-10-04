@@ -7,7 +7,7 @@ import type {
   HeartbeatResponse,
 } from "@kidlearn/types";
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../shared/api/api-client";
+import { apiFetch } from "@/shared/api/api-client";
 
 // The client half of server-derived learning time (FR-TIME-06).
 

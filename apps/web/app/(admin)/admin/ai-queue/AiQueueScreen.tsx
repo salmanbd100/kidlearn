@@ -16,7 +16,6 @@ import { Chip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import { type AiJobFilters, fetchAiJobs } from "@/features/admin/admin-api";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { FOCUS_RING } from "@/features/admin/focus-ring";
 import { AI_JOB_TYPE_LABELS, formatRelativeAge } from "./job-labels";
 
 /**
@@ -241,7 +240,10 @@ function FilterRow({
 
 /** 44px on a parent-theme surface (design.md §7). */
 const filterChipVariants = cva(
-  cn("min-h-11 rounded-full border px-3 text-sm transition-colors", FOCUS_RING),
+  cn(
+    "min-h-11 rounded-full border px-3 text-sm transition-colors",
+    "focus-ring",
+  ),
   {
     variants: {
       isSelected: {
@@ -283,7 +285,7 @@ function JobRow({ job }: { job: AiJobSummary }) {
       href={`${ADMIN_ROUTES.aiQueue}/${job.id}`}
       className={cn(
         "flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius)] border border-border bg-card p-3 transition-colors hover:bg-accent",
-        FOCUS_RING,
+        "focus-ring",
       )}
     >
       <Chip>{AI_JOB_TYPE_LABELS[job.type]}</Chip>

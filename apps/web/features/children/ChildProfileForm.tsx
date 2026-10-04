@@ -19,8 +19,8 @@ import {
   toFieldErrors,
 } from "@/features/parent/parent-errors";
 import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
+import { SegmentedField } from "@/shared/components/SegmentedField";
 import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { SegmentedField } from "../../shared/components/SegmentedField";
 import { AvatarPicker, type AvatarPickerOption } from "./AvatarPicker";
 
 // Create or edit a learner profile (FR-PROF-02).

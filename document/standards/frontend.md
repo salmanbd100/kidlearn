@@ -134,21 +134,30 @@ Rules:
 - Push the client boundary as far down the tree as possible. A single interactive button must not force its entire parent subtree to become a Client Component. Extract the interactive element into its own file and mark only that file with `'use client'`. **[REVIEW]**
 - Never fetch data in a Client Component. Fetch in Server Components or Server Actions and pass data as props. **[REVIEW]**
 
-#### Recorded exception — the `(admin)` CMS fetches in the browser
+#### Recorded exception — every surface fetches in the browser
 
-**Status: active as of 2026-08-22 (file 31), widened to the curriculum tree in
-file 32.** The admin session cookie belongs to the API origin, not the Next
-server, so a Server Component calling `/api/admin/*` sends no credentials and
-gets a `401` — see the comment at the head of `features/admin/admin-api.ts`. Server-side
-fetching is not merely inconvenient here; it cannot authenticate.
+**Status: active. Opened 2026-08-22 for `(admin)` (file 31, widened to the
+curriculum tree in file 32); widened on 2026-10-04 to `(student)` and `(parent)`
+by the `apps/web` review, which found the code already doing it.** The session
+cookie is set by better-auth on the API origin and carries no `domain`
+attribute (`apps/server/src/config/auth.ts`), so it is host-only: a Server
+Component calling `/api/*` sends no credentials and gets a `401`. See the comment
+at the head of `features/admin/admin-api.ts` and the `credentials: "include"` in
+`shared/api/api-client.ts`. Server-side fetching is not merely inconvenient on
+any of the three surfaces; it cannot authenticate.
 
-The CMS screens therefore hold their own data: `AnalyticsScreen`,
-`CurriculumScreen` and the components under `app/(admin)/`. Each `page.tsx`
-stays a Server Component and the `'use client'` boundary sits on the screen, so
-the rest of the rule above still binds.
+The screens therefore hold their own data. Each `page.tsx` stays a Server
+Component and the `'use client'` boundary sits on the screen, so the rest of the
+rule above still binds: push the boundary down, and keep fetching out of
+components that are not screens, guards or providers.
 
-This is bounded to `app/(admin)/`. A `(student)` or `(parent)` route has a
-session the Next server can read and gets no exception.
+What stays a finding: a Client Component that fetches data no session is needed
+for (a public, cacheable read) — that one has no reason to leave the server.
+
+**Exit condition:** the day the API and the web app share a registrable domain
+and the cookie is issued with a `domain` the Next server can read, or a
+token-exchange route lets Server Components act as the signed-in parent. Delete
+this section then and move the reads to Server Components.
 
 ### File naming in `app/`
 
@@ -220,7 +229,7 @@ Before considering frontend work complete:
 - [ ] Variants built with `cva` + `cn()` — no ad-hoc `className` concatenation
 - [ ] Semantic tokens only — no raw hex, brand hue names, or Tailwind color literals
 - [ ] No theme branching in JavaScript — `data-theme` on the layout boundary only
-- [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components (except the `(admin)` CMS — see §2)
+- [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components (except where the session cookie forces it — see §3)
 - [ ] All user-facing strings via `i18next` (except the `(admin)` CMS — see §3)
 - [ ] Images via `next/image`, fonts via `next/font`
 - [ ] Touch targets: ≥64px on kid surfaces, ≥44px on parent surfaces (`document/design.md §7`)
