@@ -96,6 +96,7 @@ function renderStep(pendingWrites?: PendingWrites) {
         lesson={LESSON}
         onComplete={onComplete}
         pendingWrites={pendingWrites}
+        locale="en"
       />
     </Providers>,
   );

@@ -28,6 +28,7 @@ import { BigButton } from "@/shared/components/kid/BigButton";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { toLocale } from "@/shared/lib/locale";
 import { stepAssetFallback } from "./asset-fallback";
 import { ExitConfirm } from "./ExitConfirm";
 import {
@@ -102,7 +103,10 @@ function LessonPlayerContent({
   previewLanguage,
   onRetry,
 }: LessonPlayerProps & { onRetry: () => void }) {
-  const { t } = useTranslation(LESSON_NAMESPACE);
+  const { t, i18n } = useTranslation(LESSON_NAMESPACE);
+  const contentLocale =
+    (isPreview ? previewLanguage : undefined) ??
+    toLocale(i18n.resolvedLanguage);
   const router = useRouter();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [isWakingUp, setIsWakingUp] = useState(false);
@@ -253,6 +257,7 @@ function LessonPlayerContent({
           lesson={lesson}
           isPreview={isPreview}
           pendingWrites={pendingWrites}
+          locale={contentLocale}
           onComplete={() => dispatch({ type: "STEP_COMPLETE" })}
         />
       </StepContainer>

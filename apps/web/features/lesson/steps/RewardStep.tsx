@@ -20,7 +20,6 @@ import { useAudio } from "@/shared/components/AudioProvider";
 import { BadgeReveal } from "@/shared/components/kid/BadgeReveal";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
-import { toLocale } from "@/shared/lib/locale";
 import { unlockNames } from "@/shared/lib/unlock-names";
 import type { LessonStepProps } from "./lesson-step-props";
 
@@ -95,9 +94,9 @@ export function RewardStep({
   onComplete,
   isPreview,
   pendingWrites,
+  locale,
 }: LessonStepProps) {
-  const { t, i18n } = useTranslation(LESSON_NAMESPACE);
-  const locale = toLocale(i18n.resolvedLanguage);
+  const { t } = useTranslation(LESSON_NAMESPACE);
   const { play } = useAudio();
   const [rewards, setRewards] = useState<LessonCompletionResponse | undefined>(
     undefined,

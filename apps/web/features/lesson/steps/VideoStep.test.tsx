@@ -67,7 +67,11 @@ function renderVideo(overrides: Partial<LessonDetailResponse> = {}) {
   const onComplete = vi.fn();
   render(
     <Providers locale="en">
-      <VideoStep lesson={lessonDetail(overrides)} onComplete={onComplete} />
+      <VideoStep
+        lesson={lessonDetail(overrides)}
+        onComplete={onComplete}
+        locale="en"
+      />
     </Providers>,
   );
   return {

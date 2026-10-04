@@ -86,7 +86,11 @@ function renderStep(quiz: LessonDetailResponse["quiz"] = ONE_QUESTION) {
 
   render(
     <Providers locale="en">
-      <QuizStep lesson={lessonWithQuiz(quiz)} onComplete={onComplete} />
+      <QuizStep
+        lesson={lessonWithQuiz(quiz)}
+        onComplete={onComplete}
+        locale="en"
+      />
     </Providers>,
   );
 
