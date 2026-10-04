@@ -24,6 +24,7 @@ import {
   reportStep,
   sendSessionEvent,
 } from "@/shared/api/progress-api";
+import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
@@ -160,6 +161,10 @@ function LessonPlayerContent({
       // (FR-LSN-06) — the server's completion record is untouched by the replay.
       const resumeAt = resumeLessonStep(saved?.currentStep ?? null);
 
+      // Batched with `setLoad`, so the first render with a lesson is already on
+      // the resumed step. Resuming in an effect mounted the intro for a commit
+      // first — long enough to start its narration over the step resumed into.
+      dispatch({ type: "RESUME", step: resumeAt });
       setLoad({ status: "ready", lesson: lessonResult.data.lesson, resumeAt });
     });
 
@@ -173,15 +178,19 @@ function LessonPlayerContent({
   // One per lesson session, so the reward step can wait out the quiz upload.
   const [pendingWrites] = useState(createPendingWrites);
 
-  // Resume and announce the start, once, as soon as the data lands.
+  // Announce the start, once, as soon as the data lands.
   const hasStarted = useRef(false);
   useEffect(() => {
     if (resumeAt === undefined || hasStarted.current) return;
     hasStarted.current = true;
 
     if (!isPreview) sendSessionEvent({ type: "lesson_start", lessonId });
-    dispatch({ type: "RESUME", step: resumeAt });
   }, [resumeAt, lessonId, isPreview]);
+
+  // The audio provider sits at the root and outlives the player, so leaving
+  // mid-narration would otherwise keep it talking over the world screen.
+  const { stop } = useAudio();
+  useEffect(() => stop, [stop]);
 
   useLessonRecording(
     state,
