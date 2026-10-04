@@ -151,7 +151,7 @@ export async function completeLesson(
     completed: true,
   });
 
-  return grantLessonCompletion(child.id, progress.lessonId);
+  return grantLessonCompletion(child, progress.lessonId);
 }
 
 /** FR-LSN-07, FR-TIME-06 — appends one lesson-flow event. */

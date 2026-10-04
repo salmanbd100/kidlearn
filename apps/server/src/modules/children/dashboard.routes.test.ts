@@ -36,9 +36,9 @@
  */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import { DashboardSummaryResponseSchema } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const CHILD_ID = "child_1";
 const OTHER_CHILD_ID = "child_2";
@@ -368,7 +368,7 @@ beforeEach(() => {
   store.events = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   // Midday in Asia/Dhaka (UTC+6), so `today`, `week` and `month` all contain the
   // seeded beats without a boundary case in the way.
   vi.setSystemTime(new Date("2026-08-19T06:00:00.000Z"));

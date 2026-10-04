@@ -1,3 +1,4 @@
+import { ACTIVITY_TYPES } from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -390,7 +391,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
           description: "Restrict to one activity type.",
           schema: {
             type: "string",
-            enum: ["drag_drop", "trace", "match", "puzzle"],
+            enum: [...ACTIVITY_TYPES],
           },
         },
       ],

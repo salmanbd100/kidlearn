@@ -32,10 +32,10 @@ import {
   BatchGenerationRefResponseSchema,
   GenerationJobRefResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "../../../config/env.js";
 import { assertContract } from "../../../openapi/assert-contract.js";
+import request from "../../../shared/testing/request.js";
 
 const BASE = "/api/admin/ai";
 const PATH = `${BASE}/generate/lesson`;

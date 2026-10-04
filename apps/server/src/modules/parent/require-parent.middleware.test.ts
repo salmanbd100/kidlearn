@@ -14,8 +14,8 @@
  */
 import type { Parent } from "@kidlearn/db";
 import express, { type Express } from "express";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import request from "../../shared/testing/request.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),

@@ -1,3 +1,4 @@
+import type { ChildProfile } from "@kidlearn/db";
 import type {
   CharacterUnlockResponse,
   NewBadgeResponse,
@@ -11,6 +12,7 @@ import {
   badgeRuleTopicSlug,
   evaluateBadgeRule,
 } from "../../shared/utils/badge-rules.js";
+import { visibleLessonWhere } from "../../shared/utils/published-for-child.js";
 
 // Badge milestones and character unlocks (FR-GAM-04, FR-GAM-05).
 
@@ -80,20 +82,25 @@ export function meetsUnlockCriteria(
 /** Counts everything the candidate badges ask about, in four reads. */
 async function loadBadgeFacts(
   tx: AchievementClient,
-  childId: string,
+  child: ChildProfile,
   streakCurrent: number,
   topicSlugs: readonly string[],
 ): Promise<BadgeFacts> {
+  const childId = child.id;
+  const visible = visibleLessonWhere(child);
   const lessons =
     topicSlugs.length === 0
       ? []
       : await tx.lesson.findMany({
-          // `status: "published"` is the honest denominator for a `count: "all"`
-          // rule as well as the content-safety guard (`backend.md §4`): a child
-          // cannot finish a draft lesson, so one must not hold their badge back.
+          // The child's own visible lessons are the honest denominator for a
+          // `count: "all"` rule as well as the content-safety guard
+          // (`backend.md §4`): a child cannot finish a lesson they cannot see,
+          // so one must not hold their badge back.
           where: {
-            status: "published",
-            topic: { is: { slug: { in: [...topicSlugs] } } },
+            ...visible,
+            topic: {
+              is: { ...visible.topic.is, slug: { in: [...topicSlugs] } },
+            },
           },
           select: {
             id: true,
@@ -185,7 +192,7 @@ async function loadBadgeFacts(
 /** Which published badges this child has just qualified for (FR-GAM-04). */
 export async function findNewlyEarnedBadges(
   tx: AchievementClient,
-  childId: string,
+  child: ChildProfile,
   streakCurrent: number,
 ): Promise<NewBadgeResponse[]> {
   const badges = await tx.badge.findMany({
@@ -202,7 +209,7 @@ export async function findNewlyEarnedBadges(
   if (badges.length === 0) return [];
 
   const earned = await tx.rewardLedger.findMany({
-    where: { childId, rewardType: "badge" },
+    where: { childId: child.id, rewardType: "badge" },
     select: { badgeId: true },
   });
   const earnedIds = new Set(earned.map((row) => row.badgeId));
@@ -218,7 +225,7 @@ export async function findNewlyEarnedBadges(
     ),
   ];
 
-  const facts = await loadBadgeFacts(tx, childId, streakCurrent, topicSlugs);
+  const facts = await loadBadgeFacts(tx, child, streakCurrent, topicSlugs);
 
   return candidates
     .filter((badge) => evaluateBadgeRule(badge.ruleType, badge.rule, facts))

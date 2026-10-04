@@ -2,11 +2,11 @@ import {
   HealthResponseSchema,
   ServiceIdentityResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { assertContract } from "./openapi/assert-contract.js";
+import request from "./shared/testing/request.js";
 
 describe("GET /health", () => {
   it("returns the ok envelope without touching the database", async () => {

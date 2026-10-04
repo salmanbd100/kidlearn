@@ -9,5 +9,5 @@ export async function completeStory(
   storyId: string,
 ): Promise<StoryCompletionResponse> {
   const visibleStoryId = await requireVisibleStoryId(child, storyId);
-  return grantStoryCompletion(child.id, visibleStoryId);
+  return grantStoryCompletion(child, visibleStoryId);
 }

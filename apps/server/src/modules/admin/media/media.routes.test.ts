@@ -27,9 +27,9 @@ import {
   MediaAssetResponseSchema,
   UploadSignatureResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../../openapi/assert-contract.js";
+import request from "../../../shared/testing/request.js";
 
 const BASE = "/api/admin/media";
 
@@ -177,7 +177,7 @@ describe("POST /api/admin/media/sign", () => {
   const OPERATION = "POST /api/admin/media/sign";
 
   it("signs the timestamp and folder with Cloudinary's documented algorithm", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(FIXED_NOW_MS);
 
     const res = await request(app).post(`${BASE}/sign`).send({ kind: "image" });

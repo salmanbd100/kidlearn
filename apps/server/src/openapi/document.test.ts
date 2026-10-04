@@ -152,6 +152,7 @@ describe("openapi document", () => {
       "GET /api/auth/callback/google",
       "GET /api/auth/google",
       "GET /health",
+      "GET /ready",
       // The admin credential endpoints (file 31). Public because they *are* the
       // sign-in: `sign-in/email` is where an admin session comes from, and
       // `sign-up/email` is disabled for every caller regardless.

@@ -1,3 +1,4 @@
+import { LOCALES } from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -227,7 +228,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
           required: false,
           description:
             "Which locale to render an administrator preview in. Ignored outside preview, where the locale comes from the child's profile. An unrecognised value previews in English rather than failing.",
-          schema: { type: "string", enum: ["en", "bn"] },
+          schema: { type: "string", enum: [...LOCALES] },
         },
       ],
       responses: {

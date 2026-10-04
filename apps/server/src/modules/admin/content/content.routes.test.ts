@@ -42,9 +42,9 @@ import {
   PromotedCharacterSheetsResponseSchema,
   ReorderedIdsResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../../openapi/assert-contract.js";
+import request from "../../../shared/testing/request.js";
 import { publishedForChild } from "../../../shared/utils/published-for-child.js";
 
 const BASE = "/api/admin/content";

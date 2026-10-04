@@ -24,9 +24,9 @@ import {
   HeartbeatResponseSchema,
   LearningTimeReadResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 const STORY_ID = "55555555-5555-4555-8555-555555555555";
@@ -149,7 +149,7 @@ function postHeartbeat() {
 beforeEach(() => {
   store.events = [];
   for (const fn of Object.values(db)) fn.mockReset();
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   setNow("2026-08-18T09:00:00.000Z");
 
   // Visible unless a test says otherwise.

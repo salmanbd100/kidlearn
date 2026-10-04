@@ -2,9 +2,9 @@ import {
   AdminIdentityResponseSchema,
   PlatformOverviewResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const ME_PATH = "/api/admin/me";
 const OVERVIEW_PATH = "/api/admin/analytics/overview";
@@ -98,7 +98,7 @@ beforeEach(() => {
   store.events = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
 
   db.adminFindUnique.mockImplementation(

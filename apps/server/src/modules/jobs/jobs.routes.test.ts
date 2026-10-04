@@ -12,9 +12,9 @@
  * endpoint is that its caller has none.
  */
 import { WeeklyReportJobResponseSchema } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const OPERATION = "POST /api/admin/jobs/weekly-reports";
 const PATH = "/api/admin/jobs/weekly-reports";
@@ -96,7 +96,7 @@ beforeEach(() => {
   store.reports = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
 
   db.childFindMany.mockImplementation(async () => store.children);

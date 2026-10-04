@@ -28,9 +28,9 @@
 import { readFileSync } from "node:fs";
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import { WeeklyReportListResponseSchema } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const CHILD_ID = "child_1";
 const OTHER_CHILD_ID = "child_2";
@@ -346,7 +346,7 @@ beforeEach(() => {
   store.events = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
 
   db.reportFindUnique.mockImplementation(

@@ -265,7 +265,7 @@ async function persistQuestions({
         data: {
           title: lessonTitle,
           aiJobId: jobId,
-          lessons: { connect: { id: lessonId } },
+          lesson: { connect: { id: lessonId } },
         },
         select: { id: true },
       })

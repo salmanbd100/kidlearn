@@ -78,13 +78,13 @@ vi.mock("../../../../config/prisma.js", () => {
         store.quizzes.find((one) => one.id === where.id) ?? null,
       create: async ({ data }: { data: Record<string, unknown> }) => {
         store.creates.push({ table: "quiz", data });
-        // `lessons: { connect: ... }` is the pointer the real client writes onto
+        // `lesson: { connect: ... }` is the pointer the real client writes onto
         // `Lesson.quizId`; the stub does the same so the link is observable.
-        const { lessons, ...columns } = data;
+        const { lesson: lessonLink, ...columns } = data;
         const row: Row = { id: nextId("quiz"), status: "draft", ...columns };
         store.quizzes.push(row);
 
-        const connect = (lessons as { connect?: { id: string } } | undefined)
+        const connect = (lessonLink as { connect?: { id: string } } | undefined)
           ?.connect;
         if (connect) {
           const lesson = store.lessons.find((one) => one.id === connect.id);

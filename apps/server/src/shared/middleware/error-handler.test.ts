@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
-import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../errors/errors.js";
+import request from "../testing/request.js";
 import { errorHandler, notFoundHandler } from "./error-handler.js";
 
 function buildTestApp(): Express {

@@ -28,9 +28,9 @@ import {
   ScreenTimeSettingResponseSchema,
   ScreenTimeStatusResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 import { LESSON_RESUME_GRACE_MS } from "./screen-time.service.js";
 
 const CHILD_ID = "child_1";
@@ -207,7 +207,7 @@ beforeEach(() => {
   store.lessonProgress = null;
   for (const fn of Object.values(db)) fn.mockReset();
 
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   // Midday in Asia/Dhaka (UTC+6), so the default clock is inside any ordinary
   // daytime window and every window test moves it deliberately.
   vi.setSystemTime(new Date("2026-08-19T06:00:00.000Z"));

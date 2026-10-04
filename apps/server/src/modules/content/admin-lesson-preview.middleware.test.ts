@@ -32,9 +32,9 @@ import {
   validDragDrop,
   validMcq,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 const ADMIN_USER_ID = "user_admin_1";

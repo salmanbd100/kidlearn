@@ -38,7 +38,7 @@ const NOT_FOUND_RESPONSE = errorResponse(
 );
 
 const SLUG_CONFLICT_RESPONSE = errorResponse(
-  "The slug is already taken. `error.details.code` is `DUPLICATE_SLUG`. Slugs are unique per model for worlds and subjects, and unique *within a parent* for topics and lessons.",
+  "The slug is already taken (`error.details.code` is `DUPLICATE_SLUG`), or — on a lesson — the quiz is already linked to another lesson (`QUIZ_IN_USE`). Slugs are unique per model for worlds and subjects, and unique *within a parent* for topics and lessons; a quiz belongs to at most one lesson.",
   ["CONFLICT"],
 );
 
@@ -48,7 +48,7 @@ const SLUG_CONFLICT_RESPONSE = errorResponse(
  */
 const EDIT_CONFLICT_RESPONSE = errorResponse(
   [
-    'Either the slug is taken (`code: "DUPLICATE_SLUG"` — unique per model for worlds and subjects, unique *within a parent* for topics and lessons), or the row is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
+    'Either the slug is taken (`code: "DUPLICATE_SLUG"` — unique per model for worlds and subjects, unique *within a parent* for topics and lessons), the quiz is already linked to another lesson (`code: "QUIZ_IN_USE"`, lessons only), or the row is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
     "",
     "**A published row refuses an edit.** The transition matrix guards the act of publishing, not the content that stays published afterwards, so without this a `PATCH` could rewrite a live lesson and reach a child without passing a reviewer again. Withdraw first — `published → draft` — then edit, then come back through `draft → in_review → approved → published`. `allowed` carries those first hops so a client can offer the withdrawal rather than only reporting the refusal.",
   ].join("\n"),

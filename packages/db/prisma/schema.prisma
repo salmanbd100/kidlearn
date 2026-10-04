@@ -223,7 +223,7 @@ model Lesson {
   status      ContentStatus @default(draft)
   activityId  String?
   activity    Activity?     @relation(fields: [activityId], references: [id])
-  quizId      String?
+  quizId      String?       @unique
   quiz        Quiz?         @relation(fields: [quizId], references: [id])
 
   conceptsIntroduced String[]            @default([])
@@ -306,7 +306,7 @@ model Quiz {
   title     String?
   status    ContentStatus    @default(draft)
   questions QuizQuestion[]
-  lessons   Lesson[]
+  lesson    Lesson?
   aiJobId   String?
   aiJob     AIGenerationJob? @relation(fields: [aiJobId], references: [id])
   createdAt DateTime         @default(now())
@@ -458,7 +458,7 @@ model LessonProgress {
   childId      String
   child        ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
   lessonId     String
-  lesson       Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson       Lesson       @relation(fields: [lessonId], references: [id], onDelete: Restrict)
   currentStep  LessonStep   @default(intro)
   completedAt  DateTime?
   score        Int?
@@ -483,6 +483,7 @@ model QuizResponse {
   answeredAt DateTime     @default(now())
 
   @@index([childId, answeredAt])
+  @@index([questionId])
 }
 
 model Badge {

@@ -32,9 +32,9 @@ import {
   StoryCompletionResponseSchema,
   validMcq,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 import { localDateIn } from "../../shared/utils/local-date.js";
 
 /** The zone `config/env.ts` defaults to, which the suite runs under. */

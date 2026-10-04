@@ -1,5 +1,10 @@
 import type { Language, MediaKind } from "@kidlearn/db";
-import type { AssetKind, Locale } from "@kidlearn/types";
+import {
+  ASSET_KINDS,
+  type AssetKind,
+  LOCALES,
+  type Locale,
+} from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -135,7 +140,7 @@ export const ADMIN_MEDIA_ROUTES: RouteDoc[] = [
           in: "query",
           required: false,
           description: "Restrict to one kind of asset.",
-          schema: { type: "string", enum: ["image", "audio", "video"] },
+          schema: { type: "string", enum: [...ASSET_KINDS] },
         },
         {
           name: "language",
@@ -143,7 +148,7 @@ export const ADMIN_MEDIA_ROUTES: RouteDoc[] = [
           required: false,
           description:
             "Restrict to one locale. Language-neutral assets (`language: null`) are excluded when this is set — an image is not Bangla.",
-          schema: { type: "string", enum: ["en", "bn"] },
+          schema: { type: "string", enum: [...LOCALES] },
         },
       ],
       responses: {

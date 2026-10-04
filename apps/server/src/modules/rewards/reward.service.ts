@@ -1,4 +1,4 @@
-import { Prisma, type RewardType } from "@kidlearn/db";
+import { type ChildProfile, Prisma, type RewardType } from "@kidlearn/db";
 import type {
   CompletionStreakResponse,
   NewBadgeResponse,
@@ -167,7 +167,7 @@ function grantKey(spec: {
 
 /** Grants everything finishing this lesson is worth, once. */
 export async function grantLessonCompletion(
-  childId: string,
+  child: ChildProfile,
   lessonId: string,
 ): Promise<CompletionRewards> {
   // Read once and passed in, so a retry cannot straddle local midnight and take
@@ -175,15 +175,16 @@ export async function grantLessonCompletion(
   const localDate = localDateIn(env.APP_TIMEZONE, new Date());
 
   return withSerializationRetry(() =>
-    grantLessonCompletionOnce(childId, lessonId, localDate),
+    grantLessonCompletionOnce(child, lessonId, localDate),
   );
 }
 
 function grantLessonCompletionOnce(
-  childId: string,
+  child: ChildProfile,
   lessonId: string,
   localDate: string,
 ): Promise<CompletionRewards> {
+  const childId = child.id;
   return prisma.$transaction(
     async (tx) => {
       const { quizAttempted, correctCount } = await readQuizOutcome(
@@ -231,11 +232,7 @@ function grantLessonCompletionOnce(
       // the badge has to be in the ledger before a `{ badges: n }` character is.
       const streak = await updateStreakForActivity(tx, childId, localDate);
 
-      const newBadges = await findNewlyEarnedBadges(
-        tx,
-        childId,
-        streak.current,
-      );
+      const newBadges = await findNewlyEarnedBadges(tx, child, streak.current);
       if (newBadges.length > 0) {
         await tx.rewardLedger.createMany({
           // `amount: 1` because the ledger is one table — a badge is a thing you
@@ -283,7 +280,7 @@ function grantLessonCompletionOnce(
 
 /** Pays for finishing a story, once per story per child (FR-STORY-07). */
 export async function grantStoryCompletion(
-  childId: string,
+  child: ChildProfile,
   storyId: string,
 ): Promise<StoryCompletionResponse> {
   // Read once and passed in for the reason `grantLessonCompletion` gives: a
@@ -292,15 +289,16 @@ export async function grantStoryCompletion(
   const localDate = localDateIn(env.APP_TIMEZONE, new Date());
 
   return withSerializationRetry(() =>
-    grantStoryCompletionOnce(childId, storyId, localDate),
+    grantStoryCompletionOnce(child, storyId, localDate),
   );
 }
 
 function grantStoryCompletionOnce(
-  childId: string,
+  child: ChildProfile,
   storyId: string,
   localDate: string,
 ): Promise<StoryCompletionResponse> {
+  const childId = child.id;
   const specs: GrantSpec[] = [
     {
       rewardType: "star",
@@ -336,11 +334,7 @@ function grantStoryCompletionOnce(
       // ("Reading Star — 10 stories", FR-GAM-04) could only ever be awarded by
       // the child's next *lesson*, and a child who only reads would never earn
       // it at all.
-      const newBadges = await findNewlyEarnedBadges(
-        tx,
-        childId,
-        streak.current,
-      );
+      const newBadges = await findNewlyEarnedBadges(tx, child, streak.current);
       if (newBadges.length > 0) {
         await tx.rewardLedger.createMany({
           data: newBadges.map((badge) => ({

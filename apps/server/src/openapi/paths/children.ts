@@ -1,5 +1,9 @@
 import type { GradeLevel } from "@kidlearn/db";
-import { GRADE_LEVELS, type GradeLevelValue } from "@kidlearn/types";
+import {
+  GRADE_LEVELS,
+  type GradeLevelValue,
+  LEARNING_TIME_RANGES,
+} from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -42,7 +46,7 @@ const CHILD_ID_PARAM = pathParam(
 const LEARNING_TIME_RANGE_PARAM = queryParam(
   "range",
   "Which window to measure. `today` is a calendar day in the deployment's `APP_TIMEZONE`, `week` starts Monday, `month` is the calendar month. Required — there is no default, because a silent one would leave the returned `from`/`to` as the only clue about which window was actually measured.",
-  { type: "string", enum: ["today", "week", "month"] },
+  { type: "string", enum: [...LEARNING_TIME_RANGES] },
 );
 
 export const CHILDREN_ROUTES: RouteDoc[] = [
