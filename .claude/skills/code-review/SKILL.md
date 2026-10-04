@@ -302,7 +302,7 @@ Read `design.md §11` and `frontend.md §1`.
 
 - `cva` for every variant API, `cn()` to merge — no ad-hoc `className` concatenation. A caller
   passing a long `className` to restyle internals means the variant is missing.
-- No theme branching in JS; `data-theme` on the layout boundary only.
+- No theme branching in JS; `ThemeScope` on the layout boundary only — a bare `data-theme` div leaves portalled dialogs and menus in the kid theme.
 - `kid/`/`parent/` compose from `primitives/` rather than duplicating markup.
 - Touch targets ≥64px kid, ≥44px parent; no text below 20px on kid surfaces (`design.md §7`).
 - Motion animates only `transform` and `opacity` and respects `prefers-reduced-motion`

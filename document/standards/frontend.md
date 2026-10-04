@@ -67,7 +67,7 @@ Use this table to decide where a new file goes. If it matches more than one row,
 
 **Theme isolation**
 
-- Components never branch on theme in JavaScript (`if theme === 'kid'`). Theme is applied by setting `data-theme="kid"` or `data-theme="parent"` on a layout boundary; token values cascade automatically. **[REVIEW]**
+- Components never branch on theme in JavaScript (`if theme === 'kid'`). Theme is applied by `<ThemeScope theme="kid">` or `<ThemeScope theme="parent">` (`@kidlearn/ui`) on a layout boundary; token values cascade automatically. A hand-written `data-theme` div does not reach portalled dialogs and menus, which mount in `<body>`. **[REVIEW]**
 - `kid/` and `parent/` components compose from `primitives/` — they never duplicate primitive markup inline. **[REVIEW]**
 
 **Adding a shadcn component**
@@ -228,7 +228,7 @@ Before considering frontend work complete:
 - [ ] Component sits in the correct `packages/ui` layer (`primitives/` / `kid/` / `parent/` / `hooks/` / `lib/` / `styles/`)
 - [ ] Variants built with `cva` + `cn()` — no ad-hoc `className` concatenation
 - [ ] Semantic tokens only — no raw hex, brand hue names, or Tailwind color literals
-- [ ] No theme branching in JavaScript — `data-theme` on the layout boundary only
+- [ ] No theme branching in JavaScript — `ThemeScope` on the layout boundary only
 - [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components (except where the session cookie forces it — see §3)
 - [ ] All user-facing strings via `i18next` (except the `(admin)` CMS — see §3)
 - [ ] Images via `next/image`, fonts via `next/font`

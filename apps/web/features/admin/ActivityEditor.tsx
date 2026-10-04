@@ -2,7 +2,7 @@
 
 import type { ActivityType, Locale } from "@kidlearn/types";
 import { ACTIVITY_SCHEMAS, ACTIVITY_TYPES, LOCALES } from "@kidlearn/types";
-import { Button, Input, Label, Select } from "@kidlearn/ui";
+import { Button, Input, Label, Select, ThemeScope } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { ActivityEngine } from "@/features/activities/ActivityEngine";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
@@ -369,8 +369,8 @@ export function ActivityEditor({
           </div>
         </div>
 
-        <div
-          data-theme="kid"
+        <ThemeScope
+          theme="kid"
           className="min-h-[420px] overflow-hidden rounded-(--radius) border border-border bg-background"
         >
           {parsed.success ? (
@@ -390,7 +390,7 @@ export function ActivityEditor({
               The preview appears once the activity is valid.
             </p>
           )}
-        </div>
+        </ThemeScope>
       </aside>
     </div>
   );

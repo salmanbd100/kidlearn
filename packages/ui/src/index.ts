@@ -49,3 +49,8 @@ export {
   type TextareaProps,
   textareaVariants,
 } from "./primitives/textarea";
+export {
+  type Theme,
+  ThemeScope,
+  type ThemeScopeProps,
+} from "./primitives/theme-scope";

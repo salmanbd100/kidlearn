@@ -5,6 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import type * as React from "react";
 import { cn } from "../lib/cn";
+import { usePortalContainer } from "./theme-scope";
 
 // Dialog — the shadcn/Radix primitive, tokenized for both themes.
 
@@ -109,8 +110,9 @@ function DialogContent({
   onInteractOutside,
   ...props
 }: DialogContentProps) {
+  const container = usePortalContainer();
   return (
-    <DialogPrimitive.Portal>
+    <DialogPrimitive.Portal container={container}>
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(dialogContentVariants({ size }), className)}

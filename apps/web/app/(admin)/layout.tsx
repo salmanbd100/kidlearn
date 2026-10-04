@@ -1,10 +1,11 @@
+import { ThemeScope } from "@kidlearn/ui";
 import type { ReactNode } from "react";
 
 /** Admin CMS shell — internal content review and publishing. */
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      data-theme="parent"
+    <ThemeScope
+      theme="parent"
       // From `md` up this is exactly one viewport tall and the document never
       // scrolls — the rail stays put while a long list moves, so the scroll
       // belongs to the content pane in `AdminShell`. Below `md` the rail is a
@@ -22,6 +23,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col md:min-h-0 md:overflow-y-auto">
         {children}
       </div>
-    </div>
+    </ThemeScope>
   );
 }
