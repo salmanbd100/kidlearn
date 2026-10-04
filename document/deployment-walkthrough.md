@@ -440,6 +440,9 @@ Now add the project-specific permissions:
       "Action": ["s3:PutObject"],
       "Resource": "arn:aws:s3:::<BUCKET_NAME>/*" },
     { "Effect": "Allow",
+      "Action": ["s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::<BUCKET_NAME>/prod/.partial/*" },
+    { "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:ListBucket"],
       "Resource": [
         "arn:aws:s3:::<BUCKET_NAME>",
@@ -448,6 +451,12 @@ Now add the project-specific permissions:
   ]
 }
 ```
+
+`deploy/backup.sh` promotes a finished dump with `aws s3 mv` (copy, then delete the
+`.partial/` source) and cleans up a failed one with `aws s3 rm`, so the role needs
+`s3:DeleteObject` — scoped to `prod/.partial/*`, never the whole bucket. Without it
+the final copy is written, the delete is denied, and the script pings `/fail` every
+night for a backup that exists.
 
 Your account number is on the console's top-right menu, or in the output of
 `aws sts get-caller-identity` from A8.
@@ -1006,8 +1015,21 @@ way to know the backup works:
 ```bash
 aws s3 ls s3://<your bucket>/prod/          # find the newest file
 aws s3 cp s3://<your bucket>/prod/<filename> - | gunzip \
-  | docker exec -i dev-postgres psql -U kidlearn -d kidlearn
+  | docker exec -i dev-postgres psql -U kidlearn -d kidlearn \
+      -v ON_ERROR_STOP=1 --single-transaction
 ```
+
+`ON_ERROR_STOP` and `--single-transaction` are what make this a rehearsal: plain
+`psql` keeps going after an error and still exits `0`, so a dump that half-loads
+(a Supabase-only schema or extension, say) would be recorded as a pass. Strict, it
+stops at the first error and loads nothing. After it succeeds, compare row counts
+with production (`SELECT count(*) FROM "ChildProfile"`, `"LessonProgress"`) before
+writing a date on the rehearsal line.
+
+> **This copies real children's data into dev**, which runs `LOG_LEVEL=debug` on a
+> shared disk. If that is not acceptable for the stage you are at, reseed from the
+> repository seed instead and rehearse the restore against a scratch container you
+> delete afterwards.
 
 Verify:
 

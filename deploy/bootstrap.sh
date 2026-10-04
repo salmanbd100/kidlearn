@@ -71,17 +71,25 @@ install -d -m 0755 /opt/kidlearn/deploy
 # --- Housekeeping ------------------------------------------------------------
 # A 20 GB EBS volume and two repositories of ~750 MB images fills faster than it
 # looks, and a full disk takes the PRODUCTION api down with it — one kernel, one
-# disk (file 38, "API runtime is soft-isolated"). Weekly, and never `-a`, which
-# would delete the images a rollback needs.
+# disk (file 38, "API runtime is soft-isolated"). Weekly, keeping the newest
+# KEEP images of each repository so a rollback target is always still on the box.
 log "installing the weekly image prune"
 cat >/etc/cron.weekly/kidlearn-docker-prune <<'CRON'
 #!/bin/sh
-# Dangling layers and stopped containers only. NOT `docker image prune -a`:
-# `IMAGE_TAG=<previous-sha> docker compose up -d` needs the previous image to
-# still be on the box, and pulling it back from ECR mid-incident is the thing
-# rollback exists to avoid.
+# `docker image prune -f` alone only removes dangling layers: every deploy leaves
+# the previous SHA-tagged image tagged, so releases would pile up until the disk
+# fills. `-a --filter until=` is no better — it keys on build time, so after a
+# quiet spell it can delete the very image `IMAGE_TAG=<previous-sha> docker
+# compose up -d` needs. Keep the newest KEEP per repository instead; `docker rmi`
+# refuses an image a running container uses, so the live release is never lost.
+KEEP=4
 docker container prune -f
 docker image prune -f
+docker images --format '{{.Repository}}' | sort -u | while read -r repo; do
+  docker images "$repo" --format '{{.CreatedAt}}|{{.ID}}' | sort -r | cut -d'|' -f2 \
+    | awk '!seen[$0]++' | tail -n +$((KEEP + 1)) \
+    | xargs -r docker rmi 2>/dev/null || true
+done
 CRON
 chmod +x /etc/cron.weekly/kidlearn-docker-prune
 

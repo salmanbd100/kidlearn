@@ -167,6 +167,9 @@ bare `<sha>` tag serves both environments.
 aws ecr get-login-password --region ap-south-1 \
   | docker login --username AWS --password-stdin <acct>.dkr.ecr.ap-south-1.amazonaws.com
 
+# The tag names a commit, so build from a clean tree or it will not reproduce the
+# image a rollback to that SHA expects.
+[ -z "$(git status --porcelain)" ] || { echo "dirty tree — commit or stash first" >&2; exit 1; }
 SHA=$(git rev-parse --short HEAD)
 docker build --platform linux/arm64 -f apps/server/Dockerfile --target runner \
   -t <acct>.dkr.ecr.ap-south-1.amazonaws.com/kidlearn-api:$SHA .
@@ -184,8 +187,11 @@ Then on the box:
 
 `deploy.sh` fetches that environment's SSM parameters into
 `/opt/kidlearn/<env>/app.env` (root-owned, `0600`), pulls, brings the stack up,
-and polls the container healthcheck for 150 seconds. It prints the rollback
-command if the gate fails.
+and polls the container healthcheck for 150 seconds, then calls `/ready` — one
+database read — so a wrong `DATABASE_URL` or a paused Supabase project fails the
+deploy instead of passing the DB-free `/health`. If either gate fails it prints the
+rollback command with the tag that was running before (read from `compose.env`
+before it is overwritten).
 
 ### Migrations are a separate step, deliberately
 
@@ -479,8 +485,21 @@ realistic data into dev.
 
 ```bash
 aws s3 cp s3://<backup-bucket>/<object> - | gunzip \
-  | docker exec -i dev-postgres psql -U kidlearn -d kidlearn
+  | docker exec -i dev-postgres psql -U kidlearn -d kidlearn \
+      -v ON_ERROR_STOP=1 --single-transaction
 ```
+
+`ON_ERROR_STOP` and `--single-transaction` are what make this a rehearsal: plain
+`psql` keeps going after an error and still exits `0`, so a dump that half-loads
+(a Supabase-only schema or extension, say) would be recorded as a pass. Strict, it
+stops at the first error and loads nothing. After it succeeds, compare row counts
+with production (`SELECT count(*) FROM "ChildProfile"`, `"LessonProgress"`) before
+writing a date on the rehearsal line.
+
+> **This copies real children's data into dev**, which runs `LOG_LEVEL=debug` on a
+> shared disk. If that is not acceptable for the stage you are at, reseed from the
+> repository seed instead and rehearse the restore against a scratch container you
+> delete afterwards.
 
 - Bucket: `<bucket>`
 - Last restore rehearsal: `<date>` — **⬜ never**
@@ -497,13 +516,19 @@ external account, and the secret stays in SSM.
 ```cron
 CRON_TZ=Asia/Dhaka
 # Weekly parent reports, Mondays 02:00 Asia/Dhaka
-0 2 * * 1  /opt/kidlearn/deploy/weekly-reports.sh
+0 2 * * 1  /opt/kidlearn/deploy/weekly-reports.sh >>/var/log/kidlearn-weekly-reports.log 2>&1
 ```
 
 The `curl` lives in `deploy/weekly-reports.sh`, not inline, because **cron has no
 line continuation** — a crontab command is one line, to the newline, and a
 backslash-wrapped `curl` is handed to `/bin/sh` a fragment at a time. Same reason
 `backup.sh` is a script in §8.
+
+Like `backup.sh`, it pings a dead-man's-switch URL on success and at `<url>/fail` on
+failure, because this box has no mail agent and a bare non-zero exit would reach
+nobody. Set `/kidlearn/prod/WEEKLY_REPORTS_HEARTBEAT_URL` in SSM; unset, the script
+says so on every run. The job is idempotent (an upsert per child per week), which is
+why the script retries once on a failed request.
 
 **Dev runs no scheduled jobs.** Trigger it by hand there when testing.
 
@@ -730,5 +755,7 @@ something that already works.
 `AmazonSSMManagedInstanceCore`, ECR pull (`ecr:GetAuthorizationToken`,
 `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`), `ssm:GetParametersByPath` on
 `/kidlearn/prod/*` and `/kidlearn/dev/*` with `kms:Decrypt` on their key, and
-`s3:PutObject` on the backup bucket alone. Nothing wider. The GitHub OIDC roles
+`s3:PutObject` and `s3:GetObject` on the backup bucket, plus `s3:DeleteObject` on
+`prod/.partial/*` only (`backup.sh` promotes with `s3 mv`, which deletes its
+source). Nothing wider. The GitHub OIDC roles
 are file 38a's. Vercel needs no AWS credential at all.

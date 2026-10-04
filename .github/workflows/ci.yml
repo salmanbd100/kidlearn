@@ -89,6 +89,16 @@ jobs:
             --build-arg MEDIA_ASSET_HOSTS=https://res.cloudinary.com \
             .
 
+      # The images that actually deploy (file 38). They are built by hand on a
+      # laptop today, so without this a broken `pnpm deploy --prod` step or Prisma
+      # generate path in apps/server/Dockerfile is found at deploy time, not in the
+      # PR that broke it. Never pushed, and x86 for the same reason as the web image.
+      - name: Build the server runner image
+        run: docker build -f apps/server/Dockerfile --target runner .
+
+      - name: Build the server migrate image
+        run: docker build -f apps/server/Dockerfile --target migrate .
+
       - name: Coverage summary
         if: always()
         run: node .github/scripts/coverage-summary.mjs

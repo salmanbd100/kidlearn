@@ -101,6 +101,13 @@ log "wrote ${ENV_DIR}/app.env ($(wc -l <"${ENV_DIR}/app.env") variables)"
 #
 # 0600 root: for dev it carries POSTGRES_PASSWORD.
 COMPOSE_ENV="${ENV_DIR}/compose.env"
+# Read before the install below overwrites it: this is the only record of what was
+# running, and the failure path prints it as the rollback target. Empty on a
+# first deploy, where there is nothing to roll back to.
+PREVIOUS_TAG=""
+if [[ -f "${COMPOSE_ENV}" ]]; then
+  PREVIOUS_TAG="$(sed -n 's/^IMAGE_TAG=//p' "${COMPOSE_ENV}" | head -n 1)"
+fi
 TMP_COMPOSE_ENV="$(mktemp "${ENV_DIR}/compose.env.XXXXXX")"
 trap 'rm -f "${TMP_ENV}" "${TMP_COMPOSE_ENV}"' EXIT
 
@@ -148,7 +155,7 @@ docker compose -p "${PROJECT}" "${COMPOSE_FILES[@]}" up -d --remove-orphans
 # --- 4. Health gate ---------------------------------------------------------
 # Poll the container's own healthcheck rather than the public hostname: a failure
 # here should mean the API is broken, not that Caddy or DNS is. `/health` is
-# DB-free and cheap.
+# DB-free and cheap; `/ready` (checked once it passes) is not.
 #
 # `.State.Status` as well as `.State.Health.Status`, and both are checked every
 # pass, because the two ways this fails look identical from `starting` alone: a
@@ -160,8 +167,19 @@ for _ in $(seq 1 30); do
   state="$(docker inspect -f '{{.State.Status}}/{{.State.Health.Status}}' "${ENV_NAME}-api" 2>/dev/null || echo missing/starting)"
   case "${state}" in
   */healthy)
-    log "healthy — deploy complete at ${IMAGE_TAG}"
-    exit 0
+    # `/health` is DB-free, so "healthy" above says the process is up and nothing
+    # about whether it can reach the database — a wrong DATABASE_URL or a paused
+    # Supabase project passes it. `/ready` runs one query. Retried briefly because
+    # the pool may still be warming.
+    for _ in $(seq 1 6); do
+      if docker exec "${ENV_NAME}-api" node -e "fetch('http://localhost:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
+        log "healthy and database reachable — deploy complete at ${IMAGE_TAG}"
+        exit 0
+      fi
+      sleep 5
+    done
+    echo "[deploy:${ENV_NAME}] ${ENV_NAME}-api is up but /ready failed — it cannot reach the database" >&2
+    break
     ;;
   */unhealthy)
     echo "[deploy:${ENV_NAME}] ${ENV_NAME}-api reported unhealthy" >&2
@@ -177,7 +195,11 @@ done
 
 echo "[deploy:${ENV_NAME}] ${ENV_NAME}-api did not become healthy" >&2
 docker compose -p "${PROJECT}" "${COMPOSE_FILES[@]}" logs --tail 50 api >&2
-echo "[deploy:${ENV_NAME}] ROLL BACK WITH: $0 ${ENV_NAME} <previous-sha>" >&2
+if [[ -n "${PREVIOUS_TAG}" && "${PREVIOUS_TAG}" != "${IMAGE_TAG}" ]]; then
+  echo "[deploy:${ENV_NAME}] ROLL BACK WITH: $0 ${ENV_NAME} ${PREVIOUS_TAG}" >&2
+else
+  echo "[deploy:${ENV_NAME}] no earlier release recorded to roll back to — check the logs above" >&2
+fi
 exit 1
 
 # --- MIGRATIONS, deliberately not run above ---------------------------------
