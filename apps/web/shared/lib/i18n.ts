@@ -1,5 +1,4 @@
 import i18next, { type i18n as I18nInstance } from "i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 import bnCommon from "@/locales/bn/common.json";
 import bnLesson from "@/locales/bn/lesson.json";
@@ -9,13 +8,7 @@ import enCommon from "@/locales/en/common.json";
 import enLesson from "@/locales/en/lesson.json";
 import enParent from "@/locales/en/parent.json";
 import enStudent from "@/locales/en/student.json";
-import {
-  DEFAULT_LOCALE,
-  LOCALE_COOKIE_MINUTES,
-  LOCALE_COOKIE_NAME,
-  type Locale,
-  SUPPORTED_LOCALES,
-} from "./locale";
+import { DEFAULT_LOCALE, type Locale, SUPPORTED_LOCALES } from "./locale";
 
 // i18next, with both locales bundled statically (FR-I18N-01).
 
@@ -81,10 +74,6 @@ export function getI18n(locale: Locale = DEFAULT_LOCALE): I18nInstance {
 function createI18n(locale: Locale): I18nInstance {
   const instance = i18next.createInstance();
 
-  if (typeof window !== "undefined") {
-    instance.use(LanguageDetector);
-  }
-
   void instance.use(initReactI18next).init({
     resources,
     lng: locale,
@@ -99,13 +88,6 @@ function createI18n(locale: Locale): I18nInstance {
     defaultNS: DEFAULT_NAMESPACE,
     // React escapes for us; double-escaping mangles Bangla punctuation.
     interpolation: { escapeValue: false },
-    detection: {
-      order: ["cookie"],
-      caches: ["cookie"],
-      lookupCookie: LOCALE_COOKIE_NAME,
-      cookieMinutes: LOCALE_COOKIE_MINUTES,
-      cookieOptions: { path: "/", sameSite: "lax" },
-    },
     react: { useSuspense: false },
   });
 

@@ -194,7 +194,7 @@ Every web dependency that cannot cross to native, and its replacement:
 | `canvas-confetti` | `lottie-react-native` or a Reanimated particle burst | Lottie also covers badge reveals. |
 | `<audio>` / `Audio()` | `expo-audio` | `expo-av` is deprecated — do not start on it. Narration, UI sounds, feedback sounds. |
 | `<video>` | `expo-video` | Lesson video step; needs an explicit fullscreen/orientation policy. |
-| `i18next-browser-languagedetector` | `expo-localization` | Detect device locale, then the same i18next instance and the same JSON. |
+| The `kidlearn_locale` cookie (read server-side, written by `LanguageSwitch`) | `expo-localization` | Detect device locale, then the same i18next instance and the same JSON. |
 | `localStorage` / cookies | `expo-secure-store` (session) + `@react-native-async-storage/async-storage` (preferences) | Never put the session in AsyncStorage. |
 | `document.visibilitychange` | `AppState` | Load-bearing for learning-time heartbeats and screen-time enforcement. §9. |
 | `window.matchMedia('prefers-reduced-motion')` | `AccessibilityInfo.isReduceMotionEnabled` + change listener | design.md §5.2 still applies. |

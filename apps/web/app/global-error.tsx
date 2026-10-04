@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { DEFAULT_NAMESPACE, getI18n } from "@/shared/lib/i18n";
-import { LOCALE_COOKIE_NAME, toLocale } from "@/shared/lib/locale";
+import { readLocaleCookie, toLocale } from "@/shared/lib/locale";
 import "./globals.css";
 
 /**
@@ -43,12 +43,4 @@ export default function GlobalError({
       </body>
     </html>
   );
-}
-
-function readLocaleCookie(): string | undefined {
-  if (typeof document === "undefined") return undefined;
-  return document.cookie
-    .split("; ")
-    .find((entry) => entry.startsWith(`${LOCALE_COOKIE_NAME}=`))
-    ?.split("=")[1];
 }
