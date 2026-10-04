@@ -163,11 +163,18 @@ Then **Project Settings → Database → Connection string**, and take two:
 
 | You need | Which tab | Ends with |
 |---|---|---|
-| `DATABASE_URL` | **Transaction pooler**, port **6543** | `?pgbouncer=true&connection_limit=1` |
+| `DATABASE_URL` | **Transaction pooler**, port **6543** | `?pgbouncer=true&connection_limit=5` |
 | `DIRECT_URL` | **Direct connection**, port **5432** | nothing extra |
 
-Make sure `DATABASE_URL` really ends with `?pgbouncer=true&connection_limit=1`.
+Make sure `DATABASE_URL` really ends with `?pgbouncer=true&connection_limit=5`.
 Supabase's copy button sometimes leaves it off.
+
+**Not `connection_limit=1`**, which most Supabase + Prisma guides show. That value
+is for serverless functions, where every instance opens its own pool. This API is
+one long-running process, and with one connection every request queues behind
+every other: a transaction that cannot get the connection within two seconds
+fails, and account deletion holds it for up to two minutes. Five is what Prisma
+would pick on the `t4g.small`'s two CPUs, and well inside the pooler's limit.
 
 **Why two:** the running app uses the pooled one (many short connections);
 migrations use the direct one (one long connection, which the pooler would kill).
@@ -964,12 +971,11 @@ postgresql://kidlearn:<POSTGRES_PASSWORD>@dev-postgres:5432/kidlearn
 | `/kidlearn/dev/GEMINI_API_KEY` | dev AI Studio key |
 | `/kidlearn/dev/GOOGLE_TTS_API_KEY` | **the same key as production** |
 
-> **The dev database URL carries neither `?pgbouncer=true` nor
-> `connection_limit=1`.** Those exist for Supabase's connection pooler. Against
-> the plain Postgres container they actively hurt: one disables prepared
-> statements, the other serialises the entire app through a single connection.
-> Copying production's URL shape here is the obvious mistake and it costs an
-> afternoon.
+> **The dev database URL carries no `?pgbouncer=true`.** That flag exists for
+> Supabase's connection pooler. Against the plain Postgres container it only
+> disables prepared statements, for nothing. `connection_limit` is unnecessary
+> too — Prisma's default on this box is the same five. Copying production's URL
+> shape here is the obvious mistake.
 
 **Check:** fourteen parameters beginning `/kidlearn/dev/`.
 

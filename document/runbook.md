@@ -264,7 +264,7 @@ values.
 |---|---|---|---|
 | `NODE_ENV` | compose | `production` | `production` — see below |
 | `PORT` | compose | `4000` | `4000` |
-| `DATABASE_URL` | SSM | Supabase pooled `:6543`, `?pgbouncer=true&connection_limit=1` | `postgresql://kidlearn:<pw>@dev-postgres:5432/kidlearn` — **neither flag** |
+| `DATABASE_URL` | SSM | Supabase pooled `:6543`, `?pgbouncer=true&connection_limit=5` | `postgresql://kidlearn:<pw>@dev-postgres:5432/kidlearn` — **neither flag** |
 | `DIRECT_URL` | SSM | Supabase direct `:5432` | identical to the dev `DATABASE_URL` |
 | `WEB_ORIGIN` | SSM | `https://kidlearn.net` | `https://dev.kidlearn.net` |
 | `BETTER_AUTH_URL` | SSM | `https://api.kidlearn.net` | `https://api.dev.kidlearn.net` |
@@ -319,10 +319,12 @@ what production will do. Hostnames, database, credentials and `ENABLE_API_DOCS`
 are the whole difference.
 
 **The dev `DATABASE_URL` carries neither `pgbouncer=true` nor
-`connection_limit=1`.** Those exist for Supabase's PgBouncer. Against a plain
-Postgres, `pgbouncer=true` needlessly disables prepared statements and
-`connection_limit=1` serialises the whole app. Copying production's URL shape is
-the obvious mistake.
+`connection_limit`.** `pgbouncer=true` exists for Supabase's PgBouncer; against a
+plain Postgres it needlessly disables prepared statements. `connection_limit=5`
+is what Prisma picks on the box's two CPUs anyway — production states it only so
+nobody "fixes" it to the `=1` that serverless guides recommend, which serialises
+the whole app through one connection. Copying production's URL shape is the
+obvious mistake.
 
 **Four Vercel variables are build-time, and one of them does not look it.**
 `NEXT_PUBLIC_*` are inlined into the client bundle — everyone expects that. So is
