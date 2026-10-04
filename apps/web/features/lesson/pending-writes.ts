@@ -1,14 +1,13 @@
 /**
  * Writes one step started that a later step must not overtake.
  *
- * The quiz submission is the one that matters: the server derives the quiz
- * star and per-answer coins from the responses already stored when the lesson
- * is completed, so a completion that lands first pays out as if there had been
- * no quiz (R-04).
+ * Completion depends on two of them: the server derives the quiz star and
+ * per-answer coins from the responses already stored (R-04), and refuses a
+ * lesson whose progress row does not show it was played through (R-06).
  */
 export interface PendingWrites {
   add: (write: Promise<unknown>) => void;
-  /** Resolves once every write added so far has settled, either way. */
+  /** Resolves once no write is outstanding — each settled, either way. */
   settled: () => Promise<void>;
 }
 
@@ -22,7 +21,10 @@ export function createPendingWrites(): PendingWrites {
       write.then(forget, forget);
     },
     async settled() {
-      await Promise.allSettled([...writes]);
+      // One yield first: the step report for the step just finished is added by
+      // LessonPlayer's effect, which React runs after the reward step's own.
+      await Promise.resolve();
+      while (writes.size > 0) await Promise.allSettled([...writes]);
     },
   };
 }

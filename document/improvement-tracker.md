@@ -24,7 +24,7 @@
 | 6 | R-10 | Parent lock overlaps kid controls in lesson and story | High | web | — | 1h | 🟨 In progress | Overlap computed from classes, not measured on a device: lock covers a 36×36px patch of the exit X. Lock now hidden on `/lesson/*` and `/stories/[id]` |
 | 7 | R-07 | Child-profile deletion uses the 5s transaction default | Medium | server | — | 1h | 🟨 In progress | Single `delete`, no interactive transaction; session pointer cleared by the existing `SET NULL` FK, now asserted against the schema. Real-DB proof waits on V1-P0-2 |
 | 8 | R-08 | Weekly-report job reports success on failure; curl retry runs it twice | Medium | server, deploy | — | 2h | 🟨 In progress | `childrenFailed` in the result, `500` when above zero; overlapping calls join the in-flight run. Kept sequential, per the endpoint's recorded pool-sharing decision |
-| 9 | R-06 | Lesson/story completion without play-through | Low/Med | server | R-03 | 2h | ⬜ Not started | |
+| 9 | R-06 | Lesson/story completion without play-through | Low/Med | server | R-03 | 2h | 🟨 In progress | **Lessons only.** Completion needs a row at/past `activity` (or already complete) → else `409 LESSON_NOT_PLAYED`; step reports join `PendingWrites`. **Stories not done — decision needed:** the only proof of play is `story_start`, sent with `retries: 0`, so gating on it would cost children rewards on a flaky network |
 
 ## Phase B — Web correctness
 

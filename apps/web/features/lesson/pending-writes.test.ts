@@ -27,6 +27,30 @@ describe("createPendingWrites", () => {
     expect(isSettled).toBe(true);
   });
 
+  it("counts a write added in the same tick, after it was asked", async () => {
+    // The reward step asks first; the player's effect, which React runs after
+    // its child's, adds the report for the step just finished (R-06).
+    const writes = createPendingWrites();
+    let land = () => {};
+    let isSettled = false;
+    const settled = writes.settled().then(() => {
+      isSettled = true;
+    });
+    writes.add(
+      new Promise<void>((resolve) => {
+        land = resolve;
+      }),
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(isSettled).toBe(false);
+
+    land();
+    await settled;
+    expect(isSettled).toBe(true);
+  });
+
   it("settles on a failed write too, so the reward is never held hostage", async () => {
     const writes = createPendingWrites();
     writes.add(Promise.reject(new Error("offline")));
