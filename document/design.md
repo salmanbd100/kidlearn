@@ -81,16 +81,16 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 | `--card-foreground` | ink | slate-900 | Text on cards |
 | `--popover` / `--popover-foreground` | white / ink | white / slate-900 | Menus, tooltips |
 | `--primary` | sky `#36B3F5` | indigo-600 `#4F46E5` | Primary actions |
-| `--primary-foreground` | white | white | Text on primary |
+| `--primary-foreground` | ink | white | Text on primary (kid: white on sky is 2.35:1, so ink) |
 | `--secondary` | grape `#8B5CF6` | slate-100 | Secondary actions |
 | `--secondary-foreground` | white | slate-900 | Text on secondary |
 | `--accent` | sunshine `#FFC93C` | slate-100 | Highlights / hover |
 | `--accent-foreground` | ink | slate-900 | Text on accent |
 | `--muted` | sky-50 | slate-100 | Subdued surfaces |
-| `--muted-foreground` | slate-500 | slate-500 | Captions, hints |
-| `--success` | mint `#34D399` | emerald-600 | Correct / done |
+| `--muted-foreground` | slate-600 | slate-600 | Captions, hints (slate-500 is 4.3:1 on `--muted`) |
+| `--success` | mint `#34D399` (ink text) | emerald-700 | Correct / done |
 | `--warning` | sunshine `#FFC93C` | amber-500 | Caution |
-| `--destructive` | coral `#FF6B6B` | red-600 | Errors, delete |
+| `--destructive` | coral `#FF6B6B` (ink text) | red-600 | Errors, delete |
 | `--border` | sky-100 | slate-200 | Hairlines |
 | `--input` | sky-100 | slate-200 | Field borders |
 | `--ring` | sky `#36B3F5` | indigo-500 | Focus ring |

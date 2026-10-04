@@ -13,6 +13,12 @@
   --color-ink: #2b2a4a;
   --color-cream: #fffdf7;
 
+  /* Type scale (design.md §3.2). Tailwind's own `text-lg` is 1.125rem; kid
+     surfaces may never go below 20px, so the default would break that rule on
+     every kid button, input and label. */
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.4;
+
   /* Radius scale (design.md §4.2) */
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -40,19 +46,19 @@
   --popover: #ffffff;
   --popover-foreground: #2b2a4a;
   --primary: #36b3f5;
-  --primary-foreground: #ffffff;
+  --primary-foreground: #2b2a4a;
   --secondary: #8b5cf6;
   --secondary-foreground: #ffffff;
   --accent: #ffc93c;
   --accent-foreground: #2b2a4a;
   --muted: #eaf7fe;
-  --muted-foreground: #64748b;
+  --muted-foreground: #475569;
   --success: #34d399;
-  --success-foreground: #ffffff;
+  --success-foreground: #2b2a4a;
   --warning: #ffc93c;
   --warning-foreground: #2b2a4a;
   --destructive: #ff6b6b;
-  --destructive-foreground: #ffffff;
+  --destructive-foreground: #2b2a4a;
   --border: #d6eefc;
   --input: #d6eefc;
   --ring: #36b3f5;
@@ -79,8 +85,8 @@
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --success: #059669;
+  --muted-foreground: #475569;
+  --success: #047857;
   --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-foreground: #0f172a;

@@ -10,7 +10,13 @@ import {
 
 // `isDismissable={false}` is the security-relevant half of this primitive.
 
-function renderDialog(props: { isDismissable?: boolean; closeLabel?: string }) {
+type DismissableProps =
+  | { isDismissable?: true; closeLabel: string }
+  | { isDismissable: false; closeLabel?: never };
+
+function renderDialog(
+  props: DismissableProps & Partial<React.ComponentProps<typeof DialogContent>>,
+) {
   const onOpenChange = vi.fn();
   render(
     <Dialog open onOpenChange={onOpenChange}>
@@ -70,6 +76,38 @@ describe("DialogContent — isDismissable={false}", () => {
 
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("DialogContent — a caller's own handlers", () => {
+  it("cannot reopen a gate by passing onEscapeKeyDown", () => {
+    // `{...props}` used to be spread after the guard, so any handler a caller
+    // passed replaced it and Escape dismissed the gate again.
+    const onEscapeKeyDown = vi.fn();
+    const { onOpenChange } = renderDialog({
+      isDismissable: false,
+      onEscapeKeyDown,
+    });
+
+    fireEvent.keyDown(screen.getByRole("dialog"), {
+      key: "Escape",
+      code: "Escape",
+    });
+
+    expect(onEscapeKeyDown).toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("still runs on a dismissable dialog", () => {
+    const onEscapeKeyDown = vi.fn();
+    renderDialog({ closeLabel: "Close", onEscapeKeyDown });
+
+    fireEvent.keyDown(screen.getByRole("dialog"), {
+      key: "Escape",
+      code: "Escape",
+    });
+
+    expect(onEscapeKeyDown).toHaveBeenCalled();
   });
 });
 

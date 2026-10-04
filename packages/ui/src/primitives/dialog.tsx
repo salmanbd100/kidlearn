@@ -59,16 +59,43 @@ const dialogContentVariants = cva(
   },
 );
 
-export interface DialogContentProps
-  extends React.ComponentProps<typeof DialogPrimitive.Content>,
-    VariantProps<typeof dialogContentVariants> {
-  /**
-   * When false the dialog has no close button and ignores Escape and outside
-   * clicks — for a dialog that is itself a gate. Defaults to true.
-   */
-  isDismissable?: boolean;
-  /** Accessible name for the close button. Required whenever one is rendered. */
-  closeLabel?: string;
+type DialogContentBaseProps = Omit<
+  React.ComponentProps<typeof DialogPrimitive.Content>,
+  "children"
+> &
+  VariantProps<typeof dialogContentVariants> & { children?: React.ReactNode };
+
+export type DialogContentProps = DialogContentBaseProps &
+  (
+    | {
+        /** Defaults to true. */
+        isDismissable?: true;
+        /** Accessible name for the close button, which this variant renders. */
+        closeLabel: string;
+      }
+    | {
+        /**
+         * When false the dialog has no close button and ignores Escape and
+         * outside clicks — for a dialog that is itself a gate.
+         */
+        isDismissable: false;
+        closeLabel?: never;
+      }
+  );
+
+/**
+ * A caller's own handler still runs, but cannot undo the gate: spreading `props`
+ * after these used to let any `onEscapeKeyDown` silently disable
+ * `isDismissable={false}`.
+ */
+function gated<TEvent extends Event>(
+  isDismissable: boolean,
+  handler: ((event: TEvent) => void) | undefined,
+) {
+  return (event: TEvent) => {
+    handler?.(event);
+    if (!isDismissable) event.preventDefault();
+  };
 }
 
 function DialogContent({
@@ -77,6 +104,9 @@ function DialogContent({
   children,
   isDismissable = true,
   closeLabel,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onInteractOutside,
   ...props
 }: DialogContentProps) {
   return (
@@ -84,16 +114,10 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(dialogContentVariants({ size }), className)}
-        onEscapeKeyDown={(event) => {
-          if (!isDismissable) event.preventDefault();
-        }}
-        onPointerDownOutside={(event) => {
-          if (!isDismissable) event.preventDefault();
-        }}
-        onInteractOutside={(event) => {
-          if (!isDismissable) event.preventDefault();
-        }}
         {...props}
+        onEscapeKeyDown={gated(isDismissable, onEscapeKeyDown)}
+        onPointerDownOutside={gated(isDismissable, onPointerDownOutside)}
+        onInteractOutside={gated(isDismissable, onInteractOutside)}
       >
         {children}
         {isDismissable ? (
