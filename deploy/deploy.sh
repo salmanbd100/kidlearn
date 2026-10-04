@@ -56,6 +56,13 @@ aws ssm get-parameters-by-path \
   --query 'Parameters[].[Name,Value]' \
   --output text |
   while IFS=$'\t' read -r name value; do
+    # An env file cannot carry a multi-line value, and `--output text` turns one
+    # into extra lines that start with no parameter name. Refuse rather than
+    # write a truncated secret that the DB-free health gate below would pass.
+    if [[ "${name}" != /kidlearn/"${ENV_NAME}"/* ]]; then
+      echo "unexpected SSM output — a parameter value spans more than one line" >&2
+      exit 1
+    fi
     # `$` IS DOUBLED BECAUSE COMPOSE INTERPOLATES env_file, and that is not
     # obvious from either end. A value of `s3cr$tastic` reaches the process as
     # `s3cr`; `abc${NOPE}def` reaches it as `abcdef`. Measured, both ways.

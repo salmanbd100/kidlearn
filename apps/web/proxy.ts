@@ -18,10 +18,17 @@ import { NextResponse } from "next/server";
  */
 const CREDENTIAL = process.env.DEV_SITE_BASIC_AUTH;
 
-export function proxy(request: NextRequest): NextResponse {
-  if (!CREDENTIAL) return NextResponse.next();
+// Buffer, not btoa: btoa throws on any character outside Latin-1, which would
+// turn a password containing one into a 500 on every dev request. Browsers send
+// the credential UTF-8 encoded.
+const EXPECTED_AUTHORIZATION = CREDENTIAL
+  ? `Basic ${Buffer.from(CREDENTIAL, "utf8").toString("base64")}`
+  : undefined;
 
-  if (request.headers.get("authorization") === `Basic ${btoa(CREDENTIAL)}`) {
+export function proxy(request: NextRequest): NextResponse {
+  if (!EXPECTED_AUTHORIZATION) return NextResponse.next();
+
+  if (request.headers.get("authorization") === EXPECTED_AUTHORIZATION) {
     return NextResponse.next();
   }
 

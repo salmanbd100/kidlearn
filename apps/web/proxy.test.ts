@@ -47,6 +47,14 @@ describe("dev site basic auth", () => {
     expect(res.headers.get("www-authenticate")).toBeNull();
   });
 
+  it("accepts a credential containing characters outside Latin-1", async () => {
+    const res = await proxyWith("dev:pässwörd€", {
+      authorization: `Basic ${Buffer.from("dev:pässwörd€", "utf8").toString("base64")}`,
+    });
+
+    expect(res.status).toBe(200);
+  });
+
   it("challenges a request carrying the wrong credential", async () => {
     const res = await proxyWith("dev:hunter2", {
       authorization: `Basic ${btoa("dev:wrong")}`,

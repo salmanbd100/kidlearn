@@ -51,6 +51,9 @@ const fontVariables = [
 const SITE_NAME = "KidLearn";
 
 export const metadata: Metadata = {
+  // `||`, not `??`: an omitted build-arg or a blank Vercel variable is a defined
+  // empty string, which `??` passes to `new URL("")` — that throws at module
+  // scope and fails every route in the build.
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000",
   ),
@@ -69,17 +72,24 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Every route is dynamic by decision, not oversight: this layout reads the
+// locale cookie.
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  // Read on the server so the first response is in the right language; detecting
+  // in the browser gives a Bangla visitor a flash of English and a hydration
+  // mismatch. See the note in `lib/i18n.ts`.
   const cookieStore = await cookies();
   const locale = toLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
 
   return (
     <html
       lang={locale}
+      // The bootstrap script below edits this element's class list before React
+      // hydrates, so the mismatch is expected.
       suppressHydrationWarning
       className={`${fontVariables} h-full antialiased`}
     >

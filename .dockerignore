@@ -2,7 +2,8 @@
 # are built from the REPOSITORY ROOT — pnpm workspaces need the lockfile and every
 # workspace manifest, so a context rooted at one app cannot resolve.
 #
-# EVERY PATTERN IS WRITTEN IN BOTH FORMS, and that is not belt-and-braces. A
+# EVERY PATTERN THAT CAN OCCUR IN A SUBDIRECTORY IS WRITTEN IN BOTH FORMS (the
+# top-level-only entries are marked below), and that is not belt-and-braces. A
 # .dockerignore pattern with no leading `**` is anchored to the context ROOT, so a
 # bare `.env` excludes only /.env and a bare `dist` excludes only /dist — neither
 # touches packages/db/.env, apps/web/.env.local or apps/server/dist, which is
@@ -64,9 +65,12 @@ out
 coverage
 **/coverage
 .git
-.github
+**/.git
 .vercel
 **/.vercel
+# Root-only on purpose: these are top-level directories and files, and a `**/`
+# form would also exclude any source directory that happens to share the name.
+.github
 document
 deploy
 docker
@@ -81,9 +85,16 @@ docker-compose.override.yml
 .DS_Store
 **/.DS_Store
 Thumbs.db
+**/Thumbs.db
 .vscode
+**/.vscode
 .idea
+**/.idea
 *.swp
+**/*.swp
 *.swo
+**/*.swo
 npm-debug.log*
+**/npm-debug.log*
 .pnpm-debug.log*
+**/.pnpm-debug.log*
