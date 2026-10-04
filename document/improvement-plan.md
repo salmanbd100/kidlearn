@@ -8,6 +8,11 @@
 > **Method:** the whole tree was read and every check in §1 was actually run. Numbers in this
 > document are measured, not estimated. Where something is inferred rather than verified, it
 > says so.
+>
+> **Updated 2026-10-04 — second review.** §1–§6 are the v1 plan and stay as written, as the record
+> of what was found on 2026-09-04. §7 is a second whole-codebase review on commit `a00244e`: the
+> status of every v1 finding, and 32 new ones. The work list for both lives in
+> [`improvement-tracker.md`](improvement-tracker.md) — one row per item, done one at a time.
 
 ---
 
@@ -19,6 +24,7 @@
 4. [Sequenced roadmap — implementation files 39–46](#4-sequenced-roadmap--implementation-files-3946)
 5. [Harness updates — CLAUDE.md, README, skills, agents](#5-harness-updates--claudemd-readme-skills-agents)
 6. [Explicitly not recommended](#6-explicitly-not-recommended)
+7. [Second review — 2026-10-04](#7-second-review--2026-10-04)
 
 ---
 
@@ -592,6 +598,289 @@ A refactor plan is only as useful as the work it talks you out of.
 
 ---
 
-_Improvement Plan v1 — kidlearn, 2026-09-04. This document proposes work; it does not authorise
+## 7. Second review — 2026-10-04
+
+Commit `a00244e` on `dev`. Five parallel read-only passes, split by slice: server security,
+server logic and database, web correctness, web UI and accessibility, and cross-cutting
+(types, tests, CI, ops, dependencies). Each pass was told to skip what §3 and the tracker's
+*Open follow-up fixes* already record.
+
+**Verification.** Every finding below was found by reading code. Findings marked **✔** were
+re-read independently while this section was written; the others come from a single pass
+and should be re-confirmed as the first step of fixing them. Nothing was run against a
+database.
+
+### 7.1 Baseline
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Lint | `pnpm lint` | **Clean** — 614 files |
+| Build | `pnpm build` | Clean, 5/5 — **served from the Turbo cache**, not re-run |
+| Types | `pnpm typecheck` | Clean, 8/8 — **served from the Turbo cache**, not re-run |
+| Tests | `pnpm turbo run test --force` | **2,714 passing, 0 failing**, no Supertest flake on this run |
+| — `apps/server` | | 66 files, 1,392 tests |
+| — `apps/web` | | 97 files, 1,032 tests |
+| — `packages/types` | | 5 files, 180 tests |
+| — `packages/ui` | | 9 files, 56 tests |
+| — `packages/db` | | 1 file, 54 tests |
+
+Still clean: no `.skip`/`.only`/`.todo`, no snapshot tests, en/bn locale keys at exact parity
+in all four namespaces, no raw colours in component code, no kid text below 20px,
+`console.log` only in CLI scripts.
+
+### 7.2 Status of the v1 findings
+
+| v1 | Status | What remains |
+| --- | --- | --- |
+| P0-1 CI | ✅ Done | `gates` is not yet a *required* check — blocked on the Supertest flake, tracked |
+| P0-2 Real-database tests | ⬜ Open | No `globalSetup`, no factories; 35+ server test files still `vi.mock` Prisma |
+| P1-1 Boundaries | 🟨 Partial | `global-error`, root `error`, `(student)/error` and root `not-found` exist. No `error.tsx` in `(parent)` or `(admin)` — a parent-page crash falls to the root boundary, which drops the parent layout and theme. No `loading.tsx` (low value: data is fetched client-side) |
+| P1-2 HTTP hardening | 🟨 Partial | `trust proxy` and web security headers done. No `helmet`, no rate limit on `/api/*` outside better-auth. **Correction to v1:** the body was never unbounded — Express defaults to 100kb and the error handler already maps 413; and better-auth's own limiter is on in production for `/api/auth/*` |
+| P1-3 Docs truth | ✅ Done | — |
+| P1-4 `packages/ui` scope | 🟨 Partial | Code matches the recorded rule. `frontend.md`'s decision table, §3 line 177 and checklist line 228, and `.claude/skills/create-component/SKILL.md:50-51,94` still point at `packages/ui/src/kid/` and `parent/` |
+| P2-1 Tokens/i18n packages | ⬜ Open | — |
+| P2-2 Duplicated logic | ⬜ Open | `pickLabel` vs `pickLocale` unchanged. Quiz grading *was* moved to `packages/types/src/quiz/evaluate.ts` |
+| P2-3 Dependency governance | ⬜ Open | No catalog, `engines` or `.nvmrc`; `@types/node ^20` while CI and both Dockerfiles run Node 22 |
+| P2-4 Oversized files | ⬜ Open, slightly worse | `progress.routes.test.ts` 2,324, `content.routes.test.ts` 2,142, admin `content.service.ts` 930, `review.ts` 900, `CurriculumScreen.tsx` 782 |
+| P3 Housekeeping | 🟨 Partial | Tracker has no rows for 40–46 — superseded by `improvement-tracker.md` |
+
+### 7.3 New findings
+
+IDs are stable; `improvement-tracker.md` uses them. Severity is the expected cost if left,
+not the effort to fix.
+
+#### Fix first — correctness and child safety
+
+**R-01 ✔ High — production runs on one database connection.**
+`deployment-walkthrough.md:166-169` and `runbook.md:267` prescribe
+`?pgbouncer=true&connection_limit=1` for a long-running Express container. That setting
+suits serverless; here every Prisma call in the process shares one connection —
+`Promise.all` runs serially, an interactive `$transaction` holds the connection for its
+whole run, and a second transaction waiting past Prisma's 2s `maxWait` fails with `P2028`,
+which `withSerializationRetry` does not retry → 500. Account deletion (120s timeout) stalls
+the whole API. The walkthrough's own line 968 says the setting "serialises the entire app".
+*Fix:* `connection_limit` sized against the Supabase pooler cap (5–10), and retry `P2028`.
+
+**R-02 ✔ High — a badge's AI icon can be published without review.**
+`content-editors.service.ts:717`: `readEditorGuardFields` selects only `status` for badges,
+so `assertAiPublishable` never sees `iconAsset.aiJobId`. An image from a rejected or pending
+job, picked as a badge icon, reaches children through `achievement.service.ts`. Worlds and
+lessons already check linked assets (`admin/content/content.service.ts:642-692`).
+*Fix:* select `iconAsset: { select: { aiJobId: true } }` and add it to `aiJobIds`.
+
+**R-03 ✔ Medium — quiz submission bypasses the screen-time lock.**
+`assertMayOpenLesson` is called only at `lesson-progress.service.ts:78`.
+`recordQuizResponses` creates the `LessonProgress` row (~`:313`) without it, and a fresh row
+makes `isLessonInProgress` true for 30 minutes — reopening the hole the assertion closed.
+*Fix:* call `assertMayOpenLesson` before the transaction, or never create the row on that path.
+
+**R-04 ✔ Medium — a slow quiz upload loses the child's quiz rewards.**
+`QuizStep.tsx:55` fires `submitQuizResponses` with `void` and `retries: 0`.
+`RewardStep` can call `completeLesson` first, and the server derives the quiz reward from
+responses already stored. On 3G or a cold API the quiz star, per-answer coins and the parent
+report's quiz data are lost. *Fix:* hand the submit promise to `RewardStep` and await it
+before completing; allow a retry only once the endpoint is idempotent per question/attempt.
+
+**R-05 ✔ Medium — one invalid payload 500s the whole lesson.**
+`content.service.ts:499-506, 524-531` throw on a single activity or quiz question that fails
+`safeParse`. The web engines already degrade per step (`ActivityUnavailable`, skipped
+questions); the 500 means they never get the chance. Tightening any schema refinement turns
+every lesson containing older content into an error page. *Fix:* log, then return
+`activity: null` / omit the question.
+
+**R-06 Low/Medium — lessons and stories can be completed without being played.**
+`POST /lessons/:id/complete` on a never-opened visible lesson writes the reward and grants
+stars, daily coins and the streak; story completion is not screen-time gated at all
+(`lesson-progress.service.ts:145-155`, `story-progress.service.ts`). *Fix:* require existing
+progress at or past the quiz/activity step (or a `story_start` event) before granting.
+
+**R-07 Medium — deleting a heavy child profile can never succeed.**
+`child-profile.service.ts:223-231` runs the cascade inside a transaction with Prisma's
+default 5s timeout; account deletion documents that the same cascade needs 120s. Worse under
+R-01. *Fix:* the `SetNull` FK on `session` makes the manual `updateMany` redundant — a single
+`delete` with no interactive transaction, or the same timeout as account deletion.
+
+**R-08 Medium — the weekly-report job hides failure and can run twice.**
+`weekly-report.service.ts:601-645` counts per-child failures but never returns the count; the
+route (`jobs.routes.ts:13-21`) always answers 200, so `curl --fail` and the heartbeat report
+success when every child failed. The loop is sequential and unbounded; past curl's
+`--max-time 300` (`deploy/weekly-reports.sh:54`) curl retries and starts a second full pass.
+*Fix:* return `childrenFailed` and answer non-2xx when it is above zero; batch, or 202 and
+process in the background.
+
+#### Web correctness and UX
+
+**R-09 ✔ Medium — parent and admin dialogs render in the kid theme.**
+`data-theme` sits on a wrapper `<div>` in each route-group layout; Radix portals
+(`packages/ui/src/primitives/dialog.tsx:113`, `dropdown-menu.tsx:34`) mount into `<body>`
+and inherit `:root`'s kid tokens. DeleteChildDialog, the account menu and every admin dialog
+get the kid primary, radius and Nunito. *Fix:* set `data-theme` on `<html>` per route group,
+or pass a themed `container` to the Portal.
+
+**R-10 High (placement ✔, overlap not measured) — the parent lock catches children's taps.**
+`ParentCorner` (`features/student/ParentCorner.tsx:18`) is rendered by the student layout on
+every route, `absolute top-2 right-2 z-10`, including the lesson player and story reader. It
+overlaps the corner of StepContainer's exit X (`StepContainer.tsx:88`) and the story
+auto-advance toggle (`StoryReader.tsx:390`), and wins on z-order. With the PIN gate removed,
+a stray tap lands in `/parent/children` unchallenged. *Fix:* hide it on `/lesson/*` and
+`/stories/[id]`, or reserve a gutter in those headers.
+
+**R-11 ✔ Medium — a child's language overwrites the parent's.**
+`shared/lib/i18n.ts:102-103` sets `caches: ["cookie"]`, so every `changeLanguage` — including
+the one `active-child.tsx:163-168` makes for a Bangla child — rewrites the device cookie. The
+parent dashboard, `<html lang>` and the login page stay Bangla afterwards. *Fix:* no detector
+cache; write the cookie explicitly in `LanguageSwitch` only.
+
+**R-12 Medium — an expired admin session is never noticed.**
+`app/(admin)/context/admin-session.tsx:48-70` does not subscribe to `onUnauthorized` (2733ea4
+wired the parent session and active-child provider only), and `AdminShell.tsx:36` keeps
+polling while signed out. *Fix:* subscribe and `refresh()`, as the other two providers do.
+
+**R-13 Medium (admin) — Bangla preview plays English quiz and activity content.**
+`previewLanguage` reaches the API only; `QuizStep.tsx:18` and `ActivityStep.tsx:13` choose
+locale from `i18n.resolvedLanguage`. A reviewer approves Bangla content they never heard.
+*Fix:* `locale` on `LessonStepProps`, `previewLanguage ?? toLocale(i18n.resolvedLanguage)`.
+
+**R-14 Low — lesson audio edge cases.**
+(a) Narration keeps playing after leaving a lesson: `AudioProvider` is at the root and
+`LessonPlayer` has no stop on unmount (`StoryReader.tsx:282` does). (b) A resumed lesson
+mounts `intro` first and jumps in an effect, so `IntroStep` starts narrating before the jump
+(`LessonPlayer.tsx:158-176`). *Fix:* `useEffect(() => stop, [stop])`; initialise the reducer
+at `resumeAt`.
+
+**R-15 Medium — safe-area insets and `min-h-dvh` applied twice.**
+`StepContainer.tsx:50`, `StoryReader.tsx:361`, `ScreenTimeLock.tsx:58` re-add what
+`app/(student)/layout.tsx:10` already applies; on a notched phone in landscape the insets
+double and the lesson scrolls. `max-h-[70vh]` (TraceActivity:159), `[40vh]` (IntroStep:124),
+`[24vh]` (RewardStep:333) should be `dvh`. *Fix:* drop the inner padding and `min-h-dvh`, use
+`flex-1`.
+
+#### Accessibility
+
+**R-16 Medium — drag activities have no non-drag path.**
+`DragDropActivity`, `PuzzleActivity`, `quiz/DragAnswerQuestion` accept drag only;
+`use-activity-sensors.ts:24` uses dnd-kit's default 25px-per-arrow `KeyboardSensor`.
+VoiceOver on iPad cannot complete them. `MatchActivity` already has tap-to-select.
+*Fix:* tap-to-pick / tap-to-place mode, and a `coordinateGetter` that jumps between droppables.
+
+**R-17 Medium — focus is dropped on every transition.**
+No `.focus()` in lesson, quiz, activity or story code; `QuizEngine.tsx:178` remounts by key.
+*Fix:* focus the new question/step heading (`tabIndex={-1}`) on change.
+
+**R-18 Medium — feedback that disappears under reduced motion, and low-contrast marks.**
+Wrong-answer feedback is audio plus a `motion-safe` wiggle (`use-activity-feedback.ts:109`,
+`DragDropActivity.tsx:234`) — muted with reduced motion, there is no signal. The correct
+ticks (`OptionCard.tsx:107`, `MatchActivity.tsx:376`, `MatchPairQuestion.tsx:296`) are
+`text-success` at ~1.9:1 and 16px in the match cases; `todo` progress dots
+(`StepContainer.tsx:21`) are ~1.08:1. `tokens.test.ts` checks only fill/foreground pairs.
+*Fix:* a static wrong-answer cue, ink/emerald marks, larger ticks, bordered dots, and extend
+the contrast test to non-text pairs.
+
+**R-19 Low — kid-surface polish.**
+`ExitConfirm.tsx:50` uses the primitive's 44px close X (below the 64px kid floor); celebrations
+exceed design.md §5.2's 400ms cap (`RewardStep.tsx:323` repeats forever,
+`StreakCelebration.tsx:43`, `StarBurst.tsx:13`); the 64px replay-button class string is
+hand-copied in `QuizEngine.tsx:163`, `IntroStep.tsx:80`, `ActivityEngine.tsx:133` and near-
+copied in `StepContainer.tsx:92`. *Fix:* kid close size or `isDismissable={false}`; trim
+durations; promote StoryReader's `iconControlVariants` to `shared/components/kid/IconControl`.
+
+#### Security hardening
+
+**R-20 Medium — finish P1-2.** `helmet` with a CSP that the Scalar `/docs` route is handled
+under (it loads its bundle from a CDN on the API origin — unverified, check
+`renderApiReference`'s `cdn` default), an explicit `express.json({ limit })` sized against a
+real editor payload, and `express-rate-limit` on `/api/*`.
+
+**R-21 Low — Google OAuth codes are logged.** `pinoHttp` (`app.ts:36`,
+`request-logger.ts:9`) logs full `url`/`query`; only cookie and authorisation headers are
+redacted (`config/logger.ts:5-10`). Every `/api/auth/callback/google?code=…&state=…` lands in
+the log store. *Fix:* log paths without query strings, or redact for `/api/auth/callback/*`.
+
+**R-22 Low — admin sessions live 30 days.** `config/auth.ts:11-13,37-39` gives admin sessions
+the parent expiry, no MFA, no re-check before approve/publish. *Fix:* reject admin sessions
+older than ~12h in `requireAdmin`; plan MFA.
+
+**R-23 Low — asset URL and upload scope.** `AssetRefSchema.url` (`primitives.ts:16-21,35`)
+accepts any https host inside content JSON — `isDeliveryUrl` guards only `POST /api/admin/media`
+— so a third-party tracker or an unreviewed AI asset URL can be published. The Cloudinary
+signature (`media.service.ts:33-36`) signs only `{timestamp, folder}`; `listAssets`
+(`:200-212`) is unpaged. *Fix:* validate content URLs in `parsePayload` (ideally resolve them to
+`MediaAsset` and feed `aiJobId` into R-02's check); sign `allowed_formats` per kind; page the list.
+
+#### Data, schema and performance
+
+**R-24 Medium — payload versions have no migration path.** `schemaVersion: z.literal(1)`;
+`SCHEMA_VERSION` is read only by a test; nothing upgrades old payloads or checks the column
+against the payload. Payloads are `.strict()` on read, so an old bundle on a tablet rejects any
+new optional field (as `tolerance` and `prePlaced` were). *Fix:* strict on write, lenient on
+read; add `migratePayload(v) → latest` before version 2 exists. Pairs with R-05.
+
+**R-25 Low/Medium — `SessionEvent` grows forever and is read three times per dashboard load.**
+No retention job; `dashboard.service.ts:239-241` calls `getLearningMinutes` for today, week and
+month separately. *Fix:* one covering read, three in-memory sums; prune raw events after ~90
+days (weekly reports already hold the aggregates).
+
+**R-26 Low — migration locking convention.** `20260912010000_…`, `20260911000000_…`,
+`20260822010000_…` use plain `CREATE INDEX` on `QuizResponse`/`SessionEvent` and re-add FKs
+without `NOT VALID`. Harmless at today's size. *Fix:* adopt `CREATE INDEX CONCURRENTLY`
+(single-statement migration) and `NOT VALID` + `VALIDATE` as the documented convention. Also
+`deployment-walkthrough.md:181` ("ending in `20260910…`") is four migrations stale.
+
+**R-27 Low/Medium — web load path.** Kid screens start their own fetches only after
+`ActiveChildProvider`'s three resolve (`StudentGuard.tsx:15-40`) — two serial round trips,
+each with retry backoff on a cold start; this also contradicts `frontend.md §3` ("Never fetch
+data in a Client Component"), which should be amended to record client fetching as deliberate
+(the session cookie belongs to the API origin). The root layout preloads five font families on
+every route, including JetBrains Mono (admin only) and Noto Sans Bengali (`app/layout.tsx:16-48`).
+`use-preload-next-step.ts:11-27,76` holds a module-level cache nothing reads. *Fix:* parallel
+fetches; move JetBrains Mono to `(admin)`, `preload: false` on Bengali; delete the dead cache.
+
+#### Ops and supply chain
+
+**R-28 Medium — backup and deploy scripts.** `deploy/backup.sh:27,97` runs `pg_dump` from
+`postgres:16-alpine`; against a Postgres 17 Supabase project it aborts on version mismatch —
+check `SELECT version()` and pin to the server's major (and fix the comment claiming the dump
+is made "by the major version that wrote the data"). `deploy.sh:111-132,153` writes the new
+`IMAGE_TAG` to `compose.env` before the health gate, so a failed deploy leaves the broken image
+running and suggests rolling back to it. `weekly-reports.sh:54-55` puts `CRON_SECRET` on curl's
+command line, visible in `ps` — `backup.sh:95` already does this right via stdin.
+
+**R-29 Low — Actions pinned by tag.** `.github/workflows/ci.yml:33,38,40,46,104`, including
+third-party `pnpm/action-setup@v6`. Limited today (`contents: read`, no secrets); real once 38a
+adds AWS credentials. *Fix:* pin by SHA, add `.github/dependabot.yml` for `github-actions` and
+`npm`. The `promotion-guard` remains file 38a's.
+
+#### Housekeeping
+
+**R-30** — finish P1-1: `error.tsx` and `not-found.tsx` for `(parent)` and `(admin)`.
+**R-31** — finish P1-4: correct `frontend.md` and the `create-component` skill.
+**R-32** — `as` casts without the comment `general.md` requires
+(`content-status.service.ts:62,73`, `admin/ai/prompts/quiz.ts:28`, `packages/ui/src/lib/a11y-prefs.ts:16`);
+unused `dotenv` in `packages/db/package.json:42`; `VideoStep.tsx:92` ships no captions, which
+design.md §1.6's AA target requires (captions are Level A) — record a decision either way.
+
+### 7.4 What the second review found done well
+
+- **Ownership.** `loadOwnedChild` answers 404 for missing and foreign children alike on every
+  `/api/children/:id*` route; student routes resolve the child via `requireActiveChild`;
+  `activeChildProfileId` is `input: false`.
+- **Reward ledger.** A unique index on `(childId, rewardType, sourceType, sourceId)`,
+  `skipDuplicates`, Serializable with jittered retry, and the local date read once outside the
+  retry so a retry cannot cross midnight.
+- **AI review.** The daily cap is re-checked inside the job-creating transaction, model URLs are
+  rewritten to a placeholder host until replaced, and published content cannot be edited.
+- **Client resilience.** Per-attempt timeouts, opt-in POST retries, one 401 broadcast; engines
+  `safeParse` and degrade per item; completion refs stop double-taps skipping a step.
+- **Reduced motion** is honoured everywhere, by both `useIsMotionReduced` and the CSS reset.
+
+### 7.5 Order of work
+
+One item per branch, in the order `improvement-tracker.md` lists. R-01 to R-05 first — each is
+small and each is a live defect. v1's P0-2 (the test-database harness) is still the item worth
+the most; it is carried into the tracker as `V1-P0-2` and should not be rushed.
+
+---
+
+_Improvement Plan v1 — kidlearn, 2026-09-04; §7 added 2026-10-04. This document proposes work; it does not authorise
 it. Each item becomes real when it has a row in `document/implementation/00-progress-tracker.md`
 and a branch of its own._

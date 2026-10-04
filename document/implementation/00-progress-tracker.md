@@ -77,6 +77,9 @@ hardening, the test-database harness and its suite ports, error/loading boundari
 i18n packages, and dependency governance. Each gets a row here when its own spec file is written;
 a row without a file is a promise, not a plan.
 
+From 2026-10-04, those v1 items and the second review's findings (`improvement-plan.md §7`) are
+worked from `document/improvement-tracker.md`, one item per branch.
+
 ### Open follow-up fixes
 
 `general.md §7` sends a bug found while implementing one file to its own branch rather than the
