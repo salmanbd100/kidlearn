@@ -35,6 +35,7 @@ import {
   type LessonPlayerState,
   lessonReducer,
 } from "./lesson-machine";
+import { createPendingWrites } from "./pending-writes";
 import { StepContainer } from "./StepContainer";
 import { ActivityStep } from "./steps/ActivityStep";
 import { IntroStep } from "./steps/IntroStep";
@@ -165,6 +166,9 @@ function LessonPlayerContent({
 
   const resumeAt = load.status === "ready" ? load.resumeAt : undefined;
 
+  // One per lesson session, so the reward step can wait out the quiz upload.
+  const [pendingWrites] = useState(createPendingWrites);
+
   // Resume and announce the start, once, as soon as the data lands.
   const hasStarted = useRef(false);
   useEffect(() => {
@@ -247,6 +251,7 @@ function LessonPlayerContent({
         <StepComponent
           lesson={lesson}
           isPreview={isPreview}
+          pendingWrites={pendingWrites}
           onComplete={() => dispatch({ type: "STEP_COMPLETE" })}
         />
       </StepContainer>

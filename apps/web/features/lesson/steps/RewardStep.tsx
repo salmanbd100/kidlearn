@@ -90,7 +90,12 @@ function buildSchedule(
   }));
 }
 
-export function RewardStep({ lesson, onComplete, isPreview }: LessonStepProps) {
+export function RewardStep({
+  lesson,
+  onComplete,
+  isPreview,
+  pendingWrites,
+}: LessonStepProps) {
   const { t, i18n } = useTranslation(LESSON_NAMESPACE);
   const locale = toLocale(i18n.resolvedLanguage);
   const { play } = useAudio();
@@ -112,25 +117,30 @@ export function RewardStep({ lesson, onComplete, isPreview }: LessonStepProps) {
       return;
     }
 
-    void completeLesson(lessonId).then((result) => {
-      if (!isCurrent) return;
-      if (!result.ok) {
-        // Logged for an adult, invisible to the child. The lesson was finished
-        // whether or not the network agreed.
-        console.warn(
-          `[kidlearn] lesson ${lessonId} completion not recorded: ${result.error.code}`,
-        );
-        setRewards(undefined);
-      } else {
-        setRewards(result.data);
-      }
-      setPhase("stars");
-    });
+    // The quiz reward is derived from responses the server already holds, so
+    // the completion waits for the quiz submission to land rather than race it.
+    const writesSettled = pendingWrites?.settled() ?? Promise.resolve();
+    void writesSettled
+      .then(() => completeLesson(lessonId))
+      .then((result) => {
+        if (!isCurrent) return;
+        if (!result.ok) {
+          // Logged for an adult, invisible to the child. The lesson was finished
+          // whether or not the network agreed.
+          console.warn(
+            `[kidlearn] lesson ${lessonId} completion not recorded: ${result.error.code}`,
+          );
+          setRewards(undefined);
+        } else {
+          setRewards(result.data);
+        }
+        setPhase("stars");
+      });
 
     return () => {
       isCurrent = false;
     };
-  }, [lessonId, isPreview]);
+  }, [lessonId, isPreview, pendingWrites]);
 
   const starCount = rewards?.starsEarned ?? 0;
   const coinCount = rewards?.coinsEarned ?? 0;

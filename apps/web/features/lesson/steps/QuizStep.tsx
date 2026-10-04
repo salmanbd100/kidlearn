@@ -13,7 +13,12 @@ import { toLocale } from "@/shared/lib/locale";
 import type { LessonStepProps } from "./lesson-step-props";
 
 /** The quiz (FR-LSN-04, FR-QUIZ-01..08). */
-export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
+export function QuizStep({
+  lesson,
+  onComplete,
+  isPreview,
+  pendingWrites,
+}: LessonStepProps) {
   const { t, i18n } = useTranslation(LESSON_NAMESPACE);
   const locale = toLocale(i18n.resolvedLanguage);
   const [finishedRecords, setFinishedRecords] = useState<
@@ -52,15 +57,16 @@ export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
         }),
       );
 
-      void submitQuizResponses(quizId, wire).then((result) => {
+      const submission = submitQuizResponses(quizId, wire).then((result) => {
         if (!result.ok) {
           console.warn(
             `[kidlearn] quiz responses not recorded: ${result.error.code}`,
           );
         }
       });
+      pendingWrites?.add(submission);
     },
-    [quizId, onComplete, isPreview],
+    [quizId, onComplete, isPreview, pendingWrites],
   );
 
   return (
