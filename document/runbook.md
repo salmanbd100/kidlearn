@@ -262,6 +262,7 @@ values.
 | `AI_TEXT_JOBS_PER_DAY` / `_AUDIO_` / `_IMAGE_` | compose | 8 / 100 / 15 | 4 / 20 / 5 |
 | `POSTGRES_PASSWORD` | SSM (dev only) | — | `openssl rand -base64 24` |
 | `BACKUP_S3_BUCKET` | SSM (prod only) | the backup bucket name, no `s3://` | — ; dev is never backed up |
+| `BACKUP_HEARTBEAT_URL` | SSM (prod only, optional) | a healthchecks.io-style check URL — see §8 | — |
 | `NEXT_PUBLIC_API_URL` | **Vercel**, build-time | `https://api.kidlearn.net` | `https://api.dev.kidlearn.net` |
 | `NEXT_PUBLIC_SITE_URL` | **Vercel**, build-time | `https://kidlearn.net` | `https://dev.kidlearn.net` |
 | `MEDIA_ASSET_HOSTS` | **Vercel**, build-time | `https://res.cloudinary.com` | `https://res.cloudinary.com` |
@@ -427,12 +428,29 @@ dev stack already pulls (so the box needs no postgres-client package), pipes
 straight to S3 rather than staging on the 20 GB volume, and fails if the
 uploaded object is under 1 KB — a gzip of nothing uploads perfectly happily.
 
+**The dump lands under `prod/.partial/` and is moved to `prod/<timestamp>.sql.gz`
+only after the whole pipeline succeeds.** A `pg_dump` that dies midway ends its
+output like a clean EOF, so the upload completes with whatever bytes arrived;
+writing straight to the final key would leave a truncated file as the newest
+backup. On failure the script deletes the partial object. Anything left in
+`.partial/` (the instance was killed mid-run) is never a restore candidate:
+list `s3://<bucket>/prod/` — a non-recursive listing shows `.partial/` only as a
+prefix — and take the newest `.sql.gz` object.
+
+**A failed run alerts.** Cron on this box has no mail agent, so the script pings a
+dead-man's-switch instead. Create a free check at healthchecks.io (period 1 day,
+grace 2 hours, notify your email), store its ping URL as
+`/kidlearn/prod/BACKUP_HEARTBEAT_URL`, and the script pings it on success and at
+`<url>/fail` on failure. The monitor also alerts when no ping arrives at all,
+which is the only way to learn that cron itself never fired. Without the
+parameter the script still backs up, and prints a warning on every run.
+
 `sudo crontab -e`:
 
 ```cron
 CRON_TZ=Asia/Dhaka
 # Nightly production database dump → S3
-30 1 * * *  /opt/kidlearn/deploy/backup.sh
+30 1 * * *  /opt/kidlearn/deploy/backup.sh >>/var/log/kidlearn-backup.log 2>&1
 ```
 
 **Both cron entries need a cron daemon, and AL2023 ships none** — `bootstrap.sh`

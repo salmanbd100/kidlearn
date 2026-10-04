@@ -288,6 +288,7 @@ It is fourteen forms. Tedious, but it is once.
 | `/kidlearn/prod/GEMINI_API_KEY` | AI Studio key |
 | `/kidlearn/prod/GOOGLE_TTS_API_KEY` | Cloud TTS key |
 | `/kidlearn/prod/BACKUP_S3_BUCKET` | the bucket name from A4, **no** `s3://` |
+| `/kidlearn/prod/BACKUP_HEARTBEAT_URL` | the ping URL of a healthchecks.io check (period 1 day, grace 2 hours) — without it a failed backup alerts nobody |
 
 The two Google OAuth values are placeholders on purpose — you create that client
 in A15 and come back to overwrite them.
@@ -840,7 +841,7 @@ That opens an editor. Add these five lines:
 ```cron
 CRON_TZ=Asia/Dhaka
 # Nightly production database dump → S3
-30 1 * * *  /opt/kidlearn/deploy/backup.sh
+30 1 * * *  /opt/kidlearn/deploy/backup.sh >>/var/log/kidlearn-backup.log 2>&1
 # Weekly parent reports, Mondays 02:00
 0 2 * * 1   /opt/kidlearn/deploy/weekly-reports.sh
 ```
@@ -855,8 +856,11 @@ Save and exit (`Ctrl-O`, `Enter`, `Ctrl-X` if it is nano).
 # [backup] wrote ... (NNNNNN bytes)
 ```
 
-Check the object really appeared in the S3 console. If the script reports a size
-under 1 KB it fails on purpose — that is a compressed *empty* dump, not a backup.
+Check the object really appeared in the S3 console, under `prod/` and not
+`prod/.partial/` — the script moves it there only once the dump has finished. If
+the script reports a size under 1 KB it fails on purpose — that is a compressed
+*empty* dump, not a backup. The healthchecks.io check should show a green ping;
+if it does not, the `BACKUP_HEARTBEAT_URL` parameter is wrong or unset.
 
 - [ ] `crond` active, both entries added
 - [ ] `backup.sh` ran by hand and produced a real object in S3
