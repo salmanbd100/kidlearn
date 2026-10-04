@@ -1,8 +1,4 @@
-import {
-  errorResponse,
-  INTERNAL_RESPONSE,
-  jsonResponse,
-} from "../components.js";
+import { errorResponse, jsonResponse } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
 /** `modules/jobs/jobs.routes.ts` — `requireCronSecret` guards the whole router. */
@@ -19,11 +15,13 @@ export const JOBS_ROUTES: RouteDoc[] = [
         "",
         "**Authenticated by a shared secret, not a session.** Send `Authorization: Bearer <CRON_SECRET>`. Deliberately not an admin login: the intended caller is cron-job.org, which has no browser, no cookie jar and nobody to complete an OAuth round trip — a scheduler that cannot authenticate is a scheduler that does not run. The consequence is that the secret is the whole of the authorisation, which is why these routes only ever *recompute* what the server already owns and never read per-child data out.",
         "",
-        "**Idempotent, so a retrying scheduler is harmless.** Every write is an upsert on `(childId, weekStart)`, so calling this twice on the same Monday leaves exactly the same rows as calling it once, and the report history can never grow a duplicate week (FR-DASH-06). It does not skip a week that already has a row — re-running replaces the metrics, which is how an event that arrived late still gets counted.",
+        "**Idempotent, so a retrying scheduler is harmless.** Every write is an upsert on `(childId, weekStart)`, so calling this twice on the same Monday leaves exactly the same rows as calling it once, and the report history can never grow a duplicate week (FR-DASH-06). A call that arrives while a run is still in flight — a scheduler retrying after its own timeout — joins that run and receives its result, rather than walking every child a second time alongside it. It does not skip a week that already has a row — re-running replaces the metrics, which is how an event that arrived late still gets counted.",
         "",
         "**Two weeks per child at most: the newest, and the oldest one still missing.** The backfill is what makes a missed Monday recoverable — a scheduler outage or a cold start past its retry budget would otherwise leave a hole in the history that nothing ever filled, because the read path only fills the newest week too. One gap per run keeps the job's cost bounded while making every gap eventually closeable. Neither reaches back past the week a profile was created.",
         "",
         "**One child's failure does not abort the run.** It is logged and skipped: with a backfill in the loop, throwing would let a single unaggregatable child block every later child's gap from ever closing, and next Monday's retry would stop in the same place. `childrenProcessed` counts the children walked, which is what tells an operator an empty database apart from a quiet week.",
+        "",
+        "**But a run with any failure does not answer `200`.** Every other child is still finished; the response is then a `500` whose `error.details` carries the same `{ childrenProcessed, childrenFailed, weekStart }`. A scheduler reading the status code — `curl --fail` and its heartbeat — must not report a week whose reports were never written as a success.",
         "",
         "**No request body and no `weekStart` parameter.** The week is derived from the server's clock and `APP_TIMEZONE` (Monday 00:00 local). A parameter would let a mis-configured job overwrite an arbitrary historical week, and a scheduler knows nothing about which week it is that the server does not know better.",
         "",
@@ -43,7 +41,10 @@ export const JOBS_ROUTES: RouteDoc[] = [
           "The `Authorization` header is missing, is not a `Bearer` token, or does not match `CRON_SECRET`. `401` rather than `403` because there is no identity here for a `403` to be about.",
           ["UNAUTHORIZED"],
         ),
-        "500": INTERNAL_RESPONSE,
+        "500": errorResponse(
+          "One or more children could not be aggregated (`error.details` holds the run's counts), or the run itself failed. Every child that could be was still processed.",
+          ["INTERNAL"],
+        ),
       },
     },
   },

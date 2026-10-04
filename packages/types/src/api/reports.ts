@@ -94,6 +94,8 @@ export const WeeklyReportListResponseSchema = ok(WeeklyReportListSchema);
 export const WeeklyReportJobResultSchema = z
   .object({
     childrenProcessed: z.number().int().min(0),
+    /** Children whose generation threw. The route answers 500 when above zero. */
+    childrenFailed: z.number().int().min(0),
     weekStart: IsoDateTimeSchema,
   })
   .strict();

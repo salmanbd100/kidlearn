@@ -641,6 +641,7 @@ export async function generateLastCompletedWeekForAllChildren(): Promise<WeeklyR
 
   return {
     childrenProcessed: children.length,
+    childrenFailed,
     weekStart: lastWeek.toISOString(),
   };
 }

@@ -228,6 +228,7 @@ describe("POST /api/admin/jobs/weekly-reports — generation", () => {
     assertContract(WeeklyReportJobResponseSchema, res.body, OPERATION);
     expect(res.body.data).toEqual({
       childrenProcessed: 3,
+      childrenFailed: 0,
       weekStart: LAST_WEEK,
     });
     expect(store.reports).toHaveLength(3);
@@ -371,16 +372,71 @@ describe("POST /api/admin/jobs/weekly-reports — closing older gaps", () => {
       },
     );
 
+    await request(app).post(PATH).set("Authorization", `Bearer ${SECRET}`);
+
+    // Aborting the run would let one unaggregatable child block every later
+    // child's gap from ever closing — next Monday's retry stops in the same place.
+    expect((store.reports as ReportRow[]).map((row) => row.childId)).toEqual([
+      "child_2",
+    ]);
+  });
+
+  it("answers 500 when any child failed, so the scheduler's --fail sees it", async () => {
+    // R-08. A 200 here is what the cron script reports to the heartbeat as
+    // success — with every child failing, the week's reports would simply not
+    // exist and nobody would hear about it.
+    store.children = [child("child_1"), child("child_2")];
+    db.sessionEventFindMany.mockImplementation(
+      async ({ where }: { where: { childId: string } }) => {
+        if (where.childId === "child_1") throw new Error("pool exhausted");
+        return [];
+      },
+    );
+
     const res = await request(app)
       .post(PATH)
       .set("Authorization", `Bearer ${SECRET}`);
 
-    // Aborting the run would let one unaggregatable child block every later
-    // child's gap from ever closing — next Monday's retry stops in the same place.
-    expect(res.status).toBe(200);
-    expect((store.reports as ReportRow[]).map((row) => row.childId)).toEqual([
-      "child_2",
-    ]);
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.body.error.details).toEqual({
+      childrenProcessed: 2,
+      childrenFailed: 1,
+      weekStart: LAST_WEEK,
+    });
+    // Says how many, never which: the secret is not a licence to read children.
+    expect(res.text).not.toContain("child_1");
+  });
+
+  it("joins a run already in flight rather than starting a second pass", async () => {
+    // R-08. curl's retry after `--max-time` reaches the server while the first
+    // run is still going; without this it walked every child twice at once.
+    store.children = [child("child_1"), child("child_2")];
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    db.childFindMany.mockImplementation(async () => {
+      await gate;
+      return store.children;
+    });
+
+    const first = request(app)
+      .post(PATH)
+      .set("Authorization", `Bearer ${SECRET}`)
+      .then((res) => res);
+    const second = request(app)
+      .post(PATH)
+      .set("Authorization", `Bearer ${SECRET}`)
+      .then((res) => res);
+    // Real time, not faked: both requests have to reach the route first.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    release();
+    const responses = await Promise.all([first, second]);
+
+    expect(responses.map((res) => res.status)).toEqual([200, 200]);
+    expect(db.childFindMany).toHaveBeenCalledTimes(1);
+    expect(db.reportUpsert).toHaveBeenCalledTimes(2);
   });
 });
 
