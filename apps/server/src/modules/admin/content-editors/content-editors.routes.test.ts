@@ -384,7 +384,10 @@ function seedActivity(status = "draft"): Row {
   return row;
 }
 
-function seedBadge(status = "draft", icon?: { id: string; url: string }): Row {
+function seedBadge(
+  status = "draft",
+  icon?: { id: string; url: string; aiJobId?: string },
+): Row {
   const row: Row = {
     id: BADGE_ID,
     slug: "alphabet-champion",
@@ -395,7 +398,10 @@ function seedBadge(status = "draft", icon?: { id: string; url: string }): Row {
     iconAssetId: icon?.id ?? null,
     // The stub returns whole rows and ignores `select`, so the relation the
     // service reads `iconUrl` from is seeded as a nested object here.
-    iconAsset: icon === undefined ? null : { url: icon.url },
+    iconAsset:
+      icon === undefined
+        ? null
+        : { url: icon.url, aiJobId: icon.aiJobId ?? null },
     status,
   };
   store.badges.push(row);
@@ -1251,6 +1257,44 @@ describe("transitions", () => {
       .send({ to: "in_review" });
 
     expect(res.status).toBe(404);
+  });
+
+  /** R-02 — the FR-AI-07 guard reaches through a badge to its icon. */
+  describe("a badge answers for its icon's generation job", () => {
+    function seedGeneratedIcon(jobStatus: string, decision: string | null) {
+      store.jobs.push({ id: "job-icon", status: jobStatus, decision });
+      seedBadge("approved", {
+        id: "cccccccc-0000-4000-8000-000000000001",
+        url: "https://res.cloudinary.com/test-cloud/image/upload/icon.png",
+        aiJobId: "job-icon",
+      });
+    }
+
+    it("409s the publish hop when the icon's job is still awaiting review", async () => {
+      seedGeneratedIcon("awaiting_review", null);
+
+      const res = await request(app)
+        .post(`${BASE}/badges/${BADGE_ID}/transition`)
+        .send({ to: "published" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toMatchObject({
+        code: "AI_REVIEW_REQUIRED",
+        jobId: "job-icon",
+      });
+      expect(store.badges[0].status).toBe("approved");
+    });
+
+    it("publishes once the icon's job carries an approved decision", async () => {
+      seedGeneratedIcon("approved", "approve");
+
+      const res = await request(app)
+        .post(`${BASE}/badges/${BADGE_ID}/transition`)
+        .send({ to: "published" });
+
+      expect(res.status).toBe(200);
+      expect(store.badges[0].status).toBe("published");
+    });
   });
 
   /** The FR-AI-07 guard's questions half (file 37). */

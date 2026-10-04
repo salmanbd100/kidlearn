@@ -46,8 +46,10 @@ trap 'status=$?; if [[ ${status} -ne 0 ]]; then echo "[weekly-reports] FAILED wi
 CRON_SECRET="$(ssm /kidlearn/prod/CRON_SECRET)"
 
 # --fail so a 401 or a 500 is a non-zero exit rather than a logged "success" that
-# quietly generated nothing. The retries are safe because the job is idempotent:
-# each report is an upsert on (childId, weekStart). curl's default retry covers
+# quietly generated nothing — the API answers 500 when any child failed. The
+# retries are safe because the job is idempotent: each report is an upsert on
+# (childId, weekStart), and a retry that lands while the first run is still going
+# (past --max-time) joins that run rather than starting a second pass. curl's default retry covers
 # timeouts and 408/429/5xx, and `--retry-connrefused` adds the connection refused
 # a deploy recreating the API at 02:00 on a Monday produces. A 401 is not retried
 # (`--retry-all-errors` would), so a wrong secret still fails at once.

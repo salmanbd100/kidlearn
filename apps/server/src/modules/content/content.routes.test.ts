@@ -788,7 +788,7 @@ describe("GET /api/content/lessons/:id", () => {
     expect(res.body.data.lesson.quiz).toBeNull();
   });
 
-  it("returns 500 INTERNAL and leaks no payload when a published activity definition is corrupt", async () => {
+  it("omits a corrupt published activity, serves the rest of the lesson, and leaks no payload", async () => {
     signInAs(childProfile());
     db.lessonFindFirst.mockResolvedValue(
       lessonRow({
@@ -808,13 +808,16 @@ describe("GET /api/content/lessons/:id", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
+    // R-05. One bad step is not a bad lesson: the player degrades a missing
+    // activity on its own, which it cannot do behind a 500.
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity).toBeNull();
+    expect(res.body.data.lesson.quiz).not.toBeNull();
     expect(res.text).not.toContain("correctMappings");
     expect(res.text).not.toContain("barn");
   });
 
-  it("returns 500 INTERNAL when a published quiz question definition is corrupt", async () => {
+  it("omits a corrupt published quiz question and keeps the others", async () => {
     signInAs(childProfile());
     const row = lessonRow();
     row.quiz.questions[1] = {
@@ -826,9 +829,28 @@ describe("GET /api/content/lessons/:id", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
-    expect(res.text).not.toContain("options");
+    expect(res.status).toBe(200);
+    const ids = res.body.data.lesson.quiz.questions.map(
+      (question: { id: string }) => question.id,
+    );
+    expect(ids).toEqual(["q1", "q3"]);
+  });
+
+  it("serves no quiz when every question is corrupt", async () => {
+    signInAs(childProfile());
+    const row = lessonRow();
+    row.quiz.questions = row.quiz.questions.map((question) => ({
+      ...question,
+      definition: { ...validMcq, options: [] },
+    }));
+    db.lessonFindFirst.mockResolvedValue(row);
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    // An empty quiz would play a score screen for nothing; a null one is
+    // skipped by the player.
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.quiz).toBeNull();
   });
 
   /**
@@ -836,7 +858,7 @@ describe("GET /api/content/lessons/:id", () => {
    * column holds a legal enum member — and they describe different things. Zod
    * cannot see it, so the service compares them.
    */
-  it("returns 500 INTERNAL when Activity.type disagrees with its definition", async () => {
+  it("omits an activity whose type disagrees with its definition", async () => {
     signInAs(childProfile());
     db.lessonFindFirst.mockResolvedValue(
       lessonRow({
@@ -853,12 +875,12 @@ describe("GET /api/content/lessons/:id", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity).toBeNull();
     expect(res.text).not.toContain("drag_drop");
   });
 
-  it("returns 500 INTERNAL when QuizQuestion.format disagrees with its definition", async () => {
+  it("omits a quiz question whose format disagrees with its definition", async () => {
     signInAs(childProfile());
     const row = lessonRow();
     row.quiz.questions[0] = {
@@ -870,9 +892,11 @@ describe("GET /api/content/lessons/:id", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.status).toBe(200);
     expect(res.text).not.toContain("match_pair");
+    expect(res.body.data.lesson.quiz.questions).toHaveLength(
+      row.quiz.questions.length - 1,
+    );
   });
 
   it("serves a lesson whose column and definition agree", async () => {

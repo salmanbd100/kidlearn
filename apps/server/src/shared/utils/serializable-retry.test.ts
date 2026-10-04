@@ -54,6 +54,31 @@ describe("withSerializationRetry", () => {
     expect(run).toHaveBeenCalledTimes(3);
   });
 
+  it("retries when the pool had no connection free to start the transaction", async () => {
+    const startTimeout = new Prisma.PrismaClientKnownRequestError(
+      "Transaction API error: Unable to start a transaction in the given time.",
+      { code: "P2028", clientVersion: "6.19.3" },
+    );
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(startTimeout)
+      .mockResolvedValue("granted");
+
+    await expect(withSerializationRetry(run)).resolves.toBe("granted");
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a transaction that ran past its timeout", async () => {
+    const expired = new Prisma.PrismaClientKnownRequestError(
+      "Transaction API error: Transaction already closed: A query cannot be executed on an expired transaction.",
+      { code: "P2028", clientVersion: "6.19.3" },
+    );
+    const run = vi.fn().mockRejectedValue(expired);
+
+    await expect(withSerializationRetry(run)).rejects.toBe(expired);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it("rethrows any other Prisma error without retrying", async () => {
     const unique = new Prisma.PrismaClientKnownRequestError(
       "Unique constraint failed",

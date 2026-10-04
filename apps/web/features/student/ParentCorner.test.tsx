@@ -121,6 +121,29 @@ describe("ParentCorner", () => {
     );
   });
 
+  it.each([
+    "/lesson/33333333-3333-4333-8333-333333333333",
+    "/stories/55555555-5555-4555-8555-555555555555",
+  ])("stays out of the way on the full-screen player at %s", (pathname) => {
+    // R-10. These screens put their own exit in the same corner, and the lock
+    // sat on top of it.
+    navigation.pathname = pathname;
+    renderCorner();
+
+    expect(
+      screen.queryByRole("button", { name: "For grown-ups" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still shows on the story library", () => {
+    navigation.pathname = "/stories";
+    renderCorner();
+
+    expect(
+      screen.getByRole("button", { name: "For grown-ups" }),
+    ).toBeInTheDocument();
+  });
+
   it("opens the parent area from the anonymous lock too", async () => {
     navigation.pathname = "/home";
     renderCorner();

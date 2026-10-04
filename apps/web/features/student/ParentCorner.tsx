@@ -12,6 +12,17 @@ import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 /** Where the parent area opens. */
 const PARENT_DESTINATION = "/parent/children";
 
+/**
+ * The lesson player and the story reader fill the screen with a header of their
+ * own, whose 64px exit X and auto-advance toggle sit in the same top-right
+ * corner. The lock, on top by z-order, took the taps a child aimed at them —
+ * and with no PIN behind it, a stray tap landed in the parent area. Both
+ * screens have their own way out, back to one that shows the lock.
+ */
+function isFullScreenPlayer(pathname: string): boolean {
+  return pathname.startsWith("/lesson/") || /^\/stories\/[^/]+$/.test(pathname);
+}
+
 const parentCornerVariants = cva(
   // Small and quiet by design, but still a legal target for the adult hand that
   // needs it (44px, design.md §7 — this is a parent control).
@@ -45,6 +56,8 @@ export function ParentCorner() {
    */
   const isNamed =
     pathname === STUDENT_ROUTES.selectProfile && parent !== undefined;
+
+  if (isFullScreenPlayer(pathname)) return null;
 
   return (
     <button

@@ -234,7 +234,8 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   standing exception is the **parent corner**: a small adult-only control pinned to a top corner,
   deliberately outside the thumb zone. It is an anonymous lock icon everywhere except
   `/select-profile`, where it is a named chip carrying the parent's photo — see
-  `user-journey-manual.md §4.2` for the reasoning.
+  `user-journey-manual.md §4.2` for the reasoning. It is absent from the lesson player and the
+  story reader, whose own exit control occupies that corner.
 - Parent dashboard uses a **persistent top bar**: wordmark, section links, language switch, and an
   account menu (identity, back to kid mode, sign out). Section links wrap to a second full-width
   row below `sm` and sit inline from `sm` up. Data tables collapse to stacked cards on small screens.

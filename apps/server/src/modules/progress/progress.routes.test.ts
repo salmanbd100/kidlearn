@@ -793,8 +793,34 @@ describe("POST /api/progress/lessons/:id/step", () => {
   });
 });
 
+/**
+ * The progress row a child has by the time the reward step mounts: every step
+ * up to the quiz reported. Completion refuses a lesson without one (R-06).
+ */
+function playThrough(lessonId = LESSON_ID) {
+  const rows = store.progressRows as ProgressRow[];
+  // A row the quiz endpoint created sits at the column default, `intro`; in the
+  // real flow the step reports before it would already have moved it on.
+  const existing = rows.find((row) => row.lessonId === lessonId);
+  if (existing !== undefined) {
+    if (existing.completedAt === null) existing.currentStep = "quiz";
+    return;
+  }
+  rows.push({
+    id: `progress_${rows.length + 1}`,
+    childId: CHILD_ID,
+    lessonId,
+    currentStep: "quiz",
+    completedAt: null,
+    score: null,
+    timeSpentSec: 0,
+    updatedAt: new Date("2026-08-10T09:00:00.000Z"),
+  });
+}
+
 describe("POST /api/progress/lessons/:id/complete", () => {
   function complete(lessonId = LESSON_ID) {
+    playThrough(lessonId);
     return request(app).post(`/api/progress/lessons/${lessonId}/complete`);
   }
 
@@ -843,6 +869,47 @@ describe("POST /api/progress/lessons/:id/complete", () => {
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
     expect(ledger()).toHaveLength(0);
+  });
+
+  it("refuses to pay out for a lesson the child never opened", async () => {
+    // R-06. Stars, the day's coins and the streak, all for one POST.
+    signInAs(childProfile());
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("LESSON_NOT_PLAYED");
+    expect(ledger()).toHaveLength(0);
+    expect(store.progressRows).toHaveLength(0);
+  });
+
+  it("refuses a lesson opened but abandoned before the activity", async () => {
+    signInAs(childProfile());
+    playThrough();
+    (store.progressRows as ProgressRow[])[0].currentStep = "video";
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(409);
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("completes once the activity is finished, even if the quiz report was lost", async () => {
+    // The quiz step's report races the reward step's mount; losing it must not
+    // cost the child the celebration.
+    signInAs(childProfile());
+    playThrough();
+    (store.progressRows as ProgressRow[])[0].currentStep = "activity";
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(200);
   });
 
   it("grants the lesson star and the day's coins on a first completion", async () => {
@@ -1071,6 +1138,7 @@ describe("POST /api/progress/lessons/:id/complete", () => {
  */
 describe("POST /api/progress/lessons/:id/complete — achievements", () => {
   function complete(lessonId = LESSON_ID) {
+    playThrough(lessonId);
     return request(app).post(`/api/progress/lessons/${lessonId}/complete`);
   }
 

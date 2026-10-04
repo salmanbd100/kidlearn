@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
+import { createPendingWrites, type PendingWrites } from "../pending-writes";
 
 // The celebration, driven by a mocked completion response.
 
@@ -87,11 +88,15 @@ const MIA = {
   imageUrl: null,
 };
 
-function renderStep() {
+function renderStep(pendingWrites?: PendingWrites) {
   const onComplete = vi.fn();
   render(
     <Providers locale="en">
-      <RewardStep lesson={LESSON} onComplete={onComplete} />
+      <RewardStep
+        lesson={LESSON}
+        onComplete={onComplete}
+        pendingWrites={pendingWrites}
+      />
     </Providers>,
   );
   return { onComplete };
@@ -139,6 +144,25 @@ describe("RewardStep", () => {
     // One argument, and it is the lesson id. There is nothing here a client
     // could inflate (FR-GAM-08).
     expect(progress.completeLesson).toHaveBeenCalledTimes(1);
+    expect(progress.completeLesson).toHaveBeenCalledWith(LESSON_ID);
+  });
+
+  it("does not finish the lesson until the quiz submission has landed", async () => {
+    // R-04. The server derives the quiz reward from the responses it already
+    // holds, so a completion that overtakes a slow quiz upload pays nothing for it.
+    const pendingWrites = createPendingWrites();
+    let landQuiz = () => {};
+    pendingWrites.add(
+      new Promise<void>((resolve) => {
+        landQuiz = resolve;
+      }),
+    );
+    renderStep(pendingWrites);
+
+    await act(async () => {});
+    expect(progress.completeLesson).not.toHaveBeenCalled();
+
+    await act(async () => landQuiz());
     expect(progress.completeLesson).toHaveBeenCalledWith(LESSON_ID);
   });
 

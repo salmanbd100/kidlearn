@@ -8,7 +8,23 @@ function isSerializationFailure(error: unknown): boolean {
   );
 }
 
-/** How many times a serialization failure is retried before it surfaces. */
+/**
+ * Prisma gave up waiting `maxWait` for a pooled connection to open the
+ * transaction on. Nothing ran, so a retry is as safe as the first attempt.
+ *
+ * P2028 also covers a transaction that ran past its `timeout` and was rolled
+ * back — that one is matched out by message and not retried, because the same
+ * work would only time out again, holding a connection the whole way.
+ */
+function isTransactionStartTimeout(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2028" &&
+    error.message.includes("Unable to start a transaction")
+  );
+}
+
+/** How many times a retryable failure is retried before it surfaces. */
 export const MAX_SERIALIZATION_RETRIES = 3;
 
 /** Base for the exponential backoff, in milliseconds. */
@@ -16,7 +32,7 @@ const RETRY_BASE_MS = 20;
 
 /**
  * Runs a Serializable transaction, retrying if Postgres aborted it rather than
- * let it interleave.
+ * let it interleave, or if the pool had no connection free to start it on.
  *
  * Backs off with jitter between attempts. An immediate retry re-runs into the
  * same contention window that caused the abort, which is how two writers
@@ -31,7 +47,7 @@ export async function withSerializationRetry<T>(
       return await run();
     } catch (error) {
       if (
-        !isSerializationFailure(error) ||
+        !(isSerializationFailure(error) || isTransactionStartTimeout(error)) ||
         attempt >= MAX_SERIALIZATION_RETRIES
       ) {
         throw error;

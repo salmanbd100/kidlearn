@@ -452,6 +452,13 @@ beforeEach(() => {
       const index = state.children.findIndex((c) => c.id === where.id);
       if (index === -1) throw new Error("delete on missing child");
       const [removed] = state.children.splice(index, 1);
+      // What `session_activeChildProfileId_fkey`'s ON DELETE SET NULL does in
+      // Postgres; the cascade-delete contract below asserts the declaration.
+      for (const row of state.sessions.values()) {
+        if (row.activeChildProfileId === where.id) {
+          row.activeChildProfileId = null;
+        }
+      }
       return removed;
     },
   );
@@ -1211,6 +1218,16 @@ describe("DELETE /api/children/:id", () => {
     expect(db.childDelete).toHaveBeenCalledWith({ where: { id: child.id } });
   });
 
+  it("runs no interactive transaction, so a heavy profile cannot time out", async () => {
+    // R-07. Prisma's interactive transactions default to a 5s timeout; account
+    // deletion needs 120s for the same cascade.
+    const child = seedChild(PARENT_A);
+
+    await authedAgentFor(PARENT_A).delete(`/api/children/${child.id}`);
+
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it("clears activeChildProfileId so the session stops pointing at a deleted profile", async () => {
     const child = seedChild(PARENT_A);
     await authedAgentFor(PARENT_A).post(`/api/children/${child.id}/activate`);
@@ -1357,5 +1374,22 @@ describe("cascade-delete contract", () => {
     for (const relation of relations) {
       expect(relation).toContain("onDelete: Cascade");
     }
+  });
+
+  it("declares onDelete: SetNull on the session's active-child pointer", () => {
+    // The deletion no longer clears it by hand; the foreign key does.
+    const schema = readFileSync(
+      new URL(
+        "../../../../../packages/db/prisma/schema.prisma",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    const pointer = schema
+      .split("\n")
+      .find((line) => /^\s*activeChildProfile\s+ChildProfile\?/.test(line));
+
+    expect(pointer).toContain("onDelete: SetNull");
   });
 });

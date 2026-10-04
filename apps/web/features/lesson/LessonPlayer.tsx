@@ -35,6 +35,7 @@ import {
   type LessonPlayerState,
   lessonReducer,
 } from "./lesson-machine";
+import { createPendingWrites, type PendingWrites } from "./pending-writes";
 import { StepContainer } from "./StepContainer";
 import { ActivityStep } from "./steps/ActivityStep";
 import { IntroStep } from "./steps/IntroStep";
@@ -165,6 +166,9 @@ function LessonPlayerContent({
 
   const resumeAt = load.status === "ready" ? load.resumeAt : undefined;
 
+  // One per lesson session, so the reward step can wait out the quiz upload.
+  const [pendingWrites] = useState(createPendingWrites);
+
   // Resume and announce the start, once, as soon as the data lands.
   const hasStarted = useRef(false);
   useEffect(() => {
@@ -178,6 +182,7 @@ function LessonPlayerContent({
   useLessonRecording(
     state,
     lessonId,
+    pendingWrites,
     // A preview never arms the recorder: passing `undefined` here is what keeps
     // the effect below in its "not started" branch for the whole session.
     isPreview ? undefined : resumeAt,
@@ -247,6 +252,7 @@ function LessonPlayerContent({
         <StepComponent
           lesson={lesson}
           isPreview={isPreview}
+          pendingWrites={pendingWrites}
           onComplete={() => dispatch({ type: "STEP_COMPLETE" })}
         />
       </StepContainer>
@@ -285,6 +291,7 @@ function PreviewBanner() {
 function useLessonRecording(
   state: LessonPlayerState,
   lessonId: string,
+  pendingWrites: PendingWrites,
   resumeAt: LessonStep | undefined,
   assetFallbacks: LessonAssetFallbacks | undefined,
 ): void {
@@ -312,7 +319,9 @@ function useLessonRecording(
       before.step !== state.step
     ) {
       const finished = before.step;
-      void reportStep(lessonId, { step: finished, completed: false });
+      pendingWrites.add(
+        reportStep(lessonId, { step: finished, completed: false }),
+      );
       // Which asset that step actually played, for the content-gap report
       // (FR-I18N-01). Nothing the child saw depended on it — the server had
       // already resolved the URL — so it rides on the analytics event only, and
@@ -341,5 +350,5 @@ function useLessonRecording(
       sendSessionEvent({ type: "step_complete", lessonId, step: "reward" });
       sendSessionEvent({ type: "lesson_complete", lessonId });
     }
-  }, [state, lessonId, resumeAt, assetFallbacks]);
+  }, [state, lessonId, pendingWrites, resumeAt, assetFallbacks]);
 }

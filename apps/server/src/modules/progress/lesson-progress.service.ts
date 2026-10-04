@@ -146,12 +146,50 @@ export async function completeLesson(
   child: ChildProfile,
   lessonId: string,
 ): Promise<CompletionRewards> {
+  await assertPlayedThrough(child, lessonId);
+
   const progress = await reportLessonStep(child, lessonId, {
     step: "reward",
     completed: true,
   });
 
   return grantLessonCompletion(child, progress.lessonId);
+}
+
+/**
+ * The last step whose report a completion requires. Not `quiz`: that step's
+ * report is sent as the reward step mounts, and a child should not lose the
+ * celebration because that one request was dropped. Finishing the activity is
+ * still well past "opened the lesson", which is what this rules out.
+ */
+const STEP_BEFORE_COMPLETION: LessonStep = "activity";
+
+/**
+ * Completion pays out stars, the day's coins and the streak, so it is refused for
+ * a lesson the child never played through (R-06). A replay of a finished lesson
+ * passes: its row is already complete.
+ */
+async function assertPlayedThrough(
+  child: ChildProfile,
+  lessonId: string,
+): Promise<void> {
+  const visibleLessonId = await requireVisibleLessonId(child, lessonId);
+  const progress = await prisma.lessonProgress.findUnique({
+    where: {
+      childId_lessonId: { childId: child.id, lessonId: visibleLessonId },
+    },
+    select: { currentStep: true, completedAt: true },
+  });
+
+  const hasPlayedThrough =
+    progress !== null &&
+    (progress.completedAt !== null ||
+      stepIndex(progress.currentStep) >= stepIndex(STEP_BEFORE_COMPLETION));
+  if (!hasPlayedThrough) {
+    throw ApiError.conflict("Lesson has not been played through", {
+      code: "LESSON_NOT_PLAYED",
+    });
+  }
 }
 
 /** FR-LSN-07, FR-TIME-06 — appends one lesson-flow event. */
@@ -200,6 +238,10 @@ export async function recordQuizResponses(
   if (lesson === null || lesson.quiz === null) {
     throw ApiError.notFound("Quiz not found");
   }
+
+  // Recording the responses creates the progress row when none exists, so it is
+  // held to the same gate as the first step report.
+  await assertMayOpenLesson(child.id, lesson.id);
 
   const questions = new Map(
     lesson.quiz.questions.map((question) => [question.id, question]),

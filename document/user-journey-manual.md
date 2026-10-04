@@ -172,7 +172,7 @@ flowchart TD
   - **Reward strip** at top: star count, coin count, and a **streak chip** shown as `🔥 3`. 🎈 For a brand-new child the flame is dimmed with *"Start a streak!"* — the goal is always visible, never hidden.
   - **World cards** — large gradient cards with the world's mascot and name. Tapping one opens that world's lessons; 🎈 the lesson/world name *plays aloud* on tap so pre-readers navigate by ear.
   - **Lesson tiles** — big picture thumbnails with names (≥20px). One tap = open.
-  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ.
+  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ. Not shown inside a lesson or an open story: those screens put their own exit button in that corner, and a grown-up leaves through it.
 - **Orientation:** portrait stacks cards vertically (lessons 2-up); landscape places them side-by-side (lessons 3–4-up). Never any horizontal scrolling.
 
 ### 4.3 The 5-step lesson adventure
