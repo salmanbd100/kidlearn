@@ -16,7 +16,10 @@ const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
 }));
-const client = vi.hoisted(() => ({ signOut: vi.fn(async () => true) }));
+const client = vi.hoisted(() => ({
+  signOut: vi.fn(async () => true),
+  onUnauthorized: vi.fn(() => () => {}),
+}));
 
 let pathname: string = PARENT_ROUTES.dashboard;
 

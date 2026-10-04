@@ -53,6 +53,23 @@ export function NarratedText({
   );
 }
 
+/**
+ * The last span the narration has reached, rather than the span whose range
+ * contains `elapsedMs`: a run has no end time, and treating the gap between two
+ * words as "nothing is being read" would blink the highlight off between them.
+ * `-1` before the first span.
+ */
+export function activeSpanIndex(
+  timings: NarrationTimings,
+  elapsedMs: number,
+): number {
+  let activeIndex = -1;
+  timings.spans.forEach((span, index) => {
+    if (span.tMs <= elapsedMs) activeIndex = index;
+  });
+  return activeIndex;
+}
+
 interface Segment {
   start: number;
   text: string;
@@ -71,13 +88,7 @@ function toSegments(
   const segments: Segment[] = [];
   let cursor = 0;
 
-  // The last span the narration has reached, rather than the span whose range
-  // contains `elapsedMs`: a run has no end time, and treating the gap between two
-  // words as "nothing is being read" would blink the highlight off between them.
-  let activeIndex = -1;
-  timings.spans.forEach((span, index) => {
-    if (span.tMs <= elapsedMs) activeIndex = index;
-  });
+  const activeIndex = activeSpanIndex(timings, elapsedMs);
 
   timings.spans.forEach((span, index) => {
     if (

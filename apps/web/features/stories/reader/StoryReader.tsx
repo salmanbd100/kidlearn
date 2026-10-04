@@ -32,6 +32,7 @@ import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { FinishScreen, type StoryFinishReward } from "./FinishScreen";
+import { activeSpanIndex } from "./NarratedText";
 import {
   initialReaderState,
   type ReaderEvent,
@@ -281,15 +282,22 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   useEffect(() => stop, [stop]);
 
   /** Where the narration has got to, for the follow-along highlight. */
-  const hasTimings = page?.narrationTimings != null;
+  const narrationTimings = page?.narrationTimings ?? null;
   useEffect(() => {
-    if (!isReading || !hasTimings) return;
-    const tick = setInterval(
-      () => setElapsedMs(performance.now() - narrationStartedAt),
-      HIGHLIGHT_TICK_MS,
-    );
+    if (!isReading || narrationTimings === null) return;
+    // Sampled often so the highlight lands on the word, but state is only set
+    // when the active word changes: setting it every tick re-rendered the whole
+    // reader (picture, header, controls) ten times a second on a low-end tablet.
+    let lastActive = Number.NaN;
+    const tick = setInterval(() => {
+      const elapsed = performance.now() - narrationStartedAt;
+      const active = activeSpanIndex(narrationTimings, elapsed);
+      if (active === lastActive) return;
+      lastActive = active;
+      setElapsedMs(elapsed);
+    }, HIGHLIGHT_TICK_MS);
     return () => clearInterval(tick);
-  }, [isReading, hasTimings, narrationStartedAt]);
+  }, [isReading, narrationTimings, narrationStartedAt]);
 
   const hasRequestedCompletion = useRef(false);
   useEffect(() => {

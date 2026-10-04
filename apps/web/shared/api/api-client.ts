@@ -59,6 +59,22 @@ export interface ApiFetchInit extends RequestInit {
   isIdempotent?: boolean;
 }
 
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+/**
+ * Called whenever a request settles as a `401`, so a session that expires or is
+ * revoked mid-visit is noticed by whoever owns the session, not by whichever
+ * screen happened to be fetching — each of which would otherwise show its own
+ * generic error until a manual reload. Returns the unsubscribe function.
+ */
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
+}
+
 /** Base URL of `apps/server`. Overridden per environment at build time. */
 export function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
@@ -99,7 +115,12 @@ export async function apiFetch<T>(
       canRetry,
       timeoutMs,
     );
-    if (outcome.kind === "settled") return outcome.result;
+    if (outcome.kind === "settled") {
+      if (!outcome.result.ok && outcome.result.error.status === 401) {
+        for (const listener of unauthorizedListeners) listener();
+      }
+      return outcome.result;
+    }
     lastFailure = outcome.failure;
   }
 

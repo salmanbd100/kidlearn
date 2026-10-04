@@ -22,7 +22,7 @@ import {
   listAvatars,
   listChildren,
 } from "@/features/parent/parent-api";
-import type { ApiResult } from "@/shared/api/api-client";
+import { type ApiResult, onUnauthorized } from "@/shared/api/api-client";
 
 // Who is playing, for the whole `(student)` route group.
 
@@ -77,10 +77,14 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
   // Guards against a response from an unmounted provider writing state, and
   // against a slow first load overwriting a faster refresh.
   const loadId = useRef(0);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const isLoadingRef = useRef(false);
 
   const load = useCallback(async () => {
     loadId.current += 1;
     const id = loadId.current;
+    isLoadingRef.current = true;
 
     // In parallel: all three need only `requireParent`, so none waits on another.
     const [me, list, characters] = await Promise.all([
@@ -90,6 +94,7 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     ]);
 
     if (id !== loadId.current) return;
+    isLoadingRef.current = false;
     setIsWakingUp(false);
 
     if (!me.ok) {
@@ -127,6 +132,18 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
       loadId.current += 1;
     };
   }, [load]);
+
+  // A 401 on any later request means the session may be gone; see the parent
+  // session for why this re-reads rather than assumes.
+  useEffect(
+    () =>
+      onUnauthorized(() => {
+        if (statusRef.current === "ready" && !isLoadingRef.current) {
+          void load();
+        }
+      }),
+    [load],
+  );
 
   const activate = useCallback(async (childId: string) => {
     const result = await activateChild(childId);

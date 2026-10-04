@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   apiFetch,
   DEFAULT_TIMEOUT_MS,
+  onUnauthorized,
   RETRY_BACKOFF_MS,
   signOut,
 } from "./api-client";
@@ -370,5 +371,51 @@ describe("signOut", () => {
     stubFetch(new TypeError("Failed to fetch"));
 
     await expect(signOut()).resolves.toBe(false);
+  });
+});
+
+describe("onUnauthorized", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("notifies subscribers when a request settles as a 401", async () => {
+    stubFetch(
+      jsonResponse(401, { error: { code: "UNAUTHORIZED", message: "no" } }),
+    );
+    const listener = vi.fn();
+    const unsubscribe = onUnauthorized(listener);
+
+    await apiFetch("/api/children");
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("stays quiet for every other failure and for a success", async () => {
+    stubFetch(
+      jsonResponse(403, { error: { code: "FORBIDDEN", message: "no" } }),
+      jsonResponse(200, { data: {} }),
+    );
+    const listener = vi.fn();
+    const unsubscribe = onUnauthorized(listener);
+
+    await apiFetch("/api/a");
+    await apiFetch("/api/b");
+
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it("stops notifying once unsubscribed", async () => {
+    stubFetch(
+      jsonResponse(401, { error: { code: "UNAUTHORIZED", message: "no" } }),
+    );
+    const listener = vi.fn();
+    onUnauthorized(listener)();
+
+    await apiFetch("/api/children");
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });

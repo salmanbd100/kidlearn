@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { apiFetch } from "@/shared/api/api-client";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
@@ -163,5 +164,66 @@ describe("ParentLayout", () => {
       ),
     );
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed profile list instead of rendering a page that waits on it forever", async () => {
+    api.listChildren.mockResolvedValue({
+      ok: false,
+      error: { code: "INTERNAL", message: "boom", status: 500 },
+    });
+
+    renderLayout();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.queryByText("dashboard")).toBeNull();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("retries the load from the error state and then renders the page", async () => {
+    api.listChildren.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "boom", status: 500 },
+    });
+
+    renderLayout();
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("dashboard")).toBeInTheDocument(),
+    );
+  });
+
+  it("signs the parent out when a later request comes back 401", async () => {
+    renderLayout();
+    await waitFor(() =>
+      expect(screen.getByText("dashboard")).toBeInTheDocument(),
+    );
+
+    // The cookie expired mid-visit: the next fetch anywhere answers 401, and the
+    // session re-reads itself rather than leaving every screen on a generic error.
+    api.fetchAuthMe.mockResolvedValue({
+      ok: false,
+      error: { code: "UNAUTHORIZED", message: "Sign in required", status: 401 },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: "UNAUTHORIZED", message: "no" } }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+    );
+
+    await apiFetch("/api/anything");
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(PARENT_ROUTES.login),
+    );
+    vi.unstubAllGlobals();
   });
 });

@@ -282,4 +282,52 @@ describe("AudioProvider", () => {
     await waitFor(() => expect(MockAudio.instances).toHaveLength(1));
     expect(MockAudio.instances[0].pause).toHaveBeenCalled();
   });
+
+  it("keeps `play` stable when mute is toggled, so effects keyed on it do not re-run", () => {
+    // Toggling mute used to change `play`'s identity, replaying a screen's
+    // narration and restarting its timers.
+    const seen: Array<(url: string) => Promise<void>> = [];
+    function Capture() {
+      const { play, setMuted, muted } = useAudio();
+      seen.push(play);
+      return (
+        <button type="button" onClick={() => setMuted(!muted)}>
+          toggle
+        </button>
+      );
+    }
+
+    render(
+      <AudioProvider>
+        <Capture />
+      </AudioProvider>,
+    );
+    fireEvent.click(screen.getByText("toggle"));
+    fireEvent.click(screen.getByText("toggle"));
+
+    expect(new Set(seen).size).toBe(1);
+  });
+
+  it("still plays nothing after a toggle to muted, without `muted` in play's dependencies", async () => {
+    renderHarness();
+
+    fireEvent.click(screen.getByText("toggle-mute"));
+    fireEvent.click(screen.getByText("one"));
+
+    await waitFor(() => expect(screen.getByText("silent")).toBeInTheDocument());
+    expect(MockAudio.instances).toHaveLength(0);
+  });
+
+  it("renders, unmuted, when storage throws on read", () => {
+    // Safari with cookies blocked and locked-down WebViews throw on any access.
+    // The provider sits in the root layout, so this used to take the whole app
+    // to the global error screen.
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+
+    renderHarness();
+
+    expect(screen.getByText("silent")).toBeInTheDocument();
+  });
 });

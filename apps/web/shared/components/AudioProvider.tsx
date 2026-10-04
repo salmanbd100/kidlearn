@@ -47,6 +47,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const currentRef = useRef<HTMLAudioElement | undefined>(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const [muted, setMutedState] = useState(false);
+  // `play` reads this rather than `muted`: with `muted` in its dependencies,
+  // toggling mute changed `play`'s identity, which re-ran every effect keyed on
+  // it — replaying a screen's narration and restarting the reward timers.
+  const mutedRef = useRef(false);
 
   const stop = useCallback(() => {
     const current = currentRef.current;
@@ -63,14 +67,21 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // before this one, so the first screen's narration may already be playing by
   // the time the stored preference is known — silence it.
   useEffect(() => {
-    const isStoredMuted =
-      window.localStorage.getItem(MUTE_STORAGE_KEY) === "true";
+    let isStoredMuted = false;
+    try {
+      isStoredMuted = window.localStorage.getItem(MUTE_STORAGE_KEY) === "true";
+    } catch {
+      // Blocked storage (locked-down WebViews, kiosk profiles) must not take
+      // the root layout down — default to unmuted.
+    }
+    mutedRef.current = isStoredMuted;
     setMutedState(isStoredMuted);
     if (isStoredMuted) stop();
   }, [stop]);
 
   const setMuted = useCallback(
     (nextMuted: boolean) => {
+      mutedRef.current = nextMuted;
       setMutedState(nextMuted);
       try {
         window.localStorage.setItem(MUTE_STORAGE_KEY, String(nextMuted));
@@ -84,7 +95,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback(
     async (url: string, opts?: PlayOptions) => {
-      if (muted) {
+      if (mutedRef.current) {
         opts?.onFinished?.("unplayed");
         return;
       }
@@ -131,7 +142,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         finish("unplayed");
       }
     },
-    [muted, stop],
+    [stop],
   );
 
   // Stop on unmount. An `HTMLAudioElement` is not part of the React tree, so a

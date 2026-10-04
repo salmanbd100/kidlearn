@@ -91,7 +91,7 @@ describe("ParentSessionProvider", () => {
     expect(seen.at(-1)?.error?.code).toBe("NETWORK_ERROR");
   });
 
-  it("leaves the profiles undefined when only that request fails", async () => {
+  it("reports an error when only the profile list fails, rather than going ready without it", async () => {
     api.listChildren.mockResolvedValue({
       ok: false,
       error: { code: "NETWORK_ERROR", message: "offline" },
@@ -99,10 +99,22 @@ describe("ParentSessionProvider", () => {
 
     const seen = renderSession();
 
-    // The parent is still known, so the shell renders; only the list is missing.
-    await waitFor(() => expect(seen.at(-1)?.status).toBe("ready"));
-    expect(seen.at(-1)?.parent).toEqual(PARENT);
-    expect(seen.at(-1)?.children).toBeUndefined();
+    // `ready` with no list would let every page through while the dashboard
+    // waited on it forever, and skip the onboarding redirect for a parent with
+    // no profiles.
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("error"));
+    expect(seen.at(-1)?.error?.code).toBe("NETWORK_ERROR");
+  });
+
+  it("treats a 401 on the profile list as signed out", async () => {
+    api.listChildren.mockResolvedValue({
+      ok: false,
+      error: { code: "UNAUTHORIZED", message: "no", status: 401 },
+    });
+
+    const seen = renderSession();
+
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("signedOut"));
   });
 
   it("keeps `refresh` stable across a load, so effects do not re-run on it", async () => {

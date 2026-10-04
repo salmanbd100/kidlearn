@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 import { fetchAuthMe, listChildren } from "@/features/parent/parent-api";
-import type { ApiFailure } from "@/shared/api/api-client";
+import { type ApiFailure, onUnauthorized } from "@/shared/api/api-client";
 
 /**
  * Everything the `(parent)` route group knows about the visitor, loaded once.
@@ -58,10 +58,14 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
   // Guards against a response from an unmounted provider writing state, and
   // against a slow first load overwriting a faster refresh.
   const loadId = useRef(0);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const isLoadingRef = useRef(false);
 
   const load = useCallback(async () => {
     loadId.current += 1;
     const id = loadId.current;
+    isLoadingRef.current = true;
 
     // In parallel: both routes need only `requireParent`, so neither depends on
     // the other having run first, and the parent row is provisioned by
@@ -69,6 +73,7 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
     const [me, list] = await Promise.all([fetchAuthMe(), listChildren()]);
 
     if (id !== loadId.current) return;
+    isLoadingRef.current = false;
 
     if (!me.ok) {
       // A 401 is the ordinary signed-out case, not a failure to report.
@@ -84,10 +89,25 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (!list.ok) {
+      // Not `ready` with an unknown profile list: the guard would let every page
+      // through, the dashboard would wait on `children` forever, and a parent
+      // with no profiles would skip the onboarding redirect it exists to make.
+      if (list.error.code === "UNAUTHORIZED") {
+        setParent(undefined);
+        setProfiles(undefined);
+        setError(undefined);
+        setStatus("signedOut");
+        return;
+      }
+      setError(list.error);
+      setStatus("error");
+      return;
+    }
+
     setParent(me.data.parent);
     setError(undefined);
-    setProfiles(list.ok ? list.data : undefined);
-
+    setProfiles(list.data);
     setStatus("ready");
   }, []);
 
@@ -98,6 +118,20 @@ export function ParentSessionProvider({ children }: { children: ReactNode }) {
       loadId.current += 1;
     };
   }, [load]);
+
+  // A 401 on any later request means the session may be gone. Re-reading it is
+  // the check: `/auth/me` answering 401 flips this to `signedOut` and the guard
+  // redirects. Only while `ready` and not already loading, or the load's own
+  // 401s would re-trigger it.
+  useEffect(
+    () =>
+      onUnauthorized(() => {
+        if (statusRef.current === "ready" && !isLoadingRef.current) {
+          void load();
+        }
+      }),
+    [load],
+  );
 
   const sessionValue = useMemo<ParentSessionValue>(
     () => ({ status, parent, children: profiles, error, refresh: load }),

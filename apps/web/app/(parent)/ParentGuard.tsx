@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@kidlearn/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,7 +13,7 @@ export function ParentGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();
   const pathname = usePathname();
-  const { status, parent, children: profiles } = useParentSession();
+  const { status, parent, children: profiles, refresh } = useParentSession();
 
   const redirectTo =
     status === "loading" || status === "error"
@@ -38,9 +39,14 @@ export function ParentGuard({ children }: { children: ReactNode }) {
 
   if (status === "error") {
     return (
-      <p role="alert" className="text-destructive text-sm">
-        {t("errors.network")}
-      </p>
+      <div className="flex flex-col items-start gap-3">
+        <p role="alert" className="text-destructive text-sm">
+          {t("errors.network")}
+        </p>
+        <Button variant="outline" onClick={() => void refresh()}>
+          {t("errors.retry")}
+        </Button>
+      </div>
     );
   }
 
