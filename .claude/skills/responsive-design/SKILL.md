@@ -112,4 +112,8 @@ Create a TodoWrite item per step.
 | "I'll lock it to landscape." | Phones are portrait. Adapt, or show a friendly rotate prompt — never a dead end. |
 | "I'll test desktop only." | Verify 320–1280 in both orientations before claiming done. |
 
-After changes, run `pnpm typecheck` and `pnpm lint` from the root.
+After changes, run `pnpm typecheck` and `pnpm lint` from the root, then clear any
+`tailwindcss(suggestCanonicalClasses)` warnings in the files you touched — Biome does not
+report them. The canonical spellings (`touch-manipulation`, `rounded-(--radius)`,
+`aria-pressed:`, …) are listed in
+[`create-component`](../create-component/SKILL.md#canonical-classes).

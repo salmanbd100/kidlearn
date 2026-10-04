@@ -19,9 +19,29 @@ tells you *what values to use*. Never invent values that already exist as tokens
 | Base | **shadcn/ui** (Radix primitives), owned in `packages/ui/src/primitives/`. Compose these — don't reinvent dialogs, popovers, selects. |
 | Animation | **Motion** (`motion`). Always honor `useReducedMotion()`. Animate `transform`/`opacity` only. |
 | Styling | Tailwind v4 + **semantic tokens only** (`bg-primary`, `text-foreground`, `border-border`). No raw hex, no brand hues in component code. |
+| Class syntax | Write the **canonical** Tailwind v4 form — see [Canonical classes](#canonical-classes). Biome does not catch these; the Tailwind IntelliSense `suggestCanonicalClasses` warning does. |
 | Variants | **`cva`** for `variant`/`size`/`tone`; merge with **`cn()`**. Public API = props, not className overrides. |
 | Theme | One contract, two themes (`kid` / `parent`). Never branch on theme in JS — read tokens. |
 | i18n | No hard-coded user-facing strings. Text comes through i18next. |
+
+## Canonical classes
+
+Tailwind v4 has a shorter canonical spelling for many arbitrary values, and the editor
+flags the long one with `tailwindcss(suggestCanonicalClasses)`. Write the short form the
+first time; never leave the warning for someone else to clear.
+
+| Don't write | Write |
+| --- | --- |
+| `rounded-[var(--radius)]` · `accent-[var(--primary)]` (any `-[var(--x)]` utility) | `rounded-(--radius)` · `accent-(--primary)` — the `(--x)` shorthand |
+| `[touch-action:manipulation]` | `touch-manipulation` |
+| `[transform-box:fill-box]` | `transform-fill` |
+| `aria-[pressed=true]:…` (also `busy`, `checked`, `disabled`, `expanded`, `hidden`, `readonly`, `required`, `selected`) | `aria-pressed:…` |
+
+Not every arbitrary value has a shorthand (`aria-[invalid=true]:` does not), so a warning
+is the source of truth, not this table. The pattern is: if Tailwind ships a named utility or
+variant for it, use that instead of `[property:value]`. When you do a repo-wide rewrite,
+scope the search to source (`apps`, `packages`) and exclude `.next`, `coverage`,
+`node_modules` — a build output rewritten by accident is hard to notice.
 
 ## Decision flow
 
@@ -61,6 +81,12 @@ Create a TodoWrite item per step and work through them in order.
      i18n strings · composes primitives.
 6. **Typecheck & lint:** `pnpm typecheck` and `pnpm lint` (Biome, repo-wide) from the root.
    Fix before claiming done. If you assert it works, show the passing output.
+7. **Clear the editor warnings.** Biome and `tsc` do not report Tailwind's
+   `suggestCanonicalClasses`. Read the IDE diagnostics for every file you edited
+   (`mcp__ide__getDiagnostics`, passing each file's URI) and fix each one, using the table
+   above. VS Code reports only files it has loaded, so an empty result for a file it has not
+   opened is weak evidence. If the IDE is not connected, say so rather than claiming the
+   files are clean.
 
 ## Reference skeleton
 
@@ -112,4 +138,5 @@ export function RewardBadge({ tone, size, className, ...props }: RewardBadgeProp
 | "Animation looks cool here." | Motion must communicate state and respect reduced-motion. |
 | "I'll let callers restyle via className." | Expose `variant`/`size`/`tone` props instead. |
 | "I'll add the English string inline." | All user-facing text goes through i18next. |
+| "`rounded-[var(--radius)]` works, so it's fine." | It works and it's flagged. Use `rounded-(--radius)`; check IDE diagnostics before you finish. |
 | "design.md probably says X." | Open it and check. Don't guess token values. |
