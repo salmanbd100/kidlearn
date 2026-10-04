@@ -447,7 +447,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
  * A round 64px control — the kid touch-target floor (design.md §7, NFR-A11Y-02).
  */
 const iconControlVariants = cva(
-  "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors [touch-action:manipulation] focus-ring",
+  "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors touch-manipulation focus-ring",
   {
     variants: {
       tone: {

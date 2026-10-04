@@ -77,7 +77,7 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
           <button
             type="button"
             // 64px square: a child's control, sized like the exit (design.md §7).
-            className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-ring"
+            className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors touch-manipulation hover:bg-secondary/80 focus-ring"
             aria-label={t("intro.replay")}
             onClick={replay}
           >

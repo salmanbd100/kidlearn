@@ -29,13 +29,13 @@ export function JsonInspector({ title, value, className }: JsonInspectorProps) {
   return (
     <details
       className={cn(
-        "rounded-[var(--radius)] border border-border bg-card",
+        "rounded-(--radius) border border-border bg-card",
         className,
       )}
     >
       <summary
         className={cn(
-          "flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-[var(--radius)] px-3 font-medium text-foreground text-sm",
+          "flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-(--radius) px-3 font-medium text-foreground text-sm",
           "focus-ring",
         )}
       >
@@ -55,7 +55,7 @@ export function JsonInspector({ title, value, className }: JsonInspectorProps) {
         </Button>
         {/* `overflow-auto` on the block, not the page: a long prompt line must
             not make the whole screen scroll sideways. */}
-        <pre className="max-h-96 overflow-auto rounded-[var(--radius)] bg-muted p-3 font-mono text-muted-foreground text-xs leading-relaxed">
+        <pre className="max-h-96 overflow-auto rounded-(--radius) bg-muted p-3 font-mono text-muted-foreground text-xs leading-relaxed">
           {text}
         </pre>
       </div>

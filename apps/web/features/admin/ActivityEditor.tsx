@@ -320,7 +320,7 @@ export function ActivityEditor({
         {issues.unplaced.length > 0 ? (
           <div
             role="alert"
-            className="flex flex-col gap-1 rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-xs"
+            className="flex flex-col gap-1 rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-xs"
           >
             {issues.unplaced.map((message) => (
               <span key={message}>{message}</span>
@@ -371,7 +371,7 @@ export function ActivityEditor({
 
         <div
           data-theme="kid"
-          className="min-h-[420px] overflow-hidden rounded-[var(--radius)] border border-border bg-background"
+          className="min-h-[420px] overflow-hidden rounded-(--radius) border border-border bg-background"
         >
           {parsed.success ? (
             <ActivityEngine
@@ -420,7 +420,7 @@ function Fieldset({
   children: React.ReactNode;
 }) {
   return (
-    <fieldset className="flex flex-col gap-3 rounded-[var(--radius)] border border-border p-3">
+    <fieldset className="flex flex-col gap-3 rounded-(--radius) border border-border p-3">
       <legend className="px-1 font-semibold text-foreground text-sm">
         {legend}
       </legend>
@@ -582,7 +582,7 @@ function ItemList({
       {items.map((item, index) => (
         <div
           key={item.id}
-          className="flex flex-col gap-3 rounded-[var(--radius)] bg-muted/40 p-3"
+          className="flex flex-col gap-3 rounded-(--radius) bg-muted/40 p-3"
         >
           <Field
             id={`${field}-${index}-id`}

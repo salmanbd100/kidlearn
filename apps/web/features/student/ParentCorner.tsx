@@ -15,7 +15,7 @@ const PARENT_DESTINATION = "/parent/children";
 const parentCornerVariants = cva(
   // Small and quiet by design, but still a legal target for the adult hand that
   // needs it (44px, design.md §7 — this is a parent control).
-  "absolute top-2 right-2 z-10 inline-flex h-11 items-center rounded-pill text-muted-foreground transition-colors [touch-action:manipulation] hover:text-foreground focus-ring",
+  "absolute top-2 right-2 z-10 inline-flex h-11 items-center rounded-pill text-muted-foreground transition-colors touch-manipulation hover:text-foreground focus-ring",
   {
     variants: {
       appearance: {

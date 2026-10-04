@@ -284,7 +284,7 @@ function JobRow({ job }: { job: AiJobSummary }) {
     <Link
       href={`${ADMIN_ROUTES.aiQueue}/${job.id}`}
       className={cn(
-        "flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius)] border border-border bg-card p-3 transition-colors hover:bg-accent",
+        "flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-(--radius) border border-border bg-card p-3 transition-colors hover:bg-accent",
         "focus-ring",
       )}
     >

@@ -48,7 +48,7 @@ export function SegmentedField({
               className="peer sr-only"
             />
             {/* 44px minimum on the parent surface (design.md §7). */}
-            <span className="inline-flex h-11 items-center justify-center rounded-[var(--radius)] border-2 border-input bg-card px-5 font-medium text-foreground text-sm transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+            <span className="inline-flex h-11 items-center justify-center rounded-(--radius) border-2 border-input bg-card px-5 font-medium text-foreground text-sm transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
               {option.label}
             </span>
           </label>

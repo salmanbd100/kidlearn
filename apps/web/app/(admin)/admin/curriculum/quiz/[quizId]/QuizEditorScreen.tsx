@@ -178,7 +178,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -187,7 +187,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
       {error && dialog.kind === "closed" ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -200,7 +200,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
           {quiz.questions.map((question, index) => (
             <li
               key={question.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border bg-card p-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-(--radius) border border-border bg-card p-3"
             >
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate font-medium text-card-foreground text-sm">

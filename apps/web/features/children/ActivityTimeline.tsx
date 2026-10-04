@@ -57,7 +57,7 @@ export function ActivityTimeline({
   const { t, i18n } = useTranslation(PARENT_NAMESPACE);
 
   return (
-    <section className="flex flex-col gap-4 rounded-[var(--radius)] border border-border bg-card p-4 sm:p-5">
+    <section className="flex flex-col gap-4 rounded-(--radius) border border-border bg-card p-4 sm:p-5">
       <h2 className="font-semibold text-card-foreground text-lg">
         {t("dashboard.activityTitle")}
       </h2>

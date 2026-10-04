@@ -157,7 +157,7 @@ export function BadgesScreen() {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -166,7 +166,7 @@ export function BadgesScreen() {
       {error && dialog.kind === "closed" ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -184,7 +184,7 @@ export function BadgesScreen() {
                 type="button"
                 aria-pressed={badge.id === selectedId}
                 onClick={() => setSelectedId(badge.id)}
-                className="flex w-full flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border bg-card p-3 text-left aria-[pressed=true]:border-ring"
+                className="flex w-full flex-wrap items-center justify-between gap-3 rounded-(--radius) border border-border bg-card p-3 text-left aria-pressed:border-ring"
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate font-medium text-card-foreground text-sm">
@@ -202,7 +202,7 @@ export function BadgesScreen() {
       )}
 
       {selected ? (
-        <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-card-foreground text-sm">

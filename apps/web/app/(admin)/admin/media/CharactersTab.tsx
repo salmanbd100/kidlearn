@@ -159,7 +159,7 @@ export function CharactersTab() {
         the size, the clothing and whatever makes them unmistakable.
       </p>
 
-      <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+      <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
         <h3 className="font-medium text-foreground text-sm">
           Save a story&rsquo;s cast
         </h3>
@@ -190,7 +190,7 @@ export function CharactersTab() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+      <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
         <h3 className="font-medium text-foreground text-sm">Add a character</h3>
 
         <div className="flex flex-wrap gap-3">
@@ -276,7 +276,7 @@ export function CharactersTab() {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -285,7 +285,7 @@ export function CharactersTab() {
       {error ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -304,7 +304,7 @@ export function CharactersTab() {
           {sheets.map((sheet) => (
             <li
               key={sheet.id}
-              className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3"
+              className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-3"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-medium text-card-foreground text-sm">

@@ -130,7 +130,7 @@ function PlayableActivity({
           type="button"
           // 64px square, the same control the intro step offers, in the same
           // place: a child who learned it there does not learn it twice.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-ring"
+          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors touch-manipulation hover:bg-secondary/80 focus-ring"
           aria-label={t("activity.replay")}
           onClick={speakInstruction}
         >
@@ -161,7 +161,7 @@ function Celebration({ onSkip }: { onSkip: () => void }) {
     <motion.button
       type="button"
       data-testid="activity-celebration"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 [touch-action:manipulation]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 touch-manipulation"
       initial={isMotionReduced ? false : { scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 400, damping: 15 }}

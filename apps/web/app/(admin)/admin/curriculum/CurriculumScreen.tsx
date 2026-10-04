@@ -278,7 +278,7 @@ export function CurriculumScreen() {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -289,7 +289,7 @@ export function CurriculumScreen() {
       {error && dialog.kind === "closed" ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -380,7 +380,7 @@ export function CurriculumScreen() {
       </div>
 
       {selected ? (
-        <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-card-foreground text-sm">

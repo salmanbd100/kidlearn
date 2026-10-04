@@ -77,7 +77,7 @@ export function ScreenTimeScreen({ childId }: { childId: string }) {
           {isSaved ? (
             <p
               role="status"
-              className="rounded-[var(--radius)] bg-muted p-4 text-muted-foreground text-sm"
+              className="rounded-(--radius) bg-muted p-4 text-muted-foreground text-sm"
             >
               {t("screenTime.saved")}
             </p>

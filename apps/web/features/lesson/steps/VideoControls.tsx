@@ -46,7 +46,7 @@ export function VideoControls({
           data-testid="video-play-pause"
           // 80px, above the 64px kid minimum: this is the one control a child
           // aims at while the screen is otherwise a moving picture (design.md §7).
-          className="pointer-events-auto inline-flex size-20 items-center justify-center rounded-pill bg-background/80 text-foreground shadow-lg backdrop-blur transition-[background-color,opacity] [touch-action:manipulation] hover:bg-background focus-ring data-[playing=true]:opacity-0 data-[playing=true]:hover:opacity-100 data-[playing=true]:focus-visible:opacity-100"
+          className="pointer-events-auto inline-flex size-20 items-center justify-center rounded-pill bg-background/80 text-foreground shadow-lg backdrop-blur transition-[background-color,opacity] touch-manipulation hover:bg-background focus-ring data-[playing=true]:opacity-0 data-[playing=true]:hover:opacity-100 data-[playing=true]:focus-visible:opacity-100"
           // Fades out of the way while the film runs rather than unmounting:
           // a control that disappears cannot be tapped by a child who wants to
           // stop, and one that moves is a control they have to find twice.
@@ -66,7 +66,7 @@ export function VideoControls({
         <button
           type="button"
           data-testid="video-replay"
-          className="pointer-events-auto inline-flex size-20 items-center justify-center rounded-pill bg-secondary text-secondary-foreground shadow-lg transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-ring"
+          className="pointer-events-auto inline-flex size-20 items-center justify-center rounded-pill bg-secondary text-secondary-foreground shadow-lg transition-colors touch-manipulation hover:bg-secondary/80 focus-ring"
           aria-label={t("video.replay")}
           onClick={onReplay}
         >

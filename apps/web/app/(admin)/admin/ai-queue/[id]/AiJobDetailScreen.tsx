@@ -133,7 +133,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
         <Link
           href={ADMIN_ROUTES.aiQueue}
           className={cn(
-            "inline-flex min-h-11 items-center rounded-[var(--radius)] text-muted-foreground text-sm hover:text-foreground",
+            "inline-flex min-h-11 items-center rounded-(--radius) text-muted-foreground text-sm hover:text-foreground",
             "focus-ring",
           )}
         >
@@ -166,7 +166,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
         )}
 
         {job.reviewNote === null ? null : (
-          <p className="rounded-[var(--radius)] bg-muted p-3 text-muted-foreground text-sm">
+          <p className="rounded-(--radius) bg-muted p-3 text-muted-foreground text-sm">
             <span className="font-medium text-foreground">
               Reason for rejection:{" "}
             </span>
@@ -214,7 +214,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
 
       {isBlocked ? (
         <section
-          className="flex flex-col gap-1 rounded-[var(--radius)] border border-warning/40 bg-warning/10 p-3"
+          className="flex flex-col gap-1 rounded-(--radius) border border-warning/40 bg-warning/10 p-3"
           role="alert"
         >
           <h2 className="font-medium text-foreground text-sm">
@@ -291,7 +291,7 @@ function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
       : undefined;
 
   return (
-    <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius)] border border-border bg-card p-3">
+    <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-(--radius) border border-border bg-card p-3">
       <span className="text-muted-foreground text-xs capitalize">
         {entity.resource.replace(/s$/, "")}
       </span>
@@ -311,7 +311,7 @@ function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
 /** The clip or the picture, playable and viewable before it is approved. */
 function AssetPreview({ asset }: { asset: AiJobAsset }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3">
+    <div className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-3">
       <AssetMedia asset={asset} />
 
       {asset.sourceText === null ? null : (
@@ -347,7 +347,7 @@ function AssetMedia({ asset }: { asset: AiJobAsset }) {
     return (
       // biome-ignore lint/a11y/useMediaCaption: no generator produces video; this branch exists so the union is exhaustive rather than to be reached.
       <video
-        className="max-h-96 w-full rounded-[var(--radius)] bg-muted"
+        className="max-h-96 w-full rounded-(--radius) bg-muted"
         controls
         preload="none"
         src={asset.url}
@@ -364,7 +364,7 @@ function AssetMedia({ asset }: { asset: AiJobAsset }) {
       width={640}
       height={384}
       unoptimized
-      className="max-h-96 w-full rounded-[var(--radius)] border border-border object-contain"
+      className="max-h-96 w-full rounded-(--radius) border border-border object-contain"
     />
   );
 }

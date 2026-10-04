@@ -45,7 +45,7 @@ export function ReportCard({ report }: ReportCardProps) {
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-4 rounded-[var(--radius)] border border-border bg-card p-4 sm:p-5"
+      className="flex flex-col gap-4 rounded-(--radius) border border-border bg-card p-4 sm:p-5"
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2
@@ -152,7 +152,7 @@ export function ReportCard({ report }: ReportCardProps) {
             {metrics.badgesEarned.map((badge) => (
               <li
                 key={badge.slug}
-                className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-accent bg-muted px-2 py-1 font-medium text-foreground text-xs"
+                className="inline-flex items-center gap-1.5 rounded-(--radius-sm) border border-accent bg-muted px-2 py-1 font-medium text-foreground text-xs"
               >
                 <Award aria-hidden="true" className="size-3.5" />
                 {badge.name}
@@ -172,7 +172,7 @@ export function ReportCard({ report }: ReportCardProps) {
       */}
       <aside
         aria-label={t("reports.noteLabel")}
-        className="relative mt-1 rounded-[var(--radius)] border border-primary/30 bg-primary/5 p-4 pl-12"
+        className="relative mt-1 rounded-(--radius) border border-primary/30 bg-primary/5 p-4 pl-12"
       >
         <span
           aria-hidden="true"
@@ -193,7 +193,7 @@ export function ReportCard({ report }: ReportCardProps) {
 
 /** One kind of concept, with the tokens themselves listed under the count. */
 const chipVariants = cva(
-  "inline-flex min-h-6 items-center rounded-[var(--radius-sm)] border px-1.5 font-medium text-xs",
+  "inline-flex min-h-6 items-center rounded-(--radius-sm) border px-1.5 font-medium text-xs",
   {
     variants: {
       kind: {

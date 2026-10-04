@@ -62,7 +62,7 @@ export function StoryMediaPanel() {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+    <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
       <div className="flex flex-col gap-0.5">
         <h2 className="font-medium text-foreground text-sm">
           Narration and illustrations
@@ -119,7 +119,7 @@ export function StoryMediaPanel() {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -128,7 +128,7 @@ export function StoryMediaPanel() {
       {error ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>

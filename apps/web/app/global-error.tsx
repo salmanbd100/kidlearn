@@ -36,7 +36,7 @@ export default function GlobalError({
         <button
           type="button"
           onClick={reset}
-          className="min-h-16 rounded-pill bg-primary px-8 text-primary-foreground text-xl [touch-action:manipulation] focus-ring"
+          className="min-h-16 rounded-pill bg-primary px-8 text-primary-foreground text-xl touch-manipulation focus-ring"
         >
           {i18n.t("actions.tryAgain", { ns: DEFAULT_NAMESPACE })}
         </button>

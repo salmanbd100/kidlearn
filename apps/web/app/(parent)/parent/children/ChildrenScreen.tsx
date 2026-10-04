@@ -72,7 +72,7 @@ export function ChildrenScreen() {
       )}
 
       {isAtLimit ? (
-        <p className="rounded-[var(--radius)] bg-muted p-4 text-muted-foreground text-sm">
+        <p className="rounded-(--radius) bg-muted p-4 text-muted-foreground text-sm">
           {t("children.limitReached")}
         </p>
       ) : (

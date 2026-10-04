@@ -49,7 +49,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       className={cn(
         // 44px tall: a menu row is a parent-surface tap target (design.md §7).
-        "flex h-11 cursor-pointer select-none items-center gap-2 rounded-sm px-3 text-sm outline-none [touch-action:manipulation] focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+        "flex h-11 cursor-pointer select-none items-center gap-2 rounded-sm px-3 text-sm outline-none touch-manipulation focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
         className,
       )}
       {...props}

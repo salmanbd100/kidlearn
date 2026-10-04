@@ -152,7 +152,7 @@ export function UploadDialog({
           disabled={isBusy}
           accept={`${kind}/*`}
           onChange={handleFileChange}
-          className="rounded-[var(--radius)] border-2 border-input bg-card p-2 text-foreground text-sm file:mr-3 file:rounded-[var(--radius)] file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-foreground file:text-sm"
+          className="rounded-(--radius) border-2 border-input bg-card p-2 text-foreground text-sm file:mr-3 file:rounded-(--radius) file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-foreground file:text-sm"
         />
       </div>
 

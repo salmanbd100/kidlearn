@@ -41,7 +41,7 @@ export interface ContentColumnProps {
 
 const contentRowVariants = cva(
   // 44px, the parent-surface minimum target (design.md §7).
-  "flex min-h-11 w-full items-center gap-2 rounded-[var(--radius)] border px-2 py-1.5 transition-colors",
+  "flex min-h-11 w-full items-center gap-2 rounded-(--radius) border px-2 py-1.5 transition-colors",
   {
     variants: {
       isSelected: {
@@ -95,7 +95,7 @@ export function ContentColumn({
   }
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
       <header className="flex items-center justify-between gap-2">
         <h2 className="font-semibold text-card-foreground text-sm">{title}</h2>
         <Button
@@ -176,7 +176,7 @@ function ContentRow({
           type="button"
           onClick={() => onSelect(item.id)}
           aria-current={isSelected ? "true" : undefined}
-          className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 rounded-[var(--radius)] px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 rounded-(--radius) px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           <span className="min-w-0 truncate text-foreground text-sm">
             {item.label}
@@ -192,7 +192,7 @@ function ContentRow({
             type="button"
             ref={draggable.setActivatorNodeRef}
             aria-label={`Reorder ${item.label}`}
-            className="flex size-11 shrink-0 cursor-grab items-center justify-center rounded-[var(--radius)] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="flex size-11 shrink-0 cursor-grab items-center justify-center rounded-(--radius) text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             {...draggable.attributes}
             {...draggable.listeners}
           >

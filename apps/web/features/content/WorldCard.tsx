@@ -14,7 +14,7 @@ import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
  */
 
 const worldCardVariants = cva(
-  "group relative flex min-h-56 flex-col items-center justify-end gap-4 overflow-hidden rounded-xl border-2 border-border p-6 shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-ring",
+  "group relative flex min-h-56 flex-col items-center justify-end gap-4 overflow-hidden rounded-xl border-2 border-border p-6 shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring",
 );
 
 const MASCOT_PX = 160;

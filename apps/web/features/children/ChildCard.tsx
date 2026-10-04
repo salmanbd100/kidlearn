@@ -54,7 +54,7 @@ export function ChildCard({
       : t("form.languageEn");
 
   return (
-    <li className="flex items-center gap-4 rounded-[var(--radius)] border border-border bg-card p-4 shadow-sm">
+    <li className="flex items-center gap-4 rounded-(--radius) border border-border bg-card p-4 shadow-sm">
       <span
         className={cn(
           "flex size-14 shrink-0 items-center justify-center rounded-lg text-3xl",

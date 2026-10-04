@@ -13,7 +13,7 @@ import { useAudio } from "@/shared/components/AudioProvider";
  */
 
 const iconTileVariants = cva(
-  "group inline-flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border-2 bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-ring disabled:pointer-events-none disabled:opacity-50",
+  "group inline-flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border-2 bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       size: {

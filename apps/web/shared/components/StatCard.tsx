@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 /** One figure on the dashboard, with its label (FR-DASH-02). */
 const statCardVariants = cva(
-  "flex flex-1 flex-col gap-1 rounded-[var(--radius)] border p-4",
+  "flex flex-1 flex-col gap-1 rounded-(--radius) border p-4",
   {
     variants: {
       tone: {

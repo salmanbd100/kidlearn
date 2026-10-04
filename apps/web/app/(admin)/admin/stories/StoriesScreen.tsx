@@ -74,13 +74,13 @@ export function StoriesScreen() {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
       ) : null}
 
-      <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-4">
+      <section className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-4">
         <h2 className="font-medium text-foreground text-sm">
           What lands where
         </h2>

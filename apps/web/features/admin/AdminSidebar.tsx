@@ -45,7 +45,7 @@ export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   // 44px minimum on a non-kid surface (design.md §7).
-                  "flex min-h-11 items-center rounded-[var(--radius)] px-3 text-sm transition-colors",
+                  "flex min-h-11 items-center rounded-(--radius) px-3 text-sm transition-colors",
                   isActive
                     ? "bg-primary/10 font-medium text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",

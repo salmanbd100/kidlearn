@@ -129,7 +129,7 @@ export function BadgeForm({
         }}
       />
 
-      <fieldset className="flex flex-col gap-3 rounded-[var(--radius)] border border-border p-3">
+      <fieldset className="flex flex-col gap-3 rounded-(--radius) border border-border p-3">
         <legend className="px-1 font-semibold text-foreground text-sm">
           Rule
         </legend>

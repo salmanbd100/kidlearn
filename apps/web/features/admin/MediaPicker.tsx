@@ -130,7 +130,7 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
     return (
       // biome-ignore lint/a11y/useMediaCaption: same — captions are authored content this preview exists to check, not something the preview can supply.
       <video
-        className="max-h-40 w-full rounded-[var(--radius)] bg-muted"
+        className="max-h-40 w-full rounded-(--radius) bg-muted"
         controls
         preload="none"
         src={asset.url}
@@ -146,7 +146,7 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
       width={160}
       height={96}
       unoptimized
-      className="max-h-24 w-auto rounded-[var(--radius)] border border-border"
+      className="max-h-24 w-auto rounded-(--radius) border border-border"
     />
   );
 }

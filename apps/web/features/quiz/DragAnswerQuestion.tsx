@@ -31,7 +31,7 @@ import {
 const optionCardVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a
   // 100ms hold, so the browser can keep owning scroll gestures that start here.
-  "flex min-h-24 min-w-24 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-4 bg-card p-3 text-card-foreground transition-opacity [touch-action:manipulation] focus-ring",
+  "flex min-h-24 min-w-24 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-4 bg-card p-3 text-card-foreground transition-opacity touch-manipulation focus-ring",
   {
     variants: {
       state: {

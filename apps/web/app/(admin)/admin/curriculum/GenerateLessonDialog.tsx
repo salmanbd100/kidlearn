@@ -288,7 +288,7 @@ export function GenerateLessonDialog({
           {error ? (
             <p
               role="alert"
-              className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+              className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
             >
               {error}
             </p>

@@ -27,7 +27,7 @@ export function ReportHistoryList({
   const { t, i18n } = useTranslation(PARENT_NAMESPACE);
 
   return (
-    <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4 sm:p-5">
+    <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4 sm:p-5">
       <h2 className="font-semibold text-card-foreground text-lg">
         {t("reports.historyTitle")}
       </h2>
@@ -55,7 +55,7 @@ export function ReportHistoryList({
                   aria-label={t("reports.historyOpen", { range })}
                   className={cn(
                     // 44px minimum touch target on a parent surface (design.md §7).
-                    "-mx-2 flex min-h-11 items-center gap-3 rounded-[var(--radius-sm)] px-2 py-2 transition-colors hover:bg-muted",
+                    "-mx-2 flex min-h-11 items-center gap-3 rounded-(--radius-sm) px-2 py-2 transition-colors hover:bg-muted",
                     "focus-ring",
                   )}
                 >

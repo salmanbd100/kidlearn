@@ -81,7 +81,7 @@ describe("Button behaviour", () => {
   });
 
   it("suppresses the 300ms tap delay, which a child reads as a dead button", () => {
-    expect(buttonVariants({})).toContain("[touch-action:manipulation]");
+    expect(buttonVariants({})).toContain("touch-manipulation");
   });
 
   it("keeps a visible focus ring for keyboard users", () => {

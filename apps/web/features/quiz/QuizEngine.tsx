@@ -160,7 +160,7 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
           type="button"
           // 64px square, the same control in the same place as the intro step's
           // and the activity engine's: a child who learned it there knows it here.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-ring"
+          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors touch-manipulation hover:bg-secondary/80 focus-ring"
           aria-label={t("quiz.replay")}
           onClick={speakPrompt}
         >

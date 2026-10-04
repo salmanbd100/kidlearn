@@ -60,7 +60,7 @@ export function ConsentScreen() {
       description={t("consent.intro")}
     >
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-4">
           <h2 className="font-semibold text-card-foreground text-sm">
             {t("consent.collectTitle")}
           </h2>
@@ -71,7 +71,7 @@ export function ConsentScreen() {
           </ul>
         </section>
 
-        <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-4">
           <h2 className="font-semibold text-card-foreground text-sm">
             {t("consent.neverTitle")}
           </h2>
@@ -96,7 +96,7 @@ export function ConsentScreen() {
             type="checkbox"
             checked={isAccepted}
             onChange={(event) => setIsAccepted(event.target.checked)}
-            className="mt-0.5 size-5 shrink-0 accent-[var(--primary)] focus-ring"
+            className="mt-0.5 size-5 shrink-0 accent-(--primary) focus-ring"
           />
           <span>{t("consent.checkbox")}</span>
         </label>

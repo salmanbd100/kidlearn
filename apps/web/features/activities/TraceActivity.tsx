@@ -225,7 +225,7 @@ export function TraceActivity({
               cx={startPoint.x}
               cy={startPoint.y}
               r={startDotRadius}
-              className="origin-center fill-accent/40 [transform-box:fill-box] motion-safe:animate-ping"
+              className="origin-center fill-accent/40 transform-fill motion-safe:animate-ping"
             />
             <circle
               cx={startPoint.x}

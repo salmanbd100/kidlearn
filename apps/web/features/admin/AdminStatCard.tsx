@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 /** One platform counter on the admin analytics page (FR-CMS-07, basic tier). */
 const adminStatCardVariants = cva(
-  "flex flex-1 flex-col gap-1 rounded-[var(--radius)] border border-border bg-card p-4",
+  "flex flex-1 flex-col gap-1 rounded-(--radius) border border-border bg-card p-4",
   {
     variants: {
       // Reserved for files 32+ — a counter that needs attention (a review queue

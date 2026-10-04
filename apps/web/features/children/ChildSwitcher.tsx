@@ -38,7 +38,7 @@ export function ChildSwitcher({
                 aria-current={isSelected ? "page" : undefined}
                 className={cn(
                   // 44px minimum touch target on a parent surface (design.md §7).
-                  "flex min-h-11 items-center gap-2 rounded-[var(--radius)] border px-3 py-2 font-medium text-sm transition-colors",
+                  "flex min-h-11 items-center gap-2 rounded-(--radius) border px-3 py-2 font-medium text-sm transition-colors",
                   "focus-ring",
                   isSelected
                     ? "border-primary bg-primary/10 text-foreground"

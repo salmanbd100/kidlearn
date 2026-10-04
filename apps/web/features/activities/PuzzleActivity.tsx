@@ -34,7 +34,7 @@ const pieceVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a
   // 100ms hold, so the browser can keep owning scroll gestures that start on a
   // piece — which matters most here, where the tray is the thing that scrolls.
-  "size-20 shrink-0 cursor-grab rounded-md [touch-action:manipulation] focus-ring",
+  "size-20 shrink-0 cursor-grab rounded-md touch-manipulation focus-ring",
   {
     variants: {
       isDragging: {
@@ -252,7 +252,7 @@ export function PuzzleActivity({
               type="button"
               data-testid="puzzle-shine"
               aria-label={t("activity.skip")}
-              className="absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,var(--shine)_50%,transparent_65%)] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-inset motion-safe:animate-shine"
+              className="absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,var(--shine)_50%,transparent_65%)] touch-manipulation focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-inset motion-safe:animate-shine"
               onClick={skipShine}
             />
           ) : null}

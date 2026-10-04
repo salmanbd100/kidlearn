@@ -30,7 +30,7 @@ import { isWiggling, type WiggleRequest } from "./use-wiggle";
 const itemCardVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a
   // 100ms hold, so the browser can keep owning scroll gestures that start here.
-  "flex size-24 shrink-0 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-2 bg-card p-2 text-card-foreground [touch-action:manipulation] focus-ring",
+  "flex size-24 shrink-0 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-2 bg-card p-2 text-card-foreground touch-manipulation focus-ring",
   {
     variants: {
       isDragging: {

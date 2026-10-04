@@ -196,7 +196,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -213,7 +213,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
           {assets.map((asset) => (
             <li
               key={asset.id}
-              className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3"
+              className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-3"
             >
               <AssetPreview asset={asset} />
 
@@ -338,7 +338,7 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
     return (
       // biome-ignore lint/a11y/useMediaCaption: same — captions are authored content this preview exists to check, not something the preview can supply.
       <video
-        className="aspect-video w-full rounded-[var(--radius)] bg-muted"
+        className="aspect-video w-full rounded-(--radius) bg-muted"
         controls
         preload="none"
         src={asset.url}
@@ -352,7 +352,7 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
       width={320}
       height={180}
       unoptimized
-      className="aspect-video w-full rounded-[var(--radius)] border border-border object-contain"
+      className="aspect-video w-full rounded-(--radius) border border-border object-contain"
     />
   );
 }
