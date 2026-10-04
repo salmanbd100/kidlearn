@@ -3,6 +3,16 @@
   "tasks": {
     "dev": { "cache": false, "persistent": true },
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**"],
+      "env": [
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_SITE_URL",
+        "MEDIA_ASSET_HOSTS",
+        "SITE_NOINDEX"
+      ]
+    },
     "@kidlearn/ui#build": { "dependsOn": ["^build"], "outputs": [] },
     "typecheck": { "dependsOn": ["^build"] },
     "test": { "dependsOn": ["^build"] },

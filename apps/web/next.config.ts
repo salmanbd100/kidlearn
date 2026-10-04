@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 type RemotePatterns = NonNullable<
@@ -57,12 +59,53 @@ function mediaRemotePatterns(): RemotePatterns {
   return [...origins, ...defaults];
 }
 
+/**
+ * `noindex` for the dev deployment, whose content has not been through admin
+ * review (file 38 req 4). Deliberately not `NEXT_PUBLIC_` — the browser never
+ * needs it — and production leaves it unset, so the header is absent there
+ * rather than present-and-permissive.
+ *
+ * IT IS READ AT BUILD TIME, not per request. Next serialises `headers()` into
+ * `.next/routes-manifest.json` during `next build`, so setting it on a running
+ * server does nothing: on Vercel it takes a REDEPLOY, exactly like a
+ * `NEXT_PUBLIC_` value, despite not carrying the prefix that advertises it.
+ *
+ * The API host carries the same header from a Caddy `header` directive; this
+ * covers the web host only.
+ */
+const noindexHeaders: NonNullable<NextConfig["headers"]> = async () => {
+  if (process.env.SITE_NOINDEX !== "true") return [];
+  return [
+    {
+      source: "/:path*",
+      headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+    },
+  ];
+};
+
 const nextConfig: NextConfig = {
   // The shared UI package ships raw .ts/.tsx source — let Next transpile it.
   transpilePackages: ["@kidlearn/ui"],
+  /**
+   * Escape hatch only (file 38 req 5). The frontend deploys to Vercel, which
+   * needs none of this; `apps/web/Dockerfile` does, and an untested Dockerfile
+   * is not an escape hatch. Harmless on Vercel, which ignores the standalone
+   * tree it produces.
+   */
+  output: "standalone",
+  /**
+   * Trace from the repository root, not `apps/web`: the app imports two
+   * workspace packages, and pnpm links them from outside this directory. Without
+   * it, `.next/standalone` ships without `@kidlearn/ui` or `@kidlearn/types`.
+   */
+  outputFileTracingRoot: path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../..",
+  ),
   images: {
     remotePatterns: mediaRemotePatterns(),
   },
+  headers: noindexHeaders,
 };
 
 export default nextConfig;

@@ -24,6 +24,15 @@ export function buildApp(): Express {
 
   app.disable("x-powered-by");
 
+  // Caddy terminates TLS and reverse-proxies to this container, so `req.protocol`
+  // is `http` here unless Express is told to read `X-Forwarded-Proto` — and
+  // better-auth declines to set a `Secure` cookie over what it believes is plain
+  // HTTP. Exactly one hop, so `1` rather than `true`: trusting the whole chain
+  // would let a client forge `req.ip` by sending its own `X-Forwarded-For`.
+  if (env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
+
   app.use(requestLogger);
   app.use(
     cors({

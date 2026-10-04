@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review a kidlearn feature branch against dev before it is pushed. Invoke as /code-review, or /code-review <branch-name>. Use when work on a branch is finished, when the user says "review this", "review my branch", or "check this before I push", and before running /pr.
+description: Use when work on a kidlearn feature branch is finished, when the user says "review this", "review my branch" or "check this before I push", and before running /pr. Invoke as /code-review, /code-review <branch>, or /code-review <branch> <base>.
 ---
 
 # kidlearn Code Review
@@ -44,7 +44,9 @@ git diff dev...<branch> --name-only
 git diff dev...<branch>
 ```
 
-**The base is `dev`, not `main`.** Feature branches are cut from `dev` and `/pr` opens against
+**The base is `dev`, not `main`, unless the user supplies one** (`/code-review <branch> <base>`,
+any ref or SHA). Check that it resolves (`git rev-parse --verify <base>`) and that the diff is
+non-empty before going further, and name the base in the report header. Feature branches are cut from `dev` and `/pr` opens against
 `dev`; only a `dev` → `main` release PR uses `main` (`project-requirement-details.md §9`).
 
 **If the diff comes back empty, find out why before improvising a base.** Two cases, opposite
@@ -97,9 +99,59 @@ they describe, report that the diff is documentation-only, and stop.
 
 ## Step 2 — Parallel review
 
-Launch these in parallel. Run D only if the diff touches `apps/server` or `packages/types`; run E
-only if it touches `packages/ui/` or `apps/web/`. Give each the diff, the spec from Step 1, and
-the layers in scope. Each returns findings with the rule quoted, or a bug with a failure path.
+Launch these in parallel, each as its own sub-agent with its own context, so a long standards
+pass cannot dilute the spec pass. S, A–C, F, G, H and K always run. Run D only if the diff touches `apps/server` or
+`packages/types`; E only if it touches `packages/ui/` or `apps/web/`; I only if it touches
+`packages/db/prisma/`; J only if it touches `**/Dockerfile`, `.github/**`, `config/env.ts` or
+deployment docs. Give each the diff, the spec from Step 1, and the layers in scope.
+
+A–E return a finding with the standards sentence quoted. S returns a finding with the
+acceptance criterion or FR ID quoted. **F–K review what no standards document covers yet**, so they carry a different burden: every finding states a **failure path** (the
+input, load or state, and the wrong outcome) or a **maintenance cost with a named future change
+that gets harder**. "Could be cleaner" is not a finding.
+
+The bar is a staff engineer's: would this survive a reviewer who owns the system in production
+for the next two years? A correct diff that is hard to change, hard to operate or unsafe at ten
+times today's data is still worth a finding.
+
+**Briefing each sub-agent.** Every brief states:
+
+1. Read-only. Never edit files, and never read `.env`, `.env.local`, `*.pem`, `*.key`, `.npmrc`
+   or `~/.ssh/*` (`.env.example` is fine).
+2. Which files to read **whole**, not as hunks, and which section of this skill is its rubric.
+3. What not to report: anything Biome, `tsc` or the Vitest suites catch.
+4. The return shape per finding: `file:line`, the quoted sentence or a **Fails when** path, a
+   severity guess, a one-sentence fix, and whether it ran anything to confirm it.
+5. **At most eight findings, ranked by blast radius.** An agent over the cap cuts its own tail
+   rather than leaving the cut to you.
+
+A sub-agent's report is a lead, not a verdict. Step 3 takes every finding back to the files
+before it reaches the engineer.
+
+### S — Spec fidelity
+
+Give this agent the implementation file from Step 1 and the diff, and nothing from the standards.
+Its question is only: does the branch build what was asked, no more and no less?
+
+- **Missing.** An acceptance criterion or FR ID with no code and no test behind it.
+- **Diverging.** Behaviour that contradicts the spec — a different status code, a different
+  default, a different order of steps.
+- **Extra.** A feature, endpoint, field or setting the spec never asked for. Unrequested surface
+  is unreviewed surface, and for a children's product it is also unvetted content or data.
+- **Untested requirement.** Each criterion needs a test that fails when it is broken.
+- **Unrecorded decision.** The branch resolves an ambiguity in the spec one way with no note in
+  the PR or the implementation file, so the next engineer cannot tell choice from accident.
+- **Stale spec.** The code disagrees with the spec because the code follows a newer source of
+  truth (a changed default in `config/env.ts`, say). The finding is "update the spec or record
+  the divergence", Worth fixing — never "revert the code".
+- **A step silently dropped.** A one-off instruction in the spec (measure, record, rehearse,
+  verify from a log) that appears nowhere in the runbook or PR. Procedures are requirements too.
+- **Status claims.** A progress-tracker or PR statement that something is "done", "verified" or
+  "green" must name how: a CI run, a command and its output. A claim that rests on a local run
+  nobody can repeat is reworded, not accepted.
+
+With no implementation file (Step 1 says why), this agent runs against the branch's commit
+messages and the user's description instead, and the header says so.
 
 ### A — Content safety and access control
 
@@ -262,6 +314,154 @@ Read `design.md §11` and `frontend.md §1`.
 - No horizontal scroll at 360/768/1024, `dvh` and safe-area insets, layout survives +40% text
   length from translation (`design.md §11`).
 
+### F — Security and children's data
+
+kidlearn holds data about children aged 3–6, so a privacy slip is a safety slip.
+
+- **Object-level authorisation (IDOR).** Every handler taking an id from params, query or body:
+  where is ownership established? A parent reaching another parent's child, session or
+  subscription by guessing an id is the canonical failure. `loadOwnedChild` is the pattern;
+  a hand-rolled `findUnique({ where: { id } })` with no owner in the `where` is the smell.
+- **Mass assignment.** A request body spread into a Prisma `data` object
+  (`update({ data: req.body })`, `{ ...input }`) lets a caller set `status`, `role` or
+  `parentId`. Fields are picked explicitly from the Zod-parsed value, never from the raw body.
+- **PII in logs, errors and responses.** Child name, birth date, email or session tokens in a
+  log line, a thrown message or an error body. `config/logger.ts` redacts a fixed path list —
+  a new field carrying PII that is not on it is a finding.
+- **Data minimisation.** A new field collected about a child with no requirement in
+  `project-requirement-details.md` behind it. Check account deletion still removes it
+  (`document/` consent and deletion requirements).
+- **Auth and session handling.** Cookie flags (`HttpOnly`, `Secure`, `SameSite`), a state-changing
+  `GET`, a token compared with `===` rather than a constant-time compare, a secret or cron
+  endpoint left unauthenticated, an open redirect after sign-in.
+- **Trust in the client.** Anything the server accepts because the browser said so: a role, a
+  price, a child id not tied to the session, a `status` field.
+- **Abuse surface.** A new unauthenticated or expensive endpoint (AI generation, email, file
+  upload) with no rate limit, size limit or per-parent quota. Verify what protection exists
+  before asserting there is none.
+- **Dependencies.** A new package: is it maintained, is it needed, does the repo already have
+  something that does this? Lockfile changes with no matching `package.json` change.
+- **Secrets.** A real key, token or connection string in code, fixtures, docs or a Dockerfile
+  `ENV`/`ARG` baked into a layer. `.env.example` holds names only.
+- **Injection and unsafe rendering.** `dangerouslySetInnerHTML`, a URL built from user input
+  and fetched server-side (SSRF), a payload from AI output rendered or stored without passing
+  the `packages/types` validator.
+
+### G — Data access, scale and failure modes
+
+- **N+1 and unbounded reads.** A query inside a loop or `.map`; a list endpoint with no `take`
+  or cursor; an `include` that pulls a large JSONB payload into a list response. State the row
+  count at which it hurts.
+- **Missing index.** A new `where`/`orderBy` column with no index in the schema. Check
+  `schema.prisma` and recent migrations before reporting; `20260910…content_visibility_indexes`
+  shows the repo's pattern.
+- **Transactions and idempotency.** Two writes that must succeed together outside
+  `prisma.$transaction`; a retried request (network blip, double-click, webhook redelivery)
+  that creates a duplicate or double-awards a reward. Server-authoritative progress must be
+  idempotent per event.
+- **Check-then-act races.** `findFirst` then `create` where a unique constraint should decide.
+- **Error paths of external calls** (Google OAuth, Gemini, email, storage): no timeout, no
+  handling of a non-2xx, a failure that leaves half-written state, a retry with no backoff.
+- **Client data fetching.** A waterfall of sequential requests that could be one; no loading or
+  error state, so a failed request renders as an empty screen; an optimistic update with no
+  rollback.
+- **Hot paths on small devices.** Work on the render path of kid screens (large lists, layout
+  thrash, unmemoised heavy computation, unbounded bundle imports such as a whole icon set) —
+  the primary devices are low-end phones and tablets.
+
+### H — Test quality
+
+`general.md §5` governs where tests live; nothing checks whether they test anything.
+
+- **A test that cannot fail.** Asserts only that a mock was called, that a value `toBeDefined()`,
+  or restates the implementation. Ask: if the feature were deleted, would this go red?
+- **Only the happy path.** A new branch, guard or error class with no test hitting it. For
+  every new `throw`, `404` and `403` there should be a test that triggers it.
+- **Boundary cases absent** — empty list, one item, `null` birth date, expired session, a
+  second request replaying the first.
+- **Over-mocking.** A service test that stubs the very collaborator whose behaviour is the thing
+  that can break.
+- **Order or time dependence.** Real timers, `Date.now()` without a fake clock, shared mutable
+  fixtures between tests — the cause of the intermittent Supertest failures the CI section of
+  `CLAUDE.md` describes; do not add to it.
+- **A skipped or loosened test** (`it.skip`, `.only`, a widened matcher, a deleted assertion) in
+  a diff that also changes the code under test.
+
+### I — Migrations (only if `packages/db/prisma/` changed)
+
+A migration is the one change that cannot be reverted by reverting the commit.
+
+- **Destructive in one step.** `DROP COLUMN`/`DROP TABLE`, a type change, or a `NOT NULL` added
+  without a default or backfill — against rows that already exist. The safe shape is expand,
+  migrate, contract across deploys.
+- **Old code against new schema.** Containers roll over one at a time, so for a moment the
+  previous release runs against the new schema. Does it survive?
+- **Backfill inside the migration** on a large table, holding a lock.
+- **Index creation** on a large table without `CONCURRENTLY` where the table is hot.
+- **Schema and migration disagree** — an edit to `schema.prisma` with no migration, or a
+  hand-edited migration already applied elsewhere (rewriting history).
+- **Cascades.** A new relation's `onDelete` against the deletion requirement: removing a parent
+  must remove the child's data and nothing else.
+- **`database-design.md` not updated** for a schema change (`database-design.md` wins on any
+  schema question).
+
+### J — Operability and deployment (only if infra files changed)
+
+- **Backup and recovery.** Where a script writes the only copy of production data, trace every
+  failure, not the success path: a dump that dies midway must not leave a file that looks like a
+  backup (write to a temporary key, promote on success); a failed run must reach a monitored
+  channel, because cron with no redirect and no mail agent fails silently; and the restore path
+  must have been run once, since an unrehearsed backup is a guess.
+- **Rollout and rollback.** A deploy script that overwrites its record of the previous version
+  before the new one is proven healthy has destroyed its own rollback. Ask what the operator
+  types at 3 a.m., and whether the health gate exercises the dependency that is most likely to
+  be broken (the database), not just the process.
+- **Order of operations across steps.** Where two documented steps read shared state (a tag, an
+  env file), walk them in the documented order and check the second sees what the first
+  promised. Two scripts that each look right can disagree.
+- **Concurrency.** Two operators or two retries running the same script at once: is there a lock?
+- **Zero-downtime claims.** A proxy in front of a container that gets recreated returns errors
+  for the gap unless it retries.
+- **Secrets at rest and in flight.** Credentials passed as command-line arguments are visible in
+  `ps` and `docker inspect`; prefer inherited env vars or stdin.
+- **Dockerfile.** Runs as root; secrets via `ARG`/`ENV`; dev dependencies in the final image;
+  unpinned base image; layer order that busts the install cache on every source change;
+  `.dockerignore` missing `.env*`.
+- **Fail-fast config.** A new env var read outside `config/env.ts`, or one with no entry in
+  `.env.example` and the deploy docs (`backend.md §5`).
+- **Health and shutdown.** A health check that returns healthy while the database is
+  unreachable; no `SIGTERM` handling so deploys drop in-flight requests.
+- **Observability.** A new failure mode that logs nothing, or logs without a request id, so
+  production cannot answer "what happened to this user".
+- **CI.** A step that widens secrets exposure to fork PRs, a removed gate, an unpinned action.
+- **Runbook.** A new operational step missing from `document/runbook.md` or
+  `document/deployment-walkthrough.md`.
+
+### K — Maintainability
+
+Judged against the code around the diff, not an abstract ideal.
+
+- **Wrong altitude.** An abstraction with one caller; a generic helper that takes five flags;
+  logic duplicated across modules that already has a home. Search before reporting
+  duplication — name the existing function.
+- **Leaky boundaries.** A module reaching into another module's internals; `shared/` importing a
+  module; a component that knows which API endpoint backs it when its feature's hook should.
+- **Names that lie.** A function whose name says one thing and whose side effects say another;
+  a boolean flag that inverts behaviour; a `data`/`result`/`handle` with no noun.
+- **Scope creep.** An unrelated refactor or rename in the same branch (`general.md §7`: one
+  implementation file per branch) that makes the real change harder to review. This includes
+  deleting or rewording comments in a file the spec only touched elsewhere: a deleted comment
+  that carried a *why* the code cannot show (a requirement ID, a cross-file coupling) is a
+  finding; one that restated the code is not.
+- **Leftovers.** `console.log`, commented-out code, a `TODO` with no owner or ticket, dead
+  exports, an unused feature flag.
+- **Comments.** One that restates the code, or a non-obvious decision (a workaround, an
+  invariant) with none. The `why` goes in a comment; the `what` goes in a name.
+- **Language.** US spelling in prose, comments, docs or UI copy — British English throughout
+  (`colour`, `behaviour`, `organise`), matching the `en-GB` locale.
+- **Error messages and UX copy** a parent could not act on, or a kid-surface string above the
+  reading level of a 5-year-old's carer.
+
 ---
 
 ## Step 3 — Verify before reporting
@@ -269,7 +469,10 @@ Read `design.md §11` and `frontend.md §1`.
 Take each finding to the code itself, not the diff hunk, and answer all four:
 
 1. **Does the cited rule say what the finding claims?** Re-read the sentence. A paraphrase that
-   drifts is a false positive with a citation attached — the worst kind.
+   drifts is a false positive with a citation attached — the worst kind. For an F–K finding there
+   is no sentence: re-trace the failure path through the real code and confirm every step of it,
+   including the protection you claimed was absent (a rate limit, an index, a transaction in a
+   caller).
 2. **Is it exempted?** Check the recorded exceptions, by path, and check their stated scope.
 3. **Did this branch introduce it?** `git log -1 -S'<the line>' -- <file>`. If the line predates
    the branch, drop it — a review that relitigates merged code is noise.
@@ -279,8 +482,8 @@ Then rate what is left:
 
 |                  | Meaning                                                                                                                                       |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Blocking**     | A content-safety or access-control gap, a bug with a concrete failure path, or a `[REVIEW]` rule violated with the sentence quoted.           |
-| **Worth fixing** | Real and verified, but the branch ships without harm — a convention slip, a missing return type, an unclear name.                             |
+| **Blocking**     | A content-safety, access-control or child-privacy gap (IDOR, mass assignment, PII leak); a bug with a concrete failure path; data loss or an irreversible migration step; a spec criterion missing or contradicted; a `[REVIEW]` rule violated with the sentence quoted. |
+| **Worth fixing** | Real and verified, but the branch ships without harm — a convention slip, a missing return type, an unclear name, an N+1 on a table that stays small, a test that cannot fail, a maintainability cost with a named future change. |
 | **Drop**         | Anything you could not answer all four questions for. Anything a tool catches. Anything you would preface with "consider" or "might want to". |
 
 **Every content-safety and access-control finding is Blocking**, and is never rated down for being
@@ -288,6 +491,23 @@ small — a one-word `where` clause is the whole guard.
 
 Uncertainty is not a severity. If you are not sure a finding is real, do the work to find out or
 drop it. Do not report it hedged and leave the engineer to check.
+
+**A deliberate trade-off is not a defect — but its consequence still has to be acceptable.** When
+the spec, a comment or the runbook records a choice (manual rollback, a speed-bump rather than a
+boundary), do not report the choice. Report it only if the recorded rationale does not cover the
+failure you found: a manual rollback is a decision, but a rollback whose target tag was deleted
+by the script is not what was decided. Rate such findings Worth fixing unless they lose data or
+expose content, and say which decision they sit under.
+
+**Default drops for infrastructure diffs**, unless the diff makes them newly exploitable:
+unpinned base-image tags, a root user in a build-only stage, an unchecksummed download in a
+one-off bootstrap script, and tag validation on an argument only root can supply. They are
+hygiene and are worth one line in a follow-up, not a slot in the review. Rank what survives by
+blast radius: data loss, then prod down, then security, then operability, then convention.
+
+**Unverified is a section, not a finding.** What you could not check from the repo (instance
+metadata settings, bucket policies, a restore never run) goes under a short **Unverified** list
+with the one command or console page that would settle it. It never counts toward Blocking.
 
 ---
 
@@ -298,9 +518,13 @@ drop it. Do not report it hedged and leave the engineer to check.
 
 <N commits, M files. Layers: apps/web, apps/server.>
 <Spec: document/implementation/14-\*.md — matches / diverges: …>
+<Ran: the commands you executed and their result, e.g. "`vitest run app.test.ts` — 11 pass".
+Not run: build, typecheck, Docker, CI — everything you did not execute.>
+<Skipped reviewers and why; sub-agent reads that were partial.>
 <Includes N uncommitted files.>
 
-**Blocking: N. Worth fixing: M.** | **No issues found.**
+**Verdict: Request changes** (Blocking > 0) | **Approve with comments** (only Worth fixing) | **Approve**
+**Blocking: N. Worth fixing: M.** Base: `<dev or supplied ref>`.
 
 ---
 
@@ -318,9 +542,12 @@ drop it. Do not report it hedged and leave the engineer to check.
 **Fix:** <one sentence.>
 ````
 
-Labels: `🔴 CONTENT SAFETY`, `🔴 BUG`, `🔴 STANDARDS`, `🔴 API CONTRACT`, `🟡 DESIGN` — 🔴 Blocking,
-🟡 Worth fixing. Order: content safety, bugs, standards, API contract, design; Blocking before
-Worth fixing within each.
+Labels: `🔴 CONTENT SAFETY`, `🔴 SECURITY`, `🔴 SPEC`, `🔴 BUG`, `🔴 DATA`, `🔴 STANDARDS`,
+`🔴 API CONTRACT`, `🟡 PERF`, `🟡 TESTS`, `🟡 OPS`, `🟡 MAINTAINABILITY`, `🟡 DESIGN` — 🔴 Blocking,
+🟡 Worth fixing; any label takes either colour per the Step 3 table. Order: content safety,
+security, spec, bugs, data, standards, API contract, then the rest; Blocking before Worth fixing
+within each. A finding from F–K replaces the quoted standards line with its **Fails when** path,
+which is mandatory.
 
 A clean branch names what was checked:
 
@@ -329,9 +556,11 @@ A clean branch names what was checked:
 
 **No issues found.**
 
-Checked: content-safety guards including related rows, correctness, the `[REVIEW]` matrix
-(`general.md §6`), testing rules (`§5`), the progress tracker (`§7`), API contract completeness
-(`backend.md §7`), design system (`design.md §11`).
+Checked: spec fidelity, content-safety guards including related rows, security and child data
+(ownership, mass assignment, PII), correctness, data access and scale, the `[REVIEW]` matrix
+(`general.md §6`), test quality and testing rules (`§5`), migrations, the progress tracker
+(`§7`), API contract completeness (`backend.md §7`), design system (`design.md §11`),
+maintainability. Not applicable: <reviewers skipped because the diff did not touch their layer>.
 ```
 
 **Rules for the output:**
@@ -341,5 +570,11 @@ Checked: content-safety guards including related rows, correctness, the `[REVIEW
 - Quote the standards sentence verbatim, or reclassify the finding.
 - Never report what Biome or `tsc` catches. Never report a line this branch did not touch.
 - Never soften a Blocking finding into a suggestion.
+- Findings about the code, never the author. State the consequence, then the fix; a fix that
+  needs a design choice names the option you would take and why.
+- At most ten Worth-fixing findings, ranked by cost of leaving them. If more survive Step 3,
+  say how many were cut and name the classes; a long list buries the Blocking ones.
+- Finish with **Unverified** (see Step 3) and, if the review exposed a rule this skill lacks,
+  one line proposing it. Offer next steps; do not start fixing unasked.
 - If you skipped a step — could not find the implementation file, did not read a standards
   document — say which, in the header. An unstated gap reads as a clean bill.

@@ -13,7 +13,6 @@ import { Providers } from "@/shared/components/Providers";
 import { LOCALE_COOKIE_NAME, toLocale } from "@/shared/lib/locale";
 import "./globals.css";
 
-// Design-system fonts (document/design.md §3.1). Variable fonts → no weights.
 const fredoka = Fredoka({
   variable: "--font-fredoka",
   subsets: ["latin"],
@@ -34,8 +33,7 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
 });
-// Bengali glyph coverage for the whole interface — the `:lang(bn)` stack in
-// globals.css puts this in front of the Latin families (FR-I18N-01).
+
 const notoSansBengali = Noto_Sans_Bengali({
   variable: "--font-noto-bengali",
   subsets: ["bengali", "latin"],
@@ -50,9 +48,21 @@ const fontVariables = [
   notoSansBengali.variable,
 ].join(" ");
 
+const SITE_NAME = "KidLearn";
+
 export const metadata: Metadata = {
-  title: "kidlearn",
+  // `||`, not `??`: an omitted build-arg or a blank Vercel variable is a defined
+  // empty string, which `??` passes to `new URL("")` — that throws at module
+  // scope and fails every route in the build.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000",
+  ),
+  title: SITE_NAME,
   description: "Playful, gamified early-learning for ages 3–5.",
+  openGraph: {
+    siteName: SITE_NAME,
+    url: "/",
+  },
 };
 
 // Primary devices are phones & tablets — cover the safe area on notched screens.
@@ -62,18 +72,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-/**
- * Every route in this app is dynamic (`ƒ` in the build output), and that is a
- * decision rather than an oversight — recorded here because it looks like one.
- */
+// Every route is dynamic by decision, not oversight: this layout reads the
+// locale cookie.
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
-  // Read here rather than detecting in the browser: the server has to emit the
-  // right language in the first response, or a Bangla visitor gets a flash of
-  // English and a hydration mismatch. See the note in `lib/i18n.ts`.
+  // Read on the server so the first response is in the right language; detecting
+  // in the browser gives a Bangla visitor a flash of English and a hydration
+  // mismatch. See the note in `lib/i18n.ts`.
   const cookieStore = await cookies();
   const locale = toLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
 
@@ -81,7 +89,7 @@ export default async function RootLayout({
     <html
       lang={locale}
       // The bootstrap script below edits this element's class list before React
-      // hydrates, which is the point — the difference is expected.
+      // hydrates, so the mismatch is expected.
       suppressHydrationWarning
       className={`${fontVariables} h-full antialiased`}
     >

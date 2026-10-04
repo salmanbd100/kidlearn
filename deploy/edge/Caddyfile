@@ -1,0 +1,41 @@
+# The only process on the box that binds a host port. Caddy terminates TLS for
+# both API hostnames and obtains/renews their certificates from Let's Encrypt on
+# its own; Vercel terminates TLS for the three web hostnames itself, so they do
+# not appear here at all.
+#
+# `prod-api` and `dev-api` are NETWORK ALIASES, not service names. Both
+# application stacks have a service called `api`, and on a shared external
+# network Compose registers each service name as an alias — `reverse_proxy
+# api:4000` would resolve to whichever answered DNS first. See deploy/app/compose.yml.
+
+{
+	# Let's Encrypt expiry notices. Replace before the first production run.
+	email ops@kidlearn.net
+
+	# STAGING IS THE DEFAULT, and it ships enabled deliberately. Caddy begins
+	# requesting certificates the instant it starts — there is no dry run — so the
+	# safe default has to be the endpoint where a mistake is free. Let's Encrypt's
+	# production endpoint allows 5 duplicate certificates per week and rate-limits
+	# failed validations, and a wrong A record burns them without asking.
+	#
+	# FIRST RUN: leave this line alone. Bring the stack up, confirm both hostnames
+	# answer on an untrusted (staging) certificate, THEN comment it out, and
+	# `docker compose -p kidlearn-edge up -d --force-recreate` for real ones.
+	# Record in document/runbook.md which endpoint the box is currently on.
+	acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+api.kidlearn.net {
+	reverse_proxy prod-api:4000
+}
+
+api.dev.kidlearn.net {
+	# Keeps an unreviewed-content build of a children's product out of search
+	# results. The web half carries the same header from next.config.ts.
+	header X-Robots-Tag "noindex, nofollow"
+
+	# NO basic_auth here, deliberately. The Google OAuth callback lands on this
+	# host, and a browser prompt mid-redirect breaks the sign-in flow. The gate is
+	# on the web host only (apps/web/proxy.ts).
+	reverse_proxy dev-api:4000
+}
