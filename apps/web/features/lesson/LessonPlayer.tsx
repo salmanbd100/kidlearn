@@ -221,7 +221,7 @@ function LessonPlayerContent({
 
   if (state.status === "finished") {
     return (
-      <section className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
+      <section className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
         <h1 className="font-display text-3xl text-foreground">
           {t("finished.title")}
         </h1>

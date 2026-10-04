@@ -121,7 +121,7 @@ function MascotGreeting({ url, name }: { url?: string; name: string }) {
         width={MASCOT_PX}
         height={MASCOT_PX}
         priority
-        className="h-auto max-h-[40vh] w-auto max-w-full"
+        className="h-auto max-h-[40dvh] w-auto max-w-full"
       />
     </motion.div>
   );

@@ -44,10 +44,10 @@ export function StepContainer({
   const currentIndex = LESSON_STEPS.indexOf(step);
 
   return (
-    // `min-h-dvh` and the safe-area insets are repeated here rather than inherited:
-    // the player is the one student screen that fills the viewport itself, and a
-    // step's own content is what must clear a notch (design.md §6).
-    <div className="relative flex min-h-dvh flex-1 flex-col bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
+    // `flex-1`, not a viewport height and the safe-area insets: the student layout
+    // already applies both, and repeating them doubled the insets on a notched
+    // phone and scrolled the lesson by their height.
+    <div className="relative flex flex-1 flex-col bg-background">
       <header className="flex items-start justify-between gap-4 p-4">
         <ol
           // One `progressbar` for the strip, not five bare dots. The dots

@@ -353,12 +353,11 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   }
 
   return (
-    // Edge to edge with the safe-area insets the lesson player uses: the reader is
-    // a full-screen surface of its own, and a page of a story must clear a notch
-    // (design.md §6).
+    // The student layout supplies the viewport height and the safe-area insets;
+    // the reader fills what is left of it.
     <div
       data-testid="story-reader"
-      className="relative flex min-h-dvh flex-1 flex-col bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
+      className="relative flex flex-1 flex-col bg-background"
       onPointerDown={(event) => {
         swipeStartX.current = event.clientX;
       }}

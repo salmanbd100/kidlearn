@@ -156,7 +156,7 @@ export function TraceActivity({
         role="application"
         aria-label={t("activity.trace.label", { glyph: definition.glyph })}
         aria-describedby={instructionsId}
-        className="h-full max-h-[70vh] w-auto max-w-full touch-none select-none focus-ring"
+        className="h-full max-h-[70dvh] w-auto max-w-full touch-none select-none focus-ring"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

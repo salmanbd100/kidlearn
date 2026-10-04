@@ -339,7 +339,7 @@ function MascotCheer({ url }: { url?: string }) {
         alt=""
         width={MASCOT_PX}
         height={MASCOT_PX}
-        className="h-auto max-h-[24vh] w-auto max-w-full"
+        className="h-auto max-h-[24dvh] w-auto max-w-full"
       />
     </motion.div>
   );
