@@ -1,5 +1,6 @@
 import type { Locale } from "@kidlearn/types";
 import { env } from "../../../config/env.js";
+import { PROVIDER_TIMEOUT_MS } from "./google-genai-client.js";
 
 /**
  * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
@@ -29,10 +30,16 @@ export async function generateNarration(
   const voice = VOICE_BY_LOCALE[locale];
 
   const response = await fetch(
-    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${env.GOOGLE_TTS_API_KEY}`,
+    "https://texttospeech.googleapis.com/v1/text:synthesize",
     {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      // The key travels in a header rather than the query string, so it never
+      // lands in a proxy log, an APM trace or an error that quotes the URL.
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": env.GOOGLE_TTS_API_KEY,
+      },
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       body: JSON.stringify({
         input: { text },
         voice: { languageCode: voice.languageCode, name: voice.name },

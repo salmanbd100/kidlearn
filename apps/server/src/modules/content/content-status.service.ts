@@ -89,13 +89,13 @@ export function routeToStatus(
 
 /**
  * Throws unless the row's content may be rewritten — see `isContentEditable`
- * for why `published` refuses one.
+ * for why `in_review`, `approved` and `published` refuse one.
  */
 export function assertEditable(status: ContentStatus): void {
   if (isContentEditable(status)) return;
 
   throw ApiError.conflict(
-    "A published row cannot be edited — withdraw it to draft first",
+    `A ${status} row cannot be edited — move it back to draft first`,
     {
       code: "EDIT_REQUIRES_UNPUBLISH",
       status,

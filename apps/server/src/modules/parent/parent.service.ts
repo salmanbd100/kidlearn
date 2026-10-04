@@ -47,6 +47,19 @@ export async function findOrCreateParentForUser(
   });
   if (existing) return existing;
 
+  // The reverse of the `seed-admin` check: a user who is already an admin must
+  // not be provisioned a parent row just because their email can sign in with
+  // Google, or one session would pass both `requireParent` and `requireAdmin`.
+  const adminRow = await prisma.adminUser.findUnique({
+    where: { authUserId: user.id },
+    select: { id: true },
+  });
+  if (adminRow) {
+    throw ApiError.forbidden(
+      "Admin accounts cannot access the parent dashboard",
+    );
+  }
+
   const googleAccount = await prisma.account.findFirst({
     where: { userId: user.id, providerId: GOOGLE_PROVIDER_ID },
     select: { accountId: true },

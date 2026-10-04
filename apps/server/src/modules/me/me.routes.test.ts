@@ -224,7 +224,10 @@ describe("GET /api/me/rewards/summary", () => {
 
   it("reports the stored streak (FR-GAM-06)", async () => {
     signInAs(CHILD);
-    db.streakFindUnique.mockResolvedValue({ current: 4 });
+    db.streakFindUnique.mockResolvedValue({
+      current: 4,
+      lastActivityDate: new Date(),
+    });
 
     const res = await getSummary();
 
@@ -234,9 +237,26 @@ describe("GET /api/me/rewards/summary", () => {
     );
   });
 
+  it("reports a lapsed streak as zero rather than the stale stored number", async () => {
+    signInAs(CHILD);
+    // `current` is only reset by the next activity, so a child who last played a
+    // week ago still has 4 in the column.
+    db.streakFindUnique.mockResolvedValue({
+      current: 4,
+      lastActivityDate: new Date(Date.now() - 7 * 24 * 60 * 60_000),
+    });
+
+    const res = await getSummary();
+
+    expect(res.body.data.currentStreak).toBe(0);
+  });
+
   it("reads the streak without advancing it", async () => {
     signInAs(CHILD);
-    db.streakFindUnique.mockResolvedValue({ current: 4 });
+    db.streakFindUnique.mockResolvedValue({
+      current: 4,
+      lastActivityDate: new Date(),
+    });
 
     const res = await getSummary();
 

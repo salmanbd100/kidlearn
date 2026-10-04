@@ -107,11 +107,11 @@ export function buildOpenApiDocument({
       // them to answer.
       {
         url: "https://api.dev.kidlearn.net",
-        description: "Development — tracks the `dev` branch. Not yet deployed.",
+        description: "Development — tracks the `dev` branch.",
       },
       {
         url: "https://api.kidlearn.net",
-        description: "Production — tracks `main`. Not yet deployed.",
+        description: "Production — tracks `main`.",
       },
     ],
     tags: TAGS,

@@ -48,7 +48,7 @@ const SLUG_CONFLICT_RESPONSE = errorResponse(
  */
 const EDIT_CONFLICT_RESPONSE = errorResponse(
   [
-    'Either the slug is taken (`code: "DUPLICATE_SLUG"` — unique per model for worlds and subjects, unique *within a parent* for topics and lessons), or the row is `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
+    'Either the slug is taken (`code: "DUPLICATE_SLUG"` — unique per model for worlds and subjects, unique *within a parent* for topics and lessons), or the row is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
     "",
     "**A published row refuses an edit.** The transition matrix guards the act of publishing, not the content that stays published afterwards, so without this a `PATCH` could rewrite a live lesson and reach a child without passing a reviewer again. Withdraw first — `published → draft` — then edit, then come back through `draft → in_review → approved → published`. `allowed` carries those first hops so a client can offer the withdrawal rather than only reporting the refusal.",
   ].join("\n"),
@@ -342,7 +342,7 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
         description: [
           `Partial edit. ${AT_LEAST_ONE_FIELD}`,
           "",
-          "**A `published` row refuses an edit** with a `409` — withdraw it to `draft` first. See that response below for why.",
+          "**An `in_review`, `approved` or `published` row refuses an edit** with a `409` — move it back to `draft` first. See that response below for why.",
           "",
           NO_STATUS_IN_BODY,
           "",

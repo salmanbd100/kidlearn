@@ -7,6 +7,7 @@ import type {
 } from "@kidlearn/types";
 import { env } from "../../config/env.js";
 import { prisma } from "../../config/prisma.js";
+import { ApiError } from "../../shared/errors/errors.js";
 import {
   dateToTimeOfDay,
   timeOfDayToDate,
@@ -150,6 +151,13 @@ export async function getScreenTimeStatus(
 export const LESSON_RESUME_GRACE_MS = 30 * 60_000;
 
 /**
+ * How long after it was first opened a lesson can still be "under way", however
+ * recently it was touched. `updatedAt` moves on every step report, so without
+ * this a client that keeps re-reporting a step holds the grace open for ever.
+ */
+export const LESSON_RESUME_CEILING_MS = 3 * 60 * 60_000;
+
+/**
  * The middleware's variant: the same decision, for a child who has named the
  * lesson they want (FR-TIME-03).
  */
@@ -187,10 +195,42 @@ async function isLessonInProgress(
 ): Promise<boolean> {
   const progress = await prisma.lessonProgress.findUnique({
     where: { childId_lessonId: { childId, lessonId } },
-    select: { completedAt: true, updatedAt: true },
+    select: { completedAt: true, updatedAt: true, startedAt: true },
   });
 
   if (progress === null || progress.completedAt !== null) return false;
 
-  return Date.now() - progress.updatedAt.getTime() <= LESSON_RESUME_GRACE_MS;
+  const now = Date.now();
+  return (
+    now - progress.updatedAt.getTime() <= LESSON_RESUME_GRACE_MS &&
+    now - progress.startedAt.getTime() <= LESSON_RESUME_CEILING_MS
+  );
+}
+
+/**
+ * The `423` a refused start becomes. Shared by the content-read middleware and
+ * by the progress write that would otherwise open a lesson the read refused.
+ */
+export function screenTimeBlockedError(
+  decision: Extract<
+    Awaited<ReturnType<typeof evaluateStartForChild>>,
+    { allowed: false }
+  >,
+): ApiError {
+  return new ApiError(
+    423,
+    decision.code,
+    decision.code === "TIME_LIMIT_REACHED"
+      ? "Today's learning time is used up"
+      : "Outside the allowed access window",
+    // The client cannot recompute any of this — it has no access to the
+    // settings and no trustworthy clock — and the window screen has to name
+    // the hour to come back at.
+    {
+      minutesToday: decision.details.minutesToday,
+      dailyLimitMinutes: decision.details.dailyLimitMinutes,
+      windowStart: decision.details.windowStart,
+      windowEnd: decision.details.windowEnd,
+    },
+  );
 }

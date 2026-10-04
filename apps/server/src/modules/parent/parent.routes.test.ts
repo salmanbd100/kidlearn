@@ -303,7 +303,10 @@ describe("account deletion", () => {
       (run: (client: unknown) => Promise<void>) =>
         run({
           childProfile: { deleteMany: db.childProfileDeleteMany },
-          parent: { delete: db.parentDelete },
+          parent: {
+            delete: db.parentDelete,
+            updateMany: async () => ({ count: 1 }),
+          },
           user: { delete: db.userDelete },
         }),
     );

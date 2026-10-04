@@ -51,6 +51,17 @@ export async function seedAdmin({
 
   let authUserId: string;
   if (existing) {
+    // A parent signs in with Google and an admin with a password, and the two
+    // surfaces assume they are different people. Attaching a credential and an
+    // `AdminUser` to a Google identity would make one session pass both guards.
+    if (
+      existing.accounts.some((account) => account.providerId !== "credential")
+    ) {
+      throw new Error(
+        `${normalisedEmail} already belongs to a Google sign-in. Admin accounts must use a separate email from any parent account.`,
+      );
+    }
+
     authUserId = existing.user.id;
     const hasCredential = existing.accounts.some(
       (account) => account.providerId === "credential",

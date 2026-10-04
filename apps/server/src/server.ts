@@ -7,13 +7,49 @@ const server = app.listen(env.PORT, () => {
   logger.info(`kidlearn-api listening on http://localhost:${env.PORT}`);
 });
 
-// Free-tier hosts stop instances with a signal rather than a hard kill: drain
-// in-flight requests, then release the database connections before exiting.
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => {
-    logger.info({ signal }, "Shutting down");
-    server.close(() => {
-      void prisma.$disconnect().then(() => process.exit(0));
-    });
+/**
+ * Shorter than Docker's default 10 s stop grace period, so a request or
+ * keep-alive connection that never ends is cut by us, with the database released,
+ * rather than by a SIGKILL that leaves connections dangling.
+ */
+const SHUTDOWN_DEADLINE_MS = 8_000;
+
+let isShuttingDown = false;
+
+function shutdown(signal: string): void {
+  // A second signal (an impatient operator, a supervisor retrying) must not
+  // start a second drain.
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  logger.info({ signal }, "Shutting down");
+
+  setTimeout(() => {
+    logger.error("Shutdown deadline passed with requests still open; exiting");
+    process.exit(1);
+  }, SHUTDOWN_DEADLINE_MS).unref();
+
+  // Free-tier hosts stop instances with a signal rather than a hard kill: drain
+  // in-flight requests, then release the database connections before exiting.
+  server.close(() => {
+    prisma
+      .$disconnect()
+      .then(() => process.exit(0))
+      .catch((error: unknown) => {
+        logger.error({ err: error }, "Failed to disconnect from the database");
+        process.exit(1);
+      });
   });
+  // Idle keep-alive sockets would otherwise hold `close` open until they time out.
+  server.closeIdleConnections();
 }
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => shutdown(signal));
+}
+
+// An unhandled rejection in a background path is a fault to see and restart on,
+// not a state to limp along in.
+process.on("unhandledRejection", (reason) => {
+  logger.error({ err: reason }, "Unhandled promise rejection");
+});

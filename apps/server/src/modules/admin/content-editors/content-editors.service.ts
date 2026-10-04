@@ -333,6 +333,15 @@ export async function deleteQuestion(
     prisma.$transaction(
       async (tx) => {
         await assertQuestionEditable(tx, quizId, questionId);
+
+        const answers = await tx.quizResponse.count({ where: { questionId } });
+        if (answers > 0) {
+          throw ApiError.conflict(
+            "Children have answered this question, so deleting it would erase their answer history",
+            { code: "QUESTION_HAS_RESPONSES", answers },
+          );
+        }
+
         await tx.quizQuestion.delete({ where: { id: questionId } });
 
         const survivors = await tx.quizQuestion.findMany({
@@ -362,7 +371,7 @@ export async function deleteQuestion(
 /** The slice of the client a transaction callback and the plain client share. */
 type EditorWriter = Pick<
   typeof prisma,
-  "quiz" | "quizQuestion" | "activity" | "badge"
+  "quiz" | "quizQuestion" | "quizResponse" | "activity" | "badge"
 >;
 
 /**

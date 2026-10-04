@@ -69,6 +69,7 @@ const store = vi.hoisted(() => ({
   admins: [] as Array<Record<string, unknown> & { authUserId: string | null }>,
   quizzes: [] as Row[],
   questions: [] as Row[],
+  responses: [] as Row[],
   activities: [] as Row[],
   badges: [] as Row[],
   /** File 37 — the jobs a `?jobId` save can record its decision on. */
@@ -306,6 +307,10 @@ vi.mock("../../../config/prisma.js", async () => {
         return { ...row, quiz: quiz ? { status: quiz.status } : null };
       },
     },
+    quizResponse: {
+      count: async ({ where }: { where?: Record<string, unknown> }) =>
+        store.responses.filter((row) => matches(row, where)).length,
+    },
     activity: table(() => store.activities, timestamps),
     // File 37 — the edit-then-approve breadcrumb. `updateMany` rather than
     // `update` in the service, so the "still awaiting review" condition is part
@@ -409,6 +414,7 @@ beforeEach(() => {
   ];
   store.quizzes = [];
   store.questions = [];
+  store.responses = [];
   store.activities = [];
   store.badges = [];
   store.jobs = [];
@@ -868,6 +874,29 @@ describe("DELETE /api/admin/content/quizzes/:quizId/questions/:id", () => {
       0, 1,
     ]);
     expect(res.body.data.remainingIds).toHaveLength(2);
+  });
+});
+
+describe("DELETE a question a child has answered", () => {
+  it("refuses with 409 and leaves the question and the answers in place", async () => {
+    seedQuiz();
+    await request(app)
+      .post(`${BASE}/quizzes/${QUIZ_ID}/questions`)
+      .send({ format: validMcq.type, definition: validMcq });
+    const questionId = store.questions[0].id as string;
+    store.responses.push({ id: "answer-1", questionId });
+
+    const res = await request(app).delete(
+      `${BASE}/quizzes/${QUIZ_ID}/questions/${questionId}`,
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toMatchObject({
+      code: "QUESTION_HAS_RESPONSES",
+      answers: 1,
+    });
+    expect(store.questions).toHaveLength(1);
+    expect(store.responses).toHaveLength(1);
   });
 });
 

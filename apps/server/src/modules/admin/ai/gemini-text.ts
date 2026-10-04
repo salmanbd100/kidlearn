@@ -2,7 +2,7 @@ import type { GenerateContentResponse, ThinkingLevel } from "@google/genai";
 import type { ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { env } from "../../../config/env.js";
-import { getClient } from "./google-genai-client.js";
+import { CHILD_SAFETY_SETTINGS, getClient } from "./google-genai-client.js";
 import type { StructuredGeneration } from "./types.js";
 
 /**
@@ -58,6 +58,7 @@ export async function generateStructured(
       responseMimeType: "application/json",
       responseJsonSchema: toResponseJsonSchema(options.outputSchema),
       maxOutputTokens: MAX_OUTPUT_TOKENS,
+      safetySettings: CHILD_SAFETY_SETTINGS,
       thinkingConfig: { thinkingLevel: THINKING_LEVEL },
     },
   });

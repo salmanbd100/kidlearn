@@ -50,8 +50,34 @@ export function deliveryUrlPrefix(): string {
   return `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
 }
 
+/**
+ * A prefix test alone is not enough: `<cloud>/../other-cloud/x.png` starts with
+ * our prefix as written, but the browser normalises it onto another cloud's
+ * path before it fetches. So the URL is parsed, and a dot segment — raw or
+ * percent-encoded — is refused outright.
+ */
 export function isDeliveryUrl(url: string): boolean {
-  return url.startsWith(deliveryUrlPrefix());
+  if (!url.startsWith(deliveryUrlPrefix())) return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (!parsed.href.startsWith(deliveryUrlPrefix())) return false;
+  if (parsed.username !== "" || parsed.password !== "") return false;
+
+  try {
+    return !parsed.pathname.split("/").some((segment) => {
+      const decoded = decodeURIComponent(segment);
+      return decoded === "." || decoded === "..";
+    });
+  } catch {
+    // A malformed percent escape is not a URL Cloudinary would have issued.
+    return false;
+  }
 }
 
 export type MediaAssetDto = {

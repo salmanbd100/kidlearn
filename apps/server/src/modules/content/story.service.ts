@@ -155,7 +155,11 @@ export async function listStoriesForChild(
   const [stories, completions] = await Promise.all([
     prisma.story.findMany({
       where: { ...publishedForChild(child), world: publishedRelation },
-      orderBy: [{ world: { slug: "asc" } }, { createdAt: "asc" }],
+      orderBy: [
+        { world: { slug: "asc" } },
+        { createdAt: "asc" },
+        { id: "asc" },
+      ],
       include: {
         coverAsset: true,
         world: { include: { mascotAsset: true, translations: true } },
@@ -220,7 +224,7 @@ export async function getStoryForChild(
           include: { titleAudioAsset: true, moralAudioAsset: true },
         },
         pages: {
-          orderBy: { sortOrder: "asc" },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
           include: {
             illustrationAsset: true,
             translations: { include: { narrationAudioAsset: true } },

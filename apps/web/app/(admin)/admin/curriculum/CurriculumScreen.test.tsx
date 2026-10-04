@@ -88,7 +88,7 @@ function fillSubjectForm() {
   fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
 }
 
-describe("editing a published row", () => {
+describe("editing a row with a review decision on it", () => {
   /**
    * The button has to agree with the server, which refuses a `PATCH` on a
    * published row with a `409`. Offering an edit that cannot succeed is the
@@ -105,18 +105,20 @@ describe("editing a published row", () => {
     await renderWithStatus("published");
 
     expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
-    expect(
-      screen.getByText(/Published content cannot be edited/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/cannot be edited/)).toBeInTheDocument();
   });
 
-  it("leaves Edit enabled at every other status", async () => {
-    await renderWithStatus("approved");
+  it.each(["in_review", "approved"])("disables Edit at %s", async (status) => {
+    await renderWithStatus(status);
+
+    expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
+  });
+
+  it("leaves Edit enabled at draft", async () => {
+    await renderWithStatus("draft");
 
     expect(screen.getByRole("button", { name: "Edit" })).toBeEnabled();
-    expect(
-      screen.queryByText(/Published content cannot be edited/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/cannot be edited/)).not.toBeInTheDocument();
   });
 
   it("offers Withdraw to draft, so the refusal has a way out on screen", async () => {

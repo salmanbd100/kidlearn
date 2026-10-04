@@ -61,13 +61,17 @@ export interface DailyBudget {
   remaining: number;
 }
 
+/** The slice of the client the budget needs, so a transaction can stand in. */
+type BudgetReader = Pick<typeof prisma, "aIGenerationJob">;
+
 export async function readDailyBudget(
   type: AIJobType,
   now?: Date,
+  client: BudgetReader = prisma,
 ): Promise<DailyBudget> {
   const bucket = bucketFor(type);
   const cap = capFor(bucket);
-  const used = await prisma.aIGenerationJob.count({
+  const used = await client.aIGenerationJob.count({
     where: {
       type: { in: TYPES_BY_BUCKET[bucket] },
       createdAt: { gte: startOfTodayInAppTz(now) },
@@ -91,8 +95,9 @@ export async function readDailyBudget(
 export async function assertWithinDailyCap(
   type: AIJobType,
   pending = 1,
+  client: BudgetReader = prisma,
 ): Promise<void> {
-  const budget = await readDailyBudget(type);
+  const budget = await readDailyBudget(type, undefined, client);
 
   if (budget.used + pending > budget.cap) {
     throw new ApiError(

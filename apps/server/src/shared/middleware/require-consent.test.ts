@@ -3,6 +3,7 @@
  * `config/prisma.js` in the absence of a test database.
  */
 import type { Parent } from "@kidlearn/db";
+import { CONSENT_VERSION } from "@kidlearn/types";
 import express, { type Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -89,11 +90,25 @@ describe("requireConsent", () => {
     expect(res.body.error.code).toBe("CONSENT_REQUIRED");
   });
 
+  it("blocks a parent whose consent predates the current version", async () => {
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({
+        consentGivenAt: new Date("2025-01-01T00:00:00.000Z"),
+        consentVersion: "2025-01-v0",
+      }),
+    );
+
+    const res = await request(buildChildCreateApp()).post("/children");
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("CONSENT_REQUIRED");
+  });
+
   it("allows child-profile creation once consent exists", async () => {
     db.parentFindUnique.mockResolvedValue(
       parentRow({
         consentGivenAt: new Date("2026-07-01T00:00:00.000Z"),
-        consentVersion: "2026-06-v1",
+        consentVersion: CONSENT_VERSION,
       }),
     );
 

@@ -620,8 +620,7 @@ export async function transitionContent(
       async (tx) => {
         const current = await readGuardFields(tx, resource, id);
         assertTransition(current.status, to);
-        if (to === "published")
-          await assertAiPublishable([current.aiJobId], tx);
+        if (to === "published") await assertAiPublishable(current.aiJobIds, tx);
         await writeStatus(tx, resource, id, to, adminId);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -638,21 +637,62 @@ async function readGuardFields(
   tx: ContentWriter,
   resource: ContentResource,
   id: string,
-): Promise<{ status: ContentStatus; aiJobId: string | null }> {
+): Promise<{ status: ContentStatus; aiJobIds: (string | null)[] }> {
   const select = { status: true } as const;
-  const row = await (resource === "worlds"
-    ? tx.world.findUnique({ where: { id }, select })
-    : resource === "subjects"
-      ? tx.subject.findUnique({ where: { id }, select })
-      : resource === "topics"
-        ? tx.topic.findUnique({ where: { id }, select })
-        : tx.lesson.findUnique({
-            where: { id },
-            select: { ...select, aiJobId: true },
-          }));
+  // Every media asset a row points at carries its own `aiJobId`. An illustration
+  // or clip that is still awaiting review can be picked from the media library
+  // and linked by a plain edit, so the row's own job is not the whole question:
+  // what a child would see or hear is.
+  const asset = { select: { aiJobId: true } } as const;
 
-  if (!row) throw ApiError.notFound(`No such ${singular(resource)}`);
-  return { status: row.status, aiJobId: "aiJobId" in row ? row.aiJobId : null };
+  if (resource === "worlds") {
+    const row = await tx.world.findUnique({
+      where: { id },
+      select: { ...select, mascotAsset: asset },
+    });
+    if (!row) throw ApiError.notFound("No such world");
+    return { status: row.status, aiJobIds: [row.mascotAsset?.aiJobId ?? null] };
+  }
+
+  if (resource === "subjects") {
+    const row = await tx.subject.findUnique({ where: { id }, select });
+    if (!row) throw ApiError.notFound("No such subject");
+    return { status: row.status, aiJobIds: [] };
+  }
+
+  if (resource === "topics") {
+    const row = await tx.topic.findUnique({ where: { id }, select });
+    if (!row) throw ApiError.notFound("No such topic");
+    return { status: row.status, aiJobIds: [] };
+  }
+
+  const row = await tx.lesson.findUnique({
+    where: { id },
+    select: {
+      ...select,
+      aiJobId: true,
+      translations: {
+        select: {
+          introAudioAsset: asset,
+          videoAsset: asset,
+          videoPosterAsset: asset,
+        },
+      },
+    },
+  });
+  if (!row) throw ApiError.notFound("No such lesson");
+
+  return {
+    status: row.status,
+    aiJobIds: [
+      row.aiJobId ?? null,
+      ...row.translations.flatMap((translation) => [
+        translation.introAudioAsset?.aiJobId ?? null,
+        translation.videoAsset?.aiJobId ?? null,
+        translation.videoPosterAsset?.aiJobId ?? null,
+      ]),
+    ],
+  };
 }
 
 async function readStatus(
@@ -887,8 +927,4 @@ async function assertParentExists(
       : prisma.topic.findUnique({ where: { id }, select }));
 
   if (!found) throw ApiError.notFound(`No such ${model}`);
-}
-
-function singular(resource: ContentResource): string {
-  return resource.slice(0, -1);
 }

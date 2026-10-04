@@ -121,6 +121,10 @@ vi.mock("../../../../config/prisma.js", () => {
       },
     },
     aIGenerationJob: {
+      // The stale-job sweep that precedes every run; nothing here is old enough.
+      updateMany: async () => ({ count: 0 }),
+      // The cap check reads today's spend; these suites exercise one job at a time.
+      count: async () => 0,
       findUnique: async ({ where }: { where: { id: string } }) =>
         store.jobs.find((one) => one.id === where.id) ?? null,
       create: async ({ data }: { data: Record<string, unknown> }) => {

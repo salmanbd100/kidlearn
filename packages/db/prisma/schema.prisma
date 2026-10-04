@@ -114,6 +114,8 @@ model MediaAsset {
   storyPageNarrations    StoryPageTranslation[]    @relation("StoryPageNarration")
   badgeIcons             Badge[]                   @relation("BadgeIcon")
   characterAssets        Character[]               @relation("CharacterAsset")
+
+  @@index([kind, createdAt])
 }
 
 model World {
@@ -461,10 +463,12 @@ model LessonProgress {
   completedAt  DateTime?
   score        Int?
   timeSpentSec Int          @default(0)
+  startedAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
   @@unique([childId, lessonId])
   @@index([childId, completedAt])
+  @@index([completedAt])
 }
 
 model QuizResponse {
@@ -472,7 +476,7 @@ model QuizResponse {
   childId    String
   child      ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
   questionId String
-  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
   answer     Json
   isCorrect  Boolean
   attempts   Int          @default(1)

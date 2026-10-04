@@ -224,7 +224,7 @@ export async function listSubjectsForChild(
       ...visible,
       topics: { some: { ...visible, lessons: { some: visible } } },
     },
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
     include: { translations: true },
   });
 
@@ -255,7 +255,7 @@ export async function listTopicsForChild(
 
   const topics = await prisma.topic.findMany({
     where: { subjectId: subject.id, ...visible, lessons: { some: visible } },
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
     include: { translations: true },
   });
 
@@ -327,7 +327,7 @@ export async function listLessonsForChild(
     // agree by construction: a lesson the detail endpoint 404s must not appear
     // as a tile that opens onto nothing, and vice versa.
     where: { topicId: topic.id, ...visibleLessonWhere(child) },
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
     include: { translations: { select: { language: true, title: true } } },
   });
 
@@ -356,7 +356,12 @@ export async function listWorldLessonsForChild(
 
   const lessons = await prisma.lesson.findMany({
     where: { worldId: world.id, ...visibleLessonWhere(child) },
-    orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+    orderBy: [
+      { topic: { sortOrder: "asc" } },
+      { topic: { id: "asc" } },
+      { sortOrder: "asc" },
+      { id: "asc" },
+    ],
     include: {
       topic: { include: { translations: true } },
       translations: { select: { language: true, title: true } },

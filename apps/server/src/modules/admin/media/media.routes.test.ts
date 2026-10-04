@@ -289,6 +289,25 @@ describe("POST /api/admin/media", () => {
     expect(store.assets).toEqual([]);
   });
 
+  it.each([
+    "../someone-else",
+    "%2e%2e/someone-else",
+    "%2E%2E/someone-else",
+    "./../someone-else",
+  ])("rejects a path that climbs out of our cloud (%s)", async (climb) => {
+    // The prefix test passes on the raw string, but the browser resolves the
+    // dot segments and fetches another cloud's asset.
+    const res = await request(app)
+      .post(BASE)
+      .send({
+        url: `${DELIVERY_BASE}/${climb}/image/upload/v1/x.png`,
+        kind: "image",
+      });
+
+    expect(res.status).toBe(400);
+    expect(store.assets).toEqual([]);
+  });
+
   it("rejects an unknown field rather than dropping it", async () => {
     const res = await request(app)
       .post(BASE)

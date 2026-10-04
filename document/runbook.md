@@ -209,6 +209,21 @@ migration.
 migration, never by editing an applied one. Never run `prisma migrate dev`
 against a deployed database.
 
+**A migration must be safe for the previous release.** The migrate step runs
+before the new image is up, so for the length of a deploy the *old* API runs
+against the *new* schema, and the rollback command below puts the old image back
+against it permanently. Prisma selects every column of a model by default, so a
+`DROP COLUMN` makes every read of that table fail until the new image is serving
+(this is what `20260909000000_remove_parent_pin` would have done on a deploy with
+a slow health check). So split a destructive change across two releases:
+
+1. **Expand** — add the new column or table, with a default or nullable. Ship it.
+2. **Contract** — once no running release references the old column, drop it in
+   a later migration.
+
+Adding a `NOT NULL` column needs a default for the same reason. A migration that
+cannot be written this way needs a maintenance window, and says so in its header.
+
 ### Rollback — two independent halves
 
 Both, because under load nobody derives the second one.

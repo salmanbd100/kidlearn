@@ -104,6 +104,8 @@ vi.mock("../../../../config/prisma.js", () => {
       },
     },
     aIGenerationJob: {
+      // The stale-job sweep that precedes every run; nothing here is old enough.
+      updateMany: async () => ({ count: 0 }),
       count: async ({
         where,
       }: {

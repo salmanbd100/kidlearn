@@ -21,6 +21,10 @@ import {
   type CompletionRewards,
   grantLessonCompletion,
 } from "../rewards/reward.service.js";
+import {
+  evaluateStartForChild,
+  screenTimeBlockedError,
+} from "../screen-time/screen-time.service.js";
 
 /**
  * Per-child lesson progress and the lesson player's event log (FR-LSN-06..07).
@@ -71,9 +75,33 @@ export async function reportLessonStep(
 ): Promise<LessonProgress> {
   const visibleLessonId = await requireVisibleLessonId(child, lessonId);
 
+  await assertMayOpenLesson(child.id, visibleLessonId);
+
   return withSerializationRetry(() =>
     reportLessonStepOnce(child.id, visibleLessonId, report),
   );
+}
+
+/**
+ * Opening a lesson is gated on the content read, but the first step report is
+ * what creates the progress row, and a row less than the resume grace old makes
+ * the read allow that lesson even when the day's limit is spent. So a report that
+ * would create the row is held to the same decision; one that continues a lesson
+ * already under way is not, because finishing what was started is the point of
+ * the grace.
+ */
+async function assertMayOpenLesson(
+  childId: string,
+  lessonId: string,
+): Promise<void> {
+  const existing = await prisma.lessonProgress.findUnique({
+    where: { childId_lessonId: { childId, lessonId } },
+    select: { id: true },
+  });
+  if (existing !== null) return;
+
+  const decision = await evaluateStartForChild(childId, undefined);
+  if (!decision.allowed) throw screenTimeBlockedError(decision);
 }
 
 function reportLessonStepOnce(

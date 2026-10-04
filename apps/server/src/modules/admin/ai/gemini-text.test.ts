@@ -87,6 +87,26 @@ describe("the request", () => {
     expect(call.config.systemInstruction).toBe("You write lessons.");
   });
 
+  it("blocks at the strictest threshold on every harm category, for a three-to-six audience", async () => {
+    sdk.generateContent.mockResolvedValue(response({ text: "{}" }));
+
+    await generate();
+
+    const { safetySettings } = sdk.generateContent.mock.calls[0][0].config;
+    expect(safetySettings).toHaveLength(4);
+    for (const setting of safetySettings) {
+      expect(setting.threshold).toBe("BLOCK_LOW_AND_ABOVE");
+    }
+    expect(
+      safetySettings.map((setting: { category: string }) => setting.category),
+    ).toEqual(
+      expect.arrayContaining([
+        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "HARM_CATEGORY_DANGEROUS_CONTENT",
+      ]),
+    );
+  });
+
   it("sends every message as a part of one user turn", async () => {
     // Not one turn per message: Gemini is not documented to merge consecutive
     // same-role turns, and a retry that lost the original prompt would be a retry

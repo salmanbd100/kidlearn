@@ -45,7 +45,7 @@ function definitionNote(schemaName: string, discriminator: string): string {
 
 const EDIT_CONFLICT_RESPONSE = errorResponse(
   [
-    'The row is `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
+    'The row is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
     "",
     "**A published row refuses an edit.** The transition matrix guards the act of publishing, not the content that stays published afterwards, so without this a `PATCH` could rewrite a live quiz question and reach a child without passing a reviewer again. Withdraw first — `published → draft` — then edit, then come back through `draft → in_review → approved → published`.",
   ].join("\n"),
@@ -321,7 +321,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
         "",
         "That is also why this answers with a body rather than `204`: the client's list is stale the moment the delete succeeds, and `remainingIds` is what lets the editor settle on the server's order instead of guessing at it.",
         "",
-        "A question that does not belong to the quiz named in the path is a `404`.",
+        'A question that does not belong to the quiz named in the path is a `404`. A question a child has already answered is a `409` with `code: "QUESTION_HAS_RESPONSES"`: deleting it would erase their answer history, which feeds badges and weekly reports.',
       ].join("\n"),
       parameters: [
         quizId,
@@ -590,7 +590,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
         ...GUARD_RESPONSES,
         "404": NOT_FOUND_RESPONSE,
         "409": errorResponse(
-          'Either the slug is taken (`code: "DUPLICATE_SLUG"`), or the badge is `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`). A published badge refuses an edit for the reason every published row does: changing a live badge\'s rule would change what a child has to do to earn it, retroactively, without review.',
+          'Either the slug is taken (`code: "DUPLICATE_SLUG"`), or the badge is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`). Such a badge refuses an edit for the reason every such row does: changing a live badge\'s rule would change what a child has to do to earn it, retroactively, without review.',
           ["CONFLICT"],
         ),
       },

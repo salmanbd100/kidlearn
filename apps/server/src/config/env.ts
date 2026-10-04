@@ -25,70 +25,102 @@ function ttsVoice(language: Locale) {
     );
 }
 
-const EnvSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
-  PORT: z.coerce.number().int().positive().default(4000),
-  DATABASE_URL: z.string().url(),
-  WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
-  LOG_LEVEL: z
-    .enum(["fatal", "error", "warn", "info", "debug", "trace"])
-    .default("info"),
-  BETTER_AUTH_URL: z.string().url().default("http://localhost:4000"),
-  // Signing key for session tokens and OAuth state. Generate with
-  // `openssl rand -base64 32`. Rotating it invalidates every live session.
-  BETTER_AUTH_SECRET: z.string().min(32),
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
-  // Where the browser lands after a successful Google round-trip.
-  PARENT_POST_LOGIN_PATH: z.string().startsWith("/").default("/parent"),
-  /**
-   * The timezone every "day" in this product is measured in — the once-a-day
-   * reward grant (file 23) and the streak roll-over (file 27) both read it, and
-   * they must agree or a child could earn today's coins twice.
-   */
-  APP_TIMEZONE: z
-    .string()
-    .default("Asia/Dhaka")
-    .refine(isKnownTimeZone, "must be an IANA timezone name, e.g. Asia/Dhaka"),
-  /** Shared secret for `/api/admin/jobs/*` (file 30). */
-  CRON_SECRET: z.string().min(16),
-  /** Cloudinary, the media host (file 33, FR-CMS-02). */
-  CLOUDINARY_CLOUD_NAME: z.string().min(1),
-  CLOUDINARY_API_KEY: z.string().min(1),
-  CLOUDINARY_API_SECRET: z.string().min(1),
-  /**
-   * Google AI Studio — one key behind every generator that writes text (files
-   * 34–35, FR-AI-01..03) and the one that draws pictures (file 36, FR-AI-05).
-   */
-  GEMINI_API_KEY: z.string().min(1),
-  GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-3.6-flash"),
-  GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-2.5-flash-image"),
-  /**
-   * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
-   * FR-I18N-05).
-   */
-  GOOGLE_TTS_API_KEY: z.string().min(1),
-  GOOGLE_TTS_VOICE_EN: ttsVoice("en").default("en-US-Standard-C"),
-  GOOGLE_TTS_VOICE_BN: ttsVoice("bn").default("bn-IN-Standard-A"),
-  /**
-   * How many generation jobs a single `APP_TIMEZONE` day may create, per cost
-   * bucket (file 36, resized against the free tiers in file 37a).
-   *
-   * A text job is no longer one request: the body is one call and every quiz
-   * question is another, so a lesson is five and a retried one is ten. Google's
-   * free tier allows twenty requests a day per text model, and this cap exists to
-   * trip before that one does.
-   */
-  AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(3),
-  AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
-  AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(15),
-  ENABLE_API_DOCS: z
-    .enum(["true", "false"])
-    .default("false")
-    .transform((value) => value === "true"),
-});
+/** Whether a URL points at the machine it is read on — a dev default, never a deploy target. */
+export function isLocalUrl(value: string): boolean {
+  const { hostname } = new URL(value);
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".localhost")
+  );
+}
+
+const EnvSchema = z
+  .object({
+    NODE_ENV: z
+      .enum(["development", "test", "production"])
+      .default("development"),
+    PORT: z.coerce.number().int().positive().default(4000),
+    DATABASE_URL: z.string().url(),
+    WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
+    LOG_LEVEL: z
+      .enum(["fatal", "error", "warn", "info", "debug", "trace"])
+      .default("info"),
+    BETTER_AUTH_URL: z.string().url().default("http://localhost:4000"),
+    // Signing key for session tokens and OAuth state. Generate with
+    // `openssl rand -base64 32`. Rotating it invalidates every live session.
+    BETTER_AUTH_SECRET: z.string().min(32),
+    GOOGLE_CLIENT_ID: z.string().min(1),
+    GOOGLE_CLIENT_SECRET: z.string().min(1),
+    // Where the browser lands after a successful Google round-trip.
+    PARENT_POST_LOGIN_PATH: z.string().startsWith("/").default("/parent"),
+    /**
+     * The timezone every "day" in this product is measured in — the once-a-day
+     * reward grant (file 23) and the streak roll-over (file 27) both read it, and
+     * they must agree or a child could earn today's coins twice.
+     */
+    APP_TIMEZONE: z
+      .string()
+      .default("Asia/Dhaka")
+      .refine(
+        isKnownTimeZone,
+        "must be an IANA timezone name, e.g. Asia/Dhaka",
+      ),
+    /** Shared secret for `/api/admin/jobs/*` (file 30). */
+    CRON_SECRET: z.string().min(16),
+    /** Cloudinary, the media host (file 33, FR-CMS-02). */
+    CLOUDINARY_CLOUD_NAME: z.string().min(1),
+    CLOUDINARY_API_KEY: z.string().min(1),
+    CLOUDINARY_API_SECRET: z.string().min(1),
+    /**
+     * Google AI Studio — one key behind every generator that writes text (files
+     * 34–35, FR-AI-01..03) and the one that draws pictures (file 36, FR-AI-05).
+     */
+    GEMINI_API_KEY: z.string().min(1),
+    GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-3.6-flash"),
+    GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-2.5-flash-image"),
+    /**
+     * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
+     * FR-I18N-05).
+     */
+    GOOGLE_TTS_API_KEY: z.string().min(1),
+    GOOGLE_TTS_VOICE_EN: ttsVoice("en").default("en-US-Standard-C"),
+    GOOGLE_TTS_VOICE_BN: ttsVoice("bn").default("bn-IN-Standard-A"),
+    /**
+     * How many generation jobs a single `APP_TIMEZONE` day may create, per cost
+     * bucket (file 36, resized against the free tiers in file 37a).
+     *
+     * A text job is no longer one request: the body is one call and every quiz
+     * question is another, so a lesson is five and a retried one is ten. Google's
+     * free tier allows twenty requests a day per text model, and this cap exists to
+     * trip before that one does.
+     */
+    AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(3),
+    AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
+    AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(15),
+    ENABLE_API_DOCS: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+  })
+  // The two origins default to localhost so `pnpm dev` needs no setup. In
+  // production that default would boot cleanly and then break sign-in (a
+  // localhost OAuth redirect, a CORS allow-list that admits only localhost), so
+  // the failure has to happen here, at boot, naming the variable.
+  .superRefine((config, ctx) => {
+    if (config.NODE_ENV !== "production") return;
+
+    for (const key of ["WEB_ORIGIN", "BETTER_AUTH_URL"] as const) {
+      if (isLocalUrl(config[key])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: "must be the deployed origin in production, not localhost",
+        });
+      }
+    }
+  });
 
 export type Env = z.infer<typeof EnvSchema>;
 

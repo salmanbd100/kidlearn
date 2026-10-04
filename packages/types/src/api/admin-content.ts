@@ -63,9 +63,16 @@ export function nextContentStatuses(
   return [...ALLOWED_CONTENT_TRANSITIONS[from]];
 }
 
-/** Whether a row's content may be rewritten at its current status. */
+/**
+ * Whether a row's content may be rewritten at its current status. Only a row
+ * that has no review decision riding on it is editable: rewriting `in_review`
+ * changes the content under the reviewer, and rewriting `approved` would let
+ * `approved → published` ship words nobody approved.
+ */
 export function isContentEditable(status: ContentStatusValue): boolean {
-  return status !== "published";
+  return (
+    status !== "in_review" && status !== "approved" && status !== "published"
+  );
 }
 
 /** The audit stamp on every curriculum row (requirement 6). */

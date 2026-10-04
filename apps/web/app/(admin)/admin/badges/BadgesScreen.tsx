@@ -226,9 +226,9 @@ export function BadgesScreen() {
 
           {isContentEditable(selected.status) ? null : (
             <p className="text-muted-foreground text-xs">
-              Published badges cannot be edited — changing a live rule would
-              change what a child had to do to earn it. Withdraw it to draft
-              first.
+              Badges that are in review, approved or published cannot be edited
+              — changing a rule after a decision would change what a child has
+              to do to earn it without review. Move it back to draft first.
             </p>
           )}
 

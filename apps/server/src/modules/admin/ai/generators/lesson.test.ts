@@ -138,6 +138,10 @@ vi.mock("../../../../config/prisma.js", () => {
         create("quizQuestion", store.questions, "question", data),
     },
     aIGenerationJob: {
+      // The stale-job sweep that precedes every run; nothing here is old enough.
+      updateMany: async () => ({ count: 0 }),
+      // The cap check reads today's spend; these suites exercise one job at a time.
+      count: async () => 0,
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row: Row = { id: nextId("job"), ...data };
         store.jobs.push(row);

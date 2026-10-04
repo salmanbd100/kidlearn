@@ -14,7 +14,7 @@ import {
   findNewlyEarnedBadges,
   unlockCharacters,
 } from "./achievement.service.js";
-import { updateStreakForActivity } from "./streak.service.js";
+import { liveStreakLength, updateStreakForActivity } from "./streak.service.js";
 
 // Stars and coins (FR-GAM-01, FR-GAM-02, FR-GAM-07).
 
@@ -467,8 +467,11 @@ export async function getRewardSummary(
   const totals = await readTotals(prisma, childId);
   const streak = await prisma.streak.findUnique({
     where: { childId },
-    select: { current: true },
+    select: { current: true, lastActivityDate: true },
   });
 
-  return { ...totals, currentStreak: streak?.current ?? 0 };
+  return {
+    ...totals,
+    currentStreak: liveStreakLength(streak, env.APP_TIMEZONE),
+  };
 }

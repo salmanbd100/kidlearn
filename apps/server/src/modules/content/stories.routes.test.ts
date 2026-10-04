@@ -507,7 +507,9 @@ describe("GET /api/content/stories/:id", () => {
     expect(db.storyFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         include: expect.objectContaining({
-          pages: expect.objectContaining({ orderBy: { sortOrder: "asc" } }),
+          pages: expect.objectContaining({
+            orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          }),
         }),
       }),
     );

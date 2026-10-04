@@ -20,6 +20,7 @@ import {
   type GenerationJobResult,
   runGenerationJob,
 } from "../run-generation-job.js";
+import { failStaleJobs } from "../stale-jobs.js";
 
 // Batch narration (file 36, FR-AI-04, FR-I18N-05, FR-CMS-05).
 
@@ -61,6 +62,10 @@ const LIVE_JOB_STATUSES = [
 export async function generateNarrationBatch(
   input: GenerateNarrationInput,
 ): Promise<BatchGenerationRef> {
+  // Before the in-flight read: a pair whose job was stranded by a crash would
+  // otherwise look "already coming" for good.
+  await failStaleJobs();
+
   const candidates = await readNarrationCandidates(input);
   const inFlight = await readInFlightPairs(input.id);
 

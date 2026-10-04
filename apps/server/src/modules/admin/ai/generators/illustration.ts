@@ -18,6 +18,7 @@ import {
   type GenerationJobResult,
   runGenerationJob,
 } from "../run-generation-job.js";
+import { failStaleJobs } from "../stale-jobs.js";
 
 // Batch illustration (file 36, FR-AI-05, FR-AI-09, FR-CMS-05).
 
@@ -64,6 +65,9 @@ export async function generateIllustrationBatch(
       ? []
       : [{ ...page, illustrationPrompt: page.illustrationPrompt.trim() }],
   );
+
+  // Before the in-flight read, so a page whose job a crash stranded can be drawn again.
+  await failStaleJobs();
 
   const inFlight = await readInFlightPages(input.storyId);
   const missing = candidates.filter(

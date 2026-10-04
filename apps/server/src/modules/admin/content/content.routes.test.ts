@@ -692,6 +692,26 @@ describe("a published row refuses an edit", () => {
     });
   }
 
+  it.each([
+    "in_review",
+    "approved",
+  ])("refuses to rewrite a lesson at %s, so a decision cannot be followed by an unreviewed publish", async (status) => {
+    seedLesson(status);
+
+    const res = await request(app)
+      .patch(`${BASE}/lessons/${LESSON_ID}`)
+      .send({
+        title: "Letter A, rewritten",
+        translations: lessonTranslations("Letter A, rewritten"),
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toMatchObject({
+      code: "EDIT_REQUIRES_UNPUBLISH",
+      status,
+    });
+  });
+
   it("returns 409 EDIT_REQUIRES_UNPUBLISH and leaves the content untouched", async () => {
     seedLesson("published");
 
@@ -753,8 +773,6 @@ describe("a published row refuses an edit", () => {
 
   it.each([
     "draft",
-    "in_review",
-    "approved",
     "rejected",
     "archived",
   ])("allows the edit at %s", async (status) => {
@@ -968,6 +986,32 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
       // Still `approved`, which is not `published` — and `published` is the one
       // value every student query filters on (asserted against the exported
       // filter in "publishing is immediate visibility" below).
+      expect(store.lessons[0].status).toBe("approved");
+    });
+
+    it("409s when a hand-written lesson links a clip or picture that is still awaiting review", async () => {
+      // The lesson itself has no `aiJobId`, but a media asset picked from the
+      // library carries its own. Without this the review queue could be skipped
+      // by linking the asset through a plain edit and publishing the lesson.
+      seedLesson("approved");
+      store.lessons[0].translations = [
+        {
+          language: "en",
+          title: "Letter A",
+          videoAsset: { aiJobId: "job-asset" },
+        },
+      ];
+      store.jobs = [
+        { id: "job-asset", status: "awaiting_review", decision: null },
+      ];
+
+      const res = await request(app).post(path).send({ to: "published" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toMatchObject({
+        code: "AI_REVIEW_REQUIRED",
+        jobId: "job-asset",
+      });
       expect(store.lessons[0].status).toBe("approved");
     });
 

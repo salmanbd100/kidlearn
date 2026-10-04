@@ -1,6 +1,6 @@
 import type { CharacterSheet } from "@kidlearn/db";
 import { env } from "../../../config/env.js";
-import { getClient } from "./google-genai-client.js";
+import { CHILD_SAFETY_SETTINGS, getClient } from "./google-genai-client.js";
 
 /**
  * Gemini image generation — story and lesson illustrations (file 36, FR-AI-05),
@@ -39,6 +39,7 @@ export async function generateIllustration(
   const response = await client.models.generateContent({
     model: env.GEMINI_IMAGE_MODEL,
     contents: buildIllustrationPrompt(prompt, sheets),
+    config: { safetySettings: CHILD_SAFETY_SETTINGS },
   });
 
   const parts = response.candidates?.[0]?.content?.parts ?? [];

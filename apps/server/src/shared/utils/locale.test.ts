@@ -67,3 +67,20 @@ describe("toLocaleMap", () => {
     expect(toLocaleMap(undefined, () => "x")).toEqual({});
   });
 });
+
+describe("pickLocale with a blank translation", () => {
+  it("falls back to English rather than serving an empty string", () => {
+    expect(pickLocale({ en: "Hello", bn: "" }, "bn")).toEqual({
+      value: "Hello",
+      locale: "en",
+    });
+    expect(pickLocale({ en: "Hello", bn: "   " }, "bn")).toEqual({
+      value: "Hello",
+      locale: "en",
+    });
+  });
+
+  it("reports no value when neither language has any text", () => {
+    expect(pickLocale({ en: "", bn: "" }, "bn").value).toBeNull();
+  });
+});

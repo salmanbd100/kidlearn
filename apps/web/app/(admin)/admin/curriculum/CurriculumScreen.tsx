@@ -391,7 +391,7 @@ export function CurriculumScreen() {
             <Button
               type="button"
               variant="outline"
-              // A published row refuses an edit server-side, so the button that
+              // A row in review, approved or published refuses an edit server-side, so the button that
               // would earn the 409 is disabled rather than left to produce one.
               // `isContentEditable` is the same predicate the server applies.
               disabled={!isContentEditable(selected.row.status)}
@@ -405,9 +405,9 @@ export function CurriculumScreen() {
 
           {isContentEditable(selected.row.status) ? null : (
             <p className="text-muted-foreground text-xs">
-              Published content cannot be edited. Withdraw it to draft first —
-              that removes it from students immediately, and the rewrite comes
-              back through review.
+              Content that is in review, approved or published cannot be edited.
+              Move it back to draft first — a published row leaves students
+              immediately, and the rewrite comes back through review.
             </p>
           )}
 

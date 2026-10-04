@@ -462,7 +462,12 @@ describe("GET /api/content/worlds/:id/lessons", () => {
           },
         },
       },
-      orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      orderBy: [
+        { topic: { sortOrder: "asc" } },
+        { topic: { id: "asc" } },
+        { sortOrder: "asc" },
+        { id: "asc" },
+      ],
       include: {
         topic: { include: { translations: true } },
         translations: { select: { language: true, title: true } },
@@ -595,7 +600,9 @@ describe("GET /api/content/subjects/:id/topics", () => {
       { id: TOPIC_ID, slug: "alphabet", name: "Alphabet", sortOrder: 1 },
     ]);
     expect(db.topicFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { sortOrder: "asc" } }),
+      expect.objectContaining({
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      }),
     );
   });
 
@@ -689,7 +696,7 @@ describe("GET /api/content/topics/:id/lessons", () => {
           },
         },
       },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       include: { translations: { select: { language: true, title: true } } },
     });
   });
@@ -992,6 +999,31 @@ describe("leak-proofing (FR-CURR-02, spec §7.3.4)", () => {
     expect(clauses.length).toBeGreaterThan(0);
     for (const where of clauses) {
       expect(JSON.stringify(where)).toContain('"status":"published"');
+    }
+  });
+
+  it("gates the lesson row itself on status and grade, on every lesson query", async () => {
+    signInAs(childProfile({ gradeLevel: "NURSERY" }));
+    const worldId = "55555555-5555-4555-8555-555555555555";
+    await request(app).get(`/api/content/worlds/${worldId}/lessons`);
+    await request(app).get(`/api/content/topics/${TOPIC_ID}/lessons`);
+    await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    const lessonWheres = [
+      ...db.lessonFindMany.mock.calls,
+      ...db.lessonFindFirst.mock.calls,
+    ].map(([args]) => (args as { where?: unknown }).where);
+
+    // Three requests, three lesson reads. The nested `topic.is.status` and
+    // `world.is.status` also contain `"status":"published"`, so a substring check
+    // stays green after the lesson's own `status` is deleted; the top-level keys
+    // are what this pins.
+    expect(lessonWheres.length).toBeGreaterThanOrEqual(3);
+    for (const where of lessonWheres) {
+      expect(where).toMatchObject({
+        status: "published",
+        gradeLevels: { has: "NURSERY" },
+      });
     }
   });
 

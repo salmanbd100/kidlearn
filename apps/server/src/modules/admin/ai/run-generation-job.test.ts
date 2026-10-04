@@ -44,6 +44,26 @@ vi.mock("../../../config/prisma.js", () => {
         store.statusWrites.push(String(row.status));
         return row;
       },
+      // Today's spend: every row counts, which is all the cap check reads.
+      count: async () => store.jobs.length,
+      // The stale-job sweep. `staleBefore` lets a test age a row; by default no
+      // row is old enough to be reaped.
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { status: { in: string[] }; updatedAt: { lt: Date } };
+        data: Record<string, unknown>;
+      }) => {
+        const stale = store.jobs.filter(
+          (row) =>
+            where.status.in.includes(row.status) &&
+            row.updatedAt instanceof Date &&
+            row.updatedAt < where.updatedAt.lt,
+        );
+        for (const row of stale) Object.assign(row, data);
+        return { count: stale.length };
+      },
       update: async ({
         where,
         data,
@@ -94,6 +114,71 @@ function attempts(): Array<Record<string, unknown>> {
 beforeEach(() => {
   store.jobs = [];
   store.statusWrites = [];
+});
+
+describe("the daily cap, checked where the row is created", () => {
+  it("refuses with 429 and writes no row when the day's budget is already spent", async () => {
+    // The request-level check reads the count before any row exists, so parallel
+    // requests all pass it. This is the check that holds when they do: it runs in
+    // the transaction that creates the row.
+    const cap = Number(process.env.AI_TEXT_JOBS_PER_DAY ?? 3);
+    store.jobs = Array.from({ length: cap }, (_, index) => ({
+      id: `spent-${index}`,
+      status: "awaiting_review",
+    }));
+    const generate = vi.fn();
+
+    await expect(
+      runGenerationJob({
+        type: "lesson",
+        input: {},
+        generate,
+        schema: Schema,
+        persist: async () => ({}),
+      }),
+    ).rejects.toMatchObject({ statusCode: 429, code: "RATE_LIMITED" });
+
+    expect(store.jobs).toHaveLength(cap);
+    expect(generate).not.toHaveBeenCalled();
+  });
+});
+
+describe("a job a crash left behind", () => {
+  it("is failed before the next run, so its pair can be generated again", async () => {
+    // Stranded by a process that died before recording an outcome — the only
+    // writer of `generating` is this runner, so nothing else will ever move it.
+    store.jobs = [
+      {
+        id: "stranded",
+        status: "generating",
+        updatedAt: new Date(Date.now() - 60 * 60_000),
+      },
+    ];
+
+    await runGenerationJob({
+      type: "lesson",
+      input: {},
+      generate: async () => ({ raw: VALID, usage: USAGE }),
+      schema: Schema,
+      persist: async () => ({}),
+    });
+
+    expect(store.jobs[0]).toMatchObject({ id: "stranded", status: "failed" });
+  });
+
+  it("is left alone while it could still be running", async () => {
+    store.jobs = [{ id: "live", status: "generating", updatedAt: new Date() }];
+
+    await runGenerationJob({
+      type: "lesson",
+      input: {},
+      generate: async () => ({ raw: VALID, usage: USAGE }),
+      schema: Schema,
+      persist: async () => ({}),
+    });
+
+    expect(store.jobs[0]).toMatchObject({ id: "live", status: "generating" });
+  });
 });
 
 describe("the happy path", () => {

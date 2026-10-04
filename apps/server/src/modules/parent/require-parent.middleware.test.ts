@@ -21,12 +21,14 @@ const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
   parentUpsert: vi.fn(),
   accountFindFirst: vi.fn(),
+  adminFindUnique: vi.fn(),
 }));
 
 vi.mock("../../config/prisma.js", () => ({
   prisma: {
     parent: { findUnique: db.parentFindUnique, upsert: db.parentUpsert },
     account: { findFirst: db.accountFindFirst },
+    adminUser: { findUnique: db.adminFindUnique },
   },
 }));
 
@@ -97,6 +99,8 @@ describe("requireParent", () => {
     db.parentFindUnique.mockReset();
     db.parentUpsert.mockReset();
     db.accountFindFirst.mockReset();
+    db.adminFindUnique.mockReset();
+    db.adminFindUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -158,6 +162,21 @@ describe("requireParent", () => {
     db.parentFindUnique.mockResolvedValue(null);
     // An admin signing in with credentials (file 31) has no google account row.
     db.accountFindFirst.mockResolvedValue(null);
+
+    const res = await request(buildProbeApp()).get("/probe");
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(db.parentUpsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to provision a Parent for a user who is already an admin", async () => {
+    mockSession();
+    db.parentFindUnique.mockResolvedValue(null);
+    // The admin's email can sign in with Google, so the account check alone
+    // would let one session pass both `requireParent` and `requireAdmin`.
+    db.adminFindUnique.mockResolvedValue({ id: "admin_1" });
+    db.accountFindFirst.mockResolvedValue({ accountId: "google_profile_1" });
 
     const res = await request(buildProbeApp()).get("/probe");
 

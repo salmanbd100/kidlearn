@@ -263,6 +263,20 @@ describe("seedAdmin", () => {
     expect(store.admins[0].email).toBe(EMAIL);
   });
 
+  it("refuses an email that already belongs to a Google sign-in, so one session is never both a parent and an admin", async () => {
+    identity.users.push({ id: "user_parent_1", email: EMAIL, name: NAME });
+    identity.accounts.set("user_parent_1", [{ providerId: "google" }]);
+
+    await expect(
+      seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME }),
+    ).rejects.toThrow(/Google sign-in/);
+
+    expect(db.adminUpsert).not.toHaveBeenCalled();
+    expect(identity.accounts.get("user_parent_1")).toEqual([
+      { providerId: "google" },
+    ]);
+  });
+
   it("refuses a password shorter than the floor, before touching anything", async () => {
     await expect(
       seedAdmin({ email: EMAIL, password: "short", name: NAME }),

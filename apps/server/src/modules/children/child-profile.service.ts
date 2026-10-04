@@ -5,9 +5,11 @@
 // `Prisma` is a value import, not a type-only one: the isolation level below is
 // a runtime member of the namespace.
 import { type ChildProfile, Prisma } from "@kidlearn/db";
+import { env } from "../../config/env.js";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
 import { withSerializationRetry } from "../../shared/utils/serializable-retry.js";
+import { liveStreakLength } from "../rewards/streak.service.js";
 import type { CreateChildBody, UpdateChildBody } from "./children.schema.js";
 
 /** FR-PROF-01 — a household may hold at most five learner profiles. */
@@ -84,7 +86,7 @@ export async function readChildStats(
     }),
     prisma.streak.findMany({
       where: { childId: { in: ids } },
-      select: { childId: true, current: true },
+      select: { childId: true, current: true, lastActivityDate: true },
     }),
   ]);
 
@@ -102,7 +104,9 @@ export async function readChildStats(
 
   for (const streak of streaks) {
     const entry = stats.get(streak.childId);
-    if (entry !== undefined) entry.currentStreak = streak.current;
+    if (entry !== undefined) {
+      entry.currentStreak = liveStreakLength(streak, env.APP_TIMEZONE);
+    }
   }
 
   return stats;

@@ -88,12 +88,23 @@ describe("the request", () => {
     expect(body().audioConfig).toEqual({ audioEncoding: "MP3" });
   });
 
-  it("authenticates with the api key on the synthesise endpoint", async () => {
+  it("authenticates with the api key in a header, not the URL", async () => {
     await generateNarration("Hello there", "en");
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://texttospeech.googleapis.com/v1/text:synthesize?key=test-google-tts-key",
+      "https://texttospeech.googleapis.com/v1/text:synthesize",
     );
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.headers).toMatchObject({
+      "x-goog-api-key": "test-google-tts-key",
+    });
+  });
+
+  it("bounds the call, so a hung connection cannot hold the job open", async () => {
+    await generateNarration("Hello there", "en");
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 });
 

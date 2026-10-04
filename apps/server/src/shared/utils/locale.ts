@@ -12,6 +12,16 @@ export const FALLBACK_LANG = "en" as const satisfies Lang;
 export type LocalePick<T> = { value: T | null; locale: Lang };
 
 /**
+ * A blank string is a translation nobody has written yet, not one to serve: a
+ * Bangla `introScript` saved as `""` would otherwise beat a real English one and
+ * hand the child a silent, empty intro.
+ */
+function isSupplied<T>(value: T | null | undefined): value is T {
+  if (value === undefined || value === null) return false;
+  return typeof value !== "string" || value.trim() !== "";
+}
+
+/**
  * Resolves a per-locale map down to the single value the child should see,
  * falling back to English, and reports which locale actually supplied it
  * (FR-PROF-03: the client is told what it got, and never sees the other
@@ -22,11 +32,11 @@ export function pickLocale<T>(
   lang: Lang,
 ): LocalePick<T> {
   const preferred = map?.[lang];
-  if (preferred !== undefined && preferred !== null) {
+  if (isSupplied(preferred)) {
     return { value: preferred, locale: lang };
   }
   const fallback = map?.[FALLBACK_LANG];
-  if (fallback !== undefined && fallback !== null) {
+  if (isSupplied(fallback)) {
     return { value: fallback, locale: FALLBACK_LANG };
   }
   return { value: null, locale: FALLBACK_LANG };

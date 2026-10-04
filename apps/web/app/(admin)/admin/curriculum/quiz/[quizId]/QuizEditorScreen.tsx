@@ -164,8 +164,8 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
 
       {isEditable ? null : (
         <p className="text-muted-foreground text-xs">
-          This quiz is published, so its questions cannot be changed. Withdraw
-          it to draft first — that removes it from students immediately.
+          This quiz is in review, approved or published, so its questions cannot
+          be changed. Move it back to draft first.
         </p>
       )}
 

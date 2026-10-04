@@ -1,3 +1,4 @@
+import { CONSENT_VERSION } from "@kidlearn/types";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { authContext } from "../../modules/parent/require-parent.middleware.js";
 import { ApiError } from "../errors/errors.js";
@@ -15,7 +16,9 @@ export const requireConsent: RequestHandler = (
   try {
     const { parent } = authContext(req);
 
-    if (!parent.consentGivenAt) {
+    // A parent who consented to an older text has not consented to this one: the
+    // version is what `recordParentConsent` insists on, so the gate must too.
+    if (!parent.consentGivenAt || parent.consentVersion !== CONSENT_VERSION) {
       throw new ApiError(
         403,
         "CONSENT_REQUIRED",

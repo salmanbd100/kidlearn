@@ -1,6 +1,9 @@
-import type { AIJobType, Prisma } from "@kidlearn/db";
+import { type AIJobType, Prisma } from "@kidlearn/db";
 import type { z } from "zod";
 import { prisma } from "../../../config/prisma.js";
+import { withSerializationRetry } from "../../../shared/utils/serializable-retry.js";
+import { assertWithinDailyCap } from "./rate-guard.js";
+import { failStaleJobs } from "./stale-jobs.js";
 import type { GenerationStopReason, TokenUsage } from "./types.js";
 
 // The `AIGenerationJob` lifecycle, shared by every generator (FR-AI-08).
@@ -60,10 +63,25 @@ const MAX_ATTEMPTS = 2;
 export async function runGenerationJob<TParsed>(
   options: RunGenerationJobOptions<TParsed>,
 ): Promise<GenerationJobResult> {
-  const job = await prisma.aIGenerationJob.create({
-    data: { type: options.type, input: options.input, status: "pending" },
-    select: { id: true },
-  });
+  await failStaleJobs();
+
+  // The cap is re-checked in the same Serializable transaction that creates the
+  // row. The request-level check alone reads the count before any row exists, so
+  // parallel requests (a double-click, an admin retrying after a timeout) all
+  // pass it and the day's ceiling is overshot; here the loser of the race is
+  // aborted by Postgres, retried, and sees the winner's row.
+  const job = await withSerializationRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        await assertWithinDailyCap(options.type, 1, tx);
+        return tx.aIGenerationJob.create({
+          data: { type: options.type, input: options.input, status: "pending" },
+          select: { id: true },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
 
   await prisma.aIGenerationJob.update({
     where: { id: job.id },

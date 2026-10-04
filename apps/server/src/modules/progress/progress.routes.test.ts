@@ -167,6 +167,15 @@ const db = vi.hoisted(() => ({
   transaction: vi.fn(),
 }));
 
+// The gate on opening a lesson is `screen-time.routes.test.ts`'s subject; here
+// every child is within their limit so the progress writes are what is under test.
+vi.mock("../screen-time/screen-time.service.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../screen-time/screen-time.service.js")
+  >()),
+  evaluateStartForChild: async () => ({ allowed: true }),
+}));
+
 vi.mock("../../config/prisma.js", () => ({
   prisma: {
     parent: { findUnique: db.parentFindUnique },

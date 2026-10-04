@@ -57,6 +57,28 @@ export function computeStreakUpdate(
   };
 }
 
+/**
+ * The streak a child should *see* now. `Streak.current` is only reset by the next
+ * activity, so a child who last played on Monday still has `current = 5` on
+ * Friday — a number the home strip and the parent dashboard would keep showing for
+ * a streak that broke on Wednesday. A streak is live only if the last active day
+ * was today or yesterday.
+ */
+export function liveStreakLength(
+  streak: { current: number; lastActivityDate: Date | null } | null,
+  timeZone: string,
+  now: Date = new Date(),
+): number {
+  if (streak === null || streak.lastActivityDate === null) return 0;
+
+  const today = localDateIn(timeZone, now);
+  const last = streak.lastActivityDate.toISOString().slice(0, 10);
+
+  return last === today || last === previousLocalDate(today)
+    ? streak.current
+    : 0;
+}
+
 /** `3` or `7` exactly, never "past three". */
 function milestoneAt(current: number): StreakMilestone {
   return STREAK_MILESTONE_DAYS.find((day) => day === current) ?? null;

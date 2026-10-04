@@ -15,7 +15,20 @@ export const notFoundHandler: RequestHandler = (_req, res) => {
  * The single place errors become responses. Must be registered last, after
  * every route and after `notFoundHandler`.
  */
-export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  // Once a response has started there is no envelope left to send; Express's own
+  // handler knows how to abort the socket, ours would throw ERR_HTTP_HEADERS_SENT.
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+
+  const bodyError = toBodyParserEnvelope(err);
+  if (bodyError) {
+    res.status(bodyError.status).json(bodyError.body);
+    return;
+  }
+
   if (err instanceof ZodError) {
     const body: ErrorEnvelope = {
       error: {
@@ -46,3 +59,42 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   };
   res.status(500).json(body);
 };
+
+/**
+ * `express.json()` rejects a malformed or oversized body with a plain error that
+ * carries `type` and `status` rather than an `ApiError`. That is the client's
+ * mistake, not a server fault, so it must not fall through to the 500 branch.
+ */
+function toBodyParserEnvelope(
+  err: unknown,
+): { status: 400 | 413; body: ErrorEnvelope } | undefined {
+  if (typeof err !== "object" || err === null || !("type" in err)) {
+    return undefined;
+  }
+
+  if (err.type === "entity.parse.failed") {
+    return {
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "Request body is not valid JSON",
+        },
+      },
+    };
+  }
+
+  if (err.type === "entity.too.large") {
+    return {
+      status: 413,
+      body: {
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "Request body is too large",
+        },
+      },
+    };
+  }
+
+  return undefined;
+}

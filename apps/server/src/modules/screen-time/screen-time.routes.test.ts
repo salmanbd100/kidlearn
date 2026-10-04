@@ -61,6 +61,7 @@ const store = vi.hoisted(() => ({
   lessonProgress: null as {
     completedAt: Date | null;
     updatedAt: Date;
+    startedAt?: Date;
   } | null,
 }));
 
@@ -591,7 +592,11 @@ describe("GET /api/screen-time/status", () => {
     signInAs();
     seedSetting({ dailyLimitMinutes: 30 });
     seedMinutes(45);
-    store.lessonProgress = { completedAt: null, updatedAt: new Date() };
+    store.lessonProgress = {
+      completedAt: null,
+      updatedAt: new Date(),
+      startedAt: new Date(),
+    };
 
     const res = await getStatus();
 
@@ -648,7 +653,11 @@ describe("the gate on GET /api/content/lessons/:id", () => {
     signInAs();
     seedSetting({ dailyLimitMinutes: 30 });
     seedMinutes(60);
-    store.lessonProgress = { completedAt: null, updatedAt: new Date() };
+    store.lessonProgress = {
+      completedAt: null,
+      updatedAt: new Date(),
+      startedAt: new Date(),
+    };
 
     const res = await getLesson();
 
@@ -658,6 +667,24 @@ describe("the gate on GET /api/content/lessons/:id", () => {
     expect(db.lessonFindFirst.mock.calls[0][0].where).toMatchObject({
       status: "published",
     });
+  });
+
+  it("stops honouring a lesson once it has been open past the ceiling, however recently it was touched", async () => {
+    signInAs();
+    seedSetting({ dailyLimitMinutes: 30 });
+    seedMinutes(60);
+    // `updatedAt` moves on every step report, so a client that keeps re-reporting
+    // a step would hold the grace open for ever. `startedAt` does not move.
+    store.lessonProgress = {
+      completedAt: null,
+      updatedAt: new Date(),
+      startedAt: new Date(Date.now() - 4 * 60 * 60_000),
+    };
+
+    const res = await getLesson();
+
+    expect(res.status).toBe(423);
+    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
   });
 
   it("still blocks a different lesson while one is in progress", async () => {
@@ -672,7 +699,7 @@ describe("the gate on GET /api/content/lessons/:id", () => {
         where: { childId_lessonId: { lessonId: string } };
       }) =>
         where.childId_lessonId.lessonId === LESSON_ID
-          ? { completedAt: null, updatedAt: new Date() }
+          ? { completedAt: null, updatedAt: new Date(), startedAt: new Date() }
           : null,
     );
 
@@ -690,6 +717,7 @@ describe("the gate on GET /api/content/lessons/:id", () => {
     store.lessonProgress = {
       completedAt: new Date("2026-08-19T05:00:00.000Z"),
       updatedAt: new Date("2026-08-19T05:00:00.000Z"),
+      startedAt: new Date("2026-08-19T05:00:00.000Z"),
     };
 
     const res = await getLesson();
@@ -796,8 +824,12 @@ describe("the gate on GET /api/content/stories/:id", () => {
 
 /**
  * FR-TIME-03's other half. A lesson already under way must be finishable, which
- * means the endpoints it finishes *through* are never gated — otherwise the
+ * means the endpoints it finishes *through* are not gated — otherwise the
  * exemption on the read would hand a child a lesson they could not complete.
+ *
+ * The one exception is the report that would *create* the progress row: a row
+ * under 30 minutes old is what makes the read allow a lesson past the limit, so
+ * letting a blocked child write one would be a way to mint the exemption.
  */
 describe("endpoints the gate never touches", () => {
   beforeEach(() => {
@@ -805,7 +837,7 @@ describe("endpoints the gate never touches", () => {
     seedMinutes(90);
   });
 
-  it("keeps accepting step reports while the child is blocked", async () => {
+  it("keeps accepting step reports on a lesson already under way while the child is blocked", async () => {
     signInAs();
     const progressRow = {
       id: "progress_1",
@@ -816,24 +848,39 @@ describe("endpoints the gate never touches", () => {
       startedAt: new Date("2026-08-19T05:00:00.000Z"),
       updatedAt: new Date("2026-08-19T05:00:00.000Z"),
     };
+    // The row exists, so this is a continuation, not an opening.
+    store.lessonProgress = progressRow;
     db.transaction.mockImplementation(
       async (fn: (tx: unknown) => Promise<unknown>) =>
         fn({
           lessonProgress: {
-            findUnique: async () => null,
+            findUnique: async () => progressRow,
             create: db.progressCreate,
             update: db.progressUpdate,
           },
         }),
     );
-    db.progressCreate.mockResolvedValue(progressRow);
+    db.progressUpdate.mockResolvedValue(progressRow);
 
     const res = await request(app)
       .post(`/api/progress/lessons/${LESSON_ID}/step`)
       .send({ step: "activity", completed: false });
 
     expect(res.status).toBe(200);
-    expect(db.progressCreate).toHaveBeenCalled();
+    expect(db.progressUpdate).toHaveBeenCalled();
+  });
+
+  it("refuses the step report that would open a lesson while the child is blocked", async () => {
+    signInAs();
+    store.lessonProgress = null;
+
+    const res = await request(app)
+      .post(`/api/progress/lessons/${LESSON_ID}/step`)
+      .send({ step: "intro", completed: false });
+
+    expect(res.status).toBe(423);
+    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
+    expect(db.progressCreate).not.toHaveBeenCalled();
   });
 
   it("keeps accepting heartbeats while the child is blocked", async () => {

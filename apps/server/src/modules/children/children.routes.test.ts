@@ -17,6 +17,7 @@ import {
   CharacterUnlockListResponseSchema,
   ChildProfileListResponseSchema,
   ChildProfileResponseSchema,
+  CONSENT_VERSION,
   DeletedResponseSchema,
 } from "@kidlearn/types";
 import request from "supertest";
@@ -143,7 +144,7 @@ function makeParentFixture(key: string): ParentFixture {
       // so an unconsented fixture would 403 every creation test. `beforeEach`
       // restores this, and the consent tests clear it deliberately.
       consentGivenAt: CONSENTED_AT,
-      consentVersion: "1.0",
+      consentVersion: CONSENT_VERSION,
       deleteToken: null,
       deleteTokenExpiresAt: null,
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -279,7 +280,7 @@ beforeEach(() => {
     // The fixture parents are module-level objects, so a test that revokes
     // consent would otherwise leak into every test after it.
     fixture.parent.consentGivenAt = CONSENTED_AT;
-    fixture.parent.consentVersion = "1.0";
+    fixture.parent.consentVersion = CONSENT_VERSION;
   }
 
   for (const spy of Object.values(db)) spy.mockReset();
@@ -334,7 +335,12 @@ beforeEach(() => {
     async ({ where }: { where: { childId: { in: string[] } } }) =>
       [...state.streaks.entries()]
         .filter(([childId]) => where.childId.in.includes(childId))
-        .map(([childId, current]) => ({ childId, current })),
+        // Active today, so the streak is live; a lapse is `liveStreakLength`'s own test.
+        .map(([childId, current]) => ({
+          childId,
+          current,
+          lastActivityDate: new Date(),
+        })),
   );
 
   // Models the real `where`: the status gate is unconditional, and selectability
