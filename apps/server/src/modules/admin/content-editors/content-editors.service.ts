@@ -711,15 +711,29 @@ async function readEditorGuardFields(
   id: string,
 ): Promise<{ status: ContentStatus; aiJobIds: string[] }> {
   const select = { status: true, aiJobId: true } as const;
+  // A badge has no job of its own, but its icon can be a generated image still
+  // awaiting review, picked from the media library by a plain edit — and the
+  // icon is what a child sees when the badge is awarded.
   const row = await (resource === "quizzes"
     ? tx.quiz.findUnique({ where: { id }, select })
     : resource === "activities"
       ? tx.activity.findUnique({ where: { id }, select })
-      : tx.badge.findUnique({ where: { id }, select: { status: true } }));
+      : tx.badge
+          .findUnique({
+            where: { id },
+            select: { status: true, iconAsset: { select: { aiJobId: true } } },
+          })
+          .then(
+            (badge) =>
+              badge && {
+                status: badge.status,
+                aiJobId: badge.iconAsset?.aiJobId ?? null,
+              },
+          ));
 
   if (!row) throw ApiError.notFound(`No such ${SINGULAR[resource]}`);
 
-  const own = "aiJobId" in row && row.aiJobId !== null ? [row.aiJobId] : [];
+  const own = row.aiJobId ? [row.aiJobId] : [];
   const fromQuestions =
     resource === "quizzes" ? await readQuizAiJobIds(id, tx) : [];
 

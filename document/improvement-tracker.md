@@ -17,7 +17,7 @@
 | # | ID | Item | Sev. | Area | Depends on | Est. | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | R-01 | Production DB `connection_limit=1` serialises the API; retry `P2028` | High | server, docs | — | 1h | 🟨 In progress | `connection_limit=5` (Prisma's default on 2 vCPU, stated so nobody sets `=1`); only the never-started `P2028` is retried, not an expired transaction. Update the SSM `DATABASE_URL` before the next deploy |
-| 2 | R-02 | Badge publish skips the AI-review check on its icon | High | server | — | 1h | ⬜ Not started | |
+| 2 | R-02 | Badge publish skips the AI-review check on its icon | High | server | — | 1h | 🟨 In progress | Guard reads `iconAsset.aiJobId`; published badges are already uneditable, so the icon cannot be swapped afterwards |
 | 3 | R-03 | Quiz submission bypasses the screen-time lock | Medium | server | — | 1h | ⬜ Not started | |
 | 4 | R-04 | Quiz responses not awaited before `completeLesson` — rewards lost | Medium | web, server | — | 2h | ⬜ Not started | Idempotency needed before any retry |
 | 5 | R-05 | One invalid payload 500s the whole lesson | Medium | server | — | 1h | ⬜ Not started | |
