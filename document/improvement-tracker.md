@@ -30,13 +30,13 @@
 
 | # | ID | Item | Sev. | Area | Depends on | Est. | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 10 | R-09 | Radix portals render parent/admin dialogs in the kid theme | Medium | web, ui | — | 1–2h | ⬜ Not started | |
-| 11 | R-11 | Child's language overwrites the parent's cookie | Medium | web | — | 1h | ⬜ Not started | |
-| 12 | R-12 | Admin session ignores 401s | Medium | web | — | 1h | ⬜ Not started | |
-| 13 | R-13 | Bangla preview plays English quiz/activity content | Medium | web | — | 1h | ⬜ Not started | |
-| 14 | R-15 | Safe-area insets and `min-h-dvh` applied twice; `vh` → `dvh` | Medium | web | — | 1–2h | ⬜ Not started | Check on a notched device in landscape |
-| 15 | R-14 | Narration survives leaving a lesson; resume mounts intro | Low | web | — | 1h | ⬜ Not started | |
-| 16 | V1-P1-1 / R-30 | `error.tsx` + `not-found.tsx` for `(parent)` and `(admin)` | Low | web | — | 1–2h | ⬜ Not started | |
+| 10 | R-09 | Radix portals render parent/admin dialogs in the kid theme | Medium | web, ui | — | 1–2h | 🟨 In progress | `ThemeScope` in `@kidlearn/ui` sets `data-theme` and is the portal container for dialogs and menus; nested scopes (admin kid previews) resolve to the nearest. Docs and the code-review skill now name it — branch `improve/phase-b-web-correctness`, no PR yet |
+| 11 | R-11 | Child's language overwrites the parent's cookie | Medium | web | — | 1h | 🟨 In progress | Browser language detector removed (`lng` is always passed, so it only ever wrote); `LanguageSwitch` writes the cookie. Leaving the Student Portal also restores the cookie's language in-session — same branch |
+| 12 | R-12 | Admin session ignores 401s | Medium | web | — | 1h | 🟨 In progress | Subscribes to `onUnauthorized` like the parent session; the badge poll stops once the guard reaches the login screen — same branch |
+| 13 | R-13 | Bangla preview plays English quiz/activity content | Medium | web | — | 1h | 🟨 In progress | Required `locale` on `LessonStepProps`, set by the player (`previewLanguage` in preview). `lesson.locale` could not serve: it is the intro's resolved locale, not the requested one — same branch |
+| 14 | R-15 | Safe-area insets and `min-h-dvh` applied twice; `vh` → `dvh` | Medium | web | — | 1–2h | 🟨 In progress | Also `LessonPlayer`'s finish screen. `viewport-chrome.test.ts` scans the portal for the rule. **Not checked on a notched device** — reasoned from classes — same branch |
+| 15 | R-14 | Narration survives leaving a lesson; resume mounts intro | Low | web | — | 1h | 🟨 In progress | `RESUME` batched with the lesson load, not dispatched from an effect; `stop` on unmount — same branch |
+| 16 | V1-P1-1 / R-30 | `error.tsx` + `not-found.tsx` for `(parent)` and `(admin)` | Low | web | — | 1–2h | 🟨 In progress | `error.tsx` + `not-found.tsx` per group, plus a `[...missing]` catch-all each — nothing calls `notFound()`, so a group 404 would otherwise never render. No `loading.tsx` (data is fetched client-side) — same branch |
 
 ## Phase C — Accessibility
 
