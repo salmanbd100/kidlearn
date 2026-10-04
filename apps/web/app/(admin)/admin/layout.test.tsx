@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { apiFetch } from "@/shared/api/api-client";
 
 /**
  * The CMS shell: the guard's verdict, and that no page is rendered to someone it
@@ -176,5 +177,39 @@ describe("AdminCmsLayout", () => {
     // A rail whose every link bounces back here would be worse than no rail.
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("signs the admin out when a later request comes back 401 (R-12)", async () => {
+    renderLayout();
+    await screen.findByText("curriculum tree");
+
+    // The session expired mid-visit: the next CMS request answers 401, and the
+    // session re-reads itself rather than leaving the editor on a generic error.
+    api.fetchAdminMe.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "UNAUTHORIZED",
+        message: "Authentication required",
+        status: 401,
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: "UNAUTHORIZED", message: "no" } }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+    );
+
+    await apiFetch("/api/admin/stories");
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
+    );
+    vi.unstubAllGlobals();
   });
 });

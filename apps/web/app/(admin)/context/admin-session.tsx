@@ -8,9 +8,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { adminSignOut, fetchAdminMe } from "@/features/admin/admin-api";
+import { onUnauthorized } from "@/shared/api/api-client";
 
 // Who is signed in to the CMS, loaded once (file 31, FR-CMS-01).
 
@@ -44,9 +46,15 @@ export function useAdminSession(): AdminSessionValue {
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AdminSessionStatus>("loading");
   const [admin, setAdmin] = useState<AdminIdentity | undefined>();
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const isLoadingRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    const result = await fetchAdminMe();
+    isLoadingRef.current = true;
+    const result = await fetchAdminMe().finally(() => {
+      isLoadingRef.current = false;
+    });
     if (result.ok) {
       setAdmin(result.data);
       setStatus("ready");
@@ -67,6 +75,19 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // A 401 on any later request means the session may be gone; re-reading
+  // `/api/admin/me` is the check, and its 401 sends the guard to the login
+  // screen. Only while `ready` and idle, or `refresh`'s own 401 would re-trigger it.
+  useEffect(
+    () =>
+      onUnauthorized(() => {
+        if (statusRef.current === "ready" && !isLoadingRef.current) {
+          void refresh();
+        }
+      }),
+    [refresh],
+  );
 
   const signOut = useCallback(async () => {
     await adminSignOut();
