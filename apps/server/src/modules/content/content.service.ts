@@ -143,19 +143,19 @@ function isSubstituted(pick: LocalePick<string>, requested: Lang): boolean {
 }
 
 /** A payload's own `type` literal must agree with the enum column beside it. */
-function assertDiscriminatorAgrees(
+function discriminatorAgrees(
   discriminator: { column: string; payload: string },
   ids: Record<string, string>,
   label: string,
   log: ContentLogger,
-): void {
-  if (discriminator.column === discriminator.payload) return;
+): boolean {
+  if (discriminator.column === discriminator.payload) return true;
 
   log.error(
     { ...ids, column: discriminator.column, payload: discriminator.payload },
-    `published ${label} column disagrees with its definition type`,
+    `published ${label} column disagrees with its definition type — omitting it`,
   );
-  throw new ApiError(500, "INTERNAL", "Content unavailable");
+  return false;
 }
 
 /** The child-facing name of a curriculum row, in their language. */
@@ -494,28 +494,33 @@ function toLessonDetail(
     );
   }
 
+  // A payload that does not parse, or disagrees with its column, is a content
+  // bug in one step, not in the lesson: it is logged and left out, so the intro,
+  // the video and the rest of the quiz still play. The player already degrades
+  // a missing activity or quiz per step — a 500 would never let it.
   let activity: LessonDetail["activity"] = null;
   if (lesson.activity && isVisible(lesson.activity)) {
     const parsed = safeParseActivityDefinition(lesson.activity.definition);
     if (!parsed.success) {
       log.error(
         { activityId: lesson.activity.id, issues: parsed.error.issues },
-        "corrupt published activity definition",
+        "corrupt published activity definition — omitting it",
       );
-      throw new ApiError(500, "INTERNAL", "Content unavailable");
+    } else if (
+      discriminatorAgrees(
+        { column: lesson.activity.type, payload: parsed.data.type },
+        { activityId: lesson.activity.id },
+        "activity",
+        log,
+      )
+    ) {
+      activity = {
+        id: lesson.activity.id,
+        type: lesson.activity.type,
+        schemaVersion: lesson.activity.schemaVersion,
+        definition: lesson.activity.definition,
+      };
     }
-    assertDiscriminatorAgrees(
-      { column: lesson.activity.type, payload: parsed.data.type },
-      { activityId: lesson.activity.id },
-      "activity",
-      log,
-    );
-    activity = {
-      id: lesson.activity.id,
-      type: lesson.activity.type,
-      schemaVersion: lesson.activity.schemaVersion,
-      definition: lesson.activity.definition,
-    };
   }
 
   let quiz: LessonDetail["quiz"] = null;
@@ -526,16 +531,20 @@ function toLessonDetail(
       if (!parsed.success) {
         log.error(
           { questionId: question.id, issues: parsed.error.issues },
-          "corrupt published quiz question definition",
+          "corrupt published quiz question definition — omitting it",
         );
-        throw new ApiError(500, "INTERNAL", "Content unavailable");
+        continue;
       }
-      assertDiscriminatorAgrees(
-        { column: question.format, payload: parsed.data.type },
-        { questionId: question.id },
-        "quiz question",
-        log,
-      );
+      if (
+        !discriminatorAgrees(
+          { column: question.format, payload: parsed.data.type },
+          { questionId: question.id },
+          "quiz question",
+          log,
+        )
+      ) {
+        continue;
+      }
       questions.push({
         id: question.id,
         format: question.format,
@@ -544,7 +553,11 @@ function toLessonDetail(
         definition: question.definition,
       });
     }
-    quiz = { id: lesson.quiz.id, title: lesson.quiz.title, questions };
+    // A quiz with every question omitted is no quiz: the player skips a null
+    // one cleanly, where an empty one would congratulate the child for nothing.
+    if (questions.length > 0) {
+      quiz = { id: lesson.quiz.id, title: lesson.quiz.title, questions };
+    }
   }
 
   return {
