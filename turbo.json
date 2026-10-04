@@ -14,6 +14,11 @@
       ]
     },
     "@kidlearn/ui#build": { "dependsOn": ["^build"], "outputs": [] },
+    "@kidlearn/db#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "cache": false
+    },
     "typecheck": { "dependsOn": ["^build"] },
     "test": { "dependsOn": ["^build"] },
     "test:coverage": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
