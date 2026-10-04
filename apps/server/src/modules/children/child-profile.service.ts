@@ -219,15 +219,17 @@ export async function updateChildProfile(
   return prisma.childProfile.update({ where: { id: childId }, data });
 }
 
-/** Deletes a profile and everything belonging to it (FR-PROF-06). */
+/**
+ * Deletes a profile and everything belonging to it (FR-PROF-06).
+ *
+ * One statement, deliberately not an interactive transaction: Postgres runs the
+ * cascade through every heartbeat and answer row atomically, and the session
+ * pointer is cleared by the `ON DELETE SET NULL` foreign key. Wrapped in
+ * `$transaction`, a heavy profile ran past Prisma's 5s default and rolled back —
+ * a deletion that could never succeed.
+ */
 export async function deleteChildProfile(childId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await tx.session.updateMany({
-      where: { activeChildProfileId: childId },
-      data: { activeChildProfileId: null },
-    });
-    await tx.childProfile.delete({ where: { id: childId } });
-  });
+  await prisma.childProfile.delete({ where: { id: childId } });
 }
 
 /** Points the current session at a child profile (FR-AUTH-06). */
