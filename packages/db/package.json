@@ -40,7 +40,7 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^6",
-    "tsx": "^4",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
