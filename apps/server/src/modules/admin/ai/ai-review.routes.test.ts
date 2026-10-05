@@ -243,7 +243,7 @@ function mockSession(userId: string) {
   // type is narrowed at this boundary.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
-    session: { id: `session_${userId}`, userId },
+    session: { id: `session_${userId}`, userId, createdAt: new Date() },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 

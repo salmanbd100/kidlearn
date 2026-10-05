@@ -92,6 +92,8 @@ What happens behind the scenes: the login screen posts to `http://localhost:4000
 
 The web and API origins must agree, or the browser will refuse the request: `WEB_ORIGIN` on the server has to be exactly `http://localhost:3000`.
 
+An admin sign-in lasts **12 hours from when you signed in**, however active you are — the 30-day sliding session parents get does not apply. After that every `/api/admin/*` path answers `401`, the session is revoked, and the CMS returns you to the login screen.
+
 ### 2.4 Check it worked
 
 Without opening a browser:
@@ -251,7 +253,7 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 | The seed fails naming `CRON_SECRET`, `CLOUDINARY_*`, `GEMINI_API_KEY`… | The whole server env schema is validated on import | Fill in the server environment file. Placeholders are fine for values the seed does not use |
 | Login says *"Those details did not match an administrator account"* | Wrong password, or no `user` row for that email | Re-run the seed with a known password. Remember the email is lower-cased |
 | Login works but the CMS bounces you back | A session exists but there is no matching `AdminUser` row — the API returns `403` | Re-run the seed; it re-asserts the link on every run. That is exactly what repairs it |
-| `401` from `/api/admin/*` | No session cookie reached the API | Check `WEB_ORIGIN` matches the site origin exactly, and that `NEXT_PUBLIC_API_URL` points at the right API |
+| `401` from `/api/admin/*` | No session cookie reached the API, or the admin session is more than 12 hours old | Check `WEB_ORIGIN` matches the site origin exactly, and that `NEXT_PUBLIC_API_URL` points at the right API |
 | The admin exists but not in the database you expected | The seed used `DATABASE_URL` from the `apps/server` environment file | Point that file at the right database and run it again |
 | `403` on `/api/admin/jobs/*` with a valid admin session | That path is not session-guarded — it authenticates with `CRON_SECRET` | Use the bearer token, not a login. It is the scheduler's endpoint, not an admin one |
 

@@ -193,8 +193,8 @@ function findFirstAgainstTheDraft(args: {
  * `Parent` row, and no Google account. That last part is what makes every parent
  * route answer `403` for an admin without any code saying so.
  */
-function signInAsAdmin() {
-  mockSession(ADMIN_USER_ID);
+function signInAsAdmin(createdAt = new Date()) {
+  mockSession(ADMIN_USER_ID, createdAt);
   db.adminFindUnique.mockResolvedValue(ADMIN_ROW);
   db.parentFindUnique.mockResolvedValue(null);
   db.accountFindFirst.mockResolvedValue(null);
@@ -207,7 +207,7 @@ function signInAsParent() {
   db.childFindFirst.mockResolvedValue(CHILD);
 }
 
-function mockSession(userId: string) {
+function mockSession(userId: string, createdAt = new Date()) {
   // Only the fields the guards read are supplied, so the deep better-auth return
   // type is narrowed at this boundary.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
@@ -216,6 +216,7 @@ function mockSession(userId: string) {
       id: `session_${userId}`,
       userId,
       activeChildProfileId: CHILD.id,
+      createdAt,
     },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
@@ -325,6 +326,18 @@ describe("the preview bypass matrix", () => {
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
     expect(lastWhere()).toMatchObject({ status: "published" });
+  });
+
+  it("does not preview for an admin session past requireAdmin's 12-hour limit", async () => {
+    signInAsAdmin(new Date(Date.now() - 13 * 60 * 60 * 1000));
+
+    const res = await request(app).get(
+      `/api/content/lessons/${LESSON_ID}?preview=1`,
+    );
+
+    // Falls through to the student route, which an admin cannot pass.
+    expect(res.status).toBe(403);
+    expect(db.lessonFindFirst).not.toHaveBeenCalled();
   });
 
   it("404s for a child's ordinary request, with no parameter", async () => {

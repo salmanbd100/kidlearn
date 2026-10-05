@@ -16,6 +16,8 @@ const WEEK_FROM = new Date("2026-08-16T18:00:00.000Z");
 /** Local 19 August 00:00 Dhaka — the start of `NOW`'s day. */
 const DAY_FROM = new Date("2026-08-18T18:00:00.000Z");
 
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
 const ADMIN_USER_ID = "user_admin_1";
 const PARENT_USER_ID = "user_parent_1";
 
@@ -51,6 +53,7 @@ const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
   parentUpsert: vi.fn(),
   accountFindFirst: vi.fn(),
+  sessionDeleteMany: vi.fn(),
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -70,19 +73,23 @@ vi.mock("../../config/prisma.js", () => ({
     lessonProgress: { count: db.progressCount },
     sessionEvent: { groupBy: db.eventGroupBy },
     account: { findFirst: db.accountFindFirst },
+    session: { deleteMany: db.sessionDeleteMany },
   },
 }));
 
 const { app } = await import("../../app.js");
 const { auth } = await import("../../config/auth.js");
 
-/** Makes `auth.api.getSession` resolve to a session for `userId`. */
-function mockSession(userId: string) {
+/**
+ * Makes `auth.api.getSession` resolve to a session for `userId`, signed in at
+ * `createdAt` — by default `NOW`, so a fresh one.
+ */
+function mockSession(userId: string, createdAt: Date | null = new Date()) {
   // `getSession` returns a deep better-auth type; only the fields the guards read
   // are supplied, so the shape is narrowed at this boundary.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
-    session: { id: `session_${userId}`, userId },
+    session: { id: `session_${userId}`, userId, createdAt },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
@@ -214,6 +221,49 @@ describe("requireAdmin", () => {
     const res = await request(app).get(ME_PATH);
 
     expect(res.status).toBe(403);
+  });
+
+  it("passes an admin session just inside the 12-hour limit", async () => {
+    store.admins = [ADMIN_ROW];
+    mockSession(ADMIN_USER_ID, new Date(NOW.getTime() - TWELVE_HOURS_MS));
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(200);
+    expect(db.sessionDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses and revokes an admin session signed in more than 12 hours ago", async () => {
+    store.admins = [ADMIN_ROW];
+    // Recent activity would have slid better-auth's own expiry forward; the
+    // limit counts from sign-in, so it must not matter.
+    mockSession(ADMIN_USER_ID, new Date(NOW.getTime() - TWELVE_HOURS_MS - 1));
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+    expect(db.sessionDeleteMany).toHaveBeenCalledWith({
+      where: { id: `session_${ADMIN_USER_ID}` },
+    });
+  });
+
+  it("treats an admin session with no createdAt as expired", async () => {
+    store.admins = [ADMIN_ROW];
+    mockSession(ADMIN_USER_ID, null);
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("leaves an old parent session to requireParent — the limit is for admins", async () => {
+    mockSession(PARENT_USER_ID, new Date("2026-07-01T00:00:00.000Z"));
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(403);
+    expect(db.sessionDeleteMany).not.toHaveBeenCalled();
   });
 });
 

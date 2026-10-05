@@ -6,6 +6,31 @@ import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../errors/errors.js";
 
 /**
+ * How long an admin may act on one sign-in. Measured from the session's
+ * `createdAt`, which better-auth never moves, so — unlike the 30-day expiry
+ * shared with parents, which every request slides forward — activity cannot
+ * extend it. An admin can publish to children; a cookie lifted from a shared
+ * machine should not carry that for a month.
+ */
+export const ADMIN_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Fails closed: a session without a readable `createdAt` counts as expired, so
+ * a better-auth upgrade that renamed the field locks admins out rather than
+ * silently lifting the limit.
+ */
+export function isAdminSessionExpired(
+  session: { createdAt?: Date | string | null },
+  now = Date.now(),
+): boolean {
+  const createdAt = session.createdAt
+    ? new Date(session.createdAt).getTime()
+    : Number.NaN;
+  if (Number.isNaN(createdAt)) return true;
+  return now - createdAt > ADMIN_SESSION_MAX_AGE_MS;
+}
+
+/**
  * Gate for every `/api/admin/*` route the CMS serves (spec §4.3, FR-CMS-01).
  */
 export const requireAdmin: RequestHandler = async (
@@ -28,6 +53,16 @@ export const requireAdmin: RequestHandler = async (
     // they lack is authorisation. A parent lands here.
     if (!admin) {
       throw ApiError.forbidden("Admin access required");
+    }
+
+    if (isAdminSessionExpired(authenticated.session)) {
+      // Revoked rather than only refused: the row would otherwise stay valid
+      // for better-auth's own endpoints until its 30-day expiry. `deleteMany`
+      // so a concurrent request that already removed it is not an error.
+      await prisma.session.deleteMany({
+        where: { id: authenticated.session.id },
+      });
+      throw ApiError.unauthorized("Admin session expired");
     }
 
     req.admin = admin;

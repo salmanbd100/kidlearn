@@ -3,6 +3,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { auth } from "../../config/auth.js";
 import { prisma } from "../../config/prisma.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
+import { isAdminSessionExpired } from "../../shared/middleware/require-admin.js";
 import type { Lang } from "../../shared/utils/locale.js";
 import { ContentIdParamsSchema } from "./content.schema.js";
 import { getLessonForPreview, type LessonDetail } from "./content.service.js";
@@ -50,12 +51,17 @@ export const adminLessonPreview: RequestHandler = async (
   }
 };
 
-/** The `AdminUser` row behind the session, or `null`. */
+/**
+ * The `AdminUser` row behind the session, or `null` — including for a session
+ * past `requireAdmin`'s age limit, which falls through like any non-admin.
+ */
 async function findAdminForSession(req: Request) {
   const authenticated = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
-  if (!authenticated) return null;
+  if (!authenticated || isAdminSessionExpired(authenticated.session)) {
+    return null;
+  }
 
   return prisma.adminUser.findUnique({
     where: { authUserId: authenticated.user.id },
