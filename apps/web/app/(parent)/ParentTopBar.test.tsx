@@ -4,13 +4,6 @@ import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-/**
- * The nav chrome the parent area used to do without — every screen carried its
- * own back-link instead. What is worth asserting is the part a per-screen link
- * never had to get right: which section reads as current, that onboarding stays
- * bare, and that signing out actually lands on the login page.
- */
-
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
@@ -108,8 +101,7 @@ describe("ParentTopBar", () => {
   it("renders nothing while the session is still loading", () => {
     renderBar();
 
-    // A bar that appears half-populated, then reshuffles as the parent lands, is
-    // worse than one that arrives once.
+    // A bar that appears half-populated then reshuffles is worse than one that arrives once.
     expect(screen.queryByRole("navigation")).toBeNull();
   });
 
@@ -117,8 +109,7 @@ describe("ParentTopBar", () => {
     pathname = PARENT_ROUTES.consent;
     renderBar();
 
-    // Nothing to navigate to yet, and a sign-out control mid-consent is a dead
-    // end rather than an escape.
+    // A sign-out control mid-consent is a dead end, not an escape.
     await waitFor(() => expect(api.fetchAuthMe).toHaveBeenCalled());
     expect(screen.queryByRole("navigation")).toBeNull();
   });
@@ -156,8 +147,7 @@ describe("ParentTopBar", () => {
   it("offers the way back to the student portal on the bar, not in the menu", async () => {
     renderBar();
 
-    // On the bar itself: inside the account menu it took a tap on an unlabelled
-    // avatar to reach, and that is what made it unfindable.
+    // On the bar itself: inside the account menu it was two taps deep and unfindable.
     const link = await screen.findByRole("link", { name: "Back to kid mode" });
     expect(link).toHaveAttribute("href", "/select-profile");
   });
@@ -175,9 +165,8 @@ describe("ParentTopBar", () => {
   });
 
   it("stays put and says so when the server refuses the sign-out", async () => {
-    // A 500 leaves the cookie live. Navigating anyway would bounce off
-    // `resolveParentRedirect` back to the dashboard, and the parent would be
-    // left believing they had signed out on a shared family device.
+    // A 500 leaves the cookie live; navigating anyway would bounce back to the dashboard and
+    // leave the parent believing they had signed out on a shared device.
     client.signOut.mockResolvedValue(false);
     renderBar();
     await openMenu();
@@ -217,9 +206,8 @@ describe("ParentTopBar", () => {
 
     fireEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
 
-    // `resolveParentRedirect` sends a fully-onboarded parent away from the login
-    // page, so a stale session in the provider would undo the redirect below.
-    // Re-reading `/api/auth/me` is what empties it.
+    // `resolveParentRedirect` sends a fully-onboarded parent away from login, so a stale session would
+    // undo the redirect; re-reading `/api/auth/me` empties it.
     await waitFor(() => expect(api.fetchAuthMe).toHaveBeenCalledTimes(2));
     expect(client.signOut.mock.invocationCallOrder[0]).toBeLessThan(
       api.fetchAuthMe.mock.invocationCallOrder[1],

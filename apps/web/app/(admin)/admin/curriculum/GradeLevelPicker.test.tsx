@@ -4,8 +4,6 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { GradeLevelPicker } from "./GradeLevelPicker";
 
-// One picker, used by the subject, topic and lesson forms.
-
 function Harness({ initial = [] }: { initial?: GradeLevelValue[] }) {
   const [value, setValue] = useState<GradeLevelValue[]>(initial);
   return <GradeLevelPicker value={value} onChange={setValue} isBusy={false} />;

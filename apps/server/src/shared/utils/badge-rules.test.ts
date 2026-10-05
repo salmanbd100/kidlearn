@@ -6,12 +6,6 @@ import {
   evaluateBadgeRule,
 } from "./badge-rules.js";
 
-/**
- * The rule table, tested where it is pure (`general.md §5` — no database needed,
- * so none is stubbed). What the counts are *derived from* is
- * `services/achievementService.ts`; what they *mean* is here.
- */
-
 function facts(overrides: Partial<BadgeFacts> = {}): BadgeFacts {
   return {
     lessonsInTopic: () => ({ completed: 0, totalPublished: 0 }),
@@ -22,7 +16,6 @@ function facts(overrides: Partial<BadgeFacts> = {}): BadgeFacts {
   };
 }
 
-/** Counts for one named topic, zero everywhere else. */
 function topic(
   slug: string,
   completed: number,
@@ -80,8 +73,7 @@ describe("lessons_completed_in_topic", () => {
   });
 
   it('measures "all" against the published lessons, not a hard-coded total', () => {
-    // The whole point of `"all"`: publishing the twenty-seventh letter lesson
-    // must move the goalposts without anyone re-authoring the badge row.
+    // Publishing the twenty-seventh letter lesson must move the goalposts without re-authoring the badge row.
     const all = { topicSlug: "alphabet", count: "all" };
 
     expect(
@@ -101,8 +93,7 @@ describe("lessons_completed_in_topic", () => {
   });
 
   it('never awards "all" for a topic with nothing published in it', () => {
-    // Otherwise an empty or wholly-draft topic reads as finished, and every
-    // child on the platform is handed the badge for it.
+    // Otherwise an empty or wholly-draft topic reads as finished and every child gets the badge.
     expect(
       evaluateBadgeRule(
         "lessons_completed_in_topic",
@@ -178,9 +169,7 @@ describe("streak_days", () => {
   });
 
   it("stays earned on later days of the same streak", () => {
-    // `>=`, not `===`: the badge is granted once by the ledger's unique index,
-    // and a rule that only matched the exact day would silently stop being true
-    // for a child who was already past it when the badge was published.
+    // `>=`, not `===`: the ledger grants once, and an exact-day rule would stop matching a child already past it.
     expect(
       evaluateBadgeRule(
         "streak_days",
@@ -226,8 +215,7 @@ describe("quiz_correct_in_topic", () => {
 
 describe("a rule row the engine cannot interpret", () => {
   it("warns and evaluates false on an unknown ruleType", () => {
-    // A bad admin row must never break a completion — the child gets their
-    // celebration, and the badge is an adult's problem.
+    // A bad admin row must never break a completion.
     expect(
       evaluateBadgeRule(
         "lessons_completed_on_a_tuesday",
@@ -245,9 +233,7 @@ describe("a rule row the engine cannot interpret", () => {
   });
 
   it("rejects an unknown key rather than ignoring it", () => {
-    // The schemas are strict, so `{ days: 3, weeks: 2 }` is a rule somebody
-    // meant something by and this engine does not understand. Awarding it on
-    // the half it recognises would be worse than not awarding it.
+    // The schemas are strict; awarding on the half of `{ days: 3, weeks: 2 }` we recognise would be worse than not awarding.
     expect(
       evaluateBadgeRule(
         "streak_days",

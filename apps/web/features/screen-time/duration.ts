@@ -1,12 +1,10 @@
-/** A minute count as a parent reads it: `"12m"`, `"1h"`, `"1h 35m"`. */
 export type Translate = (
   key: string,
   params?: Record<string, unknown>,
 ) => string;
 
 export function formatMinutes(total: number, translate: Translate): string {
-  // Negative minutes cannot be produced by the API — every figure is a count of
-  // recorded presence — but a clamp here is cheaper than a "-1h 25m" on screen.
+  // The API cannot produce negative minutes, but a clamp is cheaper than "-1h 25m" on screen.
   const safeTotal = Math.max(0, Math.round(total));
 
   if (safeTotal < MINUTES_PER_HOUR) {

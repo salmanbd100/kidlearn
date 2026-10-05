@@ -14,18 +14,15 @@ const progress = vi.hoisted(() => ({
   getLessonProgress: vi.fn(),
   reportStep: vi.fn(),
   sendSessionEvent: vi.fn(),
-  // `RewardStep` calls this on mount (file 23), so it is reached whenever the
-  // player walks as far as the celebration.
+  // `RewardStep` calls this on mount.
   completeLesson: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/features/content/content-api", () => content);
 vi.mock("@/shared/api/progress-api", () => progress);
-// The player's presence signal (file 27). Stubbed so the suite makes no real
-// request; the beats themselves are covered by `lib/use-heartbeat.test.tsx`.
-// The player reports its milestones through `sendSessionEvent`, not `trackEvent`,
-// so only the hook is stubbed here.
+// Stubbed so the suite makes no request; beats are covered by `lib/use-heartbeat.test.tsx`. The
+// player reports milestones via `sendSessionEvent`, so only the hook is stubbed.
 const heartbeat = vi.hoisted(() => ({ useHeartbeat: vi.fn() }));
 vi.mock("@/features/screen-time/use-heartbeat", () => ({
   useHeartbeat: (options?: { enabled?: boolean }) => {
@@ -87,7 +84,6 @@ function renderPlayer() {
   );
 }
 
-/** Which step is on screen right now. */
 function currentStep(): string | null {
   return (
     document.querySelector("section[data-step]")?.getAttribute("data-step") ??
@@ -95,20 +91,17 @@ function currentStep(): string | null {
   );
 }
 
-/** What each step calls its way onward. */
 const ADVANCE_LABEL: Record<string, RegExp> = {
   intro: /Let's go!/,
   video: /Done — next!/,
-  // This lesson has no activity, so file 18's engine never runs — the step shows
-  // the same friendly way onward it gives a child whose activity failed to parse.
+  // This lesson has no activity, so the step shows the way onward it gives a child whose activity
+  // failed to parse.
   activity: /Let's go on!/,
-  // Nor a quiz, and file 21's step says the same thing for the same reason.
   quiz: /Let's go on!/,
-  // File 23's celebration. It appears once the completion call has answered.
+  // The celebration appears once the completion call has answered.
   reward: /Done!/,
 };
 
-/** Taps the step's own advance control, i.e. the step reporting itself complete. */
 function completeStep() {
   const step = currentStep() ?? "";
   fireEvent.click(
@@ -116,13 +109,11 @@ function completeStep() {
   );
 }
 
-/** Taps through all five steps to the finish screen. */
 async function walkTheLesson() {
   for (const step of ["intro", "video", "activity", "quiz"] as const) {
     completeStep();
     await waitFor(() => expect(currentStep()).not.toBe(step));
   }
-  // The celebration's button appears once the completion call has answered.
   await screen.findByRole("button", { name: ADVANCE_LABEL.reward });
   completeStep();
   await screen.findByRole("heading", { name: "All done!" });
@@ -164,8 +155,7 @@ describe("LessonPlayer", () => {
       },
     });
 
-    // `RewardStep` finishes the lesson itself (file 23). Its answer is what the
-    // celebration renders; none of the tests here are about the numbers.
+    // `RewardStep` finishes the lesson itself; none of these tests are about the numbers.
     progress.completeLesson.mockResolvedValue({
       ok: true,
       data: {
@@ -183,8 +173,7 @@ describe("LessonPlayer", () => {
     renderPlayer();
 
     await waitFor(() => expect(currentStep()).toBe("intro"));
-    // The lesson's *greeting*, not its title: file 17 replaced the placeholder,
-    // and a child who cannot read has no use for "The Letter A" on screen.
+    // The lesson's greeting, not its title: a child who cannot read has no use for "The Letter A".
     expect(
       screen.getByText("Hello! Today we learn the letter A."),
     ).toBeInTheDocument();
@@ -234,9 +223,8 @@ describe("LessonPlayer", () => {
 
     await walkTheLesson();
 
-    // Four reports, not five: the reward step no longer reports itself here.
-    // `RewardStep` calls the completion endpoint on mount instead, which does
-    // that same report *and* writes the grants (file 23).
+    // Four reports, not five: `RewardStep` calls the completion endpoint on mount, which does the
+    // reward report and writes the grants.
     expect(progress.reportStep.mock.calls.map(([, report]) => report)).toEqual([
       { step: "intro", completed: false },
       { step: "video", completed: false },
@@ -260,8 +248,8 @@ describe("LessonPlayer", () => {
       progress.sendSessionEvent.mock.calls.map(([event]) => event),
     ).toEqual([
       { type: "lesson_start", lessonId: LESSON_ID },
-      // The two steps that play a server-resolved asset say which language they
-      // got; the three that render their own localized payloads say nothing.
+      // Steps that play a server-resolved asset say which language they got; the others render
+      // their own payloads and say nothing.
       {
         type: "step_complete",
         lessonId: LESSON_ID,
@@ -304,7 +292,6 @@ describe("LessonPlayer", () => {
     await waitFor(() => expect(currentStep()).toBe("activity"));
 
     expect(eventsOfType("step_complete")).toEqual([
-      // The Bangla narration existed; only the film fell back to English.
       {
         type: "step_complete",
         lessonId: LESSON_ID,
@@ -324,7 +311,6 @@ describe("LessonPlayer", () => {
     renderPlayer();
 
     await waitFor(() => expect(currentStep()).toBe("intro"));
-    // Opening a lesson is not progress in it.
     expect(progress.reportStep).not.toHaveBeenCalled();
   });
 });
@@ -351,7 +337,6 @@ describe("resuming (FR-LSN-06)", () => {
       },
     });
 
-    // Reached by the case that resumes straight onto the celebration.
     progress.completeLesson.mockResolvedValue({
       ok: true,
       data: {
@@ -398,8 +383,7 @@ describe("resuming (FR-LSN-06)", () => {
     renderPlayer();
 
     await waitFor(() => expect(currentStep()).toBe("activity"));
-    // The child watched the video in an earlier session. Reporting it again here
-    // would be recording work that did not just happen.
+    // Watched in an earlier session: reporting it again would record work that did not just happen.
     expect(progress.reportStep).not.toHaveBeenCalled();
   });
 
@@ -413,8 +397,7 @@ describe("resuming (FR-LSN-06)", () => {
     renderPlayer();
 
     await waitFor(() => expect(currentStep()).toBe("activity"));
-    // Mounting the intro for one commit and jumping in an effect was enough to
-    // start its narration over the step the child resumed into.
+    // Mounting the intro for one commit and jumping in an effect restarted its narration.
     expect(audio.play).not.toHaveBeenCalledWith(
       introAudioUrl,
       expect.anything(),
@@ -427,7 +410,6 @@ describe("resuming (FR-LSN-06)", () => {
 
     unmount();
 
-    // The audio provider sits at the root and outlives the player.
     expect(audio.stop).toHaveBeenCalled();
   });
 
@@ -450,8 +432,7 @@ describe("resuming (FR-LSN-06)", () => {
     withSavedProgress("reward", "2026-08-01T10:00:00.000Z");
     renderPlayer();
 
-    // A finished lesson has no step after `reward`, so it starts over — and the
-    // server's `completedAt` is left exactly where it was.
+    // A finished lesson starts over, and the server's `completedAt` is left where it was.
     await waitFor(() => expect(currentStep()).toBe("intro"));
   });
 
@@ -462,8 +443,7 @@ describe("resuming (FR-LSN-06)", () => {
     });
     renderPlayer();
 
-    // Starting over is worse than resuming, and far better than a child being
-    // refused a lesson they asked for.
+    // Starting over beats refusing a lesson the child asked for.
     await waitFor(() => expect(currentStep()).toBe("intro"));
   });
 });
@@ -494,8 +474,7 @@ describe("leaving (FR-LSN-06, Pillar A)", () => {
       },
     });
 
-    // `RewardStep` finishes the lesson itself (file 23). Its answer is what the
-    // celebration renders; none of the tests here are about the numbers.
+    // `RewardStep` finishes the lesson itself; none of these tests are about the numbers.
     progress.completeLesson.mockResolvedValue({
       ok: true,
       data: {
@@ -555,8 +534,8 @@ describe("leaving (FR-LSN-06, Pillar A)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Leave" }));
     await waitFor(() => expect(router.push).toHaveBeenCalled());
 
-    // The intro was reported when it finished, not on the way out — which is why a
-    // tablet that dies mid-video still resumes correctly.
+    // The intro is reported when it finishes, not on the way out, so a tablet dying mid-video still
+    // resumes correctly.
     expect(progress.reportStep).toHaveBeenCalledTimes(1);
   });
 
@@ -611,9 +590,8 @@ describe("a lesson that is not there", () => {
   });
 
   /**
-   * FR-TIME-02 — a screen-time block is never a raw error. The mascot screen is
-   * what a child meets, and nothing is recorded against a lesson that never
-   * opened.
+   * FR-TIME-02: a screen-time block is never a raw error, and nothing is recorded for a lesson that
+   * never opened.
    */
   it("shows the mascot time-up screen on a 423 TIME_LIMIT_REACHED", async () => {
     content.getLesson.mockResolvedValue({
@@ -638,8 +616,8 @@ describe("a lesson that is not there", () => {
     expect(screen.queryByText("Let's try that again.")).not.toBeInTheDocument();
     expect(progress.reportStep).not.toHaveBeenCalled();
     expect(progress.sendSessionEvent).not.toHaveBeenCalled();
-    // The heartbeat endpoint is never screen-time gated, so a player still
-    // beating here would bill the child for sitting on the refusal.
+    // The heartbeat endpoint is never screen-time gated; a beating player would bill the child for
+    // sitting on the refusal.
     expect(heartbeat.useHeartbeat).toHaveBeenLastCalledWith({ enabled: false });
   });
 
@@ -704,8 +682,7 @@ describe("a lesson that is not there", () => {
       await waitFor(() => expect(currentStep()).not.toBe(step));
     }
 
-    // The reviewer is approving the Bangla content; the interface around it
-    // stays in the reviewer's own language.
+    // The reviewer approves the Bangla content; the interface stays in their own language.
     expect(await screen.findByText(validMcq.prompt.bn)).toBeInTheDocument();
     expect(screen.queryByText(validMcq.prompt.en)).not.toBeInTheDocument();
   });

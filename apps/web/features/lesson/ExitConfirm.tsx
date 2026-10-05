@@ -14,9 +14,6 @@ import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
 
-/**
- * "Leave the lesson?" — the one thing between a mis-tap and losing a lesson.
- */
 export function ExitConfirm({
   isOpen,
   onStay,
@@ -42,17 +39,19 @@ export function ExitConfirm({
         if (!nextOpen) onStay();
       }}
     >
-      {/* The primitive always renders a close button when dismissable, and an
-          unlabelled one would be a control with no accessible name on the one dialog
-          a child has to answer. Its own label rather than the *Stay* string, so the
-          two are distinguishable to a screen reader even though they do the same. */}
+      {/*
+        The primitive always renders a close button; it gets its own label so a screen reader tells
+        it apart from *Stay*.
+      */}
       <DialogContent size="sm" closeLabel={t("exit.close")} closeSize="kid">
         <DialogHeader gutter="kidInset">
           <DialogTitle className="font-display text-2xl">
             {t("exit.title")}
           </DialogTitle>
-          {/* text-lg is the 20px floor for anything a child reads (design.md §3.2),
-              so this overrides the primitive's parent-surface `text-sm`. */}
+          {/*
+            text-lg is the 20px floor for text a child reads (design.md §3.2); overrides the
+            primitive's `text-sm`.
+          */}
           <DialogDescription className="text-foreground text-lg">
             {t("exit.intro")}
           </DialogDescription>

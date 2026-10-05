@@ -31,9 +31,7 @@ describe("GET /", () => {
 });
 
 describe("API documentation", () => {
-  // NODE_ENV is `test` here, so the docs are mounted (see `isDocsEnabled`). The
-  // production-off branch is covered in `openapi/document.test.ts`, which can
-  // test the predicate directly rather than rebuilding the app.
+  // NODE_ENV is `test`, so docs are mounted; the production-off branch is tested in document.test.ts.
   it("serves the raw spec at /docs.json", async () => {
     const res = await request(app).get("/docs.json");
 
@@ -49,8 +47,7 @@ describe("API documentation", () => {
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/html/);
     expect(res.text).toContain("kidlearn API");
-    // The page fetches the spec rather than inlining it — a ~730 KB document in
-    // the HTML of every page load is the thing this assertion prevents.
+    // Inlining the ~730 KB spec into every page load is what this prevents.
     expect(res.text).toContain("/docs.json");
     expect(res.text.length).toBeLessThan(50_000);
   });
@@ -101,10 +98,7 @@ describe("CORS", () => {
 });
 
 describe("trust proxy", () => {
-  // Caddy terminates TLS in front of the API container in both deployed
-  // environments (file 38 req 7). Without this, `req.protocol` is `http` inside
-  // the container and better-auth refuses to set a `Secure` session cookie — a
-  // failure that only appears once the app is behind a real proxy.
+  // Caddy terminates TLS; without trust proxy better-auth refuses to set a `Secure` session cookie.
   async function buildWith(nodeEnv: "production" | "test") {
     vi.resetModules();
     vi.doMock("./config/env.js", async () => {
@@ -156,8 +150,7 @@ describe("security headers", () => {
     );
     expect(csp).toContain("connect-src 'self'");
     expect(csp).not.toContain("default-src 'none'");
-    // The shell's bundle URL is what the CSP above allows; if Scalar moves CDN,
-    // this fails rather than the page going blank in production.
+    // The CSP allows this bundle URL; if Scalar moves CDN this fails rather than the page blanking.
     expect(res.text).toContain('src="https://cdn.jsdelivr.net/');
   });
 });

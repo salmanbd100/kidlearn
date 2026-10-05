@@ -2,16 +2,14 @@
 
 import type { RefObject } from "react";
 
-/** The surface success is drawn on (FR-ACT-05). */
 export function FeedbackLayer({
   canvasRef,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
 }) {
   return (
-    // The wrapper carries `aria-hidden`, not the canvas: a canvas is focusable,
-    // and hiding a focusable element from the accessibility tree leaves it
-    // reachable by tab but nameless to whoever lands on it.
+    // `aria-hidden` on the wrapper, not the canvas: a focusable canvas hidden from the a11y tree is
+    // tabbable but nameless.
     <div
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-40 overflow-hidden"

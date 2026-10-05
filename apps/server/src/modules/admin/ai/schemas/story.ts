@@ -2,13 +2,9 @@ import type { Locale } from "@kidlearn/types";
 import { z } from "zod";
 import { localized } from "./localized.js";
 
-// What the story generator's answer must be shaped like (FR-AI-02).
-
-/** The spec's bounds: 6–8 pages, 1–4 characters. */
 export const STORY_PAGE_BOUNDS = { min: 6, max: 8 } as const;
 export const CHARACTER_BOUNDS = { min: 1, max: 4 } as const;
 
-/** `StoryTranslation.title` shares the column cap the admin story body uses. */
 const TITLE_MAX = 200;
 
 const CharacterDescriptionSchema = z
@@ -100,7 +96,6 @@ function addPageNumberIssues(
   });
 }
 
-/** A prompt that names no declared character, reported per page. */
 function addUnnamedCharacterIssues(
   ctx: z.RefinementCtx,
   value: {
@@ -132,10 +127,7 @@ function mentions(text: string, name: string): boolean {
   ).test(text);
 }
 
-/**
- * The parsed shape, widened to every locale as optional — see the same note on
- * `LessonGenerationOutput` for why the static type cannot be exact.
- */
+// Widened to every locale as optional; see `LessonGenerationOutput`.
 export interface StoryGenerationOutput {
   title: Partial<Record<Locale, string>>;
   moral: Partial<Record<Locale, string>>;

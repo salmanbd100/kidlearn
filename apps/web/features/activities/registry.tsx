@@ -8,15 +8,12 @@ import { PuzzleActivity } from "./PuzzleActivity";
 import { TraceActivity } from "./TraceActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 
-// Activity type → renderer (FR-ACT-06, NFR-SCALE-02).
-
 export interface ActivityRendererProps<
   T extends ActivityDefinition = ActivityDefinition,
 > {
   definition: T;
   locale: Locale;
   feedback: ActivityFeedback;
-  /** Renderer → engine. The engine celebrates, then reports the step complete. */
   onActivityComplete: () => void;
 }
 

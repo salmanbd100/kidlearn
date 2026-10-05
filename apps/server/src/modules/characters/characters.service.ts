@@ -1,10 +1,5 @@
-/**
- * Selectable avatar characters (FR-PROF-02). No Express types cross this
- * boundary — every function here is callable from a test without an HTTP layer.
- */
 import { prisma } from "../../config/prisma.js";
 
-/** One avatar the profile form may offer. */
 export type AvatarCharacter = {
   id: string;
   slug: string;
@@ -13,9 +8,7 @@ export type AvatarCharacter = {
   imageUrl: string | null;
 };
 
-/**
- * The starter avatars, alphabetically by name so the picker's order is stable.
- */
+/** Alphabetical by name so the picker's order is stable. */
 export async function listStarterAvatars(): Promise<AvatarCharacter[]> {
   const characters = await prisma.character.findMany({
     where: { isDefault: true, status: "published" },

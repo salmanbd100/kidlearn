@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 
-/** Reached through `parent/[...missing]` — an unknown `/parent/*` URL. */
 export default function ParentNotFound() {
   const { t } = useTranslation(DEFAULT_NAMESPACE);
 

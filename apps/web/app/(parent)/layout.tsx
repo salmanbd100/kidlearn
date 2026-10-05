@@ -4,7 +4,6 @@ import { ParentSessionProvider } from "./context/parent-session";
 import { ParentGuard } from "./ParentGuard";
 import { ParentTopBar } from "./ParentTopBar";
 
-/** Parent Dashboard shell — calm, dense (design.md §2.2, §6). */
 export default function ParentLayout({ children }: { children: ReactNode }) {
   return (
     <ThemeScope

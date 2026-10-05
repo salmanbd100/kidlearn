@@ -6,9 +6,9 @@ export const PARENT_ROUTES = {
   login: "/parent/login",
   consent: "/parent/onboarding/consent",
   firstChild: "/parent/onboarding/child",
-  /** The progress dashboard, and where the Google callback lands (file 29). */
+  /** The progress dashboard, and where the Google callback lands. */
   dashboard: "/parent",
-  /** The weekly report card and its history (file 30, FR-DASH-05..06). */
+  /** The weekly report card and its history. */
   reports: "/parent/reports",
   children: "/parent/children",
 } as const;
@@ -16,16 +16,13 @@ export const PARENT_ROUTES = {
 /** What the layout knows about the visitor. `undefined` parent = signed out. */
 export type ParentSessionState = {
   parent: ParentSummaryResponse | undefined;
-  /** How many profiles exist. `undefined` while it is still unknown. */
   childCount: number | undefined;
 };
 
 /** Reachable without a session at all. Everything else redirects to login. */
 const PUBLIC_PATHS: readonly string[] = [PARENT_ROUTES.login];
 
-/**
- * The first-run steps, which stop being destinations once onboarding is finished.
- */
+/** The first-run steps, which stop being destinations once onboarding is finished. */
 const ONBOARDING_PATHS: readonly string[] = [
   PARENT_ROUTES.login,
   PARENT_ROUTES.consent,
@@ -40,7 +37,6 @@ export function isOnboardingPath(pathname: string): boolean {
   return ONBOARDING_PATHS.includes(pathname);
 }
 
-/** The path to redirect to, or `undefined` to render what was asked for. */
 export function resolveParentRedirect(
   session: ParentSessionState,
   pathname: string,

@@ -12,10 +12,10 @@ Give the child a bookshelf: the story library screen listing published stories f
 ## Context & Current State
 
 - Stories are nested **inside** the content router (`contentRouter.use("/stories", storiesRouter)`) so they inherit `requireParent` + `requireActiveChild` rather than repeating the guards. The endpoints are:
-  - `GET /api/content/stories` → `StoryListResponse` (`StorySummarySchema[]`): id, localised `title`, cover media, the world it belongs to, reading state.
-  - `GET /api/content/stories/:id` → `StoryDetailResponse` (`StoryPageSchema[]`, narration and timings) — **screen-time gated**, same as lesson detail.
+  - `GET /api/content/stories` → `{ stories: StorySummary[] }` (`StoryListResponseSchema`): `{ id, slug, title, titleAudioUrl | null, locale, world: { id, slug, name, palette, mascot }, coverImageUrl | null, pageCount, completed }`. `title` is locale-resolved (English fallback); `titleAudioUrl` is the title read aloud and falls back independently; `completed` is the read state.
+  - `GET /api/content/stories/:id` → `{ story: StoryDetail }` (`id, slug, title, moral | null, moralAudioUrl | null, world, coverImageUrl, locale, pages[], completed`; each page `{ pageNumber, illustrationUrl | null, text, narrationUrl | null, narrationTimings | null }`) — **screen-time gated** (`enforceScreenTime("story")`), same as lesson detail. The list is not gated.
   - `POST /api/progress/stories/:id/complete` → `StoryCompletionResponse` (M23 uses it).
-- A story "is set in a world and carries that world's row" — the comment in `apps/web/lib/worlds.ts` explains that the accent colour comes from `palette` for exactly this reason, and that the story library was the second consumer of that helper. Mobile's `lib/world-theme.ts` (M11) is already that shared helper; reuse it, do not special-case covers.
+- A story "is set in a world and carries that world's row" — the comment in `apps/web/features/content/worlds.ts` explains that the accent colour comes from `palette` for exactly this reason, and that the story library was the second consumer of that helper. Mobile's `lib/world-theme.ts` (M11) is already that shared helper; reuse it, do not special-case covers.
 - Server-side filtering: published only, matching the child's grade and language. The client filters nothing.
 - M12 established the pattern this file follows: one list call, tap → detail call → branch on `ok` / `423` / `404`, `lib/lesson-cache.ts`-style handoff. Reuse the pattern and add a story equivalent.
 - M04 gives `useApi` and the network states; M05 gives `EmptyState`; M11 gives `localizedLabel` and `worldGradient`; M14 gives narration for the screen's own copy.
@@ -32,9 +32,9 @@ Give the child a bookshelf: the story library screen listing published stories f
    - `404` → refresh the list;
    - network/cold start → `KidRetry` / `ColdStartNotice`.
 5. **Cover prefetch.** Prefetch the visible covers on mount with `expo-image`, and the *first page image* of the most recently opened story so re-opening feels instant. Do not prefetch `getStory` itself — it is gated.
-6. **Read/unread state comes from the payload.** Whatever `StorySummarySchema` reports is what renders. Do not track read state locally; a second source of truth would disagree with the parent's dashboard.
+6. **Read/unread state comes from the payload.** `completed` on `StorySummarySchema` is what renders. Do not track read state locally; a second source of truth would disagree with the parent's dashboard.
 7. **Empty and thin states.** No published stories for the child's grade → a warm `EmptyState` ("New stories soon!"). This is the expected MVP state until content exists, so it must look deliberate.
-8. **Narration.** The screen's own heading gets a voice-over via M14's `useScreenNarration`; each cover's accessibility label is the localised title plus its read state.
+8. **Narration.** The screen's own heading gets a voice-over via M14's `useScreenNarration`; each cover's accessibility label is the title plus its read state; `titleAudioUrl`, when present, lets a pre-reader hear a cover's title on long-press.
 9. **List performance.** `FlatList` per shelf with `initialNumToRender` tuned and `getItemLayout` where the cover size is fixed — a library of 60 stories on a low-end Android is exactly where an unoptimised list stutters.
 10. **Tests** (`app/(student)/stories/index.test.tsx`, `lib/content-api.test.ts` additions): stories are grouped by world with the world's accent; a read story shows the tick and overlay; tapping with a 200 navigates and hands over the detail; a `423` shows the lock and does not navigate; a `404` refetches; the empty state renders with no stories; covers prefetch on mount.
 

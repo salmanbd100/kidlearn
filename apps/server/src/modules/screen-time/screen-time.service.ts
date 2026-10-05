@@ -15,17 +15,14 @@ import {
 } from "../../shared/utils/time-of-day.js";
 import { getLearningMinutes } from "../progress/learning-time.service.js";
 
-// Parental screen-time control (FR-TIME-01..05).
-
 export type ScreenTimeDecision =
   | { allowed: true }
   | { allowed: false; code: ScreenTimeBlockCode };
 
 export interface ScreenTimeInput {
-  /** Server-derived minutes for the local day (file 27). */
+  /** Server-derived minutes for the local day. */
   minutesToday: number;
   dailyLimitMinutes: number | null;
-  /** Now, as `"HH:MM"` in `env.APP_TIMEZONE`. */
   localTime: string;
   windowStart: string | null;
   windowEnd: string | null;
@@ -33,30 +30,23 @@ export interface ScreenTimeInput {
   hasInProgressLesson: boolean;
 }
 
-/** Whether this child may start something new. */
 export function evaluateScreenTime(input: ScreenTimeInput): ScreenTimeDecision {
   if (input.hasInProgressLesson) return { allowed: true };
 
   const { windowStart, windowEnd } = input;
-  // A zero-length window is treated as no window. It is what a parent gets by
-  // dragging both inputs to the same value, it expresses nothing, and the only
-  // other reading — "open for zero minutes" — locks a child out of the app all
-  // day from a slip they would have no way to diagnose.
+  // A zero-length window is treated as no window: "open for zero minutes" would lock the child out all day from a slip a parent cannot diagnose.
   if (windowStart !== null && windowEnd !== null && windowStart !== windowEnd) {
     const now = toMinutesOfDay(input.localTime);
     const start = toMinutesOfDay(windowStart);
     const end = toMinutesOfDay(windowEnd);
 
-    // Minutes-of-day rather than clock arithmetic, which is what keeps the
-    // midnight wrap to one comparison: an evening-to-morning window is simply the
-    // complement of the daytime one it would otherwise be.
+    // Minutes-of-day keeps the midnight wrap to one comparison: an evening-to-morning window is the complement of the daytime one.
     const isInside =
       start < end ? now >= start && now < end : now >= start || now < end;
     if (!isInside) return { allowed: false, code: "OUTSIDE_WINDOW" };
   }
 
-  // At the limit blocks, not past it: a child whose parent allowed thirty minutes
-  // has had thirty minutes.
+  // At the limit blocks, not past it: thirty allowed minutes means thirty minutes had.
   if (
     input.dailyLimitMinutes !== null &&
     input.minutesToday >= input.dailyLimitMinutes
@@ -67,7 +57,6 @@ export function evaluateScreenTime(input: ScreenTimeInput): ScreenTimeDecision {
   return { allowed: true };
 }
 
-/** Now, as the `"HH:MM"` the window is expressed in. */
 export function localTimeOfDay(instant: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: env.APP_TIMEZONE,
@@ -79,7 +68,7 @@ export function localTimeOfDay(instant: Date = new Date()): string {
   }).format(instant);
 }
 
-/** The stored policy as the API speaks it. A missing row is "no limits". */
+/** A missing row is "no limits". */
 export function toScreenTimeSettingResponse(
   setting: ScreenTimeSetting | null,
 ): ScreenTimeSettingResponse {
@@ -98,7 +87,6 @@ export function getScreenTimeSetting(
   return prisma.screenTimeSetting.findUnique({ where: { childId } });
 }
 
-/** FR-TIME-01/04/05 — stores one child's whole policy. */
 export async function saveScreenTimeSetting(
   childId: string,
   update: ScreenTimeUpdate,
@@ -120,9 +108,6 @@ export async function saveScreenTimeSetting(
   return toScreenTimeSettingResponse(saved);
 }
 
-/**
- * "May I start something new?" — the student surface's own read (FR-TIME-02/04).
- */
 export async function getScreenTimeStatus(
   childId: string,
 ): Promise<ScreenTimeStatusResponse> {
@@ -147,20 +132,11 @@ export async function getScreenTimeStatus(
   };
 }
 
-/** How stale an incomplete lesson may be and still count as "under way". */
 export const LESSON_RESUME_GRACE_MS = 30 * 60_000;
 
-/**
- * How long after it was first opened a lesson can still be "under way", however
- * recently it was touched. `updatedAt` moves on every step report, so without
- * this a client that keeps re-reporting a step holds the grace open for ever.
- */
+/** Caps how long after first open a lesson counts as "under way": `updatedAt` moves on every step report, so a client re-reporting a step would hold the grace open for ever. */
 export const LESSON_RESUME_CEILING_MS = 3 * 60 * 60_000;
 
-/**
- * The middleware's variant: the same decision, for a child who has named the
- * lesson they want (FR-TIME-03).
- */
 export async function evaluateStartForChild(
   childId: string,
   lessonId: string | undefined,
@@ -207,10 +183,6 @@ async function isLessonInProgress(
   );
 }
 
-/**
- * The `423` a refused start becomes. Shared by the content-read middleware and
- * by the progress write that would otherwise open a lesson the read refused.
- */
 export function screenTimeBlockedError(
   decision: Extract<
     Awaited<ReturnType<typeof evaluateStartForChild>>,
@@ -223,9 +195,7 @@ export function screenTimeBlockedError(
     decision.code === "TIME_LIMIT_REACHED"
       ? "Today's learning time is used up"
       : "Outside the allowed access window",
-    // The client cannot recompute any of this — it has no access to the
-    // settings and no trustworthy clock — and the window screen has to name
-    // the hour to come back at.
+    // The client cannot recompute any of this (no settings, no trustworthy clock) and the window screen must name the hour to come back at.
     {
       minutesToday: decision.details.minutesToday,
       dailyLimitMinutes: decision.details.dailyLimitMinutes,

@@ -8,22 +8,16 @@ import type {
 } from "@kidlearn/types";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
-// Typed wrappers over the student-facing curriculum API.
-
 export interface ContentFetchOptions {
   onColdStart?: () => void;
 }
 
-/**
- * The administrator preview (file 33, FR-CMS-04) — the **only** query parameters
- * anywhere on this API, and they are not an exception to the rule above.
- */
+/** Admin preview params: the only query parameters on this API. */
 export interface LessonPreviewOptions {
   isPreview?: boolean;
   language?: Locale;
 }
 
-/** The themed worlds the home screen renders (FR-WORLD-01..03, FR-WORLD-05). */
 export function listWorlds(
   options: ContentFetchOptions = {},
 ): Promise<ApiResult<{ worlds: WorldSummaryResponse[] }>> {
@@ -32,10 +26,6 @@ export function listWorlds(
   });
 }
 
-/**
- * One world's lessons, already grouped under their topic headings and already
- * filtered to the child's grade — the world screen's only request.
- */
 export function listWorldLessons(
   worldId: string,
   options: ContentFetchOptions = {},
@@ -46,7 +36,6 @@ export function listWorldLessons(
   );
 }
 
-/** Everything the lesson player needs, in one round trip (FR-LSN-01..05). */
 export function getLesson(
   lessonId: string,
   options: ContentFetchOptions & LessonPreviewOptions = {},
@@ -61,9 +50,6 @@ export function getLesson(
   );
 }
 
-/**
- * The child's whole story library, in one request (FR-STORY-01, FR-STORY-08).
- */
 export function listStories(
   options: ContentFetchOptions = {},
 ): Promise<ApiResult<{ stories: StorySummaryResponse[] }>> {
@@ -72,7 +58,6 @@ export function listStories(
   });
 }
 
-/** One story and every one of its pages, in a single request (FR-STORY-02). */
 export function getStory(
   storyId: string,
   options: ContentFetchOptions = {},

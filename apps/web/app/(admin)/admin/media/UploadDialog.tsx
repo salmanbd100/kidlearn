@@ -15,8 +15,6 @@ import {
 } from "@/features/admin/media-api";
 import { optionValue } from "@/features/admin/select-option";
 
-// Sign → upload → register, as one form (FR-CMS-02).
-
 type UploadState =
   | { phase: "idle" }
   | { phase: "signing" }
@@ -82,8 +80,7 @@ export function UploadDialog({
     if (!registered.ok) {
       setState({
         phase: "failed",
-        // Naming the file's whereabouts matters: retrying uploads it again, so
-        // the useful action is to register the URL rather than repeat the upload.
+        // Retrying re-uploads the file, so name where it is and let the admin register the URL.
         message: `The file reached Cloudinary but could not be recorded: ${registered.error.message}`,
       });
       return;
@@ -195,9 +192,7 @@ function UploadStatus({ state }: { state: UploadState }) {
         {message}
       </p>
       {state.phase === "uploading" ? (
-        // A real bar rather than a spinner: `fetch` cannot report upload progress,
-        // which is why `uploadToCloudinary` uses XHR. `transform` only, so the
-        // animation stays off the layout path (design.md §5).
+        // `fetch` can't report upload progress (hence XHR); `transform` only, off the layout path.
         <div className="h-1.5 overflow-hidden rounded-pill bg-muted">
           <div
             className="h-full origin-left bg-primary transition-transform"

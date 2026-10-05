@@ -10,8 +10,6 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { worldGradientStyle } from "@/features/content/worlds";
 
-// One story, as a cover a pre-reader can choose (FR-STORY-01).
-
 const storyCardVariants = cva(
   "group relative flex w-full flex-col items-stretch gap-3 overflow-hidden rounded-xl border-4 bg-card p-3 text-card-foreground shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring",
   {
@@ -29,7 +27,6 @@ const COVER_PX = 320;
 
 export interface StoryCardProps {
   story: StorySummaryResponse;
-  /** Whether this card is the one whose title is being read aloud. */
   isSelected: boolean;
   onPress: () => void;
 }
@@ -56,8 +53,7 @@ export function StoryCard({ story, isSelected, onPress }: StoryCardProps) {
       transition={{ type: "spring", stiffness: 400, damping: 15 }}
       onClick={onPress}
     >
-      {/* min-h-24 keeps the cover area above the 96px the spec asks for even
-          before an illustration exists; the whole card is the hit target. */}
+      {/* min-h-24 keeps the cover above 96px before an illustration exists; the whole card is the hit target. */}
       <span
         className={cn(
           "relative flex min-h-24 flex-1 items-center justify-center overflow-hidden rounded-lg",
@@ -95,9 +91,7 @@ export function StoryCard({ story, isSelected, onPress }: StoryCardProps) {
           />
         )}
 
-        {/* A shape, not colour alone (design.md §2.3); the words are in the
-            button's label. Completed stories stay fully openable — replays are
-            free (FR-STORY-06). */}
+        {/* A shape, not colour alone (design.md §2.3); the words are in the button's label. Completed stories stay openable. */}
         {story.completed ? (
           <span
             aria-hidden="true"

@@ -5,10 +5,7 @@ import {
 } from "../domain/learning-time.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/events` and `/api/children/{id}/learning-time` — the response half of
- * server-derived learning time (FR-TIME-06, FR-DASH-02).
- */
+/** `/api/events` and `/api/children/{id}/learning-time` — response half of server-derived learning time (FR-TIME-06, FR-DASH-02). */
 
 /** The answer to a heartbeat. */
 export const HeartbeatSchema = z

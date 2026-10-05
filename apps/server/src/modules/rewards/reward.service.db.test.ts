@@ -9,10 +9,8 @@ import {
 } from "../../shared/testing/factories.js";
 import { grantLessonCompletion } from "./reward.service.js";
 
-// The once-only grant (FR-GAM-01..02) rests on the unique index on
-// `(childId, rewardType, sourceType, sourceId)` and a Serializable transaction.
-// `progress.routes.test.ts` can only read the index off `schema.prisma`; these
-// run the grant against it.
+// The once-only grant (FR-GAM-01..02) rests on the unique index on `(childId, rewardType, sourceType, sourceId)`
+// and a Serializable transaction; these run the grant against both.
 
 let child: ChildProfile;
 

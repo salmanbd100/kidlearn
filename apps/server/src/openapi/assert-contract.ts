@@ -1,9 +1,5 @@
 import type { ZodTypeAny } from "zod";
 
-/**
- * Asserts a real response body against the schema the OpenAPI document publishes
- * for it. Used by the route tests.
- */
 export function assertContract(
   schema: ZodTypeAny,
   body: unknown,

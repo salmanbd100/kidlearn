@@ -5,14 +5,9 @@ import {
 } from "@kidlearn/types";
 import { z } from "zod";
 
-/**
- * Re-exported rather than rebuilt from `GRADE_LEVELS`: the same enum the child
- * API validates against, so the two cannot disagree about what a grade is. Same
- * pattern as `schemas/children.ts`.
- */
+// Same enum the child API validates against, so the two cannot disagree on a grade.
 export const AdminGradeLevelSchema = GradeLevelSchema;
 
-/** A slug an admin types: URL-safe, lowercase, and stable once content ships. */
 const SlugSchema = z
   .string()
   .min(1)
@@ -22,7 +17,6 @@ const SlugSchema = z
     "slug must be lowercase alphanumeric words separated by single hyphens",
   );
 
-/** The internal label a CMS list and an audit trail are built from. */
 const AdminLabelSchema = z.string().min(1).max(200);
 
 /** At least one grade: content no grade can see is content nobody can see. */
@@ -32,7 +26,6 @@ const LocalizedNameSchema = z
   .object({ en: z.string().min(1).max(200), bn: z.string().min(1).max(200) })
   .strict();
 
-/** A lesson's per-locale content: what a child reads and hears. */
 const LessonTranslationSchema = z
   .object({
     title: z.string().min(1).max(200),
@@ -45,17 +38,12 @@ const LessonTranslationsSchema = z
   .object({ en: LessonTranslationSchema, bn: LessonTranslationSchema })
   .strict();
 
-/** Every `/api/admin/content/:resource/:id` path. */
 export const AdminContentIdParamsSchema = z
   .object({ id: z.string().uuid() })
   .strict();
 
 export type AdminContentIdParams = z.infer<typeof AdminContentIdParamsSchema>;
 
-/**
- * `?includeArchived=true` opts an admin list into showing archived rows, which
- * are hidden by default (requirement 5).
- */
 const IncludeArchivedSchema = z
   .enum(["true", "false"])
   .optional()
@@ -113,7 +101,6 @@ export const TopicCreateSchema = z
   })
   .strict();
 
-/** A lesson's authored shape (FR-CMS-01). */
 export const LessonCreateSchema = z
   .object({
     topicId: z.string().uuid(),
@@ -138,17 +125,10 @@ export const LessonCreateSchema = z
   })
   .strict();
 
-/**
- * Edits are the create shape with every field optional, minus the parent
- * pointers — a topic does not change subject and a lesson does not change topic
- * by editing a field. Moving content between parents is a deliberate operation
- * with reordering consequences on both sides, and it is not in this file's scope.
- */
+// The create shape, all optional, minus parent pointers: moving content between parents is a separate operation.
 const atLeastOneField = <TSchema extends z.ZodTypeAny>(schema: TSchema) =>
-  // `refine` hands back `z.infer<TSchema>`, which is unresolved while `TSchema`
-  // is still a parameter, so `Object.keys` has nothing concrete to accept. Safe
-  // because every caller passes a `.partial()` object schema — the cast asserts
-  // the constraint the generic cannot express, not a narrowing of unknown data.
+  // Cast: refine's z.infer<TSchema> is unresolved while TSchema is generic; every caller passes a
+  // .partial() object schema, so this asserts a constraint the generic cannot express.
   schema.refine((value) => Object.keys(value as object).length > 0, {
     message: "Provide at least one field to update",
   });
@@ -178,12 +158,10 @@ export type SubjectUpdateBody = z.infer<typeof SubjectUpdateSchema>;
 export type TopicUpdateBody = z.infer<typeof TopicUpdateSchema>;
 export type LessonUpdateBody = z.infer<typeof LessonUpdateSchema>;
 
-/** The only body in the API that names a `ContentStatus`. */
 export const TransitionSchema = z.object({ to: ContentStatusSchema }).strict();
 
 export type TransitionBody = z.infer<typeof TransitionSchema>;
 
-/** A whole sibling set in the order it should hold (requirement 4). */
 export const ReorderSchema = z
   .object({
     parentId: z.string().uuid().optional(),
@@ -194,7 +172,6 @@ export const ReorderSchema = z
 
 export type ReorderBody = z.infer<typeof ReorderSchema>;
 
-/** A recurring character's stable visual description. */
 export const CharacterSheetCreateSchema = z
   .object({
     slug: SlugSchema.optional(),
@@ -216,12 +193,8 @@ export type CharacterSheetUpdateBody = z.infer<
   typeof CharacterSheetUpdateSchema
 >;
 
-/**
- * `?worldId=` narrows the list to that world **plus the world-less sheets**, not
- * to an exact match — it is the set the illustration generator applies to a story
- * set there, and a filter that answered differently would show an admin a cast
- * their pictures do not use.
- */
+// `?worldId=` returns that world plus the world-less sheets, matching what the illustration generator
+// applies to a story, so the list never shows a cast the pictures do not use.
 export const CharacterSheetListQuerySchema = z
   .object({ worldId: z.string().uuid().optional() })
   .strict();
@@ -230,10 +203,6 @@ export type CharacterSheetListQuery = z.infer<
   typeof CharacterSheetListQuerySchema
 >;
 
-/**
- * Promote a story generation's cast into sheets — the "Save as character sheet"
- * action (FR-AI-09).
- */
 export const PromoteJobCharactersSchema = z
   .object({ jobId: z.string().uuid() })
   .strict();

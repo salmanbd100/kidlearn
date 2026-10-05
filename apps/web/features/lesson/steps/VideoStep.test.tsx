@@ -6,11 +6,8 @@ import { resetI18nForTests } from "@/shared/lib/i18n";
 import { VideoStep } from "./VideoStep";
 
 /**
- * jsdom implements no media playback at all: `play()` is undefined, `duration`
- * is `NaN`, and no `canplay` ever fires on its own. So `play`/`pause` are
- * spied and the element is driven by dispatching the events a real browser
- * would — which is the same thing the component listens to, so the state
- * machine under test is the real one.
+ * jsdom has no media playback (`play()` undefined, `duration` NaN, no `canplay`), so `play`/`pause`
+ * are spied and real events are dispatched.
  */
 const audio = vi.hoisted(() => ({
   play: vi.fn(async () => {}),
@@ -81,15 +78,16 @@ function renderVideo(overrides: Partial<LessonDetailResponse> = {}) {
   };
 }
 
-/** The rendered media element. Throws rather than returning `null`, so a test
- * that lost it fails where it looked instead of three assertions later. */
+/**
+ * The rendered media element; throws rather than returning `null`, so a lost element fails where it
+ * was looked up.
+ */
 function videoElement(): HTMLVideoElement {
   const element = document.querySelector("video");
   if (element === null) throw new Error("no video element rendered");
   return element;
 }
 
-/** Walks the element to the state a child would be in after playback starts. */
 function startPlaying(element: HTMLVideoElement): void {
   fireEvent(element, new Event("canplay"));
   fireEvent(element, new Event("playing"));
@@ -118,8 +116,8 @@ describe("VideoStep", () => {
   it("never exposes the browser's own controls (FR-LSN-02)", () => {
     const { element } = renderVideo();
 
-    // The seek bar, the volume slider, the fullscreen button and the overflow
-    // menu all arrive together with this one attribute.
+    // The seek bar, volume slider, fullscreen button and overflow menu all arrive with this one
+    // attribute.
     expect(element).not.toHaveAttribute("controls");
   });
 
@@ -159,8 +157,7 @@ describe("VideoStep", () => {
 
     renderVideo();
 
-    // Never a silent failure: the child is left with the one obvious thing to
-    // tap, not a still frame that ignores them.
+    // Never a silent failure: leave the child one obvious thing to tap.
     expect(
       await screen.findByRole("button", { name: "Play" }),
     ).toBeInTheDocument();
@@ -209,8 +206,8 @@ describe("VideoStep", () => {
 
     fireEvent(element, new Event("ended"));
 
-    // Explicit tap: a child who looked away for the last ten seconds should find
-    // the lesson where they left it, not two steps on.
+    // Explicit tap: a child who looked away should find the lesson where they left it, not two
+    // steps on.
     expect(onComplete).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", { name: /Done — next!/ }),
@@ -262,8 +259,7 @@ describe("VideoStep", () => {
     fireEvent.click(screen.getByRole("button", { name: /Try again/ }));
 
     expect(loadSpy).toHaveBeenCalled();
-    // Back to the loading state, so a recovering video shows the skeleton again
-    // rather than the error it just left.
+    // Back to the loading state, so a recovering video shows the skeleton again.
     expect(screen.getByTestId("video-skeleton")).toBeInTheDocument();
     loadSpy.mockRestore();
   });
@@ -273,7 +269,6 @@ describe("VideoStep", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Done — next!/ }));
 
-    // Missing content is a hole to walk past, not a screen a child is stuck on.
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
@@ -296,7 +291,6 @@ describe("VideoStep", () => {
     startPlaying(element);
     element.currentTime = 5;
 
-    // jsdom reports `NaN` here, as a real browser does before metadata loads.
     fireEvent(element, new Event("timeupdate"));
 
     expect(screen.getByTestId("video-progress")).toHaveStyle({

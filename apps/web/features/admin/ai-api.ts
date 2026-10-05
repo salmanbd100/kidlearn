@@ -19,9 +19,7 @@ import type {
 import { CONTENT_BASE, listQuery } from "@/features/admin/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
-/**
- * Ask for a draft lesson. Answers with a job to look up, never with the lesson.
- */
+// Generation endpoints answer with a job to look up, never the content; `retries: 0` because a replay would spend a second generation.
 export function generateLesson(
   body: GenerateLessonBody,
 ): Promise<ApiResult<GenerationJobRef>> {
@@ -32,9 +30,6 @@ export function generateLesson(
   });
 }
 
-/**
- * Ask for a draft story. Answers with a job to look up, never with the story.
- */
 export function generateStory(
   body: GenerateStoryBody,
 ): Promise<ApiResult<GenerationJobRef>> {
@@ -45,9 +40,6 @@ export function generateStory(
   });
 }
 
-/**
- * Ask for draft quiz questions on an existing lesson. `retries: 0`, as above.
- */
 export function generateQuiz(
   body: GenerateQuizBody,
 ): Promise<ApiResult<GenerationJobRef>> {
@@ -58,9 +50,6 @@ export function generateQuiz(
   });
 }
 
-/**
- * Ask for the missing narration on a lesson, story or quiz (file 36, FR-AI-04).
- */
 export function generateNarration(
   body: GenerateNarrationBody,
 ): Promise<ApiResult<BatchGenerationRef>> {
@@ -71,9 +60,6 @@ export function generateNarration(
   });
 }
 
-/**
- * Ask for the missing illustrations on a story (file 36, FR-AI-05, FR-AI-09).
- */
 export function generateIllustrations(
   storyId: string,
 ): Promise<ApiResult<BatchGenerationRef>> {
@@ -86,10 +72,7 @@ export function generateIllustrations(
 
 const CHARACTER_SHEET_BASE = `${CONTENT_BASE}/character-sheets`;
 
-/**
- * `worldId` narrows to that world **plus the world-less sheets** — the set the
- * illustration generator applies to a story set there.
- */
+/** `worldId` narrows to that world plus the world-less sheets. */
 export function fetchCharacterSheets(
   filters: { worldId?: string } = {},
 ): Promise<ApiResult<CharacterSheet[]>> {
@@ -120,7 +103,6 @@ export function updateCharacterSheet(
   });
 }
 
-/** Promote a story generation's cast into sheets. */
 export function promoteJobCharacters(
   jobId: string,
 ): Promise<ApiResult<PromotedCharacterSheets>> {

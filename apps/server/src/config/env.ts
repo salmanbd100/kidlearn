@@ -12,10 +12,7 @@ function isKnownTimeZone(value: string): boolean {
   }
 }
 
-/**
- * A Google Cloud TTS voice name (`en-US-Standard-C`), pinned to the language it
- * is allowed to speak.
- */
+/** A Google Cloud TTS voice name, pinned to the language it may speak. */
 function ttsVoice(language: Locale) {
   return z
     .string()
@@ -53,13 +50,8 @@ const EnvSchema = z
     BETTER_AUTH_SECRET: z.string().min(32),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
-    // Where the browser lands after a successful Google round-trip.
     PARENT_POST_LOGIN_PATH: z.string().startsWith("/").default("/parent"),
-    /**
-     * The timezone every "day" in this product is measured in — the once-a-day
-     * reward grant (file 23) and the streak roll-over (file 27) both read it, and
-     * they must agree or a child could earn today's coins twice.
-     */
+    /** Timezone every "day" is measured in; reward grant and streak roll-over must agree or coins could be earned twice. */
     APP_TIMEZONE: z
       .string()
       .default("Asia/Dhaka")
@@ -67,54 +59,28 @@ const EnvSchema = z
         isKnownTimeZone,
         "must be an IANA timezone name, e.g. Asia/Dhaka",
       ),
-    /** Shared secret for `/api/admin/jobs/*` (file 30). */
     CRON_SECRET: z.string().min(16),
-    /** Cloudinary, the media host (file 33, FR-CMS-02). */
     CLOUDINARY_CLOUD_NAME: z.string().min(1),
     CLOUDINARY_API_KEY: z.string().min(1),
     CLOUDINARY_API_SECRET: z.string().min(1),
-    /**
-     * Google AI Studio — one key behind every generator that writes text (files
-     * 34–35, FR-AI-01..03) and the one that draws pictures (file 36, FR-AI-05).
-     */
     GEMINI_API_KEY: z.string().min(1),
     GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-3.6-flash"),
     GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-2.5-flash-image"),
-    /**
-     * Google Cloud Text-to-Speech — the narration voice (file 36, FR-AI-04,
-     * FR-I18N-05).
-     */
     GOOGLE_TTS_API_KEY: z.string().min(1),
     GOOGLE_TTS_VOICE_EN: ttsVoice("en").default("en-US-Standard-C"),
     GOOGLE_TTS_VOICE_BN: ttsVoice("bn").default("bn-IN-Standard-A"),
-    /**
-     * How many generation jobs a single `APP_TIMEZONE` day may create, per cost
-     * bucket (file 36, resized against the free tiers in file 37a).
-     *
-     * A text job is no longer one request: the body is one call and every quiz
-     * question is another, so a lesson is five and a retried one is ten. Google's
-     * free tier allows twenty requests a day per text model, and this cap exists to
-     * trip before that one does.
-     */
+    /** Generation jobs per day per cost bucket; a text job is several requests, so this trips before Google's free-tier cap. */
     AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(3),
     AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
     AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(15),
-    /**
-     * Requests one client IP may make to `/api/*` in a minute — a flood guard, not
-     * an abuse control. A kid's device sends ~10 a minute mid-lesson (heartbeat,
-     * step reports, prefetches) and a household shares one IP behind NAT, so the
-     * default leaves room for several devices and the CMS's bursty screens.
-     */
+    /** Per-IP requests a minute to `/api/*` — a flood guard; households share one IP behind NAT. */
     API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
     ENABLE_API_DOCS: z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
   })
-  // The two origins default to localhost so `pnpm dev` needs no setup. In
-  // production that default would boot cleanly and then break sign-in (a
-  // localhost OAuth redirect, a CORS allow-list that admits only localhost), so
-  // the failure has to happen here, at boot, naming the variable.
+  // Localhost defaults in production would boot cleanly then break sign-in, so fail at boot naming the variable.
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== "production") return;
 
@@ -144,7 +110,6 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-/** Validated, immutable environment. Import this instead of `process.env`. */
 export const env: Readonly<Env> = Object.freeze(parsed.data);
 
 export function isDocsEnabled(

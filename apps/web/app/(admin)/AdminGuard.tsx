@@ -5,7 +5,6 @@ import { type ReactNode, useEffect } from "react";
 import { ADMIN_ROUTES, isPublicAdminPath } from "@/features/admin/admin-routes";
 import { useAdminSession } from "./context/admin-session";
 
-/** The one gate every CMS page sits behind (file 31, spec §4.3). */
 export function AdminGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -15,8 +14,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   const shouldRedirect = status === "signedOut" && !isPublic;
 
   useEffect(() => {
-    // `replace`, not `push`: a bounce the admin did not ask for must not become a
-    // back-button trap between the CMS and its login screen.
+    // `replace`: a bounce the admin did not ask for must not become a back-button trap.
     if (shouldRedirect) router.replace(ADMIN_ROUTES.login);
   }, [shouldRedirect, router]);
 

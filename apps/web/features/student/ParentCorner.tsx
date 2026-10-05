@@ -9,16 +9,9 @@ import { useActiveChild } from "@/features/children/active-child";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { ParentAvatar } from "@/shared/components/ParentAvatar";
 
-/** Where the parent area opens. */
 const PARENT_DESTINATION = "/parent/children";
 
-/**
- * The lesson player and the story reader fill the screen with a header of their
- * own, whose 64px exit X and auto-advance toggle sit in the same top-right
- * corner. The lock, on top by z-order, took the taps a child aimed at them —
- * and with no PIN behind it, a stray tap landed in the parent area. Both
- * screens have their own way out, back to one that shows the lock.
- */
+/** The lesson player and story reader have their own 64px exit X and toggle in the top-right corner; the lock would take those taps, so those screens hide it. */
 function isFullScreenPlayer(pathname: string): boolean {
   return pathname.startsWith("/lesson/") || /^\/stories\/[^/]+$/.test(pathname);
 }
@@ -38,22 +31,13 @@ const parentCornerVariants = cva(
   },
 );
 
-/** The only way out of the Student Portal (Pillar C). */
 export function ParentCorner() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
   const pathname = usePathname();
   const { parent } = useActiveChild();
 
-  /**
-   * Named on the hand-off screen, anonymous everywhere else. `/select-profile`
-   * is the one place no child is playing yet, so a grown-up looking for the way
-   * out can be shown it; on a screen a child is *using*, a photo of their parent
-   * is the most tappable thing on the page, and this exit should stay dull.
-   *
-   * That dullness is now the only thing discouraging the tap: there is no PIN
-   * behind this door, so a child who finds it is in the parent area.
-   */
+  /** Named on `/select-profile` (no child playing yet), anonymous elsewhere: a photo of their parent is the most tappable thing on a child's screen. With no PIN behind this door, that dullness is all that discourages the tap. */
   const isNamed =
     pathname === STUDENT_ROUTES.selectProfile && parent !== undefined;
 
@@ -73,8 +57,7 @@ export function ParentCorner() {
       {isNamed && parent !== undefined ? (
         <>
           <ParentAvatar parent={parent} size="sm" />
-          {/* Truncated rather than wrapped: the chip must stay one 44px row,
-              and a long Google display name would otherwise push the layout. */}
+          {/* Truncated, not wrapped: the chip must stay one 44px row against a long Google display name. */}
           <span className="truncate font-body text-base">
             {parent.name ?? t("parentCorner.chipFallback")}
           </span>

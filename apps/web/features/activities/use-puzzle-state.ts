@@ -11,26 +11,18 @@ import {
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { useWiggle, type WiggleRequest } from "./use-wiggle";
 
-// Which pieces are in, and what happens when one is let go (FR-ACT-04).
-
-/**
- * How long the finished picture holds before the engine takes over to celebrate.
- */
 export const SHINE_MS = 400;
 
 export interface PuzzleState {
-  /** Slot indexes holding a piece, including whatever `prePlaced` started with. */
   filled: ReadonlySet<number>;
   isComplete: boolean;
   wiggle: WiggleRequest | undefined;
   handleDragEnd: (event: DragEndEvent) => void;
-  /** The same answer, reached by tapping rather than dragging. */
   place: (
     pieceId: string,
     slotId: string,
     anchor?: { x: number; y: number },
   ) => void;
-  /** Ends the shine early. A no-op until the picture is actually finished. */
   skipShine: () => void;
 }
 
@@ -44,8 +36,8 @@ export function usePuzzleState(
   onActivityComplete: () => void,
 ): PuzzleState {
   const [filled, setFilled] = useState<ReadonlySet<number>>(
-    // Lazily, and from the payload: `prePlaced` is how a Nursery puzzle starts
-    // part-built, and the schema guarantees it never covers the whole board.
+    // Lazily from the payload: `prePlaced` starts a Nursery puzzle part-built and never covers the
+    // whole board.
     () => new Set(definition.prePlaced ?? []),
   );
   const [isComplete, setIsComplete] = useState(false);
@@ -56,7 +48,6 @@ export function usePuzzleState(
       const slot = definition.slots.find(
         (candidate) => puzzleSlotId(candidate.index) === slotId,
       );
-      // A filled space is no longer a target — tapped, it is just the picture.
       if (slot === undefined || filled.has(slot.index)) return;
 
       if (!evaluatePiecePlacement(definition, pieceId, slotId)) {
@@ -75,17 +66,16 @@ export function usePuzzleState(
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
-      // Let go over nothing: dnd-kit drops the transform and the piece is already
-      // back in the tray. The child has not answered yet, so nothing is said.
+      // Let go over nothing: the piece is already back in the tray, and the child has not answered
+      // yet.
       if (over === null) return;
       place(String(active.id), String(over.id), centreOf(over.rect));
     },
     [place],
   );
 
-  // The picture gets a beat to be looked at whole before the engine's celebration
-  // covers it. Reported once however the beat ends — the timer or a tap — because
-  // a second call would advance the lesson two steps.
+  // A beat to look at the whole picture before the celebration. Reported once, whether the timer or
+  // a tap ends it.
   const hasReported = useRef(false);
   const timerRef = useRef<number | undefined>(undefined);
 
@@ -96,9 +86,8 @@ export function usePuzzleState(
     onActivityComplete();
   }, [onActivityComplete]);
 
-  // Scheduled once and deliberately without a cleanup: clearing on every re-run
-  // would cancel the pending hold each time `onActivityComplete` changed identity
-  // and the step would never advance. Unmount clears it below.
+  // No cleanup on purpose: clearing on every re-run would cancel the hold each time
+  // `onActivityComplete` changed identity. Unmount clears it below.
   const hasScheduled = useRef(false);
   useEffect(() => {
     if (!isComplete || hasScheduled.current) return;

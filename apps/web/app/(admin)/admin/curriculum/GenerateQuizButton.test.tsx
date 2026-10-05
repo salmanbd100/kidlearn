@@ -2,8 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateQuizButton } from "./GenerateQuizButton";
 
-// The "Generate questions with AI" button (file 35, FR-AI-03).
-
 const generateQuiz = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/admin/ai-api", () => ({ generateQuiz }));
@@ -40,8 +38,7 @@ beforeEach(() => {
 
 describe("what the button sends", () => {
   it("asks for four questions in both languages against this lesson", async () => {
-    // Both locales always: a stored question requires `prompt` and `promptAudio`
-    // in each, whatever the lesson was written in (FR-I18N-01).
+    // Both locales always: a stored question requires both (FR-I18N-01).
     renderButton();
     click();
 
@@ -101,8 +98,7 @@ describe("what the button does with the answer", () => {
   });
 
   it("passes the published-quiz refusal through, so the admin knows to withdraw it", async () => {
-    // The one `409` this button expects: a generated question would be live the
-    // instant it landed, because a question has no status of its own (FR-AI-07).
+    // The one expected `409`: a generated question would go live at once, as a question has no status (FR-AI-07).
     generateQuiz.mockResolvedValue({
       ok: false,
       error: {

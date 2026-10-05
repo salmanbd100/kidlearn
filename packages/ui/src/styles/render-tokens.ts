@@ -8,9 +8,8 @@ import {
   typeScale,
 } from "@kidlearn/tokens";
 
-// `@kidlearn/tokens` as the CSS declarations each marked region of
-// `tokens.css` holds. `tokens.generated.test.ts` fails when the two disagree;
-// `pnpm --filter @kidlearn/ui tokens:generate` rewrites the regions.
+// `@kidlearn/tokens` as the CSS declarations of each marked region of `tokens.css`;
+// `tokens.generated.test.ts` fails when the two disagree.
 
 export const TOKEN_REGIONS = [
   "brand",

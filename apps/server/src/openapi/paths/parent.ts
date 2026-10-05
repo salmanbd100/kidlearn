@@ -8,7 +8,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-// `modules/parent/parent.routes.ts` — `requireParent` guards the whole router.
+// `requireParent` guards the whole router.
 
 export const PARENT_ROUTES: RouteDoc[] = [
   {

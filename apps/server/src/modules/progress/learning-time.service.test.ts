@@ -1,7 +1,3 @@
-/**
- * The pure half of learning time: heartbeat density → minutes, and a range name →
- * two instants.
- */
 import { describe, expect, it } from "vitest";
 import { localDayStartUtc } from "../../shared/utils/local-date.js";
 import {
@@ -17,7 +13,6 @@ const TZ = "Asia/Dhaka";
 const FROM = new Date("2026-08-18T00:00:00.000Z");
 const TO = new Date("2026-08-19T00:00:00.000Z");
 
-/** `n` heartbeats at the client's 30s cadence, starting at `start`. */
 function beatsFrom(start: string, count: number): Date[] {
   const first = new Date(start).getTime();
   return Array.from(
@@ -32,9 +27,7 @@ describe("computeLearningMinutes", () => {
   });
 
   it("credits a lone event the heartbeat interval it stands for", () => {
-    // A single beat is 30s of presence, and 30s rounds to 1 minute. Asserting the
-    // rounding rather than the seconds: `Math.round(0.5)` is the one boundary in
-    // this function a reader would guess wrong, so it is pinned here.
+    // 30s of presence rounds to 1 minute; `Math.round(0.5)` is the boundary a reader would guess wrong, so it is pinned.
     expect(
       computeLearningMinutes([new Date("2026-08-18T09:00:00.000Z")], FROM, TO),
     ).toBe(1);
@@ -42,8 +35,7 @@ describe("computeLearningMinutes", () => {
   });
 
   it("measures a dense run end to end plus the tail credit", () => {
-    // 21 beats at 30s = 10 minutes between first and last, + 30s tail = 10.5 →
-    // rounds to 11.
+    // 10 min between first and last + 30s tail = 10.5 → 11.
     expect(
       computeLearningMinutes(beatsFrom("2026-08-18T09:00:00Z", 21), FROM, TO),
     ).toBe(11);
@@ -93,26 +85,22 @@ describe("computeLearningMinutes", () => {
   });
 
   it("counts every event type, not only heartbeats", () => {
-    // The point of the signature: a lesson_complete arriving between two beats
-    // keeps the session alive, because the caller passes timestamps and the
-    // function never sees a type.
+    // A lesson_complete between two beats keeps the session alive: the function sees timestamps, never a type.
     const start = new Date("2026-08-18T09:00:00.000Z").getTime();
     const events = [
       new Date(start),
-      // 80s later — inside the gap only because this event exists.
+      // 80s later: inside the gap only because this event exists.
       new Date(start + 80_000),
       new Date(start + 160_000),
     ];
 
-    // 160s spanned + 30s tail = 3.17 min → 3. Drop the middle event and the run
-    // becomes two lone beats worth 1 minute between them.
+    // 160s + 30s tail = 3.17 → 3; without the middle event it is two lone beats worth 1 minute between them.
     expect(computeLearningMinutes(events, FROM, TO)).toBe(3);
     expect(computeLearningMinutes([events[0], events[2]], FROM, TO)).toBe(1);
   });
 
   it("splits a session that crosses midnight between the two days it spans", () => {
-    // 23:58 to 00:04 local, in Dhaka. Every beat is inside one sitting, but the
-    // two queries see different halves of it.
+    // 23:58 to 00:04 Dhaka: one sitting, but the two range queries see different halves.
     const midnight = localDayStartUtc(TZ, "2026-08-19");
     const beats = Array.from(
       { length: 13 },
@@ -134,16 +122,14 @@ describe("computeLearningMinutes", () => {
     expect(dayOne).toBe(2);
     // Nine after span 240s, + 30s = 4.5 → 5.
     expect(dayTwo).toBe(5);
-    // Each day's tail credit lands in its own range, so the split adds one beat
-    // interval that the unsplit sitting would not have counted. That is the
-    // documented cost of crediting a period the moment it is queried.
+    // Each day's tail credit lands in its own range, so the split counts one extra beat interval:
+    // the documented cost of crediting a period when it is queried.
     expect(dayOne + dayTwo).toBe(7);
   });
 
   it("measures a realistic twenty-minute lesson with a break in the middle", () => {
     const events = [
-      // Twelve minutes of lesson, then the child wanders off for four, then eight
-      // minutes more.
+      // Twelve minutes of lesson, four away, eight more.
       ...beatsFrom("2026-08-18T09:00:00Z", 25),
       ...beatsFrom("2026-08-18T09:16:00Z", 17),
     ];
@@ -174,9 +160,7 @@ describe("learningTimeWindow", () => {
   });
 
   it("treats a Sunday as the end of its week, not the start of the next", () => {
-    // Sunday 23 August 2026, 10:00 Dhaka. `startOfWeek(weekStartsOn: 1)` on a
-    // Sunday is six days back, which is the one weekday the arithmetic gets wrong
-    // if it reads Sunday as day 0 of its own week.
+    // Sunday: `startOfWeek(weekStartsOn: 1)` goes six days back, which the arithmetic gets wrong if it reads Sunday as day 0.
     const sunday = new Date("2026-08-23T04:00:00.000Z");
     const { from } = learningTimeWindow("week", sunday, TZ);
 
@@ -197,10 +181,8 @@ describe("learningTimeWindow", () => {
   });
 
   it("resolves the offset per instant, so a DST zone gets a true local midnight", () => {
-    // New York on 8 March 2026 — the spring-forward day. Midnight is EST (−05),
-    // the following midnight EDT (−04), so the window is 23 hours long. Nothing in
-    // the MVP deployment observes DST; this asserts the arithmetic does not depend
-    // on that being true.
+    // New York on 8 March 2026 (spring-forward): midnight is EST, the next EDT, so the window is 23 hours.
+    // Asserts the arithmetic does not depend on no DST being observed.
     const { from, to } = learningTimeWindow(
       "today",
       new Date("2026-03-08T18:00:00.000Z"),

@@ -1,9 +1,5 @@
-// The design tokens as values (design.md §2–§5) — the machine-readable source.
-// `design.md` stays the prose source of truth and `design.test.ts` holds the two
-// together. The web app reads these through `packages/ui/src/styles/tokens.css`,
-// whose marked regions are generated from this file
-// (`pnpm --filter @kidlearn/ui tokens:generate`); `apps/mobile` reads them
-// directly, since React Native has no CSS variables (`mobile-app-plan.md §4.1`).
+// Design tokens as values (design.md §2–§5). tokens.css is generated from this file
+// (`pnpm --filter @kidlearn/ui tokens:generate`); `apps/mobile` reads it directly.
 
 /** design.md §2.1 — decorative and game art only; UI uses a theme's colours. */
 export const brand = {
@@ -41,10 +37,7 @@ export const motion = {
   durationMs: { fast: 120, base: 220, slow: 400 },
 } as const;
 
-/**
- * design.md §3.2 — only the step that differs from Tailwind's default: its own
- * `lg` is 1.125rem, and kid surfaces may never go below 20px.
- */
+/** Only the step differing from Tailwind's default (`lg` is 1.125rem); kid surfaces never go below 20px. */
 export const typeScale = {
   lg: { sizeRem: 1.25, lineHeight: 1.4 },
 } as const;
@@ -151,8 +144,5 @@ export const themes = {
 
 export type ThemeName = keyof typeof themes;
 
-/**
- * What every theme defines. Both themes are checked against `Theme` above, so a
- * colour added to one and not the other is a type error, not an `undefined`.
- */
+/** What every theme defines; a colour missing from one theme is a type error. */
 export type ThemeTokens = Theme;

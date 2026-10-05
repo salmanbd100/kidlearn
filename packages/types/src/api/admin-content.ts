@@ -3,10 +3,7 @@ import { GradeLevelSchema } from "./children.js";
 import { PaletteSchema } from "./content.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/admin/content/*` — the curriculum as an **author** sees it (file 32,
- * FR-CURR-04, FR-CMS-01, FR-CMS-06).
- */
+/** `/api/admin/content/*` — the curriculum as an **author** sees it (FR-CURR-04, FR-CMS-01, FR-CMS-06). */
 export const CONTENT_STATUSES = [
   "draft",
   "in_review",
@@ -28,9 +25,7 @@ export const CONTENT_RESOURCES = [
 export const ContentResourceSchema = z.enum(CONTENT_RESOURCES);
 export type ContentResourceName = z.infer<typeof ContentResourceSchema>;
 
-/**
- * The three that carry a `sortOrder` column, and can therefore be reordered.
- */
+/** The three with a `sortOrder` column, hence reorderable. */
 export const ORDERABLE_CONTENT_RESOURCES = [
   "subjects",
   "topics",
@@ -64,10 +59,8 @@ export function nextContentStatuses(
 }
 
 /**
- * Whether a row's content may be rewritten at its current status. Only a row
- * that has no review decision riding on it is editable: rewriting `in_review`
- * changes the content under the reviewer, and rewriting `approved` would let
- * `approved → published` ship words nobody approved.
+ * Whether a row's content may be rewritten at its status. Editing `in_review` changes content under
+ * the reviewer; editing `approved` would let `approved → published` ship words nobody approved.
  */
 export function isContentEditable(status: ContentStatusValue): boolean {
   return (
@@ -105,9 +98,8 @@ export const AdminSubjectSchema = AuditFieldsSchema.extend({
   slug: z.string(),
   name: z.string(),
   /**
-   * Position among siblings, written only by `PATCH /subjects/reorder`. Contiguous
-   * from 0 after any reorder; a row created since may share the tail index until
-   * the next one.
+   * Position among siblings, written only by `PATCH /subjects/reorder`; contiguous from 0 after one,
+   * though a newer row may share the tail index until the next.
    */
   sortOrder: z.number().int(),
   gradeLevels: z.array(GradeLevelSchema),
@@ -135,7 +127,7 @@ export const AdminLessonTranslationSchema = z
   .object({
     title: z.string(),
     introScript: z.string(),
-    /** `MediaAsset.id`, or `null` until the media library (file 33) fills it in. */
+    /** `MediaAsset.id`, or `null` until the media library fills it in. */
     videoAssetId: z.string().nullable(),
   })
   .strict();
@@ -152,7 +144,7 @@ export const AdminLessonSchema = AuditFieldsSchema.extend({
   status: ContentStatusSchema,
   activityId: z.string().nullable(),
   quizId: z.string().nullable(),
-  /** Prefixed tokens the weekly report unions across a week (file 30). */
+  /** Prefixed tokens the weekly report unions across a week. */
   conceptsIntroduced: z.array(z.string()),
   translations: z
     .object({
@@ -186,10 +178,7 @@ export const ReorderedIdsSchema = z
 export const ReorderedIdsResponseSchema = ok(ReorderedIdsSchema);
 export type ReorderedIds = z.infer<typeof ReorderedIdsSchema>;
 
-/**
- * A character sheet — the stable visual description of one recurring character
- * (file 36, FR-AI-09).
- */
+/** A character sheet — the stable visual description of one recurring character (FR-AI-09). */
 export const CharacterSheetSchema = z
   .object({
     id: z.string(),

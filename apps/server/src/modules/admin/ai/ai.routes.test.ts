@@ -1,31 +1,14 @@
 /**
- * `/api/admin/ai` — the generation pipeline's HTTP surface (files 34–36,
- * FR-AI-01..05).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One `admins` array behind the guard, and the
- *     generator services are mocked at their own boundary: this suite is about
- *     the routes — guards, validation, status codes, contracts — and what each
- *     generator writes is asserted against a stubbed database in
- *     `services/ai/generators/{lesson,story,quiz}.test.ts`.
- *  2. *Assert the query, not just the result.* The claim this file makes about
- *     the database is negative — an unauthenticated or non-admin request must not
- *     reach the generator at all — so it asserts the service was never called.
- *     The one positive claim is the daily cap's: the stubbed `count` applies the
- *     `type.in` clause to a jobs array, so "the audio bucket is full" is
- *     expressed as audio rows rather than as a queued number, and the test that
- *     a full audio bucket still lets a lesson through means something.
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here
- *     reads content.
- *  4. *Name what the stub cannot prove.* That generated content is invisible to
- *     a child is a property of the student API's `status: "published"` filter,
- *     asserted in `modules/content/content.routes.test.ts` and `modules/content/stories.routes.test.ts`, and of
- *     the `draft` default, asserted in the generator suites. Neither is provable
- *     from here. Nor is the *reason* the quiz route refuses a published quiz —
- *     the guard lives in the generator, and this file asserts only that its `409`
- *     survives the HTTP boundary with its `details.code` intact.
+ * `/api/admin/ai` HTTP surface. Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: one `admins` array behind the guard; generator services are mocked at their own
+ *     boundary (what they write is asserted in the generator suites).
+ *  2. Assert the query: an unauthenticated or non-admin request must not reach the generator, so the service is
+ *     asserted never called. The daily cap's stubbed `count` applies `type.in` to a jobs array, so a full audio
+ *     bucket is expressed as audio rows.
+ *  3. `include` gates: not applicable, nothing here reads content.
+ *  4. Not provable: that generated content is invisible to a child is the student API's `status: "published"`
+ *     filter (content.routes.test.ts, stories.routes.test.ts) and the `draft` default (generator suites). The
+ *     quiz route's 409 is asserted only to survive the HTTP boundary with `details.code` intact.
  */
 
 import {
@@ -61,7 +44,6 @@ const QUIZ_ID = "77777777-7777-4777-8777-777777777777";
 
 const store = vi.hoisted(() => ({
   admins: [] as Array<Record<string, unknown> & { authUserId: string | null }>,
-  /** The rows `requireGenerationBudget` counts (file 36). */
   jobs: [] as Array<{ type: string; createdAt: Date }>,
 }));
 
@@ -97,8 +79,7 @@ vi.mock("./generators/illustration.js", () => ({
 vi.mock("../../../config/prisma.js", () => ({
   prisma: {
     adminUser: { findUnique: db.adminFindUnique },
-    // Present so a stray parent-provisioning read fails loudly: no admin route
-    // may create a Parent row.
+    // A stray parent-provisioning read fails loudly: no admin route may create a Parent row.
     parent: { findUnique: vi.fn(), upsert: vi.fn() },
     account: { findFirst: vi.fn() },
     aIGenerationJob: {
@@ -120,8 +101,7 @@ const { app } = await import("../../../app.js");
 const { auth } = await import("../../../config/auth.js");
 
 function mockSession(userId: string) {
-  // Only the fields the guards read are supplied, so the deep better-auth return
-  // type is narrowed at this boundary.
+  // Only the fields the guards read are supplied; the deep better-auth return type is narrowed here.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
     session: { id: `session_${userId}`, userId, createdAt: new Date() },
@@ -214,12 +194,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/**
- * The guard is `requireAdmin` on the parent router, so it holds for every path
- * here by construction — but "by construction" is exactly the claim a new route
- * mounted in the wrong place breaks, so each generator is checked in its own
- * right.
- */
+// requireAdmin guards the parent router, but a route mounted in the wrong place would break that,
+// so each generator is checked in its own right.
 const GUARDED: Array<{
   path: string;
   send: () => Record<string, unknown>;
@@ -253,8 +229,7 @@ describe("the admin guard", () => {
     });
 
     it(`403s a signed-in parent on POST ${route.path}, without reaching the generator`, async () => {
-      // A Google sign-in never writes an AdminUser row, and that absence *is* the
-      // authorisation check (spec §4.3).
+      // A Google sign-in never writes an AdminUser row; that absence is the authorisation check.
       mockSession(PARENT_USER_ID);
 
       const res = await request(app).post(route.path).send(route.send());
@@ -279,9 +254,8 @@ describe("POST /api/admin/ai/generate/lesson", () => {
   });
 
   it("202s with a failed job rather than an error status", async () => {
-    // A generation that could not produce valid output is not a broken request.
-    // The job row exists and holds both attempts (FR-AI-08), so the caller is
-    // given it and branches on `status`.
+    // A generation that produced no valid output is not a broken request: the job row holds both attempts,
+    // so the caller branches on `status`.
     service.generateLesson.mockResolvedValue({
       jobId: "job-2",
       status: "failed",
@@ -329,8 +303,7 @@ describe("POST /api/admin/ai/generate/lesson", () => {
   });
 
   it("400s on a repeated language", async () => {
-    // A repeat asks for the same script twice and would make the schema's locale
-    // keys ambiguous.
+    // A repeat asks for the same script twice, making the schema's locale keys ambiguous.
     const res = await request(app)
       .post(PATH)
       .send(body({ languages: ["en", "en"] }));
@@ -340,8 +313,7 @@ describe("POST /api/admin/ai/generate/lesson", () => {
   });
 
   it("400s on a status the caller tried to smuggle in", async () => {
-    // `.strict()` is what keeps generated content out of `published`: there must
-    // be no body key that names a status, on this route above all (FR-AI-07).
+    // `.strict()` keeps generated content out of `published`: no body key may name a status (FR-AI-07).
     const res = await request(app)
       .post(PATH)
       .send({ ...body(), status: "published" });
@@ -461,8 +433,7 @@ describe("POST /api/admin/ai/generate/story", () => {
   });
 
   it("400s on a status the caller tried to smuggle in", async () => {
-    // `.strict()` is what keeps generated content out of `published`: there must
-    // be no body key that names a status (FR-AI-07).
+    // `.strict()` keeps generated content out of `published`: no body key may name a status (FR-AI-07).
     const res = await request(app)
       .post(STORY_PATH)
       .send({ ...storyBody(), status: "published" });
@@ -495,8 +466,7 @@ describe("POST /api/admin/ai/generate/quiz", () => {
   });
 
   it("defaults the count in the service rather than the body", async () => {
-    // The default lives next to the prompt that has to state it, so the body may
-    // legitimately omit it.
+    // The default lives next to the prompt that states it, so the body may omit it.
     await request(app)
       .post(QUIZ_PATH)
       .send({
@@ -521,8 +491,7 @@ describe("POST /api/admin/ai/generate/quiz", () => {
   });
 
   it("400s on a grade level, which comes from the lesson and not the caller", async () => {
-    // A body that could name a grade would be a way to ask for questions pitched
-    // at an age the lesson was not written for.
+    // A body naming a grade could ask for questions pitched at an age the lesson was not written for.
     const res = await request(app)
       .post(QUIZ_PATH)
       .send({ ...quizBody(), gradeLevel: "NURSERY" });
@@ -541,9 +510,7 @@ describe("POST /api/admin/ai/generate/quiz", () => {
   });
 
   it("surfaces the generator's 409 for a published quiz, with its code intact", async () => {
-    // The client branches on `details.code` to tell this apart from any other
-    // conflict on the same status — it is the difference between "withdraw the
-    // quiz" and something the admin cannot act on.
+    // The client branches on `details.code` to tell this from other conflicts on the same status.
     const { ApiError } = await import("../../../shared/errors/errors.js");
     service.generateQuiz.mockRejectedValue(
       ApiError.conflict(
@@ -590,8 +557,7 @@ describe("POST /api/admin/ai/generate/narration", () => {
   });
 
   it("202s with no jobs at all when everything already has audio", async () => {
-    // Re-running the action on finished work is the ordinary case, not an error:
-    // nothing was wrong with the request, and `skipped` is what says so.
+    // Re-running on finished work is ordinary, not an error; `skipped` says so.
     service.generateNarrationBatch.mockResolvedValue({
       jobIds: [],
       skipped: 4,
@@ -631,9 +597,8 @@ describe("POST /api/admin/ai/generate/narration", () => {
   });
 
   it("400s on a language the caller tried to choose", async () => {
-    // The locales are computed from what has text and no audio. A body that could
-    // name one would be a way to re-record an existing clip, or to ask for a
-    // Bangla clip on a page with no Bangla text.
+    // Locales are computed from text without audio; a body naming one could re-record a clip or ask for Bangla
+    // on a page with no Bangla text.
     const res = await request(app)
       .post(NARRATION_PATH)
       .send({ ...narrationBody(), language: "bn" });
@@ -688,8 +653,7 @@ describe("POST /api/admin/ai/generate/illustrations", () => {
   });
 
   it("400s on a prompt the caller tried to supply", async () => {
-    // A caller-supplied prompt would be a way to draw a picture no character
-    // sheet was applied to, which is FR-AI-09 defeated in one request.
+    // A caller-supplied prompt could draw a picture no character sheet was applied to (FR-AI-09).
     const res = await request(app)
       .post(ILLUSTRATIONS_PATH)
       .send({ ...illustrationsBody(), prompt: "a rabbit, any rabbit" });
@@ -713,7 +677,6 @@ describe("POST /api/admin/ai/generate/illustrations", () => {
   });
 });
 
-/** The daily caps (file 36). */
 describe("the daily generation caps", () => {
   it("429s the text generators once the text bucket is full", async () => {
     fillBucket("lesson", env.AI_TEXT_JOBS_PER_DAY);
@@ -726,8 +689,7 @@ describe("the daily generation caps", () => {
   });
 
   it("shares one text bucket across lesson, story and quiz", async () => {
-    // Three job types, one ceiling: the three cost roughly the same per call, so
-    // a day of story writing has to count against the lesson budget.
+    // Three job types, one ceiling: they cost about the same per call, so story writing counts against the lesson budget.
     fillBucket("story", env.AI_TEXT_JOBS_PER_DAY);
 
     for (const [path, send] of [
@@ -762,8 +724,7 @@ describe("the daily generation caps", () => {
   });
 
   it("does not let a full audio bucket block a lesson generation", async () => {
-    // The three ceilings are independent so a morning of narration work cannot
-    // stop somebody writing a lesson in the afternoon.
+    // Independent ceilings: a morning of narration must not stop a lesson in the afternoon.
     fillBucket("audio", env.AI_AUDIO_JOBS_PER_DAY);
     fillBucket("image", env.AI_IMAGE_JOBS_PER_DAY);
 
@@ -787,9 +748,8 @@ describe("the daily generation caps", () => {
   });
 
   it("refuses before validation runs, so a full bucket bills nothing", async () => {
-    // The guard sits ahead of the body schema: a request that would have been a
-    // `400` still gets the `429`, because there is no budget to spend on finding
-    // out what was wrong with it.
+    // The guard sits ahead of the body schema: a request that would 400 still gets the 429, as there is no
+    // budget to spend finding out what was wrong.
     fillBucket("audio", env.AI_AUDIO_JOBS_PER_DAY);
 
     const res = await request(app)

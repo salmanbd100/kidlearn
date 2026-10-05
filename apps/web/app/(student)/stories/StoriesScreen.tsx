@@ -13,7 +13,6 @@ import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 
-/** The Story Library (FR-STORY-01). */
 export function StoriesScreen() {
   return <Retryable>{(retry) => <StoriesContent onRetry={retry} />}</Retryable>;
 }
@@ -53,8 +52,7 @@ function StoriesContent({ onRetry }: { onRetry: () => void }) {
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-6">
-      {/* Back at the top-left, opposite the parent-corner lock — the two exits
-          from a screen are never adjacent enough to mis-tap between. */}
+      {/* Back at top-left, opposite the parent-corner lock, so the two exits can't be mis-tapped. */}
       <div className="pr-14">
         <BigButton
           variant="secondary"

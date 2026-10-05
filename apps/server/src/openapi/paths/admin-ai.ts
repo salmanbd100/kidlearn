@@ -19,19 +19,7 @@ import {
 import { AI_JOB_LIST_EXAMPLE } from "../examples.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/admin/ai/ai.routes.ts` — the AI generation pipeline (files 34–36, FR-AI-01..06,
- * FR-AI-08, FR-AI-09).
- */
-
-/**
- * Compile-time guards on the three mirrored job enums. `@kidlearn/types` may not
- * depend on `@kidlearn/db`, so it restates `AIJobType`, `AIJobStatus` and
- * `AIReviewDecision` by hand; these assignments make the restatement checked
- * rather than trusted, exactly as `paths/children.ts` does for `GradeLevel`.
- * Adding a job type or a review decision to `schema.prisma` without adding it to
- * `packages/types` fails `pnpm typecheck` here.
- */
+/** Compile-time guards: `@kidlearn/types` cannot depend on `@kidlearn/db`, so these make its restated job enums checked, not trusted. */
 type _JobEnumsAgree = AIJobType extends AiJobType
   ? AiJobType extends AIJobType
     ? AIJobStatus extends AiJobStatus
@@ -118,7 +106,7 @@ const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   ["FORBIDDEN"],
 );
 
-/** The `429` every generation operation shares (file 36). */
+/** The `429` every generation operation shares. */
 const RATE_LIMITED_RESPONSE = errorResponse(
   [
     'Today\'s generation cap for this operation\'s cost bucket is used up. `error.details` carries `{ bucket, cap, used, pending }` — the arithmetic, not just the verdict, so a client can say "40 of 50 used, this needs 16" rather than "try again tomorrow".',

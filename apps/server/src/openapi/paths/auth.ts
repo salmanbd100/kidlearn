@@ -7,7 +7,6 @@ import {
 import { AUTH_ME_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/** `modules/auth/auth.routes.ts` — the two routes kidlearn defines itself on `/api/auth`. */
 export const AUTH_ROUTES: RouteDoc[] = [
   {
     method: "get",
@@ -82,7 +81,6 @@ export const AUTH_ROUTES: RouteDoc[] = [
   },
 ];
 
-/** better-auth's own endpoints, mounted by `app.all("/api/auth/{*any}")`. */
 export const BETTER_AUTH_ROUTES: RouteDoc[] = [
   {
     method: "post",

@@ -2,14 +2,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// The student layout owns the viewport: `min-h-dvh` and all four safe-area
-// insets (design.md §6). A screen inside it that applies them again doubles the
-// insets on a notched phone and overflows by their height, so the lesson scrolls.
+// The student layout owns `min-h-dvh` and the safe-area insets (design.md §6); a screen reapplying
+// them doubles the insets and overflows.
 
 const WEB_ROOT = join(import.meta.dirname, "..", "..");
 const LAYOUT = join(import.meta.dirname, "layout.tsx");
 
-/** Everything the Student Portal renders, by where it lives. */
 const STUDENT_SURFACES = [
   "app/(student)",
   "features/activities",
@@ -50,8 +48,7 @@ describe("Student Portal viewport chrome", () => {
   });
 
   it("sizes against the dynamic viewport, never `vh`", () => {
-    // `vh` is the viewport with the mobile browser's toolbar retracted, so a
-    // `vh` cap is taller than the screen whenever the toolbar is showing.
+    // `vh` ignores the mobile toolbar, so a `vh` cap exceeds the screen while it is showing.
     expect(offenders(/\[\d+vh\]/)).toEqual([]);
   });
 });

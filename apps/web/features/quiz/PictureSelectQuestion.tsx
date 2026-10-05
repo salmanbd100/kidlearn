@@ -7,7 +7,6 @@ import { OptionCard } from "./OptionCard";
 import type { QuestionProps } from "./types";
 import { useOptionChoice } from "./use-option-choice";
 
-/** Tap the picture (FR-QUIZ-04). */
 export function PictureSelectQuestion({
   definition,
   locale,

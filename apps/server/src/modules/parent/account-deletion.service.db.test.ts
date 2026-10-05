@@ -11,9 +11,8 @@ import {
   requestAccountDeletion,
 } from "./account-deletion.service.js";
 
-// Right to erasure (FR-AUTH-05, NFR-SAFE-05/06) against Postgres: the cascade
-// the stubbed suite reads off `schema.prisma`, and the token that two
-// concurrent confirmations race to spend.
+// Erasure against Postgres: the cascade the stubbed suite reads off `schema.prisma`,
+// and the token two concurrent confirmations race to spend.
 describe("account deletion against Postgres", () => {
   async function accountWithData() {
     const parent = await createParent();

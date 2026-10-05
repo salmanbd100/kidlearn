@@ -6,9 +6,6 @@ import { assertWithinDailyCap } from "./rate-guard.js";
 import { failStaleJobs } from "./stale-jobs.js";
 import type { GenerationStopReason, TokenUsage } from "./types.js";
 
-// The `AIGenerationJob` lifecycle, shared by every generator (FR-AI-08).
-
-/** The feedback appended to the conversation before the single retry. */
 export function buildRetryFeedback(flattenedIssues: string): string {
   return [
     "Your previous response failed schema validation. Errors:",
@@ -24,22 +21,15 @@ export interface GenerationJobResult {
 
 export interface RunGenerationJobOptions<TParsed> {
   type: AIJobType;
-  /** Everything the admin sent, plus prompt metadata. Audit only — never re-read. */
   input: Prisma.JsonObject;
   generate: (retryFeedback?: string) => Promise<{
     raw: unknown;
     usage: TokenUsage;
-    /** Optional so a stub may omit it; the Gemini client always reports it. */
     stopReason?: GenerationStopReason | null;
     refusal?: string;
   }>;
-  /**
-   * The contract. Its *input* is `unknown` rather than `TParsed`: what is being
-   * parsed is JSON the model wrote, and a generator whose schema builds its own
-   * keys per request (`schemas/lesson.ts`) cannot claim otherwise.
-   */
+  /** Input is `unknown`: it is JSON the model wrote, and some schemas build their keys per request. */
   schema: z.ZodType<TParsed, z.ZodTypeDef, unknown>;
-  /** Creates the draft rows. Returns their ids for the audit record. */
   persist: (
     parsed: TParsed,
     jobId: string,
@@ -47,14 +37,11 @@ export interface RunGenerationJobOptions<TParsed> {
   ) => Promise<Prisma.JsonObject>;
 }
 
-/** One call to the model, kept whether or not it validated. */
 type Attempt = {
   attempt: number;
   raw: Prisma.InputJsonValue;
   usage: TokenUsage;
-  /** Absent when the attempt parsed. */
   issues?: string;
-  /** Absent only when the caller does not report one. */
   stopReason?: GenerationStopReason | null;
 };
 
@@ -65,11 +52,8 @@ export async function runGenerationJob<TParsed>(
 ): Promise<GenerationJobResult> {
   await failStaleJobs();
 
-  // The cap is re-checked in the same Serializable transaction that creates the
-  // row. The request-level check alone reads the count before any row exists, so
-  // parallel requests (a double-click, an admin retrying after a timeout) all
-  // pass it and the day's ceiling is overshot; here the loser of the race is
-  // aborted by Postgres, retried, and sees the winner's row.
+  // Re-checked in the same Serializable transaction that creates the row: the request-level check
+  // reads the count before any row exists, so parallel requests all pass it.
   const job = await withSerializationRetry(() =>
     prisma.$transaction(
       async (tx) => {
@@ -137,14 +121,10 @@ export async function runGenerationJob<TParsed>(
     );
   }
 
-  // Held in a `const` so the narrowing above survives into the closure below —
-  // the compiler widens a `let` back to `TParsed | undefined` there.
+  // A `const` so the narrowing survives into the closure below.
   const validated = parsed;
 
-  // `validated` is not `Prisma.InputJsonValue` to the compiler — it is whatever
-  // the caller's schema infers — but it is by construction JSON: it came from a
-  // `JSON.parse` and a Zod parse that only ever narrows. Stored so a reviewer
-  // sees what was actually written from, not just what was said.
+  // `validated` is JSON by construction (JSON.parse then a Zod parse) but not `Prisma.InputJsonValue` to the compiler.
   const parsedJson = toJson(validated);
 
   let entities: Prisma.JsonObject;
@@ -177,9 +157,6 @@ export async function runGenerationJob<TParsed>(
   return { jobId: job.id, status: "awaiting_review" };
 }
 
-/**
- * The two stops that are not worth a second call, named rather than fed back.
- */
 function describeUnretryableStop(generated: {
   stopReason?: GenerationStopReason | null;
   refusal?: string;
@@ -196,10 +173,6 @@ function describeUnretryableStop(generated: {
   }
 }
 
-/**
- * The whole audit trail for one job (FR-AI-08): every attempt verbatim, what they
- * cost together, and whatever the caller has to add about the outcome.
- */
 function auditRecord(
   attempts: Attempt[],
   outcome: Prisma.InputJsonObject,
@@ -222,10 +195,7 @@ function auditRecord(
   };
 }
 
-/**
- * What both attempts cost together. A failed attempt is billed too, so a total
- * that counted only the successful one would under-report every retried job.
- */
+// A failed attempt is billed too, so the total counts both.
 function totalUsage(attempts: Attempt[]): Prisma.InputJsonObject {
   return {
     inputTokens: attempts.reduce((sum, one) => sum + one.usage.inputTokens, 0),
@@ -237,18 +207,14 @@ function totalUsage(attempts: Attempt[]): Prisma.InputJsonObject {
   };
 }
 
-/** Zod issues as the lines the retry shows the model. */
 function flatten(error: z.ZodError): string {
   return error.issues
     .map((issue) => `- ${issue.path.join(".") || "<root>"}: ${issue.message}`)
     .join("\n");
 }
 
-/** JSONB accepts `null`; `undefined` would drop the key instead of recording it. */
 function toJson(value: unknown): Prisma.InputJsonValue {
-  // The values reaching here are the model's parsed JSON and Zod parse output —
-  // JSON by construction, but `unknown` to the compiler because the schema is the
-  // caller's. This is the JSONB column boundary.
+  // JSONB column boundary: JSON by construction, `unknown` to the compiler.
   return (value ?? null) as Prisma.InputJsonValue;
 }
 

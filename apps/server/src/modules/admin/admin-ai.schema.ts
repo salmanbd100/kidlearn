@@ -1,4 +1,3 @@
-/** Route-boundary schemas for `/api/admin/ai/*` (file 34, FR-AI-01). */
 import {
   AiJobStatusSchema,
   AiJobTypeSchema,
@@ -7,11 +6,7 @@ import {
 } from "@kidlearn/types";
 import { z } from "zod";
 
-/**
- * The generator requests are defined in `@kidlearn/types`, where `apps/web` reads
- * their inferred types; re-exported here so every route and the OpenAPI document
- * keep importing them from the module, as `backend.md §7` has it.
- */
+// Defined in @kidlearn/types (apps/web reads them); re-exported so routes import from the module.
 export {
   type GenerateLessonBody,
   GenerateLessonSchema,
@@ -23,7 +18,6 @@ export {
   GenerateStorySchema,
 } from "@kidlearn/types";
 
-/** Which story to illustrate (file 36, FR-AI-05, FR-AI-09). */
 export const GenerateIllustrationsSchema = z
   .object({ storyId: z.string().uuid() })
   .strict();
@@ -32,7 +26,6 @@ export type GenerateIllustrationsBody = z.infer<
   typeof GenerateIllustrationsSchema
 >;
 
-/** Which jobs to list. */
 const PositiveIntSchema = z.coerce.number().int().min(1);
 
 export const AiJobListQuerySchema = z
@@ -52,17 +45,13 @@ export const AiJobIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
 
 export type AiJobIdParams = z.infer<typeof AiJobIdParamsSchema>;
 
-/** Why the reviewer refused (FR-AI-08). */
 export const RejectJobSchema = z
   .object({ reason: z.string().trim().min(10).max(2000) })
   .strict();
 
 export type RejectJobBody = z.infer<typeof RejectJobSchema>;
 
-/**
- * `?jobId=…` on a content or editor mutation — the edit-then-approve breadcrumb
- * (requirement 5).
- */
+// Edit-then-approve breadcrumb on content and editor mutations.
 export const JobBreadcrumbQuerySchema = z
   .object({ jobId: z.string().uuid().optional() })
   .strict();

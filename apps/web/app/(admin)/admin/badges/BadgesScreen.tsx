@@ -22,8 +22,6 @@ import {
 } from "@/features/admin/editors-api";
 import { BadgeForm } from "./BadgeForm";
 
-// `/admin/badges` — the badge manager (FR-GAM-04).
-
 type DialogState =
   | { kind: "closed" }
   | { kind: "create" }
@@ -274,7 +272,6 @@ export function BadgesScreen() {
   );
 }
 
-/** The rule as a sentence, so a list is readable without opening each row. */
 function describeRule(badge: AdminBadge): string {
   const rule = badge.rule;
   if ("days" in rule) return `${rule.days}-day learning streak`;

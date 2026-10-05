@@ -1,28 +1,20 @@
 import { prisma } from "../../config/prisma.js";
 
 /**
- * How long raw `SessionEvent` rows are kept. A child at play writes a heartbeat
- * every 20–30s, so the table grows for as long as the product is used. Nothing
- * live reads further back than a month (the dashboard's widest window); the
- * weekly report holds each week's aggregates for good. Ninety days leaves the
- * report job about twelve weeks to fill a missed Monday from real events.
+ * Raw `SessionEvent` rows grow with every heartbeat; nothing live reads past a month and the weekly report keeps aggregates for good.
+ * 90 days leaves the report job about twelve weeks to fill a missed Monday from real events.
  */
 export const SESSION_EVENT_RETENTION_DAYS = 90;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/**
- * Batched so the first run over a long backlog is many short statements, not
- * one long delete holding a connection from a five-connection pool (R-01).
- */
+/** Batched so a long backlog is many short statements, not one long delete holding a connection from a five-connection pool. */
 const PRUNE_BATCH_SIZE = 5_000;
 
-/** Events before this instant are gone, or about to be. */
 export function sessionEventRetentionCutoff(now: Date): Date {
   return new Date(now.getTime() - SESSION_EVENT_RETENTION_DAYS * DAY_MS);
 }
 
-/** Deletes events older than the retention window; answers how many went. */
 export async function pruneSessionEvents(now = new Date()): Promise<number> {
   const cutoff = sessionEventRetentionCutoff(now);
   let pruned = 0;

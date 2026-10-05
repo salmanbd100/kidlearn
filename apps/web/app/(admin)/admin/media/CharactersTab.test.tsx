@@ -8,8 +8,6 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CharactersTab } from "./CharactersTab";
 
-// The Characters tab (file 36, FR-AI-09).
-
 const api = vi.hoisted(() => ({
   fetchCharacterSheets: vi.fn(),
   fetchWorlds: vi.fn(),
@@ -70,8 +68,7 @@ describe("the sheet list", () => {
   });
 
   it("labels a world-less sheet as every world", async () => {
-    // A narrator or a child protagonist recurs across worlds, and the
-    // illustration generator applies their sheet to every story.
+    // A recurring narrator or protagonist: the illustration generator applies their sheet to every story.
     api.fetchCharacterSheets.mockResolvedValue({
       ok: true,
       data: [{ ...RABBIT, worldId: null }],
@@ -95,8 +92,7 @@ describe("the sheet list", () => {
 
 describe("adding a character", () => {
   it("refuses a description too short to draw consistently from", async () => {
-    // "A rabbit" gives the model nothing to be consistent about, so the form
-    // says so rather than spending a round trip on a 400.
+    // "A rabbit" gives the model nothing consistent; refuse before the round trip.
     await renderTab();
 
     fireEvent.change(screen.getByLabelText("Name"), {
@@ -150,8 +146,7 @@ describe("adding a character", () => {
 
 describe("rewriting a description", () => {
   it("sends only the description, never the slug", async () => {
-    // The slug is how an import recognises a saved character, so one that could
-    // change would let the same mascot be saved twice under two names.
+    // The slug is how an import recognises a saved character; a mutable one would allow duplicates.
     await renderTab();
 
     fireEvent.click(
@@ -212,9 +207,7 @@ describe("saving a story's cast", () => {
   });
 
   it("says nothing was overwritten when every character already had a sheet", async () => {
-    // The second story in a world describes the same mascot in different words;
-    // taking the newer wording would change how it is drawn everywhere else
-    // (FR-AI-09).
+    // Taking the newer wording would change how the mascot is drawn everywhere else (FR-AI-09).
     api.promoteJobCharacters.mockResolvedValue({
       ok: true,
       data: { created: [], skipped: 3 },
@@ -235,9 +228,7 @@ describe("saving a story's cast", () => {
   });
 
   it("disables the button while the import is in flight, so it cannot be sent twice", async () => {
-    // The request is un-retried and writes one row per character; a second click
-    // starts a second import against the same job. The button already reads
-    // `isBusy` — the bug was that this action never set it.
+    // The request is un-retried and writes one row per character; a second click would start a second import.
     let release: (value: unknown) => void = () => {};
     api.promoteJobCharacters.mockReturnValue(
       new Promise((resolve) => {

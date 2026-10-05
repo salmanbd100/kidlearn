@@ -11,7 +11,6 @@ import {
   requireParent,
 } from "../parent/require-parent.middleware.js";
 
-/** Routes that live *alongside* better-auth's own handler. */
 export const authRouter = Router();
 
 type MeResponse = SuccessEnvelope<{
@@ -19,7 +18,6 @@ type MeResponse = SuccessEnvelope<{
   activeChildProfileId: string | null;
 }>;
 
-/** Starts the Google round-trip (FR-AUTH-02). */
 authRouter.get("/google", async (_req, res, next) => {
   try {
     const { headers, response } = await auth.api.signInSocial({
@@ -30,9 +28,7 @@ authRouter.get("/google", async (_req, res, next) => {
       returnHeaders: true,
     });
 
-    // better-auth sets an OAuth `state` cookie on these headers and verifies it
-    // on the callback. Dropping it here would make every sign-in fail the state
-    // check, so forward the headers before redirecting.
+    // Forward better-auth's OAuth `state` cookie, or every sign-in fails the callback state check.
     for (const cookie of headers.getSetCookie()) {
       res.append("set-cookie", cookie);
     }
@@ -46,18 +42,14 @@ authRouter.get("/google", async (_req, res, next) => {
   }
 });
 
-/**
- * The client's "who am I" call. Also the endpoint that provisions the `Parent`
- * row on a brand-new parent's first request, via `requireParent`.
- */
+/** A new parent's first call also provisions the `Parent` row, via `requireParent`. */
 authRouter.get("/me", requireParent, (req, res) => {
   const { parent, session } = authContext(req);
 
   const body: MeResponse = {
     data: {
       parent: toParentSummary(parent),
-      // Which child the session is currently acting as (FR-AUTH-06). Null until
-      // `POST /api/children/:id/activate` sets it in file 11.
+      // Null until `POST /api/children/:id/activate` sets it (FR-AUTH-06).
       activeChildProfileId: session.activeChildProfileId ?? null,
     },
   };

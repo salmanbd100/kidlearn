@@ -18,11 +18,6 @@ import { type FormEvent, useState } from "react";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { generateStory } from "@/features/admin/ai-api";
 
-/**
- * "Write this story for me" — the admin end of the AI Story Generator
- * (file 35, FR-AI-02).
- */
-
 /** The bounds the server enforces, and the length a 3–6 year old sits through. */
 const PAGE_COUNTS = [6, 7, 8] as const;
 const DEFAULT_PAGE_COUNT = 7;
@@ -31,7 +26,6 @@ export interface GenerateStoryDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   worlds: AdminWorld[];
-  /** Shows the "sent to review" notice on the screen behind the dialog. */
   onGenerated: (message: string) => void;
 }
 
@@ -59,8 +53,7 @@ export function GenerateStoryDialog({
     setGradeLevels((current) =>
       current.includes(grade)
         ? current.filter((one) => one !== grade)
-        : // Kept in `GRADE_LEVELS` order rather than click order, so the request
-          // is the same whichever way an admin got to the same set.
+        : // Kept in `GRADE_LEVELS` order, not click order, so equal sets give equal requests.
           GRADE_LEVELS.filter((one) => one === grade || current.includes(one)),
     );
   }
@@ -96,8 +89,7 @@ export function GenerateStoryDialog({
     }
 
     if (result.data.status === "failed") {
-      // Not an error response — the job exists and holds both attempts. Saying
-      // which job it was is what makes it findable in the queue.
+      // Not an error response: the job exists with both attempts; naming it makes it findable.
       setError(
         `The model could not produce a usable story. Job ${result.data.jobId} kept what it tried, so it can be read in the AI Queue.`,
       );

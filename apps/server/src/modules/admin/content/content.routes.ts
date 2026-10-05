@@ -65,13 +65,8 @@ import {
   updateWorld,
 } from "./content.service.js";
 
-/**
- * `/api/admin/content/*` — CRUD over the curriculum hierarchy (file 32,
- * FR-CURR-04, FR-CMS-01, FR-CMS-06).
- */
 export const adminContentRouter = Router();
 
-/** `PATCH /:resource/reorder` is registered before `PATCH /:resource/:id`. */
 function mountReorder(resource: OrderableResource): void {
   adminContentRouter.patch(
     `/${resource}/reorder`,
@@ -94,15 +89,11 @@ for (const resource of ["subjects", "topics", "lessons"] as const) {
   mountReorder(resource);
 }
 
-/**
- * Reads the `:id` path parameter, on routes guarded by
- * `validate({ params: AdminContentIdParamsSchema })`.
- */
+// Cast: routes using this are guarded by `validate({ params: AdminContentIdParamsSchema })`.
 function idParam(req: Request): string {
   return req.params.id as string;
 }
 
-/** Registers the four operations every resource shares. */
 function mountResource<TCreate, TUpdate>(
   resource: ContentResource,
   schemas: { create: ZodType<TCreate>; update: ZodType<TUpdate> },
@@ -124,8 +115,7 @@ function mountResource<TCreate, TUpdate>(
         const admin = adminContext(req);
         const created = await handlers.create(req.body, admin.id);
 
-        // `201`: a create that answered `200` would be indistinguishable from an
-        // edit in a client's logs (`backend.md §5`).
+        // `201`: a `200` create is indistinguishable from an edit in client logs (`backend.md §5`).
         const payload: SuccessEnvelope<AdminContentDto> = { data: created };
         res.status(201).json(payload);
       } catch (error) {
@@ -154,11 +144,8 @@ function mountResource<TCreate, TUpdate>(
     validate({
       params: AdminContentIdParamsSchema,
       body: schemas.update,
-      // File 37 — `?jobId=…` on a save made from the review queue records
-      // `edit_then_approve` on that job. Registered for all four resources rather
-      // than lessons alone: only `Lesson` carries `aiJobId` today, but a
-      // per-resource validator would be a rule the next generated resource has to
-      // remember, and an absent `jobId` costs nothing.
+      // `?jobId=…` on a save from the review queue records `edit_then_approve`. Registered for all four
+      // resources so the next generated resource need not remember a per-resource validator.
       query: JobBreadcrumbQuerySchema,
     }),
     async (req, res, next) => {
@@ -289,10 +276,7 @@ mountResource(
   { create: createLesson, read: getLesson, update: updateLesson },
 );
 
-/**
- * Character sheets live on this router rather than getting their own mount, and
- * outside `mountResource`.
- */
+// Character sheets sit outside `mountResource`, on this router rather than their own mount.
 adminContentRouter.get(
   "/character-sheets",
   validate({ query: CharacterSheetListQuerySchema }),
@@ -325,7 +309,6 @@ adminContentRouter.post(
   },
 );
 
-/** Promotes a story generation's cast into sheets. */
 adminContentRouter.post(
   "/character-sheets/from-job",
   validate({ body: PromoteJobCharactersSchema }),

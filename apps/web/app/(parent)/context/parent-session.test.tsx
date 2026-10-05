@@ -1,12 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/**
- * What the provider reports for each shape of `GET /api/auth/me`. The branch
- * that matters is the 401: it is the ordinary signed-out case and must not be
- * reported as an error, or a signed-out visitor meets a failure message instead
- * of the login screen.
- */
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
@@ -28,7 +22,6 @@ const PARENT = {
 
 type Session = ReturnType<typeof useParentSession>;
 
-/** Every render's session value, so identities can be compared across loads. */
 function renderSession(): Session[] {
   const seen: Session[] = [];
 
@@ -74,8 +67,7 @@ describe("ParentSessionProvider", () => {
 
     await waitFor(() => expect(seen.at(-1)?.status).toBe("signedOut"));
     expect(seen.at(-1)?.parent).toBeUndefined();
-    // A signed-out visitor is routed to login; an error message here would be
-    // reported as a fault instead.
+    // A signed-out visitor is routed to login; an error message here would read as a fault.
     expect(seen.at(-1)?.error).toBeUndefined();
   });
 
@@ -99,9 +91,7 @@ describe("ParentSessionProvider", () => {
 
     const seen = renderSession();
 
-    // `ready` with no list would let every page through while the dashboard
-    // waited on it forever, and skip the onboarding redirect for a parent with
-    // no profiles.
+    // `ready` with no list would let every page through and skip the onboarding redirect.
     await waitFor(() => expect(seen.at(-1)?.status).toBe("error"));
     expect(seen.at(-1)?.error?.code).toBe("NETWORK_ERROR");
   });

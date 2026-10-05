@@ -7,11 +7,6 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { useAudio } from "@/shared/components/AudioProvider";
 
-/**
- * A big illustrated square: how a pre-reader chooses anything — a world, a
- * lesson, a character, an answer.
- */
-
 const iconTileVariants = cva(
   "group inline-flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border-2 bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring disabled:pointer-events-none disabled:opacity-50",
   {
@@ -30,11 +25,8 @@ const iconTileVariants = cva(
 );
 
 export interface IconTileProps extends VariantProps<typeof iconTileVariants> {
-  /** Always visible — kid surfaces never rely on an icon alone (design.md §1). */
   label: string;
-  /** A Lucide icon or any node. Ignored when `imageSrc` is given. */
   icon?: ReactNode;
-  /** Illustration URL; rendered through `next/image`. */
   imageSrc?: string;
   audioSrc?: string;
   onPress?: () => void;

@@ -1,28 +1,11 @@
 /**
- * `/api/admin/content/{quizzes,activities,badges}` — the guided editors
- * (file 33, FR-CMS-03, FR-GAM-04).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* Four arrays, and the stub applies each route's
- *     real `where`, `orderBy`, `count` and `_count` to them. So "the second
- *     question got `sortOrder` 1" is a consequence of what the first create wrote,
- *     and the renumbering test reads back rows the delete itself moved.
- *  2. *Assert the query, not just the result.* The round trip below re-parses a
- *     stored `definition` with `parseQuizQuestion` — the throwing parser the
- *     student API's own reader is built on — so the acceptance criterion "parses
- *     when read back raw from Postgres" is asserted against the payload actually
- *     in the store, not against the response body.
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here is
- *     content-gated. This API deliberately returns drafts, and the student gate
- *     lives in `modules/content/content.routes.ts`, where `content.routes.test.ts` covers it.
- *  4. *Name what the stub cannot prove.* Two things. The unique index behind
- *     `409 DUPLICATE_SLUG` on a badge is asserted against `schema.prisma` at the
- *     bottom of this file rather than by inserting a duplicate, as is the
- *     `@@unique([quizId, sortOrder])` the renumbering exists for. And the
- *     Serializable isolation that makes a concurrent publish-and-edit safe is
- *     asserted as the level passed to `$transaction`, not by racing two writes.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`; the four bounds:
+ *  1. Stub state: four arrays; the stub applies each route's real `where`, `orderBy`, `count` and `_count`, so
+ *     `sortOrder` and renumbering are consequences of earlier writes.
+ *  2. The round trip re-parses the stored `definition` with `parseQuizQuestion`, asserting the payload in the store.
+ *  3. Not applicable: this API deliberately returns drafts; the student gate is covered in `content.routes.test.ts`.
+ *  4. The unique indexes (`DUPLICATE_SLUG`, `@@unique([quizId, sortOrder])`) are asserted against `schema.prisma` at the
+ *     bottom; Serializable isolation is asserted as the level passed to `$transaction`.
  */
 
 import { readFileSync } from "node:fs";
@@ -55,10 +38,8 @@ const BASE = "/api/admin/content";
 
 const ADMIN_USER_ID = "user_admin_1";
 const PARENT_USER_ID = "user_parent_1";
-/** The `AdminUser.id` behind that session — what a decision is stamped with. */
 const ADMIN_ID = "11111111-1111-4111-8111-111111111111";
 
-/** Ids are uuids because every params schema demands one. */
 const QUIZ_ID = "eeeeeeee-0000-4000-8000-000000000001";
 const ACTIVITY_ID = "ffffffff-0000-4000-8000-000000000001";
 const BADGE_ID = "aaaaaaaa-1111-4000-8000-000000000001";
@@ -73,11 +54,8 @@ const store = vi.hoisted(() => ({
   responses: [] as Row[],
   activities: [] as Row[],
   badges: [] as Row[],
-  /** The media library, by URL — what the publish hop resolves payload links to. */
   mediaAssets: [] as Array<{ url: string; aiJobId: string | null }>,
-  /** File 37 — the jobs a `?jobId` save can record its decision on. */
   jobs: [] as Row[],
-  /** Isolation levels `$transaction` was called with, for bound 4 above. */
   isolationLevels: [] as Array<string | undefined>,
   nextId: 0,
 }));
@@ -116,7 +94,6 @@ vi.mock("../../../config/prisma.js", async () => {
     });
   };
 
-  /** A minimal Prisma model over one array. */
   function table(
     rows: () => Row[],
     defaults: () => Record<string, unknown>,
@@ -148,8 +125,7 @@ vi.mock("../../../config/prisma.js", async () => {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         store.nextId += 1;
         const row: Row = {
-          // Uuid-shaped, because every params schema on this surface demands one
-          // and a `generated-1` id would fail validation before the handler ran.
+          // Uuid-shaped, as every params schema demands one.
           id: `99999999-0000-4000-8000-${String(store.nextId).padStart(12, "0")}`,
           ...defaults(),
           ...data,
@@ -222,7 +198,6 @@ vi.mock("../../../config/prisma.js", async () => {
     }),
   );
 
-  /** Adds the `_count` the service's `quizSelect` asks for. */
   const withQuestionCount = (row: Row) => ({
     ...row,
     _count: {
@@ -249,9 +224,7 @@ vi.mock("../../../config/prisma.js", async () => {
         where: { id: string };
         data: Record<string, unknown>;
       }) => withQuestionCount(await quizTable.update(args)),
-      // `_count: { select: { questions: true } }` and the nested `questions`
-      // select the service reads are resolved here rather than in `table`, which
-      // knows nothing about relations.
+      // The `_count` and nested `questions` select are resolved here; `table` knows nothing about relations.
       findUnique: async (args: {
         where: { id: string };
         select?: Record<string, unknown>;
@@ -282,8 +255,7 @@ vi.mock("../../../config/prisma.js", async () => {
     },
     quizQuestion: {
       ...questionTable,
-      // `readQuizAiJobIds` asks for the distinct jobs that wrote a quiz's
-      // questions; the generic table has neither `select` nor `distinct`.
+      // `readQuizAiJobIds` needs `select` and `distinct`, which the generic table lacks.
       findMany: async ({
         where,
         distinct,
@@ -319,11 +291,8 @@ vi.mock("../../../config/prisma.js", async () => {
       findMany: async ({ where }: { where: { url: { in: string[] } } }) =>
         store.mediaAssets.filter((asset) => where.url.in.includes(asset.url)),
     },
-    // File 37 — the edit-then-approve breadcrumb. `updateMany` rather than
-    // `update` in the service, so the "still awaiting review" condition is part
-    // of the write; the stub applies it for the same reason.
+    // `updateMany` in the service puts the "still awaiting review" condition in the write; the stub applies it too.
     aIGenerationJob: {
-      // `assertAiPublishable` reads every job a row answers for in one query.
       findMany: async ({ where }: { where: { id: { in: string[] } } }) =>
         store.jobs.filter((row) => where.id.in.includes(row.id as string)),
       updateMany: async ({
@@ -345,7 +314,6 @@ vi.mock("../../../config/prisma.js", async () => {
       () => ({ status: "draft", description: null, iconAssetId: null }),
       ["slug"],
     ),
-    // Present so a stray parent-provisioning read fails loudly.
     parent: { findUnique: vi.fn(), upsert: vi.fn() },
     account: { findFirst: vi.fn() },
   };
@@ -357,8 +325,7 @@ const { app } = await import("../../../app.js");
 const { auth } = await import("../../../config/auth.js");
 
 function mockSession(userId: string) {
-  // Only the fields the guards read are supplied, so the deep better-auth return
-  // type is narrowed at this boundary.
+  // Only the fields the guards read, narrowing the deep better-auth return type.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
     session: { id: `session_${userId}`, userId, createdAt: new Date() },
@@ -403,8 +370,7 @@ function seedBadge(
     ruleType: "lessons_completed_in_topic",
     rule: { topicSlug: "alphabet", count: "all" },
     iconAssetId: icon?.id ?? null,
-    // The stub returns whole rows and ignores `select`, so the relation the
-    // service reads `iconUrl` from is seeded as a nested object here.
+    // The stub ignores `select`, so the relation `iconUrl` is read from is seeded as a nested object.
     iconAsset:
       icon === undefined
         ? null
@@ -430,8 +396,7 @@ beforeEach(() => {
   store.responses = [];
   store.activities = [];
   store.badges = [];
-  // Every fixture's media is in the library, as it is for anything an editor
-  // built with the picker; the cases about unregistered links clear it.
+  // Every fixture's media is in the library; the unregistered-link cases clear it.
   store.mediaAssets = [
     ...collectAssetUrls([
       validDragDrop,
@@ -518,8 +483,7 @@ describe("POST /api/admin/content/quizzes", () => {
   });
 
   it("rejects a body carrying a status", async () => {
-    // Publishing has one door, and it is the transition endpoint. A create that
-    // accepted `status` would be a second one with no review behind it.
+    // Publishing has one door, the transition endpoint; a create accepting `status` would be a second with no review.
     const res = await request(app)
       .post(`${BASE}/quizzes`)
       .send({ title: "Letters", status: "published" });
@@ -588,9 +552,7 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
   });
 
   it("stores a payload that parses when read back raw", () => {
-    // The acceptance criterion, asserted against the row rather than the
-    // response: `parseQuizQuestion` throws, and it is the same parser the student
-    // API's reader is built on.
+    // Asserted against the stored row with the throwing parser the student API's reader uses.
     return request(app)
       .post(`${BASE}/quizzes/${QUIZ_ID}/questions`)
       .send({ format: "match_pair", definition: validMatchPair })
@@ -623,9 +585,7 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
   });
 
   it("names the offending field when a locale is missing", async () => {
-    // A missing `bn` prompt would ship an untranslated question to a Bangla
-    // learner (FR-I18N-01). The path is prefixed `definition.` so the editor can
-    // put the message under the input that produced it.
+    // A missing `bn` prompt would ship untranslated text to a Bangla learner (FR-I18N-01); the `definition.` prefix lets the editor place the message.
     const res = await request(app)
       .post(`${BASE}/quizzes/${QUIZ_ID}/questions`)
       .send({ format: "mcq", definition: invalidMcqMissingBanglaPrompt });
@@ -637,8 +597,7 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
   });
 
   it("rejects a payload whose type disagrees with the format column", async () => {
-    // Two columns' worth of one fact. A row where they disagree is what makes the
-    // student endpoint answer `500`, so it is refused here.
+    // Rows where the two columns disagree make the student endpoint answer `500`.
     const res = await request(app)
       .post(`${BASE}/quizzes/${QUIZ_ID}/questions`)
       .send({ format: "picture_select", definition: validMcq });
@@ -669,9 +628,7 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
   });
 
   it("reads the quiz's status under Serializable isolation", () => {
-    // What the stub cannot prove is the race itself; what it can prove is that the
-    // read and the write share a Serializable transaction, which is what makes a
-    // concurrent publish-and-add safe.
+    // The race itself is unprovable; assert the read and write share a Serializable transaction.
     return request(app)
       .post(`${BASE}/quizzes/${QUIZ_ID}/questions`)
       .send({ format: "mcq", definition: validMcq })
@@ -683,7 +640,6 @@ describe("POST /api/admin/content/quizzes/:quizId/questions", () => {
   });
 });
 
-/** `?jobId=…` — edit-then-approve (file 37, requirement 5, FR-AI-07). */
 describe("saving with ?jobId records edit_then_approve", () => {
   const JOB_ID = "dddddddd-0000-4000-8000-000000000001";
 
@@ -732,8 +688,7 @@ describe("saving with ?jobId records edit_then_approve", () => {
   });
 
   it("leaves the job's status alone, so the decision publishes nothing", async () => {
-    // Recording an edit is not approving it. The publish guard additionally
-    // requires the job to *be* approved, which only the review queue writes.
+    // Recording an edit is not approving it; the publish guard also needs the job approved, which only the review queue writes.
     await request(app)
       .post(`${BASE}/quizzes/${QUIZ_ID}/questions?jobId=${JOB_ID}`)
       .send({ format: "mcq", definition: validMcq });
@@ -743,8 +698,7 @@ describe("saving with ?jobId records edit_then_approve", () => {
   });
 
   it("records nothing when the save itself is refused", async () => {
-    // The recording runs after the write, not as middleware — a save the server
-    // rejected must not leave a decision claiming an edit that never happened.
+    // Recorded after the write so a rejected save leaves no decision claiming an edit that never happened.
     const res = await request(app)
       .post(`${BASE}/quizzes/${QUIZ_ID}/questions?jobId=${JOB_ID}`)
       .send({ format: "mcq", definition: { nonsense: true } });
@@ -754,8 +708,7 @@ describe("saving with ?jobId records edit_then_approve", () => {
   });
 
   it("is a no-op on a job somebody has already decided", async () => {
-    // The `jobId` is a breadcrumb; the save is real work. Losing the save to a
-    // colleague's concurrent decision would be the wrong trade.
+    // `jobId` is a breadcrumb; losing the save to a concurrent decision would be the wrong trade.
     store.jobs[0].status = "rejected";
     store.jobs[0].decision = "reject";
 
@@ -807,8 +760,7 @@ describe("PATCH /api/admin/content/quizzes/:quizId", () => {
   });
 
   it("reads the status and writes the title in one Serializable transaction", async () => {
-    // The check and the write must not straddle two transactions: a publish
-    // committing between them would let a rename land on a published quiz.
+    // A publish committing between check and write would let a rename land on a published quiz.
     seedQuiz();
     store.isolationLevels.length = 0;
 
@@ -827,7 +779,7 @@ describe("PATCH /api/admin/content/quizzes/:quizId", () => {
       .send({ title: "Letters quiz, revised" });
 
     expect(res.status).toBe(404);
-    // Not "No such quizze" — the message names the resource in the singular.
+    // Not "No such quizze": the message names the resource in the singular.
     expect(res.body.error.message).toBe("No such quiz");
   });
 });
@@ -858,8 +810,7 @@ describe("PATCH /api/admin/content/quizzes/:quizId/questions/:id", () => {
   });
 
   it("404s for a question belonging to another quiz", async () => {
-    // Not a `403`: from this caller's point of view the question does not exist
-    // under that quiz.
+    // Not a `403`: to this caller the question does not exist under that quiz.
     seedQuiz(OTHER_QUIZ_ID);
     const id = store.questions[0].id as string;
 
@@ -891,8 +842,7 @@ describe("DELETE /api/admin/content/quizzes/:quizId/questions/:id", () => {
       res.body,
       "DELETE /api/admin/content/quizzes/{quizId}/questions/{id}",
     );
-    // Contiguous from 0, which is what stops the next append from colliding with
-    // an existing row under `@@unique([quizId, sortOrder])`.
+    // Contiguous from 0, so the next append cannot collide under `@@unique([quizId, sortOrder])`.
     expect(store.questions.map((question) => question.sortOrder)).toEqual([
       0, 1,
     ]);
@@ -1074,8 +1024,7 @@ describe("badges", () => {
   });
 
   it("rejects a parameter the selected ruleType does not allow", async () => {
-    // `.strict()` on each rule schema. A dropped `topicSlug` would leave the badge
-    // evaluating against a rule nobody authored.
+    // `.strict()` on each rule schema: a dropped `topicSlug` would leave a badge evaluating a rule nobody authored.
     const res = await request(app)
       .post(`${BASE}/badges`)
       .send({
@@ -1085,8 +1034,7 @@ describe("badges", () => {
       });
 
     expect(res.status).toBe(400);
-    // Zod reports an unrecognised key against the *object*, not the key, so the
-    // prefixed path is `rule` and `topicSlug` is named in the message.
+    // Zod reports an unrecognised key against the object, so the path is `rule` and `topicSlug` is in the message.
     expect(JSON.stringify(res.body.error.details)).toContain("topicSlug");
     expect(store.badges).toEqual([]);
   });
@@ -1100,8 +1048,7 @@ describe("badges", () => {
   });
 
   it("rejects an unknown ruleType", async () => {
-    // The engine warns and treats an unknown type as unearned, so a badge nobody
-    // can ever get is refused at authoring time instead.
+    // The engine treats an unknown type as unearned, so a badge nobody can get is refused at authoring time.
     const res = await request(app)
       .post(`${BASE}/badges`)
       .send({ ...body, ruleType: "animals_identified", rule: { count: 3 } });
@@ -1152,8 +1099,7 @@ describe("badges", () => {
   });
 
   it("returns one badge, with the url of the icon it points at", async () => {
-    // `iconUrl` is what the editor's media picker matches on: without it the
-    // form reports a badge that has an icon as "Not set".
+    // `iconUrl` is what the media picker matches on; without it a badge with an icon shows "Not set".
     seedBadge("draft", {
       id: "cccccccc-0000-4000-8000-000000000001",
       url: "https://res.cloudinary.com/test-cloud/image/upload/badge.png",
@@ -1276,7 +1222,6 @@ describe("transitions", () => {
     expect(res.status).toBe(404);
   });
 
-  /** R-02 — the FR-AI-07 guard reaches through a badge to its icon. */
   describe("a badge answers for its icon's generation job", () => {
     function seedGeneratedIcon(jobStatus: string, decision: string | null) {
       store.jobs.push({ id: "job-icon", status: jobStatus, decision });
@@ -1314,7 +1259,6 @@ describe("transitions", () => {
     });
   });
 
-  /** The FR-AI-07 guard's questions half (file 37). */
   describe("a quiz answers for its questions' generation jobs", () => {
     function seedGeneratedQuestion(jobStatus: string, decision: string | null) {
       store.jobs.push({
@@ -1346,9 +1290,7 @@ describe("transitions", () => {
     }
 
     it("409s the publish hop when the questions' job is still awaiting review", async () => {
-      // The quiz itself was written by a person — `aiJobId` is null on the row —
-      // so the only thing standing between an unreviewed model answer and a
-      // five-year-old is this guard reaching through to the questions.
+      // The quiz is person-written (`aiJobId` null), so only this guard reaching the questions stops an unreviewed model answer reaching a child.
       seedQuiz();
       seedGeneratedQuestion("awaiting_review", null);
 
@@ -1401,7 +1343,6 @@ describe("transitions", () => {
     });
   });
 
-  /** R-23 — a payload's asset links are resolved against the media library. */
   describe("a payload answers for the media it links to", () => {
     const TRACKER = "https://tracker.example.com/pixel.png";
 

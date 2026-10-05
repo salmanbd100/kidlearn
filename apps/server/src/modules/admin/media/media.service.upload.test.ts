@@ -1,17 +1,8 @@
 /**
- * `uploadBuffer`'s failure path (file 36, FR-AI-08).
- *
- * Its own file rather than an addition to the media route tests, because it has to
- * mock the `cloudinary` module wholesale — `general.md §5` allows that as an
- * external network boundary, but the route suite asserts a real signature derived
- * from the test credentials and would lose it.
- *
- * What is under test is the *message*, which is unusual enough to say why. A job
- * that fails records `rawOutput.error` and stops; that string is the entire audit
- * trail for the failure, and an admin reading it has to be able to tell a rotated
- * credential from a rate limit. The SDK makes that easy to get wrong: it hands the
- * callback a plain object for every API-level failure, so the obvious coercion
- * produces `"[object Object]"` and destroys the diagnosis silently.
+ * Own file because it mocks `cloudinary` wholesale (an external boundary allowed by `general.md §5`),
+ * which the route suite cannot, as it asserts a real signature.
+ * The message is the whole audit trail for a failed job; the SDK hands API failures as plain objects, so
+ * naive coercion yields "[object Object]".
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +21,6 @@ vi.mock("cloudinary", () => ({
 
 const { uploadBuffer } = await import("./media.service.js");
 
-/** Stands in for the SDK's stream, answering the callback with `error`. */
 function respondWith(error: unknown, result?: unknown) {
   sdk.uploadStream.mockImplementation(
     (
@@ -48,9 +38,7 @@ beforeEach(() => {
 
 describe("what a failed upload records", () => {
   it("keeps the message and status from Cloudinary's plain-object error", async () => {
-    // The shape the SDK actually passes: `{ message, name, http_code }`, not an
-    // `Error`. `String()` on it is "[object Object]", which is what a reviewer
-    // would otherwise find in the job row.
+    // The SDK passes `{ message, name, http_code }`, not an `Error`; `String()` gives "[object Object]".
     respondWith({
       message: "Invalid Signature abc123. String to sign - 'folder=kidlearn'.",
       name: "Error",
@@ -92,8 +80,7 @@ describe("what a failed upload records", () => {
   });
 
   it("passes a genuine socket Error through untouched", async () => {
-    // The one case that already arrived as an `Error`: rewrapping it would lose
-    // the stack that says which socket died.
+    // Already an `Error`: rewrapping would lose the stack.
     const socketError = new Error("ECONNRESET");
     respondWith(socketError);
 

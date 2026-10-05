@@ -14,24 +14,14 @@ import {
 import { requestLogger } from "./shared/middleware/request-logger.js";
 import { apiRateLimit, securityHeaders } from "./shared/middleware/security.js";
 
-/**
- * Builds the Express application without binding a port, so tests can drive it
- * through Supertest. Middleware order is load-bearing: logging first (so every
- * request is recorded, including rejected ones), then security headers and
- * CORS, then the rate limit (after CORS, so a browser can read the 429), then
- * the auth routes, then body parsing, then routes, then the two terminal
- * handlers.
- */
+/** Middleware order is load-bearing: the rate limit follows CORS so a browser can read the 429. */
 export function buildApp(): Express {
   const app = express();
 
   app.disable("x-powered-by");
 
-  // Caddy terminates TLS and reverse-proxies to this container, so `req.protocol`
-  // is `http` here unless Express is told to read `X-Forwarded-Proto` — and
-  // better-auth declines to set a `Secure` cookie over what it believes is plain
-  // HTTP. Exactly one hop, so `1` rather than `true`: trusting the whole chain
-  // would let a client forge `req.ip` by sending its own `X-Forwarded-For`.
+  // Behind Caddy `req.protocol` is `http`, so better-auth would not set a `Secure` cookie. One hop,
+  // not `true`: trusting the whole chain lets a client forge `req.ip` via `X-Forwarded-For`.
   if (env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
   }
@@ -53,14 +43,11 @@ export function buildApp(): Express {
 
   app.all("/api/auth/{*any}", toNodeHandler(auth));
 
-  // Editors send one activity, question or badge per request, and the whole seed
-  // curriculum is ~27 KB of source — so Express's own 100 KB default, stated here
-  // so nobody raises it by accident. An oversized body is a 413 envelope.
+  // Editors send one item per request; stated explicitly so the 100 KB default is not raised by accident.
   app.use(express.json({ limit: "100kb" }));
 
   app.use(healthRouter);
 
-  // API documentation
   if (isDocsEnabled(env)) {
     app.use(docsRouter);
   }

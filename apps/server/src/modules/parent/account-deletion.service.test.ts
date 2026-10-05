@@ -1,11 +1,6 @@
 /**
- * See the note at the top of `shared/middleware/require-parent.test.ts`: no test
- * database exists yet, so `config/prisma.js` is stubbed. That limits what this
- * suite can prove — it asserts the *order and scope* of the deletes and that
- * they all run inside one transaction, but the cascade from `ChildProfile` to
- * the eight child-owned tables is a database guarantee (declared in
- * `schema.prisma`) that only a real-database test can verify. Rewrite these as
- * row-count assertions when the test-database harness lands.
+ * Stubs `config/prisma.js` per the stub exception in `document/standards/general.md §5`. Asserts the order and scope of the deletes
+ * inside one transaction; the cascade to the child-owned tables is proven in `account-deletion.service.db.test.ts`.
  */
 import type { Parent } from "@kidlearn/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,7 +46,6 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
   };
 }
 
-/** The transaction client the mocked `$transaction` hands to the callback. */
 const tx = {
   childProfile: { deleteMany: db.childProfileDeleteMany },
   parent: { delete: db.parentDelete, updateMany: db.parentUpdateMany },

@@ -1,21 +1,8 @@
-/**
- * The Gemini text client (file 37a, FR-AI-01..03, FR-AI-08).
- *
- * The SDK module is stubbed, which `general.md §5` permits explicitly: an
- * external network boundary is the one allowed mock. Nothing here touches the
- * database, so the Prisma exception does not apply.
- *
- * Two of the four claims below are the regressions a naive port of the Anthropic
- * client would introduce, and neither is visible from the generators' own tests
- * because those stub this module out:
- *
- * 1. A truncated or malformed answer must come back as `raw: null` — a schema
- *    failure `runGenerationJob` retries — and never as a thrown `SyntaxError`,
- *    which that function fails a job on with no second attempt at all.
- * 2. Gemini's `finishReason` taxonomy must arrive as this pipeline's own three
- *    stops, or `describeUnretryableStop` retries a refusal and reports it as
- *    invalid JSON.
- */
+// The SDK module is stubbed (an external network boundary, allowed by general.md §5); no database is touched.
+// Two claims are regressions a naive port would introduce, invisible to the generators' tests (they stub this module):
+// 1. Truncated or malformed JSON comes back as `raw: null` (retried by runGenerationJob), never a thrown
+//    SyntaxError (which fails the job with no second attempt).
+// 2. Gemini's finishReason maps to this pipeline's three stops, or describeUnretryableStop retries a refusal.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -53,7 +40,6 @@ async function generate(
   });
 }
 
-/** The schema Gemini was actually asked for, after the request was built. */
 async function requestedSchema(
   outputSchema: z.ZodTypeAny,
 ): Promise<Record<string, unknown>> {
@@ -69,8 +55,7 @@ beforeEach(() => {
 
 describe("the request", () => {
   it("asks for JSON against the caller's own schema", async () => {
-    // The whole of FR-AI-03: the prompt's contract, the validator and the
-    // renderer are one Zod object, converted here rather than restated.
+    // FR-AI-03: the prompt's contract, validator and renderer are one Zod object, converted here.
     sdk.generateContent.mockResolvedValue(
       response({ text: '{"title":"Counting to five"}' }),
     );
@@ -108,9 +93,8 @@ describe("the request", () => {
   });
 
   it("sends every message as a part of one user turn", async () => {
-    // Not one turn per message: Gemini is not documented to merge consecutive
-    // same-role turns, and a retry that lost the original prompt would be a retry
-    // asking the model to correct something it can no longer see.
+    // Not one turn per message: Gemini is not documented to merge same-role turns, and a retry that lost the
+    // original prompt would ask the model to fix what it can no longer see.
     sdk.generateContent.mockResolvedValue(response({ text: "{}" }));
     const { generateStructured } = await import("./gemini-text.js");
 
@@ -139,8 +123,7 @@ describe("the request", () => {
 
     await generate();
 
-    // `thinkingBudget: 0` is a 400 on the Gemini 3 models — the scale is named,
-    // not numeric, and has no off.
+    // `thinkingBudget: 0` is a 400 on Gemini 3: the scale is named, not numeric, and has no off.
     expect(sdk.generateContent.mock.calls[0][0].config.thinkingConfig).toEqual({
       thinkingLevel: "MINIMAL",
     });
@@ -148,12 +131,7 @@ describe("the request", () => {
 });
 
 describe("the response schema", () => {
-  /**
-   * Every keyword `responseJsonSchema` accepts, from the field's own declaration
-   * in `@google/genai`. Anything outside it is either rejected outright — a root
-   * `$schema` answers `400 Unknown name "$schema"` — or silently dropped, which
-   * is worse: the constraint is gone and nothing says so.
-   */
+  // Outside this set a keyword is rejected (a root `$schema` is a 400) or silently dropped, which is worse.
   const ACCEPTED = new Set([
     "$id",
     "$defs",
@@ -178,7 +156,6 @@ describe("the response schema", () => {
     "propertyOrdering",
   ]);
 
-  /** Keyword positions only — the keys under `properties` are the caller's field names. */
   function keywordsIn(node: unknown, insideProperties = false): string[] {
     if (Array.isArray(node))
       return node.flatMap((child) => keywordsIn(child, false));
@@ -193,9 +170,7 @@ describe("the response schema", () => {
   }
 
   it("sends no keyword the provider does not accept", async () => {
-    // `zodToJsonSchema` emits draft-07, which is a superset: `$schema` at the
-    // root, and `minLength`/`maxLength` for every bounded string. Handing those
-    // over unfiltered is what fails the very first real generation.
+    // zodToJsonSchema emits draft-07 (`$schema`, minLength/maxLength); passing those unfiltered fails the first real generation.
     const schema = await requestedSchema(
       z
         .object({
@@ -212,9 +187,7 @@ describe("the response schema", () => {
   });
 
   it("carries a literal discriminator as an enum, the form the provider reads", async () => {
-    // `const` is not accepted, and it is the whole of what separates the four
-    // question types in `QuizQuestionSchema`. Dropped, the model gets an `anyOf`
-    // of indistinguishable branches and Zod rejects whatever it picks.
+    // `const` is not accepted but is all that separates the four question types; dropped, Zod rejects whatever the model picks.
     const schema = await requestedSchema(
       z.discriminatedUnion("type", [
         z.object({ type: z.literal("mcq"), prompt: z.string() }).strict(),
@@ -229,9 +202,7 @@ describe("the response schema", () => {
   });
 
   it("keeps field names that collide with schema keywords", async () => {
-    // A lesson has a `description`; a quiz question has a `type`. Filtering
-    // keywords without knowing which nesting level is a field name would delete
-    // the content itself.
+    // Keywords must be filtered by nesting level: field names like `description` and `type` are content.
     const schema = await requestedSchema(
       z
         .object({
@@ -262,10 +233,7 @@ describe("the answer", () => {
   });
 
   it("reports a malformed answer as no answer rather than throwing", async () => {
-    // The regression this file exists for. `runGenerationJob` retries a `raw`
-    // that fails `safeParse`, but fails the job outright when `generate` throws —
-    // so a `SyntaxError` escaping here would silently spend the one retry the
-    // model is supposed to get.
+    // The regression this file exists for: a SyntaxError escaping here fails the job and skips the model's one retry.
     sdk.generateContent.mockResolvedValue(
       response({
         text: '{"title":"Counting to fi',
@@ -321,8 +289,7 @@ describe("why the model stopped", () => {
   });
 
   it("maps the safety family to a refusal, carrying the reason", async () => {
-    // `describeUnretryableStop` fails the job on this without a second attempt.
-    // A refusal reported as a normal stop would buy an identical refusal.
+    // describeUnretryableStop fails the job on this; reporting a refusal as a normal stop would buy an identical refusal.
     for (const finishReason of [
       "SAFETY",
       "PROHIBITED_CONTENT",
@@ -342,9 +309,7 @@ describe("why the model stopped", () => {
   });
 
   it("reports a blocked prompt as a refusal, even with no candidate", async () => {
-    // The prompt was rejected before generation started, so there is no
-    // `candidates[0]` to explain why — reading only the candidate would report
-    // this as an ordinary schema failure.
+    // Rejected before generation, so there is no candidates[0]; reading only the candidate would report a schema failure.
     sdk.generateContent.mockResolvedValue(
       response({
         text: undefined,
@@ -360,8 +325,7 @@ describe("why the model stopped", () => {
   });
 
   it("treats an unrecognised finish reason as retryable", async () => {
-    // One wasted retry is cheaper than failing a generation the model may have
-    // finished, so anything unmapped reports no stop reason at all.
+    // One wasted retry is cheaper than failing a generation the model may have finished, so unmapped means no stop reason.
     sdk.generateContent.mockResolvedValue(
       response({ text: "{}", candidates: [{ finishReason: "OTHER" }] }),
     );

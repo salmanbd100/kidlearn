@@ -2,12 +2,6 @@ import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ReactNode } from "react";
 
-/**
- * A round 64px control — the kid touch-target floor (design.md §7, NFR-A11Y-02).
- * The same shape for "hear it again", "leave" and the reader's page turns, so a
- * child who learned one has learned them all.
- */
-
 const iconControlVariants = cva(
   "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors touch-manipulation focus-ring",
   {
@@ -27,10 +21,8 @@ const iconControlVariants = cva(
 export interface IconControlProps
   extends VariantProps<typeof iconControlVariants> {
   label: string;
-  /** Sets `aria-pressed`; omitted for controls that are not toggles. */
   isPressed?: boolean;
   onPress: () => void;
-  /** The icon, `aria-hidden` — `label` is the control's name. */
   children: ReactNode;
 }
 

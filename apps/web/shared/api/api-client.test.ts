@@ -7,11 +7,6 @@ import {
   signOut,
 } from "./api-client";
 
-/**
- * `fetch` is the only thing stubbed here — the envelope handling, the retry
- * schedule and the cold-start signal are the behaviour under test, so nothing
- * about them is mocked.
- */
 function stubFetch(...responses: Array<Response | Error>) {
   const fetchMock = vi.fn((_url: string, _init?: RequestInit) => {
     const next = responses.shift();
@@ -156,7 +151,6 @@ describe("apiFetch", () => {
   });
 
   describe("timeout", () => {
-    /** A fetch that never settles on its own, as on a stalled connection. */
     function stubStalledFetch() {
       const fetchMock = vi.fn(
         (_url: string, init?: RequestInit) =>
@@ -261,11 +255,8 @@ describe("apiFetch", () => {
   });
 
   it("never retries a POST — the write may already have landed", async () => {
-    // The regression this pins. Every method used to retry a dropped connection
-    // and a 5xx, so `POST /api/children` that committed before the response was
-    // lost was sent again and made a second child profile. A dropped response is
-    // indistinguishable from a dropped request here, so the safe reading is that
-    // the write happened.
+    // Regression: a `POST /api/children` that committed before the response was lost was retried and made
+    // a second profile. A dropped response looks like a dropped request, so assume the write happened.
     const fetchMock = stubFetch(new TypeError("Failed to fetch"));
 
     const result = await apiFetch("/api/children", {
@@ -361,9 +352,8 @@ describe("signOut", () => {
   it("reports failure on a server error, because the cookie is still live", async () => {
     stubFetch(jsonResponse(500, {}));
 
-    // The caller must not navigate on this: `resolveParentRedirect` sends a
-    // still-signed-in parent from the login page straight back to the dashboard,
-    // so a silent `true` here would look like a sign-out that did nothing.
+    // The caller must not navigate: `resolveParentRedirect` would send a still-signed-in parent straight
+    // back to the dashboard, so a silent `true` would look like a sign-out that did nothing.
     await expect(signOut()).resolves.toBe(false);
   });
 

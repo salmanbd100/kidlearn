@@ -7,11 +7,6 @@ import { findOrCreateParentForUser } from "./parent.service.js";
 
 type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
-/**
- * Gate for every parent-authenticated route. Reads the better-auth session from
- * the request cookies, provisions the `Parent` domain row on first sight, and
- * attaches both to the request.
- */
 export const requireParent: RequestHandler = async (
   req: Request,
   _res: Response,
@@ -33,12 +28,7 @@ export const requireParent: RequestHandler = async (
   }
 };
 
-/**
- * Reads the context `requireParent` attached. Use this instead of touching
- * `req.parent` / `req.session` directly: those are optional on the Express
- * `Request` (they do not exist before the middleware runs), and this narrows
- * them without a non-null assertion.
- */
+/** Use instead of `req.parent` / `req.session`: they are optional on `Request`, and this narrows them without a non-null assertion. */
 export function authContext(req: Request): {
   parent: Parent;
   session: AuthSession["session"];

@@ -2,8 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 
-// The row, and the two ways dnd-kit used to break it.
-
 const ITEMS: ColumnItem[] = [
   { id: "a", label: "Letters", status: "published" },
   { id: "b", label: "Numbers", status: "draft" },
@@ -39,10 +37,8 @@ describe("ContentColumn", () => {
     renderColumn({ onReorder: vi.fn() });
     const row = screen.getByRole("button", { name: /^Letters/ });
 
-    // `fireEvent` returns false when a handler called `preventDefault`. That
-    // call is precisely what used to eat the row's activation: jsdom does not
-    // synthesise the click a browser fires for Enter on a button, so the
-    // cancelled keydown is the observable half of the bug.
+    // `fireEvent` returns false if a handler called `preventDefault`, which used to eat the row's
+    // activation; jsdom doesn't synthesise Enter's click, so the cancelled keydown is the signal.
     const wasDelivered = fireEvent.keyDown(row, {
       key: "Enter",
       code: "Enter",

@@ -15,10 +15,6 @@ import {
   listWorldLessonsForChild,
 } from "./content.service.js";
 
-// The content-safety gate (spec §7.3.4) proved on the rows Postgres returns,
-// not on the `where` a stub was handed — `content.routes.test.ts` can only do
-// the second. The stubbed suite stays for routing, validation and contracts.
-
 const log = { error: vi.fn(), warn: vi.fn() };
 
 let child: ChildProfile;
@@ -28,7 +24,6 @@ beforeEach(async () => {
   child = await createChild(parent.id, { gradeLevel: "KG1" });
 });
 
-/** What the child can reach of one lesson, through each read that lists it. */
 async function reach({ world, topic, lesson }: Curriculum) {
   const detail = await getLessonForChild(child, lesson.id, log).then(
     () => true,

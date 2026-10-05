@@ -12,13 +12,8 @@ import {
   readString,
 } from "./job.js";
 
-/**
- * The attach target is read from the job's `input`, not the asset row: a
- * `MediaAsset` holds a URL and a language, and which translation or story page it
- * belongs to is exactly the fact generation deliberately did not write (file 36).
- * `isAttached` checks the live foreign key, so a job re-opened after approval shows
- * the attachment rather than offering it again.
- */
+// The attach target is read from the job's `input`, not the asset row, which doesn't record which row it belongs to.
+// `isAttached` checks the live foreign key so a re-opened approved job shows the attachment.
 export async function readJobAssets(
   row: JobRow,
   tx: ReviewWriter,
@@ -49,7 +44,6 @@ export async function readJobAssets(
   );
 }
 
-/** The four foreign keys a media approval can write (file 36). */
 const ATTACH_TABLES = [
   "LessonTranslation",
   "StoryPageTranslation",
@@ -61,11 +55,7 @@ type AttachTable = (typeof ATTACH_TABLES)[number];
 
 type AttachTarget = { table: AttachTable; id: string; locale?: Locale };
 
-/**
- * Read from `input` rather than `rawOutput.entities`: both carry it, but `input`
- * is written *before* the provider is called, so a job that failed mid-generation
- * still says what it was for. Every field is re-checked — the JSONB boundary.
- */
+// `input` is written before the provider is called, so a failed job still says what it was for.
 function readAttachTarget(row: JobRow): AttachTarget | undefined {
   const input = asRecord(row.input);
   const table = input.targetTable;
@@ -130,11 +120,7 @@ async function isAttached(
   }
 }
 
-/**
- * Writes the foreign key an audio or image job recorded but deliberately did not
- * set (FR-CMS-05) — this is what "publish" means for a media job, since a
- * `MediaAsset` is reachable only through the row that points at it.
- */
+// Writes the foreign key a media job recorded but did not set; a `MediaAsset` is reachable only through it.
 export async function attachAssets(
   tx: ReviewWriter,
   jobId: string,
@@ -155,8 +141,7 @@ export async function attachAssets(
   });
   if (assets.length === 0) return [];
 
-  // One asset per media job by construction (file 36), so the newest wins if that
-  // ever changes.
+  // One asset per media job, so the newest wins.
   const assetId = assets[assets.length - 1].id;
 
   switch (target.table) {
@@ -216,11 +201,7 @@ export async function attachAssets(
   return [assetId];
 }
 
-/**
- * Prisma raises `P2025` from the `update`, which would otherwise reach the error
- * handler as an unrecognised client error. The request is well formed; what is
- * wrong is a state an admin can fix by regenerating.
- */
+// Prisma raises `P2025` from the `update`; surface it as a fixable conflict, not an unrecognised client error.
 async function attachOrConflict<T>(
   target: AttachTarget,
   write: () => Promise<T>,

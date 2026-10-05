@@ -3,22 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { apiFetch } from "@/shared/api/api-client";
 
-/**
- * The CMS shell: the guard's verdict, and that no page is rendered to someone it
- * has not cleared (file 31, spec §4.3).
- */
-
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
   fetchAdminMe: vi.fn(),
   fetchPlatformOverview: vi.fn(),
   adminSignIn: vi.fn(),
   adminSignOut: vi.fn(),
-  // File 37 — the shell polls this for the AI Queue badge on every CMS screen.
+  // The shell polls this for the AI Queue badge.
   fetchAiJobCount: vi.fn(),
 }));
 
-/** Widened past the literal so a test can point the guard at another route. */
 let pathname: string = ADMIN_ROUTES.analytics;
 
 vi.mock("next/navigation", () => ({
@@ -69,8 +63,7 @@ describe("AdminCmsLayout", () => {
   });
 
   it("bounces a signed-in parent to the login screen without rendering the page", async () => {
-    // What the API answers a valid parent session on `/api/admin/me`: authenticated,
-    // but no `AdminUser` row claims the identity (spec §4.3).
+    // A valid parent session on `/api/admin/me`: authenticated, but no `AdminUser` row claims the identity.
     api.fetchAdminMe.mockResolvedValue({
       ok: false,
       error: {
@@ -130,8 +123,7 @@ describe("AdminCmsLayout", () => {
   });
 
   it("does not poll the review count on the login screen", async () => {
-    // An unauthenticated poll is a 401 a minute, and there is no rail to render
-    // the badge on (file 37, requirement 8).
+    // An unauthenticated poll is a 401 a minute, and there is no rail for the badge.
     pathname = ADMIN_ROUTES.login;
     api.fetchAdminMe.mockResolvedValue({
       ok: false,

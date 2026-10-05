@@ -5,11 +5,7 @@ import { Button } from "@kidlearn/ui";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
-/**
- * A render-time throw inside a parent screen. Sits inside the parent layout, so
- * the theme and the top bar survive it; the root boundary would drop both and
- * show the kid surface's error.
- */
+/** Sits inside the parent layout so the theme and top bar survive; the root boundary would drop both. */
 export default function ParentError({
   error,
   reset,

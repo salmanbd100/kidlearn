@@ -6,11 +6,6 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/me/me.routes.ts` — mounted behind `requireParent` **and** `requireActiveChild`
- * in `modules/index.ts`, like `/api/content/*` and `/api/progress/*`.
- */
-
 const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
   "No active child profile on this session. Call `POST /api/children/{id}/activate` first — `/api/me` *is* the active child, so without one there is nobody to answer for. Also returned when the session's active profile belongs to another parent, or has since been deleted.",
   ["FORBIDDEN"],

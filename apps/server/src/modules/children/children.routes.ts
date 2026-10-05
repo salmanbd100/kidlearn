@@ -49,16 +49,14 @@ import { getDashboardSummary } from "./dashboard.service.js";
 import { loadOwnedChild, ownedChild } from "./load-owned-child.middleware.js";
 import { getWeeklyReports } from "./weekly-report.service.js";
 
-/** `/api/children` — the parent's own learner profiles (FR-PROF-01..07). */
 export const childrenRouter = Router();
 
 childrenRouter.use(requireParent);
 
 childrenRouter.post(
   "/",
-  // A parent must have accepted the COPPA consent before a child profile may
-  // exist (FR-AUTH-03). Creation is the only verb gated this way: the other
-  // routes read or amend a profile that consent already covers.
+  // COPPA consent must precede profile creation (FR-AUTH-03); other verbs act
+  // on a profile that consent already covers.
   requireConsent,
   validate({ body: CreateChildBodySchema }),
   async (req, res, next) => {
@@ -113,7 +111,6 @@ childrenRouter.get(
   },
 );
 
-/** FR-GAM-05 — the avatars this child may wear, and the ones still to earn. */
 childrenRouter.get(
   "/:id/characters",
   validate({ params: ChildIdParamsSchema }),
@@ -132,7 +129,6 @@ childrenRouter.get(
   },
 );
 
-/** FR-DASH-02 — how long this child has actually learned, in one window. */
 childrenRouter.get(
   "/:id/learning-time",
   validate({ params: ChildIdParamsSchema, query: LearningTimeQuerySchema }),
@@ -152,9 +148,6 @@ childrenRouter.get(
   },
 );
 
-/**
- * FR-DASH-01..04 — the whole parent dashboard for one child, in one request.
- */
 childrenRouter.get(
   "/:id/dashboard",
   validate({ params: ChildIdParamsSchema }),
@@ -171,7 +164,6 @@ childrenRouter.get(
   },
 );
 
-/** FR-DASH-05..06 — this child's weekly reports, newest first. */
 childrenRouter.get(
   "/:id/reports",
   validate({ params: ChildIdParamsSchema }),
@@ -188,7 +180,6 @@ childrenRouter.get(
   },
 );
 
-/** FR-TIME-01/04/05 — this child's daily limit and access window. */
 childrenRouter.get(
   "/:id/screen-time",
   validate({ params: ChildIdParamsSchema }),
@@ -207,7 +198,6 @@ childrenRouter.get(
   },
 );
 
-/** Replaces the whole policy (FR-TIME-01, FR-TIME-04). */
 childrenRouter.patch(
   "/:id/screen-time",
   validate({ params: ChildIdParamsSchema, body: ScreenTimeBodySchema }),
@@ -265,7 +255,6 @@ childrenRouter.delete(
   },
 );
 
-/** Switches which child the session is acting as (FR-AUTH-06). */
 childrenRouter.post(
   "/:id/activate",
   validate({ params: ChildIdParamsSchema }),

@@ -5,7 +5,6 @@ import {
   uploadToCloudinary,
 } from "./media-api";
 
-/** A JSON 200 for every request, recorded. */
 function stubFetch() {
   const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
     Promise.resolve(
@@ -23,9 +22,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// Where an upload's bytes actually go (file 33, FR-CMS-02).
-
-/** The minimum of `XMLHttpRequest` `uploadToCloudinary` drives, recorded. */
 function stubXhr(
   status = 200,
   body = '{"secure_url":"https://res.cloudinary.com/test-cloud/x.png"}',
@@ -76,15 +72,12 @@ describe("the upload path", () => {
     expect(sent[0].url).toBe(
       "https://api.cloudinary.com/v1_1/test-cloud/auto/upload",
     );
-    // Nothing at all reached our API during the upload itself: the signature and
-    // the registration are separate calls the caller makes around it.
+    // Nothing reached our API during the upload; signature and registration are separate calls.
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("sends exactly the signed fields, and no others", async () => {
-    // Cloudinary verifies the signature over the parameters it was computed from,
-    // so an extra *signed* field here is an `Invalid Signature` at upload time
-    // rather than a compile error.
+    // Cloudinary verifies the signature over the computed parameters, so an extra signed field is an `Invalid Signature` at upload time.
     stubFetch();
     const sent = stubXhr();
 
@@ -144,5 +137,3 @@ describe("the upload path", () => {
     }
   });
 });
-
-/** The edit-then-approve breadcrumb on the wire (file 37, FR-AI-07). */

@@ -11,20 +11,20 @@ Build the container every lesson runs inside: the five-step flow (`intro → vid
 
 ## Context & Current State
 
-- `packages/types/src/progress.ts` owns the flow and says so explicitly: "`LESSON_STEPS` is ordered, and the order **is** the contract: the player walks it forwards and never skips, `resumeTarget` reads a successor from it, and the server's monotonic guard compares indices in it." The array is `["intro", "video", "activity", "quiz", "reward"]`, with `nextLessonStep(step)` and a resume helper already exported. **Do not hardcode the step list or the order anywhere in `apps/mobile`.**
+- `packages/types/src/domain/progress.ts` owns the flow and says so explicitly: "`LESSON_STEPS` is ordered, and the order **is** the contract: the player walks it forwards and never skips, `resumeTarget` reads a successor from it, and the server's monotonic guard compares indices in it." The array is `["intro", "video", "activity", "quiz", "reward"]`, with `nextLessonStep(step)` and `resumeLessonStep(lastCompleted)` already exported. **Do not hardcode the step list or the order anywhere in `apps/mobile`.**
 - **Two event surfaces, and they are not interchangeable** — the web app's `use-heartbeat.ts` spells the distinction out:
   - `POST /api/progress/events` (`SessionEventReportSchema`, types `LESSON_SESSION_EVENT_TYPES` = `["lesson_start", "step_complete", "lesson_complete"]`) carries a lesson's `step` **and** the locale-`fallback` flag — "`true` when the step the child just finished played an English asset because their locale had none". This is the lesson player's own event stream, and it is what this file posts.
   - `POST /api/events/activity` (`ACTIVITY_EVENT_TYPES`, which also includes `story_start`/`story_complete`) records discrete milestones that feed learning time. M24 owns that call; do not send step events there — it has no `step` field.
   Both are ungated by design, so time keeps recording while a child finishes.
 - Server endpoints, all behind `requireParent` + `requireActiveChild`:
-  - `GET /api/progress/lessons/:id` → `LessonProgressResponse` (the last completed step, score, completion).
-  - `POST /api/progress/lessons/:id/step` → body per `LessonStepReportSchema`; **never screen-time gated**, because "a lesson already under way must always be finishable (FR-TIME-03), and a child cut off between the quiz and the reward screen loses the work they just did".
-  - `POST /api/progress/lessons/:id/complete` → `LessonCompletionResponse` (rewards, new badges, streak).
+  - `GET /api/progress/lessons/:id` → `LessonProgressReadResponseSchema`: `{ progress: { lessonId, currentStep, completedAt } | null }`. `currentStep` is the furthest step reported **finished**; `null` means never opened. Feed it to `resumeLessonStep`.
+  - `POST /api/progress/lessons/:id/step` → body `{ step, completed }` (`LessonStepReportSchema`; `completed: true` is only valid with `step: "reward"`). A report for a lesson that already has a progress row is **never screen-time gated** — finishing what was started is the point (FR-TIME-03). The report that would *create* the row is gated like the content read and answers `423` when the day's limit is spent (M25).
+  - `POST /api/progress/lessons/:id/complete` → `LessonCompletionResponse`: `{ starsEarned, coinsEarned, newBadges[], newCharacters[], streak: { current, milestone }, totals }`. It performs the `reward` step report itself. **Completion requires play-through:** the server answers `409` with code `LESSON_NOT_PLAYED` unless the lesson row is already complete or its `currentStep` has reached `activity`. It also derives the quiz star and per-answer coins from quiz responses already stored, so those writes must have landed first.
   - `GET /api/content/lessons/:id` → `LessonDetailResponse`, screen-time gated — already called by M12, which hands the payload over.
-- The server holds a **monotonic guard**: reporting an earlier step than the one already recorded cannot move progress backwards. The client therefore does not need to protect the server, but it must not assume its own optimistic state is authoritative — re-read progress on resume.
+- The server holds a **monotonic guard** (`laterStep` in `apps/server/src/modules/progress/lesson-progress.service.ts`): reporting an earlier step than the one already recorded cannot move progress backwards. The client therefore does not need to protect the server, but it must not assume its own optimistic state is authoritative — re-read progress on resume.
 - M12 gives `lib/lesson-cache.ts` (the one-entry handoff) and the 423/404 branching before the player ever mounts.
 - M05 gives `Sheet` (for the exit confirm) and `Screen`. M04 gives `useApi`. M11 gives `localizedLabel`.
-- `apps/web/components/lesson/` is the reference implementation: `steps/` holds `IntroStep`, `VideoStep`, `ActivityStep`, `QuizStep`, `RewardStep` and `lesson-step-props.ts` — a shared prop contract. Mirror that contract so a step component is swappable.
+- `apps/web/features/lesson/` is the reference implementation (`LessonPlayer.tsx`, `lesson-machine.ts`, `pending-writes.ts`, `ExitConfirm.tsx`): `steps/` holds `IntroStep`, `VideoStep`, `ActivityStep`, `QuizStep`, `RewardStep` and `lesson-step-props.ts` — a shared prop contract. Mirror that contract so a step component is swappable.
 - design.md §6/§7: full-bleed, no nav chrome, ≥64px targets, ≥20px text, both orientations.
 
 ## Detailed Requirements
@@ -35,12 +35,12 @@ Build the container every lesson runs inside: the five-step flow (`intro → vid
 4. **Resume (FR-LSN-07).** The opening step is derived from the server's last-completed step, never from local storage. A child who closed the app during the quiz reopens on the quiz. If progress says the lesson is already complete, open on `reward` in a "you already did this — play again?" form rather than re-awarding (the server will not double-award; the UI must not imply it will).
 5. **Step reporting.** On each `onComplete`, `POST /api/progress/lessons/:id/step` fires and the machine advances **optimistically** — a slow network must not stall a 4-year-old between steps. A failed report is retried once in the background; if it still fails, the step still advances locally and the next successful report (or the completion call) reconciles, because the server's guard is monotonic and the authority. Never block the UI on the report, and never show the child a network error mid-lesson.
 6. **Session events.** `lesson_start` on mount, `step_complete` per step, `lesson_complete` at the end, posted to `POST /api/progress/events` with the step and — where a step played an English asset because the child's locale had none — the locale-fallback flag (`LessonAssetFallbacks`, FR-I18N-01; only the step knows which asset it actually used, which is why the client reports it). Fire-and-forget with **no retries**: by the time a retry landed the child would be elsewhere, and a duplicate would put a second milestone in the log for one crossing.
-7. **Completion.** After the quiz step, `POST /api/progress/lessons/:id/complete` runs **before** the reward step renders, because its response *is* the reward step's data (stars, coins, new badges, streak — `LessonCompletionResponse`). The reward step is therefore the only step that waits on a request; cover the wait with a celebratory loading state, not a spinner.
+7. **Completion.** After the quiz step, `POST /api/progress/lessons/:id/complete` is called as the reward step mounts, because its response *is* the reward step's data (stars, coins, badges, characters, streak — `LessonCompletionResponse`). Before calling it, wait for every outstanding step report and the quiz-responses write to settle (the web `pending-writes.ts` pattern): the server grades completion from stored rows, and refuses with `409 LESSON_NOT_PLAYED` a lesson whose row does not show the activity reached. On that 409 or any failure, show the celebration without numbers and retry once; never grant locally. The reward step is therefore the only step that waits on a request; cover the wait with a celebratory loading state, not a spinner.
 8. **Exit guard — the native-only requirement.** Android hardware back and iOS edge-swipe both attempt to leave the route. Intercept both:
    - On `intro`, exiting is free (nothing has happened yet).
    - On any later step, show a `Sheet` in the *kid* register: two big buttons, an icon each, ≤4 words ("Keep playing" / "Stop"). Confirming exits to the world screen; the child's progress is already recorded server-side, so nothing is lost.
    - Use `usePreventRemove` (or `beforeRemove` on the navigation event) so the guard covers gestures, not just the hardware button — a back-swipe that bypasses a `BackHandler` listener is the classic bug here.
-9. **Progress indicator.** Five dots or fruit (the web app uses a fruit motif — check `apps/web/components/quiz/ProgressFruit.tsx` and stay consistent), showing completed / current / upcoming with shape as well as colour, ≥44px each, placed out of the primary interaction area.
+9. **Progress indicator.** Five dots or fruit (the web app uses a fruit motif — check `apps/web/features/quiz/ProgressFruit.tsx` and stay consistent), showing completed / current / upcoming with shape as well as colour, ≥44px each, placed out of the primary interaction area.
 10. **Step placeholders.** `StepPlaceholder` renders for steps whose real component lands in a later file (`video` → M15, `activity` → M16, `quiz` → M19, `reward` → M21), showing the step name and a "continue" button so the whole flow is walkable end to end **from this file onwards**. This is what lets M14–M21 be built and tested independently without a broken app in between.
 11. **Tests** (`lib/lesson-machine.test.ts`, `app/(student)/lesson/[id].test.tsx`): the reducer advances through `LESSON_STEPS` in order and refuses to skip; the resume target for each possible last-completed step matches the `packages/types` helper; a completed lesson opens on `reward` in replay mode; each `onComplete` posts a step report and advances even when the report fails; the completion call fires exactly once, before the reward step renders; exiting on `intro` leaves immediately while exiting on `quiz` shows the confirm sheet; confirming exits and cancelling stays.
 
@@ -102,10 +102,10 @@ Optimistic advance with background reconciliation:
 ```ts
 const handleStepComplete = useCallback((step: LessonStep, payload?: unknown) => {
   dispatch({ type: "completeStep", step });          // advance now — a child does not wait
-  void reportStep(lessonId, { step, payload }).then((result) => {
-    if (!result.ok) void reportStep(lessonId, { step, payload });  // one quiet retry
+  void reportStep(lessonId, { step, completed: false }).then((result) => {
+    if (!result.ok) void reportStep(lessonId, { step, completed: false });  // one quiet retry
   });
-  void reportSessionEvent({ type: "step_complete", lessonId });
+  void reportSessionEvent({ type: "step_complete", lessonId, step, clientTs: new Date().toISOString() });
 }, [lessonId]);
 ```
 
@@ -121,7 +121,7 @@ Keep `StepShell` responsible for the frame (safe area, world-coloured background
 4. Build `lesson-step-props.ts` and `StepPlaceholder`; wire the player screen to render the placeholder for every step so the flow is walkable end to end. (~30 min)
 5. Add resume: read progress on mount, derive the target with the shared helper, and handle the already-complete replay case. Test it. (~30 min)
 6. Add step reporting (optimistic advance, one quiet retry) and session events; test that the UI advances even when the report fails. (~30 min)
-7. Add the completion call before the reward step, with its celebratory waiting state; test it fires once. (~25 min)
+7. Add the completion call (after pending writes settle) with its celebratory waiting state; test it fires once and survives a `409 LESSON_NOT_PLAYED`. (~25 min)
 8. Add the exit guard with `usePreventRemove` + `ExitConfirmSheet`; verify on a **physical Android device** (hardware back) and an iOS device or simulator (edge swipe) that both land on the sheet, and that exiting on `intro` is free. (~35 min)
 9. Device pass: walk the whole placeholder flow, kill the app mid-flow, reopen and confirm resume. (~20 min)
 10. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
@@ -131,7 +131,7 @@ Keep `StepShell` responsible for the frame (safe area, world-coloured background
 - [ ] The step order comes from `LESSON_STEPS` in `packages/types`; no step name or ordering is hardcoded in `apps/mobile`.
 - [ ] A child who closes the app mid-lesson reopens on the step the **server** says is next — verified on a device by force-stopping the app during the activity step.
 - [ ] Each completed step posts to `POST /api/progress/lessons/:id/step` and the UI advances immediately, even if the report fails; no network error is ever shown to the child mid-lesson.
-- [ ] `POST /api/progress/lessons/:id/complete` fires exactly once per lesson run, before the reward step renders, and its response is what the reward step consumes.
+- [ ] `POST /api/progress/lessons/:id/complete` fires exactly once per lesson run, after outstanding step and quiz writes have settled, and its response is what the reward step consumes.
 - [ ] `lesson_start`, `step_complete` and `lesson_complete` are posted to `POST /api/progress/events` fire-and-forget with no retries, carrying the step and the locale-fallback flag.
 - [ ] Android hardware back **and** iOS edge swipe both hit the exit confirm sheet mid-lesson; exiting from `intro` is immediate.
 - [ ] The exit sheet is kid-register: two large buttons, an icon each, ≤4 words, ≥64px.

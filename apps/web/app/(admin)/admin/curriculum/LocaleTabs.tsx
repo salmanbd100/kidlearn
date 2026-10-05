@@ -4,7 +4,6 @@ import { LOCALES, type Locale } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
 
-/** The English / Bangla switch every content form carries (FR-I18N-01). */
 export function LocaleTabs({
   active,
   onActiveChange,

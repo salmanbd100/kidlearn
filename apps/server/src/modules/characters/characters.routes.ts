@@ -6,7 +6,6 @@ import {
   listStarterAvatars,
 } from "./characters.service.js";
 
-/** `/api/characters` — the avatars a child profile may wear (FR-PROF-02). */
 export const charactersRouter = Router();
 
 charactersRouter.use(requireParent);

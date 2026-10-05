@@ -13,8 +13,6 @@ import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/features/children/avatars";
 
-// One learner profile in the list (FR-PROF-05).
-
 /** Every grade the API can return, not every grade this app's form offers. */
 const GRADE_LABEL_KEYS: Record<GradeLevelValue, string> = {
   NURSERY: "form.gradeNursery",
@@ -25,7 +23,6 @@ export interface ChildCardProps {
   child: ChildProfileResponse;
   avatars: readonly AvatarCharacterResponse[];
   editHref: string;
-  /** FR-TIME-05 — the daily limit and access window for this child. */
   screenTimeHref: string;
   onDeleteRequest: () => void;
 }
@@ -42,9 +39,7 @@ export function ChildCard({
   const character = avatars.find(
     (avatar) => avatar.id === child.avatarCharacterId,
   );
-  // A retired character leaves the profile pointing at nothing renderable — the
-  // column is nullable precisely so that can happen — so fall back rather than
-  // render a hole.
+  // A retired character leaves the (nullable) column pointing at nothing renderable; fall back.
   const art = character ? avatarArtFor(character.slug) : FALLBACK_AVATAR_ART;
 
   const grade = t(GRADE_LABEL_KEYS[child.gradeLevel]);

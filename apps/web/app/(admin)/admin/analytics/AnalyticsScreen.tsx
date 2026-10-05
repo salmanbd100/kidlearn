@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminStatCard } from "@/features/admin/AdminStatCard";
 import { fetchPlatformOverview } from "@/features/admin/admin-api";
 
-/** `/admin/analytics` — the four platform counters (FR-CMS-07, basic tier). */
 const CARDS: ReadonlyArray<{
   key: keyof Omit<PlatformOverview, "generatedAt">;
   label: string;
@@ -27,8 +26,7 @@ export function AnalyticsScreen() {
     setStatus("loading");
 
     const result = await fetchPlatformOverview({
-      // The API sleeps on its free tier, so the first request after idle is slow.
-      // Saying so beats a spinner that looks broken (NFR-PERF-04).
+      // The API sleeps on its free tier; say so rather than show a spinner that looks broken.
       onColdStart: () => setStatus("waking"),
     });
 
@@ -93,11 +91,7 @@ export function AnalyticsScreen() {
   );
 }
 
-/**
- * Time only, not the date: the counters are read on the spot, so the day is always
- * today and printing it adds noise. `en-GB` to match the locale the rest of the
- * product formats in.
- */
+/** Time only (counters are read live); `en-GB` matches the product's locale. */
 function formatReadAt(isoDateTime: string): string {
   return new Date(isoDateTime).toLocaleTimeString("en-GB", {
     hour: "2-digit",

@@ -1,14 +1,9 @@
-// `unstable_doesMiddlewareMatch`, not the `unstable_doesProxyMatch` the v16
-// docs name: the rename landed in the documentation ahead of the build, and
-// 16.2.9's dist/experimental/testing/server still exports only the old name.
+// `unstable_doesMiddlewareMatch`, not the `unstable_doesProxyMatch` the v16 docs name: 16.2.9 still exports only the old name.
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/**
- * `DEV_SITE_BASIC_AUTH` is read at module scope, so each case has to load a
- * fresh copy of the module after setting it.
- */
+/** `DEV_SITE_BASIC_AUTH` is read at module scope, so each case loads a fresh copy of the module. */
 async function proxyWith(
   credential: string | undefined,
   headers: HeadersInit = {},
@@ -71,11 +66,7 @@ describe("dev site basic auth", () => {
   });
 });
 
-/**
- * The cases above call `proxy()` directly, so they all still pass if the matcher
- * stops matching anything — which would un-gate the whole dev site silently.
- * These go through Next's own matching instead.
- */
+/** The cases above call `proxy()` directly and would pass if the matcher stopped matching, silently un-gating the dev site; these use Next's own matching. */
 describe("the paths the gate covers", () => {
   async function matches(url: string) {
     const { config } = await import("./proxy");

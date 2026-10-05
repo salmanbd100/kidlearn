@@ -2,7 +2,6 @@
 
 export const A11Y_STORAGE_KEY = "kidlearn_a11y";
 
-/** Preference key → the class applied to `<html>`. */
 export const A11Y_PREF_CLASSES = {
   highContrast: "high-contrast",
   dyslexiaFont: "dyslexia-font",
@@ -13,8 +12,7 @@ export type A11yPrefKey = keyof typeof A11Y_PREF_CLASSES;
 
 export type A11yPrefs = Record<A11yPrefKey, boolean>;
 
-// `Object.keys` is typed `string[]` because an object may carry extra keys at
-// runtime; this one is an `as const` literal that cannot.
+// `Object.keys` is typed `string[]`; this `as const` literal has no extra keys.
 export const A11Y_PREF_KEYS = Object.keys(A11Y_PREF_CLASSES) as A11yPrefKey[];
 
 export const DEFAULT_A11Y_PREFS: A11yPrefs = {
@@ -29,8 +27,7 @@ export function readA11yPrefs(): A11yPrefs {
   try {
     const raw = window.localStorage.getItem(A11Y_STORAGE_KEY);
     if (raw === null) return { ...DEFAULT_A11Y_PREFS };
-    // Verified external boundary: localStorage is user-writable, so the parsed
-    // value is narrowed key by key below rather than trusted as A11yPrefs.
+    // localStorage is user-writable: narrow the parsed value key by key, do not trust it as A11yPrefs.
     const parsed = JSON.parse(raw) as unknown;
     if (typeof parsed !== "object" || parsed === null) {
       return { ...DEFAULT_A11Y_PREFS };
@@ -51,12 +48,10 @@ export function writeA11yPrefs(prefs: A11yPrefs): void {
   try {
     window.localStorage.setItem(A11Y_STORAGE_KEY, JSON.stringify(prefs));
   } catch {
-    // Private-browsing quota errors must not break the settings UI; the
-    // preference still applies for the rest of the session.
+    // Private-browsing quota errors must not break the settings UI.
   }
 }
 
-/** Mirrors `prefs` onto `<html>`'s class list. */
 export function applyA11yPrefs(
   prefs: A11yPrefs,
   root: HTMLElement | undefined = typeof document === "undefined"
@@ -69,7 +64,6 @@ export function applyA11yPrefs(
   }
 }
 
-/** Reads, updates and re-applies a single preference in one step. */
 export function setA11yPref(key: A11yPrefKey, isEnabled: boolean): A11yPrefs {
   const prefs = { ...readA11yPrefs(), [key]: isEnabled };
   writeA11yPrefs(prefs);
@@ -77,11 +71,7 @@ export function setA11yPref(key: A11yPrefKey, isEnabled: boolean): A11yPrefs {
   return prefs;
 }
 
-/**
- * Runs in `<head>` before first paint. Deliberately dependency-free and
- * duplicated from the functions above: it cannot import anything, and a flash
- * of un-themed UI is worse than eight lines of repetition.
- */
+/** Runs in `<head>` before first paint, so it is dependency-free and duplicated: a flash of un-themed UI is worse. */
 export const A11Y_BOOTSTRAP_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(
   A11Y_STORAGE_KEY,
 )})||"{}");var m=${JSON.stringify(A11Y_PREF_CLASSES)};for(var k in m){if(p[k]===true){document.documentElement.classList.add(m[k]);}}}catch(e){}})();`;

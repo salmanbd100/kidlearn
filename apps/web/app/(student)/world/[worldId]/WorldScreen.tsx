@@ -13,7 +13,6 @@ import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 
-/** Everything inside one world, as pictures (FR-PROF-03). */
 export function WorldScreen({ worldId }: { worldId: string }) {
   return (
     <Retryable>
@@ -53,9 +52,7 @@ function WorldContent({
         setStatus("ready");
         return;
       }
-      // A world that was unpublished while the child was looking at the home
-      // screen is a `404`, and it is not a failure to apologise for — it is a
-      // door that closed. Anything else is a real error.
+      // A world unpublished while the child looked at home is a `404`: a closed door, not a failure to apologise for.
       setStatus(result.error.code === "NOT_FOUND" ? "gone" : "error");
     });
     return () => {
@@ -67,8 +64,7 @@ function WorldContent({
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-6">
-      {/* Back sits at the top-left, opposite the parent lock: the two exits from
-          a screen should never be adjacent enough to mis-tap between. */}
+      {/* Back at top-left, opposite the parent lock, so the two exits can't be mis-tapped. */}
       <div className="pr-14">
         <BigButton
           variant="secondary"
@@ -97,8 +93,7 @@ function WorldContent({
             <h2 className="font-display text-foreground text-xl">
               {topic.name}
             </h2>
-            {/* Two up on a phone, wider on a tablet or in landscape. Tiles are
-                square, so this scales without any tile dropping below 64px. */}
+            {/* Square tiles scale without any dropping below 64px. */}
             <ul className="grid grid-cols-2 gap-4 landscape:grid-cols-3 sm:grid-cols-3 lg:grid-cols-4">
               {topic.lessons.map((lesson) => (
                 <li key={lesson.id} className="contents">

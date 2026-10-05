@@ -7,7 +7,6 @@ import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 
-/** Which child's dashboard is showing (FR-DASH-01). */
 export interface ChildSwitcherProps {
   profiles: readonly ChildProfileResponse[];
   selectedChildId: string;
@@ -21,8 +20,7 @@ export function ChildSwitcher({
 }: ChildSwitcherProps) {
   const { t } = useTranslation(PARENT_NAMESPACE);
 
-  // One child is not a choice, and a lone tab reads as a control that does
-  // nothing. The name is already in the heading above it.
+  // One child is not a choice; the name is already in the heading above.
   if (profiles.length < 2) return null;
 
   return (

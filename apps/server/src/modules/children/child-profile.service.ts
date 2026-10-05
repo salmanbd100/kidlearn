@@ -1,9 +1,4 @@
-/**
- * Child-profile domain logic (FR-PROF-01..07). No Express types cross this
- * boundary — every function here is callable from a test without an HTTP layer.
- */
-// `Prisma` is a value import, not a type-only one: the isolation level below is
-// a runtime member of the namespace.
+// `Prisma` is a value import: the isolation level below is a runtime member.
 import { type ChildProfile, Prisma } from "@kidlearn/db";
 import { env } from "../../config/env.js";
 import { prisma } from "../../config/prisma.js";
@@ -12,14 +7,10 @@ import { withSerializationRetry } from "../../shared/utils/serializable-retry.js
 import { liveStreakLength } from "../rewards/streak.service.js";
 import type { CreateChildBody, UpdateChildBody } from "./children.schema.js";
 
-/** FR-PROF-01 — a household may hold at most five learner profiles. */
+/** FR-PROF-01 */
 export const MAX_CHILDREN_PER_PARENT = 5;
 
-/**
- * The subset of a `ChildProfile` that goes over HTTP. An allowlist, not an
- * omission: `parentId` must never reach a client (NFR-SAFE-02), and any column
- * added to the model later stays invisible until someone lists it here.
- */
+// Allowlist, not omission: `parentId` must never reach a client (NFR-SAFE-02).
 export type ChildProfileDto = {
   id: string;
   firstName: string;
@@ -36,7 +27,6 @@ export type ChildProfileDto = {
   };
 };
 
-/** A profile with nothing earned yet — what a just-created row is worth. */
 const NO_STATS: ChildProfileDto["stats"] = {
   stars: 0,
   coins: 0,
@@ -60,16 +50,8 @@ export function toChildProfileDto(
   };
 }
 
-/**
- * The reward figures for a set of children, in two queries rather than two per
- * child (FR-GAM-06).
- *
- * `stats` used to be hardcoded to zero on every read, which made four published
- * contract fields permanently untrue and gave the student home screen a reward
- * strip that rendered "0 stars" for a frame before `/api/me/rewards/summary`
- * replaced it. The figures come from the same ledger `getRewardSummary` sums, so
- * the two endpoints cannot disagree.
- */
+// Two queries for the whole set, not two per child. Reads the same ledger as
+// `getRewardSummary`, so the two endpoints cannot disagree (FR-GAM-06).
 export async function readChildStats(
   childIds: readonly string[],
 ): Promise<Map<string, ChildProfileDto["stats"]>> {
@@ -95,8 +77,7 @@ export async function readChildStats(
   for (const row of ledger) {
     const entry = stats.get(row.childId);
     if (entry === undefined) continue;
-    // A badge is a row you have, not an amount you accumulate — `readTotals` in
-    // `reward.service.ts` counts them the same way.
+    // A badge is a row you have, not an amount — same as `readTotals`.
     if (row.rewardType === "star") entry.stars = row._sum.amount ?? 0;
     else if (row.rewardType === "coin") entry.coins = row._sum.amount ?? 0;
     else if (row.rewardType === "badge") entry.badges = row._count._all;
@@ -112,13 +93,11 @@ export async function readChildStats(
   return stats;
 }
 
-/** The slice of the Prisma client these functions need, so a transaction
- *  callback and the plain client are interchangeable. */
+// Lets a transaction client and the plain client be interchangeable.
 type CharacterReader = {
   character: { findFirst: typeof prisma.character.findFirst };
 };
 
-/** Confirms the requested avatar is one this profile is allowed to wear. */
 async function assertAvatarIsSelectable(
   client: CharacterReader,
   avatarCharacterId: string,
@@ -141,7 +120,6 @@ async function assertAvatarIsSelectable(
   }
 }
 
-/** Creates a profile, enforcing the five-per-parent cap. */
 export async function createChildProfile(
   parentId: string,
   input: CreateChildBody,
@@ -164,9 +142,8 @@ function createChildProfileOnce(
 
       await assertAvatarIsSelectable(tx, input.avatarCharacterId);
 
-      // Named rather than inlined: Prisma's create input is an XOR of the
-      // checked and unchecked shapes, and an inline literal carrying both
-      // `parentId` and `avatarCharacterId` is ambiguous to the compiler.
+      // Named: an inline literal with both `parentId` and `avatarCharacterId`
+      // is ambiguous against Prisma's checked/unchecked XOR input.
       const data: Prisma.ChildProfileUncheckedCreateInput = {
         ...input,
         parentId,
@@ -177,7 +154,6 @@ function createChildProfileOnce(
   );
 }
 
-/** Every profile belonging to one parent, oldest first. */
 export async function listChildProfiles(
   parentId: string,
 ): Promise<ChildProfile[]> {
@@ -187,11 +163,7 @@ export async function listChildProfiles(
   });
 }
 
-/**
- * Loads a profile only if the given parent owns it. Returns `null` rather than
- * throwing so the caller decides the response — `loadOwnedChild` turns it into
- * a 404 that is identical to the one a nonexistent id produces.
- */
+// Returns `null` so `loadOwnedChild` can answer with the same 404 as a nonexistent id.
 export async function findOwnedChildProfile(
   childId: string,
   parentId: string,
@@ -201,38 +173,27 @@ export async function findOwnedChildProfile(
   });
 }
 
-/**
- * Applies a partial update. Ownership is already established by
- * `loadOwnedChild`, so this takes an id rather than re-checking.
- */
+// Ownership is already established by `loadOwnedChild`.
 export async function updateChildProfile(
   childId: string,
   input: UpdateChildBody,
 ): Promise<ChildProfile> {
   if (input.avatarCharacterId !== undefined) {
-    // Scoped to this child, so an unlocked character is selectable and another
-    // child's unlock is not.
+    // Scoped to this child: another child's unlock does not count.
     await assertAvatarIsSelectable(prisma, input.avatarCharacterId, childId);
   }
-  // See the note in `createChildProfile` about naming the Prisma input type.
+  // Named for the same Prisma XOR reason as in `createChildProfileOnce`.
   const data: Prisma.ChildProfileUncheckedUpdateInput = input;
   return prisma.childProfile.update({ where: { id: childId }, data });
 }
 
-/**
- * Deletes a profile and everything belonging to it (FR-PROF-06).
- *
- * One statement, deliberately not an interactive transaction: Postgres runs the
- * cascade through every heartbeat and answer row atomically, and the session
- * pointer is cleared by the `ON DELETE SET NULL` foreign key. Wrapped in
- * `$transaction`, a heavy profile ran past Prisma's 5s default and rolled back —
- * a deletion that could never succeed.
- */
+// One statement, not `$transaction`: a heavy profile overran Prisma's 5s
+// interactive-transaction timeout and could never be deleted. The cascade and
+// the session's `ON DELETE SET NULL` are atomic in Postgres (FR-PROF-06).
 export async function deleteChildProfile(childId: string): Promise<void> {
   await prisma.childProfile.delete({ where: { id: childId } });
 }
 
-/** Points the current session at a child profile (FR-AUTH-06). */
 export async function activateChildProfile(
   sessionId: string,
   childId: string,

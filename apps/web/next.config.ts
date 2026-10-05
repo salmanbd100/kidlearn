@@ -6,41 +6,21 @@ type RemotePatterns = NonNullable<
   NonNullable<NextConfig["images"]>["remotePatterns"]
 >;
 
-/**
- * Where Google serves profile photos. Hard-coded rather than left to
- * `MEDIA_ASSET_HOSTS`: it is fixed by the sign-in provider, not by our
- * deployment, and a parent's avatar should not stop rendering because an
- * environment forgot a variable.
- */
+/** Google profile photos: fixed by the sign-in provider, so hard-coded rather than left to `MEDIA_ASSET_HOSTS`. */
 const GOOGLE_AVATAR_PATTERN = new URL("https://lh3.googleusercontent.com/**");
 
 /**
- * Where the development seed points activity and quiz payload images. Hard-coded
- * for the same reason as the Google host above, and outside production only: it
- * is fixed by `packages/db/prisma/journey.ts`, not by a deployment, and every
- * developer who runs the seed needs it. An `ImageAssetRef` must be `https://`
- * (`packages/types/src/primitives.ts`), so these payloads cannot fall back to a
- * relative `/dev/` path the way a `MediaAsset` url does.
- *
- * Leaving it to `MEDIA_ASSET_HOSTS` made a forgotten variable fatal rather than
- * ugly: `next/image` *throws* on an unconfigured hostname, so a single
- * picture-select question took the whole lesson player down.
- *
- * Written in the object form rather than as a `new URL()`, which pins `search`
- * to the empty string: these placeholders carry their label as `?text=...`, and
- * a pattern with a pinned-empty query rejects that with a 400. Omitting `search`
- * is what allows any query string.
+ * Where the dev seed points activity/quiz images (`packages/db/prisma/journey.ts`); outside production
+ * only. `ImageAssetRef` must be `https://`, so these cannot use a relative `/dev/` path. Hard-coded
+ * because `next/image` *throws* on an unconfigured hostname, taking the whole lesson player down.
+ * Object form, not `new URL()`: that pins `search` to empty, and these placeholders carry `?text=...`.
  */
 const DEV_PLACEHOLDER_PATTERN = {
   protocol: "https",
   hostname: "placehold.co",
 } as const;
 
-/**
- * Hosts `next/image` is allowed to load from: the two above, plus a
- * comma-separated list of origins in `MEDIA_ASSET_HOSTS`
- * (e.g. `https://cdn.kidlearn.app`).
- */
+/** Hosts `next/image` may load from: the two above plus comma-separated origins in `MEDIA_ASSET_HOSTS`. */
 function mediaRemotePatterns(): RemotePatterns {
   const defaults: RemotePatterns =
     process.env.NODE_ENV === "production"
@@ -60,23 +40,14 @@ function mediaRemotePatterns(): RemotePatterns {
 }
 
 /**
- * `noindex` for the dev deployment, whose content has not been through admin
- * review (file 38 req 4). Deliberately not `NEXT_PUBLIC_` — the browser never
- * needs it — and production leaves it unset, so the header is absent there
- * rather than present-and-permissive.
- *
- * IT IS READ AT BUILD TIME, not per request. Next serialises `headers()` into
- * `.next/routes-manifest.json` during `next build`, so setting it on a running
- * server does nothing: on Vercel it takes a REDEPLOY, exactly like a
- * `NEXT_PUBLIC_` value, despite not carrying the prefix that advertises it.
- *
- * The API host carries the same header from a Caddy `header` directive; this
- * covers the web host only.
+ * `noindex` for the dev deployment, whose content has not been through admin review. Not `NEXT_PUBLIC_`
+ * and unset in production, so the header is absent there. READ AT BUILD TIME: Next serialises
+ * `headers()` into `.next/routes-manifest.json`, so on Vercel changing it takes a REDEPLOY.
+ * The API host carries the same header from Caddy; this covers the web host only.
  */
 const siteHeaders: NonNullable<NextConfig["headers"]> = async () => {
   const headers = [
-    // The parent dashboard can edit or delete a child's profile on a tablet where
-    // the Google session persists, so no page may be framed by another origin.
+    // The dashboard edits child profiles on tablets where the Google session persists, so no page may be framed.
     { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
     { key: "X-Content-Type-Options", value: "nosniff" },
     // `?child=<id>` is in dashboard URLs; keep it out of any outbound Referer.
@@ -91,18 +62,9 @@ const siteHeaders: NonNullable<NextConfig["headers"]> = async () => {
 const nextConfig: NextConfig = {
   // The shared UI package ships raw .ts/.tsx source — let Next transpile it.
   transpilePackages: ["@kidlearn/i18n", "@kidlearn/ui"],
-  /**
-   * Escape hatch only (file 38 req 5). The frontend deploys to Vercel, which
-   * needs none of this; `apps/web/Dockerfile` does, and an untested Dockerfile
-   * is not an escape hatch. Harmless on Vercel, which ignores the standalone
-   * tree it produces.
-   */
+  /** Escape hatch for `apps/web/Dockerfile`; Vercel needs none of this and ignores the standalone tree. */
   output: "standalone",
-  /**
-   * Trace from the repository root, not `apps/web`: the app imports two
-   * workspace packages, and pnpm links them from outside this directory. Without
-   * it, `.next/standalone` ships without `@kidlearn/ui` or `@kidlearn/types`.
-   */
+  /** Trace from the repo root: pnpm links workspace packages from outside this directory, or standalone ships without them. */
   outputFileTracingRoot: path.join(
     path.dirname(fileURLToPath(import.meta.url)),
     "../..",

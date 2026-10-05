@@ -4,8 +4,6 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { LocaleTabs } from "./LocaleTabs";
 
-// The locale switch, and the two ARIA claims it used to make falsely.
-
 function Harness() {
   const [active, setActive] = useState<Locale>("en");
   return (

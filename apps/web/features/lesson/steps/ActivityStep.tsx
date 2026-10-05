@@ -6,7 +6,6 @@ import { ActivityEngine } from "@/features/activities/ActivityEngine";
 import { ActivityUnavailable } from "@/features/activities/ActivityUnavailable";
 import type { LessonStepProps } from "./lesson-step-props";
 
-/** The interactive activity (FR-LSN-03). */
 export function ActivityStep({ lesson, onComplete, locale }: LessonStepProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
 

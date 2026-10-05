@@ -1,8 +1,5 @@
-/* kidlearn design tokens. The values come from @kidlearn/tokens
-   (packages/tokens/src/index.ts), which design.md's tables are tested against.
-   Every `@generated` region below is rewritten by
-   `pnpm --filter @kidlearn/ui tokens:generate` — edit the TypeScript, never a
-   region. Everything outside the regions is hand-written. */
+/* kidlearn design tokens. Values come from @kidlearn/tokens; every `@generated` region is rewritten by
+   `pnpm --filter @kidlearn/ui tokens:generate` — edit the TypeScript, never a region. */
 
 /* 1. Static design tokens ─────────────────────────────────────────────────── */
 @theme {
@@ -18,9 +15,7 @@
   --color-cream: #fffdf7;
   /* @end:brand */
 
-  /* Type scale (design.md §3.2). Tailwind's own `text-lg` is 1.125rem; kid
-     surfaces may never go below 20px, so the default would break that rule on
-     every kid button, input and label. */
+  /* Type scale (design.md §3.2). Tailwind's `text-lg` is 1.125rem; kid surfaces may never go below 20px. */
   /* @generated:type */
   --text-lg: 1.25rem;
   --text-lg--line-height: 1.4;
@@ -120,11 +115,9 @@
   /* @end:motion */
 }
 
-/* Font families (design.md §3.1). The indirection is load-bearing: `@theme
-   inline` substitutes a token's value into the utility it generates, so
-   `.font-body` would compile to `font-family: var(--font-nunito)` and
-   redefining `--font-body` further down the tree would do nothing. Pointing the
-   theme key at `--family-*` lets the utility re-resolve per element. */
+/* Font families (design.md §3.1). The indirection is load-bearing: `@theme inline` substitutes a
+   token's value into the utility, so redefining `--font-body` down the tree would do nothing; pointing
+   the theme key at `--family-*` lets the utility re-resolve per element. */
 :root {
   --family-display: var(--font-fredoka);
   --family-body: var(--font-nunito);
@@ -160,8 +153,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Font families — see the --family-* block above for why this indirection
-     exists rather than pointing straight at next/font's variables. */
+  /* Font families — via --family-* (see above) rather than next/font's variables directly. */
   --font-display: var(--family-display);
   --font-body: var(--family-body);
   --font-ui: var(--family-ui);

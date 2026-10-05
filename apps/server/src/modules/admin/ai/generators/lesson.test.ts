@@ -1,29 +1,14 @@
 /**
- * The AI Lesson Generator (file 34, FR-AI-01, FR-AI-07).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
- *     The assertions read back the rows the generator created rather than a value
- *     queued in advance, which is what makes "every row is a draft" checkable.
- *  2. *Assert the query, not just the result.* The draft guarantee is asserted as
- *     the absence of any `status` in every `create` the generator issued — the
- *     column's default is what makes those rows invisible to a child, so an
- *     assertion on the response shape would prove nothing.
- *  3. *`where` clauses are not the whole guard.* Not applicable here: this file
- *     only writes. That a generated lesson answers `404` on the student API is
- *     asserted in `modules/content/content.routes.test.ts`, against the `status: "published"`
- *     filter every read there carries.
- *  4. *Name what the stub cannot prove.* Two things. That a failed `persist`
- *     leaves no rows behind is Postgres's transaction guarantee — the stub runs
- *     the callback and rethrows, so the tests assert the *job* fails and no lesson
- *     row was created by a completed path. And that `topicId_slug` is genuinely
- *     unique is a database constraint; the collision test asserts the suffixing
- *     the generator does in front of it.
- *
- * The Gemini client is mocked, which `general.md §5` permits explicitly:
- * external network boundaries are the one allowed mock.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: arrays per table; assertions read back the rows the generator created.
+ *  2. Assert the query: "every row is a draft" is asserted as no `status` in any `create`, since the column
+ *     default is what keeps those rows from a child.
+ *  3. `include` gates: not applicable, this file only writes (the student API's 404 is asserted in
+ *     `content.routes.test.ts`).
+ *  4. Not provable: a failed `persist` leaving no rows is Postgres's guarantee (the tests assert the job fails
+ *     and no lesson row was created by a completed path); `topicId_slug` uniqueness is a database constraint
+ *     (the collision test asserts the suffixing in front of it).
+ * The Gemini client is mocked (external boundary).
  */
 
 import { validMcq } from "@kidlearn/types";
@@ -39,7 +24,6 @@ const store = vi.hoisted(() => ({
   quizzes: [] as Row[],
   questions: [] as Row[],
   jobs: [] as Row[],
-  /** Every `create` the generator issued, so the draft guarantee is checkable. */
   creates: [] as Array<{ table: string; data: Record<string, unknown> }>,
 }));
 
@@ -178,11 +162,7 @@ const OTHER_WORLD_ID = "44444444-4444-4444-8444-444444444444";
 
 const USAGE = { inputTokens: 900, outputTokens: 1500 };
 
-/**
- * A schema-valid question, from the shared fixture the payload contract's own
- * tests use. Reused rather than hand-written here so this suite cannot pass on a
- * shape `QuizQuestionSchema` would reject.
- */
+// A schema-valid question from the shared payload fixture, so this suite cannot pass on a shape `QuizQuestionSchema` rejects.
 function mcq(promptEn: string, audioUrl?: string) {
   return {
     ...validMcq,
@@ -198,7 +178,6 @@ function mcq(promptEn: string, audioUrl?: string) {
   };
 }
 
-/** Everything but the questions — what the generator's first call asks for. */
 function validBody(languages: Array<"en" | "bn"> = ["en", "bn"]) {
   const script = (text: string) =>
     Object.fromEntries(languages.map((one) => [one, `${text} (${one})`]));
@@ -215,13 +194,8 @@ function validQuestions() {
   return [mcq("q1"), mcq("q2"), mcq("q3"), mcq("q4")];
 }
 
-/** The calls one attempt makes: the body, then one per question. */
 const CALLS_PER_ATTEMPT = 1 + LESSON_QUESTION_COUNT;
 
-/**
- * Answers the body call and each question call in the order
- * `generators/lesson.ts` makes them, for as many attempts as the job takes.
- */
 function mockGeneration(
   round: (attempt: number) => { body: unknown; questions: unknown[] },
 ) {
@@ -249,7 +223,6 @@ function request(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Every `create` for one table, as the generator sent it. */
 function creates(table: string) {
   return store.creates
     .filter((one) => one.table === table)
@@ -333,9 +306,7 @@ describe("what a successful generation writes", () => {
   });
 
   it("gives each locale the title the model wrote for it, not the focus line", async () => {
-    // `LessonTranslation.title` is what a child reads on a lesson card, so an
-    // English focus line in the Bangla row would be untranslated child-facing
-    // text that looks filled in (FR-I18N-01).
+    // `LessonTranslation.title` is what a child reads: an English focus line in the Bangla row would be untranslated child-facing text (FR-I18N-01).
     await generateLesson(request());
 
     const written = creates("lesson.translation");
@@ -368,8 +339,7 @@ describe("what a successful generation writes", () => {
   it("keeps the narration script in the job rather than in a column", async () => {
     await generateLesson(request());
 
-    // File 36's text-to-speech reads it from here. No lesson column holds it,
-    // because the column it eventually needs is an audio asset reference.
+    // Narration reads it from here; no lesson column holds it because that column will be an audio asset reference.
     const rawOutput = store.jobs[0].rawOutput as {
       parsed: { narrationScript: Record<string, string> };
     };
@@ -388,8 +358,7 @@ describe("what a successful generation writes", () => {
     expect(input.userPrompt).toContain("English");
     expect(input.systemPrompt).toContain("aged 3 to 6");
 
-    // The questions are asked for one at a time, so the prompt a reviewer needs
-    // for question three is not the lesson prompt (FR-AI-08).
+    // Questions are asked for one at a time, so question three's prompt is not the lesson prompt (FR-AI-08).
     const questionPrompts = (store.jobs[0].input as Record<string, string[]>)
       .questionPrompts;
     expect(questionPrompts).toHaveLength(LESSON_QUESTION_COUNT);
@@ -414,7 +383,7 @@ describe("asset URLs", () => {
 
     const serialised = JSON.stringify(creates("quizQuestion"));
     expect(serialised).not.toContain("cdn.evil.example");
-    // The path survives, so file 36 can still see what each clip was meant to be.
+    // The path survives so each clip's intent is still visible.
     expect(serialised).toContain(`${PLACEHOLDER_ASSET_HOST}/audio/en/q1.mp3`);
   });
 });

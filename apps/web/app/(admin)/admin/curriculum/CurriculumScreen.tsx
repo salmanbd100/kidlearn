@@ -42,11 +42,6 @@ import { LessonForm } from "./LessonForm";
 import { StatusChip } from "./StatusChip";
 import { TransitionButtons } from "./TransitionButtons";
 
-/**
- * `/admin/curriculum` — the curriculum tree (file 32, FR-CURR-04, FR-CMS-01,
- * FR-CMS-06).
- */
-
 type DialogState =
   | { kind: "closed" }
   | { kind: "create"; resource: ContentResourceName }
@@ -68,20 +63,14 @@ export function CurriculumScreen() {
     "loading" | "waking" | "ready" | "error"
   >("loading");
   const [isBusy, setIsBusy] = useState(false);
-  // Two channels, not one. They render differently — a success is a `role=status`
-  // banner, a failure is a `role=alert` inside the open form — and sharing a
-  // variable meant the last success was still in it when the next dialog opened,
-  // announcing "Created as a draft." as an error on an untouched form.
+  // Two channels: a success is a `role=status` banner, a failure a `role=alert` in the open form;
+  // sharing one announced a stale success as an error on the next dialog.
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
   const [dialog, setDialog] = useState<DialogState>({ kind: "closed" });
-  // Its own flag rather than a `DialogState` variant: the generator is not a form
-  // over a resource — it has no row to edit, its own submit path, and its own
-  // dialog — so folding it into that union would mean guarding every branch that
-  // reads `dialog.resource`.
+  // Not a `DialogState` variant: the generator has no row to edit, so folding it in would guard every `dialog.resource` read.
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
 
-  /** Both channels are stale the moment a new intent starts. */
   function clearMessages() {
     setNotice(undefined);
     setError(undefined);
@@ -151,7 +140,6 @@ export function CurriculumScreen() {
     selectedLessonId,
   });
 
-  /** Runs a write, reports its failure in the admin's words, then re-reads. */
   async function run(
     action: () => Promise<{ ok: boolean; error?: { message: string } }>,
     successNotice: string,
@@ -172,7 +160,6 @@ export function CurriculumScreen() {
     return true;
   }
 
-  /** Applies each hop in order and stops at the first refusal. */
   async function handleTransition(
     resource: ContentResourceName,
     id: string,
@@ -196,7 +183,6 @@ export function CurriculumScreen() {
     setIsBusy(false);
   }
 
-  /** Reorders optimistically, then lets the server's answer stand. */
   async function handleReorder(
     resource: OrderableContentResourceName,
     orderedIds: string[],
@@ -206,9 +192,7 @@ export function CurriculumScreen() {
     apply(orderedIds);
     clearMessages();
 
-    // `includeArchived` has to match the list that was dragged: the server
-    // validates the payload against the sibling set that flag selects, so a tree
-    // showing archived rows must say so or every drag from that view is a 400.
+    // `includeArchived` must match the dragged list: the server validates against the sibling set it selects.
     const result = await reorderContent(
       resource,
       orderedIds,
@@ -284,8 +268,7 @@ export function CurriculumScreen() {
         </p>
       ) : null}
 
-      {/* A failure from a transition or a reorder has no form to render itself
-          in — only a submit does. */}
+      {/* A transition or reorder failure has no form to render in. */}
       {error && dialog.kind === "closed" ? (
         <p
           role="alert"
@@ -374,8 +357,7 @@ export function CurriculumScreen() {
             setSelectedLessonId(undefined);
           }}
           onCreate={() => openDialog({ kind: "create", resource: "worlds" })}
-          // No `onReorder`: `World` carries no `sortOrder`. Worlds are chosen on
-          // a map, not read in sequence.
+          // No `onReorder`: `World` has no `sortOrder`.
         />
       </div>
 
@@ -391,9 +373,7 @@ export function CurriculumScreen() {
             <Button
               type="button"
               variant="outline"
-              // A row in review, approved or published refuses an edit server-side, so the button that
-              // would earn the 409 is disabled rather than left to produce one.
-              // `isContentEditable` is the same predicate the server applies.
+              // In-review/approved/published rows refuse edits server-side (`isContentEditable`); disable rather than earn the 409.
               disabled={!isContentEditable(selected.row.status)}
               onClick={() =>
                 openDialog({ kind: "edit", resource: selected.resource })
@@ -507,13 +487,10 @@ export function CurriculumScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* File 34 — the AI Lesson Generator (FR-AI-01). Everything it creates is a
-          draft in the review queue, which is why success here is a notice and a
-          reload rather than a jump into an editor. */}
+      {/* Generated content is a draft in the review queue, hence a notice and reload
+          rather than a jump to an editor. */}
       <GenerateLessonDialog
-        // Keyed on the selection so the dialog opens on whatever is in view.
-        // Its subject and topic are initial state, and an unkeyed instance would
-        // keep the first pair it was mounted with for the rest of the session.
+        // Keyed on the selection: subject and topic are initial state.
         key={`${selectedSubjectId ?? ""}:${selectedTopicId ?? ""}`}
         isOpen={isGenerateOpen}
         onOpenChange={setIsGenerateOpen}
@@ -530,7 +507,6 @@ export function CurriculumScreen() {
     </div>
   );
 
-  /** Creates an empty quiz and points the lesson at it, in that order. */
   async function createQuizFor(lesson: AdminLesson) {
     setIsBusy(true);
     clearMessages();
@@ -546,9 +522,7 @@ export function CurriculumScreen() {
       quizId: created.data.id,
     });
     if (!linked.ok) {
-      // The quiz exists and is reachable from the quizzes list; only the pointer
-      // failed. Saying so is more useful than "that did not work", because the
-      // recovery is to paste the id rather than to start again.
+      // Only the pointer failed; the quiz exists in the quizzes list, so the recovery is pasting the id.
       setError(
         `The quiz was created but could not be linked: ${linked.error.message}`,
       );
@@ -593,7 +567,6 @@ type SelectedRow = {
   };
 };
 
-/** Which single row the detail panel is about. */
 function useSelection(input: {
   worlds: AdminWorld[];
   subjects: AdminSubject[];
@@ -627,10 +600,6 @@ function useSelection(input: {
   }, [input]);
 }
 
-/**
- * The three things an admin does with a selected lesson that are not edits to the
- * lesson row: preview it, and open the quiz and activity it points at.
- */
 function LessonPartLinks({
   lesson,
   isBusy,
@@ -673,8 +642,7 @@ function LessonPartLinks({
         </Button>
       )}
 
-      {/* File 35 — the AI Quiz Generator (FR-AI-03). It creates the quiz itself
-          when the lesson has none, so it does not wait on "Create quiz". */}
+      {/* Creates the quiz itself when the lesson has none. */}
       <GenerateQuizButton
         lessonId={lesson.id}
         isBusy={isBusy}
@@ -682,9 +650,7 @@ function LessonPartLinks({
         onError={onQuizError}
       />
 
-      {/* File 36 — narration for the lesson's intro scripts (FR-AI-04). Beside
-          the quiz generator rather than in the lesson form, for the same reason:
-          there is no id to narrate against until the lesson has been saved. */}
+      {/* Beside the quiz generator: no id to narrate against until the lesson is saved. */}
       <GenerateNarrationButton
         entity="lesson"
         id={lesson.id}
@@ -720,7 +686,6 @@ function toColumnItem(row: {
   return { id: row.id, label: row.name, status: row.status };
 }
 
-/** Reorders a flat list to match `orderedIds`, for the optimistic update. */
 function reorderLocally<TRow extends { id: string }>(
   rows: TRow[],
   orderedIds: string[],
@@ -731,10 +696,7 @@ function reorderLocally<TRow extends { id: string }>(
     .filter((row): row is TRow => row !== undefined);
 }
 
-/**
- * The same, for a list holding several parents' children: only the rows named in
- * `orderedIds` move, and they take the positions those rows already occupied.
- */
+/** As above, for a list spanning several parents: named rows take the positions those rows already held. */
 function reorderWithinParent<TRow extends { id: string }>(
   rows: TRow[],
   orderedIds: string[],

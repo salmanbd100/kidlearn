@@ -9,8 +9,6 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { ChildCard } from "./ChildCard";
 
-// The grade label is the point of this suite.
-
 const AVATARS: AvatarCharacterResponse[] = [
   {
     id: "char_lion",

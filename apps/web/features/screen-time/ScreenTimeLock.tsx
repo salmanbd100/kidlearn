@@ -10,11 +10,6 @@ import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
 
-/**
- * What a child sees when their grown-up's screen-time rule says no (FR-TIME-02,
- * FR-TIME-04).
- */
-
 export interface ScreenTimeLockProps {
   reason: ScreenTimeBlockCode;
   /** `"HH:MM"`, when the server sent one. Only the window screen uses it. */
@@ -41,12 +36,7 @@ export function ScreenTimeLock({ reason, windowStart }: ScreenTimeLockProps) {
     ? t("screenTime.windowBody")
     : t("screenTime.timeUpBody");
 
-  /**
-   * Says the line out loud, for the child who cannot read it. A missing clip is
-   * silent rather than an error — `AudioProvider` swallows both a failed load and
-   * an autoplay rejection, and the real narration arrives with the voice pipeline
-   * (file 36). Keyed on the reason so switching screens re-announces.
-   */
+  /** Says the line aloud for a child who cannot read it. A missing clip is silent, not an error (`AudioProvider` swallows failed loads and autoplay rejection). Keyed on the reason so switching screens re-announces. */
   useEffect(() => {
     void play(`/audio/ui/${narrationKey(reason)}.${i18n.language}.mp3`, {
       interrupt: true,
@@ -76,7 +66,7 @@ export function ScreenTimeLock({ reason, windowStart }: ScreenTimeLockProps) {
   );
 }
 
-/** The narration clip for each reason. See `lib/use-screen-narration.ts`. */
+/** The narration clip for each reason. */
 function narrationKey(reason: ScreenTimeBlockCode): string {
   return reason === "OUTSIDE_WINDOW" ? "outside-window" : "time-up";
 }

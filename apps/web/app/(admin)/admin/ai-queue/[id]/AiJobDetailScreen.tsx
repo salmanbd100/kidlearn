@@ -18,11 +18,6 @@ import { approveAiJob, fetchAiJob, rejectAiJob } from "@/features/admin/ai-api";
 import { JsonInspector } from "@/features/admin/JsonInspector";
 import { RejectDialog } from "@/features/admin/RejectDialog";
 
-/**
- * `/admin/ai-queue/[id]` — read it, then decide (file 37, FR-CMS-05..06,
- * FR-AI-07..08).
- */
-
 export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   const [job, setJob] = useState<AiJobDetail>();
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -30,7 +25,6 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
-  /** The rejection's own failure, kept apart from the page's. */
   const [rejectError, setRejectError] = useState<string>();
 
   const load = useCallback(
@@ -279,7 +273,6 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   );
 }
 
-/** One content row, with the way into the editor that owns it. */
 function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
   const editHref =
     entity.resource === "quizzes"
@@ -304,7 +297,6 @@ function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
   );
 }
 
-/** The clip or the picture, playable and viewable before it is approved. */
 function AssetPreview({ asset }: { asset: AiJobAsset }) {
   return (
     <div className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-3">
@@ -352,9 +344,7 @@ function AssetMedia({ asset }: { asset: AiJobAsset }) {
   }
   return (
     <Image
-      // The scene brief is what the picture was drawn from, so it is the closest
-      // thing to real alternative text this screen has; a reviewer reading it aloud
-      // is checking exactly that correspondence.
+      // The scene brief is what the picture was drawn from, so it is the closest thing to alt text.
       alt={asset.sourceText ?? "Generated illustration"}
       src={asset.url}
       width={640}

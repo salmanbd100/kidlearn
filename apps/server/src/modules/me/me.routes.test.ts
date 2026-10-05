@@ -1,13 +1,6 @@
 /**
- * `GET /api/me/rewards/summary` and `GET /api/me/characters`.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. Rule 1 applies in the shape that matters here: the stub
- * holds ledger *rows* and does the grouping itself, so the totals asserted below
- * are arithmetic over data rather than a canned answer. Rule 2 covers the
- * character list, where the `where` clause is what keeps a draft character out
- * of a picker. Rule 4 names what neither can show — whether Postgres's `groupBy`
- * returns what this one does.
+ * Stubs `config/prisma.js` under the stub exception in `general.md §5`. The stub holds ledger rows and does the grouping itself (rule 1);
+ * the character list's `where` clause keeps drafts out of the picker (rule 2); whether Postgres's `groupBy` agrees is unproven (rule 4).
  */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import {
@@ -84,8 +77,7 @@ const CHILD = {
 } satisfies ChildProfile;
 
 function signInAs(child: ChildProfile | null) {
-  // `getSession` returns a deep better-auth type; only the fields the middleware
-  // reads are supplied, so the shape is narrowed at this boundary.
+  // Narrowed: `getSession` returns a deep better-auth type; only the fields the middleware reads are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -165,8 +157,7 @@ describe("GET /api/me/rewards/summary", () => {
       res.body,
       "GET /api/me/rewards/summary",
     );
-    // A brand-new profile, not an error and not an empty body — the reward strip
-    // renders the same shape on day one as on day ninety.
+    // A brand-new profile is not an error or an empty body: the reward strip renders the same shape on day one.
     expect(res.body.data).toEqual({
       stars: 0,
       coins: 0,
@@ -186,8 +177,7 @@ describe("GET /api/me/rewards/summary", () => {
 
     const res = await getSummary();
 
-    // Balances are SUM(amount) over the rows, never a stored counter — which is
-    // what makes them unspoofable and reportable (database-design.md).
+    // Balances are SUM(amount) over rows, never a stored counter, so they are unspoofable (database-design.md).
     expect(res.body.data).toMatchObject({ stars: 3, coins: 11, badgeCount: 0 });
   });
 
@@ -200,8 +190,7 @@ describe("GET /api/me/rewards/summary", () => {
 
     const res = await getSummary();
 
-    // A badge is a thing you have or do not; its `amount` is a 1 that exists
-    // only because the ledger is one table.
+    // A badge is had or not; its `amount` of 1 exists only because the ledger is one table.
     expect(res.body.data.badgeCount).toBe(2);
   });
 
@@ -239,8 +228,7 @@ describe("GET /api/me/rewards/summary", () => {
 
   it("reports a lapsed streak as zero rather than the stale stored number", async () => {
     signInAs(CHILD);
-    // `current` is only reset by the next activity, so a child who last played a
-    // week ago still has 4 in the column.
+    // `current` resets only on the next activity, so a child who last played a week ago still has 4.
     db.streakFindUnique.mockResolvedValue({
       current: 4,
       lastActivityDate: new Date(Date.now() - 7 * 24 * 60 * 60_000),
@@ -260,10 +248,7 @@ describe("GET /api/me/rewards/summary", () => {
 
     const res = await getSummary();
 
-    // A streak counts days something was *finished*. If opening the home screen
-    // could extend one, a child could keep a flame alive by never learning.
-    // The stub above offers `streak.findUnique` and nothing else, so a write
-    // here would be a TypeError rather than a passing test.
+    // Opening the home screen must not extend a streak. The stub offers only `streak.findUnique`, so a write would throw.
     expect(res.status).toBe(200);
     expect(db.streakFindUnique).toHaveBeenCalledTimes(1);
   });
@@ -274,7 +259,6 @@ describe("GET /api/me/characters", () => {
     return request(app).get("/api/me/characters");
   }
 
-  /** One published row as `listCharactersForChild` selects it. */
   function characterRow(overrides: Record<string, unknown> = {}) {
     return {
       id: "character_1",
@@ -344,8 +328,7 @@ describe("GET /api/me/characters", () => {
 
     const res = await getCharacters();
 
-    // A picker showing only what a child already has cannot show them what
-    // there is to earn — the silhouette *is* the progression.
+    // The silhouette is the progression: a picker showing only owned characters hides what there is to earn.
     expect(res.body.data.characters).toHaveLength(2);
     expect(res.body.data.characters[1]).toMatchObject({
       slug: "mia-the-monkey",
@@ -382,12 +365,7 @@ describe("GET /api/me/characters", () => {
     expect(res.body.data.characters[0].imageUrl).toBe("/dev/leo.png");
   });
 
-  /**
-   * The content-safety half (`backend.md §4`). A stub cannot show that a draft
-   * character stayed out of the list, so the clause that keeps it out is
-   * asserted — along with the scoping of `unlocks`, which is what stops the flag
-   * reading another child's row.
-   */
+  /** Content-safety half (`backend.md §4`): asserts the `where` clause and the scoping of `unlocks`, which stops the flag reading another child's row. */
   it("asks Prisma only for published characters, scoped to this child's unlocks", async () => {
     signInAs(CHILD);
 

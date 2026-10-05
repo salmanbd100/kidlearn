@@ -11,29 +11,18 @@ import {
   useState,
 } from "react";
 
-// One narration channel for the whole app (NFR-A11Y-01 groundwork).
-
 const MUTE_STORAGE_KEY = "kidlearn_audio_muted";
 
-/**
- * `ended` — the child heard the whole clip. `unplayed` — it was never heard to
- * the end: it failed to load, was blocked by autoplay policy, or was refused
- * because the channel is muted or already busy.
- */
+/** `ended`: heard in full. `unplayed`: failed to load, autoplay-blocked, or refused (muted or channel busy). */
 export type PlayOutcome = "ended" | "unplayed";
 
 export interface PlayOptions {
   interrupt?: boolean;
-  /**
-   * Called once when this clip is no longer going to be heard. Not called when
-   * the clip is cut off by `stop()` or replaced by a newer one — whoever did
-   * that has moved on and must not be told the old clip finished.
-   */
+  /** Called once when the clip will no longer be heard; not on `stop()` or replacement, whose caller has moved on. */
   onFinished?: (outcome: PlayOutcome) => void;
 }
 
 export interface AudioChannel {
-  /** Resolves once playback has started (or was skipped). Never rejects. */
   play: (url: string, opts?: PlayOptions) => Promise<void>;
   stop: () => void;
   isPlaying: boolean;
@@ -47,9 +36,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const currentRef = useRef<HTMLAudioElement | undefined>(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const [muted, setMutedState] = useState(false);
-  // `play` reads this rather than `muted`: with `muted` in its dependencies,
-  // toggling mute changed `play`'s identity, which re-ran every effect keyed on
-  // it — replaying a screen's narration and restarting the reward timers.
+  // `play` reads this, not `muted`: with `muted` as a dependency, toggling mute re-ran every effect keyed on `play`.
   const mutedRef = useRef(false);
 
   const stop = useCallback(() => {
@@ -62,17 +49,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setIsPlaying(false);
   }, []);
 
-  // Read after mount, not during render: the server has no localStorage, so
-  // seeding state from it directly would break hydration. Child effects run
-  // before this one, so the first screen's narration may already be playing by
-  // the time the stored preference is known — silence it.
+  // Read after mount: the server has no localStorage and seeding from it would break hydration. Child
+  // effects run first, so narration may already be playing; silence it.
   useEffect(() => {
     let isStoredMuted = false;
     try {
       isStoredMuted = window.localStorage.getItem(MUTE_STORAGE_KEY) === "true";
     } catch {
-      // Blocked storage (locked-down WebViews, kiosk profiles) must not take
-      // the root layout down — default to unmuted.
+      // Blocked storage (WebViews, kiosk profiles) must not take the root layout down; default to unmuted.
     }
     mutedRef.current = isStoredMuted;
     setMutedState(isStoredMuted);
@@ -113,9 +97,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       let hasFinished = false;
       const finish = (outcome: PlayOutcome) => {
-        // `stop()` or a newer clip took the channel: `pause()` rejects a pending
-        // `play()` with `AbortError`, which lands here. Reporting it would let a
-        // caller act on a clip it already cancelled.
+        // `stop()` or a newer clip took the channel: `pause()` rejects a pending `play()` with `AbortError`; don't report it.
         const isSuperseded = currentRef.current !== element;
         if (!isSuperseded) {
           currentRef.current = undefined;
@@ -145,9 +127,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     [stop],
   );
 
-  // Stop on unmount. An `HTMLAudioElement` is not part of the React tree, so a
-  // clip left playing would follow the child into the next screen and talk over
-  // whatever it says.
+  // An `HTMLAudioElement` is outside the React tree; a clip left playing would talk over the next screen.
   useEffect(() => stop, [stop]);
 
   const channel = useMemo<AudioChannel>(

@@ -17,13 +17,8 @@ import {
   readQuizGuard,
 } from "../../../content/content-status.service.js";
 
-/**
- * The four content tables a job can create rows in, spelled as CMS path segments
- * so the review screen's "open in editor" links come from the payload.
- */
 type EntityResource = AiEntityResource;
 
-/** `Quiz.title` is nullable; the queue still has to call the row something. */
 export const UNTITLED_QUIZ = "Untitled quiz";
 
 export type LinkedRow = {
@@ -31,9 +26,7 @@ export type LinkedRow = {
   id: string;
   label: string;
   status: ContentStatus;
-  /** Every job answerable for the row's contents — a quiz answers for its questions' jobs too. */
   aiJobIds: string[];
-  /** Asset URLs in the row's payload that the media library does not hold. */
   unregisteredUrls: string[];
 };
 
@@ -52,11 +45,8 @@ export type ReviewWriter = Pick<
   | "mediaAsset"
 >;
 
-/**
- * A quiz job run against a lesson that already had a quiz stamps `aiJobId` on the
- * *questions* only, because the quiz row predates the job. The questions have no
- * status, so approving them means publishing the quiz they belong to.
- */
+// A quiz job on a lesson that already had a quiz stamps `aiJobId` on the questions only; they have no
+// status, so approving them means publishing their quiz.
 export async function linkedContentRows(
   jobId: string,
   tx: ReviewWriter,
@@ -141,10 +131,8 @@ export async function linkedContentRows(
     });
   }
 
-  // A quiz publishes its questions, so the publish guard has to see their jobs —
-  // including questions from a *different* job than the one being reviewed, which
-  // a per-job read cannot find (FR-AI-07).
-  // Each also answers for the library assets its payload links to.
+  // A quiz publishes its questions, so the publish guard must see their jobs, including those of a
+  // different job than the one reviewed (FR-AI-07).
   for (const row of rows) {
     const contents: ContentsGuard =
       row.resource === "quizzes"
@@ -172,27 +160,18 @@ export function toEntity(row: LinkedRow): AiJobEntity {
   };
 }
 
-/**
- * Both columns are JSONB Prisma types as `JsonValue`, and every field read out of
- * them below is re-checked before use: a job whose audit record predates a prompt
- * change must still render in the queue rather than throwing the list.
- */
+// Both columns are JSONB (`JsonValue`); every field is re-checked so a job from before a prompt change still renders.
 export function asRecord(
   value: Prisma.JsonValue | null,
 ): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return {};
   }
-  // The JSONB column boundary. Narrowed to "an object with unknown values",
-  // which is exactly what the three guards above verify.
+  // JSONB boundary: the guards above verify "an object with unknown values".
   return value as Record<string, unknown>;
 }
 
-/**
- * The lesson generator records one `gradeLevel`, the story generator a
- * `gradeLevels` array, and the media generators neither — folded into one array so
- * the queue has a single column to render and a single filter to apply.
- */
+// The lesson generator records `gradeLevel`, the story generator `gradeLevels`; folded into one array.
 export function readGradeLevels(
   input: Record<string, unknown>,
 ): GradeLevelValue[] {
@@ -203,10 +182,7 @@ export function readGradeLevels(
   return GRADE_LEVELS.filter((grade) => values.includes(grade));
 }
 
-/**
- * `languages` for the text generators; `locale` for a narration clip, which has
- * exactly one. An illustration job has neither — a picture has no language.
- */
+// `languages` for text generators, `locale` for narration; an illustration has neither.
 export function readLanguages(input: Record<string, unknown>): Locale[] {
   const values = Array.isArray(input.languages)
     ? input.languages
@@ -243,12 +219,7 @@ export type JobRow = Prisma.AIGenerationJobGetPayload<{
   select: typeof JOB_SELECT;
 }>;
 
-/**
- * `AiJobSummary` and `AiJobDetail` type their timestamps as ISO strings, which is
- * the wire format; the rows carry `Date`. `res.json()` does the conversion, so
- * the DTOs here are declared with `Date` in those positions — matching every
- * other admin service — and this is the one place the two descriptions meet.
- */
+// The DTOs declare `Date` where the summary/detail types say ISO string; `res.json()` does the conversion.
 export type AiJobSummaryDto = Omit<AiJobSummary, "createdAt" | "reviewedAt"> & {
   createdAt: Date;
   reviewedAt: Date | null;

@@ -29,15 +29,9 @@ export function ConsentScreen() {
     const result = await submitConsent();
 
     if (result.ok) {
-      // Re-reads `consentGivenAt`, which is what moves the guard on to the
-      // first-profile step.
-      // Deliberately not a local "done" flag: the server's record is the only
-      // thing that decides whether consent exists.
+      // Re-reads `consentGivenAt`, which moves the guard on; not a local flag, as the server record decides.
       await refresh();
-      // Normally unreachable — the guard has navigated away by now. It is not
-      // unreachable if `refresh()` came back without the record (a failed reload,
-      // a rolled-back write), and leaving the button disabled there would strand
-      // a parent on a mandatory step with nothing to press.
+      // Normally unreachable, but if `refresh()` came back without the record a disabled button would strand the parent.
       setIsSubmitting(false);
       return;
     }
@@ -84,9 +78,7 @@ export function ConsentScreen() {
 
         <p className="text-muted-foreground text-sm">{t("consent.rights")}</p>
 
-        {/* A native checkbox: it is already accessible, already keyboard-operable,
-            and needs no Radix wrapper. The 44px padded label is the touch target
-            (design.md §7), not the 16px box. */}
+        {/* A native checkbox is already accessible; the 44px padded label is the touch target (design.md §7). */}
         <label
           htmlFor={checkboxId}
           className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-foreground text-sm"

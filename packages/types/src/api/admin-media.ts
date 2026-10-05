@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AssetKindSchema, LocaleSchema } from "../primitives.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/** `/api/admin/media` — the media library (file 33, FR-CMS-02). */
+/** `/api/admin/media` — the media library (FR-CMS-02). */
 export const MediaAssetSchema = z
   .object({
     id: z.string(),
@@ -10,9 +10,8 @@ export const MediaAssetSchema = z
     url: z.string(),
     kind: AssetKindSchema,
     /**
-     * `null` for a language-neutral asset. An illustration has no language; a
-     * narration clip does, and getting it wrong is how a Bangla learner hears
-     * English (FR-I18N-01).
+     * `null` for a language-neutral asset. A narration clip has a language; getting it wrong
+     * makes a Bangla learner hear English (FR-I18N-01).
      */
     language: LocaleSchema.nullable(),
     createdAt: IsoDateTimeSchema,

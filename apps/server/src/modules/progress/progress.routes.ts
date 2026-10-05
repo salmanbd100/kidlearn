@@ -30,38 +30,22 @@ import {
 } from "./progress.schema.js";
 import { completeStory } from "./story-progress.service.js";
 
-/** Where the lesson player writes what a child has done (FR-LSN-06..07). */
 export const progressRouter = Router();
 
-/**
- * Reads the `:id` path parameter on routes guarded by
- * `validate({ params: LessonIdParamsSchema })`.
- */
 function lessonIdParam(req: Request): string {
   return req.params.id as string;
 }
 
-/** The same narrowing, for routes guarded by `QuizIdParamsSchema`. */
 function quizIdParam(req: Request): string {
   return req.params.quizId as string;
 }
 
-/**
- * The same narrowing again, for `StoryIdParamsSchema`. Named rather than reusing
- * `lessonIdParam`: the two read the same path segment and mean different rows,
- * and a handler calling `lessonIdParam` to fetch a story is exactly the confusion
- * a shared helper invites.
- */
+/** Separate from `lessonIdParam`: same path segment, different rows, and reusing one to fetch a story is the confusion a shared helper invites. */
 function storyIdParam(req: Request): string {
   return req.params.id as string;
 }
 
-/**
- * `completedAt` is a `Date` on the row and an ISO string on the wire, which is
- * what `IsoDateTimeSchema` documents. `res.json()` would convert it anyway; doing
- * it here is what makes the handler's type match the published contract instead of
- * only matching it at runtime.
- */
+/** `completedAt` is a `Date` on the row and an ISO string on the wire; converting here makes the handler's type match the published contract. */
 function toResponse(progress: LessonProgress): LessonProgressResponse {
   return {
     lessonId: progress.lessonId,
@@ -99,8 +83,7 @@ progressRouter.post(
       const progress = await reportLessonStep(
         activeChild(req),
         lessonIdParam(req),
-        // `validate` replaced the body with the parsed object, so this narrows a
-        // schema-verified boundary rather than trusting the request.
+        // `validate` replaced the body with the parsed object; this narrows a schema-verified boundary.
         req.body as LessonStepReport,
       );
       const body: SuccessEnvelope<{ progress: LessonProgressResponse }> = {
@@ -113,7 +96,6 @@ progressRouter.post(
   },
 );
 
-/** FR-LSN-05 — finishes the lesson and pays for it. */
 progressRouter.post(
   "/lessons/:id/complete",
   validate({ params: LessonIdParamsSchema }),
@@ -131,7 +113,6 @@ progressRouter.post(
   },
 );
 
-/** FR-STORY-06..07 — finishes a story and pays for it, once. */
 progressRouter.post(
   "/stories/:id/complete",
   validate({ params: StoryIdParamsSchema }),
@@ -151,10 +132,7 @@ progressRouter.post(
   },
 );
 
-/**
- * 201: each POST appends a row to an append-only log, so there is a new resource
- * every time — unlike the step report above, which upserts one.
- */
+/** 201: each POST appends to an append-only log, unlike the step report, which upserts one row. */
 progressRouter.post(
   "/events",
   validate({ body: SessionEventBodySchema }),
@@ -180,10 +158,7 @@ progressRouter.post(
   },
 );
 
-/**
- * 200 rather than 201: the rows are a side effect of scoring, and what a caller
- * is given back is the score — not a resource it could go and read.
- */
+/** 200 not 201: the rows are a side effect of scoring; the caller gets the score, not a readable resource. */
 progressRouter.post(
   "/quizzes/:quizId/responses",
   validate({ params: QuizIdParamsSchema, body: QuizResponsesBodySchema }),

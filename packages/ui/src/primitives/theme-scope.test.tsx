@@ -9,8 +9,7 @@ import {
 } from "./dropdown-menu";
 import { ThemeScope } from "./theme-scope";
 
-// Radix portals mount outside the React tree's DOM. Unscoped, they land in
-// `<body>` and wear `:root`'s kid tokens on every surface.
+// Unscoped Radix portals land in `<body>` and wear `:root`'s kid tokens on every surface.
 
 function themeOf(element: Element) {
   return element.closest("[data-theme]")?.getAttribute("data-theme");

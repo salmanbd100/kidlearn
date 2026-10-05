@@ -63,8 +63,7 @@ describe("LessonTile", () => {
   });
 
   it("still opens the lesson when no voice-over exists yet", () => {
-    // `nameAudioUrl` is a reserved `null` until the voice pipeline (file 36)
-    // fills it, so silence must never mean a dead tile.
+    // `nameAudioUrl` is a reserved `null` until the voice pipeline fills it; silence must never mean a dead tile.
     const { onOpen } = renderTile(lesson());
 
     fireEvent.click(screen.getByRole("button", { name: /The Letter A/ }));

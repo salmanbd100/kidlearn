@@ -14,20 +14,13 @@ import {
 import { adminSignOut, fetchAdminMe } from "@/features/admin/admin-api";
 import { onUnauthorized } from "@/shared/api/api-client";
 
-// Who is signed in to the CMS, loaded once (file 31, FR-CMS-01).
-
 export type AdminSessionStatus = "loading" | "ready" | "signedOut" | "error";
 
 type AdminSessionValue = {
   status: AdminSessionStatus;
   admin: AdminIdentity | undefined;
-  /**
-   * Re-reads `/api/admin/me`. Called by the login screen after a successful
-   * sign-in: this provider mounted on the login page and resolved `signedOut`, so
-   * without a re-read the guard would bounce the new session straight back.
-   */
+  /** Re-reads `/api/admin/me`; the login screen calls it because this provider resolved `signedOut` on mount. */
   refresh: () => Promise<void>;
-  /** Revokes the session and drops the identity, so the guard bounces to login. */
   signOut: () => Promise<void>;
 };
 
@@ -60,10 +53,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       setStatus("ready");
       return;
     }
-    // 401 is no session; 403 is a signed-in parent who wandered in. Both mean "not
-    // an admin here", and both belong at the login screen rather than on an error
-    // page — a parent who followed a stale link should not be told the CMS is
-    // broken.
+    // 401 (no session) and 403 (a parent who wandered in) both belong at login, not an error page.
     setAdmin(undefined);
     setStatus(
       result.error.status === 401 || result.error.status === 403
@@ -76,9 +66,8 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  // A 401 on any later request means the session may be gone; re-reading
-  // `/api/admin/me` is the check, and its 401 sends the guard to the login
-  // screen. Only while `ready` and idle, or `refresh`'s own 401 would re-trigger it.
+  // A later 401 means the session may be gone; re-read `/api/admin/me`. Only while `ready` and
+  // idle, or `refresh`'s own 401 would re-trigger it.
   useEffect(
     () =>
       onUnauthorized(() => {

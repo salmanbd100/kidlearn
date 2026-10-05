@@ -14,11 +14,6 @@ import type { ContentDraft } from "@/features/admin/content-api";
 import { GradeLevelPicker } from "./GradeLevelPicker";
 import { LocaleTabs } from "./LocaleTabs";
 
-/**
- * The lesson editor (FR-CMS-01) — title and intro script per locale, a world, one
- * or more grade levels, and the ordered step config.
- */
-
 type LocaleFields = {
   title: string;
   introScript: string;
@@ -31,7 +26,6 @@ const EMPTY_LOCALE: LocaleFields = {
   videoAssetId: "",
 };
 
-/** What a child must be able to read or hear before a lesson can be saved. */
 const REQUIRED_LOCALE_FIELDS = [
   { key: "title", label: "title" },
   { key: "introScript", label: "intro script" },
@@ -39,7 +33,6 @@ const REQUIRED_LOCALE_FIELDS = [
 
 export interface LessonFormProps {
   existing?: AdminLesson;
-  /** Required when creating — the topic the lesson belongs to. */
   topicId?: string;
   worlds: AdminWorld[];
   isBusy: boolean;
@@ -97,8 +90,7 @@ export function LessonForm({
       title,
       worldId,
       gradeLevels,
-      // Trimmed and emptied out, so a trailing comma does not become a token no
-      // weekly report will ever match (file 30).
+      // Trimmed and emptied so a trailing comma doesn't become a token no weekly report matches.
       conceptsIntroduced: concepts
         .split(",")
         .map((one) => one.trim())
@@ -305,7 +297,6 @@ export function LessonForm({
   );
 }
 
-/** The first locale missing a field a child needs, in tab order. */
 function findMissingLocaleField(
   locales: Record<Locale, LocaleFields>,
 ): { locale: Locale; label: string } | undefined {
@@ -341,7 +332,6 @@ function toPayload(fields: LocaleFields) {
   };
 }
 
-/** Curried so each `onChange` stays a one-liner rather than a nested spread. */
 function setField(locale: Locale, field: keyof LocaleFields, value: string) {
   return (current: Record<Locale, LocaleFields>) => ({
     ...current,

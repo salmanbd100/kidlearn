@@ -1,7 +1,7 @@
 import { errorResponse, jsonResponse } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/** `modules/jobs/jobs.routes.ts` — `requireCronSecret` guards the whole router. */
+// `requireCronSecret` guards the whole router.
 export const JOBS_ROUTES: RouteDoc[] = [
   {
     method: "post",

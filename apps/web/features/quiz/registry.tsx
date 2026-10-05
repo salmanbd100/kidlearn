@@ -8,8 +8,6 @@ import { McqQuestion } from "./McqQuestion";
 import { PictureSelectQuestion } from "./PictureSelectQuestion";
 import type { PlayableQuestion, QuestionProps } from "./types";
 
-// Question format → renderer (FR-QUIZ-07).
-
 export function isPlayableQuestion(
   definition: QuizQuestionDefinition,
 ): definition is PlayableQuestion {

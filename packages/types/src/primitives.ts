@@ -1,16 +1,11 @@
 /**
- * Shared primitives for every versioned content payload in kidlearn.
+ * Shared primitives for every versioned content payload.
  *
- * Versioning rule (NFR-SCALE-02). An optional field this code declares may be
- * added within a version — every payload written before it still parses. Any
- * other change to the shape — a new required field, a rename, a narrowed type —
- * bumps `SCHEMA_VERSION`, moves every `schemaVersion` literal with it, and adds
- * the step from the old version to the `*_MIGRATIONS` table beside the parser,
- * so stored rows are upgraded as they are read rather than rewritten in place.
+ * Versioning rule (NFR-SCALE-02): an optional field may be added within a version. Any other change
+ * (new required field, rename, narrowed type) bumps `SCHEMA_VERSION`, moves every `schemaVersion`
+ * literal, and adds a step to the `*_MIGRATIONS` table, so stored rows upgrade as they are read.
  *
- * Writes are strict: an author or a model may not store a key the schema does
- * not declare. Reads are lenient (`./versioning`): a key this code does not know
- * — written by a newer deploy — is dropped rather than failing the step.
+ * Writes are strict (no undeclared keys); reads are lenient (`./versioning`) so a key from a newer deploy is dropped.
  */
 import { z } from "zod";
 
@@ -51,11 +46,7 @@ export const AssetRefSchema = z
   .strict();
 export type AssetRef = z.infer<typeof AssetRefSchema>;
 
-/**
- * Kind-narrowed asset refs. A field named `image` holding `kind: "audio"` is
- * never meaningful, so the field's role pins the kind — the same reasoning the
- * spec applies to `LocalizedAudio`. `.extend()` carries the strict flag over.
- */
+/** Kind-narrowed asset refs: a field named `image` holding `kind: "audio"` is never meaningful. `.extend()` carries the strict flag over. */
 export const ImageAssetRefSchema = AssetRefSchema.extend({
   kind: z.literal("image"),
 });

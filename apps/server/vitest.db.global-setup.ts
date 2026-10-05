@@ -5,11 +5,7 @@ import {
   TEST_DATABASE_URL,
 } from "./src/shared/testing/test-database-url.js";
 
-/**
- * Brings the test database to the committed schema once per run. `migrate
- * deploy`, not `db push`: the suites then exercise the migrations that ship,
- * including the ones that change referential actions.
- */
+/** `migrate deploy`, not `db push`, so the suites exercise the migrations that ship. */
 export default function setup(): void {
   assertIsTestDatabase(TEST_DATABASE_URL);
   execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], {

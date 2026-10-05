@@ -4,9 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { usePreloadNextStep } from "./use-preload-next-step";
 
 const ACTIVITY_ID = "activity_letter_a";
-// From the canonical drag-drop fixture: an item's image and a target's, so the
-// walk is proved against the real payload shape rather than one written to suit
-// it. The fixture's audio urls sit in the same payload and must be left alone.
+// From the canonical drag-drop fixture: image URLs prove the walk against the real payload shape;
+// its audio URLs must be left alone.
 const ITEM_IMAGE = "https://cdn.kidlearn.test/images/cow.png";
 const TARGET_IMAGE = "https://cdn.kidlearn.test/images/farm.png";
 
@@ -48,8 +47,8 @@ function lessonDetail(
 }
 
 /**
- * `new Image()` is the whole point of the hook and jsdom will happily try to
- * fetch what it is given, so the constructor is replaced with a recorder.
+ * `new Image()` is the point of the hook and jsdom would try to fetch, so the constructor is a
+ * recorder.
  */
 let requestedUrls: string[] = [];
 const RealImage = globalThis.Image;
@@ -62,8 +61,8 @@ describe("usePreloadNextStep", () => {
         requestedUrls.push(value);
       }
     }
-    // jsdom's `Image` is a DOM constructor; the stub only needs the one setter
-    // the hook touches, which no structural type can express against `Image`.
+    // The stub needs only the one setter the hook touches, which no structural type can express
+    // against `Image`.
     globalThis.Image = RecordingImage as unknown as typeof Image;
   });
 
@@ -74,8 +73,8 @@ describe("usePreloadNextStep", () => {
   it("does nothing until the video is actually playing", () => {
     renderHook(() => usePreloadNextStep(lessonDetail(), false));
 
-    // Preloading on mount would compete for bandwidth with the video's own
-    // first frames — the point is to spend the idle middle of the film.
+    // Preloading on mount would compete with the video's first frames; spend the idle middle of the
+    // film.
     expect(requestedUrls).toEqual([]);
   });
 
@@ -123,8 +122,8 @@ describe("usePreloadNextStep", () => {
   it("ignores strings that are not asset urls", () => {
     renderHook(() => usePreloadNextStep(lessonDetail(), true));
 
-    // The definition is full of ids, type tags and localized labels; a walk that
-    // warmed those would fire a request per word of copy.
+    // The definition is full of ids and labels; warming those would fire a request per word of
+    // copy.
     expect(requestedUrls).not.toContain("drag_drop");
     expect(requestedUrls).not.toContain("Cow");
     expect(requestedUrls).not.toContain("cow");
@@ -137,8 +136,7 @@ describe("usePreloadNextStep", () => {
       { initialProps: { isActive: true } },
     );
 
-    // A stutter is `playing → waiting → playing`, and re-warming on each one
-    // would fight the film the child is trying to watch.
+    // A stutter is `playing → waiting → playing`; re-warming each time would fight the film.
     rerender({ isActive: false });
     rerender({ isActive: true });
 

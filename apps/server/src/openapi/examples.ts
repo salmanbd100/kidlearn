@@ -1,18 +1,4 @@
-/**
- * Hand-written `2xx` response examples for the reads a client is actually built
- * against.
- *
- * A reader with no example generates one from the schema: every string becomes
- * `"string"`, every enum its first member, every array one element. That is
- * readable for a two-field body and useless for a lesson carrying a world
- * palette, a drag-drop payload and a quiz — the shapes somebody needs an example
- * *for*. So these six are written by hand and the rest are left generated.
- *
- * They cannot drift: `document.test.ts` parses every example in the document
- * against the same Zod schema the operation's `$ref` names, which is the schema
- * the route test already asserts the real response against. A field renamed in
- * `packages/types` fails here in the same run.
- */
+/** Hand-written `2xx` examples; `document.test.ts` parses each against its Zod schema so they cannot drift. */
 
 const CHILD_ID = "clx8k2p9a0001qz7f3m4n5b6c";
 const LESSON_ID = "clx8k2p9a0007qz7f9r2t4v8w";
@@ -36,8 +22,7 @@ export const CHILD_PROFILE_LIST_EXAMPLE = {
       age: 4,
       gradeLevel: "NURSERY",
       preferredLanguage: "bn",
-      // A profile created before the avatar picker existed, or skipped at
-      // onboarding — nullable is the common case, not an edge one.
+      // Nullable is the common case: created before the avatar picker, or skipped at onboarding.
       avatarCharacterId: null,
       createdAt: "2026-04-02T17:48:05.117Z",
       stats: { stars: 22, coins: 9, badges: 0, currentStreak: 0 },
@@ -72,8 +57,7 @@ export const WORLD_LIST_EXAMPLE = {
           secondary: "#7FD4E8",
           background: "#E8F4FA",
         },
-        // Artwork that has not landed yet. The client draws a placeholder keyed
-        // on `slug` rather than treating this as an error.
+        // Artwork not landed yet; the client draws a placeholder keyed on `slug`.
         mascot: null,
       },
     ],
@@ -85,8 +69,7 @@ export const LESSON_DETAIL_EXAMPLE = {
     lesson: {
       id: LESSON_ID,
       slug: "count-to-five",
-      // Already resolved to the active child's language — there is no
-      // `translations` object on a student-facing read.
+      // Already resolved to the active child's language; no `translations` object on student reads.
       title: "Count to Five",
       worldId: WORLD_ID,
       world: {
@@ -111,8 +94,7 @@ export const LESSON_DETAIL_EXAMPLE = {
       videoUrl:
         "https://res.cloudinary.com/kidlearn/video/upload/v1770000000/lessons/count-to-five-en.mp4",
       videoPosterUrl: null,
-      // `true` means the URL above came from English because the child's own
-      // language has no asset yet — the player may want to say so.
+      // `true` means the URL fell back to English because the child's language has no asset yet.
       assetFallbacks: {
         introAudioUrl: false,
         videoUrl: false,
@@ -203,9 +185,7 @@ export const LESSON_DETAIL_EXAMPLE = {
                   url: "https://res.cloudinary.com/kidlearn/video/upload/v1770000000/quizzes/how-many-bn.mp3",
                 },
               },
-              // Three to four, never two: `QuizQuestionSchema` refines
-              // `options` with `.min(3).max(4)`, and a refinement is invisible in
-              // the schema rendered below.
+              // Three to four, never two: `.min(3).max(4)` is a refinement, invisible in the rendered schema.
               options: [
                 { id: "opt-3", text: { en: "3", bn: "৩" } },
                 { id: "opt-4", text: { en: "4", bn: "৪" } },
@@ -216,8 +196,7 @@ export const LESSON_DETAIL_EXAMPLE = {
           },
         ],
       },
-      // Always `null` on this read: a lesson carries no per-child progress, which
-      // comes from `GET /api/progress/lessons/{id}` instead.
+      // Always `null` on this read; per-child progress comes from `GET /api/progress/lessons/{id}`.
       progress: null,
     },
   },
@@ -236,11 +215,9 @@ export const LESSON_COMPLETION_EXAMPLE = {
           "https://res.cloudinary.com/kidlearn/image/upload/v1770000000/badges/first-five.png",
       },
     ],
-    // Empty on almost every completion — a character unlock is a milestone, not
-    // a per-lesson reward.
+    // Empty on almost every completion; a character unlock is a milestone.
     newCharacters: [],
     streak: { current: 4, milestone: null },
-    // `SUM(amount)` over the ledger after this grant, not a stored counter.
     totals: { stars: 151, coins: 67 },
   },
 };
@@ -252,8 +229,7 @@ export const DASHBOARD_SUMMARY_EXAMPLE = {
       {
         subjectId: "clx8k2p9a0012qz7f5w7y9a4b",
         slug: "numbers",
-        // Both locales, unlike every other localised response — the reader is
-        // the parent, whose language the server never sees.
+        // Both locales, unlike other localised responses: the reader is the parent, whose language the server never sees.
         name: { en: "Numbers", bn: "সংখ্যা" },
         completed: 12,
         total: 20,
@@ -262,7 +238,6 @@ export const DASHBOARD_SUMMARY_EXAMPLE = {
       {
         subjectId: "clx8k2p9a0013qz7f6x8z1b5c",
         slug: "letters",
-        // A subject with no Bangla title authored yet.
         name: { en: "Letters", bn: null },
         completed: 3,
         total: 18,
@@ -309,8 +284,7 @@ export const AI_JOB_LIST_EXAMPLE = {
         decision: "edit_then_approve",
         gradeLevels: ["NURSERY", "KG1"],
         languages: ["en"],
-        // Null where the generated row was deleted, or for a batch that names
-        // no single entity.
+        // Null where the generated row was deleted, or for a batch naming no single entity.
         entityLabel: null,
         createdAt: "2026-09-04T08:41:52.010Z",
         reviewedAt: "2026-09-04T14:19:33.774Z",
@@ -329,33 +303,25 @@ export const AUTH_ME_EXAMPLE = {
     parent: {
       id: PARENT_ID,
       email: "rumana.hoque@example.com",
-      // Both nullable because Google is free not to release them: an account
-      // with no display name or no picture returns `null` rather than a blank
-      // string, so a client must have a fallback for each.
+      // Google may withhold either, so a client needs a fallback for each.
       name: "Rumana Hoque",
       avatarUrl:
         "https://lh3.googleusercontent.com/a/ACg8ocKq1x2v3w4y5z6a7b8c9d0e1f2g3h4i5j6=s96-c",
       consentGivenAt: "2026-02-11T09:02:44.118Z",
     },
-    // Null until `POST /api/children/{id}/activate`, and every `/api/content/*`
-    // read answers 403 while it is. This field is the cheapest way for a client
-    // to know whether it must send the user through the profile picker.
+    // Null until `POST /api/children/{id}/activate`; `/api/content/*` answers 403 while it is.
     activeChildProfileId: CHILD_ID,
   },
 };
 
 export const SCREEN_TIME_STATUS_EXAMPLE = {
   data: {
-    // The blocked case, because it is the one a client has to render: `allowed`
-    // false always carries a `reason`, and `reason` is null whenever `allowed`
-    // is true.
+    // `allowed: false` always carries a `reason`; `reason` is null whenever `allowed` is true.
     allowed: false,
     reason: "TIME_LIMIT_REACHED",
     minutesToday: 45,
     dailyLimitMinutes: 45,
-    // `HH:MM` in the household's local time, not UTC and not a full timestamp.
-    // Both null when no window is configured, in which case only the daily
-    // limit applies.
+    // `HH:MM` in the household's local time; both null when no window is set, leaving only the daily limit.
     windowStart: "16:00",
     windowEnd: "19:30",
   },
@@ -381,9 +347,7 @@ export const WORLD_LESSONS_EXAMPLE = {
             durationEstimateSec: 240,
             nameAudioUrl:
               "https://res.cloudinary.com/kidlearn/video/upload/v1770000000/lessons/count-to-five-name-en.mp3",
-            // Always `null` here, as on every browse read — per-child progress
-            // comes from `GET /api/progress/lessons/{id}`. A grid that wants
-            // tick marks fetches them separately.
+            // Always `null` on browse reads; per-child progress comes from `GET /api/progress/lessons/{id}`.
             progress: null,
           },
           {
@@ -392,8 +356,7 @@ export const WORLD_LESSONS_EXAMPLE = {
             title: "Count to Ten",
             worldId: WORLD_ID,
             sortOrder: 1,
-            // Authored without artwork or a duration yet. Neither is a reason
-            // to hide the row.
+            // Authored without artwork or a duration yet; not a reason to hide the row.
             thumbnailUrl: null,
             durationEstimateSec: null,
             nameAudioUrl: null,
@@ -406,9 +369,7 @@ export const WORLD_LESSONS_EXAMPLE = {
         slug: "shapes",
         name: "Shapes",
         sortOrder: 1,
-        // A topic whose lessons are all still in draft, or all above this
-        // child's grade. It is returned empty rather than omitted, so the
-        // world's shape stays stable as content lands.
+        // Returned empty rather than omitted so the world's shape stays stable as content lands.
         lessons: [],
       },
     ],
@@ -444,17 +405,14 @@ export const STORY_DETAIL_EXAMPLE = {
       locale: "en",
       pages: [
         {
-          // 1-based and contiguous. Render in this order rather than sorting on
-          // it — the server already ordered them.
+          // 1-based and contiguous; already ordered by the server.
           pageNumber: 1,
           illustrationUrl:
             "https://res.cloudinary.com/kidlearn/image/upload/v1770000000/stories/lost-parrot-p1.png",
           text: "Popo the parrot flew too far from home.",
           narrationUrl:
             "https://res.cloudinary.com/kidlearn/video/upload/v1770000000/stories/lost-parrot-p1-en.mp3",
-          // `start`/`end` are character offsets into `text`, and `tMs` the
-          // millisecond into `narrationUrl` at which that span is spoken — this
-          // is what drives karaoke-style highlighting.
+          // `start`/`end` are character offsets into `text`; `tMs` is the ms into `narrationUrl` where the span is spoken.
           narrationTimings: {
             unit: "word",
             spans: [
@@ -470,13 +428,11 @@ export const STORY_DETAIL_EXAMPLE = {
           text: "He asked the monkeys for help.",
           narrationUrl:
             "https://res.cloudinary.com/kidlearn/video/upload/v1770000000/stories/lost-parrot-p2-en.mp3",
-          // Narration exists but was never timed. The player must fall back to
-          // plain playback with no highlighting rather than assume spans.
+          // Narration exists but was never timed; the player falls back to plain playback.
           narrationTimings: null,
         },
       ],
-      // Unlike a lesson, a story does carry the active child's completion here,
-      // because it is a single boolean rather than a progress record.
+      // Unlike a lesson, a story carries the active child's completion here (a single boolean).
       completed: false,
     },
   },
@@ -484,16 +440,12 @@ export const STORY_DETAIL_EXAMPLE = {
 
 export const LESSON_PROGRESS_READ_EXAMPLE = {
   data: {
-    // `null` — not a 404 — when the child has never opened this lesson. That is
-    // the ordinary first-visit answer, so branch on it rather than treating it
-    // as an error.
+    // `null`, not a 404, when the child has never opened this lesson.
     progress: {
       lessonId: LESSON_ID,
-      // Where to resume. Steps run intro → video → activity → quiz → reward,
-      // and this names the step *not yet finished*.
+      // Where to resume: the step not yet finished.
       currentStep: "quiz",
-      // Non-null only once the whole lesson is done; a resumable lesson has a
-      // `currentStep` and a null `completedAt`.
+      // Non-null only once the whole lesson is done.
       completedAt: null,
     },
   },
@@ -502,8 +454,7 @@ export const LESSON_PROGRESS_READ_EXAMPLE = {
 export const QUIZ_RESPONSES_EXAMPLE = {
   data: {
     lessonId: LESSON_ID,
-    // A percentage (0–100), not a point tally — `correctCount` is the count.
-    // Rounded, so 2/3 is 67.
+    // A percentage (0-100), rounded, so 2/3 is 67.
     score: 67,
     correctCount: 2,
     totalQuestions: 3,
@@ -524,16 +475,12 @@ export const WEEKLY_REPORT_LIST_EXAMPLE = {
           newNumbers: ["4", "5"],
           lessonsCompleted: 7,
           storiesCompleted: 2,
-          // Null when the child answered no quizzes that week — distinct from
-          // `0`, which means they answered and got none right.
+          // Null when no quizzes were answered that week; distinct from `0`.
           quizAccuracy: 82,
           quizFirstAttempts: 11,
           quizFirstAttemptsCorrect: 9,
           badgesEarned: [{ slug: "first-five", name: "First Five" }],
-          // The note is an i18n key plus its interpolation values, never a
-          // built sentence: the parent's language is chosen in the client, and
-          // the server never sees it. `note` below is the English rendering,
-          // supplied only as a fallback for surfaces without i18n.
+          // An i18n key plus interpolation values, never a built sentence; `note` is an English fallback only.
           noteKey: "strongWeek",
           noteParams: { days: 5, lessons: 7 },
         },

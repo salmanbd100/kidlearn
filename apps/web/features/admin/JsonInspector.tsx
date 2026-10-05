@@ -3,7 +3,6 @@
 import { Button, cn } from "@kidlearn/ui";
 import { useState } from "react";
 
-/** The audit record, readable (file 37, FR-AI-08, FR-CMS-05). */
 export interface JsonInspectorProps {
   title: string;
   value: unknown;
@@ -21,8 +20,7 @@ export function JsonInspector({ title, value, className }: JsonInspectorProps) {
       setIsCopied(true);
       window.setTimeout(() => setIsCopied(false), 2000);
     } catch {
-      // Clipboard access can be refused outright. The text is on screen and
-      // selectable either way, so there is nothing useful to tell the admin.
+      // Clipboard access can be refused; the text is selectable either way.
     }
   }
 
@@ -53,8 +51,7 @@ export function JsonInspector({ title, value, className }: JsonInspectorProps) {
         >
           {isCopied ? "Copied" : "Copy JSON"}
         </Button>
-        {/* `overflow-auto` on the block, not the page: a long prompt line must
-            not make the whole screen scroll sideways. */}
+        {/* Scroll the block, not the page, on a long prompt line. */}
         <pre className="max-h-96 overflow-auto rounded-(--radius) bg-muted p-3 font-mono text-muted-foreground text-xs leading-relaxed">
           {text}
         </pre>
@@ -63,11 +60,7 @@ export function JsonInspector({ title, value, className }: JsonInspectorProps) {
   );
 }
 
-/**
- * `JSON.stringify` can throw on a circular structure. Nothing that reaches here
- * is circular — it came off the wire as JSON — but a review screen that blanked
- * out on one bad job would be worse than one that says so.
- */
+/** `JSON.stringify` can throw on circular input; say so rather than blank the review screen. */
 function stringify(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2) ?? "null";

@@ -112,8 +112,7 @@ describe("errorHandler with a body the parser rejected", () => {
 
 describe("errorHandler once the response has started", () => {
   it("hands over to Express rather than throwing a second error", async () => {
-    // `res.json` after `res.write` would throw ERR_HTTP_HEADERS_SENT inside the
-    // handler. The request ends without a JSON envelope instead.
+    // `res.json` after `res.write` would throw ERR_HTTP_HEADERS_SENT; the request ends without an envelope.
     const res = await request(app)
       .get("/after-headers")
       .catch((error: unknown) => error);

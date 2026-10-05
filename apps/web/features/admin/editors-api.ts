@@ -17,8 +17,6 @@ import {
 import type { ContentDraft } from "@/features/admin/content-api";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
-// `/api/admin/content/{quizzes,activities,badges}`.
-
 export function fetchQuiz(quizId: string): Promise<ApiResult<AdminQuizDetail>> {
   return apiFetch<AdminQuizDetail>(`${CONTENT_BASE}/quizzes/${quizId}`);
 }
@@ -62,11 +60,7 @@ export function replaceQuestion(
   );
 }
 
-/**
- * `retries: 0` and a body worth reading. A delete renumbers the survivors, so a
- * replay would be judged against a list that has already moved, and the response
- * is what the editor settles its order against rather than guessing.
- */
+/** `retries: 0`: a delete renumbers the survivors, so a replay would be judged against a moved list. */
 export function deleteQuestion(
   quizId: string,
   questionId: string,
@@ -139,11 +133,7 @@ export function updateBadge(
   });
 }
 
-/**
- * The transition door for the editor resources, separate from
- * `transitionContent` only because the resource unions are separate — see
- * `EDITOR_CONTENT_RESOURCES` for why. `retries: 0` for the same reason.
- */
+/** Separate from `transitionContent` because the resource unions are separate (see `EDITOR_CONTENT_RESOURCES`); `retries: 0` likewise. */
 export function transitionEditorContent<TResult>(
   resource: EditorContentResourceName,
   id: string,

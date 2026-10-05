@@ -11,8 +11,6 @@ import {
 } from "@/features/admin/ai-api";
 import { fetchWorlds } from "@/features/admin/content-api";
 
-// The Characters tab on `/admin/media` (file 36, FR-AI-09).
-
 type Draft = {
   name: string;
   worldId: string;
@@ -21,7 +19,6 @@ type Draft = {
 
 const EMPTY_DRAFT: Draft = { name: "", worldId: "", description: "" };
 
-/** The server's floor, restated so the form can refuse before the round trip. */
 const DESCRIPTION_MIN = 20;
 
 export function CharactersTab() {
@@ -100,13 +97,8 @@ export function CharactersTab() {
     if (saved) setEditingId(undefined);
   }
 
-  /**
-   * Not routed through `run()` because it needs the `created`/`skipped` payload,
-   * which `run()`'s boolean result discards — but it owes the same `isBusy` cycle:
-   * without it the button's `disabled={isBusy || …}` never engages, and a second
-   * click during an un-retried request that reads a job and writes *n* rows starts
-   * a second one.
-   */
+  /** Not via `run()`, which discards the `created`/`skipped` payload; still sets `isBusy` so a
+   * second click can't start a second un-retried import. */
   async function handleImport() {
     setIsBusy(true);
     setNotice(undefined);

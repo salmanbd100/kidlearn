@@ -1,7 +1,4 @@
-/**
- * See the note at the top of `require-parent.test.ts` about stubbing
- * `config/prisma.js` in the absence of a test database.
- */
+/** Stubs `config/prisma.js` without a test database; see the note at the top of `require-parent.test.ts`. */
 import type { Parent } from "@kidlearn/db";
 import { CONSENT_VERSION } from "@kidlearn/types";
 import express, { type Express } from "express";
@@ -54,14 +51,13 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
 }
 
 function mockSession() {
-  // Narrowed at this boundary — only the fields the guards read are supplied.
+  // Only the fields the guards read are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: { id: "session_1", userId: SESSION_USER.id },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
-/** Simulates file 11's `POST /api/children`. */
 function buildChildCreateApp(): Express {
   const app = express();
   app.post("/children", requireParent, requireConsent, (_req, res) => {

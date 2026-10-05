@@ -2,7 +2,6 @@ import type { DashboardData } from "@kidlearn/types";
 import type { ApiResult } from "@/shared/api/api-client";
 import { apiFetch } from "@/shared/api/api-client";
 
-/** The parent dashboard's one data call (FR-DASH-01). */
 export function getDashboard(
   childId: string,
   options: { onColdStart?: () => void } = {},

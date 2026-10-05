@@ -23,23 +23,17 @@ import { BigButton } from "@/shared/components/kid/BigButton";
 import { unlockNames } from "@/shared/lib/unlock-names";
 import type { LessonStepProps } from "./lesson-step-props";
 
-// The celebration (FR-LSN-05, FR-GAM-01..02).
-
-/** Held after the last star lands, before the coins start climbing. */
 const STAR_PHASE_TAIL_MS = 600;
 
-/** The coin phase lasts exactly as long as the count it is waiting for. */
 const COIN_PHASE_MS = COIN_COUNT_DURATION_MS;
 
-/** Long enough to look at a new badge or character and hear its name. */
 const UNLOCK_PHASE_MS = 2200;
 
-/** The flame burst, plus a beat to read the line under it. */
 const STREAK_PHASE_MS = 2000;
 
 /**
- * Phases run on a timer rather than gating each other, so a slow frame or a
- * paused tab cannot leave the celebration half-finished.
+ * Phases run on a timer rather than gating each other, so a slow frame or paused tab cannot leave
+ * the celebration half-finished.
  */
 const PHASES = [
   "stars",
@@ -65,7 +59,6 @@ function streakAudioUrl(locale: string): string {
 const COIN_AUDIO_URL = "/audio/feedback/coin-1.mp3";
 const UNLOCK_AUDIO_URL = "/audio/feedback/unlock-1.mp3";
 
-/** Which phases this particular completion plays, and how long each holds. */
 function buildSchedule(
   rewards: LessonCompletionResponse | undefined,
 ): ReadonlyArray<{ phase: Phase; holdMs: number }> {
@@ -107,25 +100,24 @@ export function RewardStep({
   useEffect(() => {
     let isCurrent = true;
 
-    // An administrator preview celebrates without finishing anything: no
-    // `completedAt`, no grants, no ledger row (FR-CMS-04). The screen still plays
-    // — with nothing earned, which is a shape it already renders for a replay.
+    // An admin preview celebrates without finishing anything: no `completedAt`, grants or ledger
+    // row (FR-CMS-04); the screen renders as for a replay.
     if (isPreview) {
       setRewards(undefined);
       setPhase("stars");
       return;
     }
 
-    // The quiz reward is derived from responses the server already holds, so
-    // the completion waits for the quiz submission to land rather than race it.
+    // The quiz reward derives from responses the server holds, so completion waits for the quiz
+    // submission.
     const writesSettled = pendingWrites?.settled() ?? Promise.resolve();
     void writesSettled
       .then(() => completeLesson(lessonId))
       .then((result) => {
         if (!isCurrent) return;
         if (!result.ok) {
-          // Logged for an adult, invisible to the child. The lesson was finished
-          // whether or not the network agreed.
+          // Logged for an adult, invisible to the child; the lesson finished whether or not the
+          // network agreed.
           console.warn(
             `[kidlearn] lesson ${lessonId} completion not recorded: ${result.error.code}`,
           );
@@ -148,9 +140,8 @@ export function RewardStep({
   const milestone = rewards?.streak.milestone ?? null;
 
   /**
-   * One clip per phase, and never one per item: the audio channel is
-   * single-voice by design, so a cheer per star or a chime per badge would only
-   * ever interrupt itself (`AudioProvider`).
+   * One clip per phase, never per item: the audio channel is single-voice, so per-star cheers would
+   * interrupt themselves.
    */
   useEffect(() => {
     if (phase === "loading") return;
@@ -172,8 +163,7 @@ export function RewardStep({
     const schedule = buildSchedule(rewards);
     const index = schedule.findIndex((entry) => entry.phase === phase);
     const next = schedule[index + 1];
-    // The mascot is terminal — nothing is scheduled after it, so the child
-    // decides when the screen ends.
+    // The mascot is terminal: the child decides when the screen ends.
     if (next === undefined) return;
 
     const advance = setTimeout(
@@ -190,8 +180,7 @@ export function RewardStep({
         data-testid="reward-loading"
         className="flex flex-1 flex-col items-center justify-center gap-6"
       >
-        {/* Sparkles rather than a spinner: this is the last screen of a lesson,
-            and the child is waiting for a party, not for a page. */}
+        {/* Sparkles, not a spinner: the child is waiting for a party. */}
         <Sparkles
           aria-hidden="true"
           className="size-20 animate-pulse text-accent motion-reduce:animate-none"
@@ -209,9 +198,8 @@ export function RewardStep({
       className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 text-center"
     >
       {/*
-        One announcement for the whole screen, in words rather than as a running
-        commentary: the stars stagger and the coins tick 60 times a second, and
-        neither is something a screen reader can usefully follow.
+        One announcement for the whole screen: the stars stagger and coins tick 60 times a second,
+        which a screen reader cannot follow.
       */}
       <span role="status" className="sr-only">
         {announce(t, starCount, coinCount, newBadges, newCharacters, milestone)}
@@ -227,9 +215,10 @@ export function RewardStep({
         <CoinCountUp from={0} to={coinCount} durationMs={COIN_PHASE_MS} />
       )}
 
-      {/* A reveal is a moment, so the cards live only for their own phase —
-          otherwise a lesson that unlocked two badges, a character and a streak
-          would leave a portrait phone scrolling past its own celebration. */}
+      {/*
+        Cards live only for their own phase, or a lesson with many unlocks would scroll a portrait
+        phone past its own celebration.
+      */}
       {phase === "badges" ? (
         <div className="flex flex-wrap items-start justify-center gap-6">
           {newBadges.map((badge) => (
@@ -273,7 +262,6 @@ export function RewardStep({
   );
 }
 
-/** What the celebration says out loud. */
 function announce(
   t: TFunction,
   starCount: number,
@@ -294,9 +282,8 @@ function announce(
           ? t("reward.announce.coins", { coins })
           : t("reward.announce.nothing");
 
-  // Appended to the same sentence rather than announced by each card, because a
-  // live region that changes six times reads as six interruptions. The unlocks
-  // are named — "a new badge" tells a child who cannot see the screen nothing.
+  // Appended to one sentence, not announced per card: six live-region changes read as six
+  // interruptions. Unlocks are named.
   const unlocks = [
     newBadges.length > 0
       ? t("reward.announce.badges", {
@@ -319,9 +306,8 @@ function announce(
 }
 
 /**
- * The mascot, bouncing once when the counting is over. Once, and inside
- * `--dur-slow`: celebrations are capped there (design.md §5.2), and a bounce
- * that never stops is motion a child cannot switch off (WCAG 2.2.2).
+ * Bounces once, inside `--dur-slow` (design.md §5.2): a bounce that never stops cannot be switched
+ * off (WCAG 2.2.2).
  */
 function MascotCheer({ url }: { url?: string }) {
   const isMotionReduced = useIsMotionReduced();
@@ -345,7 +331,6 @@ function MascotCheer({ url }: { url?: string }) {
   );
 }
 
-/** What the child has altogether, small and at the bottom. */
 function Totals({ totals }: { totals: LessonCompletionResponse["totals"] }) {
   const { t } = useTranslation(LESSON_NAMESPACE);
 
@@ -354,8 +339,10 @@ function Totals({ totals }: { totals: LessonCompletionResponse["totals"] }) {
       data-testid="reward-totals"
       className="flex items-center gap-4 font-display text-lg text-muted-foreground"
     >
-      {/* The count rides inside the label — "5 stars", never a bare "5" read
-          out next to an icon a screen reader cannot see (as `RewardStrip`). */}
+      {/*
+        The count rides inside the label ("5 stars"), never a bare "5" beside an icon a screen
+        reader cannot see.
+      */}
       <span className="inline-flex items-center gap-2">
         <Star aria-hidden="true" className="size-5 fill-accent text-accent" />
         <span className="sr-only">

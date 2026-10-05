@@ -1,25 +1,8 @@
 /**
- * The screen-time surface: the parent's settings, the student's status read, and
- * the `423` the two content-start routes now answer with.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four rules that bound it shape this suite:
- *
- *  - **Rule 1, stub state not answers.** `store.settings` is one row keyed by
- *    child, and `screenTimeSetting.upsert` applies Prisma's own create/update
- *    semantics to it. So "PATCH twice leaves one row" is a second request meeting
- *    what the first wrote, not a mock told to say so — which is the only way that
- *    assertion means anything.
- *  - **Rule 2, assert the query.** A stub cannot show that a draft lesson stayed
- *    invisible, so the `where` clause carrying `status: "published"` is asserted
- *    directly on the gated route, alongside the block itself.
- *  - **Rule 3, `where` is not the whole guard.** The in-progress exemption turns
- *    on `completedAt` being null on a row the gate *reads*, so the exemption tests
- *    assert the response, not the call.
- *  - **Rule 4, name what the stub cannot prove.** `ScreenTimeSetting.childId` is
- *    `@unique`, which is what makes the upsert single-row under concurrency; that
- *    is asserted against `schema.prisma` below, and a real test replaces it when
- *    the harness lands.
+ * Stubs `config/prisma.js` under the stub exception in `general.md §5`. `store.settings` is one row per child and the stubbed
+ * `upsert` applies Prisma's create/update semantics, so "PATCH twice leaves one row" is a second request meeting what the first wrote (rule 1);
+ * the gated route asserts the `where` clause carrying `status: "published"` (rule 2); the exemption tests assert the response, since the gate
+ * reads `completedAt` on a loaded row (rule 3); `@unique` on `childId` is asserted against `schema.prisma` (rule 4).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -49,15 +32,9 @@ type SettingRow = {
 };
 
 const store = vi.hoisted(() => ({
-  /** At most one row per child — the shape the `@unique` column guarantees. */
   settings: [] as unknown[],
-  /** Presence rows the minutes are derived from. */
   events: [] as Date[],
-  /**
-   * `null` = never opened; a row with `completedAt: null` and a recent
-   * `updatedAt` = in progress. The gate reads both — an incomplete row older
-   * than `LESSON_RESUME_GRACE_MS` is a new start, not a resume.
-   */
+  /** `null` = never opened; `completedAt: null` with a recent `updatedAt` = in progress; an incomplete row older than `LESSON_RESUME_GRACE_MS` is a new start. */
   lessonProgress: null as {
     completedAt: Date | null;
     updatedAt: Date;
@@ -151,8 +128,7 @@ type SignInOptions = {
 };
 
 function signInAs({ child = childProfile() }: SignInOptions = {}) {
-  // `getSession` returns a deep better-auth type; only the fields the middleware
-  // reads are supplied, so the shape is narrowed at this boundary.
+  // Narrowed: `getSession` returns a deep better-auth type; only the fields the middleware reads are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -162,9 +138,7 @@ function signInAs({ child = childProfile() }: SignInOptions = {}) {
     },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
   db.parentFindUnique.mockResolvedValue(PARENT);
-  // `loadOwnedChild` and `requireActiveChild` both filter on `parentId`, so a
-  // child of another parent is simply not found — which is what the 404 test
-  // below drives by passing `null`.
+  // Both guards filter on `parentId`, so another parent's child is simply not found; the 404 test passes `null`.
   db.childFindFirst.mockResolvedValue(child);
 }
 
@@ -172,11 +146,9 @@ function settings(): SettingRow[] {
   return store.settings as SettingRow[];
 }
 
-/** Seeds enough beats to make `getLearningMinutes` report `minutes`. */
 function seedMinutes(minutes: number) {
   const start = new Date("2026-08-19T06:00:00.000Z").getTime();
-  // One beat every 30s: the density rule credits the span plus a 30s tail, so
-  // `n` beats are `n * 0.5` minutes.
+  // One beat every 30s: the density rule credits the span plus a 30s tail, so `n` beats are `n * 0.5` minutes.
   store.events = Array.from(
     { length: minutes * 2 },
     (_, index) => new Date(start + index * 30_000),
@@ -208,8 +180,7 @@ beforeEach(() => {
   for (const fn of Object.values(db)) fn.mockReset();
 
   vi.useFakeTimers({ toFake: ["Date"] });
-  // Midday in Asia/Dhaka (UTC+6), so the default clock is inside any ordinary
-  // daytime window and every window test moves it deliberately.
+  // Midday in Asia/Dhaka (UTC+6), inside any ordinary daytime window; window tests move the clock deliberately.
   vi.setSystemTime(new Date("2026-08-19T06:00:00.000Z"));
 
   db.screenTimeFindUnique.mockImplementation(
@@ -254,8 +225,7 @@ beforeEach(() => {
   db.lessonProgressFindUnique.mockImplementation(
     async () => store.lessonProgress,
   );
-  // The heartbeat throttle's "was there a recent beat" lookup. No previous beat
-  // by default, so a posted one is always recorded.
+  // The heartbeat throttle's recent-beat lookup: none by default, so a posted beat is always recorded.
   db.sessionEventFindFirst.mockResolvedValue(null);
   db.lessonFindFirst.mockResolvedValue({ id: LESSON_ID });
   db.lessonFindUnique.mockResolvedValue(null);
@@ -335,9 +305,7 @@ describe("GET /api/children/:id/screen-time", () => {
 });
 
 describe("PATCH /api/children/:id/screen-time", () => {
-  // `send` types its argument as `string | object`, and every body below — valid
-  // or not — is an object; a malformed *shape* is what these tests are about, not
-  // a malformed request.
+  // `send` types its argument as `string | object`; every body below is an object, as a malformed shape is what these tests cover.
   function patch(body: object, childId = CHILD_ID) {
     return request(app)
       .patch(`/api/children/${childId}/screen-time`)
@@ -467,12 +435,7 @@ describe("PATCH /api/children/:id/screen-time", () => {
     expect(db.screenTimeUpsert).not.toHaveBeenCalled();
   });
 
-  /**
-   * Rule 4 — the stub cannot prove the database rejects a second row for the same
-   * child, so the constraint that makes the upsert single-row is asserted against
-   * its declaration. A real test replaces this when the test-database harness
-   * lands.
-   */
+  /** Rule 4: the stub cannot prove the database rejects a second row per child, so the constraint is asserted against its declaration. */
   it("relies on a unique childId, as the schema declares", () => {
     const schema = readFileSync(
       fileURLToPath(
@@ -583,11 +546,7 @@ describe("GET /api/screen-time/status", () => {
     expect(res.body.data.windowStart).toBe("07:00");
   });
 
-  /**
-   * The status read always asks "may I start something new", so a lesson in
-   * progress does not make it say yes. The lesson's own endpoint is where the
-   * exemption lives, and the two disagreeing here is correct rather than a bug.
-   */
+  /** The status read always asks "may I start something new", so a lesson in progress does not make it say yes; the exemption lives on the lesson's endpoint. */
   it("ignores an in-progress lesson", async () => {
     signInAs();
     seedSetting({ dailyLimitMinutes: 30 });
@@ -644,11 +603,7 @@ describe("the gate on GET /api/content/lessons/:id", () => {
     expect(res.body.error.details).toMatchObject({ windowStart: "07:00" });
   });
 
-  /**
-   * FR-TIME-03 — the exemption, and the reason it is per-lesson rather than
-   * per-child: a child part-way through one lesson may finish *that* lesson, and
-   * may not start a different one on the strength of it.
-   */
+  /** FR-TIME-03: the exemption is per-lesson, not per-child; finishing one lesson is no licence to start another. */
   it("serves a lesson the child is part-way through", async () => {
     signInAs();
     seedSetting({ dailyLimitMinutes: 30 });
@@ -673,8 +628,7 @@ describe("the gate on GET /api/content/lessons/:id", () => {
     signInAs();
     seedSetting({ dailyLimitMinutes: 30 });
     seedMinutes(60);
-    // `updatedAt` moves on every step report, so a client that keeps re-reporting
-    // a step would hold the grace open for ever. `startedAt` does not move.
+    // `updatedAt` moves on every step report, so a client re-reporting a step would hold the grace open for ever; `startedAt` does not move.
     store.lessonProgress = {
       completedAt: null,
       updatedAt: new Date(),
@@ -727,10 +681,8 @@ describe("the gate on GET /api/content/lessons/:id", () => {
   });
 
   /**
-   * The bound on the exemption (`LESSON_RESUME_GRACE_MS`). Without it, the row
-   * written by the first step report — on an endpoint the gate deliberately never
-   * touches — would stand as a permanent pass for that lesson: half-start one
-   * thing in the morning and the cap and the window are both off for it forever.
+   * The bound on the exemption (`LESSON_RESUME_GRACE_MS`): without it the row from the first step report, on an endpoint the gate
+   * never touches, would be a permanent pass for that lesson.
    */
   it("blocks a lesson abandoned longer ago than the resume grace", async () => {
     signInAs();
@@ -762,10 +714,7 @@ describe("the gate on GET /api/content/lessons/:id", () => {
     expect(res.status).not.toBe(423);
   });
 
-  /**
-   * The window half of the same bound: a lesson left open at bedtime is not a way
-   * back in the next morning before the window opens.
-   */
+  /** The window half of the same bound: a lesson left open at bedtime is no way back in before the window opens. */
   it("blocks a stale lesson outside the window too", async () => {
     signInAs();
     seedSetting({
@@ -823,14 +772,8 @@ describe("the gate on GET /api/content/stories/:id", () => {
 });
 
 /**
- * FR-TIME-03's other half. A lesson already under way must be finishable, which
- * means the endpoints it finishes *through* are not gated — otherwise the
- * exemption on the read would hand a child a lesson they could not complete.
- *
- * The exception is any write that would *create* the progress row — the first
- * step report, or a quiz submission on a lesson never opened: a row
- * under 30 minutes old is what makes the read allow a lesson past the limit, so
- * letting a blocked child write one would be a way to mint the exemption.
+ * The endpoints a lesson under way finishes through are not gated (FR-TIME-03), except writes that would create the progress row
+ * (first step report, quiz submission on an unopened lesson): a fresh row is what makes the read allow a lesson past the limit.
  */
 describe("endpoints the gate never touches", () => {
   beforeEach(() => {
@@ -885,9 +828,7 @@ describe("endpoints the gate never touches", () => {
   });
 
   it("refuses the quiz submission that would open a lesson while the child is blocked", async () => {
-    // R-03. A quiz submission also creates the progress row when none exists,
-    // so without the same gate it mints the resume exemption just as a first
-    // step report would.
+    // A quiz submission also creates the progress row when none exists, so it needs the same gate as a first step report.
     signInAs();
     store.lessonProgress = null;
     db.lessonFindFirst.mockResolvedValue({
@@ -915,8 +856,7 @@ describe("endpoints the gate never touches", () => {
 
     const res = await request(app).post("/api/events/heartbeat");
 
-    // Time must keep being recorded past the limit (FR-TIME-06): stopping the
-    // clock at the moment the limit is hit would make the recorded total short.
+    // Time must keep being recorded past the limit (FR-TIME-06), or the recorded total would be short.
     expect(res.status).toBe(200);
     expect(res.body.data.minutesToday).toBe(90);
   });
@@ -926,8 +866,7 @@ describe("endpoints the gate never touches", () => {
 
     const res = await request(app).get(`/api/content/worlds`);
 
-    // Browsing is not starting. A blocked child gets the friendly screen from the
-    // status read, not a wall of errors on every list.
+    // Browsing is not starting: a blocked child gets the friendly screen from the status read, not errors on every list.
     expect(res.status).not.toBe(423);
   });
 });

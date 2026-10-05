@@ -36,8 +36,7 @@ describe("LanguageSwitch", () => {
     fireEvent.click(screen.getByRole("button"));
 
     await waitFor(() => expect(greeting).toHaveTextContent("চলো শুরু করি!"));
-    // Same DOM node throughout: the strings were swapped in place, nothing
-    // navigated or remounted (FR-I18N-03).
+    // Same DOM node throughout: strings swapped in place, no navigation or remount (FR-I18N-03).
     expect(screen.getByTestId("greeting")).toBe(greeting);
   });
 

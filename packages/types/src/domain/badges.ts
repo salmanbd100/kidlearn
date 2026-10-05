@@ -10,10 +10,7 @@ export const BADGE_RULE_TYPES = [
 export const BadgeRuleTypeSchema = z.enum(BADGE_RULE_TYPES);
 export type BadgeRuleType = z.infer<typeof BadgeRuleTypeSchema>;
 
-/**
- * `"all"` means "every published lesson in the topic", so the badge does not need
- * re-authoring when the twenty-seventh letter lesson is published.
- */
+/** `"all"` means every published lesson in the topic, so the badge needs no re-authoring as lessons are added. */
 export const LessonsCompletedInTopicRuleSchema = z
   .object({
     topicSlug: z.string().min(1),
@@ -50,10 +47,7 @@ export const BadgeRuleSchema = z.union([
 ]);
 export type BadgeRule = z.infer<typeof BadgeRuleSchema>;
 
-/**
- * Which parameter names each rule type expects, in the order a form should show
- * them.
- */
+/** Which parameter names each rule type expects, in the order a form should show them. */
 export const BADGE_RULE_PARAMETERS: Record<
   BadgeRuleType,
   readonly ("topicSlug" | "count" | "days")[]

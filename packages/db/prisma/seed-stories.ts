@@ -7,8 +7,6 @@ import {
   type StoryFixture,
 } from "./stories.js";
 
-// Seeds the development story library (FR-STORY-08).
-
 const LANGUAGES: Language[] = ["en", "bn"];
 
 async function upsertAsset(
@@ -17,8 +15,7 @@ async function upsertAsset(
 ): Promise<string> {
   const asset = await prisma.mediaAsset.upsert({
     where: { id: fixture.id },
-    // The url is owned on update: these are placeholder paths, and moving one
-    // must not leave a database pointing at where it used to be.
+    // The url is owned on update: moving a placeholder path must not leave a database pointing at the old one.
     update: {
       url: fixture.url,
       kind: fixture.kind,
@@ -61,10 +58,7 @@ async function seedStory(
       worldId: world.id,
       gradeLevels: fixture.gradeLevels,
       coverAssetId,
-      // Published on purpose: these two are what makes the library screen
-      // walkable in development. Real content is never auto-published — it
-      // passes human review first (spec §7.3.4), which is why the AI pipeline
-      // writes `draft` and an admin promotes it.
+      // Published on purpose to make the library walkable in dev; real content is never auto-published (human review first).
       status: "published",
     },
     create: {
@@ -102,9 +96,7 @@ async function seedStory(
     });
   }
 
-  // Narration and illustration assets are written outside the transaction: they
-  // are shared rows keyed by fixed ids, and holding a transaction open across
-  // them would serialise every page's asset write for no benefit.
+  // Outside the transaction: shared rows on fixed ids, and holding it open would serialise every page's asset write.
   const pages = await Promise.all(
     fixture.pages.map(async (page) => ({
       sortOrder: page.sortOrder,
@@ -151,11 +143,7 @@ export async function seedStories(
   console.log(`Seeded ${stories.length} stories.`);
 }
 
-/**
- * Standalone entry point, so `seed:stories` runs it and `seed.ts` importing
- * `seedStories` does not. `realpathSync` because pnpm and tsx both resolve the
- * script through symlinks, which would otherwise never match `import.meta.url`.
- */
+/** `realpathSync` because pnpm and tsx resolve the script through symlinks, which would never match `import.meta.url`. */
 const isDirectRun =
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;

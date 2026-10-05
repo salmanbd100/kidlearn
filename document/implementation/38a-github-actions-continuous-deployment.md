@@ -6,9 +6,9 @@
 > file 38 established, on the same footing as file 39.
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
 >
-> **Re-verified 2026-09-10.** Of the two dependencies, **38 is ⬜ Not started** — there is no
-> `apps/server/Dockerfile`, no `deploy/` directory and no AWS resources, so nothing here can be
-> built yet — and **39 has landed except for its ruleset amendment**. Two things changed under this
+> **Re-verified 2026-09-10.** Of the two dependencies, **38's repository half is implemented**
+> (`apps/server/Dockerfile`, `deploy/`) but no AWS resources exist yet, so nothing here can be
+> exercised — and **39 has landed except for its ruleset amendment**. Two things changed under this
 > file since it was written, and both narrow its scope:
 >
 > - **`dev` exists** (created 2026-09-06) and is already the integration branch. Step 1's "create
@@ -233,18 +233,10 @@ Three facts shape the design:
    for the wrong environment — the class of bug that made this the most dangerous step in the earlier
    all-Docker version of this file is gone with the web image.
 
-   **`apps/web/Dockerfile` is meant to be built by `gates`, not here** — file 38 requirement 5 keeps
-   it as an escape hatch, and building it in CI is what stops it rotting. It is never pushed and
-   never deployed. If that ever changes, this requirement is where the environment-specific build
-   arguments come back, and requirement 10 with them.
-
-   **As landed, `gates` builds no image at all** — `.github/workflows/ci.yml` runs four `pnpm`
-   steps and nothing else, and no `Dockerfile` exists in the repository yet. So that sentence
-   describes an intention, not the pipeline. Whoever adds the Dockerfiles in file 38 must add the
-   `docker build` step for the web image to `gates` in the same change, or delete the escape-hatch
-   claim: an unbuilt Dockerfile checked into a repository is worse than no Dockerfile, because it
-   will be reached for in an emergency and will not work. If file 38 lands without it, add it here
-   and say so.
+   **`apps/web/Dockerfile` is built by `gates`, not here** — file 38 requirement 5 owns the escape
+   hatch and its CI step. It is never pushed and never deployed. If that ever changes, this
+   requirement is where the environment-specific build arguments come back, and requirement 10 with
+   them.
 
    Do **not** tag `latest`. Every deploy names an explicit SHA, which is what makes rollback a
    one-line input rather than an archaeology exercise.
@@ -273,7 +265,7 @@ Three facts shape the design:
    which in `bash` expands to the empty string and turns the assertion into a request to
    `https://api./health`. Under `curl -sf` that fails loudly, but the same shape elsewhere fails
    *quietly*; name every host in this table and interpolate nothing that is not in it. The three `NEXT_PUBLIC_*` and `MEDIA_ASSET_HOSTS` values are **not** here —
-   they live in the Vercel projects (file 38 requirement 12), which is the only place that builds
+   they live in the Vercel projects (`runbook.md` §4), which is the only place that builds
    them.
 
    **The repository holds no secrets for deployment at all.** If a `secrets.*` reference appears in
@@ -291,7 +283,7 @@ Three facts shape the design:
      --instance-ids "$EC2_INSTANCE_ID" \
      --document-name AWS-RunShellScript \
      --comment "deploy $ENV_NAME ${GITHUB_SHA::7}" \
-     --parameters "commands=/opt/kidlearn/deploy.sh $ENV_NAME $GITHUB_SHA" \
+     --parameters "commands=/opt/kidlearn/deploy/deploy.sh $ENV_NAME $GITHUB_SHA" \
      --query Command.CommandId --output text)
    ```
 
@@ -331,7 +323,7 @@ Three facts shape the design:
    7. Poll that environment's **own** API health URL through Caddy, up to ~60 s — rather than the
       container port, so the proxy and the certificate are tested too. There is no web host to poll:
       Vercel owns that half and reports its own build status.
-   8. On success, write the tag to `/opt/kidlearn/$ENV/.last-good-tag`. On failure, redeploy the tag in
+   8. On success, write the tag to `/opt/kidlearn/$ENV/last-good-tag`. On failure, redeploy the tag in
       that file, restart, and `exit 1`.
    9. `docker image prune -f`, so a 20 GB volume shared by two environments does not silently fill.
 
@@ -471,7 +463,7 @@ commit.
    names its own environment. (~40 min)
 3. Create the `development` and `production` GitHub Environments and their variables. (~20 min)
 4. Harden `deploy.sh`: argument validation, `flock`, migration abort, health poll through Caddy,
-   `.last-good-tag` revert, image prune. Run it on the box by hand for both environments, twice each,
+   `last-good-tag` revert, image prune. Run it on the box by hand for both environments, twice each,
    and confirm the second run is a no-op. (~50 min)
 5. Add the `deploy` job with a `workflow_dispatch` path; run it manually against **dev** and watch a
    real image reach the box. (~40 min)
@@ -519,7 +511,7 @@ commit.
       `flock`; both succeed, neither interleaves. Confirm from the timestamps in the two SSM outputs.
 - [ ] A failed migration aborts the deploy **before** any container restarts, and that environment
       stays on its previous version — demonstrated on dev, not asserted.
-- [ ] A deploy whose health check fails self-reverts to that environment's `.last-good-tag` and the
+- [ ] A deploy whose health check fails self-reverts to that environment's `last-good-tag` and the
       job goes **red**; the SSM command's stdout and stderr are readable in the job log.
 - [ ] `workflow_dispatch` rollback restores an arbitrary earlier SHA's API images for the chosen
       environment with no rebuild, and the runbook says plainly that the frontend rolls back

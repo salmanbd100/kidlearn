@@ -8,8 +8,7 @@ describe("pickLabel", () => {
 
   it("falls back to English when the Bangla label is missing or blank", () => {
     expect(pickLabel({ en: "Letters", bn: null }, "bn")).toBe("Letters");
-    // The API's own fallback treats a blank translation as missing; the
-    // dashboard used to render the empty string.
+    // The API treats a blank translation as missing; the dashboard used to render the empty string.
     expect(pickLabel({ en: "Letters", bn: "  " }, "bn")).toBe("Letters");
   });
 

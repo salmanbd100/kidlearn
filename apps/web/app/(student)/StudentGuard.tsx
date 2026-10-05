@@ -8,7 +8,6 @@ import { useActiveChild } from "@/features/children/active-child";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 
-/** What every student screen that needs a child sits behind. */
 export function StudentGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();

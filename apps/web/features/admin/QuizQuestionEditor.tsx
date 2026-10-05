@@ -24,8 +24,6 @@ import {
   type QuestionDraft,
 } from "./quiz-draft";
 
-// The guided quiz-question form (FR-CMS-03).
-
 const FORMAT_LABELS: Record<QuizQuestionType, string> = {
   mcq: "Multiple choice",
   picture_select: "Pick the picture",
@@ -34,10 +32,8 @@ const FORMAT_LABELS: Record<QuizQuestionType, string> = {
 };
 
 export interface QuizQuestionEditorProps {
-  /** The draft to start from — blank for a new question, loaded for an edit. */
   initial: QuestionDraft;
   isBusy: boolean;
-  /** The server's refusal, if the save was attempted and rejected. */
   error?: string;
   onSubmit: (payload: {
     format: QuizQuestionType;
@@ -57,10 +53,7 @@ export function QuizQuestionEditor({
   const [previewLocale, setPreviewLocale] = useState<Locale>("en");
 
   const definition = useMemo(() => compileQuestion(draft), [draft]);
-  // Parsed with the *member* schema the chosen format names, not the union: Zod
-  // reports a failed union as one root-level issue, which would leave every message
-  // with nowhere to land. See `QUIZ_QUESTION_SCHEMAS` for the full reasoning — the
-  // server picks its schema the same way, from the same table.
+  // Member schema, not the union: a failed union is one root-level issue, leaving messages nowhere to land.
   const parsed = useMemo(
     () => QUIZ_QUESTION_SCHEMAS[draft.format].safeParse(definition),
     [definition, draft.format],
@@ -77,13 +70,7 @@ export function QuizQuestionEditor({
     setDraft((current) => ({ ...current, ...change }));
   }
 
-  /**
-   * Switching format keeps the prompt, the audio and the options already typed —
-   * an author deciding a question reads better as pictures should not lose the
-   * work. The options are re-blanked only when the new format's bounds cannot hold
-   * them, which is the one case carrying them over would produce a payload that
-   * can never validate.
-   */
+  /** Switching format keeps typed content; options are re-blanked only when the new format's bounds cannot hold them. */
   function changeFormat(format: QuizQuestionType) {
     setDraft((current) => {
       const fits =
@@ -342,24 +329,20 @@ export function QuizQuestionEditor({
           </div>
         </div>
 
-        {/* The kid theme so the preview wears the palette a child sees —
-            components read tokens and never branch on theme (`frontend.md §1`). */}
+        {/* Kid theme so the preview wears the palette a child sees. */}
         <ThemeScope
           theme="kid"
           className="min-h-[420px] overflow-hidden rounded-(--radius) border border-border bg-background"
         >
           {parsed.success ? (
             <QuizEngine
-              // Keyed on the payload so switching format or locale remounts the
-              // engine rather than feeding a new question into a session that has
-              // already started.
+              // Keyed on the payload so a format or locale change remounts the engine.
               key={`${JSON.stringify(parsed.data)}-${previewLocale}`}
               quizId="preview"
               questions={[{ id: "preview", definition: parsed.data }]}
               locale={previewLocale}
               onFinish={() => {
-                // A preview has nothing to record. The engine posts nothing
-                // itself — `QuizStep` is what submits responses in a real lesson.
+                // A preview records nothing; `QuizStep` submits in a real lesson.
               }}
             />
           ) : (
@@ -373,7 +356,6 @@ export function QuizQuestionEditor({
   );
 }
 
-/** Assigning `""` clears the pair rather than storing an empty right id. */
 function withPair(
   pairing: Record<string, string>,
   leftId: string,
@@ -446,7 +428,6 @@ function Field({
   );
 }
 
-/** One column of options. */
 function OptionList({
   field,
   legend,
@@ -517,9 +498,7 @@ function OptionList({
             onChange={(asset) => replace(index, { imageUrl: asset?.url ?? "" })}
           />
 
-          {/* Only once there is a picture to describe. Offered rather than
-              required because the schema makes it optional — but never dropped on
-              an edit, which is what `imageAlt` on the draft is for. */}
+          {/* Only once there is a picture; optional in the schema but never dropped on edit. */}
           {option.imageUrl !== ""
             ? LOCALES.map((locale) => (
                 <Field

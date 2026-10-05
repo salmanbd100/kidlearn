@@ -18,16 +18,9 @@ import { FeedbackLayer } from "./FeedbackLayer";
 import { renderActivity } from "./registry";
 import { oopsAudioUrl, useActivityFeedback } from "./use-activity-feedback";
 
-/**
- * The practice step of every lesson, whatever the practice happens to be
- * (FR-ACT-01, FR-ACT-05, FR-ACT-06, NFR-SCALE-02).
- */
-
-/** How long the celebration holds before the step advances. Tappable-through. */
 export const CELEBRATION_MS = 1500;
 
 export interface ActivityEngineProps {
-  /** Raw `Activity.definition` JSONB, straight from the lesson API. */
   definition: unknown;
   locale: Locale;
   onComplete: () => void;
@@ -46,9 +39,9 @@ export function ActivityEngine({
 
   useEffect(() => {
     if (parsed.success) return;
-    // Unconditional, not dev-gated: a payload that reaches a child and fails to
-    // render is a content incident, and this line is the only trace of it. The
-    // issue list rather than the error object — Zod's `message` is a JSON blob.
+    // Unconditional, not dev-gated: a payload that fails to render is a content incident and this
+    // is its only trace.
+    // Log the issue list; Zod's `message` is a JSON blob.
     console.error(
       "[kidlearn] activity payload failed validation",
       parsed.error.issues,
@@ -74,10 +67,7 @@ export function ActivityEngine({
   );
 }
 
-/**
- * Split from the parse so the hooks below are unconditional — the oops screen is
- * a different component with different needs, not a branch inside this one.
- */
+/** Split from the parse so the hooks stay unconditional. */
 function PlayableActivity({
   definition,
   locale,
@@ -100,8 +90,7 @@ function PlayableActivity({
 
   useEffect(speakInstruction, [speakInstruction]);
 
-  // The celebration can end two ways — the timer, or a child who taps through it
-  // — and the step must only be reported once however they race.
+  // The timer and a tap-through can race; report the step once.
   const hasCompleted = useRef(false);
   const finish = useCallback(() => {
     if (hasCompleted.current) return;
@@ -120,10 +109,8 @@ function PlayableActivity({
   return (
     <div
       data-testid="activity-engine"
-      // The replay control sits above the board in portrait and beside it in
-      // landscape. A phone held sideways has around 240px of usable height —
-      // enough for the board or for a 64px control stacked on top of it, not
-      // both — and the board is the part the child came for (design.md §6).
+      // Replay control sits above the board in portrait, beside it in landscape: a sideways phone
+      // has ~240px, room for the board or a 64px control, not both (design.md §6).
       className="relative flex flex-1 flex-col gap-4 landscape:flex-row landscape:items-center"
     >
       <div className="flex justify-center">
@@ -146,7 +133,6 @@ function PlayableActivity({
   );
 }
 
-/** The beat between finishing and moving on. */
 function Celebration({ onSkip }: { onSkip: () => void }) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const isMotionReduced = useIsMotionReduced();

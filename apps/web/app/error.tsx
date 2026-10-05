@@ -5,11 +5,7 @@ import { Button } from "@kidlearn/ui";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
-/**
- * Catches a render-time throw anywhere below the root layout. Content is data,
- * so one malformed payload or unlisted asset host can throw in a route that
- * shipped fine — this is what keeps that from being Next's bare error page.
- */
+/** Content is data: one malformed payload or unlisted asset host can throw in a route; this replaces Next's bare error page. */
 export default function RootError({
   error,
   reset,

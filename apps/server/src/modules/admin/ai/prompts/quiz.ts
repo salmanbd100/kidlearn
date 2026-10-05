@@ -8,14 +8,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
 import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
-// The prompt behind the AI Quiz Generator (FR-AI-03).
-
-/**
- * One JSON Schema per format rather than the whole union: a question is asked for
- * one format at a time, and the union is far more than `responseJsonSchema`
- * accepts (see `generate-questions.ts`). Quoting only the format being asked for
- * also keeps the prompt a quarter of the size it would otherwise be.
- */
+// One schema per format, not the union: the union exceeds responseJsonSchema's limit (see generate-questions.ts).
 // `Object.fromEntries` returns `Record<string, …>` whatever goes in; mapping the
 // entries of a `Record<QuizQuestionType, …>` keeps exactly its keys.
 export const QUIZ_QUESTION_JSON_SCHEMAS = Object.fromEntries(
@@ -32,7 +25,6 @@ export const QUIZ_QUESTION_JSON_SCHEMAS = Object.fromEntries(
 export interface QuizPromptInput {
   lessonTitle: string;
   gradeLevels: readonly GradeLevel[];
-  /** Objectives and narration from the lesson's own generation, or its intro scripts. */
   lessonContext: string;
   languages: readonly Locale[];
   format: QuizQuestionType;

@@ -14,10 +14,7 @@ import {
 } from "../../shared/utils/badge-rules.js";
 import { visibleLessonWhere } from "../../shared/utils/published-for-child.js";
 
-// Badge milestones and character unlocks (FR-GAM-04, FR-GAM-05).
-
-/** The slice of the client these need, so a transaction callback and the plain
- *  client are interchangeable. */
+/** Lets a transaction callback and the plain client be interchangeable. */
 type AchievementClient = {
   badge: { findMany: typeof prisma.badge.findMany };
   character: { findMany: typeof prisma.character.findMany };
@@ -31,18 +28,13 @@ type AchievementClient = {
   rewardLedger: { findMany: typeof prisma.rewardLedger.findMany };
 };
 
-/** What a completion is measured against when unlocking characters. */
 export interface UnlockTotals {
   stars: number;
   coins: number;
   badges: number;
 }
 
-/**
- * The MVP unlock criteria. Any combination of the three, and **all** the keys
- * present must be met — an `AND`, because `{ stars: 10, coins: 50 }` reads as
- * "ten stars and fifty coins" to everybody who writes one.
- */
+/** Any combination of the three; all keys present must be met (an AND). */
 const UnlockRuleSchema = z
   .object({
     stars: z.number().int().positive().optional(),
@@ -54,16 +46,13 @@ const UnlockRuleSchema = z
     message: "an unlock rule must name at least one criterion",
   });
 
-/** Whether these totals satisfy a character's `unlockRule`. */
 export function meetsUnlockCriteria(
   unlockRule: unknown,
   totals: UnlockTotals,
 ): boolean {
   const parsed = UnlockRuleSchema.safeParse(unlockRule);
   if (!parsed.success) {
-    // `{}` is the ordinary marker on every starter character, and those are
-    // handled by `isDefault` rather than by a rule — so this is only worth a
-    // warning when somebody wrote a rule that meant something else.
+    // `{}` marks starter characters, handled by `isDefault`; only warn when somebody wrote a rule that meant something else.
     if (Object.keys(unlockRule ?? {}).length > 0) {
       logger.warn(
         { unlockRule, issues: parsed.error.issues },
@@ -79,7 +68,6 @@ export function meetsUnlockCriteria(
   );
 }
 
-/** Counts everything the candidate badges ask about, in four reads. */
 async function loadBadgeFacts(
   tx: AchievementClient,
   child: ChildProfile,
@@ -92,10 +80,8 @@ async function loadBadgeFacts(
     topicSlugs.length === 0
       ? []
       : await tx.lesson.findMany({
-          // The child's own visible lessons are the honest denominator for a
-          // `count: "all"` rule as well as the content-safety guard
-          // (`backend.md §4`): a child cannot finish a lesson they cannot see,
-          // so one must not hold their badge back.
+          // The child's visible lessons are the denominator for `count: "all"` and the content-safety guard (`backend.md §4`):
+          // they cannot finish a lesson they cannot see.
           where: {
             ...visible,
             topic: {
@@ -136,8 +122,7 @@ async function loadBadgeFacts(
 
   const completedPerTopic = new Map<string, number>();
   for (const row of completedRows) {
-    // `LessonProgress` is unique on `(childId, lessonId)`, so the rows are
-    // already one per lesson — "distinct completed lessons" needs no dedup.
+    // `LessonProgress` is unique on `(childId, lessonId)`, so no dedup is needed.
     const slug = topicOfLesson.get(row.lessonId);
     if (slug === undefined) continue;
     completedPerTopic.set(slug, (completedPerTopic.get(slug) ?? 0) + 1);
@@ -152,9 +137,7 @@ async function loadBadgeFacts(
           orderBy: { answeredAt: "desc" },
         });
 
-  // The *latest* response per question, matching how `rewardService` counts
-  // coins: a quiz here has no fail state, so "ever answered correctly" would be
-  // a constant `true` and "20 animals identified" would mean nothing.
+  // The latest response per question, as `rewardService` counts coins: with no fail state, "ever correct" would be constant `true`.
   const latestCorrect = new Map<string, boolean>();
   for (const response of responses) {
     if (!latestCorrect.has(response.questionId)) {
@@ -170,9 +153,7 @@ async function loadBadgeFacts(
     correctPerTopic.set(slug, (correctPerTopic.get(slug) ?? 0) + 1);
   }
 
-  // Counted from the ledger rather than from a `Story` join, so the evaluator is
-  // ready before file 26 exists and needs no change when it arrives: the story
-  // player calls the same completion-reward service, and `sourceId` is the story.
+  // Counted from the ledger, not a `Story` join: the story player calls the same completion-reward service with the story as `sourceId`.
   const storyGrants = await tx.rewardLedger.findMany({
     where: { childId, sourceType: "story_completion" },
     select: { sourceId: true },
@@ -189,7 +170,6 @@ async function loadBadgeFacts(
   };
 }
 
-/** Which published badges this child has just qualified for (FR-GAM-04). */
 export async function findNewlyEarnedBadges(
   tx: AchievementClient,
   child: ChildProfile,
@@ -237,7 +217,6 @@ export async function findNewlyEarnedBadges(
     }));
 }
 
-/** Grants any characters this child's totals have just unlocked (FR-GAM-05). */
 export async function unlockCharacters(
   tx: AchievementClient,
   childId: string,
@@ -284,10 +263,6 @@ export async function unlockCharacters(
   }));
 }
 
-/**
- * Every published character, flagged with whether this child may wear it
- * (FR-GAM-05).
- */
 export async function listCharactersForChild(
   childId: string,
 ): Promise<CharacterUnlockResponse[]> {

@@ -5,11 +5,6 @@ import { Button } from "@kidlearn/ui";
 import { useState } from "react";
 import { generateNarration } from "@/features/admin/ai-api";
 
-/**
- * "Generate narration" — the admin end of the text-to-speech pipeline
- * (file 36, FR-AI-04, FR-I18N-05).
- */
-
 const ENTITY_NOUN: Record<NarrationEntity, string> = {
   lesson: "lesson",
   story: "story",

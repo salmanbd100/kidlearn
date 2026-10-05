@@ -1,6 +1,3 @@
-/**
- * Route-boundary schemas for the guided editors (file 33, FR-CMS-03, FR-GAM-04).
- */
 import {
   ActivityTypeSchema,
   BadgeRuleTypeSchema,
@@ -10,15 +7,9 @@ import { z } from "zod";
 
 const UuidSchema = z.string().uuid();
 
-/** The internal label a CMS list is built from. Same bound as the file-32 one. */
 const AdminLabelSchema = z.string().min(1).max(200);
 
-/**
- * A slug an admin types. Copied bound from `schemas/admin-content.ts` rather than
- * imported: that module's `SlugSchema` is private to it, and a badge slug is a
- * different contract — it is the key `RewardLedger` rows and the file-24 engine
- * refer to, not a URL segment.
- */
+// Bound copied from `schemas/admin-content.ts` (private there). A badge slug is the key `RewardLedger` and the rewards engine use, not a URL segment.
 const BadgeSlugSchema = z
   .string()
   .min(1)
@@ -28,15 +19,9 @@ const BadgeSlugSchema = z
     "slug must be lowercase alphanumeric words separated by single hyphens",
   );
 
-/**
- * Rejects `{}` on a `PATCH`, which would otherwise be an edit that changes
- * nothing. Same helper and same reasoning as `admin-content.ts`; restated because
- * that one is private to its module.
- */
+// Rejects `{}` on a `PATCH`; restated from `admin-content.ts`, where it is private.
 const atLeastOneField = <TSchema extends z.ZodTypeAny>(schema: TSchema) =>
-  // `refine` hands back `z.infer<TSchema>`, unresolved while `TSchema` is a
-  // parameter, so `Object.keys` has nothing concrete to accept. Safe because every
-  // caller passes a `.partial()` object schema.
+  // `refine` hands back an unresolved `z.infer<TSchema>`; safe as every caller passes a `.partial()` object schema.
   schema.refine((value) => Object.keys(value as object).length > 0, {
     message: "Provide at least one field to update",
   });
@@ -52,10 +37,7 @@ export const EditorIdParamsSchema = z.object({ id: UuidSchema }).strict();
 export type QuizIdParams = z.infer<typeof QuizIdParamsSchema>;
 export type QuestionParams = z.infer<typeof QuestionParamsSchema>;
 
-/**
- * Coerced from the query string's `"true"` for the reason `admin-content.ts`
- * gives: `z.boolean()` would reject every request that used the flag.
- */
+// Coerced from the query string's `"true"`; `z.boolean()` would reject the flag.
 const IncludeArchivedSchema = z
   .enum(["true", "false"])
   .optional()
@@ -75,11 +57,7 @@ export const ActivityListQuerySchema = z
 export type EditorListQuery = z.infer<typeof EditorListQuerySchema>;
 export type ActivityListQuery = z.infer<typeof ActivityListQuerySchema>;
 
-/**
- * A quiz container carries almost nothing: its questions hold the copy, in both
- * locales, inside their payloads. `title` is an internal label, nullable because
- * an untitled quiz attached to one lesson is a perfectly ordinary thing.
- */
+// `title` is an internal label, nullable because an untitled quiz on one lesson is ordinary; the copy lives in the questions.
 export const QuizCreateSchema = z
   .object({ title: AdminLabelSchema.nullable().optional() })
   .strict();
@@ -91,7 +69,6 @@ export const QuizUpdateSchema = atLeastOneField(
 export type QuizCreateBody = z.infer<typeof QuizCreateSchema>;
 export type QuizUpdateBody = z.infer<typeof QuizUpdateSchema>;
 
-/** A whole question, create or replace. */
 export const QuestionUpsertSchema = z
   .object({ format: QuizQuestionTypeSchema, definition: z.unknown() })
   .strict();
@@ -104,7 +81,6 @@ export const ActivityUpsertSchema = z
 
 export type ActivityUpsertBody = z.infer<typeof ActivityUpsertSchema>;
 
-/** A badge (FR-GAM-04). */
 export const BadgeCreateSchema = z
   .object({
     slug: BadgeSlugSchema,
@@ -116,7 +92,6 @@ export const BadgeCreateSchema = z
   })
   .strict();
 
-/** `ruleType` and `rule` travel together or not at all. */
 export const BadgeUpdateSchema = atLeastOneField(
   BadgeCreateSchema.partial()
     .strict()

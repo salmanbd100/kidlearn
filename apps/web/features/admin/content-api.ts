@@ -15,17 +15,7 @@ import {
 } from "@/features/admin/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
-/**
- * `/api/admin/content/*`. Every payload type comes from `@kidlearn/types` — the
- * same schemas the route tests assert real bodies against — so the CMS cannot
- * drift from the server by redeclaring a shape (`backend.md §7`).
- */
-
-/**
- * `onColdStart` is offered on this one call only. The CMS fetches all four lists
- * together on mount, so one of them is enough to notice the API waking up
- * (NFR-PERF-04) — wiring it to all four would fire the same message four times.
- */
+/** `onColdStart` is on this call only: the four lists load together, so wiring all four would fire the message four times. */
 export function fetchWorlds(
   options: ListOptions & { onColdStart?: () => void } = {},
 ): Promise<ApiResult<AdminWorld[]>> {
@@ -57,7 +47,6 @@ export function fetchLessons(
   );
 }
 
-/** Everything a create or edit body may carry. The server validates it. */
 export type ContentDraft = Record<string, unknown>;
 
 export function createContent<TResult>(
@@ -70,12 +59,7 @@ export function createContent<TResult>(
   });
 }
 
-/**
- * `jobId` is the edit-then-approve breadcrumb (file 37, FR-AI-07): pass it when
- * the form was opened from the review queue and the server records
- * `edit_then_approve` on that job in the same request as the save. Omit it
- * everywhere else.
- */
+/** `jobId` marks edit-then-approve: the server records `edit_then_approve` on that job in the same request. Omit elsewhere. */
 export function updateContent<TResult>(
   resource: ContentResourceName,
   id: string,
@@ -88,7 +72,6 @@ export function updateContent<TResult>(
   );
 }
 
-/** The single door to a status change, matching the server. */
 export function transitionContent<TResult>(
   resource: ContentResourceName,
   id: string,
@@ -101,11 +84,7 @@ export function transitionContent<TResult>(
   });
 }
 
-/**
- * Persists a whole sibling set's order. `orderedIds` must be exactly the
- * siblings the list is showing — the server rejects anything else rather than
- * applying it partially.
- */
+/** `orderedIds` must be exactly the siblings shown; the server rejects anything else rather than applying it partially. */
 export function reorderContent(
   resource: OrderableContentResourceName,
   orderedIds: string[],

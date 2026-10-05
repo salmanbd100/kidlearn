@@ -6,11 +6,10 @@ model: sonnet
 
 # kidlearn Doc Sync
 
-The seven documents under `document/` describe what kidlearn **is**. Code changes what it
+The documents under `document/` describe what kidlearn **is**. Code changes what it
 **does**. This skill closes the gap that opens between them.
 
-It exists because that gap has already cost this project once: `improvement-plan.md §3 P1-3`
-catalogues nine statements in `CLAUDE.md` and the standards that had become false — including
+It exists because that gap has already cost this project once: nine statements in `CLAUDE.md` and the standards had become false — including
 "no test runner is configured" in a repo with 2,526 tests. A document a reader learns to
 distrust stops being load-bearing, including the parts that are still correct.
 
@@ -76,7 +75,6 @@ do not manufacture edits to look busy.
 | `design.md` | A token changed; a layout pattern was chosen against what §6 specifies; a component-placement or animation rule changed. | A component merely *using* the existing rules correctly. |
 | `database-design.md` | `schema.prisma` changed — a model, field, enum, index, cascade or migration. §11 gets the new migration row. | An API exposing an existing column. The column is already documented; what the API returns is not this document's subject. |
 | `mobile-app-plan.md` | A web surface changed that §8's parity map names, or a server change lands in §7, or a phase row in §13 gains work. | Web-internal changes with no native counterpart. |
-| `improvement-plan.md` | A finding is fixed (mark it, do not delete it); a decision in §5 or §6 is superseded. | The §1 baseline table — it is a **dated measurement on a named commit**. Never refresh those numbers. See "Dated snapshots" below. |
 | `engineering-standards.md` | Almost never — it is an index. Its `standards/*.md` targets are governed by the `code-review` skill's rules, not this one. | Anything else. |
 
 **Also check** `CLAUDE.md` (root) and `apps/web/AGENTS.md` — they are loaded into every session,
@@ -102,8 +100,8 @@ Two failure modes to avoid, in order of how often they happen:
 ## Step 4 — Write the edits
 
 - **Match the document's voice.** These files are written in careful British English prose with
-  reasoning, not bullet fragments. `improvement-plan.md` and `user-journey-manual.md` are the
-  strongest models. Do not degrade a paragraph into a changelog line.
+  reasoning, not bullet fragments. `user-journey-manual.md` is the
+  strongest model. Do not degrade a paragraph into a changelog line.
 - **Keep the diff minimal.** Edit the sentence that is wrong. Do not reformat, re-order, or
   "tidy" surrounding content — a large doc diff hides the real change from a reviewer.
 - **Update Mermaid diagrams** when the flow they draw has changed. A stale diagram is worse than
@@ -122,7 +120,6 @@ Two failure modes to avoid, in order of how often they happen:
 
 Some sections are measurements taken at a moment, not living descriptions:
 
-- `improvement-plan.md §1` — "run from the repo root on 2026-09-04, on commit `08bb5fe`".
 - Any block introduced by "Status:" plus a date, or "as of <date>".
 
 **These are correct precisely because they are stale.** Refreshing the numbers destroys the

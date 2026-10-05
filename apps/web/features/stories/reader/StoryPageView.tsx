@@ -5,8 +5,6 @@ import { BookOpen } from "lucide-react";
 import Image from "next/image";
 import { NarratedText } from "./NarratedText";
 
-// One page of a story: the picture and the words (FR-STORY-02).
-
 const ILLUSTRATION_PX = 720;
 
 export interface StoryPageViewProps {
@@ -31,9 +29,7 @@ export function StoryPageView({ page, elapsedMs }: StoryPageViewProps) {
         </div>
       ) : (
         <Image
-          // `alt=""`: the picture illustrates the sentence beside it, which is
-          // read aloud and rendered in full. Describing it again would make a
-          // screen reader announce the page twice.
+          // `alt=""`: the sentence beside it is read aloud in full; describing the picture again would announce the page twice.
           alt=""
           src={page.illustrationUrl}
           width={ILLUSTRATION_PX}

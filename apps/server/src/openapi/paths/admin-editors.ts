@@ -9,11 +9,6 @@ import {
 } from "../components.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/admin/content-editors/content-editors.routes.ts` — the guided editors (file 33, FR-CMS-03,
- * FR-GAM-04).
- */
-
 const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   "Authenticated, but not an administrator. Every signed-in *parent* lands here — see `GET /api/admin/me` for why a valid session is not enough.",
   ["FORBIDDEN"],
@@ -30,10 +25,7 @@ const NOT_FOUND_RESPONSE = errorResponse(
   ["NOT_FOUND"],
 );
 
-/**
- * Why the request body cannot show the payload shape inline, and where to look
- * instead.
- */
+/** Why the request body cannot show the payload shape inline, and where to look instead. */
 function definitionNote(schemaName: string, discriminator: string): string {
   return [
     `\`definition\` is the versioned JSONB payload — see the **${schemaName}** schema for the full union. It is typed as an untyped value in the request body below, and that is deliberate rather than a gap:`,
@@ -107,7 +99,6 @@ const INCLUDE_ARCHIVED_PARAM = {
   schema: { type: "string", enum: ["true", "false"] },
 };
 
-/** `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07). */
 const JOB_ID_QUERY_PARAM = {
   ...queryParam(
     "jobId",

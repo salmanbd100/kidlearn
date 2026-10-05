@@ -8,9 +8,6 @@ import {
 } from "../../shared/testing/factories.js";
 import { deleteChildProfile } from "./child-profile.service.js";
 
-// What `children.routes.test.ts` could only assert against the schema text:
-// that one `delete`, with no transaction around it, takes a profile's data
-// with it and clears the session pointing at it (FR-PROF-06, R-07).
 describe("deleteChildProfile against Postgres", () => {
   it("cascades the profile's rows and clears the session acting as it", async () => {
     const parent = await createParent();
@@ -57,8 +54,7 @@ describe("deleteChildProfile against Postgres", () => {
     });
     expect(after.activeChildProfileId).toBeNull();
 
-    // The cascade stops at the profile: the sibling, the parent and the lesson
-    // are untouched.
+    // The cascade stops at the profile.
     expect(
       await prisma.lessonProgress.count({ where: { childId: sibling.id } }),
     ).toBe(1);

@@ -95,8 +95,7 @@ describe("DialogContent — isDismissable={false}", () => {
 
 describe("DialogContent — a caller's own handlers", () => {
   it("cannot reopen a gate by passing onEscapeKeyDown", () => {
-    // `{...props}` used to be spread after the guard, so any handler a caller
-    // passed replaced it and Escape dismissed the gate again.
+    // `{...props}` used to be spread after the guard, so a caller handler let Escape dismiss the gate.
     const onEscapeKeyDown = vi.fn();
     const { onOpenChange } = renderDialog({
       isDismissable: false,

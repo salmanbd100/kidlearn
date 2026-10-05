@@ -14,7 +14,6 @@ import { ReportCard } from "@/features/reports/ReportCard";
 import { ReportHistoryList } from "@/features/reports/ReportHistoryList";
 import { getWeeklyReports } from "@/features/reports/reports-api";
 
-/** `/parent/reports` — every week this child has had (FR-DASH-05..06). */
 export function ReportsScreen({
   selectedChildId,
   selectedWeekStart,
@@ -40,15 +39,12 @@ export function ReportsScreen({
 
     let isCurrent = true;
     setStatus("loading");
-    // Cleared, not kept: without this, switching tabs shows the previous child's
-    // report under the new child's name until the request lands.
+    // Cleared so switching tabs doesn't show the previous child's report under the new name.
     setReports(undefined);
 
     void getWeeklyReports(childId, {
-      // The API sleeps on its free tier, and this endpoint may also be
-      // generating last week's report on the way — so the first request after
-      // idle is the slowest one in the app. Saying so beats a spinner that looks
-      // broken (NFR-PERF-04).
+      // The API sleeps on its free tier and this call may generate last week's report; say so rather
+      // than show a spinner that looks broken.
       onColdStart: () => {
         if (isCurrent) setStatus("waking");
       },
@@ -65,13 +61,10 @@ export function ReportsScreen({
     return () => {
       isCurrent = false;
     };
-    // `selectedWeekStart` is deliberately absent from the deps — the fetch
-    // returns every week, so changing which one is shown must not refetch.
+    // `selectedWeekStart` is deliberately absent: the fetch returns every week.
   }, [childId]);
 
-  // `ParentGuard` does not render this screen until the profiles have loaded and
-  // there is at least one, but a parent who just deleted their last profile sees
-  // this state briefly before the redirect lands.
+  // The guard ensures a profile exists; this shows briefly after deleting the last one, before the redirect.
   if (profiles === undefined || child === undefined) {
     return (
       <p role="status" className="text-muted-foreground text-sm">
@@ -83,7 +76,6 @@ export function ReportsScreen({
   const selected =
     reports?.find((report) => report.weekStart === selectedWeekStart) ??
     reports?.[0];
-  // Every week except the one on the card, so the list never repeats it.
   const history =
     reports?.filter((report) => report.weekStart !== selected?.weekStart) ?? [];
 

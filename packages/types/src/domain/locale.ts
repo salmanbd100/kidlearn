@@ -11,22 +11,13 @@ export const FALLBACK_LOCALE = "en" as const satisfies Locale;
 
 export type LocalePick<T> = { value: T | null; locale: Locale };
 
-/**
- * A blank string is a translation nobody has written yet, not one to serve: a
- * Bangla `introScript` saved as `""` would otherwise beat a real English one and
- * hand the child a silent, empty intro.
- */
+/** A blank string is an unwritten translation: a Bangla `introScript` saved as `""` must not beat a real English one. */
 function isSupplied<T>(value: T | null | undefined): value is T {
   if (value === undefined || value === null) return false;
   return typeof value !== "string" || value.trim() !== "";
 }
 
-/**
- * Resolves a per-locale map down to the single value the child should see,
- * falling back to English, and reports which locale actually supplied it
- * (FR-PROF-03: the client is told what it got, and never sees the other
- * language's copy).
- */
+/** Picks the value the child should see, falling back to English, and reports which locale supplied it (FR-PROF-03). */
 export function pickLocale<T>(
   map: Partial<Record<Locale, T | null>> | null | undefined,
   lang: Locale,
@@ -42,13 +33,7 @@ export function pickLocale<T>(
   return { value: null, locale: FALLBACK_LOCALE };
 }
 
-/**
- * Deviation from the implementation spec: it assumed localized content was
- * stored as per-locale JSON maps on the row itself. The settled schema uses
- * translation tables instead (`LessonTranslation` etc.), one row per language.
- * This adapter turns such an array into the map `pickLocale` expects, so the
- * helper's signature and intent survive the schema change.
- */
+/** Turns a translation-table row array (`LessonTranslation` etc.) into the map `pickLocale` expects. */
 export function toLocaleMap<TRow extends { language: Locale }, TValue>(
   rows: readonly TRow[] | null | undefined,
   select: (row: TRow) => TValue | null | undefined,

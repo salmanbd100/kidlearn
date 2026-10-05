@@ -3,8 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TransitionButtons } from "./TransitionButtons";
 
-// Which transitions an admin is offered, per status (file 32, FR-CMS-06).
-
 function renderFor(status: ContentStatusValue) {
   const onTransition = vi.fn();
   render(
@@ -37,8 +35,7 @@ describe("TransitionButtons", () => {
       "Approve",
       "Reject",
       "Back to draft",
-      // The chained shortcut, which is two validated hops rather than a special
-      // one — see below.
+      // The chained shortcut: two validated hops, not a special one.
       "Approve & publish",
     ]);
   });
@@ -92,8 +89,7 @@ describe("TransitionButtons", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Approve & publish" }));
 
-    // Not a single `in_review → published` request: no such hop exists, and
-    // adding one would be adding a way to publish with no approval on the record.
+    // No single `in_review → published` request: that hop doesn't exist and would publish with no approval on record.
     expect(onTransition).toHaveBeenCalledWith(["approved", "published"]);
   });
 

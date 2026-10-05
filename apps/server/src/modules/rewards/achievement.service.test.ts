@@ -7,11 +7,7 @@ import {
   type UnlockTotals,
 } from "./achievement.service.js";
 
-/**
- * Character unlock criteria, tested where they are pure (`general.md §5`). The
- * Prisma half — which characters are candidates, and the `ChildCharacter` write
- * — is exercised through `modules/progress/progress.routes.test.ts`.
- */
+/** Character unlock criteria, tested where pure; the Prisma half runs through `progress.routes.test.ts`. */
 
 function totals(overrides: Partial<UnlockTotals> = {}): UnlockTotals {
   return { stars: 0, coins: 0, badges: 0, ...overrides };
@@ -60,11 +56,10 @@ describe("meetsUnlockCriteria", () => {
   });
 
   it("never unlocks on an empty rule", () => {
-    // `{}` is how the seed marks a starter character — "no rule, available from
-    // the start". Read as criteria, it is all-zero conditions met, which would
-    // unlock every such character for every child on their first lesson.
+    // `{}` marks a starter character (no rule); read as criteria it is all-zero conditions met, which would
+    // unlock every starter for every child on their first lesson.
     expect(meetsUnlockCriteria({}, totals({ stars: 500 }))).toBe(false);
-    // And it is the ordinary case, so it is not worth warning about.
+    // The ordinary case, so not worth warning about.
     expect(warn).not.toHaveBeenCalled();
   });
 

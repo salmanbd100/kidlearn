@@ -3,14 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { activeSpanIndex, NarratedText } from "./NarratedText";
 
-/**
- * The one component that has to be right for both the story content that exists
- * today (no timings at all) and the content the voice pipeline will produce.
- */
-
 const TEXT = "The monkey shared the banana.";
 
-/** Word-level spans over `TEXT`, as file 36 will emit them. */
 const TIMINGS: NarrationTimings = {
   unit: "word",
   spans: [

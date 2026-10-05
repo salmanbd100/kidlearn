@@ -671,7 +671,7 @@ flowchart TD
 | **Delete `Story`** | `StoryPage` → `StoryPageTranslation` | — |
 | **Delete `World`** | — | **Restricted**: fails if any `Lesson`/`Story` references it → archive instead |
 
-> **GDPR / COPPA:** parent-account deletion is **synchronous and complete** (no soft-delete of child PII), satisfying NFR-SAFE-05/06 right-to-erasure. The compliance mapping is recorded in `document/implementation/notes/compliance-consent-deletion.md` (file 10).
+> **GDPR / COPPA:** parent-account deletion is **synchronous and complete** (no soft-delete of child PII), satisfying NFR-SAFE-05/06 right-to-erasure. The compliance mapping is recorded in `document/implementation/notes/compliance-consent-deletion.md`.
 
 ---
 

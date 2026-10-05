@@ -19,23 +19,16 @@ import {
 import { getLearningMinutesForRanges } from "../progress/learning-time.service.js";
 import { STORY_COMPLETION } from "../rewards/reward.service.js";
 
-// The parent dashboard, in one read (FR-DASH-01..04).
-
-/**
- * How many ledger rows to read for a feed capped at `RECENT_ACTIVITY_LIMIT`.
- */
 const LEDGER_FEED_WINDOW = RECENT_ACTIVITY_LIMIT * 2;
 
 export interface SubjectRef {
   id: string;
   slug: string;
-  /** The admin label — the fallback when no translation row exists at all. */
   name: string;
   sortOrder: number;
   translations: readonly { language: Locale; name: string }[];
 }
 
-/** One topic and the subject it hangs off. `Lesson` carries no `subjectId`. */
 export interface TopicSubjectLink {
   topicId: string;
   subject: SubjectRef;
@@ -47,7 +40,6 @@ export interface SubjectProgressResult {
   weakestSubjectId: string | null;
 }
 
-/** Per-subject completion, plus the two subjects worth naming (FR-DASH-03). */
 export function computeSubjectProgress(
   topics: readonly TopicSubjectLink[],
   totalsByTopic: readonly { topicId: string; total: number }[],
@@ -65,8 +57,7 @@ export function computeSubjectProgress(
 
   const tallyFor = (topicId: string) => {
     const subject = subjectOfTopic.get(topicId);
-    // A topic outside the visible set: its lessons were already excluded from
-    // both counts, so there is nothing to tally against.
+    // Outside the visible set: its lessons are already excluded from both counts.
     if (subject === undefined) return undefined;
 
     let tally = tallies.get(subject.id);
@@ -104,8 +95,7 @@ export function computeSubjectProgress(
         percent: Math.round((100 * tally.completed) / tally.total),
       },
     }))
-    // Strongest first, so the bars read as a ranking. `sortOrder` breaks a tie
-    // rather than the map's insertion order, which no caller can predict.
+    // `sortOrder` breaks ties; map insertion order is unpredictable.
     .sort(
       (a, b) =>
         b.progress.percent - a.progress.percent || a.sortOrder - b.sortOrder,
@@ -124,9 +114,8 @@ export function computeSubjectProgress(
     return { subjects, strongestSubjectId: null, weakestSubjectId: null };
   }
 
-  // Sorted percent-desc with `sortOrder` as the tie-break, so for either
-  // extreme the *first* match is the one the tie-break rule picks: every subject
-  // sharing that percentage is adjacent, in `sortOrder` order.
+  // Sorted percent-desc with `sortOrder` tie-break, so the first match is the
+  // tie-break winner: equal percents are adjacent.
   const strongest = subjects.find((subject) => subject.percent === highest);
   const weakest = subjects.find((subject) => subject.percent === lowest);
 
@@ -157,7 +146,6 @@ export interface BadgeActivityRow {
   name: string;
 }
 
-/** The three histories as one feed, newest first, capped (FR-DASH-04). */
 export function mergeActivity(
   lessons: readonly LessonActivityRow[],
   stories: readonly StoryActivityRow[],
@@ -187,9 +175,7 @@ export function mergeActivity(
     ...badges.map((badge) => ({
       type: "badge_earned" as const,
       refId: badge.badgeId,
-      // `Badge` has no translation table — the name is the admin label in both
-      // locales until one exists, rather than a `bn` the client would render as
-      // English while claiming it was Bangla.
+      // `Badge` has no translation table; `bn: null` rather than English passed off as Bangla.
       title: { en: badge.name, bn: null },
       occurredAt: badge.earnedAt.toISOString(),
     })),
@@ -205,7 +191,6 @@ export function mergeActivity(
     .slice(0, RECENT_ACTIVITY_LIMIT);
 }
 
-/** Both locales of a display string, from the row's translations. */
 function toLocalizedLabel<TRow extends { language: Locale }>(
   translations: readonly TRow[] | undefined,
   fallback: string,
@@ -215,14 +200,12 @@ function toLocalizedLabel<TRow extends { language: Locale }>(
   return { en: map.en ?? fallback, bn: map.bn ?? null };
 }
 
-/** FR-DASH-01 — one call, everything the `/parent` screen renders. */
 export async function getDashboardSummary(
   child: ChildProfile,
 ): Promise<DashboardData> {
   const visible = publishedForChild(child);
-  /** All four lesson gates, from the one place they are defined. */
   const visibleLesson = visibleLessonWhere(child);
-  /** The feed's gate: status and world, deliberately no grade (see the header). */
+  // The feed's gate: status and world, deliberately no grade, so it outlives a grade change.
   const publishedLesson = {
     is: { ...publishedOnly, world: publishedRelation },
   };
@@ -272,8 +255,6 @@ export async function getDashboardSummary(
       where: {
         childId: child.id,
         completedAt: { not: null },
-        // Status and world, no grade: see the header note on why the feed
-        // outlives a grade change while the progress fraction does not.
         lesson: publishedLesson,
       },
       orderBy: { completedAt: "desc" },
@@ -295,8 +276,7 @@ export async function getDashboardSummary(
         childId: child.id,
         OR: [
           { rewardType: "badge", badge: publishedRelation },
-          // A story completion writes a star row *and* a coin row, so one
-          // `rewardType` is what keeps a finished story out of the feed twice.
+          // A story completion writes a star and a coin row; matching only the star keeps it from appearing twice.
           { rewardType: "star", sourceType: STORY_COMPLETION },
         ],
       },
@@ -336,9 +316,8 @@ export async function getDashboardSummary(
 
   const stories: StoryActivityRow[] = storyRows.flatMap((row) => {
     const story = storiesById.get(row.sourceId);
-    // An unpublished story keeps its ledger row — the child earned those stars —
-    // but its title is unreviewed content, so the entry is dropped rather than
-    // rendered without one.
+    // An unpublished story keeps its ledger row (the stars were earned), but its
+    // title is unreviewed content, so the entry is dropped.
     if (story === undefined) return [];
     return [
       {

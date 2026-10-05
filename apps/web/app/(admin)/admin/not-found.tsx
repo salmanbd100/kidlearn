@@ -2,7 +2,6 @@ import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
-/** Reached through `admin/[...missing]` — an unknown `/admin/*` URL. */
 export default function AdminNotFound() {
   return (
     <main className="flex flex-1 flex-col items-start gap-4 p-6">

@@ -2,16 +2,10 @@ import { cn } from "@kidlearn/ui";
 import Link from "next/link";
 import { ADMIN_NAV, activeAdminNavHref } from "@/features/admin/admin-routes";
 
-/** The CMS navigation (FR-CMS-01 shell). */
 export interface AdminSidebarProps {
   pathname: string;
-  /**
-   * Counts to show against nav items, keyed by href (file 37, requirement 8).
-   * A zero or a missing entry renders nothing — a badge reading "0" is a
-   * notification that there is nothing to notify about.
-   */
+  /** Counts keyed by href; zero or missing renders nothing. */
   badges?: Partial<Record<string, number>>;
-  /** Rendered at the foot of the rail — the signed-in admin and a way out. */
   footer?: React.ReactNode;
 }
 
@@ -21,16 +15,14 @@ export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
   return (
     <nav
       aria-label="Admin sections"
-      // No `h-dvh`: as a flex-row child the rail already stretches to the frame,
-      // and a second viewport-sized box inside one was what made the page scroll.
+      // No `h-dvh`: a second viewport-sized box inside the flex row made the page scroll.
       className="flex shrink-0 flex-col gap-4 border-border border-b bg-card p-3 md:w-56 md:border-r md:border-b-0 md:p-4"
     >
       <p className="px-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.08em]">
         kidlearn CMS
       </p>
 
-      {/* Scrolls itself on a short window so the footer stays reachable — the
-          frame clips, so an unscrollable rail would simply lose its last item. */}
+      {/* Scrolls itself on a short window so the footer stays reachable. */}
       <ul className="-mx-1 flex min-h-0 flex-1 gap-1 overflow-x-auto px-1 md:flex-col md:overflow-y-auto">
         {ADMIN_NAV.map(({ href, label }) => {
           const isActive = href === activeHref;
@@ -39,9 +31,7 @@ export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
             <li key={href} className="shrink-0 md:shrink">
               <Link
                 href={href}
-                // `aria-current` rather than colour alone: the active item must be
-                // announced, and meaning is never carried by colour on its own
-                // (design.md §2.3).
+                // `aria-current`, not colour alone (design.md §2.3).
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   // 44px minimum on a non-kid surface (design.md §7).
@@ -54,11 +44,7 @@ export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
                 <span className="flex-1">{label}</span>
                 {count > 0 ? (
                   <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 font-medium text-[11px] text-primary-foreground">
-                    {/* The glyph is hidden and the same number is announced in a
-                        sentence instead, so the link does not read as "AI Queue
-                        3" with no clue what the 3 counts (design.md §2.3). A
-                        visually-hidden sibling rather than `aria-label`, which a
-                        bare `span` has no role to support. */}
+                    {/* Glyph hidden and the count announced in a sentence; sr-only sibling because a bare `span` has no role for `aria-label`. */}
                     <span aria-hidden="true">{count}</span>
                     <span className="sr-only">
                       {count} {count === 1 ? "job" : "jobs"} awaiting review

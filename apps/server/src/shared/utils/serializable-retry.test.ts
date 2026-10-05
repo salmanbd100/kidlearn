@@ -26,9 +26,7 @@ describe("withSerializationRetry", () => {
       .mockRejectedValueOnce(serializationFailure())
       .mockResolvedValue("granted");
 
-    // The loser of a Serializable race wrote nothing, so the retry re-reads
-    // under the winner's rows and either succeeds honestly or reports the
-    // conflict — what it must never do is surface a 500 to a four-year-old.
+    // The loser of a Serializable race wrote nothing, so the retry succeeds honestly or reports the conflict, never a 500.
     await expect(withSerializationRetry(run)).resolves.toBe("granted");
     expect(run).toHaveBeenCalledTimes(2);
   });
@@ -41,9 +39,7 @@ describe("withSerializationRetry", () => {
   });
 
   it("succeeds on a later retry, not only the first", async () => {
-    // One immediate retry re-enters the same contention window that caused the
-    // abort — two writers finishing a lesson at once could both lose. The extra
-    // attempts, spaced with jitter, are what make that recoverable.
+    // An immediate retry re-enters the same contention window; jittered attempts make two simultaneous writers recoverable.
     const run = vi
       .fn()
       .mockRejectedValueOnce(serializationFailure())

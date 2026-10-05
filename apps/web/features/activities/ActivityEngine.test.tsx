@@ -82,8 +82,7 @@ describe("ActivityEngine", () => {
     });
 
     it("plays a payload carrying a field this bundle does not know", () => {
-      // An old bundle still open on a tablet, served content from a newer
-      // deploy (R-24): the field is dropped, not the step.
+      // An old bundle served newer content: the unknown field is dropped, not the step.
       renderEngine({ ...validDragDrop, hint: "from a newer deploy" });
 
       expect(screen.getByTestId("activity-drag-drop")).toBeInTheDocument();
@@ -165,7 +164,6 @@ describe("ActivityEngine", () => {
   });
 
   describe("completion (FR-ACT-05)", () => {
-    /** Both pairs of `validMatch`, tapped the way a child would. */
     function matchEveryPair() {
       for (const id of ["sun", "day", "moon", "night"]) {
         fireEvent.click(screen.getByTestId(`match-card-${id}`));

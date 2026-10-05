@@ -15,11 +15,7 @@ import {
 } from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/progress/progress.routes.ts` — mounted behind `requireParent` **and**
- * `requireActiveChild` in `modules/index.ts`, so every present and future
- * `/api/progress/*` path is covered by construction.
- */
+/** Mounted behind `requireParent` and `requireActiveChild` in `modules/index.ts`. */
 type _LessonStepsCoverPrisma = PrismaLessonStep extends LessonStep
   ? true
   : never;
@@ -37,20 +33,13 @@ const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
   ["FORBIDDEN"],
 );
 
-/**
- * Identical in cause and reasoning to the content API's `404`, and deliberately
- * so: the two endpoints must agree about which lessons exist for a child.
- */
+/** Same as the content API's `404`: both endpoints must agree about which lessons exist for a child. */
 const LESSON_NOT_FOUND_RESPONSE = errorResponse(
   "No such lesson, **or** any one of its four gates is shut: the lesson's own `status` and grade tags, its world's `status`, its topic's `status` and grade tags, or that topic's subject's. All of them are the same `404`, matching `GET /api/content/lessons/{id}` exactly: a `403` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4). The agreement matters — a lesson the content API will not serve must not be one this API will record progress against, or pay out for.",
   ["NOT_FOUND"],
 );
 
-/**
- * A quiz carries a status but no grade tags, so it is visible exactly when a
- * lesson the child can see points at it — which is why every clause of the lesson
- * `404` above applies here too, plus the quiz's own status.
- */
+/** A quiz has no grade tags, so it is visible exactly when a visible lesson points at it, plus its own status. */
 const QUIZ_NOT_FOUND_RESPONSE = errorResponse(
   "No such quiz, **or** it is not published, **or** no lesson this child can see points at it — the lesson, its world, its topic or that topic's subject is unpublished, or the lesson, topic or subject is not tagged for this child's grade. All of them are the same `404`, for the reason the lesson `404` gives: a `403` would confirm the row exists (spec §7.3.4). A quiz is reached *through* its lesson because it has no grade tags of its own; resolving it by id alone would let a child post answers into another grade's content.",
   ["NOT_FOUND"],
@@ -68,7 +57,6 @@ const STORY_ID_PARAM = pathParam(
   { type: "string", format: "uuid" },
 );
 
-/** The story equivalent of the lesson `404`, and identical in reasoning. */
 const STORY_NOT_FOUND_RESPONSE = errorResponse(
   "No such story, **or** it is not published, **or** its world is not published, **or** it is not tagged for this child's grade. All four are the same `404`, matching `GET /api/content/stories/{id}` exactly — a `403` would confirm the row exists (spec §7.3.4). The agreement is load-bearing here: a story the content API will not open must not be one a child can be paid for finishing.",
   ["NOT_FOUND"],
@@ -80,7 +68,6 @@ const QUIZ_ID_PARAM = pathParam(
   { type: "string", format: "uuid" },
 );
 
-/** The shared preamble: what "server-authoritative" means for a caller here. */
 const AUTHORITATIVE = [
   "The client reports **that a step finished**; what the stored `currentStep` then becomes, whether the lesson counts as complete, and when any of it happened are the server's decisions (spec §7, FR-TIME-06).",
   "",

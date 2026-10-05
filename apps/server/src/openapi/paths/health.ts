@@ -1,7 +1,7 @@
 import { errorResponse, jsonResponse } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/** `modules/health/health.routes.ts` — root-mounted, so these carry no `/api` prefix. */
+// Root-mounted, so these carry no `/api` prefix.
 export const HEALTH_ROUTES: RouteDoc[] = [
   {
     method: "get",

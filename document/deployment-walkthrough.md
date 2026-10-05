@@ -15,8 +15,9 @@
 **Time:** about 6–8 hours, and it does not have to be one sitting. There is a
 deliberate checkpoint after Part A where production is live and you can stop.
 
-**Cost:** ~$13.75/month once running. The budget alarm in step A1 exists so a
-mistake cannot quietly become a large bill. Do that step first.
+**Cost:** ≈ $13.73/month once running (the table is in file 38). The budget alarm
+in step A1 exists so a mistake cannot quietly become a large bill. Do that step
+first.
 
 ---
 
@@ -39,7 +40,7 @@ Each step below is labelled with one of those three icons.
 
 | Account | Cost | Used for |
 |---|---|---|
-| AWS | ~$13.75/mo | The API server, secrets, container images, backups |
+| AWS | ~$13.73/mo | The API server, secrets, container images, backups |
 | Cloudflare | free | DNS for `kidlearn.net` |
 | Vercel | free (Hobby) | The frontend |
 | Supabase | free | The production database |
@@ -74,7 +75,7 @@ That also unlocks **real SSH from your own terminal** — `ssh`, `scp`, `rsync`,
 VS Code Remote — tunnelled over Session Manager, with no port 22 and no public
 exposure. Setup is in `runbook.md` §2a, and it makes step A11 a one-line `rsync`.
 
-After A2 creates your AWS account, connect the CLI once (used only in A8):
+Once your AWS account exists (before A1), connect the CLI once (used only in A8):
 
 ```bash
 aws configure
@@ -108,7 +109,7 @@ each step feeling arbitrary.
 | **EC2** | A rented computer. Ours is a `t4g.small`: 2 CPUs, 2 GB RAM, ARM chip. |
 | **AMI** | The disk image the computer boots from. We use Amazon Linux 2023. |
 | **Elastic IP** | A fixed public address. Without one the address changes whenever the machine restarts, and your DNS silently points at nothing. |
-| **Security group** | A firewall. Ours lets in exactly three things: ports 80 and 443. |
+| **Security group** | A firewall. Ours has exactly three rules, all for ports 80 and 443. |
 | **IAM role** | Permissions *the machine itself* has, so you never store AWS keys on it. |
 | **User data** | A script AWS runs as root the first time the machine boots. Ours installs everything. |
 | **Parameter Store** | Where secrets live, encrypted. Free. Part of "Systems Manager". |
@@ -132,8 +133,7 @@ reason production is not up.
 
 ## A1 · 🌐 Budget alarm — do this before anything else
 
-`t4g` machines bill surplus CPU rather than slowing down, which is right for a
-live site but only with an alarm behind it.
+`t4g` machines bill surplus CPU rather than slowing down (file 38 requirement 21).
 
 1. In the search bar at the top, type **Billing** → open **Billing and Cost
    Management**.
@@ -167,17 +167,8 @@ Then **Project Settings → Database → Connection string**, and take two:
 | `DIRECT_URL` | **Direct connection**, port **5432** | nothing extra |
 
 Make sure `DATABASE_URL` really ends with `?pgbouncer=true&connection_limit=5`.
-Supabase's copy button sometimes leaves it off.
-
-**Not `connection_limit=1`**, which most Supabase + Prisma guides show. That value
-is for serverless functions, where every instance opens its own pool. This API is
-one long-running process, and with one connection every request queues behind
-every other: a transaction that cannot get the connection within two seconds
-fails, and account deletion holds it for up to two minutes. Five is what Prisma
-would pick on the `t4g.small`'s two CPUs, and well inside the pooler's limit.
-
-**Why two:** the running app uses the pooled one (many short connections);
-migrations use the direct one (one long connection, which the pooler would kill).
+Supabase's copy button sometimes leaves it off. **Not `connection_limit=1`**,
+which most guides show — `runbook.md` §4 explains why, and why there are two URLs.
 
 ### Create the tables
 
@@ -193,8 +184,8 @@ Expect a list ending in the newest directory under `packages/db/prisma/migration
 (`ls packages/db/prisma/migrations | tail -2` shows it, above `migration_lock.toml`) and
 `All migrations have been successfully applied.`
 
-> **Never run `prisma migrate dev` against a deployed database.** It can wipe it.
-> `migrate deploy` only applies what is already committed.
+> `migrate deploy` only applies what is already committed. Never `migrate dev`
+> against a deployed database (`runbook.md` §3).
 
 ### Seed the content
 
@@ -211,10 +202,9 @@ The admin user comes later, in **A6** — it needs secrets that do not exist yet
 - [ ] Seed run
 - [ ] Both connection strings saved
 
-> **Free Supabase projects pause after 7 days with no activity.** That matters
-> between today and launch, not after real traffic. If the API cannot reach the
-> database weeks from now, check whether the project is paused before debugging
-> anything else.
+> **Free Supabase projects pause when idle** (`runbook.md` §12). If the API cannot
+> reach the database weeks from now, check whether the project is paused before
+> debugging anything else.
 
 ## A3 · 🌐 Production Cloudinary
 
@@ -222,8 +212,7 @@ The admin user comes later, in **A6** — it needs secrets that do not exist yet
 
 Copy **Cloud name**, **API Key**, **API Secret**.
 
-You will create a **second, separate** cloud for dev in Part B. Do not reuse this
-one — test uploads would show up in the production media library as real assets.
+Dev gets a **second, separate** cloud in Part B (file 38 requirement 15).
 
 - [ ] Production cloud created, three values saved
 
@@ -278,7 +267,8 @@ Store** → **Create parameter**. For each row below:
 - **Value:** the value
 - **Create parameter**, then repeat
 
-It is fourteen forms. Tedious, but it is once.
+It is sixteen forms. Tedious, but it is once. The variable-by-variable inventory
+is `runbook.md` §4; this table is the production half of its SSM rows.
 
 | Name | Value |
 |---|---|
@@ -296,20 +286,20 @@ It is fourteen forms. Tedious, but it is once.
 | `/kidlearn/prod/GEMINI_API_KEY` | AI Studio key |
 | `/kidlearn/prod/GOOGLE_TTS_API_KEY` | Cloud TTS key |
 | `/kidlearn/prod/BACKUP_S3_BUCKET` | the bucket name from A4, **no** `s3://` |
-| `/kidlearn/prod/BACKUP_HEARTBEAT_URL` | the ping URL of a healthchecks.io check (period 1 day, grace 2 hours) — without it a failed backup alerts nobody |
+| `/kidlearn/prod/BACKUP_HEARTBEAT_URL` | the ping URL of a healthchecks.io check — set up as in `runbook.md` §8 |
+| `/kidlearn/prod/WEEKLY_REPORTS_HEARTBEAT_URL` | a second check's ping URL — `runbook.md` §9 (optional, like the one above) |
 
 The two Google OAuth values are placeholders on purpose — you create that client
 in A15 and come back to overwrite them.
 
-**Check:** the Parameter Store list should show **14** parameters beginning
+**Check:** the Parameter Store list should show **16** parameters beginning
 `/kidlearn/prod/`. A typo in a name is the most likely mistake here, and it
 surfaces much later as "the server will not start".
 
 > **SecureString encrypts with a free AWS-managed key.** You do not need to create
-> anything in KMS, and Parameter Store's Standard tier is free up to 10,000
-> parameters. This whole project uses about 28.
+> anything in KMS.
 
-- [ ] All fourteen production parameters written and spelled correctly
+- [ ] All sixteen production parameters written and spelled correctly
 
 ## A6 · 💻 The first admin user
 
@@ -534,8 +524,8 @@ silently break your DNS. An Elastic IP is a permanent one.
 **Write down the Elastic IP and the Instance ID.** Both go into the runbook, and
 the IP goes into DNS in A12.
 
-> An Elastic IP costs $3.65/month whether or not it is attached — one of only two
-> things here that cost real money. Do not allocate spares "just in case".
+> An Elastic IP is billed whether or not it is attached (file 38 cost table). Do
+> not allocate spares "just in case".
 
 - [ ] Instance running with the role and the user-data script
 - [ ] Security group has 80/tcp, 443/tcp, 443/udp and **no** port 22
@@ -572,41 +562,9 @@ startup script's own output, and it will say where it stopped.
 ### Copy the deploy scripts over
 
 The startup script creates `/opt/kidlearn/deploy` but deliberately leaves it
-empty. Two ways to fill it — pick one.
-
-**Option 1 — `git clone` on the box.** Nothing to set up; the repository is
-public. Still as root, in the same browser terminal:
-
-```bash
-dnf install -y git
-git clone https://github.com/salmanbd100/kidlearn.git /tmp/kidlearn
-cp -r /tmp/kidlearn/deploy/. /opt/kidlearn/deploy/
-chmod +x /opt/kidlearn/deploy/*.sh
-rm -rf /tmp/kidlearn
-
-ls /opt/kidlearn/deploy
-# app  backup.sh  bootstrap.sh  deploy.sh  edge  weekly-reports.sh
-```
-
-This copies whatever is on `main`, so it will not include uncommitted local
-changes.
-
-**Option 2 — `rsync` from your Mac.** Needs the SSH setup in `runbook.md` §2a
-first (fifteen minutes, once), and then copies *your working tree* — which is
-what you want while `deploy/` is still changing:
-
-```bash
-rsync -az --delete deploy/ kidlearn:/tmp/deploy/
-ssh kidlearn 'sudo cp -r /tmp/deploy/. /opt/kidlearn/deploy/ \
-  && sudo chmod +x /opt/kidlearn/deploy/*.sh && rm -rf /tmp/deploy'
-```
-
-Re-running that one pair of commands is the whole update procedure, which is why
-it is worth setting up if you expect to iterate.
-
-> ⚠️ **Redo this whenever anything in `deploy/` changes in the repository.**
-> Nothing synchronises it automatically until file 38a builds a pipeline. If a
-> deploy behaves like an older version of the scripts, this is why.
+empty. Fill it with one of the three methods in `runbook.md` §3, "Putting
+`deploy/` on the box" — `git clone` on the box is the simplest first time. Redo it
+whenever anything in `deploy/` changes.
 
 - [ ] Browser shell works
 - [ ] Docker, Compose, cron and swap all present
@@ -618,17 +576,12 @@ Add `kidlearn.net` to Cloudflare, then change the nameservers at your registrar
 to the two Cloudflare gives you. Propagation is usually minutes, occasionally
 hours.
 
-For now add only the two API records. The Vercel ones come in A16, once Vercel
-has told you its targets.
+For now add only the `api` and `api.dev` A records from `runbook.md` §5, pointing
+at your Elastic IP. The Vercel ones come in A16, once Vercel has told you its
+targets.
 
-| Name | Type | Content | Proxy status |
-|---|---|---|---|
-| `api` | A | `<your Elastic IP>` | **DNS only (grey cloud)** |
-| `api.dev` | A | `<your Elastic IP>` | **DNS only (grey cloud)** |
-
-> **Grey cloud, not orange, on every record in this project.** Orange-cloud
-> proxying puts a second HTTPS layer in front of Caddy and breaks the certificate
-> process. This is the single most common way this step goes wrong. Click the
+> **Grey cloud, not orange, on every record in this project** (`runbook.md` §5
+> says why). This is the single most common way this step goes wrong. Click the
 > orange cloud icon to turn it grey.
 
 Check from your Mac before moving on:
@@ -646,13 +599,9 @@ proxy — the cloud is still orange. Fix it and wait a minute.
 
 ## A13 · 🖥️ HTTPS — Caddy, carefully
 
-Caddy asks Let's Encrypt for a real certificate the instant it starts. There is
-no practice mode, and **Let's Encrypt allows only 5 certificates per domain per
-week**. A wrong DNS record burns them silently, and you then have no HTTPS until
-the limit resets.
-
-So the Caddyfile ships pointing at Let's Encrypt's **staging** service, where
-mistakes are free. You verify there, then switch.
+Caddy asks Let's Encrypt for a real certificate the instant it starts, with no
+practice mode, so the Caddyfile ships pointing at the **staging** service
+(`runbook.md` §6 has the rate-limit reasoning). You verify there, then switch.
 
 ### 1. Start on staging
 
@@ -709,10 +658,7 @@ curl -sI https://api.kidlearn.net/health | head -1
 > **Write in `runbook.md` §6 that the box is now on the production endpoint.**
 > Future you will need to know which one it is on.
 
-> ⚠️ **Never delete the `caddy_data` Docker volume**, and never run
-> `docker volume prune` on this box without reading what it would remove. That
-> volume holds your certificates. Losing it re-requests them and can hit the
-> weekly limit.
+> ⚠️ **Never delete the `caddy_data` Docker volume** — see `runbook.md` §6.
 
 - [ ] Staging certificate confirmed (certificate error + 502)
 - [ ] Switched to real certificates, no warning
@@ -736,14 +682,8 @@ pull the image, start the container and poll for health. Success ends with:
 
 Now prove the migration path works. There is nothing pending — you applied the
 migrations from your Mac in A2 — but you will need this exact command for every
-future schema change, so run it once now while nothing depends on it:
-
-```bash
-cd /opt/kidlearn/deploy/app
-docker compose --env-file /opt/kidlearn/prod/compose.env \
-  -p kidlearn-prod -f compose.yml --profile migrate run --rm migrate
-# "No pending migrations to apply."
-```
+future schema change, so run the migrate command from `runbook.md` §3 once now
+while nothing depends on it. Expect `No pending migrations to apply.`
 
 Verify from your Mac:
 
@@ -766,12 +706,10 @@ Google Cloud Console → **APIs & Services** → **Credentials** → **Create
 credentials** → **OAuth client ID** → Application type **Web application**.
 
 - Name: `kidlearn production`
-- **Authorised JavaScript origins:** `https://kidlearn.net`
-- **Authorised redirect URIs:** `https://api.kidlearn.net/api/auth/callback/google`
+- Origins and redirect URI: the "new (production)" row of `runbook.md` §13
 
-This is a **brand new** client, separate from the one you already use locally.
-One client covering both would put the production secret inside a dev environment
-that is deliberately less locked down.
+This is a **brand new** client, separate from the one you already use locally
+(file 38 requirement 14).
 
 Now replace the two placeholders. In **Systems Manager → Parameter Store**, open
 each one → **Edit** → paste the real value → Save:
@@ -794,48 +732,27 @@ sudo su -
 
 <https://vercel.com/new> → import the `kidlearn` repository.
 
-**Settings → General:**
-
-| Setting | Value |
-|---|---|
-| Root Directory | `apps/web` — and **tick** *Include source files outside of the Root Directory* |
-| Build Command | `cd ../.. && pnpm turbo run build --filter=web` |
-| Install Command | `pnpm install --frozen-lockfile` |
-| Function Region | `bom1` (Mumbai) |
+**Settings → General:** the settings table in `runbook.md` §10 (root directory with
+*Include source files outside of the Root Directory* ticked, the Turbo build
+command, the install command, region `bom1`).
 
 **Settings → Git:** Production Branch = **`main`**.
 
-**Settings → Environment Variables**, Production scope:
-
-| Name | Value |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | `https://api.kidlearn.net` |
-| `NEXT_PUBLIC_SITE_URL` | `https://kidlearn.net` |
-| `MEDIA_ASSET_HOSTS` | `https://res.cloudinary.com` |
-
-Leave `SITE_NOINDEX` and `DEV_SITE_BASIC_AUTH` **unset** here — they are dev-only.
+**Settings → Environment Variables**, Production scope: the three build-time
+Vercel rows of `runbook.md` §4 (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`,
+`MEDIA_ASSET_HOSTS`), production column. Leave `SITE_NOINDEX` and
+`DEV_SITE_BASIC_AUTH` **unset** — they are dev-only. They are baked in at build
+time, so editing one later needs a **redeploy**.
 
 **Settings → Domains:** add `kidlearn.net` and `www.kidlearn.net`. Vercel shows
-you what to put in DNS. Add those in Cloudflare, **grey cloud**:
-
-| Name | Type | Content |
-|---|---|---|
-| `kidlearn.net` | A | the apex address Vercel shows |
-| `www` | CNAME | the `*.vercel-dns.com` target Vercel shows |
-
-Take those values from Vercel on the day — they have changed before.
+you what to put in DNS; add the apex and `www` records from `runbook.md` §5 in
+Cloudflare, **grey cloud**, taking the values from Vercel on the day.
 
 Deploy, and then **read the first build log**. Confirm `@kidlearn/types` builds
-before `web`. That is the single most likely thing to fail here: `apps/web`
-imports it, and a plain `next build` cannot produce it.
+before `web` (`runbook.md` §10).
 
-> **`NEXT_PUBLIC_*` values are baked into the browser bundle when the site is
-> built.** Editing one in the Vercel dashboard changes nothing until you
-> **redeploy**.
-
-Finally, **Settings → Notifications:** turn on usage notifications. Hobby has no
-overage billing — going over a limit *pauses the project* rather than charging
-you, so production availability depends on a free tier with a hard stop.
+Finally, **Settings → Notifications:** turn on usage notifications and record the
+ceilings in `runbook.md` §10 (Hobby pauses rather than charges).
 
 - [ ] Project configured, production branch `main`
 - [ ] Three variables set
@@ -853,16 +770,8 @@ systemctl is-active crond     # must say: active
 crontab -e
 ```
 
-That opens an editor. Add these five lines:
-
-```cron
-CRON_TZ=Asia/Dhaka
-# Nightly production database dump → S3
-30 1 * * *  /opt/kidlearn/deploy/backup.sh >>/var/log/kidlearn-backup.log 2>&1
-# Weekly parent reports, Mondays 02:00
-0 2 * * 1   /opt/kidlearn/deploy/weekly-reports.sh
-```
-
+That opens an editor. Add the backup entry (`runbook.md` §8) and the
+weekly-reports entry (`runbook.md` §9), including the `CRON_TZ=Asia/Dhaka` line.
 Save and exit (`Ctrl-O`, `Enter`, `Ctrl-X` if it is nano).
 
 **Now run the backup once by hand** — an unrehearsed backup is a guess:
@@ -884,29 +793,12 @@ if it does not, the `BACKUP_HEARTBEAT_URL` parameter is wrong or unset.
 
 ## A18 · Production smoke test — **checkpoint**
 
-From your Mac:
+Run the smoke test in `runbook.md` §14 against production: the curl checks from
+your Mac, then the seven steps on a real phone against `https://kidlearn.net`.
+Step 7 — reload and stay signed in — is the one that proves the proxy and cookie
+settings are right.
 
-```bash
-curl -s  https://api.kidlearn.net/health            # {"data":{"status":"ok",…}}
-curl -si https://api.kidlearn.net/docs | head -1    # 404
-curl -si https://kidlearn.net | grep -i x-robots    # nothing at all
-```
-
-Then **on a real phone**, against `https://kidlearn.net`:
-
-1. Sign in with Google.
-2. The parent area opens on consent alone — **there is no PIN step.** If it asks
-   for a PIN, you deployed an image older than 2026-09-09.
-3. Create a child profile.
-4. Play a seeded lesson through all five steps, with audio.
-5. The parent dashboard shows the learning time you just spent.
-6. `/admin/ai-queue` loads for your admin user and lists and filters jobs.
-7. **Reload the page — you are still signed in.**
-
-Step 7 is the one that proves the proxy and cookie settings are right. If you get
-logged out on reload, that is the thing to investigate.
-
-- [ ] All three curl checks pass
+- [ ] The curl checks pass
 - [ ] All seven phone steps pass
 
 > ## 🎉 Production is live. This is a good place to stop.
@@ -923,11 +815,9 @@ its own keys, its own secrets.
 
 - **Gemini:** a second key at <https://aistudio.google.com/apikey>. One minute,
   no billing account.
-- **Cloudinary:** a second free cloud. Keeps test uploads out of the production
-  media library.
-- **Google Cloud TTS:** **reuse the production key.** It needs a billing account
-  attached and a second one is friction for no isolation gain. Dev's audio limit
-  is cut to 20/day instead, to bound what it can spend.
+- **Cloudinary:** a second free cloud.
+- **Google Cloud TTS:** **reuse the production key.** Why, and the lower dev job
+  caps that bound its spend: file 38 requirement 15.
 
 - [ ] Dev Gemini key and dev Cloudinary cloud created
 
@@ -972,11 +862,9 @@ postgresql://kidlearn:<POSTGRES_PASSWORD>@dev-postgres:5432/kidlearn
 | `/kidlearn/dev/GEMINI_API_KEY` | dev AI Studio key |
 | `/kidlearn/dev/GOOGLE_TTS_API_KEY` | **the same key as production** |
 
-> **The dev database URL carries no `?pgbouncer=true`.** That flag exists for
-> Supabase's connection pooler. Against the plain Postgres container it only
-> disables prepared statements, for nothing. `connection_limit` is unnecessary
-> too — Prisma's default on this box is the same five. Copying production's URL
-> shape here is the obvious mistake.
+> **The dev database URL carries no `?pgbouncer=true` and no `connection_limit`**
+> — `runbook.md` §4 says why. Copying production's URL shape here is the obvious
+> mistake.
 
 **Check:** fourteen parameters beginning `/kidlearn/dev/`.
 
@@ -1006,37 +894,14 @@ sudo su -
 
 One image serves both environments — everything that differs is configuration.
 
-Create the schema in the new Postgres container:
+Create the schema in the new Postgres container with the migrate command from
+`runbook.md` §3, using its dev flags (`dev/compose.env` and `compose.dev.yml`).
 
-```bash
-cd /opt/kidlearn/deploy/app
-docker compose --env-file /opt/kidlearn/dev/compose.env \
-  -p kidlearn-dev -f compose.yml -f compose.dev.yml \
-  --profile migrate run --rm migrate
-```
-
-Now **restore the production backup into it.** This gives dev realistic data
-*and* rehearses the restore you will one day need for real — which is the only
-way to know the backup works:
-
-```bash
-aws s3 ls s3://<your bucket>/prod/          # find the newest file
-aws s3 cp s3://<your bucket>/prod/<filename> - | gunzip \
-  | docker exec -i dev-postgres psql -U kidlearn -d kidlearn \
-      -v ON_ERROR_STOP=1 --single-transaction
-```
-
-`ON_ERROR_STOP` and `--single-transaction` are what make this a rehearsal: plain
-`psql` keeps going after an error and still exits `0`, so a dump that half-loads
-(a Supabase-only schema or extension, say) would be recorded as a pass. Strict, it
-stops at the first error and loads nothing. After it succeeds, compare row counts
-with production (`SELECT count(*) FROM "ChildProfile"`, `"LessonProgress"`) before
-writing a date on the rehearsal line.
-
-> **This copies real children's data into dev**, which runs `LOG_LEVEL=debug` on a
-> shared disk. If that is not acceptable for the stage you are at, reseed from the
-> repository seed instead and rehearse the restore against a scratch container you
-> delete afterwards.
+Now **restore the production backup into it** — `runbook.md` §8, "Restore". Find
+the newest object with `aws s3 ls s3://<your bucket>/prod/` first. It gives dev
+realistic data *and* rehearses the restore you will one day need for real, which
+is the only way to know the backup works. Read the strict-mode and
+children's-data notes there before running it.
 
 Verify:
 
@@ -1049,7 +914,7 @@ docker stats --no-stream                              # dev containers capped at
 ```
 
 If `ss -tlnp` shows anything besides Caddy listening, the Postgres container has
-published a port it should not have.
+published a port it should not have (the commands are `runbook.md` §2).
 
 - [ ] Dev API healthy, `/docs` loads
 - [ ] Production backup restored into dev — **the restore is now rehearsed**
@@ -1061,49 +926,26 @@ A **second** Vercel project from the same repository. All the settings from A16,
 with three differences:
 
 - **Settings → Git:** Production Branch = **`dev`**
-- **Domains:** `dev.kidlearn.net` only
-- **Environment Variables:**
-
-| Name | Value |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | `https://api.dev.kidlearn.net` |
-| `NEXT_PUBLIC_SITE_URL` | `https://dev.kidlearn.net` |
-| `MEDIA_ASSET_HOSTS` | `https://res.cloudinary.com` |
-| `SITE_NOINDEX` | `true` |
-| `DEV_SITE_BASIC_AUTH` | `dev:<a password you choose>` |
-
-`DEV_SITE_BASIC_AUTH` lives here and nowhere else — deliberately not in Parameter
-Store, which would give two places to forget to rotate it. Save it in your
-password manager.
-
-Add the Cloudflare record Vercel asks for, **grey cloud**:
-
-| Name | Type | Content |
-|---|---|---|
-| `dev` | CNAME | the `*.vercel-dns.com` target for **this** project |
+- **Domains:** `dev.kidlearn.net` only, with the `dev` CNAME from `runbook.md` §5
+  for **this** project's `*.vercel-dns.com` target, **grey cloud**
+- **Environment Variables:** all five Vercel rows of `runbook.md` §4, development
+  column. `DEV_SITE_BASIC_AUTH` is `dev:<a password you choose>`; save it in your
+  password manager (its only home is this project — `runbook.md` §13).
 
 - [ ] Dev project tracks `dev`, five variables set, domain live
 
 ## B6 · 🌐 Extend the existing OAuth client
 
-Edit your **existing** (local/dev) Google OAuth client. Do not touch the
-production one you made in A15.
-
-- **Authorised JavaScript origins:** add `https://dev.kidlearn.net`
-  (keep `http://localhost:3000`)
-- **Authorised redirect URIs:** add
-  `https://api.dev.kidlearn.net/api/auth/callback/google`
-  (keep `http://localhost:4000/api/auth/callback/google`)
+Edit your **existing** (local/dev) Google OAuth client so it carries every entry
+in the "existing (local + dev)" row of `runbook.md` §13 — add the `dev` ones and
+keep the localhost ones. Do not touch the production one you made in A15.
 
 - [ ] Dev entries added to the existing client
 
 ## B7 · Dev smoke test
 
-```bash
-curl -si https://dev.kidlearn.net | head -1                     # 401
-curl -si https://api.dev.kidlearn.net/health | head -1          # 200, no prompt
-curl -si https://api.dev.kidlearn.net/health | grep -i x-robots # noindex
-```
+Run the dev lines of `runbook.md` §14 (`401` on the web host, `200` and noindex
+on the API host).
 
 Then in a browser:
 
@@ -1113,20 +955,11 @@ Then in a browser:
    callback lands on the API host, which deliberately has no password gate.
 4. Reload — still signed in.
 
-Then prove the two environments really are separate:
-
-```bash
-# The dev site must not be calling the production API.
-curl -s --user 'dev:<password>' https://dev.kidlearn.net \
-  | grep -o 'api\.kidlearn\.net'          # NOTHING
-curl -s --user 'dev:<password>' https://dev.kidlearn.net \
-  | grep -o 'api\.dev\.kidlearn\.net'     # matches
-```
-
-If the first one matches, the dev Vercel project was built with production's
-`NEXT_PUBLIC_API_URL`. Fix the variable and **redeploy**. That situation is a dev
-build writing to the **production database**, and it looks like a CORS error
-rather than what it is.
+Then prove the two environments really are separate with the bundle check in
+`runbook.md` §4: the dev site must show nothing for the production API host. If
+it matches, the dev Vercel project was built with production's
+`NEXT_PUBLIC_API_URL` — that is a dev build writing to the **production
+database**, and it looks like a CORS error rather than what it is.
 
 - [ ] All dev checks pass
 - [ ] The dev site calls its own API host
@@ -1144,7 +977,7 @@ rather than what it is.
 - [ ] Set the file 38 row in `document/implementation/00-progress-tracker.md` to
       **✅ Done** and remove its status note
 - [ ] Check the AWS Budgets figure after a full day — it should be within ~10% of
-      $13.75/month
+      $13.73/month
 
 ---
 
@@ -1157,13 +990,13 @@ Check the region dropdown at the top right. It needs to say **Asia Pacific
 (Mumbai) ap-south-1**. This is the most common AWS confusion there is.
 
 **The Vercel build fails saying `@kidlearn/types` has no `dist`.**
-The build command is not going through Turbo. It must be
-`cd ../.. && pnpm turbo run build --filter=web`.
+The build command is not going through Turbo — see the settings table in
+`runbook.md` §10.
 
 **`dev.kidlearn.net` behaves like production, or you see CORS errors.**
 Almost never actually CORS. `NEXT_PUBLIC_*` values are baked in at build time, so
-the dev project was built with a production value. Fix it and **redeploy** —
-saving the variable is not enough. Confirm with the `grep` in B7.
+the dev project was built with a production value. Fix it and **redeploy**.
+Confirm with the bundle check in `runbook.md` §4.
 
 **Caddy never gets a certificate.**
 In order: is the Cloudflare cloud **grey**? Does `dig +short` return your Elastic
@@ -1177,9 +1010,8 @@ common), and that A9's inline policy has your real account number in it.
 
 **The container starts but every database query fails.**
 Almost certainly the connection string. Check it went into Parameter Store
-intact. Note that `app.env` **on the box** stores values with every `$` doubled —
-that is correct for Docker Compose and wrong if you copy one out by hand. Read
-the real value from Parameter Store instead.
+intact, and read values from Parameter Store rather than `app.env` on the box
+(`runbook.md` §4 explains the doubled `$`).
 
 **The browser Session Manager tab will not connect.**
 The instance is still booting, or the IAM role is not attached
@@ -1193,30 +1025,20 @@ does not, the public key is not in `ec2-user`'s `authorized_keys` — redo that
 part of `runbook.md` §2a.
 
 **A deploy fails and you need to go back.**
-```bash
-/opt/kidlearn/deploy/deploy.sh prod <the previous SHA>
-```
-The frontend is separate: Vercel dashboard → **Deployments** → the last good one
-→ **Instant Rollback**. **Both halves, every time** — under pressure nobody
-remembers the second one.
+Roll back **both halves**, API and frontend — `runbook.md` §3, "Rollback".
 
 **A migration was wrong.**
-Migrations are **forward-only**. Write a new migration that corrects it; never
-edit one that has already been applied. On **dev only** you can start over — see
-runbook §7 for the wipe-and-reseed command.
+Migrations are forward-only (`runbook.md` §3). On **dev only** you can start over
+— `runbook.md` §7 has the wipe-and-reseed command.
 
 ---
 
 # Things that cost money or lock you out
 
-| Do not | Because |
-|---|---|
-| Delete the `caddy_data` volume, or run `docker volume prune` on this box | It holds your certificates. Re-requesting them can hit Let's Encrypt's 5-per-week limit — a week with no HTTPS. |
-| Switch to real certificates before staging works | Same limit, spent on a broken DNS record. |
-| Allocate Elastic IPs you do not attach | $3.65/month each, charged whether attached or not. |
-| Run `prisma migrate dev` against a deployed database | It can wipe it. `migrate deploy` only. |
-| Skip the budget alarm | `t4g` bills surplus CPU instead of slowing down. |
-| Reuse a secret between production and dev | A login cookie from one would be accepted by the other. |
-| Put the production OAuth client into dev | Dev is deliberately less locked down. |
-| Leave any DNS record on the orange cloud | Breaks certificates on both halves. |
-| Add a port 22 rule | You do not need one even for SSH — `runbook.md` §2a tunnels real `ssh`/`scp`/`rsync` over Session Manager, with an audit trail and nothing exposed to the internet. |
+Each is explained where it lives: deleting `caddy_data` or switching to real
+certificates before staging works (`runbook.md` §6); orange-cloud DNS records
+(`runbook.md` §5); reusing a secret between production and dev (B2), or putting
+the production OAuth client into dev (`runbook.md` §13); unattached Elastic IPs
+(A10); `prisma migrate dev` against a deployed database (`runbook.md` §3); skipping
+the budget alarm (A1); and adding a port 22 rule (`runbook.md` §2 — real `ssh`,
+`scp` and `rsync` already work over Session Manager).

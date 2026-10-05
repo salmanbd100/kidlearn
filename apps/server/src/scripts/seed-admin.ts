@@ -5,8 +5,6 @@ import { z } from "zod";
 import { ADMIN_MIN_PASSWORD_LENGTH, auth } from "../config/auth.js";
 import { prisma } from "../config/prisma.js";
 
-// Creates or refreshes an administrator (file 31, spec §4.3).
-
 const SeedEnvSchema = z.object({
   ADMIN_EMAIL: z.string().email(),
   ADMIN_PASSWORD: z.string().min(ADMIN_MIN_PASSWORD_LENGTH),
@@ -21,15 +19,9 @@ export interface SeedAdminOptions {
 
 export interface SeedAdminResult {
   admin: AdminUser;
-  /** False when the run only refreshed an existing admin, which is the idempotent path. */
   isCreated: boolean;
 }
 
-/**
- * Idempotent: running twice with the same email leaves exactly one `AdminUser`
- * row and one `credential` account, with the password set to whatever was passed
- * the last time.
- */
 export async function seedAdmin({
   email,
   password,
@@ -42,8 +34,7 @@ export async function seedAdmin({
   }
 
   const ctx = await auth.$context;
-  // better-auth lower-cases every email it stores, so the lookup has to as well
-  // or a capitalised `ADMIN_EMAIL` would create a second user on every run.
+  // better-auth lower-cases stored emails; without this a capitalised `ADMIN_EMAIL` creates a second user each run.
   const normalisedEmail = email.toLowerCase();
   const hash = await ctx.password.hash(password);
 
@@ -51,9 +42,7 @@ export async function seedAdmin({
 
   let authUserId: string;
   if (existing) {
-    // A parent signs in with Google and an admin with a password, and the two
-    // surfaces assume they are different people. Attaching a credential and an
-    // `AdminUser` to a Google identity would make one session pass both guards.
+    // Parents sign in with Google, admins with a password; a credential plus `AdminUser` on a Google identity would pass both guards.
     if (
       existing.accounts.some((account) => account.providerId !== "credential")
     ) {
@@ -69,9 +58,7 @@ export async function seedAdmin({
     if (hasCredential) {
       await ctx.internalAdapter.updatePassword(authUserId, hash);
     } else {
-      // A `User` row that exists without a credential account — e.g. one created
-      // by an earlier run that failed between the two writes. Link one rather
-      // than leaving an account that can never sign in.
+      // A `User` without a credential account (earlier run failed between writes): link it rather than leave it unable to sign in.
       await ctx.internalAdapter.linkAccount({
         userId: authUserId,
         providerId: "credential",
@@ -83,8 +70,7 @@ export async function seedAdmin({
     const created = await ctx.internalAdapter.createUser({
       email: normalisedEmail,
       name,
-      // No verification email is ever sent to an internal account, and an
-      // unverified one could be refused by a future `requireEmailVerification`.
+      // No verification email is sent to an internal account, and a future `requireEmailVerification` could refuse it.
       emailVerified: true,
     });
     authUserId = created.id;
@@ -102,8 +88,7 @@ export async function seedAdmin({
 
   const admin = await prisma.adminUser.upsert({
     where: { email: normalisedEmail },
-    // `authUserId` is re-asserted on every run, which is what repairs a row left
-    // unlinked by `ON DELETE SET NULL` after an identity was deleted.
+    // Re-asserted every run to repair a row left unlinked by `ON DELETE SET NULL`.
     update: { authUserId, name },
     create: { email: normalisedEmail, name, authUserId },
   });
@@ -111,7 +96,6 @@ export async function seedAdmin({
   return { admin, isCreated: before === null };
 }
 
-/** `pnpm --filter server seed:admin`. */
 const isDirectRun =
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;

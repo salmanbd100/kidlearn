@@ -3,8 +3,6 @@ import type { Locale, QuizQuestionType } from "@kidlearn/types";
 import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
 import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
-// The prompts behind the AI Lesson Generator (FR-AI-01).
-
 export const KIDLEARN_SYSTEM_PROMPT = `You are a curriculum writer for KidLearn, an educational platform for children aged 3 to 6
 (grades: Nursery, KG-1, KG-2). You write warm, simple, encouraging content designed to be
 READ ALOUD to a child who cannot yet read.
@@ -59,7 +57,6 @@ export interface LessonQuestionPromptInput extends LessonPromptInput {
   total: number;
 }
 
-/** One question of a generated lesson's quiz (FR-AI-01). */
 export function buildLessonQuestionUserPrompt(
   input: LessonQuestionPromptInput,
 ): string {

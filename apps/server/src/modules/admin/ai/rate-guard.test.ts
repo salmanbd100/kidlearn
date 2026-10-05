@@ -1,22 +1,10 @@
 /**
- * The daily generation cap (file 36).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One `jobs` array standing in for the table, and
- *     the stubbed `count` applies the real `where` clause to it. A queued number
- *     would make every assertion here a restatement of the number queued.
- *  2. *Assert the query, not just the result.* The two claims this file makes are
- *     both about the `where` clause — that a bucket counts only its own job types,
- *     and that the window starts at local midnight rather than UTC midnight — so
- *     the stub filters on `type.in` and `createdAt.gte` exactly as Postgres would
- *     and the tests read the count back.
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here
- *     reads content.
- *  4. *Name what the stub cannot prove.* Nothing rests on the database's own
- *     behaviour — no constraint, no cascade, no isolation. The count is a plain
- *     scan and the arithmetic on top of it is this module's.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: one `jobs` array; the stubbed `count` applies the real `where` clause to it.
+ *  2. Assert the query: both claims are about the `where` clause (a bucket counts only its own job types; the
+ *     window starts at local, not UTC, midnight), so the stub filters on `type.in` and `createdAt.gte` as Postgres would.
+ *  3. `include` gates: not applicable, nothing here reads content.
+ *  4. Not provable: nothing rests on database behaviour; the count is a plain scan.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +15,6 @@ type Job = {
   type: string;
   createdAt: Date;
   status: string;
-  /** Null until the job finishes, exactly as the column is. */
   rawOutput: { usage?: { attempts?: number } } | null;
 };
 
@@ -56,11 +43,8 @@ vi.mock("../../../config/prisma.js", () => ({
   },
 }));
 
-/**
- * Postgres's own reading of the `NOT` clause: a row is excluded only when *every*
- * term matches. A JSON path into a null column matches nothing, so an in-flight
- * job is never excluded.
- */
+// Postgres's reading of `NOT`: a row is excluded only when every term matches; a JSON path into a null column
+// matches nothing, so an in-flight job is never excluded.
 function excludedBy(not: CountWhere["NOT"], job: Job): boolean {
   if (job.status !== not.status) return false;
   const value = not.rawOutput.path.reduce<unknown>(
@@ -79,7 +63,6 @@ const { assertWithinDailyCap, readDailyBudget, startOfTodayInAppTz } =
 /** `Asia/Dhaka` is UTC+6 and observes no DST, so local midnight is 18:00 UTC. */
 const TIMEZONE_OFFSET_HOURS = 6;
 
-/** A job that reached the model and was billed for it — the ordinary case. */
 function add(type: string, count: number, createdAt = new Date()): void {
   for (let index = 0; index < count; index += 1) {
     store.jobs.push({
@@ -107,8 +90,7 @@ describe("the daily cap", () => {
   });
 
   it("passes the request that lands exactly on the cap", async () => {
-    // The cap is a ceiling on jobs created, not on jobs already there: the 50th
-    // text job of the day is allowed and the 51st is not.
+    // The cap is a ceiling on jobs created: the 50th text job of the day is allowed, the 51st is not.
     add("lesson", env.AI_TEXT_JOBS_PER_DAY - 1);
 
     await expect(assertWithinDailyCap("lesson", 1)).resolves.toBeUndefined();
@@ -127,9 +109,7 @@ describe("the daily cap", () => {
   });
 
   it("reports the arithmetic in details, not just the verdict", async () => {
-    // The CMS shows the admin how much budget is left, so a refusal that carried
-    // only a message would make "generate 16 clips" indistinguishable from
-    // "nothing left at all".
+    // The CMS shows the remaining budget, so a refusal with only a message would blur "generate 16 clips" with "nothing left".
     add("audio", env.AI_AUDIO_JOBS_PER_DAY - 2);
 
     const error = (await assertWithinDailyCap("audio", 5).catch(
@@ -145,9 +125,7 @@ describe("the daily cap", () => {
   });
 
   it("refuses a batch that would only partly fit rather than starting it", async () => {
-    // Sixteen clips with three left in the budget is not thirteen clips of
-    // progress — it is a story narrated on five pages and silent on three, which
-    // still has to be finished tomorrow and has already been paid for.
+    // A partly fitting batch leaves a story narrated on some pages and silent on others, already paid for.
     add("audio", env.AI_AUDIO_JOBS_PER_DAY - 3);
 
     await expect(assertWithinDailyCap("audio", 16)).rejects.toBeInstanceOf(
@@ -158,9 +136,7 @@ describe("the daily cap", () => {
 
 describe("what a job has to have cost to count", () => {
   it("does not bill a job that failed before it ever called the model", async () => {
-    // The case this rule exists for: an unreachable model or a bad key fails every
-    // job instantly, at no cost. Counting those spends the day's budget on nothing
-    // and locks the admin out of retrying once the cause is fixed.
+    // An unreachable model or bad key fails every job instantly at no cost; counting those would spend the budget on nothing and lock the admin out of retrying.
     addJob("lesson", {
       status: "failed",
       rawOutput: { usage: { attempts: 0 } },
@@ -182,8 +158,7 @@ describe("what a job has to have cost to count", () => {
   });
 
   it("bills a job still in flight, which is about to spend", async () => {
-    // `rawOutput` is null until the job finishes, so there is no usage to read —
-    // and a job that has not finished is not a job that cost nothing.
+    // `rawOutput` is null until the job finishes, so there is no usage to read; unfinished is not free.
     addJob("lesson", { status: "generating", rawOutput: null });
 
     await expect(readDailyBudget("lesson")).resolves.toMatchObject({ used: 1 });
@@ -247,9 +222,7 @@ describe("the three buckets", () => {
 
 describe("where the day starts", () => {
   it("counts from local midnight, so an evening job is not tomorrow's", async () => {
-    // 20:00 UTC is 02:00 the next day in Asia/Dhaka. A window starting at UTC
-    // midnight would still be counting the previous local day, so a job created
-    // at 02:00 local would be charged to a budget that had already reset.
+    // 20:00 UTC is 02:00 the next day in Asia/Dhaka: a window starting at UTC midnight would charge it to a budget that had already reset.
     const localMidnight = startOfTodayInAppTz(
       new Date("2026-09-03T20:00:00.000Z"),
     );

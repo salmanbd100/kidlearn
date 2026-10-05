@@ -22,8 +22,6 @@ import {
   UNTITLED_QUIZ,
 } from "./job.js";
 
-// The human gate FR-AI-07 makes a hard requirement (FR-CMS-05..06).
-
 function toSummary(row: JobRow, entityLabel: string | null): AiJobSummaryDto {
   const input = asRecord(row.input);
 
@@ -40,7 +38,6 @@ function toSummary(row: JobRow, entityLabel: string | null): AiJobSummaryDto {
   };
 }
 
-/** A page of the queue (FR-CMS-05). */
 export async function listJobs(query: AiJobListQuery): Promise<AiJobListDto> {
   const where: Prisma.AIGenerationJobWhereInput = {
     status: query.status,
@@ -88,9 +85,7 @@ export async function listJobs(query: AiJobListQuery): Promise<AiJobListDto> {
     prisma.aIGenerationJob.count({ where }),
   ]);
 
-  // Five reads for the whole page, not five per job: `linkedContentRows` fans out
-  // across five tables, and calling it per row turned a 25-row page into 125
-  // queries.
+  // One read per table for the whole page, not per job (a 25-row page was 125 queries).
   const labels = await readEntityLabels(rows, prisma);
 
   return {
@@ -99,12 +94,7 @@ export async function listJobs(query: AiJobListQuery): Promise<AiJobListDto> {
   };
 }
 
-/**
- * The first content row a job created, in the same lessons-first order
- * `linkedContentRows` uses, so a label does not depend on whether the job was read
- * alone or in a page. Falls back to what a media job has, and to nothing for a
- * `failed` job.
- */
+// First content row a job created, in `linkedContentRows` order so the label is the same alone or in a page.
 async function readEntityLabels(
   rows: JobRow[],
   tx: ReviewWriter,

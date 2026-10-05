@@ -4,11 +4,7 @@ const DEFAULT_TEST_DATABASE_URL =
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL?.trim() || DEFAULT_TEST_DATABASE_URL;
 
-/**
- * Every test truncates every table, so a URL that reaches a real database
- * would wipe it. Only a database whose name ends in `_test` is accepted —
- * checked here, before any connection is opened.
- */
+/** Every test truncates every table, so only a database named `*_test` is accepted, checked before any connection opens. */
 export function assertIsTestDatabase(url: string): void {
   const name = new URL(url).pathname.replace(/^\//, "");
   if (!name.endsWith("_test")) {

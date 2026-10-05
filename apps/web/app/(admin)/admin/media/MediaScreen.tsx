@@ -23,8 +23,6 @@ import { AttachDialog } from "./AttachDialog";
 import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";
 
-// `/admin/media` — the asset library (file 33, FR-CMS-02).
-
 const KIND_LABELS: Record<AssetKind, string> = {
   image: "Images",
   audio: "Audio",
@@ -51,7 +49,6 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
   const [notice, setNotice] = useState<string>();
   const [copiedId, setCopiedId] = useState<string>();
 
-  // Only the library tab reads assets; the characters tab holds its own data.
   const {
     assets,
     status,
@@ -69,8 +66,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
       await navigator.clipboard.writeText(asset.url);
       setCopiedId(asset.id);
     } catch {
-      // A denied clipboard permission is not worth an error banner — the URL is
-      // on screen and selectable either way.
+      // A denied clipboard permission isn't worth a banner; the URL is selectable.
       setCopiedId(undefined);
     }
   }
@@ -325,11 +321,7 @@ function FilterChip({
   );
 }
 
-/**
- * Inline preview per kind. The image goes through `next/image` with `unoptimized`
- * — see `features/admin/MediaPicker.tsx` for why the CMS bypasses the optimizer
- * rather than widening the app's remote-image allowlist.
- */
+/** Images use `next/image` `unoptimized`; see `features/admin/MediaPicker.tsx` for why. */
 function AssetPreview({ asset }: { asset: MediaAsset }) {
   if (asset.kind === "audio") {
     // biome-ignore lint/a11y/useMediaCaption: an admin preview of a narration clip has no caption track to offer — the clip is what is being checked.

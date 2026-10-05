@@ -5,10 +5,6 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { ChildSwitcher } from "./ChildSwitcher";
 
-/**
- * The selection is a URL, so the assertions are about hrefs and `aria-current`.
- */
-
 function child(overrides: Partial<ChildProfileResponse> = {}) {
   return {
     id: "child_1",

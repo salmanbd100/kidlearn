@@ -23,9 +23,7 @@ import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
 import { SegmentedField } from "@/shared/components/SegmentedField";
 import { AvatarPicker, type AvatarPickerOption } from "./AvatarPicker";
 
-// Create or edit a learner profile (FR-PROF-02).
-
-/** KG-2 is omitted at MVP (spec §10), so the control offers two grades. */
+/** KG-2 is omitted at MVP, so the control offers two grades. */
 const GRADE_OPTIONS = [
   { value: "NURSERY", labelKey: "form.gradeNursery" },
   { value: "KG1", labelKey: "form.gradeKg1" },
@@ -36,7 +34,6 @@ const LANGUAGE_OPTIONS = [
   { value: "bn", labelKey: "form.languageBn" },
 ] as const;
 
-/** What the controls hold. `age` is a number the stepper keeps inside its bounds. */
 type FormValues = {
   firstName: string;
   age: number;
@@ -59,7 +56,6 @@ export interface ChildProfileFormProps {
   onSubmit: (
     values: ChildProfileCreate,
   ) => Promise<ApiResult<ChildProfileResponse>>;
-  /** Runs after `onSubmit` succeeds. */
   onSaved: (child: ChildProfileResponse) => void;
   submitLabel: string;
   /** Renders a cancel link when there is somewhere to go back to. */
@@ -96,10 +92,7 @@ export function ChildProfileForm({
   useEffect(() => {
     let isCurrent = true;
 
-    // A profile that does not exist yet has nothing unlocked to show, so
-    // creation reads the starter set and editing reads this child's own list —
-    // which carries the earned characters as well as the locked ones
-    // (FR-GAM-05). Both answer the same question the update route enforces.
+    // Creation reads the starter set; editing reads this child's own list, which includes earned and locked characters.
     const load =
       childId === undefined
         ? listAvatars()
@@ -152,12 +145,7 @@ export function ChildProfileForm({
     setFormError(result.error);
   };
 
-  /**
-   * Interpolation is per-field: the name message needs the character limit and the
-   * age message needs the age bounds, and one shared bag of values would put 50 in
-   * "between 3 and 50". The numbers are the schema's own exported constants, so a
-   * message can never quote a limit the validator does not enforce.
-   */
+  /** Interpolation is per-field (name limit vs age bounds) from the schema's own constants, so a message never quotes a limit the validator does not enforce. */
   const ERROR_PARAMS: Record<string, Record<string, number>> = {
     firstName: { max: MAX_CHILD_FIRST_NAME_LENGTH },
     age: { min: MIN_CHILD_AGE, max: MAX_CHILD_AGE },
@@ -259,8 +247,7 @@ export function ChildProfileForm({
 
       {formError !== undefined ? (
         <p role="alert" className="text-destructive text-sm">
-          {/* The max-5 rule's second half: a `409` that slipped past the hidden
-              Add button becomes the same friendly note (FR-PROF-01). */}
+          {/* A `409` that slipped past the hidden Add button becomes the same friendly note. */}
           {t(childWriteErrorKey(formError))}
         </p>
       ) : null}
@@ -287,7 +274,6 @@ function FieldError({ id, children }: { id: string; children: string }) {
   );
 }
 
-/** Age, bounded to the range the platform is built for. */
 function AgeStepper({
   value,
   error,
@@ -300,9 +286,7 @@ function AgeStepper({
   const { t } = useTranslation(PARENT_NAMESPACE);
 
   return (
-    // A real `fieldset`/`legend` rather than a div with `role="group"`: the two
-    // buttons and the value are one control, and the native pair gets the label
-    // read before any of them without an `aria-labelledby` of ours.
+    // A native `fieldset`/`legend`: the label is read before the controls without our own `aria-labelledby`.
     <fieldset className="flex flex-col gap-2 border-0 p-0">
       <legend className="mb-2 font-medium text-foreground text-sm">
         {t("form.age")}

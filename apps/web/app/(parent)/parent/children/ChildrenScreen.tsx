@@ -15,10 +15,9 @@ import { ChildCard } from "@/features/children/ChildCard";
 import { DeleteChildDialog } from "@/features/children/DeleteChildDialog";
 import { deleteChild, listAvatars } from "@/features/parent/parent-api";
 
-/** FR-PROF-01 — a household may hold at most five learner profiles. */
+/** A household may hold at most five learner profiles. */
 const MAX_CHILDREN = 5;
 
-/** The profile list (FR-PROF-05..06). */
 export function ChildrenScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles, refresh } = useParentSession();
@@ -37,9 +36,7 @@ export function ChildrenScreen() {
     };
   }, []);
 
-  // `ParentGuard` does not render this screen until the profiles have loaded and
-  // there is at least one, so an empty array here means a parent who just deleted
-  // their last profile — a real state, briefly, before the guard redirects.
+  // The guard ensures a profile exists; empty means the last one was just deleted, before the redirect.
   const items = profiles ?? [];
   const isAtLimit = items.length >= MAX_CHILDREN;
 

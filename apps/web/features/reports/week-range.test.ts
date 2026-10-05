@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { formatWeekRange } from "./week-range";
 
-/**
- * The edges are the whole reason this is a function: a week inside one month, one
- * that crosses a month, one that crosses a year, and Bangla — which uses its own
- * digits *and* puts the month last, so a Latin-numeral assertion would pass
- * against a locale-blind implementation.
- */
+// Edges: in-month, month-crossing, year-crossing, and Bangla (own digits, month last), where a Latin-numeral
+// assertion would pass against a locale-blind implementation.
 
 const MONDAY = "2026-08-17T00:00:00.000Z";
 const SUNDAY = "2026-08-23T00:00:00.000Z";

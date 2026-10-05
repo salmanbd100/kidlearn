@@ -3,14 +3,8 @@
 import type { NarrationTimings } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 
-/**
- * A story page's text, following the narration when the recording knows where it
- * is (FR-STORY-02).
- */
-
 export interface NarratedTextProps {
   text: string;
-  /** `null` for every story until the voice pipeline records timings. */
   timings: NarrationTimings | null;
   /** Milliseconds into the current narration clip. Ignored without `timings`. */
   elapsedMs?: number;
@@ -27,8 +21,7 @@ export function NarratedText({
   return (
     <p
       data-testid="narrated-text"
-      // `max-w-prose` keeps the line length near the ~66 characters design.md §3.3
-      // asks for; past that a new reader loses which line they were on.
+      // `max-w-prose` keeps lines near ~66 characters (design.md §3.3); past that a new reader loses their place.
       className="max-w-prose text-balance font-body text-2xl leading-relaxed text-foreground sm:text-3xl"
     >
       {segments === null
@@ -53,12 +46,7 @@ export function NarratedText({
   );
 }
 
-/**
- * The last span the narration has reached, rather than the span whose range
- * contains `elapsedMs`: a run has no end time, and treating the gap between two
- * words as "nothing is being read" would blink the highlight off between them.
- * `-1` before the first span.
- */
+/** The last span the narration has reached, not the one containing `elapsedMs`: treating a gap as "nothing read" would blink the highlight off between words. `-1` before the first. */
 export function activeSpanIndex(
   timings: NarrationTimings,
   elapsedMs: number,
@@ -76,10 +64,6 @@ interface Segment {
   isActive: boolean;
 }
 
-/**
- * Splits `text` into the timed runs and the gaps between them, marking the run
- * the narration is inside.
- */
 function toSegments(
   text: string,
   timings: NarrationTimings,

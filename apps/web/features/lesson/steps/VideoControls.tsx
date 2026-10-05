@@ -4,8 +4,6 @@ import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-// Everything a three-year-old is allowed to do to a video (FR-LSN-02).
-
 export type VideoState =
   | "loading"
   | "ready"
@@ -28,9 +26,8 @@ export function VideoControls({
 }: VideoControlsProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
 
-  // Nothing to offer while the first frame is still arriving, and nothing to
-  // toggle once it is over — the ended state hands over to replay and the
-  // step's own advance button.
+  // Nothing to offer while the first frame arrives, or once ended: replay and the step's advance
+  // button take over.
   const canToggle =
     state === "ready" ||
     state === "playing" ||
@@ -44,12 +41,11 @@ export function VideoControls({
         <button
           type="button"
           data-testid="video-play-pause"
-          // 80px, above the 64px kid minimum: this is the one control a child
-          // aims at while the screen is otherwise a moving picture (design.md §7).
+          // 80px, above the 64px kid minimum: aimed at while the screen is a moving picture
+          // (design.md §7).
           className="pointer-events-auto inline-flex size-20 items-center justify-center rounded-pill bg-background/80 text-foreground shadow-lg backdrop-blur transition-[background-color,opacity] touch-manipulation hover:bg-background focus-ring data-[playing=true]:opacity-0 data-[playing=true]:hover:opacity-100 data-[playing=true]:focus-visible:opacity-100"
-          // Fades out of the way while the film runs rather than unmounting:
-          // a control that disappears cannot be tapped by a child who wants to
-          // stop, and one that moves is a control they have to find twice.
+          // Fades rather than unmounts: a control that disappears cannot be tapped, and one that
+          // moves must be found twice.
           data-playing={isPlaying}
           aria-label={isPlaying ? t("video.pause") : t("video.play")}
           onClick={onPlayPause}

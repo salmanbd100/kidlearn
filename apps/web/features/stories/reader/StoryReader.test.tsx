@@ -11,26 +11,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-/**
- * What the reducer cannot prove on its own: that the narration follows the page,
- * that a tap beats the auto-advance timer, and that a story the child reads three
- * times is paid for once (FR-STORY-02, FR-STORY-06..07).
- */
+// What the reducer cannot prove: narration follows the page, a tap beats the auto-advance timer, and a thrice-read story is paid once.
 
 const STORY_ID = "55555555-5555-4555-8555-555555555555";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const content = vi.hoisted(() => ({ getStory: vi.fn() }));
 const progress = vi.hoisted(() => ({ completeStory: vi.fn() }));
-/**
- * Mocked so the reader's presence signal (file 27) does not make real requests
- * from a jsdom test, and so the two story milestones are assertable.
- */
+/** Mocked so the presence signal makes no real requests and the story milestones are assertable. */
 const heartbeat = vi.hoisted(() => ({
   useHeartbeat: () => ({ minutesToday: null }),
   trackEvent: vi.fn(),
 }));
-/** Captures each clip's `onFinished` so a test can end the narration itself. */
 const audio = vi.hoisted(() => ({
   play: vi.fn(),
   stop: vi.fn(),
@@ -96,7 +88,6 @@ function currentPage(): string | null {
   );
 }
 
-/** Ends the narration and runs out the hold before the page turns itself. */
 async function finishNarrationAndWait(outcome: "ended" | "unplayed" = "ended") {
   await act(async () => {
     audio.finishCurrentClip(outcome);
@@ -277,7 +268,6 @@ describe("auto-advance", () => {
 });
 
 describe("the follow-along highlight", () => {
-  /** Two timed words per page, the second reached five seconds in. */
   function timedStory(): StoryDetailResponse {
     return story({
       pages: [1, 2].map((pageNumber) => ({
@@ -428,8 +418,7 @@ describe("finishing", () => {
     fireEvent.click(screen.getByRole("button", { name: /finish the story/i }));
     await screen.findByTestId("story-finish");
 
-    // Replays are free (FR-STORY-06). The server would refuse to pay twice; the
-    // reader does not ask a second time either.
+    // Replays are free: the server would refuse to pay twice, so the reader does not ask again.
     expect(progress.completeStory).toHaveBeenCalledTimes(1);
     expect(progress.completeStory).toHaveBeenCalledWith(STORY_ID);
   });
@@ -437,9 +426,7 @@ describe("finishing", () => {
   it("reports the reading's two milestones for the time aggregation (FR-LSN-07)", async () => {
     await readToTheEnd();
 
-    // `story_start` on mount and `story_complete` at the ending. These keep a
-    // sitting alive between heartbeats and mark what it was spent on; neither
-    // carries a timestamp, because the server stamps the row (FR-TIME-06).
+    // `story_start` / `story_complete` keep a sitting alive between heartbeats; neither carries a timestamp because the server stamps the row.
     expect(heartbeat.trackEvent.mock.calls).toEqual([
       ["story_start", STORY_ID],
       ["story_complete", STORY_ID],
@@ -528,11 +515,7 @@ describe("stories that cannot be read", () => {
     expect(await screen.findByText(/having a rest/i)).toBeInTheDocument();
   });
 
-  /**
-   * FR-TIME-02, FR-TIME-04 — a screen-time block opens the mascot screen, never a
-   * raw error. There is no in-progress exemption for a story: every page arrives
-   * in this one response, so only *opening* one can be refused.
-   */
+  /** A screen-time block opens the mascot screen, never a raw error. Every page arrives in one response, so only opening a story can be refused. */
   it("shows the mascot screen on a 423, not an error", async () => {
     content.getStory.mockResolvedValue({
       ok: false,

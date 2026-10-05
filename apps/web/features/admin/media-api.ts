@@ -7,8 +7,6 @@ import type {
 import { listQuery } from "@/features/admin/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
-// The three-step upload, as three functions.
-
 const MEDIA_BASE = "/api/admin/media";
 
 /** One page of the library; `before` is the id of the last asset already shown. */
@@ -23,11 +21,7 @@ export function fetchMediaAssets(
   return apiFetch<MediaAsset[]>(`${MEDIA_BASE}${listQuery(filters)}`);
 }
 
-/**
- * `retries: 0`. A signature carries a timestamp Cloudinary expires, and replaying
- * the request would hand back a second credential for an upload that may already
- * be under way with the first.
- */
+/** `retries: 0`: a replay would issue a second credential for an upload that may already be under way. */
 export function signMediaUpload(
   kind: AssetKind,
 ): Promise<ApiResult<UploadSignature>> {
@@ -50,7 +44,6 @@ export function registerMediaAsset(input: {
   });
 }
 
-/** Posts the file to Cloudinary and resolves with the delivery URL. */
 export function uploadToCloudinary(
   file: File,
   signature: UploadSignature,
@@ -84,9 +77,7 @@ export function uploadToCloudinary(
         });
         return;
       }
-      // Verified external boundary: Cloudinary's documented upload response. The
-      // URL is re-checked server-side against our own delivery host before any
-      // row is written, so a malformed value here cannot become content.
+      // External boundary: the URL is re-checked server-side against our delivery host before any row is written.
       const body = JSON.parse(request.responseText) as { secure_url?: unknown };
       if (typeof body.secure_url !== "string") {
         resolve({ ok: false, message: "Cloudinary returned no secure URL." });

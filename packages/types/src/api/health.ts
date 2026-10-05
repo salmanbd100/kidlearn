@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { ok } from "./envelope.js";
 
-/**
- * Liveness endpoints. Deliberately database-free (NFR-PERF-04) — free-tier hosts
- * poll `/health` to keep the instance warm, so it must answer while the database
- * is asleep.
- */
+/** Liveness endpoints. Database-free (NFR-PERF-04): hosts poll `/health` to keep the instance warm while the database sleeps. */
 
 export const ServiceIdentitySchema = z.object({ name: z.string() }).strict();
 

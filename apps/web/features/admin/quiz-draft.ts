@@ -5,21 +5,13 @@ import type {
 } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 
-/**
- * The quiz question editor's form state, and the compiler that turns it into a
- * payload (FR-CMS-03).
- */
-
 export type LocalizedDraft = Record<Locale, string>;
 
 export interface OptionDraft {
   id: string;
   text: LocalizedDraft;
-  /** A `MediaAsset` delivery URL, or empty for none. */
   imageUrl: string;
-  /** The image's alternative text, per locale. */
   imageAlt: LocalizedDraft;
-  /** Per-locale audio URLs, or empty for none. */
   audio: LocalizedDraft;
 }
 
@@ -29,10 +21,8 @@ export interface QuestionDraft {
   promptAudio: LocalizedDraft;
   /** `drag_answer` only — carries exactly one `{blank}` token per locale. */
   sentence: LocalizedDraft;
-  /** `mcq`, `picture_select`, `drag_answer`. */
   options: OptionDraft[];
   correctOptionId: string;
-  /** `match_pair` only. */
   leftColumn: OptionDraft[];
   rightColumn: OptionDraft[];
   /** Left option id → right option id. One entry per left option, or empty. */
@@ -51,7 +41,6 @@ export function emptyOption(index: number): OptionDraft {
   };
 }
 
-/** The next option to append to `options`. */
 export function nextOption(
   options: OptionDraft[],
   offset: number,
@@ -98,7 +87,6 @@ export function emptyQuestionDraft(format: QuizQuestionType): QuestionDraft {
   };
 }
 
-/** A `LocalizedAudio`, or `undefined` when *neither* locale is filled. */
 function localizedAudio(urls: LocalizedDraft) {
   if (LOCALES.every((locale) => urls[locale] === "")) return undefined;
   return Object.fromEntries(
@@ -109,7 +97,6 @@ function localizedAudio(urls: LocalizedDraft) {
   );
 }
 
-/** A `LocalizedText`, or `undefined` when *neither* locale is filled. */
 function localizedText(text: LocalizedDraft) {
   if (LOCALES.every((locale) => text[locale] === "")) return undefined;
   return omitEmpty({ en: text.en, bn: text.bn });
@@ -136,9 +123,7 @@ function compileOption(option: OptionDraft, isImageRequired: boolean) {
     ...(localizedText(option.text) === undefined
       ? {}
       : { text: localizedText(option.text) }),
-    // `picture_select` requires the image, so the key is emitted even when empty
-    // — otherwise the schema reports "image is required" against an object that
-    // has no `image` key at all, and the message lands nowhere useful.
+    // `picture_select` requires the image: emit the key even when empty so the message lands on a field.
     ...(image === undefined
       ? isImageRequired
         ? { image: { kind: "image", url: "" } }
@@ -150,7 +135,6 @@ function compileOption(option: OptionDraft, isImageRequired: boolean) {
   };
 }
 
-/** The draft as a payload, ready for `safeParseQuizQuestion`. */
 export function compileQuestion(draft: QuestionDraft): unknown {
   const shared = {
     schemaVersion: 1,
@@ -197,10 +181,7 @@ export function compileQuestion(draft: QuestionDraft): unknown {
   };
 }
 
-/**
- * Every path the form renders an input for, so `toIssueMap` can tell a message
- * that has a home from one that does not.
- */
+/** Every path the form renders an input for, so `toIssueMap` can place messages. */
 export function knownQuestionPaths(draft: QuestionDraft): string[] {
   const optionPaths = (field: string, options: OptionDraft[]) =>
     options.flatMap((_option, index) => [
@@ -249,10 +230,6 @@ export function knownQuestionPaths(draft: QuestionDraft): string[] {
   ];
 }
 
-/**
- * A stored definition back into form state, so editing starts from what is there
- * rather than from blank fields.
- */
 export function draftFromDefinition(
   definition: QuizQuestionDefinition,
 ): QuestionDraft {

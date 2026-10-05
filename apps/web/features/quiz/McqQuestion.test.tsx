@@ -9,11 +9,7 @@ import { FeedbackHarness } from "./test-harness";
 import type { QuizAnswerValue } from "./types";
 import { CORRECT_HOLD_MS, RETRY_HOLD_MS } from "./use-question-feedback";
 
-/**
- * The tap rules are driven through the real feedback channel rather than a spy:
- * the lock that ignores a double-tap lives in it, and a stubbed channel would
- * prove only that the component calls a function.
- */
+/** Real feedback channel, not a spy: the lock that ignores a double-tap lives in it. */
 
 const audio = vi.hoisted(() => ({
   play: vi.fn(async () => {}),
@@ -83,8 +79,8 @@ describe("McqQuestion", () => {
     expect(option("apple")).toHaveTextContent("Apple");
   });
 
-  // An mcq option needs text *or* image, and an image needs no alt — so a card
-  // with nothing to name it is a payload an author can publish.
+  // An mcq option needs text or image and an image needs no alt, so a card with nothing to name it
+  // is publishable.
   it("names an option that has neither words nor alt text", () => {
     renderQuestion({
       ...validMcq,

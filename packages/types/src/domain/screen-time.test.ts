@@ -4,11 +4,7 @@ import {
   ScreenTimeUpdateSchema,
 } from "./screen-time.js";
 
-/**
- * The boundary the parent form and the route both run. Every case here is one a
- * real body could arrive in — the form cannot produce most of them, which is
- * exactly why the server validates rather than trusting it.
- */
+/** The boundary the parent form and the route both run; the server validates because the form cannot produce most of these. */
 describe("ScreenTimeUpdateSchema", () => {
   it("accepts a limit with no window", () => {
     const result = ScreenTimeUpdateSchema.safeParse({

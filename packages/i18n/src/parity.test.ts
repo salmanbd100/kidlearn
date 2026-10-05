@@ -6,7 +6,6 @@ import { resources } from "./index";
 
 type Tree = { [key: string]: string | Tree };
 
-/** Every leaf as `path → value`, nested objects joined with dots. */
 function leaves(tree: Tree, prefix = ""): Map<string, string> {
   const found = new Map<string, string>();
   for (const [key, value] of Object.entries(tree)) {
@@ -20,11 +19,7 @@ function leaves(tree: Tree, prefix = ""): Map<string, string> {
   return found;
 }
 
-/**
- * `{{name}}` placeholders, which a translation must keep. `count` is the
- * exception: i18next always passes it to a plural, so a `_one` form may spell
- * "1" out in one language and interpolate it in the other.
- */
+/** `{{name}}` placeholders must survive translation; `count` is exempt (a `_one` form may spell "1" out). */
 function placeholders(text: string): string[] {
   return [...text.matchAll(/\{\{\s*([^}\s]+)\s*\}\}/g)]
     .map((match) => match[1])
@@ -32,8 +27,7 @@ function placeholders(text: string): string[] {
     .sort();
 }
 
-// `Object.keys` is typed `string[]`; `resources` is an `as const` literal with
-// no keys beyond its type's.
+// `Object.keys` is typed `string[]`; `resources` has no keys beyond its type's.
 const namespaces = Object.keys(resources.en) as (keyof typeof resources.en)[];
 
 describe("en/bn parity", () => {
@@ -42,8 +36,7 @@ describe("en/bn parity", () => {
   });
 
   describe.each(namespaces)("%s", (namespace) => {
-    // The JSON's inferred types are exact literals per file; `Tree` is the shape
-    // every one of them has, which no single inferred type can name.
+    // Each JSON's inferred type is an exact literal; `Tree` is their common shape.
     const en = leaves(resources.en[namespace] as Tree);
     const bn = leaves(resources.bn[namespace] as Tree);
 

@@ -1,18 +1,4 @@
-/**
- * The contract the quiz generator holds the model to (file 35, FR-AI-03).
- *
- * The questions themselves are `QuizQuestionSchema` from `@kidlearn/types` and are
- * tested there; what is tested here is the two rules this file adds — the exact
- * count and the format spread — plus the claim the whole design rests on: that the
- * schema in the prompt is the same object, byte for byte, as the one the payload
- * contract publishes.
- *
- * That last assertion is written as an explicit comparison rather than a Vitest
- * snapshot, because `general.md §5` bans snapshot tests. Nothing is lost: what
- * needs proving is not "the schema still looks like it did" but "these two strings
- * are the same string", and a snapshot would answer a different question and rot
- * on every legitimate schema change.
- */
+/** The prompt's schema must be the same string as the one the payload contract publishes; compared explicitly because `general.md §5` bans snapshots. */
 
 import {
   QUIZ_QUESTION_SCHEMAS,
@@ -32,7 +18,6 @@ import {
 
 const FOUR = buildQuizGenerationOutputSchema(4);
 
-/** Four questions using four formats — the shape the prompt asks for. */
 function questions() {
   return [validMcq, validMatchPair, validDragAnswer, validPictureSelect];
 }
@@ -53,8 +38,7 @@ describe("a well-formed set", () => {
 
 describe("the count", () => {
   it("rejects fewer questions than were commissioned", () => {
-    // The admin named a number. Three when four were asked for would quietly
-    // change the quiz they thought they were reviewing.
+    // Three when four were asked for would quietly change the quiz under review.
     const result = FOUR.safeParse({ questions: questions().slice(0, 3) });
 
     expect(result.success).toBe(false);
@@ -102,8 +86,6 @@ describe("the format spread", () => {
 
 describe("the questions themselves", () => {
   it("rejects an mcq with too few options", () => {
-    // FR-QUIZ-01's floor of three, enforced by the shared union rather than
-    // restated here — the point of embedding it unchanged.
     const result = FOUR.safeParse({
       questions: [
         { ...validMcq, options: validMcq.options.slice(0, 2) },
@@ -132,9 +114,7 @@ describe("the questions themselves", () => {
 
 describe("the schema embedded in the prompt", () => {
   it("is byte-identical to the payload contract's own JSON Schema, per format", () => {
-    // The acceptance criterion for FR-AI-03: one schema, three consumers. If this
-    // fails, the prompt has grown a second copy of the question contract and the
-    // two will drift the first time a format gains a field.
+    // A second copy of the question contract in the prompt would drift when a format gains a field.
     for (const type of QUIZ_QUESTION_TYPES) {
       const expected = JSON.stringify(
         zodToJsonSchema(QUIZ_QUESTION_SCHEMAS[type], {
@@ -150,16 +130,13 @@ describe("the schema embedded in the prompt", () => {
   });
 
   it("quotes one format per prompt, because a question is asked for one at a time", () => {
-    // The whole four-format union is past what `responseJsonSchema` accepts — see
-    // `generate-questions.ts` — so each prompt carries only the format it asks for.
+    // The four-format union exceeds `responseJsonSchema`, so each prompt carries only its own format.
     expect(QUIZ_QUESTION_JSON_SCHEMAS.mcq).toContain('"mcq"');
     expect(QUIZ_QUESTION_JSON_SCHEMAS.mcq).not.toContain('"match_pair"');
   });
 
   it("inlines every format rather than referencing it", () => {
-    // `$refStrategy: "none"` is what makes the embedded document readable on its
-    // own: a `$ref` into a `definitions` block the message does not carry would
-    // describe nothing.
+    // `$refStrategy: "none"`: a `$ref` into a `definitions` block the message does not carry would describe nothing.
     for (const type of QUIZ_QUESTION_TYPES) {
       expect(QUIZ_QUESTION_JSON_SCHEMAS[type]).toContain(`"${type}"`);
       expect(QUIZ_QUESTION_JSON_SCHEMAS[type]).not.toContain('"$ref"');

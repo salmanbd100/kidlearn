@@ -23,7 +23,6 @@ import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 
-/** The child's home (FR-WORLD-01..03, FR-GAM-06 display). */
 export function HomeScreen() {
   return <Retryable>{(retry) => <HomeContent onRetry={retry} />}</Retryable>;
 }
@@ -69,13 +68,10 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
     };
   }, []);
 
-  // `StudentGuard` does not render this screen without a child, so the fallback
-  // is for the frame between a profile switch and the guard's redirect.
+  // Covers the frame between a profile switch and the guard's redirect.
   if (child === undefined) return null;
 
-  // Before anything else on the page: the mascot screen replaces the home screen
-  // rather than sitting on top of it, so there is no board of lessons behind it
-  // for a child to keep tapping at.
+  // First: the mascot screen replaces the home screen, so no lesson board is left to tap behind it.
   if (screenTime.block != null) {
     return (
       <ScreenTimeLock
@@ -99,18 +95,13 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
   return (
     <main className="flex flex-1 flex-col gap-6 p-6">
       <header className="flex flex-col gap-4">
-        {/* Right-padded past the parent-corner lock so a long Bangla name never
-            runs under it (design.md §1.7 — layouts absorb ±40% text swings). */}
+        {/* Right-padded past the parent-corner lock so a long Bangla name never runs under it. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3 pr-14">
           <h1 className="font-display text-2xl text-foreground sm:text-3xl">
             {t("home.greeting", { name: child.firstName })}
           </h1>
 
-          {/* Home is where picking a profile lands, and until now the only way
-              back out of it was the browser's own back button — nothing a child
-              on a tablet has. It sits beside the name it changes rather than at
-              the top-left, where a world screen puts its Back: this is not a
-              step backwards through the app, it is "that is not me". */}
+          {/* Beside the name: this is "that is not me", not a step back like a world screen's Back. */}
           <BigButton
             variant="secondary"
             icon={<Users aria-hidden="true" />}
@@ -122,14 +113,9 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
         <RewardStrip stats={stats} />
       </header>
 
-      {/* Outside every status branch, and above the worlds rather than inside
-          them: the story library is reachable at any time and is not part of any
-          lesson flow (FR-STORY-01), so a failed curriculum read must not take it
-          off the screen. */}
-      {/* Wrapped rather than dropped straight into the column: `IconTile` is
-          square and sizes itself, and a bare flex child would stretch to the full
-          width and take that much height with it — a tile taller than the world
-          cards, pushing them off the first screen. */}
+      {/* Outside every status branch: the story library is not part of any lesson flow, so a failed
+          curriculum read must not hide it. */}
+      {/* Wrapped: `IconTile` sizes itself and a bare flex child would stretch to full width and height. */}
       <div>
         <IconTile
           label={t("stories.title")}
@@ -156,8 +142,7 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
           <p className="font-display text-foreground text-xl">
             {t("home.pickWorld")}
           </p>
-          {/* Stacked in portrait, side by side the moment there is width for it —
-              which covers a landscape phone as well as a tablet (design.md §6). */}
+          {/* Side by side as soon as there is width, including a landscape phone (design.md §6). */}
           <ul className="grid grid-cols-1 gap-6 landscape:grid-cols-2 sm:grid-cols-2">
             {worlds.map((world) => (
               <li key={world.id} className="contents">

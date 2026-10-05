@@ -10,87 +10,35 @@
 
 | Phase | Files | Theme |
 | ----- | ----- | ----- |
-| 0 — Foundation | 01–02 | Workspace packages, test runner, database package |
-| 1 — Data Layer | 03–07 | Prisma schemas + shared JSON/Zod schemas |
-| 2 — Backend Core | 08–12 | Server architecture, auth, profiles, content APIs |
-| 3 — Frontend Foundation | 13–15 | i18n, theming, parent UI, student home |
-| 4 — Lesson Experience | 16–22 | Lesson player, activity engine, quiz engine |
-| 5 — Gamification | 23–24 | Rewards, badges, characters, streaks |
-| 6 — Stories | 25–26 | Story library + narrated reader |
-| 7 — Time & Dashboards | 27–30 | Learning time, screen time, parent dashboard, reports |
-| 8 — Admin CMS | 31–33 | Admin auth, curriculum management, media + editors |
-| 9 — AI Pipeline | 34–37 | Generators, audio/images, review queue |
+| 0–9 — Foundation to AI pipeline | 01–37a | ✅ Shipped; specs retired |
 | 10 — Launch | 38–38a | Vercel frontend + one AWS box for both environments' APIs, GitHub Actions CD |
-| 11 — Hardening | 39+ | CI, HTTP hardening, real test database, docs truth pass — see `document/improvement-plan.md §4` |
+| 11 — Hardening | 39 | CI gates and branch protection |
 
 ---
 
 ## Progress Table
 
+Files **01–37a** (workspace and database packages, schemas, server, auth, profiles, content API,
+OpenAPI, web foundation, lesson/activity/quiz engines, rewards, stories, time and screen-time
+controls, parent dashboard, weekly reports, admin CMS, AI pipeline and the free-tier provider
+migration) are ✅ Done. Their specs were deleted to keep this directory readable — the code,
+`/docs`, `database-design.md` and `standards/` are the record; `git log -- document/implementation`
+has the originals. Only unfinished work is listed below.
+
 | # | File | Feature | Requirement IDs | Depends on | Est. | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 01 | `01-workspace-packages-and-test-setup.md` | Real workspace packages (`types`, `ui`, `config`) + Vitest | NFR-SCALE-03, §12.8 | — | 3–4h | ✅ Done |
-| 02 | `02-database-package-prisma-supabase.md` | `packages/db`: Prisma + Supabase wiring | §7.2, §9 | 01 | 3–4h | ✅ Done |
-| 03 | `03-auth-profile-db-schema.md` | Parent / AdminUser / ChildProfile schema + consent | FR-AUTH-03, FR-PROF-01..02, NFR-SAFE-03 | 02 | 3–4h | ✅ Done |
-| 04 | `04-curriculum-world-db-schema.md` | Subject / Topic / Lesson / World / MediaAsset schema | FR-CURR-01..04, FR-WORLD-01..05 | 02, 03 | 3–4h | ✅ Done |
-| 05 | `05-activity-quiz-story-db-schema.md` | Activity / Quiz / Story schema (JSONB payloads) | FR-ACT-06, FR-QUIZ-07, FR-STORY-* (data) | 04 | 3–4h | ✅ Done |
-| 06 | `06-progress-gamification-db-schema.md` | Progress, rewards, streaks, screen time, reports, AI jobs schema | FR-LSN-06..07, FR-GAM-*, FR-TIME-06, FR-DASH-05, FR-AI-08 (data) | 03, 05 | 3–4h | ✅ Done |
-| 07 | `07-shared-types-activity-quiz-schemas.md` | Versioned Zod/JSON schemas for activities & quizzes in `packages/types` | FR-ACT-06, FR-QUIZ-07, NFR-SCALE-02 | 01 | 3–4h | ✅ Done |
-| 08 | `08-server-foundation-api-architecture.md` | Express app structure, middleware, validation, error handling | §7.3, NFR-PERF-04 | 02 | 3–4h | ✅ Done |
-| 09 | `09-parent-google-oauth.md` | Google OAuth sign-in + profile-scoped sessions | FR-AUTH-02, FR-AUTH-06 | 03, 08 | 3–4h | ✅ Done |
-| 10 | `10-pin-gate-consent-account-deletion.md` | ~~PIN parental gate~~ (removed 2026-09-09), COPPA consent, full account deletion | FR-AUTH-03, FR-AUTH-05, NFR-SAFE-05..06 | 09 | 3–4h | ✅ Done, PIN half reverted |
-| 11 | `11-child-profile-api.md` | Child profile CRUD API (max 5, owner-only access) | FR-PROF-01..07, NFR-SAFE-02 | 09 | 3–4h | ✅ Done |
-| 12 | `12-curriculum-content-read-api.md` | Published-only, grade+language-filtered content read APIs | FR-PROF-03, FR-CURR-02, §7.3.4 | 04, 05, 08 | 3–4h | ✅ Done |
-| 12a | `12a-api-documentation-openapi-swagger.md` | OpenAPI 3.0 spec + Swagger UI for every existing endpoint, shared response schemas, coverage gate | §7.3 | 08, 09, 10, 11, 12 | 4–5h | ✅ Done |
-| 13 | `13-web-app-foundation-i18n.md` | Next.js app shell, i18next (EN/BN), theme tokens, audio helper | FR-I18N-01..03, NFR-A11Y-01..06 | 01 | 3–4h | ✅ Done |
-| 14 | `14-parent-onboarding-profile-ui.md` | Parent sign-in, consent, PIN setup, child profile management UI | FR-AUTH-02..04, FR-PROF-01..02, 05..06 | 10, 11, 13 | 3–4h | ✅ Done |
-| 15 | `15-student-profile-select-and-home.md` | Profile picker, world-themed home, lesson browsing, streak display | FR-AUTH-06, FR-PROF-03, FR-WORLD-01..03, FR-GAM-06 (display) | 12, 13, 14 | 3–4h | ✅ Done |
-| 16 | `16-lesson-player-shell-step-engine.md` | Five-step lesson flow state machine, resume, progress saving | FR-LSN-01..07 (shell), FR-LSN-06..07 | 12, 15 | 3–4h | ✅ Done |
-| 17 | `17-lesson-intro-and-video-steps.md` | Intro greeting step + narrated video step | FR-LSN-01..02, NFR-PERF-02 | 16 | 3–4h | ✅ Done |
-| 18 | `18-activity-engine-and-drag-drop.md` | Generic JSON-driven activity engine + drag-and-drop activity | FR-ACT-01, FR-ACT-05..06 | 07, 16 | 3–4h | ✅ Done |
-| 19 | `19-trace-letters-numbers-activity.md` | Letter/number tracing activity (touch + mouse) | FR-ACT-02, FR-ACT-05 | 18 | 3–4h | ✅ Done |
-| 20 | `20-match-and-puzzle-activities.md` | Match-objects + picture puzzle activities | FR-ACT-03..05 | 18 | 3–4h | ✅ Done |
-| 21 | `21-quiz-engine-mcq-picture-selection.md` | JSON-driven quiz engine + MCQ + picture selection formats | FR-QUIZ-01, FR-QUIZ-04..05, FR-QUIZ-07 | 07, 16 | 3–4h | ✅ Done |
-| 22 | `22-quiz-match-drag-and-scoring.md` | Match-pair + drag-answer formats, scoring, response recording | FR-QUIZ-02..03, FR-QUIZ-06, FR-QUIZ-08 | 21 | 3–4h | ✅ Done |
-| 23 | `23-rewards-engine-and-celebration.md` | Server-side stars/coins grants, reward ledger, celebration screen | FR-LSN-05, FR-GAM-01..02, FR-GAM-07..08 | 06, 16, 22 | 3–4h | ✅ Done |
-| 24 | `24-badges-characters-streaks.md` | Badge milestone engine, character unlocks, learning streaks | FR-GAM-04..06 | 23 | 3–4h | ✅ Done |
-| 25 | `25-story-library.md` | Story read API + library browsing UI | FR-STORY-01, FR-STORY-04..05, FR-STORY-08 | 05, 08, 13 | 3–4h | ✅ Done |
-| 26 | `26-story-reader.md` | Page-by-page narrated story reader + completion reward | FR-STORY-02..03, FR-STORY-06..07 | 23, 25 | 3–4h | ✅ Done |
-| 27 | `27-learning-time-tracking.md` | Server-side session heartbeats + learning time aggregation | FR-TIME-06, FR-DASH-02 (data), FR-LSN-07 | 06, 09, 16 | 3–4h | ✅ Done |
-| 28 | `28-screen-time-controls.md` | Daily limits, access windows, friendly lockout enforcement | FR-TIME-01..05 | 14, 27 | 3–4h | ✅ Done |
-| 29 | `29-parent-dashboard.md` | Per-child summary, subject progress, recent activity | FR-DASH-01..04 | 14, 23, 27 | 3–4h | ✅ Done |
-| 30 | `30-weekly-reports.md` | Weekly report generation job + report history UI | FR-DASH-05..06 | 29 | 3–4h | ✅ Done |
-| 31 | `31-admin-auth-cms-foundation.md` | Admin auth, CMS layout, role guard, basic usage analytics | §4.3, FR-CMS-01 (shell), FR-CMS-07 (basic) | 08, 13 | 3–4h | ✅ Done |
-| 32 | `32-admin-curriculum-management.md` | CRUD for subjects/topics/lessons/worlds, ordering, publish workflow | FR-CURR-04, FR-CMS-01, FR-CMS-06 | 31 | 3–4h | ✅ Done |
-| 33 | `33-admin-media-upload-and-editors.md` | Media upload (Cloudinary), quiz/activity/badge editors, lesson preview | FR-CMS-02..04, FR-GAM-04 (admin) | 32 | 3–4h | ✅ Done |
-| 34 | `34-ai-pipeline-foundation-lesson-generator.md` | AI job model/API, Claude integration, AI lesson generator, audit log | FR-AI-01, FR-AI-08 | 07, 31 | 3–4h | ✅ Done |
-| 35 | `35-ai-story-and-quiz-generators.md` | AI story generator + AI quiz generator (schema-validated JSON) | FR-AI-02..03 | 34 | 3–4h | ✅ Done |
-| 36 | `36-ai-audio-and-image-generation.md` | ElevenLabs narration (EN/BN) + image generation + character consistency | FR-AI-04..06, FR-AI-09, FR-I18N-05 | 33, 34 | 3–4h | ✅ Done |
-| 37 | `37-ai-review-queue.md` | Human review queue: approve / edit-then-approve / reject | FR-AI-07, FR-CMS-05..06 | 35, 36 | 3–4h | ✅ Done |
-| 37a | `37a-free-tier-ai-provider-migration.md` | Swap Claude + ElevenLabs for free-tier providers behind the existing generator interfaces | — (protects FR-AI-01..06, FR-AI-08) | 34, 35, 36 | 3–4h | ✅ Done |
 | 38 | `38-deployment-aws-docker.md` | Frontend on Vercel (two Hobby projects); both APIs on one EC2 `t4g.small` (`ap-south-1`) behind Caddy: prod on `api.kidlearn.net` + Supabase, dev on `api.dev.kidlearn.net` + a Postgres container. SSM secrets, Cloudflare DNS, per-env Cloudinary/Gemini — ~$13.75/month | §9, NFR-PERF-02, NFR-PERF-04 | 16, 29, 37, 37a | 8–9h | 🟨 In progress — the repository half is done and verified locally: both Dockerfiles build and their containers answer (`/health` 200, `/docs` 404, Prisma's arm64 engine present), `trust proxy`, the `SITE_NOINDEX` header, `proxy.ts` and the CI escape-hatch build. **No AWS, Vercel, Cloudflare or Supabase resource is provisioned**, so the acceptance criteria — which are almost all about a running deployment — are unmet, and `document/runbook.md` is a plan rather than a record. Not `✅ Done` until the §15 provisioning order has been executed |
 | 38a | `38a-github-actions-continuous-deployment.md` | API deploys only (Vercel ships the frontend): `dev` → api.dev.kidlearn.net, `main` → api.kidlearn.net. Per-environment OIDC roles (no stored AWS keys), native arm64 build → ECR, `promotion-guard` on `main`, health-gated SSM rollout, rollback by env + image tag | §9 | 38, 39 | 3–4h | ⬜ Not started |
 | 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions gates (lint → build → typecheck → test), pnpm + Turbo caching, coverage reporting, `gates` required on `main` and `dev` | — (makes `general.md §6`'s `[CI]` tier real) | — | 2–3h | 🟨 In progress — pipeline landed and green (#45). Requirement 10 (added 2026-09-10) extends the triggers to `dev`, which had gone unchecked through #46, #47 and #49 — on `39-…-fix-2`, verified by that branch's own PR into `dev`. The ruleset rule is still pending on the Supertest flake |
 
-Files **40–46** are proposed in `document/improvement-plan.md §4` — docs truth pass, server HTTP
-hardening, the test-database harness and its suite ports, error/loading boundaries, the tokens and
-i18n packages, and dependency governance. Each gets a row here when its own spec file is written;
-a row without a file is a promise, not a plan.
-
-From 2026-10-04, those v1 items and the second review's findings (`improvement-plan.md §7`) are
-worked from `document/improvement-tracker.md`, one item per branch.
-
 ### Open follow-up fixes
 
 `general.md §7` sends a bug found while implementing one file to its own branch rather than the
-current one. Those branches are tracked here so they do not live only in a spec's prose.
+current one. Closed entries are removed; they live in git history.
 
 | Branch | What | Found by | Status |
 | --- | --- | --- | --- |
-| `14-parent-onboarding-profile-ui-fix` | `apps/web/app/(parent)/context/parent-session.tsx`'s grant-expiry `setTimeout` was handed a delay above `2**31 - 1` ms, which the platform clamps to **1 ms** — a far-future `pinVerifiedUntil` relocked the PIN gate instantly instead of never. No live impact (production grants are 15 minutes). Fixed by arming the timer in ceiling-sized chunks and re-reading the clock, plus a fail-closed branch for an unparseable expiry. Closed the ~25% `parent-session.test.tsx` flake — `apps/web` then clean across 8 consecutive runs. | File 39 (running the suite 27 times) | ✅ Done (#44). The code this fixed was deleted with the PIN gate on 2026-09-09; kept as the record of the defect and of how it was found. |
-| Supertest listener lifecycle in `apps/server` (no branch yet — belongs to **files 42–43**) | `request(app)` binds a fresh ephemeral listener per call, so under load the suite churns ports faster than the OS retires them. **Eleven** files have failed this way across ~40 runs with four signatures: `socket hang up`, `Parse Error: Expected HTTP/`, `Test timed out in 5000ms`, and assertions on a body that never arrived. Each passes 8/8 in isolation. `TURBO_CONCURRENCY=1` does **not** fix it (3 runs in 6 serialised). The fix is one listener per file rather than per request; files 42–43 rewrite much of that suite against a real database, so it belongs there. **This is what blocks making `gates` a required status check.** | File 39 | ⬜ Not started |
-| `whole-codebase-review-remediation` | A whole-codebase review pass, and its seven fixes. **(1)** `POST /api/progress/quizzes/:quizId/responses` took `isCorrect` from the request body and wrote it to `QuizResponse` verbatim, so any client could report a perfect quiz and collect `coinsPerCorrectAnswer` for every question — `readQuizOutcome`'s claim to derive the count "from the stored responses rather than the request" was laundering request data through the database. `evaluateAnswer` moved to `packages/types/src/quiz/evaluate.ts` and the server now grades `answer` against the stored payload, with `attempts === 1` carrying first-time success; the field is gone from the `.strict()` request schema. **(2)** `getLessonForChild`, `requireVisibleLessonId` and `recordQuizResponses` gated the lesson and its world but not its topic or subject, which every list endpoint gates and `openapi/paths/content.ts` documents as the rule — so withdrawing a topic to draft removed its lessons from every screen and left a bookmarked lesson URL playing, recording progress and paying out. All four gates now come from one `visibleLessonWhere`. **(3)** Finishing a story granted stars and nothing else, which made FR-GAM-04's "Reading Star (10 stories)" unearnable by reading and left FR-GAM-06's streak untouched by a reading-only day; it now runs the same streak → badges → characters tail a lesson does, revealed inline on `FinishScreen`. **This reverses a decision an existing test recorded** — see that test's comment. **(4)** `apiFetch` retried every method on a dropped connection and on a 5xx, so a `POST /api/children` that committed before its response was lost created a second child profile; retrying is now opt-in for non-idempotent methods. **(5)** `ChildProfileResponse.stats` was hardcoded to four zeros — a placeholder that outlived files 23–24 — making four published contract fields untrue and flashing "0 stars" on the student home screen. **(6)** No index behind the content-safety filter: `status` was unindexed on all five content models and `gradeLevels` had no GIN index, and `Story` had none at all. `session.activeChildProfileId` became a real FK with `ON DELETE SET NULL`. **(7)** `isDeliveryUrl` was dead while its rule was re-implemented inline; `withSerializationRetry` retried once with no jitter; one raw colour literal (now `--shine`); `packages/ui` had no `dev`/`build` script; three stale paths in `standards/frontend.md` and the `code-review` skill. Migration `20260910000000_...` is **written but not applied** — no database was reachable. | A whole-codebase review | ✅ Done — four gates green locally (lint, build, typecheck, 2,551 tests). Named off the `NN-` prefixes because it belongs to no single implementation file and `40` is reserved for `40-docs-and-standards-truth-pass.md`; the bundling relies on the recorded exception in `general.md §7`. |
-| `remove-parent-pin-gate-replay` | The PIN removal (#48) landed on **`main`** while **`dev`** moved every file it touched to new paths (#49). `main` was then force-pushed to match `dev`, which discarded the removal and reinstated the gate on both branches — the `non_fast_forward` rule on ruleset 17802318 did not stop it, because the repository-admin bypass applies. #48 had reached `main` without going through `dev` in the first place, which is exactly what file 38a's `promotion-guard` exists to prevent and which still does not exist. Resolved by replaying the five commits onto `dev` at the post-#49 paths: 23 conflicts, almost all "moved, so delete it there instead". One judgement call — the consent-only service the removal introduces is placed at `modules/parent/parent-consent.service.ts` rather than where git's rename detection put it. | Reviewing files 38/38a/39 | ✅ Done |
+| Supertest listener lifecycle in `apps/server` (no branch yet) | `request(app)` binds a fresh ephemeral listener per call, so under load the suite churns ports faster than the OS retires them. **Eleven** files have failed this way across ~40 runs with four signatures: `socket hang up`, `Parse Error: Expected HTTP/`, `Test timed out in 5000ms`, and assertions on a body that never arrived. Each passes 8/8 in isolation. `TURBO_CONCURRENCY=1` does **not** fix it (3 runs in 6 serialised). The fix is one listener per file rather than per request; the real-database suites (`*.db.test.ts`) replace part of that suite, so it belongs with them. **This is what blocks making `gates` a required status check.** | File 39 | ⬜ Not started |
 
 ---
 
@@ -104,7 +52,7 @@ These are fixed across all implementation files so chunks stay consistent:
 - **Database:** Supabase PostgreSQL via Prisma in `packages/db`; JSONB columns for activity/quiz payloads.
 - **Validation:** Zod schemas in `packages/types` — single source of truth shared by frontend renderers, backend validators, and AI generation prompts.
 - **API documentation (from file 12a):** every endpoint is registered in the OpenAPI document (`apps/server/src/openapi/paths/`) **in the same change that adds it**. Request schemas come from the route's own Zod validator; response schemas are Zod in `packages/types/src/api/` and are asserted in the route test with `assertContract`. A route missing from the registry fails `apps/server/src/openapi/coverage.test.ts`, so this is not optional. Browse the current API at `/docs`. Frontend files consume `packages/types/src/api/` rather than redeclaring response shapes. See `standards/backend.md §7`.
-- **Auth:** Google OAuth only for parents (better-auth on Express with the Prisma adapter; cookie sessions). PIN gate is an app-level check, not a second auth system.
+- **Auth:** Google OAuth only for parents (better-auth on Express with the Prisma adapter; cookie sessions).
 - **i18n:** `i18next` + `react-i18next` on the frontend; per-language asset references (text/audio URLs keyed by locale) in the database. Locales: `en`, `bn`.
 - **Drag & drop:** `@dnd-kit/core` (touch-friendly, accessible).
 - **AI providers (revised in file 37a — every one on a genuinely usable free tier):** text/quizzes and images both run on one Google AI Studio `GEMINI_API_KEY` — `gemini-2.5-flash` answering against a `responseJsonSchema` generated from the `packages/types` schemas, and `gemini-2.5-flash-image` drawing illustrations. Audio: Google Cloud Text-to-Speech, Standard voices, one voice per language (`GOOGLE_TTS_API_KEY`; its Cloud project needs a billing account attached even though free-tier usage bills $0). Video: partially manual at MVP (FR-AI-06 allowance). Claude and ElevenLabs are gone — no key for either is needed anywhere. The `AI_*_JOBS_PER_DAY` caps are sized to trip before Google's own free-tier quota does; Google no longer publishes per-model daily limits, so read aistudio.google.com/rate-limit before raising them.

@@ -12,16 +12,10 @@ import type {
 } from "@kidlearn/db";
 import { prisma } from "../../config/prisma.js";
 
-// Rows for the real-database suites (`*.db.test.ts`). Each factory writes the
-// fewest columns the schema requires and takes overrides for the rest, so a
-// test names only what it is about.
-
-/** A short unique suffix, for the columns the schema makes `@unique`. */
 function unique(): string {
   return randomUUID().slice(0, 8);
 }
 
-/** A better-auth `user` and the `Parent` that hangs off it. */
 export async function createParent(
   overrides: Partial<Prisma.ParentUncheckedCreateInput> = {},
 ): Promise<Parent> {
@@ -78,12 +72,7 @@ export interface Curriculum {
   lesson: Lesson;
 }
 
-/**
- * One world → subject → topic → lesson chain, every level at `status`
- * (published by default), with an English lesson translation. Pass a level's
- * own status in `overrides` to make that one level differ — the shape a
- * content-safety test is about.
- */
+/** Every level at `status` (published by default); override one level's status to make just it differ. */
 export async function createCurriculum(
   status: ContentStatus = "published",
   overrides: {

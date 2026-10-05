@@ -5,8 +5,6 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { DashboardSummary } from "./DashboardSummary";
 
-// The dashboard's rendering, driven by fixtures rather than by a fetch.
-
 const NOW = new Date("2026-08-19T12:00:00.000Z");
 
 function data(overrides: Partial<DashboardData> = {}): DashboardData {
@@ -146,7 +144,7 @@ describe("DashboardSummary — subject progress", () => {
   it("shows no highlight chips when the server sent no highlights", () => {
     renderSummary(EMPTY);
 
-    // A brand-new child has no weak area (FR-DASH-03).
+    // A brand-new child has no weak area.
     expect(screen.queryByText("Strongest")).not.toBeInTheDocument();
     expect(screen.queryByText("Needs practice")).not.toBeInTheDocument();
   });

@@ -4,9 +4,7 @@ import { prisma } from "../../config/prisma.js";
 import { createChild, createParent } from "../../shared/testing/factories.js";
 import { getStoryForChild, listStoriesForChild } from "./story.service.js";
 
-// The story library's status gate on the rows Postgres returns. A story is
-// visible only when it and its world are both published and it is tagged for
-// the child's grade; `stories.routes.test.ts` asserts the `where` it builds.
+// A story is visible only when it and its world are both published and it is tagged for the child's grade.
 
 let child: ChildProfile;
 

@@ -5,10 +5,6 @@ import { Providers } from "@/shared/components/Providers";
 import { QuizQuestionEditor } from "./QuizQuestionEditor";
 import { draftFromDefinition } from "./quiz-draft";
 
-/**
- * What an author *sees* while the shared schema disagrees with them (FR-CMS-03).
- */
-
 const audio = vi.hoisted(() => ({
   play: vi.fn(async () => {}),
   stop: vi.fn(),
@@ -44,9 +40,7 @@ function renderEditor() {
   render(
     <Providers locale="en">
       <QuizQuestionEditor
-        // Loaded from a fixture the shared schema already accepts, so the test
-        // starts from a question that is genuinely valid rather than from one this
-        // file has asserted into shape.
+        // Loaded from a fixture the shared schema accepts, so the test starts valid.
         initial={draftFromDefinition(validMcq)}
         isBusy={false}
         onSubmit={onSubmit}
@@ -79,9 +73,7 @@ describe("QuizQuestionEditor", () => {
   });
 
   it("refuses Save and names the field when the Bangla prompt is removed", () => {
-    // The case FR-I18N-01 exists for. An author must be told which locale is
-    // missing, on the input that is missing it — not on submit, and not as
-    // "Invalid input" at the bottom of the form.
+    // The missing locale must be reported on its own input, not as "Invalid input" at the form foot.
     renderEditor();
 
     fireEvent.change(screen.getByLabelText("Prompt (Bangla)"), {
@@ -122,12 +114,10 @@ describe("QuizQuestionEditor", () => {
   });
 
   it("refuses an answer key that names an option which is not on screen", () => {
-    // A question nobody can get right. The schema catches it; this asserts the
-    // editor surfaces it rather than posting it and reading a 400 back.
+    // The editor must surface an unanswerable question rather than post it for a 400.
     renderEditor();
 
-    // Renaming the option the answer key points at is the everyday way this
-    // happens: three inputs share the label, and it is the first that `apple` names.
+    // Renaming the option the key points at: three inputs share the label and `apple` names the first.
     fireEvent.change(screen.getAllByLabelText("Option id")[0], {
       target: { value: "renamed" },
     });

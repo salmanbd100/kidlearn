@@ -12,7 +12,6 @@ import {
   updateScreenTime,
 } from "@/features/screen-time/screen-time-api";
 
-/** One child's screen-time settings (FR-TIME-01, FR-TIME-04..05). */
 export function ScreenTimeScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles } = useParentSession();

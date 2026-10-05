@@ -2,20 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-// The shake that says "not quite — have another go" (FR-ACT-05).
-
 export const WIGGLE_MS = 400;
 
 /**
- * How long a request lives — longer than the shake, because the static
- * have-another-go mark rides on it, and with reduced motion that mark is the
- * only thing a child who cannot hear the encouragement sees (design.md §2.3).
+ * Outlives the shake: the static have-another-go mark rides on it and, under reduced motion, is all
+ * a child who cannot hear sees (design.md §2.3).
  */
 export const NOT_QUITE_MS = 1200;
 
-/**
- * Which elements are shaking, and how many times a shake has been asked for.
- */
 export interface WiggleRequest {
   ids: readonly string[];
   count: number;
@@ -44,9 +38,8 @@ export function useWiggle(): WiggleChannel {
     if (wiggle === undefined) return;
     const timer = window.setTimeout(
       () => setWiggle(undefined),
-      // Cleared on a timer rather than on `animationend`: the reduced-motion
-      // reset in globals.css collapses the keyframes to 0.01ms, and a listener
-      // would then unset the state before the browser had painted anything.
+      // Cleared on a timer, not `animationend`: the reduced-motion reset collapses keyframes to
+      // 0.01ms and a listener would unset state before paint.
       NOT_QUITE_MS,
     );
     return () => window.clearTimeout(timer);

@@ -4,10 +4,6 @@ import { prisma } from "../../config/prisma.js";
 import { authContext } from "../../modules/parent/require-parent.middleware.js";
 import { ApiError } from "../errors/errors.js";
 
-/**
- * Resolves *which child is learning* for every `/api/content/*` request
- * (FR-PROF-03). Runs after `requireParent`.
- */
 export const requireActiveChild: RequestHandler = async (
   req: Request,
   _res: Response,
@@ -34,12 +30,7 @@ export const requireActiveChild: RequestHandler = async (
   }
 };
 
-/**
- * Reads the profile `requireActiveChild` attached, narrowing away the optional
- * on `Request` without a non-null assertion. Mirrors `authContext` — a route
- * mounted without the middleware fails closed rather than serving content that
- * was never grade-filtered.
- */
+/** Fails closed like `authContext`: a route mounted without the middleware must not serve content that was never grade-filtered. */
 export function activeChild(req: Request): ChildProfile {
   const { child } = req;
   if (!child) {

@@ -1,30 +1,13 @@
 /**
- * Batch narration (file 36, FR-AI-04, FR-I18N-05, FR-CMS-05, FR-AI-07).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
- *     Every assertion reads back rows the generator created rather than a value
- *     queued in advance, which is what makes "the translation's foreign key is
- *     still null" checkable at all.
- *  2. *Assert the query, not just the result.* The central claim of this file is
- *     negative — no narration foreign key is written — so it asserts the absence
- *     of any `lessonTranslation`/`storyPageTranslation`/`quizQuestionTranslation`
- *     update alongside the presence of the asset rows. A return-value assertion
- *     would prove nothing about it.
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here
- *     reads student-facing content. That a clip cannot reach a child is a
- *     property of the null foreign key, asserted directly.
- *  4. *Name what the stub cannot prove.* Two things. That
- *     `@@unique([lessonId, language])` and its two siblings are real constraints
- *     is the database's business; the tests here assert the `(targetId, locale)`
- *     pair the generator records against them. And that a failed `persist` leaves
- *     no asset row is Postgres's transaction guarantee — the stub runs the
- *     callback and rethrows, so the test asserts the *job* failed.
- *
- * Google TTS and the Cloudinary upload are mocked, which `general.md §5` permits
- * explicitly: external network boundaries are the one allowed mock.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: arrays per table; assertions read back rows the generator created.
+ *  2. Assert the query: the central claim is negative (no narration foreign key is written), so it asserts the
+ *     absence of any `lessonTranslation`/`storyPageTranslation`/`quizQuestionTranslation` update alongside the asset rows.
+ *  3. `include` gates: not applicable; a clip cannot reach a child because the foreign key stays null, asserted directly.
+ *  4. Not provable: the three `@@unique(...)` constraints are the database's (we assert the `(targetId, locale)` pair
+ *     recorded against them); a failed `persist` leaving no asset row is Postgres's guarantee, the stub runs the
+ *     callback and rethrows.
+ * Google TTS and the Cloudinary upload are mocked (external boundaries).
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,7 +20,6 @@ const store = vi.hoisted(() => ({
   quizzes: [] as Row[],
   mediaAssets: [] as Row[],
   jobs: [] as Row[],
-  /** Every write the generator issued, so the negative claims are checkable. */
   writes: [] as Array<{
     table: string;
     op: string;
@@ -53,8 +35,7 @@ vi.mock("../google-tts.js", () => ({
 }));
 
 vi.mock("../../media/media.service.js", async (importOriginal) => ({
-  // `registerAsset` stays real: the `kind`, `language` and `aiJobId` this suite
-  // asserts on are written by it, so replacing it would test the test.
+  // `registerAsset` stays real: the kind, language and aiJobId asserted here are written by it.
   ...(await importOriginal<typeof import("../../media/media.service.js")>()),
   uploadBuffer: upload.uploadBuffer,
 }));
@@ -84,9 +65,7 @@ vi.mock("../../../../config/prisma.js", () => {
       findUnique: async ({ where }: { where: { id: string } }) =>
         store.quizzes.find((one) => one.id === where.id) ?? null,
     },
-    // The three tables that hold a narration foreign key. Every write method is
-    // a throw, so "the attachment is deferred to file 37" is enforced by the stub
-    // rather than only asserted after the fact.
+    // Every write method throws, so deferring attachment is enforced by the stub, not only asserted afterwards.
     lessonTranslation: {
       update: forbid("lessonTranslation", "update"),
       updateMany: forbid("lessonTranslation", "updateMany"),
@@ -115,7 +94,7 @@ vi.mock("../../../../config/prisma.js", () => {
       },
     },
     aIGenerationJob: {
-      // The stale-job sweep that precedes every run; nothing here is old enough.
+      // Stale-job sweep that precedes every run; nothing is old enough.
       updateMany: async () => ({ count: 0 }),
       count: async ({
         where,
@@ -140,8 +119,7 @@ vi.mock("../../../../config/prisma.js", () => {
           if (job.type !== where.type) return false;
           if (!where.status.in.includes(String(job.status))) return false;
           const input = job.input as Record<string, unknown> | undefined;
-          // The stub applies the JSON path filter rather than ignoring it, so the
-          // idempotency tests assert the query and not just the outcome.
+          // Applies the JSON path filter rather than ignoring it, so idempotency tests assert the query.
           return input?.[where.input.path[0]] === where.input.equals;
         }),
       create: async ({ data }: { data: Record<string, unknown> }) => {
@@ -242,9 +220,7 @@ describe("which pairs a lesson batch generates", () => {
   });
 
   it("skips a locale whose intro script is empty", async () => {
-    // There is nothing to read, so the pair is not generatable — but it is also
-    // not "already narrated", which is why it counts as skipped rather than
-    // silently vanishing from the arithmetic.
+    // Nothing to read: not generatable, but not "already narrated" either, so it counts as skipped.
     store.lessons.push(
       lessonWith([
         { language: "en", introScript: "   ", introAudioAssetId: null },
@@ -294,8 +270,7 @@ describe("what a narration job records", () => {
     expect(store.mediaAssets).toHaveLength(1);
     expect(store.mediaAssets[0]).toMatchObject({
       kind: "audio",
-      // FR-I18N-05: an asset with a null language is a clip nobody can tell the
-      // language of, and a Bangla learner could be served the English one.
+      // FR-I18N-05: a null language means a Bangla learner could be served the English clip.
       language: "bn",
       aiJobId: result.jobIds[0],
       url: "https://res.cloudinary.com/test-cloud/video/upload/clip.mp3",
@@ -315,9 +290,7 @@ describe("what a narration job records", () => {
   });
 
   it("keeps the words that were spoken and what they cost", async () => {
-    // A reviewer months later needs the text the voice actually read; the row it
-    // came from may have been edited since (FR-AI-08). Google TTS meters
-    // characters, so `charCount` is what this job cost.
+    // The text actually read is kept because the source row may be edited later; charCount is what TTS billed.
     const result = await generateNarrationBatch({
       entity: "lesson",
       id: LESSON_ID,
@@ -361,10 +334,7 @@ describe("what a narration job records", () => {
   });
 
   it("counts the failed jobs, so a dead provider key is not reported as work done", async () => {
-    // The batch answers 202 with the ids either way — the jobs exist and hold
-    // their own error. Without this count the caller cannot tell sixteen clips
-    // recorded from sixteen clips that produced nothing, and the CMS said the
-    // former.
+    // 202 with the ids either way; without this count the caller cannot tell sixteen recorded clips from sixteen that produced nothing.
     voice.generateNarration.mockRejectedValue(new Error("Google TTS 401"));
 
     const result = await generateNarrationBatch({
@@ -427,9 +397,7 @@ describe("nothing is attached to a translation row (FR-CMS-05, FR-AI-07)", () =>
 
     await generateNarrationBatch({ entity: "lesson", id: LESSON_ID });
 
-    // The asset rows exist; the keys that would make them audible do not. That is
-    // the whole of the deferral — an admin listens first, and file 37 attaches on
-    // approval.
+    // Asset rows exist but the keys that would make them audible do not: an admin listens first, attachment follows approval.
     expect(store.mediaAssets).toHaveLength(2);
     expect(
       store.writes.filter((write) => write.table !== "mediaAsset"),
@@ -512,8 +480,7 @@ describe("a story batch", () => {
   });
 
   it("records each clip against its own page id", async () => {
-    // `targetId` is the page, not the story: `(storyPageId, language)` is the
-    // unique key file 37 upserts the attachment on.
+    // targetId is the page, not the story: (storyPageId, language) is the unique key the attachment upserts on.
     const result = await generateNarrationBatch({
       entity: "story",
       id: STORY_ID,
@@ -539,8 +506,7 @@ describe("a story batch", () => {
 
 describe("a quiz batch", () => {
   it("takes the words from definition.prompt, per locale", async () => {
-    // `QuizQuestionTranslation` holds an audio key and nothing else, so the text
-    // worth narrating lives in the JSONB payload.
+    // QuizQuestionTranslation holds only an audio key, so the narratable text lives in the JSONB payload.
     store.quizzes.push({
       id: QUIZ_ID,
       questions: [
@@ -616,8 +582,7 @@ describe("a quiz batch", () => {
   });
 
   it("does not throw on a question whose definition is not a payload at all", async () => {
-    // A malformed row is the editor's and file 37's problem; it must not stop the
-    // other four questions from being narrated.
+    // A malformed row is the editor's problem; it must not stop the other four questions being narrated.
     store.quizzes.push({
       id: QUIZ_ID,
       questions: [
@@ -653,9 +618,7 @@ describe("re-running the batch", () => {
   });
 
   it("creates nothing while a clip for the pair is awaiting review", async () => {
-    // The foreign key is still null — attachment is file 37's — so the FK check
-    // alone would ask for the same clip again, bill twice, and hand the reviewer
-    // two takes when they asked for one.
+    // The foreign key is still null, so the FK check alone would request the same clip again, bill twice and give the reviewer two takes.
     const first = await generateNarrationBatch({
       entity: "lesson",
       id: LESSON_ID,
@@ -743,8 +706,7 @@ describe("the daily audio cap", () => {
       generateNarrationBatch({ entity: "story", id: STORY_ID }),
     ).rejects.toMatchObject({ statusCode: 429, code: "RATE_LIMITED" });
 
-    // Nothing was spent: a batch that only partly fits is a story narrated on
-    // half its pages, which still has to be finished tomorrow.
+    // Nothing was spent: a batch that only partly fits would leave a story narrated on half its pages.
     expect(voice.generateNarration).not.toHaveBeenCalled();
     expect(store.mediaAssets).toHaveLength(0);
   });

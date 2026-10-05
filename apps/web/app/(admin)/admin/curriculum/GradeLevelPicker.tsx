@@ -3,10 +3,6 @@
 import { GRADE_LEVELS, type GradeLevelValue } from "@kidlearn/types";
 import { Button, cn } from "@kidlearn/ui";
 
-/**
- * Which grades a piece of content appears for — the same fieldset on the subject,
- * topic and lesson forms (FR-CURR-04).
- */
 const LABELS: Record<GradeLevelValue, string> = {
   NURSERY: "Nursery",
   KG1: "KG-1",

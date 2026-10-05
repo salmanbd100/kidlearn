@@ -5,20 +5,10 @@ import { auth } from "../../config/auth.js";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../errors/errors.js";
 
-/**
- * How long an admin may act on one sign-in. Measured from the session's
- * `createdAt`, which better-auth never moves, so — unlike the 30-day expiry
- * shared with parents, which every request slides forward — activity cannot
- * extend it. An admin can publish to children; a cookie lifted from a shared
- * machine should not carry that for a month.
- */
+/** Measured from the session's `createdAt`, which better-auth never moves, so activity cannot extend it (parents' 30-day expiry slides). */
 export const ADMIN_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
-/**
- * Fails closed: a session without a readable `createdAt` counts as expired, so
- * a better-auth upgrade that renamed the field locks admins out rather than
- * silently lifting the limit.
- */
+/** Fails closed: an unreadable `createdAt` counts as expired, so a renamed better-auth field locks admins out rather than lifting the limit. */
 export function isAdminSessionExpired(
   session: { createdAt?: Date | string | null },
   now = Date.now(),
@@ -30,9 +20,6 @@ export function isAdminSessionExpired(
   return now - createdAt > ADMIN_SESSION_MAX_AGE_MS;
 }
 
-/**
- * Gate for every `/api/admin/*` route the CMS serves (spec §4.3, FR-CMS-01).
- */
 export const requireAdmin: RequestHandler = async (
   req: Request,
   _res: Response,
@@ -49,16 +36,13 @@ export const requireAdmin: RequestHandler = async (
     const admin = await prisma.adminUser.findUnique({
       where: { authUserId: authenticated.user.id },
     });
-    // 403, not 404: the session is real and the caller knows who they are — what
-    // they lack is authorisation. A parent lands here.
+    // 403, not 404: the session is real, the caller just lacks authorisation (e.g. a parent).
     if (!admin) {
       throw ApiError.forbidden("Admin access required");
     }
 
     if (isAdminSessionExpired(authenticated.session)) {
-      // Revoked rather than only refused: the row would otherwise stay valid
-      // for better-auth's own endpoints until its 30-day expiry. `deleteMany`
-      // so a concurrent request that already removed it is not an error.
+      // Revoked, not just refused: the row would stay valid for better-auth's own endpoints. `deleteMany` tolerates a concurrent removal.
       await prisma.session.deleteMany({
         where: { id: authenticated.session.id },
       });
@@ -72,11 +56,7 @@ export const requireAdmin: RequestHandler = async (
   }
 };
 
-/**
- * Reads the row `requireAdmin` attached, narrowing away the optional. Same
- * fail-closed reasoning as `authContext`: reaching here without the middleware is
- * a wiring mistake, and answering it unauthenticated would be worse than a 401.
- */
+/** Fails closed like `authContext`: reaching here without the middleware is a wiring mistake. */
 export function adminContext(req: Request): AdminUser {
   const { admin } = req;
   if (!admin) {

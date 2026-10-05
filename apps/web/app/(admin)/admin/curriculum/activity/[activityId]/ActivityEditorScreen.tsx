@@ -19,9 +19,6 @@ import {
   updateActivity,
 } from "@/features/admin/editors-api";
 
-/**
- * `/admin/curriculum/activity/[activityId]` — one activity's payload (FR-ACT-06).
- */
 export function ActivityEditorScreen({ activityId }: { activityId: string }) {
   const [activity, setActivity] = useState<AdminActivity>();
   const [draft, setDraft] = useState<ActivityDraft>();
@@ -146,8 +143,7 @@ export function ActivityEditorScreen({ activityId }: { activityId: string }) {
       ) : null}
 
       <ActivityEditor
-        // Remounts on a reload so the form starts from what the server stored,
-        // rather than from state that predates the save.
+        // Remounts on reload so the form starts from what the server stored.
         key={activity.updatedAt}
         initial={draft}
         isBusy={isBusy || !isEditable}

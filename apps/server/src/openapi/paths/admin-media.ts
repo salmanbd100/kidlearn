@@ -15,7 +15,6 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/** `modules/admin/media/media.routes.ts` — the media library (file 33, FR-CMS-02). */
 type _KindsAgree = MediaKind extends AssetKind
   ? AssetKind extends MediaKind
     ? true
@@ -43,7 +42,6 @@ const GUARD_RESPONSES = {
   "500": INTERNAL_RESPONSE,
 };
 
-/** The one paragraph that explains why this resource has three operations. */
 const DIRECT_UPLOAD = [
   "**No file byte passes through this API.** The browser asks this endpoint for a signature, `POST`s the file straight to `https://api.cloudinary.com/v1_1/{cloudName}/auto/upload`, and then registers the delivery URL it got back with `POST /api/admin/media`.",
   "",

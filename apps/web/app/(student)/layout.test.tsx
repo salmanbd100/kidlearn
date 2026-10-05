@@ -3,15 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-/**
- * The layout is now more than a theme boundary: it also mounts the provider that
- * decides who is playing, and the one control that leaves the portal. This suite
- * covers what that boundary owns — the theme, and the parent corner being present
- * on every student screen by construction rather than by each page remembering it.
- */
-
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
-/** Any student screen but `/select-profile`, where the corner is a named chip. */
 const navigation = vi.hoisted(() => ({ pathname: "/home" }));
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
@@ -71,8 +63,7 @@ describe("StudentLayout", () => {
   it("puts the way out on every student screen", async () => {
     renderLayout();
 
-    // Present by construction: a page cannot forget it, and a child cannot be
-    // stranded on a screen with no exit (Pillar C).
+    // Present by construction: a child cannot be stranded on a screen with no exit (Pillar C).
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "For grown-ups" }),

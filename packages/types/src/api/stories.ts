@@ -3,9 +3,7 @@ import { LocaleSchema } from "../primitives.js";
 import { WorldSummarySchema } from "./content.js";
 import { ok } from "./envelope.js";
 
-/**
- * `/api/content/stories` — the Story Library read API (FR-STORY-01, 04, 05, 08).
- */
+/** `/api/content/stories` — the Story Library read API (FR-STORY-01, 04, 05, 08). */
 
 export const StorySummarySchema = z
   .object({
@@ -14,16 +12,15 @@ export const StorySummarySchema = z
     /** Resolved to the child's locale, falling back to English (FR-STORY-05). */
     title: z.string(),
     /**
-     * The title read aloud, so a pre-reader can find out what a cover says
-     * before opening it (NFR-A11Y-01). `null` until the voice pipeline (file 36)
-     * records one for this story in this locale.
+     * The title read aloud so a pre-reader can tell what a cover says (NFR-A11Y-01); `null` until
+     * the voice pipeline records one for this story in this locale.
      */
     titleAudioUrl: z.string().nullable(),
     /** Which locale supplied `title`. `titleAudioUrl` falls back independently. */
     locale: LocaleSchema,
     /** The world the story is set in — the cover's theming comes from here. */
     world: WorldSummarySchema,
-    /** `null` while the story has no cover art (AI pipeline, files 35–37). */
+    /** `null` while the story has no cover art. */
     coverImageUrl: z.string().nullable(),
     pageCount: z.number().int(),
     /** Whether this child has finished this story before. */
@@ -31,10 +28,7 @@ export const StorySummarySchema = z
   })
   .strict();
 
-/**
- * One highlightable run of `StoryPage.text`, as character offsets into it plus
- * the moment the narration reaches it.
- */
+/** One highlightable run of `StoryPage.text`: character offsets plus when the narration reaches it. */
 export const NarrationSpanSchema = z
   .object({
     /** Inclusive character offset into the page's `text`. */
@@ -46,10 +40,7 @@ export const NarrationSpanSchema = z
   })
   .strict();
 
-/**
- * Word- or sentence-level narration timing, for the reader's follow-along
- * highlight (FR-STORY-02).
- */
+/** Word- or sentence-level narration timing for the reader's follow-along highlight (FR-STORY-02). */
 export const NarrationTimingsSchema = z
   .object({
     unit: z.enum(["word", "sentence"]),
@@ -64,19 +55,17 @@ export type NarrationTimings = z.infer<typeof NarrationTimingsSchema>;
 export const StoryPageSchema = z
   .object({
     /**
-     * 1-based reading position. Derived from the row's `sortOrder`, which is what
-     * the `@@unique([storyId, sortOrder])` constraint is on — the API speaks in
-     * page numbers because that is what a reader turns.
+     * 1-based reading position, derived from `sortOrder` (the `@@unique([storyId, sortOrder])`
+     * column); the API speaks in page numbers because that is what a reader turns.
      */
     pageNumber: z.number().int(),
-    /** `null` while the page has no illustration yet (files 35–37). */
+    /** `null` while the page has no illustration yet. */
     illustrationUrl: z.string().nullable(),
     /** Resolved to the child's locale, falling back to English. */
     text: z.string(),
     /**
-     * Page narration in the locale `text` came from, or English if only that was
-     * recorded (FR-STORY-02). `null` when neither locale has audio — the reader
-     * (file 26) then shows the page without narration rather than blocking on it.
+     * Page narration in the locale `text` came from, or English if only that was recorded
+     * (FR-STORY-02). `null` when neither has audio; the reader then shows the page without it.
      */
     narrationUrl: z.string().nullable(),
     /** Timing metadata for `narrationUrl`, when the recording has any. */
@@ -90,9 +79,8 @@ export const StoryDetailSchema = z
     slug: z.string(),
     title: z.string(),
     /**
-     * The story's moral or learning theme (FR-STORY-03), resolved to the child's
-     * locale. `null` when no locale has a translated moral — the untranslated
-     * `Story.theme` is an authoring label and is not served to a child.
+     * The story's moral (FR-STORY-03) in the child's locale. `null` when no locale has one — the
+     * untranslated `Story.theme` is an authoring label and is not served to a child.
      */
     moral: z.string().nullable(),
     /** The moral read aloud, for the reader's finish screen (FR-STORY-03). */

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
-/** How a lesson video gets made (FR-AI-06). */
 export function VideoWorkflowCallout() {
   return (
     <section className="flex flex-col gap-2 rounded-(--radius) border border-border border-dashed bg-muted/40 p-4">

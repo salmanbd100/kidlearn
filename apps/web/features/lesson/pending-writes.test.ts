@@ -28,8 +28,8 @@ describe("createPendingWrites", () => {
   });
 
   it("counts a write added in the same tick, after it was asked", async () => {
-    // The reward step asks first; the player's effect, which React runs after
-    // its child's, adds the report for the step just finished (R-06).
+    // The reward step asks first; the player's effect, which React runs after its child's, adds the
+    // report for the finished step.
     const writes = createPendingWrites();
     let land = () => {};
     let isSettled = false;

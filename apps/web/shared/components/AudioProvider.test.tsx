@@ -3,11 +3,6 @@ import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioProvider, type PlayOptions, useAudio } from "./AudioProvider";
 
-/**
- * `HTMLAudioElement` is the external boundary here — jsdom has no media stack,
- * so it is stubbed. The single-channel rule itself is not mocked: the assertion
- * is that the *first* element was paused when a second clip started.
- */
 class MockAudio {
   static instances: MockAudio[] = [];
 
@@ -284,8 +279,7 @@ describe("AudioProvider", () => {
   });
 
   it("keeps `play` stable when mute is toggled, so effects keyed on it do not re-run", () => {
-    // Toggling mute used to change `play`'s identity, replaying a screen's
-    // narration and restarting its timers.
+    // Toggling mute used to change `play`'s identity, replaying narration and restarting timers.
     const seen: Array<(url: string) => Promise<void>> = [];
     function Capture() {
       const { play, setMuted, muted } = useAudio();
@@ -319,9 +313,7 @@ describe("AudioProvider", () => {
   });
 
   it("renders, unmuted, when storage throws on read", () => {
-    // Safari with cookies blocked and locked-down WebViews throw on any access.
-    // The provider sits in the root layout, so this used to take the whole app
-    // to the global error screen.
+    // Safari with cookies blocked and locked-down WebViews throw on any storage access; this used to hit the global error screen.
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("denied", "SecurityError");
     });

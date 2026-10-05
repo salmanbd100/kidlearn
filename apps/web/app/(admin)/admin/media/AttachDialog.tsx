@@ -18,10 +18,6 @@ import {
 import { fetchBadges, updateBadge } from "@/features/admin/editors-api";
 import { optionValue } from "@/features/admin/select-option";
 
-/**
- * Points an owning row's foreign key at one asset (FR-CMS-02, requirement 3).
- */
-
 type Target = "world-mascot" | "lesson-video" | "badge-icon";
 
 const TARGET_LABELS: Record<Target, string> = {
@@ -30,7 +26,6 @@ const TARGET_LABELS: Record<Target, string> = {
   "badge-icon": "Badge icon",
 };
 
-/** Which targets an asset of each kind can legally fill. */
 const TARGETS_BY_KIND: Record<MediaAsset["kind"], Target[]> = {
   image: ["world-mascot", "badge-icon"],
   video: ["lesson-video"],
@@ -216,7 +211,6 @@ function editableRows(input: {
   return [];
 }
 
-/** The actual write, per target. */
 function attach(input: {
   target: Target;
   rowId: string;

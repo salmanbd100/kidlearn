@@ -17,10 +17,8 @@ import { usePlacementState } from "./use-placement-state";
 import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
- * jsdom cannot perform a drag — there is no layout, so no collision detection
- * and no sensor run. The placement rules are therefore driven through
- * `usePlacementState` directly, which is the reason that hook exists; the render
- * tests below cover only what the markup is, not what dragging does to it.
+ * jsdom cannot drag (no layout), so placement rules are driven through `usePlacementState`; render
+ * tests cover markup only.
  */
 
 function feedbackSpy() {
@@ -28,8 +26,7 @@ function feedbackSpy() {
     success: vi.fn<(anchor?: { x: number; y: number }) => void>(),
     retry: vi.fn<() => void>(),
   };
-  // `satisfies`, not an annotation: the tests need the mock's own type to read
-  // `.mock.calls`, and this still fails the build if the channel's shape moves.
+  // `satisfies` keeps the mock's own type for `.mock.calls`.
   return spy satisfies ActivityFeedback;
 }
 
@@ -43,10 +40,7 @@ const TARGET_RECT = {
 };
 
 function dragEnd(itemId: string, targetId: string | null): DragEndEvent {
-  // A real `DragEndEvent` carries the whole sensor run — collisions, deltas, the
-  // activator event, both measured rects. `handleDragEnd` reads three fields of
-  // it, so the fixture supplies those; the cast is what stands in for a drag the
-  // environment cannot produce, and narrowing is impossible by construction.
+  // The cast stands in for a drag jsdom cannot produce; `handleDragEnd` reads only three fields.
   return {
     active: { id: itemId, data: { current: undefined }, rect: { current: {} } },
     over:

@@ -8,11 +8,7 @@ import {
 import { STORY_DETAIL_EXAMPLE } from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/content/stories.routes.ts` — nested on `contentRouter` at `/stories`, so it carries the
- * same `requireParent` + `requireActiveChild` guards as the rest of
- * `/api/content/*` and can produce the same 401 and 403.
- */
+/** Nested on `contentRouter`, so it carries the same guards and can produce the same 401 and 403. */
 
 const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
   "No active child profile on this session. Call `POST /api/children/{id}/activate` first — there is no grade or language to filter the library by until then. Also returned when the session's active profile belongs to another parent, or has since been deleted.",

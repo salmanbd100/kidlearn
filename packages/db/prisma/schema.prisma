@@ -29,8 +29,7 @@ model Parent {
   avatarUrl            String?
   consentGivenAt       DateTime?
   consentVersion       String?
-  // File 10 — account-deletion confirmation: a single-use random token with a
-  // short expiry. Both columns disappear with the row on a completed deletion.
+  // Single-use account-deletion token with a short expiry.
   deleteToken          String?
   deleteTokenExpiresAt DateTime?
   createdAt            DateTime       @default(now())
@@ -70,9 +69,7 @@ model ChildProfile {
   screenTime        ScreenTimeSetting?
   sessionEvents     SessionEvent[]
   weeklyReports     WeeklyReport[]
-  /**
-   * Sessions currently acting as this child (FR-AUTH-06).
-   */
+  /// Sessions currently acting as this child (FR-AUTH-06).
   activeInSessions  Session[]          @relation("SessionActiveChild")
 
   @@index([parentId])
@@ -404,7 +401,6 @@ model StoryPageTranslation {
   @@unique([storyPageId, language])
 }
 
-//--------part-6-----------
 enum LessonStep {
   intro
   video
@@ -619,7 +615,6 @@ model CharacterSheet {
   @@index([worldId])
 }
 
-//--------part-9 · better-auth (identity) -------------------------------------
 
 model User {
   id            String     @id
@@ -648,10 +643,7 @@ model Session {
   userAgent            String?
   userId               String
   user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // FR-AUTH-06. A real relation with `SetNull` rather than a bare id column:
-  // `deleteChildProfile` used to clear this by hand in a transaction, which was
-  // correct but depended on every future caller remembering to. The database
-  // enforces it now.
+  // A real relation with `SetNull`, so the database clears it on child deletion rather than every caller remembering to.
   activeChildProfileId String?
   activeChildProfile   ChildProfile? @relation("SessionActiveChild", fields: [activeChildProfileId], references: [id], onDelete: SetNull)
 

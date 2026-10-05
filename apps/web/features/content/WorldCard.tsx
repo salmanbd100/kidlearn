@@ -9,10 +9,6 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { worldGradientStyle } from "@/features/content/worlds";
 
-/**
- * A themed world, drawn entirely from the row that describes it (FR-WORLD-05).
- */
-
 const worldCardVariants = cva(
   "group relative flex min-h-56 flex-col items-center justify-end gap-4 overflow-hidden rounded-xl border-2 border-border p-6 shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring",
 );

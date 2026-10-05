@@ -1,20 +1,7 @@
-/**
- * ---------------------------------------------------------------------------
- * JSON response envelope — every kidlearn API response uses one of two shapes.
- * No route ever sends a bare body.
- */
-
 import { ERROR_CODES, type ErrorCode } from "@kidlearn/types";
 
-// --- Error vocabulary -----------------------------------------------------
-// `ERROR_CODES` moved to `@kidlearn/types` in file 12a, because the parent UI
-// branches on it: `CONSENT_REQUIRED` and `FORBIDDEN` are different destinations
-// behind the same 403, and a client that tells them apart by matching message
-// strings breaks the first time someone rewords a message. Distinct top-level
-// codes rather than a `details.reason` discriminator, for the same reason.
-//
-// Re-exported so `ApiError` and every existing import keep working: within
-// `apps/server`, `shared/errors/errors.js` remains the place to import an error code from.
+// Codes live in `@kidlearn/types` because the parent UI branches on them (`CONSENT_REQUIRED` vs `FORBIDDEN` share a 403);
+// re-exported so server code keeps importing from here.
 export { ERROR_CODES, type ErrorCode };
 
 export type SuccessEnvelope<TData> = { data: TData };
@@ -23,10 +10,6 @@ export type ErrorEnvelope = {
   error: { code: ErrorCode; message: string; details?: unknown };
 };
 
-/**
- * The only error type route handlers and services should throw deliberately.
- * The central error handler converts it into an `ErrorEnvelope`.
- */
 export class ApiError extends Error {
   constructor(
     public readonly statusCode: number,

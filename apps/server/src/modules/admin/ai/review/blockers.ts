@@ -1,7 +1,6 @@
 import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
 import type { JobRow, LinkedRow, ReviewWriter } from "./job.js";
 
-/** Why this job cannot be approved right now. */
 export async function readBlockers(
   row: JobRow,
   linked: LinkedRow[],
@@ -27,11 +26,7 @@ export async function readBlockers(
   return blockers;
 }
 
-/**
- * Matched on `PLACEHOLDER_ASSET_HOST` rather than `pending://`: the scheme was
- * never viable because `AssetRefSchema.url` requires `https://`, so file 35 uses a
- * reserved `.invalid` host. One spelling, imported from the module that defines it.
- */
+// Matched on `PLACEHOLDER_ASSET_HOST`: `pending://` was never viable as `AssetRefSchema.url` requires `https://`.
 async function readPlaceholderQuestions(
   jobId: string,
   tx: ReviewWriter,

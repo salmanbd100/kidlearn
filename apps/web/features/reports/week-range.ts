@@ -1,6 +1,5 @@
 import { DEFAULT_LOCALE, isLocale } from "@kidlearn/i18n";
 
-/** "Aug 17 – 23" — the header on a weekly report card (FR-DASH-05). */
 export function formatWeekRange(
   weekStartIso: string,
   weekEndIso: string,

@@ -6,7 +6,7 @@ description: Upgrade one dependency across a major version in the kidlearn monor
 # kidlearn Dependency Upgrade
 
 One package, one major, one branch. The ladder and the reasons for its order are in
-`document/improvement-plan.md` P2-3; the catalog rule is `document/standards/general.md §1`.
+the dependency-governance decision; the catalog rule is `document/standards/general.md §1`.
 
 ---
 

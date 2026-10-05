@@ -3,17 +3,9 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CoinCountUp } from "./CoinCountUp";
 
-/**
- * The one animation in the app that carries information rather than polish, so
- * it is driven here rather than observed: `requestAnimationFrame` is replaced
- * with a queue the test steps by hand, which is the only way to assert the
- * intermediate values a child actually watches.
- */
+// `requestAnimationFrame` is replaced by a hand-stepped queue so the intermediate values a child watches can be asserted.
 
-/**
- * Frames pending, in call order. `paint(ms)` moves the clock on and delivers
- * them.
- */
+/** Pending frames, in call order; `paint(ms)` advances the clock and delivers them. */
 let frames: FrameRequestCallback[] = [];
 let now = 0;
 

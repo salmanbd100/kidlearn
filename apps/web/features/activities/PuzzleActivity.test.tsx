@@ -17,10 +17,8 @@ import { SHINE_MS, usePuzzleState } from "./use-puzzle-state";
 import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
- * jsdom cannot perform a drag — there is no layout, so no collision detection and
- * no sensor run. The placement rules are therefore driven through `usePuzzleState`
- * directly, which is the reason that hook exists; the render tests below cover
- * only what the board and tray are made of.
+ * jsdom cannot drag (no layout), so placement rules are driven through `usePuzzleState`; render
+ * tests cover the board and tray only.
  */
 
 function feedbackSpy() {
@@ -28,8 +26,7 @@ function feedbackSpy() {
     success: vi.fn<(anchor?: { x: number; y: number }) => void>(),
     retry: vi.fn<() => void>(),
   };
-  // `satisfies`, not an annotation: the tests need the mock's own type to read
-  // `.mock.calls`, and this still fails the build if the channel's shape moves.
+  // `satisfies` keeps the mock's own type for `.mock.calls`.
   return spy satisfies ActivityFeedback;
 }
 
@@ -46,10 +43,7 @@ function dropPiece(
   pieceIndex: number,
   slotIndex: number | undefined,
 ): DragEndEvent {
-  // A real `DragEndEvent` carries the whole sensor run — collisions, deltas, the
-  // activator event, both measured rects. `handleDragEnd` reads three fields of
-  // it, so the fixture supplies those; the cast is what stands in for a drag the
-  // environment cannot produce, and narrowing is impossible by construction.
+  // The cast stands in for a drag jsdom cannot produce; `handleDragEnd` reads only three fields.
   return {
     active: {
       id: puzzlePieceId(pieceIndex),
@@ -229,7 +223,6 @@ describe("usePuzzleState", () => {
 
     expect(onActivityComplete).toHaveBeenCalledTimes(1);
 
-    // And the timer it pre-empted must not report the step a second time.
     act(() => {
       vi.advanceTimersByTime(SHINE_MS * 3);
     });
@@ -405,7 +398,6 @@ describe("PuzzleActivity", () => {
         "data-state",
         "filled",
       );
-      // Filled, the space is the picture again — nothing left to press.
       expect(screen.queryByRole("button", { name: "Space 1" })).toBeNull();
     });
 

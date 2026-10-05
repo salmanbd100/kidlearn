@@ -4,11 +4,6 @@ import { useIsMotionReduced } from "@kidlearn/ui";
 import { Star } from "lucide-react";
 import { motion } from "motion/react";
 
-/**
- * The stars a lesson just earned, popping in one at a time (FR-GAM-01,
- * FR-LSN-05).
- */
-
 /** Long enough that each star is its own event, per `design.md §5.1`. */
 export const STAR_STAGGER_MS = 400;
 

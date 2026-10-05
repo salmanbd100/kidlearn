@@ -1,4 +1,3 @@
-/** Request schemas for `/api/progress` (`backend.md §2`). */
 import {
   LessonStepReportSchema,
   QuizResponsesSubmitSchema,
@@ -12,27 +11,13 @@ export {
   SessionEventReportSchema as SessionEventBodySchema,
 };
 
-/**
- * A uuid, matching `/api/content/lessons/:id`. The two must agree: a lesson id
- * this router rejected as malformed while the content router accepted it would
- * make a lesson openable but unrecordable.
- */
+/** A uuid matching `/api/content/lessons/:id`: an id this router rejects while content accepts would be openable but unrecordable. */
 export const LessonIdParamsSchema = z.object({ id: z.string().uuid() });
 
-/**
- * Named `quizId` rather than `id` because the path segment is: the quiz is not
- * the resource `/api/progress` is otherwise about, and calling both `id` in one
- * router is how a handler ends up reading the wrong one.
- */
+/** `quizId` not `id`: the quiz is not the resource this router is otherwise about, and two `id`s invites reading the wrong one. */
 export const QuizIdParamsSchema = z.object({ quizId: z.string().uuid() });
 
-/**
- * The reader's story id (file 26). Structurally identical to
- * `LessonIdParamsSchema` and declared separately anyway: the two happen to agree
- * today, and a shared alias would make a future change to one silently change the
- * other. It must match `/api/content/stories/:id` for the reason the lesson
- * schema gives — a story openable but uncompletable is worse than either.
- */
+/** Identical to `LessonIdParamsSchema` but declared separately so a change to one cannot silently change the other; must match `/api/content/stories/:id`. */
 export const StoryIdParamsSchema = z.object({ id: z.string().uuid() });
 
 export type LessonStepBody = z.infer<typeof LessonStepReportSchema>;

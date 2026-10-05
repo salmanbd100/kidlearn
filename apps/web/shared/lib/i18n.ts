@@ -10,16 +10,9 @@ import i18next, { type i18n as I18nInstance } from "i18next";
 import { initReactI18next } from "react-i18next";
 import { type Locale, SUPPORTED_LOCALES } from "./locale";
 
-// i18next, with both locales bundled statically (FR-I18N-01). The strings live
-// in `@kidlearn/i18n`, shared with the mobile app.
-
 let browserInstance: I18nInstance | undefined;
 
-/**
- * On the server a fresh instance is built per call: a module-level singleton is
- * shared by every concurrent request in a worker, so one Bangla visitor would
- * flip the language of an English render happening at the same moment.
- */
+/** Fresh per call on the server: a shared singleton would let one Bangla visitor flip a concurrent English render. */
 export function getI18n(locale: Locale = DEFAULT_LOCALE): I18nInstance {
   if (typeof window === "undefined") return createI18n(locale);
 

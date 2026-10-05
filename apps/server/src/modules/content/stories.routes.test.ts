@@ -1,16 +1,8 @@
 /**
- * Story Library read API — behaviour, leak-proofing, and the locale fallback.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` (no test
- * database exists yet). The two consequences that shape this file:
- *
- *  - Content safety is asserted on the **`where` clause** each endpoint sends,
- *    because a stub cannot show that a draft row stayed in the database. That is
- *    where `status: "published"`, the grade condition and the world gate live.
- *  - The ledger is modelled as an in-memory array the story stub reads through, not
- *    as a one-shot `mockResolvedValue` per case. "This child finished this story"
- *    is state, and a completion flag asserted against a canned answer would prove
- *    nothing about how it is derived.
+ * Stubs `config/prisma.js` under the general.md §5 stub exception. Content safety
+ * is asserted on the `where` each endpoint sends (rule 2), and the ledger is an
+ * in-memory array the stub reads through (rule 1), so a completion flag is derived,
+ * not canned.
  */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import {
@@ -90,8 +82,7 @@ function childProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
 }
 
 function signInAs(child: ChildProfile | null) {
-  // `getSession` returns a deep better-auth type; only the fields the middleware
-  // reads are supplied, so the shape is narrowed at this boundary.
+  // `getSession` returns a deep better-auth type; only the fields read are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -115,7 +106,7 @@ const JUNGLE_MASCOT = {
 const JUNGLE_WORLD = {
   id: "world_jungle",
   slug: "jungle",
-  // The admin label; what a child reads comes from `translations`.
+  // The admin label; a child reads `translations`.
   name: "Jungle World",
   translations: [
     { language: "en", name: "Jungle World" },
@@ -129,7 +120,6 @@ const JUNGLE_WORLD = {
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
-/** Both locales, plus a title narration that exists in English only. */
 function bilingualTranslations() {
   return [
     {
@@ -178,7 +168,6 @@ function pageRow(sortOrder: number, overrides: Record<string, unknown> = {}) {
         language: "en",
         text: `English page ${sortOrder}.`,
         narrationAudioAsset: { url: `/dev/sharing-monkey-${sortOrder}.en.mp3` },
-        // What every MVP row holds: the voice pipeline (file 36) produces spans.
         narrationTimings: null,
       },
       {
@@ -200,10 +189,6 @@ const ENGLISH_TIMINGS = {
   ],
 };
 
-/**
- * The ledger as state. `completeStory` writes the row file 26 will write; nothing
- * in this suite reaches the flag by changing what a mock returns.
- */
 let ledger: { childId: string; sourceType: string; sourceId: string | null }[] =
   [];
 
@@ -250,10 +235,8 @@ beforeEach(() => {
         queryLedger(where).map(() => ({ id: "ledger_1" }))[0] ?? null,
       ),
   );
-  // File 28 put `enforceScreenTime` in front of the detail route below, so it now
-  // reads the screen-time policy and the presence log on the way through. Both
-  // default to "no policy, no minutes" — the state every test in this file is
-  // about. The gate itself is exercised in `screen-time.routes.test.ts`.
+  // `enforceScreenTime` fronts the detail route and reads the screen-time policy
+  // and presence log; both default to "no policy, no minutes". The gate is tested in `screen-time.routes.test.ts`.
   db.screenTimeFindUnique.mockResolvedValue(null);
   db.sessionEventFindMany.mockResolvedValue([]);
 });
@@ -336,16 +319,13 @@ describe("GET /api/content/stories", () => {
 
     await request(app).get("/api/content/stories");
 
-    // The draft story and the Nursery-only one never leave the database: this
-    // clause is what keeps them there, and asserting it is how a stubbed suite
-    // can show that at all (`general.md §5`, rule 2).
+    // The draft and Nursery-only stories never leave the database; this clause keeps them there (stub rule 2).
     expect(db.storyFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           status: "published",
           gradeLevels: { has: "KG1" },
-          // A story in a draft world would theme its cover from unreviewed
-          // content, so the world's own status gates the story too.
+          // A story in a draft world would theme its cover from unreviewed content.
           world: { is: { status: "published" } },
         },
       }),
@@ -385,8 +365,7 @@ describe("GET /api/content/stories", () => {
 
     const res = await request(app).get("/api/content/stories");
 
-    // `locale` is what tells the client which language to read the cover aloud
-    // in — a Bangla child served an English title must not be narrated as Bangla.
+    // `locale` tells the client which language to narrate the cover in: an English title must not be narrated as Bangla.
     expect(res.body.data.stories[0]).toMatchObject({
       title: "The Sharing Monkey",
       locale: "en",
@@ -397,9 +376,7 @@ describe("GET /api/content/stories", () => {
     signInAs(childProfile({ preferredLanguage: "bn" }));
     db.storyFindMany.mockResolvedValue([storyRow()]);
 
-    // Bangla title, English narration: the Bangla translation row exists but
-    // carries no recording, and a title in one language is not a reason to
-    // withhold the only voice-over there is.
+    // Bangla title, English narration: a title in one language is no reason to withhold the only voice-over.
     expect(
       (await request(app).get("/api/content/stories")).body.data.stories[0],
     ).toMatchObject({
@@ -455,8 +432,7 @@ describe("GET /api/content/stories", () => {
 
     await request(app).get("/api/content/stories");
 
-    // Twenty covers must not be twenty-one round trips on the first screen a
-    // child opens (FR-STORY-08).
+    // Twenty covers must not cost twenty-one round trips (FR-STORY-08).
     expect(db.ledgerFindMany).toHaveBeenCalledTimes(1);
     expect(db.ledgerFindMany).toHaveBeenCalledWith({
       where: { childId: "child_1", sourceType: "story_completion" },
@@ -545,8 +521,7 @@ describe("GET /api/content/stories/:id", () => {
       `/api/content/stories/${SHARING_MONKEY_ID}`,
     );
 
-    // Bangla text, English narration. Falling back wholesale would read a Bangla
-    // child the English story because nobody recorded the Bangla voice-over.
+    // Bangla text, English narration: falling back wholesale would read a Bangla child the English story.
     expect(res.body.data.story.pages[0]).toMatchObject({
       text: "বাংলা পাতা 1।",
       narrationUrl: "/dev/sharing-monkey-1.en.mp3",
@@ -564,8 +539,7 @@ describe("GET /api/content/stories/:id", () => {
       `/api/content/stories/${SHARING_MONKEY_ID}`,
     );
 
-    // `null`, not an omitted key: the reader renders plain text from one
-    // component rather than branching onto a second reading screen.
+    // `null`, not an omitted key, so the reader renders plain text from one component.
     expect(res.body.data.story.pages[0].narrationTimings).toBeNull();
   });
 
@@ -597,9 +571,8 @@ describe("GET /api/content/stories/:id", () => {
       `/api/content/stories/${SHARING_MONKEY_ID}`,
     );
 
-    // Bangla text, English narration — and therefore *English* spans, because a
-    // span is a character offset into the text the recording reads. Resolving the
-    // two independently would highlight English offsets over Bangla text.
+    // Bangla text, English narration, hence *English* spans: spans are offsets into
+    // the text the recording reads, so resolving them independently highlights nonsense.
     expect(res.body.data.story.pages[0]).toMatchObject({
       text: "বাংলা পাতা ১।",
       narrationUrl: "/dev/sharing-monkey-1.en.mp3",
@@ -618,8 +591,7 @@ describe("GET /api/content/stories/:id", () => {
               language: "en",
               text: "English page 1.",
               narrationAudioAsset: { url: "/dev/sharing-monkey-1.en.mp3" },
-              // A pipeline bug, or an admin's hand-edit: `unit` is unknown and
-              // the span has no end. JSONB accepts anything; the API must not.
+              // A pipeline bug or hand-edit: `unit` is unknown and the span has no end. JSONB accepts anything; the API must not.
               narrationTimings: { unit: "syllable", spans: [{ start: 0 }] },
             },
           ],
@@ -636,7 +608,6 @@ describe("GET /api/content/stories/:id", () => {
       res.body,
       "GET /api/content/stories/{id}",
     );
-    // The page still reads — an unhighlighted story beats a reader that throws.
     expect(res.body.data.story.pages[0]).toMatchObject({
       narrationUrl: "/dev/sharing-monkey-1.en.mp3",
       narrationTimings: null,
@@ -662,9 +633,7 @@ describe("GET /api/content/stories/:id", () => {
       `/api/content/stories/${SHARING_MONKEY_ID}`,
     );
 
-    // Bangla moral, English recording. The moral is the one line of a story that
-    // is otherwise only text, so an English voice-over beats silence for a child
-    // who cannot read either language.
+    // Bangla moral, English recording: an English voice-over beats silence for a child who cannot read.
     expect(res.body.data.story).toMatchObject({
       moral: "ভাগ করে নিলে খেলা আরও ভালো হয়",
       moralAudioUrl: "/dev/sharing-monkey-moral.en.mp3",
@@ -685,7 +654,6 @@ describe("GET /api/content/stories/:id", () => {
       `/api/content/stories/${SHARING_MONKEY_ID}`,
     );
 
-    // `Story.theme` is an admin label, not a sentence to read to a child.
     expect(res.body.data.story.moral).toBeNull();
   });
 
@@ -729,8 +697,7 @@ describe("GET /api/content/stories/:id", () => {
 
     const res = await request(app).get(`/api/content/stories/${MISSING_ID}`);
 
-    // Not 403: a draft story must be indistinguishable from one that was never
-    // written, or a probe can confirm the row exists (NFR-SAFE-02).
+    // Not 403: a draft story must be indistinguishable from one never written (NFR-SAFE-02).
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
   });

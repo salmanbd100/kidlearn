@@ -1,7 +1,6 @@
 import { Prisma } from "@kidlearn/db";
 import { ApiError } from "../errors/errors.js";
 
-/** Turns Postgres's unique violation into a `409` that names the cause. */
 export async function asSlugConflict<T>(
   model: string,
   run: () => Promise<T>,
@@ -23,7 +22,6 @@ export async function asSlugConflict<T>(
   }
 }
 
-/** Whether a caught error is the unique-index violation. */
 export function isSlugConflict(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -31,10 +29,7 @@ export function isSlugConflict(error: unknown): boolean {
   );
 }
 
-/**
- * `Lesson.quizId` is unique, so a lesson write can hit a second unique index. A
- * bare `P2002` cannot tell the two apart; the violated columns are in `meta`.
- */
+/** `Lesson.quizId` is unique too; a bare `P2002` cannot tell them apart, so the violated columns in `meta` are read. */
 function isQuizLinkConflict(error: unknown): boolean {
   if (
     !(error instanceof Prisma.PrismaClientKnownRequestError) ||

@@ -1,13 +1,5 @@
-/**
- * The Google Cloud TTS client (file 37a, FR-AI-04, FR-I18N-05).
- *
- * `fetch` is stubbed, which `general.md §5` permits explicitly: an external
- * network boundary is the one allowed mock. Nothing here touches the database, so
- * the Prisma exception does not apply.
- *
- * The voice names are the defaults `config/env.ts` supplies, which is what
- * `vitest.setup.ts` deliberately leaves unset.
- */
+// `fetch` is stubbed (external boundary, general.md §5); no database is touched. Voice names are the
+// config/env.ts defaults, which vitest.setup.ts leaves unset.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateNarration } from "./google-tts.js";
@@ -39,8 +31,7 @@ afterEach(() => {
 
 describe("which voice speaks", () => {
   it("sends Bangla text to a Bangla voice and language code", async () => {
-    // The whole of FR-I18N-05 rests on this: an English voice will read Bangla
-    // text without complaining, and the clip that comes back plays.
+    // FR-I18N-05 rests on this: an English voice reads Bangla text without complaint, and the clip plays.
     fetchMock.mockResolvedValue(synthesised(Buffer.from([1, 2, 3])));
 
     await generateNarration("একটি ছোট খরগোশ", "bn");
@@ -63,8 +54,7 @@ describe("which voice speaks", () => {
   });
 
   it("derives the language code from the voice name rather than a second setting", async () => {
-    // Two independent variables would let a deployment pair an `en-US` code with
-    // a `bn-IN` voice — one more value to get wrong, with no error to show for it.
+    // Two independent variables would let a deployment pair an `en-US` code with a `bn-IN` voice, with no error to show.
     fetchMock.mockResolvedValue(synthesised(Buffer.from([1])));
 
     await generateNarration("A small rabbit", "en");
@@ -110,8 +100,7 @@ describe("the request", () => {
 
 describe("the answer", () => {
   it("decodes the base64 envelope into the clip's own bytes", async () => {
-    // The one shape difference from the provider this replaced: base64 inside
-    // JSON rather than raw bytes. It is decoded here so nothing downstream knows.
+    // Base64 inside JSON rather than raw bytes; decoded here so nothing downstream knows.
     fetchMock.mockResolvedValue(synthesised(Buffer.from([7, 8, 9])));
 
     const audio = await generateNarration("Hello", "en");
@@ -136,9 +125,7 @@ describe("the answer", () => {
 
 describe("a provider failure", () => {
   it("throws with the status and the provider's own body", async () => {
-    // Verbatim, because the body is what names the fault — an unknown voice, an
-    // exhausted quota, a key restricted to another API — and the job record keeps
-    // whatever is thrown (FR-AI-08).
+    // Verbatim: the body names the fault, and the job record keeps whatever is thrown (FR-AI-08).
     fetchMock.mockResolvedValue({
       ok: false,
       status: 403,

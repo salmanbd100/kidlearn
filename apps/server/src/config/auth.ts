@@ -1,4 +1,3 @@
-/** The single better-auth instance for the whole server. */
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { env } from "./env.js";
@@ -19,10 +18,7 @@ export const auth = betterAuth({
   // Locks the OAuth origin check and cookie usage to the one browser origin
   // this API answers, matching the CORS allowlist in app.ts.
   trustedOrigins: [env.WEB_ORIGIN],
-  /**
-   * The admin credential surface (file 31, spec §4.3) — and the *only* thing in
-   * this API that authenticates with a password.
-   */
+  /** The only thing in this API that authenticates with a password. */
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
@@ -38,10 +34,8 @@ export const auth = betterAuth({
     expiresIn: SESSION_EXPIRES_IN_SECONDS,
     updateAge: SESSION_UPDATE_AGE_SECONDS,
     additionalFields: {
-      // FR-AUTH-06 — which child profile the current session is acting as.
-      // Deliberately server-side session state rather than a client-supplied
-      // header: a tampered header could address another parent's child, and
-      // session state survives a page reload without re-authenticating.
+      // Server-side session state, not a client header: a tampered header could address
+      // another parent's child.
       activeChildProfileId: {
         type: "string",
         required: false,

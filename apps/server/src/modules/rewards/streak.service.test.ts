@@ -6,12 +6,7 @@ import {
   type StreakState,
 } from "./streak.service.js";
 
-/**
- * The day-boundary rule, tested where it is pure (`general.md §5`). The Prisma
- * half — reading the `@db.Date` column and upserting the row — is exercised
- * through `modules/progress/progress.routes.test.ts`, where a seeded streak is what makes the
- * badge integration meaningful.
- */
+/** The day-boundary rule, tested where pure; the Prisma half runs through `progress.routes.test.ts`. */
 
 const TODAY = "2026-08-17";
 const YESTERDAY = previousLocalDate(TODAY);

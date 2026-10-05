@@ -5,11 +5,6 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { ReportCard } from "./ReportCard";
 
-/**
- * The card is purely presentational, so each state below *is* a fixture — which is
- * the point of keeping the fetch and the clock in the screen above it.
- */
-
 function metrics(
   overrides: Partial<WeeklyReportMetrics> = {},
 ): WeeklyReportMetrics {
@@ -76,9 +71,7 @@ describe("ReportCard — the figures", () => {
   it("renders the lesson and story counts", () => {
     renderCard(report());
 
-    // `reports.count` is a bare `{{count}}`, which i18next also reads as a plural
-    // selector — asserted rather than assumed, because a missing plural form would
-    // render the key instead of the number.
+    // `reports.count` is a bare `{{count}}` that i18next also reads as a plural selector; asserted because a missing plural form renders the key.
     expect(screen.getByText("6")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
   });
@@ -136,8 +129,7 @@ describe("ReportCard — new concepts", () => {
   it("lists the tokens themselves, not just how many", () => {
     renderCard(report());
 
-    // "2 new letters" is a number a parent can do nothing with; "A, B" is
-    // something they can ask their child about (FR-DASH-05).
+    // "2 new letters" is a number a parent can do nothing with; "A, B" is something to ask the child about.
     expect(screen.getByText("A")).toBeInTheDocument();
     expect(screen.getByText("B")).toBeInTheDocument();
     expect(screen.getByText("apple")).toBeInTheDocument();

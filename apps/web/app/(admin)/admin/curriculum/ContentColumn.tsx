@@ -17,10 +17,6 @@ import { Button, cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
 import { StatusChip } from "./StatusChip";
 
-/**
- * One pane of the curriculum tree: a reorderable list of siblings (file 32).
- */
-
 export interface ColumnItem {
   id: string;
   label: string;
@@ -34,7 +30,6 @@ export interface ContentColumnProps {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onReorder?: (orderedIds: string[]) => void;
-  /** Disabled with a reason, e.g. a lesson column with no topic chosen yet. */
   emptyHint: string;
   isDisabled?: boolean;
 }
@@ -69,10 +64,8 @@ export function ContentColumn({
   isDisabled = false,
 }: ContentColumnProps) {
   const sensors = useSensors(
-    // Tighter than the kid surface's: this is a desktop CMS driven by a mouse,
-    // and a hold-to-drag delay on a list an admin reorders repeatedly reads as
-    // lag. The keyboard sensor is not optional — reordering must be reachable
-    // without a pointer (NFR-A11Y-06).
+    // Tighter than the kid surface: a hold-to-drag delay reads as lag with a mouse. The keyboard
+    // sensor stays so reordering works without a pointer (NFR-A11Y-06).
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 150, tolerance: 8 },
@@ -184,9 +177,8 @@ function ContentRow({
           <StatusChip status={item.status} />
         </button>
 
-        {/* Rendered only when the column reorders — dnd-kit's `attributes`
-            always carry `aria-disabled`, so spreading them on a non-draggable
-            row announced every world as dimmed while it stayed clickable. */}
+        {/* Only when the column reorders: dnd-kit's `attributes` always carry `aria-disabled`,
+            which announced every world as dimmed. */}
         {isDraggable ? (
           <button
             type="button"
@@ -204,7 +196,6 @@ function ContentRow({
   );
 }
 
-/** Six dots — the conventional drag affordance. Decorative; the button names it. */
 function GripIcon() {
   return (
     <svg

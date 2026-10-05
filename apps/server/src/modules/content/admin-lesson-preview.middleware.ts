@@ -8,9 +8,6 @@ import { isAdminSessionExpired } from "../../shared/middleware/require-admin.js"
 import { ContentIdParamsSchema } from "./content.schema.js";
 import { getLessonForPreview, type LessonDetail } from "./content.service.js";
 
-// `GET /api/content/lessons/:id?preview=1` for administrators (FR-CMS-04).
-
-/** `/lessons/<id>` relative to the `/api/content` mount, and nothing else. */
 const LESSON_DETAIL_PATH = /^\/lessons\/([^/]+)$/;
 
 export const adminLessonPreview: RequestHandler = async (
@@ -19,18 +16,14 @@ export const adminLessonPreview: RequestHandler = async (
   next: NextFunction,
 ) => {
   try {
-    // Cheapest checks first: every ordinary student request leaves this
-    // middleware on one of the next three lines, without touching the session
-    // store or the database.
+    // Cheapest checks first: ordinary student requests exit here without touching the session store or database.
     if (req.method !== "GET" || req.query.preview !== "1") return next();
 
     const matched = LESSON_DETAIL_PATH.exec(req.path);
     if (!matched) return next();
 
     const params = ContentIdParamsSchema.safeParse({ id: matched[1] });
-    // A malformed id falls through rather than answering `400` here, so an
-    // unauthenticated caller still meets `requireParent`'s `401` first and learns
-    // nothing from the shape of its own typo.
+    // A malformed id falls through, so an unauthenticated caller meets `requireParent`'s `401` first.
     if (!params.success) return next();
 
     const admin = await findAdminForSession(req);
@@ -51,10 +44,7 @@ export const adminLessonPreview: RequestHandler = async (
   }
 };
 
-/**
- * The `AdminUser` row behind the session, or `null` — including for a session
- * past `requireAdmin`'s age limit, which falls through like any non-admin.
- */
+// Also null for a session past `requireAdmin`'s age limit, which falls through like any non-admin.
 async function findAdminForSession(req: Request) {
   const authenticated = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
@@ -68,7 +58,6 @@ async function findAdminForSession(req: Request) {
   });
 }
 
-/** Which locale to render the preview in. */
 function previewLanguage(value: unknown): Locale {
   return value === "bn" ? "bn" : "en";
 }

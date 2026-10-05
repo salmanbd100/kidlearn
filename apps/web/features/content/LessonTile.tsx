@@ -4,8 +4,6 @@ import type { LessonListItemResponse } from "@kidlearn/types";
 import { Sparkles } from "lucide-react";
 import { IconTile } from "@/shared/components/kid/IconTile";
 
-// One lesson, as a picture a pre-reader can choose (FR-PROF-03).
-
 export interface LessonTileProps {
   lesson: LessonListItemResponse;
   onOpen: (lessonId: string) => void;

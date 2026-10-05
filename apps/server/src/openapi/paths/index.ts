@@ -17,7 +17,6 @@ import { PROGRESS_ROUTES } from "./progress.js";
 import { SCREEN_TIME_ROUTES } from "./screen-time.js";
 import { STORIES_ROUTES } from "./stories.js";
 
-/** The registry: every documented operation, one entry per route. */
 export const ROUTE_DOCS: RouteDoc[] = [
   ...HEALTH_ROUTES,
   ...AUTH_ROUTES,
@@ -38,12 +37,8 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...ADMIN_AI_ROUTES,
 ];
 
-/**
- * Operations served by better-auth's `app.all("/api/auth/{*any}")` catch-all.
- */
 export const EXTERNAL_ROUTE_DOCS: RouteDoc[] = [...BETTER_AUTH_ROUTES];
 
-/** Everything the document publishes. */
 export const ALL_ROUTE_DOCS: RouteDoc[] = [
   ...ROUTE_DOCS,
   ...EXTERNAL_ROUTE_DOCS,

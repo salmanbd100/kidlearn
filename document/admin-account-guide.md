@@ -2,7 +2,7 @@
 
 > **Who this is for:** anyone who needs an administrator account — to build curriculum, review AI content, or set one up on a deployed server. No prior knowledge of the auth code is assumed.
 >
-> **Related:** [`user-journey-manual.md §6`](./user-journey-manual.md#6-admin-journey) is the full narrative of what an admin does. [`implementation/31-admin-auth-cms-foundation.md`](./implementation/31-admin-auth-cms-foundation.md) is the spec this behaviour comes from. [`project-requirement-details.md §9`](./project-requirement-details.md#9-deployment-strategy-vercel-frontend--single-aws-box) is the deployment design Part 2 follows.
+> **Related:** [`user-journey-manual.md §6`](./user-journey-manual.md#6-admin-journey) is the full narrative of what an admin does. [`project-requirement-details.md §9`](./project-requirement-details.md#9-deployment-strategy-vercel-frontend--single-aws-box) is the deployment design Part 2 follows.
 
 ---
 
@@ -125,7 +125,7 @@ Easier still: the API reference at **http://localhost:4000/docs** has a **Send**
 
 ## 3. Part 2 — Create an admin on a deployed server
 
-> **Status note:** the deployment in §9 — Vercel frontend, both APIs on one AWS box — is specified in `implementation/38-deployment-aws-docker.md` but **not built yet** (`implementation/00-progress-tracker.md`, file 38). Treat this section as the procedure to follow when that deployment lands; the principles and the command do not change.
+> **Status note:** the deployment in §9 — Vercel frontend, both APIs on one AWS box — is specified in `implementation/38-deployment-aws-docker.md` but **not built yet** (file 38 in `implementation/00-progress-tracker.md`). Treat this section as the procedure to follow when that deployment lands; the principles and the command do not change.
 
 ### 3.1 The short version
 
@@ -271,4 +271,3 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 | `apps/web/app/(admin)/admin/login/AdminLoginScreen.tsx` | The login form |
 | `apps/web/features/admin/admin-routes.ts` | The CMS routing table and sidebar |
 | `packages/db/prisma/schema.prisma` | `AdminUser`, `user`, `account`, `session` models |
-| `document/implementation/31-admin-auth-cms-foundation.md` | The spec behind all of the above |

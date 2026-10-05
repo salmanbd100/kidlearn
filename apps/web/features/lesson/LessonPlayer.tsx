@@ -45,9 +45,6 @@ import { QuizStep } from "./steps/QuizStep";
 import { RewardStep } from "./steps/RewardStep";
 import { VideoStep } from "./steps/VideoStep";
 
-// The lesson player (FR-LSN-01..07, Pillar B).
-
-/** Whether `step` is at or past `target` in flow order. See `useLessonRecording`. */
 function hasReachedStep(step: LessonStep, target: LessonStep): boolean {
   return LESSON_STEPS.indexOf(step) >= LESSON_STEPS.indexOf(target);
 }
@@ -68,11 +65,8 @@ type LoadState =
   | { status: "ready"; lesson: LessonDetailResponse; resumeAt: LessonStep }
   | { status: "gone" }
   /**
-   * The parental screen-time gate refused this start (FR-TIME-02, FR-TIME-04).
-   * A state of its own rather than an error, because a child must never be shown
-   * a raw failure for a rule their grown-up set — and because a lesson already
-   * under way is exempt server-side, so reaching this means the child really was
-   * starting something new.
+   * A state of its own, not an error: a child must never see a raw failure for a rule their grown-
+   * up set (FR-TIME-02, FR-TIME-04). A lesson already under way is exempt server-side.
    */
   | {
       status: "blocked";
@@ -83,9 +77,7 @@ type LoadState =
 
 export interface LessonPlayerProps {
   lessonId: string;
-  /** Administrator preview: unpublished content, a banner, and no writes. */
   isPreview?: boolean;
-  /** Which locale to preview in. Ignored outside preview — a child has a profile. */
   previewLanguage?: Locale;
 }
 
@@ -111,17 +103,14 @@ function LessonPlayerContent({
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [isWakingUp, setIsWakingUp] = useState(false);
   const [state, dispatch] = useReducer(lessonReducer, initialLessonState);
-  // FR-TIME-06 — the presence signal learning time is derived from. Mounted on the
-  // player rather than on the student layout: this is a learning surface, and the
-  // home screen and profile picker are not. It measures nothing locally, so there
-  // is no total here for a refresh to reset.
+  // FR-TIME-06: the presence signal learning time derives from. On the player, not the student
+  // layout, as home and profile picker are not learning surfaces.
   useHeartbeat({ enabled: load.status === "ready" && !isPreview });
 
   useEffect(() => {
     let isCurrent = true;
 
-    // In parallel: the lesson and the saved position are independent reads behind
-    // the same two guards, so neither has a reason to wait for the other.
+    // In parallel: the lesson and saved position are independent reads.
     void Promise.all([
       getLesson(lessonId, {
         isPreview,
@@ -144,25 +133,22 @@ function LessonPlayerContent({
           });
           return;
         }
-        // A lesson unpublished while the child was on the world screen is a `404` —
-        // a door that closed, not a failure to apologise for.
+        // A lesson unpublished mid-session is a `404`: a closed door, not a failure to apologise
+        // for.
         setLoad({
           status: lessonResult.error.code === "NOT_FOUND" ? "gone" : "error",
         });
         return;
       }
 
-      // A failed progress read is not fatal. Starting over is worse than resuming,
-      // and far better than refusing to open a lesson the child asked for.
+      // A failed progress read is not fatal: starting over beats refusing to open the lesson.
       const saved = progressResult?.ok ? progressResult.data.progress : null;
-      // `currentStep` is the last step *finished*, so the target is its successor.
-      // A finished lesson has no successor to `reward` and replays from `intro`
-      // (FR-LSN-06) — the server's completion record is untouched by the replay.
+      // `currentStep` is the last step finished, so the target is its successor. A finished lesson
+      // replays from `intro` (FR-LSN-06); the server's completion record is untouched.
       const resumeAt = resumeLessonStep(saved?.currentStep ?? null);
 
-      // Batched with `setLoad`, so the first render with a lesson is already on
-      // the resumed step. Resuming in an effect mounted the intro for a commit
-      // first — long enough to start its narration over the step resumed into.
+      // Batched with `setLoad`: resuming in an effect mounted the intro for a commit and restarted
+      // its narration.
       dispatch({ type: "RESUME", step: resumeAt });
       setLoad({ status: "ready", lesson: lessonResult.data.lesson, resumeAt });
     });
@@ -174,10 +160,8 @@ function LessonPlayerContent({
 
   const resumeAt = load.status === "ready" ? load.resumeAt : undefined;
 
-  // One per lesson session, so the reward step can wait out the quiz upload.
   const [pendingWrites] = useState(createPendingWrites);
 
-  // Announce the start, once, as soon as the data lands.
   const hasStarted = useRef(false);
   useEffect(() => {
     if (resumeAt === undefined || hasStarted.current) return;
@@ -186,8 +170,8 @@ function LessonPlayerContent({
     if (!isPreview) sendSessionEvent({ type: "lesson_start", lessonId });
   }, [resumeAt, lessonId, isPreview]);
 
-  // The audio provider sits at the root and outlives the player, so leaving
-  // mid-narration would otherwise keep it talking over the world screen.
+  // The audio provider outlives the player; without this, leaving mid-narration keeps it talking
+  // over the world screen.
   const { stop } = useAudio();
   useEffect(() => stop, [stop]);
 
@@ -195,8 +179,8 @@ function LessonPlayerContent({
     state,
     lessonId,
     pendingWrites,
-    // A preview never arms the recorder: passing `undefined` here is what keeps
-    // the effect below in its "not started" branch for the whole session.
+    // A preview never arms the recorder: `undefined` keeps the effect below in its "not started"
+    // branch.
     isPreview ? undefined : resumeAt,
     load.status === "ready" ? load.lesson.assetFallbacks : undefined,
   );
@@ -252,10 +236,8 @@ function LessonPlayerContent({
 
       <StepContainer
         step={state.step}
-        // The intro puts the mascot centre stage and talks through it (file 17),
-        // so the container's small corner copy is withheld there — two of the
-        // same character on one screen reads as a bug to the adult and as two
-        // characters to the child.
+        // The intro already puts the mascot centre stage, so the container's corner copy is
+        // withheld: two of one character reads as a bug.
         mascotUrl={
           state.step === "intro" ? undefined : lesson.world.mascot?.url
         }
@@ -274,8 +256,7 @@ function LessonPlayerContent({
         isOpen={state.isConfirmingExit}
         onStay={() => dispatch({ type: "EXIT_CANCEL" })}
         onLeave={() => {
-          // Nothing to save here: the step that finished was reported when it
-          // finished. Leaving is only a navigation.
+          // Nothing to save: the finished step was reported when it finished.
           dispatch({ type: "EXIT_CONFIRM" });
           backToWorld();
         }}
@@ -284,7 +265,6 @@ function LessonPlayerContent({
   );
 }
 
-/** The "this is not a child's session" strip (FR-CMS-04). */
 function PreviewBanner() {
   const { t } = useTranslation(LESSON_NAMESPACE);
   return (
@@ -298,9 +278,6 @@ function PreviewBanner() {
   );
 }
 
-/**
- * Reports each step as the reducer leaves it, and stamps completion at the end.
- */
 function useLessonRecording(
   state: LessonPlayerState,
   lessonId: string,
@@ -335,11 +312,8 @@ function useLessonRecording(
       pendingWrites.add(
         reportStep(lessonId, { step: finished, completed: false }),
       );
-      // Which asset that step actually played, for the content-gap report
-      // (FR-I18N-01). Nothing the child saw depended on it — the server had
-      // already resolved the URL — so it rides on the analytics event only, and
-      // a step with no locale-resolved media of its own omits the key rather
-      // than claiming it played the right language.
+      // Which asset the step played, for the content-gap report (FR-I18N-01). Analytics only; steps
+      // with no locale-resolved media omit the key.
       const fallback =
         assetFallbacks === undefined
           ? undefined
@@ -354,12 +328,8 @@ function useLessonRecording(
     }
 
     if (before.status === "playing" && state.status === "finished") {
-      // No `reportStep` here any more: `RewardStep` calls the completion
-      // endpoint on mount, which performs this same reward-step report *and*
-      // writes the grants (file 23). Completion therefore lands when the child
-      // reaches the celebration rather than when they leave it — the numbers on
-      // that screen are the server's answer, and there is nowhere else to ask.
-      // The two analytics events still belong here, at the end of the flow.
+      // No `reportStep` here: `RewardStep` calls the completion endpoint on mount, which reports
+      // and writes the grants. The two analytics events still belong at the end of the flow.
       sendSessionEvent({ type: "step_complete", lessonId, step: "reward" });
       sendSessionEvent({ type: "lesson_complete", lessonId });
     }

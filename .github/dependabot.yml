@@ -11,8 +11,8 @@ updates:
       actions:
         patterns: ["*"]
 
-  # Majors are left out on purpose: they follow the upgrade ladder in
-  # document/improvement-plan.md (P2-3), one branch each, behind the test-database
+  # Majors are left out on purpose: they follow the `/upgrade-dependency` skill,
+  # one branch each, behind the test-database
   # harness. Dependabot proposes minors and patches, grouped, so a week's worth
   # is one PR for `gates` to judge.
   - package-ecosystem: npm

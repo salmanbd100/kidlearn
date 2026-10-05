@@ -1,4 +1,3 @@
-/** A title reduced to a URL-safe slug. */
 export function slugify(value: string): string {
   return value
     .toLowerCase()

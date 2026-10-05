@@ -6,11 +6,6 @@ import {
   resolveParentRedirect,
 } from "./parent-redirect";
 
-/**
- * The first-run gating rule, asserted as a function rather than by clicking
- * through the app.
- */
-
 function parent(
   overrides: Partial<ParentSummaryResponse> = {},
 ): ParentSummaryResponse {
@@ -123,8 +118,7 @@ describe("resolveParentRedirect — fully onboarded", () => {
       PARENT_ROUTES.consent,
       PARENT_ROUTES.firstChild,
     ]) {
-      // The dashboard, not the profile list: a parent signing back in wants to
-      // see how their child is doing (file 29).
+      // The dashboard, not the profile list: a returning parent wants to see how their child is doing.
       expect(resolveParentRedirect(onboarded, path)).toBe(
         PARENT_ROUTES.dashboard,
       );

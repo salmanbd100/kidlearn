@@ -1,5 +1,3 @@
-// Illustration prompt assembly (file 36, FR-AI-05, FR-AI-09).
-
 import { describe, expect, it } from "vitest";
 import { buildIllustrationPrompt } from "./gemini.js";
 
@@ -16,9 +14,7 @@ const OWL = {
 
 describe("the style prefix", () => {
   it("comes first, before the characters and the scene", async () => {
-    // Not decoration: an image model weights its earliest instructions most, and
-    // the prefix is what makes two pictures drawn a month apart belong to the same
-    // product.
+    // Image models weight early instructions most; the prefix keeps pictures drawn months apart in one house style.
     const prompt = buildIllustrationPrompt("A rabbit hops across a meadow", [
       RABBIT,
     ]);
@@ -33,8 +29,7 @@ describe("the style prefix", () => {
   });
 
   it("forbids text in the image", () => {
-    // A blackboard of misspelled pseudo-English is worse than no picture for a
-    // child learning to read; every word a child sees is translatable content.
+    // Misspelled pseudo-English on a blackboard is worse than no picture for a child learning to read.
     expect(buildIllustrationPrompt("A classroom")).toContain(
       "no text in image",
     );
@@ -59,16 +54,14 @@ describe("the character block (FR-AI-09)", () => {
   });
 
   it("instructs the model to draw them identically every time", () => {
-    // Worded as an instruction rather than as context, because a description
-    // offered as background is treated as a suggestion.
+    // An instruction, not context: a description offered as background is treated as a suggestion.
     expect(buildIllustrationPrompt("Nibbles waves", [RABBIT])).toContain(
       "draw EXACTLY as described, identical in every image",
     );
   });
 
   it("gives two pages featuring the same character an identical character block", () => {
-    // This is the requirement itself: page 3 and page 7 differ only after
-    // `Scene:`, so the same rabbit is described to the model both times.
+    // Pages differ only after "Scene:", so the same rabbit is described both times.
     const pageThree = buildIllustrationPrompt("Nibbles finds a carrot", [
       RABBIT,
       OWL,
@@ -95,8 +88,7 @@ describe("the character block (FR-AI-09)", () => {
   });
 
   it("omits the heading entirely when there are no sheets", () => {
-    // A heading with nothing under it tells the model there are characters it has
-    // not been told about.
+    // An empty heading would tell the model about characters it has not been given.
     const prompt = buildIllustrationPrompt("An empty meadow at dawn");
 
     expect(prompt).not.toContain("Recurring characters");

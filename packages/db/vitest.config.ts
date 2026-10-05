@@ -6,8 +6,7 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      // Reporting only. The missing `thresholds` key is deliberate — see
-      // `document/standards/general.md §5`.
+      // Reporting only; the missing `thresholds` key is deliberate (`general.md §5`).
       reporter: ["text-summary", "json-summary", "html"],
       reportsDirectory: "coverage",
       exclude: [

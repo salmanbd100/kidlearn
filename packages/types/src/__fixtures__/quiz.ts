@@ -1,8 +1,4 @@
-/**
- * Canonical quiz question payloads. Same conventions as `./activities`:
- * `valid*` fixtures are type-annotated so the compiler checks them, `invalid*`
- * fixtures are `unknown` because being structurally wrong is the point.
- */
+/** Canonical quiz payloads. `valid*` are typed; `invalid*` are `unknown` because being wrong is the point. */
 import type { ImageAssetRef, LocalizedAudio } from "../primitives.js";
 import type {
   DragAnswerQuestion,

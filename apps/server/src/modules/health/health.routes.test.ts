@@ -1,8 +1,6 @@
 /**
- * See the recorded exception in `document/standards/general.md §5`: no test
- * database is provisioned yet, so `config/prisma.js` is stubbed. The stub cannot
- * show that a real database answers, so this suite asserts what `/ready` does
- * with an answer and with a failure — and that `/health` still never asks.
+ * Stubs `config/prisma.js` per the stub exception in `document/standards/general.md §5`;
+ * asserts what `/ready` does with an answer and a failure, and that `/health` never asks.
  */
 import { HealthResponseSchema } from "@kidlearn/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";

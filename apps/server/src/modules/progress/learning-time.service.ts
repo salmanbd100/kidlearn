@@ -18,14 +18,7 @@ import {
 import { requireVisibleStoryId } from "../content/story.service.js";
 import { requireVisibleLessonId } from "./lesson-progress.service.js";
 
-/**
- * Learning time as a server-derived fact (FR-TIME-06, FR-DASH-02, FR-LSN-07).
- */
-
-/**
- * Longer than this between two events and the child had walked away — a new
- * sitting rather than one long one.
- */
+/** Longer than this between two events and the child had walked away: a new sitting. */
 export const LEARNING_TIME_GAP_MS = 90_000;
 
 /** What the last event of a sitting is worth on its own. */
@@ -34,9 +27,6 @@ export const LEARNING_TIME_TAIL_MS = 30_000;
 /** Beats closer together than this are dropped. */
 export const HEARTBEAT_MIN_INTERVAL_MS = 20_000;
 
-/**
- * Minutes of presence in `[from, to)`, from the timestamps of events inside it.
- */
 export function computeLearningMinutes(
   timestamps: Date[],
   from: Date,
@@ -65,7 +55,6 @@ export function computeLearningMinutes(
   return Math.round(totalMs / 60_000);
 }
 
-/** The `[from, to)` a range name means, as UTC instants. */
 export function learningTimeWindow(
   range: LearningTimeRange,
   now: Date,
@@ -81,9 +70,7 @@ export function learningTimeWindow(
   }
 
   if (range === "week") {
-    // Monday start (FR-DASH-02), and the bounds themselves from
-    // `shared/utils/local-date.ts` so this window and the weekly report (file 30) cannot
-    // disagree about which seven days a week is.
+    // Monday start (FR-DASH-02); bounds from `shared/utils/local-date.ts` so this and the weekly report agree on which seven days a week is.
     return localWeekBounds(timeZone, mondayOfLocalWeek(today));
   }
 
@@ -100,7 +87,6 @@ function pad(month: number): string {
   return String(month).padStart(2, "0");
 }
 
-/** FR-DASH-02 — how long this child has learned in one window. */
 export async function getLearningMinutes(
   childId: string,
   range: LearningTimeRange,
@@ -109,12 +95,7 @@ export async function getLearningMinutes(
   return result;
 }
 
-/**
- * Several windows from one read: the events covering all of them are fetched
- * once and each window is summed in memory. The parent dashboard asks for
- * today, week and month together, and three reads would scan today's beats
- * three times. Results come back in the order `ranges` was given.
- */
+/** Fetches the events covering all windows once and sums each in memory, so today/week/month together do not scan today's beats three times. */
 export async function getLearningMinutesForRanges(
   childId: string,
   ranges: readonly LearningTimeRange[],
@@ -126,8 +107,7 @@ export async function getLearningMinutesForRanges(
   }));
   if (windows.length === 0) return [];
 
-  // The covering span, not the month alone: a week that began in last month
-  // starts before it.
+  // The covering span, not the month alone: a week that began last month starts before it.
   const from = new Date(Math.min(...windows.map((w) => w.from.getTime())));
   const to = new Date(Math.max(...windows.map((w) => w.to.getTime())));
 
@@ -146,7 +126,6 @@ export async function getLearningMinutesForRanges(
   }));
 }
 
-/** Records one heartbeat and answers with the child's total for today. */
 export async function recordHeartbeat(
   child: ChildProfile,
 ): Promise<HeartbeatResponse> {
@@ -170,7 +149,6 @@ export async function recordHeartbeat(
   return { recorded: !isTooSoon, minutesToday: minutes };
 }
 
-/** Records one discrete activity event (FR-LSN-07). */
 export async function recordActivityEvent(
   child: ChildProfile,
   report: ActivityEventReport,
@@ -190,9 +168,8 @@ export async function recordActivityEvent(
 
   return {
     id: event.id,
-    // The column holds Prisma's whole `SessionEventType`; the narrow union the
-    // response promises is the value just written, which Zod already restricted
-    // to the five surface milestones.
+    // The column holds the whole `SessionEventType`; the narrow union promised is the value just written,
+    // which Zod restricted to the five milestones.
     type: report.type,
     occurredAt: event.occurredAt.toISOString(),
   };

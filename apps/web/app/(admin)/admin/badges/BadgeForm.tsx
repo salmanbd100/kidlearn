@@ -8,8 +8,6 @@ import type { ContentDraft } from "@/features/admin/content-api";
 import { MediaPicker } from "@/features/admin/MediaPicker";
 import { optionValue } from "@/features/admin/select-option";
 
-// The guided badge form (FR-GAM-04).
-
 const RULE_LABELS: Record<BadgeRuleType, string> = {
   lessons_completed_in_topic: "Finish lessons in a topic",
   stories_completed: "Finish stories",
@@ -23,10 +21,8 @@ const PARAMETER_LABELS = {
   days: "How many days",
 } as const;
 
-/** The whole rule payload the form can build, before the type narrows it. */
 type RuleDraft = {
   topicSlug: string;
-  /** `"all"` is a literal the lessons rule accepts; everything else is a number. */
   count: string;
   days: string;
 };
@@ -49,9 +45,7 @@ export function BadgeForm({
   const [slug, setSlug] = useState(existing?.slug ?? "");
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
-  // Seeded from the url the API resolves, not from the id: `MediaPicker`
-  // identifies an asset by url, so an unseeded field would report a badge that
-  // has an icon as "Not set".
+  // Seeded from the API's resolved url: `MediaPicker` identifies assets by url, so an unseeded field reads "Not set".
   const [iconUrl, setIconUrl] = useState(existing?.iconUrl ?? "");
   const [iconAssetId, setIconAssetId] = useState(existing?.iconAssetId ?? "");
   const [ruleType, setRuleType] = useState<BadgeRuleType>(
@@ -210,7 +204,6 @@ export function BadgeForm({
   );
 }
 
-/** The stored rule back into form state. */
 function ruleDraftFrom(existing: AdminBadge | undefined): RuleDraft {
   const blank: RuleDraft = { topicSlug: "", count: "", days: "" };
   if (existing === undefined) return blank;
@@ -223,11 +216,7 @@ function ruleDraftFrom(existing: AdminBadge | undefined): RuleDraft {
   };
 }
 
-/**
- * The form state as the payload the engine consumes — only the parameters the
- * chosen type allows, because the server's schemas are `.strict()` and a stray key
- * is a `400` rather than a silently dropped one.
- */
+/** Only the parameters the chosen type allows: the server's schemas are `.strict()`, so a stray key is a 400. */
 function compileRule(ruleType: BadgeRuleType, rule: RuleDraft): unknown {
   const count = rule.count.trim() === "all" ? "all" : toNumber(rule.count);
 

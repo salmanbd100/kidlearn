@@ -3,11 +3,6 @@
 import { type ContentStatusValue, nextContentStatuses } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 
-/**
- * The status changes legal from where a row currently is (file 32, FR-CMS-06).
- */
-
-/** The verb an admin thinks in, for each hop. `to` is what goes over the wire. */
 const ACTIONS: Record<
   ContentStatusValue,
   { label: string; variant: "default" | "outline" | "ghost" }
@@ -20,17 +15,12 @@ const ACTIONS: Record<
   archived: { label: "Archive", variant: "ghost" },
 };
 
-/**
- * `approved → published` is offered on an `in_review` row as a single button,
- * because approving and then publishing is one intention and two clicks with a
- * list re-render between them is not a review step.
- */
+/** `approved → published` on an `in_review` row is one button: approving then publishing is one intention. */
 const CHAINED_PUBLISH: ContentStatusValue[] = ["approved", "published"];
 
 export interface TransitionButtonsProps {
   status: ContentStatusValue;
   isBusy: boolean;
-  /** Runs the hops in order, stopping at the first the server refuses. */
   onTransition: (hops: ContentStatusValue[]) => void;
 }
 

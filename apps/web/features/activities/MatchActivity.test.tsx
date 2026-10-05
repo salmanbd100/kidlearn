@@ -17,11 +17,8 @@ import { usePairing } from "./use-pairing";
 import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
- * The tap rules are driven through `usePairing` directly, which is the reason
- * that hook exists: they are the part file 22's quiz format reuses, and they are
- * testable without a board. The render tests below cover what a tap does to the
- * markup — the connecting lines are not among them, because jsdom performs no
- * layout, so every card reports a zero-sized box.
+ * Tap rules are driven through `usePairing` directly; jsdom does no layout, so connecting lines are
+ * not tested.
  */
 
 const audio = vi.hoisted(() => ({
@@ -44,8 +41,7 @@ function feedbackSpy() {
     success: vi.fn<(anchor?: { x: number; y: number }) => void>(),
     retry: vi.fn<() => void>(),
   };
-  // `satisfies`, not an annotation: the tests need the mock's own type to read
-  // `.mock.calls`, and this still fails the build if the channel's shape moves.
+  // `satisfies` keeps the mock's own type for `.mock.calls`.
   return spy satisfies ActivityFeedback;
 }
 
@@ -354,9 +350,7 @@ describe("MatchActivity", () => {
     tapCard("sun");
     tapCard("night");
 
-    // The shake is `motion-safe:` and vanishes under reduced motion; the mark is
-    // static, so it is still there for a child who can neither see the shake nor
-    // hear the encouragement (design.md §2.3).
+    // The shake vanishes under reduced motion; the static mark remains (design.md §2.3).
     for (const id of ["sun", "night"]) {
       expect(
         within(screen.getByTestId(`match-card-${id}`)).getByTestId(

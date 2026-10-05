@@ -39,8 +39,7 @@ describe("VideoControls", () => {
   ] as const)("offers pause while the video is %s", (state) => {
     renderControls(state);
 
-    // Buffering counts as playing for the toggle: the child asked for the film
-    // to run and it still is — a pause icon mid-stall says the wrong thing.
+    // Buffering counts as playing for the toggle: a pause icon mid-stall says the wrong thing.
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
   });
 
@@ -91,8 +90,8 @@ describe("VideoControls", () => {
   it("keeps every control at the kid touch-target size", () => {
     renderControls("ended");
 
-    // `size-20` is 80px — above the 64px floor, because these are aimed at while
-    // the rest of the screen is a moving picture (design.md §7).
+    // `size-20` is 80px, above the 64px floor: aimed at while the screen is a moving picture
+    // (design.md §7).
     for (const testId of ["video-play-pause", "video-replay"]) {
       const control = screen.queryByTestId(testId);
       if (control !== null) expect(control.className).toContain("size-20");

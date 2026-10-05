@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { pickLabel } from "@/shared/lib/localized-label";
 
-/** Per-subject completion as labelled bars (FR-DASH-03). */
 const barVariants = cva("h-full rounded-full", {
   variants: {
     tone: {
@@ -106,7 +105,6 @@ export function SubjectProgressCard({
   );
 }
 
-/** The highlight chips. */
 const chipVariants = cva(
   "inline-flex items-center gap-1 rounded-(--radius-sm) border bg-muted px-1.5 py-0.5 font-medium text-foreground text-xs",
   {

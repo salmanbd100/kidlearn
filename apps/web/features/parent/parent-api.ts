@@ -9,19 +9,17 @@ import type {
 import { CONSENT_VERSION } from "@kidlearn/types";
 import { type ApiResult, apiBaseUrl, apiFetch } from "@/shared/api/api-client";
 
-// Typed wrappers over the parent-facing API.
-
 /** Who am I. Also what provisions the `Parent` row on a brand-new account. */
 export function fetchAuthMe(): Promise<ApiResult<AuthMeResponse>> {
   return apiFetch<AuthMeResponse>("/api/auth/me");
 }
 
-/** Where the browser goes to start the Google round-trip (FR-AUTH-02). */
+/** Where the browser goes to start the Google round-trip. */
 export function googleSignInUrl(): string {
   return `${apiBaseUrl()}/api/auth/google`;
 }
 
-/** Records COPPA consent (FR-AUTH-03). */
+/** Records COPPA consent. */
 export function submitConsent(): Promise<ApiResult<unknown>> {
   return apiFetch("/api/parent/consent", {
     method: "POST",
@@ -37,14 +35,13 @@ export function listAvatars(): Promise<ApiResult<AvatarCharacterResponse[]>> {
   return apiFetch<AvatarCharacterResponse[]>("/api/characters");
 }
 
-/** FR-GAM-05 — the avatars for one existing child, locked ones included. */
+/** The avatars for one existing child, locked ones included. */
 export function listChildCharacters(
   childId: string,
 ): Promise<ApiResult<{ characters: CharacterUnlockResponse[] }>> {
   return apiFetch(`/api/children/${childId}/characters`);
 }
 
-/** Every profile belonging to the signed-in parent, oldest first. */
 export function listChildren(
   options: { onColdStart?: () => void } = {},
 ): Promise<ApiResult<ChildProfileResponse[]>> {
@@ -76,10 +73,7 @@ export function deleteChild(id: string): Promise<ApiResult<{ deleted: true }>> {
   return apiFetch(`/api/children/${id}`, { method: "DELETE" });
 }
 
-/**
- * Points the session at a child, which is what makes `/api/content/*` answer
- * (FR-AUTH-06).
- */
+/** Points the session at a child, which is what makes `/api/content/*` answer. */
 export function activateChild(
   id: string,
 ): Promise<ApiResult<{ activeChildProfileId: string }>> {

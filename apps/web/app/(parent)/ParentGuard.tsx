@@ -8,7 +8,6 @@ import { useTranslation } from "react-i18next";
 import { resolveParentRedirect } from "@/features/parent/parent-redirect";
 import { useParentSession } from "./context/parent-session";
 
-/** The redirect gate every `(parent)` page sits behind. */
 export function ParentGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();
@@ -24,8 +23,7 @@ export function ParentGuard({ children }: { children: ReactNode }) {
         );
 
   useEffect(() => {
-    // `replace`, not `push`: a redirect the parent did not ask for must not become
-    // a back-button trap between two onboarding steps.
+    // `replace`: a redirect the parent did not ask for must not become a back-button trap.
     if (redirectTo !== undefined) router.replace(redirectTo);
   }, [redirectTo, router]);
 
@@ -50,8 +48,7 @@ export function ParentGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  // A redirect is queued; showing the current page for a frame would show the
-  // wrong one.
+  // A redirect is queued; showing the current page for a frame would show the wrong one.
   if (redirectTo !== undefined) return null;
 
   return <>{children}</>;

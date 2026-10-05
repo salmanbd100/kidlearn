@@ -1,6 +1,6 @@
 ---
 name: start-implementation
-description: Start work on a kidlearn implementation file. Invoke as /start-implementation <filename-without-extension> (e.g. /start-implementation 01-workspace-packages-and-test-setup). Creates the feature branch from dev, loads only the standards docs relevant to the layers the spec touches, implements it, then stops before committing so the engineer can review manually.
+description: Start work on a kidlearn implementation file. Invoke as /start-implementation <filename-without-extension> (e.g. /start-implementation 38a-github-actions-continuous-deployment). Creates the feature branch from dev, loads only the standards docs relevant to the layers the spec touches, implements it, then stops before committing so the engineer can review manually.
 model: sonnet
 ---
 
@@ -8,7 +8,7 @@ model: sonnet
 
 The engineer has invoked `/start-implementation <args>`.
 
-`<args>` is the implementation filename **without** the `.md` extension, e.g. `01-workspace-packages-and-test-setup`.
+`<args>` is the implementation filename **without** the `.md` extension, e.g. `38a-github-actions-continuous-deployment`.
 
 ---
 

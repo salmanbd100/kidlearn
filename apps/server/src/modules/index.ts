@@ -13,26 +13,17 @@ import { requireParent } from "./parent/require-parent.middleware.js";
 import { progressRouter } from "./progress/progress.routes.js";
 import { screenTimeRouter } from "./screen-time/screen-time.routes.js";
 
-/**
- * Aggregates every `/api/*` resource router. Later implementation files mount
- * their routers here.
- */
 export const apiRouter = Router();
 
-// File 10 — the parent's own account: consent and deletion. The router
-// applies `requireParent` itself.
+// The parent's own account: consent and deletion. The router applies `requireParent` itself.
 apiRouter.use("/parent", parentRouter);
 
 apiRouter.use("/children", childrenRouter);
 
-// The starter avatars a profile may wear (file 14). Its own resource rather than
-// a path on `/children`, because a character is not a child's sub-resource — it
-// is published content that every parent picks from.
+// Its own resource: a character is published content every parent picks from, not a child's sub-resource.
 apiRouter.use("/characters", charactersRouter);
 
-// Curriculum reads (file 12). The two guards are mounted here rather than
-// inside `content.routes.ts` so that every current and future `/api/content/*` path is
-// covered by construction — a new route added there cannot forget them.
+// Guards are mounted here, not in `content.routes.ts`, so every `/api/content/*` path is covered by construction.
 apiRouter.use(
   "/content",
   adminLessonPreview,
@@ -41,26 +32,16 @@ apiRouter.use(
   contentRouter,
 );
 
-// Lesson progress and the player's event log (file 16). Same guards as
-// `/api/content/*`, for the same reason and with the same consequence: progress
-// belongs to the *active* child, resolved server-side, so no request body can name
-// whose progress is being written.
+// Same guards: progress belongs to the active child resolved server-side, so no request body names whose.
 apiRouter.use("/progress", requireParent, requireActiveChild, progressRouter);
 
-// The presence signal learning time is derived from (file 27). Same guards as
-// `/api/progress/*`, and the same consequence: a heartbeat is about the session's
-// child, so no request body can name whose time is being recorded (FR-TIME-06).
+// Same guards: a heartbeat is about the session's child; no body can name whose time is recorded (FR-TIME-06).
 apiRouter.use("/events", requireParent, requireActiveChild, eventsRouter);
 
-// What the active child has earned (file 23). Same guards again, and the same
-// consequence: "me" is the session's child, so nothing on these paths names whose
-// rewards are being read.
+// Same guards: "me" is the session's child, so no path names whose rewards are read.
 apiRouter.use("/me", requireParent, requireActiveChild, meRouter);
 
-// Whether the active child may start something new (file 28). A student-surface
-// read behind the same guards: the home screen checks it before every tile tap,
-// so a blocked child meets a mascot rather than a dead end. The settings it
-// reflects are written on `/api/children/:id`.
+// Student-surface read behind the same guards; the home screen checks it before every tile tap.
 apiRouter.use(
   "/screen-time",
   requireParent,
@@ -68,14 +49,8 @@ apiRouter.use(
   screenTimeRouter,
 );
 
-// Scheduled work (file 30). Not a parent surface and not the admin CMS: the whole
-// router authenticates with a shared secret because its caller is cron-job.org,
-// which has no session to hold. See `shared/middleware/require-cron-secret.ts` for why
-// that is the only workable credential here and what it constrains these routes to.
+// Authenticates with a shared secret because its caller (cron-job.org) holds no session; see `shared/middleware/require-cron-secret.ts`.
 apiRouter.use("/admin/jobs", jobsRouter);
 
-// The admin CMS (file 31). Mounted *after* `/admin/jobs` on purpose: Express
-// matches in registration order, and this router applies `requireAdmin` to
-// everything under it, so mounting it first would put a session guard in front of
-// the scheduler's paths and break the weekly-report job.
+// Mounted after `/admin/jobs` on purpose: this router applies `requireAdmin` to everything under it, which would block the scheduler's paths.
 apiRouter.use("/admin", adminRouter);

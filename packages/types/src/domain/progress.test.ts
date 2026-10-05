@@ -195,10 +195,8 @@ describe("QuizResponsesSubmitSchema", () => {
   });
 
   it("rejects a client-supplied verdict on its own answer", () => {
-    // The whole point of the strict object: whether an answer was right is the
-    // server's judgement, made against the stored payload (`backend.md §8`). A
-    // request carrying `isCorrect` used to be believed, which let any client
-    // name its own coin payout.
+    // Whether an answer was right is the server's judgement (`backend.md §8`); a client-supplied
+    // `isCorrect` must be rejected, or any client could name its own coin payout.
     expect(submit({ ...pickOne, isCorrect: true }).success).toBe(false);
   });
 
@@ -239,9 +237,8 @@ describe("QuizResponsesSubmitSchema", () => {
   });
 
   it("rejects the same question answered twice", () => {
-    // Scoring counts correct records against the quiz's question count, so a
-    // question repeated is a percentage above 100 — and a client that sent one
-    // is not describing a sitting the player produced.
+    // Scoring counts correct records against the question count, so a repeated question would
+    // push the percentage above 100.
     const result = submit(pickOne, { ...pickOne });
 
     expect(result.success).toBe(false);

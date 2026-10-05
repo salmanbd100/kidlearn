@@ -8,9 +8,7 @@ import enLesson from "../locales/en/lesson.json";
 import enParent from "../locales/en/parent.json";
 import enStudent from "../locales/en/student.json";
 
-// The UI copy for every client, in both locales (FR-I18N-01). Out of
-// `apps/web` so `apps/mobile` reads the same strings rather than a copy —
-// `mobile-app-plan.md §4.1`.
+// UI copy for every client, shared so `apps/mobile` reads the same strings (FR-I18N-01).
 
 export const resources = {
   en: {
@@ -31,28 +29,13 @@ export type Namespace = keyof (typeof resources)["en"];
 
 export const DEFAULT_NAMESPACE = "common" satisfies Namespace;
 
-/**
- * `parent` is a namespace of its own rather than a branch of `common` so that the
- * parent-dashboard copy — dense, formal, and much larger than the kid surface's —
- * can later be split out of the bundle a child's device downloads. Nothing in it
- * is reachable from the Student Portal.
- */
+/** Own namespace so the dense parent copy can be split out of a child's bundle. */
 export const PARENT_NAMESPACE = "parent" satisfies Namespace;
 
-/**
- * The Student Portal's copy, split from `common` for the mirror-image reason
- * `parent` is: a child's device has no use for dashboard strings, and the parent
- * dashboard never renders "Who's learning today?". Keeping the two apart is what
- * makes either one splittable out of the other's bundle later.
- */
+/** Split from `common` so either surface's bundle can be split out later. */
 export const STUDENT_NAMESPACE = "student" satisfies Namespace;
 
-/**
- * The lesson player's own copy (file 16), split from `student` because it is the
- * one student surface a child stays inside for ten minutes: it is where the step
- * labels, the exit confirm and the finish screen live, and the screens that only
- * navigate *to* a lesson have no use for any of it.
- */
+/** Lesson player copy, split from `student` — only the player needs it. */
 export const LESSON_NAMESPACE = "lesson" satisfies Namespace;
 
 export const DEFAULT_LOCALE: Locale = "en";

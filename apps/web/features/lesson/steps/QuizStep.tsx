@@ -11,7 +11,6 @@ import type { QuizAnswerRecord } from "@/features/quiz/types";
 import { submitQuizResponses } from "@/shared/api/progress-api";
 import type { LessonStepProps } from "./lesson-step-props";
 
-/** The quiz (FR-LSN-04, FR-QUIZ-01..08). */
 export function QuizStep({
   lesson,
   onComplete,
@@ -28,9 +27,8 @@ export function QuizStep({
 
   const handleFinish = useCallback(
     (records: readonly QuizAnswerRecord[]) => {
-      // Every question was unrenderable, so the engine finished before the child
-      // answered anything. A screen of no stars congratulating them for a quiz
-      // they never saw is worse than moving on quietly.
+      // Every question was unrenderable: congratulating the child for a quiz they never saw is
+      // worse than moving on quietly.
       if (records.length === 0 || quizId === undefined) {
         onComplete();
         return;
@@ -38,16 +36,12 @@ export function QuizStep({
 
       setFinishedRecords(records);
 
-      // An administrator preview scores on screen and records nothing
-      // (file 33, FR-CMS-04). There is no child for a `QuizResponse` row to
-      // belong to, and the endpoint would refuse an admin session anyway.
+      // Admin preview scores on screen and records nothing: no child owns a `QuizResponse`, and the
+      // endpoint refuses an admin session.
       if (isPreview) return;
 
-      // `isFirstAttemptCorrect` is dropped here rather than sent: the server
-      // grades `answer` against the stored payload and reads first-time success
-      // off `attempts` (`backend.md §8`). The screen behind this shows the
-      // client's own stars, which is why the two derivations have to agree —
-      // `evaluateAnswer` is the shared function that makes them.
+      // `isFirstAttemptCorrect` is dropped: the server derives it from `attempts` (`backend.md
+      // §8`). The two derivations must agree, via the shared `evaluateAnswer`.
       const wire: QuizResponseRecord[] = records.map(
         ({ questionId, answer, attempts }) => ({
           questionId,

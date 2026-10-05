@@ -7,8 +7,6 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { LOCALE_COOKIE_NAME } from "@/shared/lib/locale";
 
-// The provider every student screen reads from.
-
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
@@ -42,7 +40,6 @@ const RUBI = child({
   preferredLanguage: "bn",
 });
 
-/** Surfaces the pieces of the context each assertion below is about. */
 function Probe() {
   const { status, child: active, profiles, activate } = useActiveChild();
   const { i18n } = useTranslation();

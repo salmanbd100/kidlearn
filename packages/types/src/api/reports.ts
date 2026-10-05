@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/children/{id}/reports` and `/api/admin/jobs/weekly-reports` — the weekly
- * progress report (FR-DASH-05..06).
- */
+/** `/api/children/{id}/reports` and `/api/admin/jobs/weekly-reports` — the weekly progress report (FR-DASH-05..06). */
 
 /** Which encouraging note a week earned (FR-DASH-05). */
 export const REPORT_NOTE_KEYS = [
@@ -36,9 +33,7 @@ export const WeeklyReportBadgeSchema = z
 
 export type WeeklyReportBadge = z.infer<typeof WeeklyReportBadgeSchema>;
 
-/**
- * Everything FR-DASH-05 asks a week to report, as stored in `WeeklyReport.metrics`.
- */
+/** Everything FR-DASH-05 asks a week to report, as stored in `WeeklyReport.metrics`. */
 export const WeeklyReportMetricsSchema = z
   .object({
     /** Distinct local calendar days with at least one recorded event, 0–7. */
@@ -58,9 +53,7 @@ export const WeeklyReportMetricsSchema = z
     quizFirstAttemptsCorrect: z.number().int().min(0),
     badgesEarned: z.array(WeeklyReportBadgeSchema),
     noteKey: ReportNoteKeySchema,
-    /**
-     * Interpolation values for the note's template — e.g. `{ activeDays: 7 }`.
-     */
+    /** Interpolation values for the note's template, e.g. `{ activeDays: 7 }`. */
     noteParams: z.record(z.union([z.string(), z.number()])),
   })
   .strict();

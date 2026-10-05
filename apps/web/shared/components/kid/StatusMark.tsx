@@ -3,12 +3,8 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { Check, RotateCcw } from "lucide-react";
 
 /**
- * The corner badge on a kid card that says "done" or "have another go" without
- * motion or colour. The glyph is ink on a filled disc, so the shape is what
- * carries the meaning: mint and sunshine alone sit under 3:1 against a
- * white card (design.md §2.3). Sits inside the card's corner rather than over
- * its edge, because every board it appears on scrolls and would clip it. Place
- * inside a `relative` parent.
+ * The shape carries the meaning, not colour: mint and sunshine alone sit under 3:1 on white (design.md §2.3).
+ * Inside the card's corner, not over its edge, since boards scroll and would clip it. Needs a `relative` parent.
  */
 
 const statusMarkVariants = cva(
@@ -17,8 +13,7 @@ const statusMarkVariants = cva(
     variants: {
       tone: {
         done: "bg-success text-success-foreground",
-        // Not a cross: a wrong attempt is never an error (FR-ACT-05), so the
-        // mark is the "go round again" arrow, in the warm highlight hue.
+        // Not a cross: a wrong attempt is never an error (FR-ACT-05).
         retry: "bg-warning text-warning-foreground",
       },
     },

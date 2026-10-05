@@ -1,27 +1,14 @@
 import type { ErrorCode } from "@kidlearn/types";
 
-// The single door to `apps/server`.
-
 const DEFAULT_API_URL = "http://localhost:4000";
 const DEFAULT_RETRIES = 2;
 
-/**
- * Per attempt. A phone on a stalled connection — captive Wi-Fi, a 3G dead zone —
- * leaves `fetch` neither resolving nor rejecting, so without a ceiling no retry
- * ever fires and the screen sits on "loading" for as long as the browser allows.
- * Generous enough for a cold-starting API (NFR-PERF-04); every call that outlives
- * it is a job reference or a read, never a long-running upload.
- */
+/** Per attempt: on a stalled connection `fetch` neither resolves nor rejects, so without a ceiling no retry fires. */
 export const DEFAULT_TIMEOUT_MS = 20_000;
 
-/** Waits between retries. Attempt n uses index n-1, clamped to the last entry. */
 export const RETRY_BACKOFF_MS = [1500, 4000] as const;
 
-/**
- * Failures that never reached the server, so they have no server-issued code.
- * Kept disjoint from `ErrorCode` so a client cannot confuse "the API said no"
- * with "the API did not answer".
- */
+/** Failures that never reached the server; disjoint from `ErrorCode` so "API said no" differs from "API did not answer". */
 export const CLIENT_ERROR_CODES = [
   "NETWORK_ERROR",
   "MALFORMED_RESPONSE",
@@ -33,9 +20,7 @@ export type ApiErrorCode = ErrorCode | ClientErrorCode;
 export interface ApiFailure {
   code: ApiErrorCode;
   message: string;
-  /** HTTP status; absent when the request never got a response at all. */
   status?: number;
-  /** Whatever the server attached — `ZodError.flatten()` on a 400, and so on. */
   details?: unknown;
 }
 
@@ -44,30 +29,17 @@ export type ApiResult<T> =
   | { ok: false; error: ApiFailure };
 
 export interface ApiFetchInit extends RequestInit {
-  /** Extra attempts after the first. Default 2 → 3 requests worst case. */
   retries?: number;
-  /** Fired once, before the first retry, so the UI can show a waking-up state. */
   onColdStart?: () => void;
-  /** Ceiling for each attempt, retries included separately. Default 20s. */
   timeoutMs?: number;
-  /**
-   * Opts a `POST` back into retrying. Set it only where a second identical
-   * request provably changes nothing — `POST /progress/lessons/:id/step` upserts
-   * a step that never moves backwards, so it qualifies; `POST /children` creates
-   * a row, so it does not. Ignored for methods that are idempotent anyway.
-   */
+  /** Opts a `POST` back into retrying; only where a repeat provably changes nothing (the step upsert, not `POST /children`). */
   isIdempotent?: boolean;
 }
 
 type UnauthorizedListener = () => void;
 const unauthorizedListeners = new Set<UnauthorizedListener>();
 
-/**
- * Called whenever a request settles as a `401`, so a session that expires or is
- * revoked mid-visit is noticed by whoever owns the session, not by whichever
- * screen happened to be fetching — each of which would otherwise show its own
- * generic error until a manual reload. Returns the unsubscribe function.
- */
+/** Fires on any `401` so the session owner notices an expiry, not whichever screen was fetching. Returns the unsubscribe. */
 export function onUnauthorized(listener: UnauthorizedListener): () => void {
   unauthorizedListeners.add(listener);
   return () => {
@@ -75,7 +47,6 @@ export function onUnauthorized(listener: UnauthorizedListener): () => void {
   };
 }
 
-/** Base URL of `apps/server`. Overridden per environment at build time. */
 export function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
 }
@@ -132,15 +103,8 @@ type Attempt<T> =
   | { kind: "retryable"; failure: ApiFailure };
 
 /**
- * Methods a retry cannot duplicate anything with. `POST` is deliberately absent:
- * a `POST` that reached the server and committed before the connection dropped
- * looks identical, from here, to one that never arrived — and sending it again
- * creates a second row. `createChild` made two child profiles that way.
- *
- * A `POST` whose endpoint really is idempotent opts back in with `isIdempotent`.
- * That is the right default direction: forgetting to opt in costs one failed
- * request the caller can see and report, and forgetting to opt out costs a
- * duplicate nobody notices.
+ * Methods a retry cannot duplicate. `POST` is absent: a committed-then-dropped `POST` looks like one that
+ * never arrived, and resending made two child profiles. Idempotent endpoints opt back in with `isIdempotent`.
  */
 const IDEMPOTENT_METHODS: readonly string[] = ["GET", "HEAD", "PUT", "DELETE"];
 
@@ -156,9 +120,8 @@ async function attemptRequest<T>(
   canRetry: boolean,
   timeoutMs: number,
 ): Promise<Attempt<T>> {
-  // `AbortSignal.timeout` and `AbortSignal.any` are missing from the older
-  // tablets this app is meant for, so the ceiling is a controller of our own,
-  // and a caller's own signal is forwarded onto it.
+  // `AbortSignal.timeout`/`any` are missing on older tablets, so the ceiling is our own controller
+  // with the caller's signal forwarded onto it.
   const controller = new AbortController();
   let hasTimedOut = false;
   const timer = setTimeout(() => {
@@ -215,7 +178,6 @@ async function settleAttempt<T>(
   }
 
   if (response.status === 204) {
-    // A no-content response has no envelope to unwrap; `T` is `undefined` here.
     return { kind: "settled", result: { ok: true, data: undefined as T } };
   }
 
@@ -223,10 +185,7 @@ async function settleAttempt<T>(
 
   if (!response.ok) {
     const failure = toFailure(response.status, body);
-    // 5xx is the cold-start signature; 4xx is a decision and stands. A 5xx on a
-    // non-idempotent method is not retried for the same reason a dropped
-    // connection is not: the write may already have landed before the handler
-    // failed.
+    // 5xx is the cold-start signature; 4xx stands. A 5xx on a non-idempotent method isn't retried: the write may have landed.
     return response.status >= 500 && canRetry
       ? { kind: "retryable", failure }
       : { kind: "settled", result: { ok: false, error: failure } };
@@ -288,7 +247,6 @@ function toFailure(status: number, body: unknown): ApiFailure {
     if (typeof error === "object" && error !== null) {
       const { code, message, details } = error as Record<string, unknown>;
       if (typeof code === "string" && typeof message === "string") {
-        // The server's own vocabulary — kept verbatim so callers can branch.
         return {
           code: code as ErrorCode,
           message,
@@ -317,14 +275,8 @@ const STATUS_FALLBACK_CODES: Record<number, ErrorCode> = {
 };
 
 /**
- * Revoke the session cookie. Bypasses `apiFetch` because better-auth answers
- * with its own body rather than kidlearn's envelope.
- *
- * Returns whether the server confirmed the revocation, and a caller must act on
- * a `false`: the cookie is still live, so navigating to the login page would
- * bounce straight back off `resolveParentRedirect`, which reads a signed-in
- * parent there as someone who has finished onboarding. Treating a failure as a
- * sign-out looks, from the parent's side, like the button did nothing.
+ * Revoke the session cookie, bypassing `apiFetch` (better-auth answers with its own body). Callers must act on
+ * `false`: the cookie is still live, so going to login bounces back off `resolveParentRedirect`.
  */
 export async function signOut(): Promise<boolean> {
   try {

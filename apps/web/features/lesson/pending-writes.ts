@@ -1,13 +1,9 @@
 /**
- * Writes one step started that a later step must not overtake.
- *
- * Completion depends on two of them: the server derives the quiz star and
- * per-answer coins from the responses already stored (R-04), and refuses a
- * lesson whose progress row does not show it was played through (R-06).
+ * Writes one step started that a later step must not overtake: completion needs the quiz responses
+ * stored and a progress row showing the lesson was played through.
  */
 export interface PendingWrites {
   add: (write: Promise<unknown>) => void;
-  /** Resolves once no write is outstanding — each settled, either way. */
   settled: () => Promise<void>;
 }
 
@@ -21,8 +17,8 @@ export function createPendingWrites(): PendingWrites {
       write.then(forget, forget);
     },
     async settled() {
-      // One yield first: the step report for the step just finished is added by
-      // LessonPlayer's effect, which React runs after the reward step's own.
+      // One yield first: LessonPlayer's effect adds the finished step's report after the reward
+      // step's own.
       await Promise.resolve();
       while (writes.size > 0) await Promise.allSettled([...writes]);
     },

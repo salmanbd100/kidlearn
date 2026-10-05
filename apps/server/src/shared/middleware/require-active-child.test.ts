@@ -1,7 +1,4 @@
-/**
- * See the note at the top of `require-parent.test.ts` about stubbing
- * `config/prisma.js` in the absence of a test database.
- */
+/** Stubs `config/prisma.js` without a test database; see the note at the top of `require-parent.test.ts`. */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import express, { type Express } from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -66,8 +63,7 @@ const CHILD: ChildProfile = {
 };
 
 function mockSession(activeChildProfileId: string | null) {
-  // `getSession` returns a deep better-auth type; only the fields the
-  // middleware reads are supplied, so the shape is narrowed at this boundary.
+  // Only the fields the middleware reads are supplied; narrowed at this boundary.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: { id: "session_1", userId: SESSION_USER.id, activeChildProfileId },
@@ -113,8 +109,7 @@ describe("requireActiveChild", () => {
 
   it("returns 403 FORBIDDEN when the active profile belongs to another parent", async () => {
     mockSession("child_of_someone_else");
-    // The ownership condition is part of the query, so a foreign child is
-    // simply not found.
+    // Ownership is part of the query, so a foreign child is simply not found.
     db.childFindFirst.mockResolvedValue(null);
 
     const res = await request(buildProbeApp()).get("/probe");
@@ -157,7 +152,7 @@ describe("activeChild", () => {
   it("fails closed with a 403 when a route is mounted without requireActiveChild", async () => {
     const app = express();
     app.get("/unguarded", (req, res) => {
-      // Deliberately no requireActiveChild — simulates a wiring mistake.
+      // No requireActiveChild: simulates a wiring mistake.
       res.json({ childId: activeChild(req).id });
     });
     app.use(errorHandler);

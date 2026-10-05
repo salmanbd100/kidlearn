@@ -26,26 +26,18 @@ import {
 import { type ApiResult, onUnauthorized } from "@/shared/api/api-client";
 import { readLocaleCookie } from "@/shared/lib/locale";
 
-// Who is playing, for the whole `(student)` route group.
-
 export type ActiveChildStatus = "loading" | "ready" | "signedOut" | "error";
 
 export interface ActiveChildValue {
   status: ActiveChildStatus;
-  /**
-   * The grown-up who owns this device, for the parent chip on `/select-profile`.
-   * `undefined` until the session loads, and while signed out.
-   */
+  /** The grown-up who owns this device; `undefined` until the session loads or while signed out. */
   parent: ParentSummaryResponse | undefined;
-  /** Every profile the signed-in parent owns, oldest first. */
   profiles: ChildProfileResponse[];
-  /** Starter characters, for resolving a profile's avatar art. */
   avatars: AvatarCharacterResponse[];
   /** The profile the session is scoped to, or `undefined` before one is picked. */
   child: ChildProfileResponse | undefined;
   /** True once a request has been retried — the API is asleep (NFR-PERF-04). */
   isWakingUp: boolean;
-  /** FR-AUTH-06 — scopes the session to a child. */
   activate: (
     childId: string,
   ) => Promise<ApiResult<{ activeChildProfileId: string }>>;
@@ -161,7 +153,7 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     [profiles, activeChildId],
   );
 
-  /** FR-I18N-02 — the child's own language wins over the device cookie. */
+  /** The child's own language wins over the device cookie. */
   const language = child?.preferredLanguage;
   useEffect(() => {
     if (language !== undefined && i18n.resolvedLanguage !== language) {
@@ -169,10 +161,8 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     }
   }, [language, i18n]);
 
-  // The root layout's i18n instance outlives this provider, so leaving the
-  // portal would otherwise carry the child's language into the dashboard. A
-  // ref, because `useTranslation` returns a new `i18n` on every language change
-  // — as a dependency, the cleanup would undo each switch the moment it landed.
+  // The root i18n instance outlives this provider, so leaving the portal would carry the child's language into the dashboard.
+  // A ref: `useTranslation` returns a new `i18n` per language change, which as a dependency would undo each switch.
   const i18nRef = useRef(i18n);
   i18nRef.current = i18n;
   useEffect(

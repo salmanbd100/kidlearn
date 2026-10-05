@@ -1,6 +1,5 @@
 import type { ZodIssue } from "zod";
 
-/** Zod issues, indexed by the field they are about. */
 export type IssueMap = {
   /** The message for exactly this path, if any. */
   at: (path: (string | number)[]) => string | undefined;
@@ -13,12 +12,7 @@ export type IssueMap = {
 
 const key = (path: (string | number)[]): string => path.join(".");
 
-/**
- * `knownPaths` is what makes `unplaced` meaningful: a refinement can report an
- * issue against a path no input owns — `correctPairs` as a whole, say — and an
- * editor that only rendered per-field messages would hide it. Anything the form
- * did not claim is surfaced together instead of being dropped.
- */
+/** `knownPaths` makes `unplaced` meaningful: issues on paths no input owns (e.g. `correctPairs`) are surfaced together, not dropped. */
 export function toIssueMap(
   issues: readonly ZodIssue[],
   knownPaths: readonly string[] = [],
@@ -28,9 +22,7 @@ export function toIssueMap(
 
   for (const issue of issues) {
     const path = key(issue.path);
-    // First issue wins: a field with two problems shows the first, and the second
-    // reappears once the first is fixed. Concatenating them produces a line no
-    // author can read.
+    // First issue wins; concatenating produces a line no author can read.
     if (!byPath.has(path)) byPath.set(path, issue.message);
   }
 

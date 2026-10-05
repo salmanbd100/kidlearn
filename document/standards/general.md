@@ -60,7 +60,7 @@ All four packages — `ui`, `db`, `types`, `config` — have completed this chec
 - The Node major is pinned in three places that must agree: `.nvmrc` (developers and CI's
   `setup-node`), `engines.node` in the root `package.json`, and the `FROM node:<major>` lines of
   both Dockerfiles. `@types/node` in the catalog tracks the same major. **[REVIEW]**
-- Major upgrades follow the ladder in `improvement-plan.md` P2-3, one branch each — Dependabot
+- Major upgrades follow the `/upgrade-dependency` skill, one branch each — Dependabot
   is configured to propose minors and patches only.
 
 ### Turborepo pipeline rule
@@ -223,7 +223,7 @@ Service tests and route integration tests run against a real test database. Do n
 
 #### The test-database harness
 
-**Landed 2026-10-05 (improvement tracker V1-P0-2a).** A suite named `*.db.test.ts` runs
+**Landed 2026-10-05.** A suite named `*.db.test.ts` runs
 against Postgres: `pnpm --filter server test:db` (CI runs it with a `postgres:16-alpine`
 service; locally, `docker compose up -d postgres`). `vitest.db.config.ts` applies the
 committed migrations with `prisma migrate deploy` once per run, truncates every table before
@@ -349,8 +349,8 @@ A reviewer is responsible for catching these. **They are mandatory — not optio
 Every implementation file in `document/implementation/` maps to exactly one feature branch. The branch name is the implementation filename without the `.md` extension.
 
 ```
-document/implementation/01-workspace-packages-and-test-setup.md
-→ branch: 01-workspace-packages-and-test-setup
+document/implementation/39-ci-pipeline-and-branch-protection.md
+→ branch: 39-ci-pipeline-and-branch-protection
 ```
 
 ### Starting work on an implementation file
@@ -413,12 +413,12 @@ The two rules above assume a branch is *derived from* one implementation file. A
 The deviation is bounded by three rules. A branch that breaks one of them is not covered:
 
 1. **The findings are enumerated in the tracker row, one numbered entry each**, with the defect, its consequence and its fix — so the row does the work seven PR descriptions would have.
-2. **It is named for what it is, not for a file number.** `NN-` prefixes belong to implementation files; taking one for unrelated work collides with the spec that number is reserved for (`improvement-plan.md §4` reserves 40–46).
+2. **It is named for what it is, not for a file number.** `NN-` prefixes belong to implementation files; taking one for unrelated work collides with the spec that number is reserved for.
 3. **No new feature.** A review pass fixes what is there. Anything that adds behaviour leaves the pass and gets its own file and branch.
 
 **What this exception costs, so the cost is on the record:** one PR carrying seven unrelated fixes cannot be reverted per-fix, and a reviewer cannot approve six of them and reject the seventh. That is the trade accepted for not fragmenting a single review into seven.
 
-**Exit condition:** file 40 (`40-docs-and-standards-truth-pass.md`) is the planned home for the next docs pass. A review pass that finds code defects rather than documentation drift still needs this section; delete it if a future one is small enough to sit under a single file.
+**Exit condition:** a review pass that finds code defects rather than documentation drift still needs this section; delete it if a future one is small enough to sit under a single file.
 
 ---
 

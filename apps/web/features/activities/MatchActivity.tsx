@@ -27,18 +27,14 @@ import type { ActivityRendererProps } from "./registry";
 import { type PairSide, usePairing } from "./use-pairing";
 import { isWiggling, useWiggle } from "./use-wiggle";
 
-// Find the two that go together (FR-ACT-03).
-
 const matchCardVariants = cva(
-  // 96px square before its contents — the floor this spec sets for a match card,
-  // half again the 64px kid minimum, because two of these are tapped in sequence.
+  // 96px square: half again the 64px kid minimum, as two cards are tapped in sequence.
   "relative flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform touch-manipulation focus-ring",
   {
     variants: {
       state: {
         idle: "border-border bg-card shadow-md",
         selected: "border-primary bg-card shadow-pop motion-safe:scale-105",
-        // The pair hue arrives as a second class from `pairCardClass`.
         matched: "shadow-sm",
       },
     },
@@ -48,7 +44,6 @@ const matchCardVariants = cva(
 
 const IMAGE_PX = 96;
 
-/** Under-stroke and pair-coloured stroke, in px. */
 const LINE_EDGE_WIDTH = 8;
 const LINE_WIDTH = 4;
 
@@ -164,8 +159,7 @@ export function MatchActivity({
 
   const handleTap = useCallback(
     (side: PairSide, item: ActivityItem) => {
-      // The card's own voice, when the payload gives it one: for a pre-reader
-      // matching a word to a picture, hearing the word is the whole exercise.
+      // Hearing the word is the whole exercise for a pre-reader.
       const clip = item.audio?.[locale].url;
       if (clip !== undefined) void play(clip, { interrupt: true });
       tap(side, item.id);
@@ -201,10 +195,8 @@ export function MatchActivity({
       className="flex min-h-0 flex-1 items-center justify-center overflow-auto"
     >
       {/*
-        One line of narration, not a live region on the board: the thing that
-        changed is either "you have picked this card" or "that is another pair
-        done", and re-reading twelve card labels after every tap says neither
-        (FR-I18N-01).
+        One line of narration rather than a live region: re-reading every card label after each tap
+        helps no one (FR-I18N-01).
       */}
       <span role="status" className="sr-only">
         {matched.size === definition.pairs.length
@@ -222,19 +214,16 @@ export function MatchActivity({
       </span>
 
       {/*
-        Two columns with a phone held upright, two rows with it held sideways —
-        the line between a pair then runs across the short axis either way, so it
-        stays short enough to follow (design.md §6).
+        Two columns upright, two rows sideways: the pair line runs across the short axis either way
+        (design.md §6).
       */}
       <div
         ref={boardRef}
         className="relative flex gap-8 p-2 landscape:flex-col landscape:gap-6"
       >
         {/*
-          Two labelled lists and no wrapper landmark: the board is two sets of
-          cards, which is what a list of each says, and how many are in each is the
-          sighted child's "two pairs left" made audible. The keyboard hint hangs off
-          both, because either one can be entered first.
+          Two labelled lists, no wrapper landmark; counts are announced per list. The keyboard hint
+          hangs off both.
         */}
         {sets.map((set) => (
           <ul
@@ -263,10 +252,8 @@ export function MatchActivity({
         ))}
 
         {/*
-          No viewBox, so one SVG user unit is one CSS pixel and the measured
-          centres can be used as written. Behind nothing and on top of nothing
-          that is tappable — `pointer-events-none` keeps every card underneath it
-          reachable by a finger that lands on a line.
+          No viewBox: one SVG unit is one CSS pixel. `pointer-events-none` keeps cards under a line
+          tappable.
         */}
         <svg
           aria-hidden="true"
@@ -276,10 +263,8 @@ export function MatchActivity({
           {lines.map((line) => (
             <g key={line.id} data-testid="match-line" strokeLinecap="round">
               {/*
-                The hue on its own is 1.5–2.3:1 against cream on the playful end
-                of the palette, under the 3:1 floor for a graphic that carries
-                meaning. The dark under-stroke is what actually clears it, in
-                every theme including high-contrast (design.md §2.3).
+                Hue alone is 1.5–2.3:1 on cream, under the 3:1 floor; the dark under-stroke clears
+                it in every theme (design.md §2.3).
               */}
               <line
                 x1={line.x1}
@@ -336,9 +321,7 @@ function MatchCard({
       type="button"
       data-testid={`match-card-${item.id}`}
       data-state={state}
-      // `aria-disabled` rather than `disabled`: a matched card is still part of
-      // the board a screen-reader user is reading back, and a disabled button
-      // drops out of the tab order mid-activity.
+      // `aria-disabled`, not `disabled`: a disabled button drops out of the tab order mid-activity.
       aria-disabled={isMatched}
       aria-pressed={isSelected}
       className={cn(
@@ -348,9 +331,7 @@ function MatchCard({
       onClick={onTap}
     >
       {/*
-        Keyed on the shake count, not on whether one is running: re-applying an
-        animation class that is already applied restarts nothing, and the second
-        wrong guess of the same pair is the attempt that most needs the answer.
+        Keyed on the shake count: re-applying an already-applied animation class restarts nothing.
       */}
       <span
         key={shakeKey}
@@ -365,13 +346,8 @@ function MatchCard({
         </span>
       </span>
 
-      {/*
-        Shape as well as colour: the tick is what tells a colour-blind child that
-        this card is finished, without having to tell one hue from another
-        (design.md §2.3). The pair hues are decorative and deliberately survive
-        the high-contrast theme — the ink on the card is `card-foreground` over a
-        15% wash, so the text contrast the theme guarantees is untouched.
-      */}
+      {/* Shape as well as colour: the tick tells a colour-blind child the card is finished. */}
+      {/* Pair hues survive high-contrast; card text contrast is untouched (design.md §2.3). */}
       {isMatched ? <StatusMark tone="done" /> : null}
       {isMatched ? <span className="sr-only">{matchedLabel}</span> : null}
       {isShaking && !isMatched ? <StatusMark tone="retry" /> : null}
@@ -379,10 +355,7 @@ function MatchCard({
   );
 }
 
-/**
- * `alt=""`: every card shows its label as text as well, so the picture repeats
- * what is already announced rather than adding to it (design.md §7).
- */
+/** `alt=""`: the label is shown as text too (design.md §7). */
 function CardArt({
   image,
   locale,

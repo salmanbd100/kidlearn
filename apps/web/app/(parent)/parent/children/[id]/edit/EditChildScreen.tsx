@@ -8,7 +8,6 @@ import { ChildProfileForm } from "@/features/children/ChildProfileForm";
 import { updateChild } from "@/features/parent/parent-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 
-/** Edit a profile (FR-PROF-05). */
 export function EditChildScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();

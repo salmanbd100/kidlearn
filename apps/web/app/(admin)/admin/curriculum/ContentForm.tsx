@@ -15,21 +15,13 @@ import type { ContentDraft } from "@/features/admin/content-api";
 import { GradeLevelPicker } from "./GradeLevelPicker";
 import { LocaleTabs } from "./LocaleTabs";
 
-/**
- * Create and edit for the three name-only resources — world, subject, topic
- * (FR-CMS-01). The lesson has its own form; it carries per-locale scripts and
- * step ids that nothing else does.
- */
-
 export type NameOnlyResource = "worlds" | "subjects" | "topics";
 
 type Existing = AdminWorld | AdminSubject | AdminTopic;
 
 export interface ContentFormProps {
   resource: NameOnlyResource;
-  /** Absent when creating. */
   existing?: Existing;
-  /** Required when creating a topic — the subject it belongs to. */
   subjectId?: string;
   isBusy: boolean;
   error?: string;
@@ -44,7 +36,6 @@ const HAS_GRADES: Record<NameOnlyResource, boolean> = {
   topics: true,
 };
 
-/** Only a subject or topic carries grades, and only those two have the field. */
 function initialGradeLevels(existing: Existing | undefined): GradeLevelValue[] {
   if (existing === undefined || !("gradeLevels" in existing)) return [];
   return existing.gradeLevels;
@@ -95,8 +86,7 @@ export function ContentForm({
       ...(isEditing ? {} : { slug }),
       ...(HAS_GRADES[resource] ? { gradeLevels } : {}),
       ...(resource === "topics" && !isEditing ? { subjectId } : {}),
-      // A world needs a palette and the media library (file 33) is what will
-      // fill in a mascot, so a create sends the empty map the column requires.
+      // A world needs a palette; the create sends the empty map the column requires.
       ...(resource === "worlds" && !isEditing ? { palette: {} } : {}),
     };
 

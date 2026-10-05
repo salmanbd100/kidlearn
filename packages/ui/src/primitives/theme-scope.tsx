@@ -12,10 +12,8 @@ export interface ThemeScopeProps extends React.ComponentProps<"div"> {
 }
 
 /**
- * Sets `data-theme` on what it wraps, and on what its descendants portal out.
- * A Radix portal mounts into `<body>` by default — outside every `data-theme`
- * wrapper, so a parent-surface dialog would wear `:root`'s kid tokens. The
- * primitives here portal into the nearest scope's element instead.
+ * Sets `data-theme` on what it wraps and on what its descendants portal out: Radix portals mount in
+ * `<body>`, outside every `data-theme` wrapper, so the primitives portal into the nearest scope instead.
  */
 function ThemeScope({ theme, children, ...props }: ThemeScopeProps) {
   // State, not a ref: the portals have to re-render once the element exists.

@@ -5,8 +5,6 @@ import { cn } from "@kidlearn/ui";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-// Chrome shared by the two first-run steps (FR-AUTH-03, FR-PROF-01).
-
 export const ONBOARDING_STEP_COUNT = 2;
 
 /** 1-based, matching the `step` prop, so the segments key on themselves. */

@@ -1,8 +1,3 @@
-/**
- * The lazily-constructed `@google/genai` client, shared by the text generators
- * and the illustration model (files 36, 37a).
- */
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const sdk = vi.hoisted(() => ({
@@ -63,8 +58,7 @@ describe("client construction", () => {
   });
 
   it("does not cache a failed construction", async () => {
-    // The regression this file exists for. A transient module-evaluation failure
-    // must not disable illustrations for the lifetime of the process.
+    // Regression: a transient module-evaluation failure must not disable illustrations for the process lifetime.
     sdk.construct.mockImplementationOnce(() => {
       throw new Error("Cannot allocate memory");
     });

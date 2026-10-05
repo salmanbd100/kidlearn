@@ -11,16 +11,17 @@ Report presence honestly. Port the web app's heartbeat to native, with `AppState
 
 ## Context & Current State
 
-- `apps/web/lib/use-heartbeat.ts` is the reference and its docstring is the specification for this file:
+- `apps/web/features/screen-time/use-heartbeat.ts` is the reference and its docstring is the specification for this file:
   - **"This file measures nothing."** No timer whose elapsed value it reports, no accumulator, no stored total. It posts "I am here" every 30 seconds and reads back what the server says. "That is the whole anti-tamper design: refreshing the page, closing the tab, clearing storage or editing React state cannot lower a figure that was never held here."
   - **Cadence:** `HEARTBEAT_INTERVAL_MS = 30_000` — "the cadence the server's 30s tail credit is calibrated against". One beat fires immediately on mount and again on becoming visible, "so a short visit is worth its 30-second interval instead of nothing".
   - **Mount on learning surfaces only** — "the lesson player and the story reader. Not on the profile picker, not on the home screen, and never in a parent or admin layout: the figure it feeds is 'how long has this child been learning', and a dashboard left open would answer that question with an adult's afternoon."
   - **`enabled` is the same rule one level up**: a visible screen showing a loader or the screen-time lock has no child learning in front of it, and the heartbeat endpoint is deliberately ungated — so a caller that mounts the hook above its own ready state "would bill a child for staring at 'time's up'".
   - **No retries, ever.** "A beat that failed has already been superseded by the next tick 30 seconds later, and a queue of stale retries would report a child's timeline out of order." `minutesToday` keeps its previous value until a beat lands; `null` until the first one does.
-- `POST /api/events/heartbeat` takes **no body** — "the client's entire contribution is that the request arrived; the server stamps the row, throttles the cadence, and derives the minutes". It answers `200` with `HeartbeatResponse` including `minutesToday` and a `recorded` flag (sent even on a throttled beat "so a throttled client still sees an honest total").
+- `POST /api/events/heartbeat` takes **no body** — "the client's entire contribution is that the request arrived; the server stamps the row, throttles the cadence, and derives the minutes". It answers `200` with `HeartbeatResponse` = `{ recorded, minutesToday }` (whole minutes in the deployment's `APP_TIMEZONE` day), `recorded` being (sent even on a throttled beat "so a throttled client still sees an honest total").
 - `POST /api/events/activity` records one discrete milestone: `ACTIVITY_EVENT_TYPES` = `["lesson_start", "step_complete", "lesson_complete", "story_start", "story_complete"]` plus a `refId` (the lesson or story id — "which of the two is decided by `type` rather than by a second field"). `201` on success, no cadence floor, and the web app's `trackEvent` sends it fire-and-forget with `retries: 0`.
-- `GET /api/children/:id/learning-time` (PIN-gated, parent side) returns minutes per `LEARNING_TIME_RANGES` — the dashboard's source in M26, not this file's.
-- **The native difference:** there is no `document.visibilityState`. `AppState` reports `active | background | inactive` (iOS adds `inactive` during app-switcher transitions and incoming calls). Backgrounding must stop the beat, exactly as a hidden tab does — otherwise "a lesson left open in another window would bill a whole afternoon of screen time — and file 28 would lock a child out of a device they had not been using". On a phone, that is not a hypothetical: children put devices down mid-lesson constantly.
+- `GET /api/children/:id/learning-time?range=today|week|month` (parent session, ownership-checked) returns `{ range, minutes, from, to }` per `LEARNING_TIME_RANGES` — the dashboard's source in M26, not this file's.
+- Heartbeats, activity events and M13's lesson `SessionEvent`s all land in the same `sessionEvent` table, and the learning-time aggregation reads that table — so lesson milestones already count via `POST /api/progress/events`.
+- **The native difference:** there is no `document.visibilityState`. `AppState` reports `active | background | inactive` (iOS adds `inactive` during app-switcher transitions and incoming calls). Backgrounding must stop the beat, exactly as a hidden tab does — otherwise "a lesson left open in another window would bill a whole afternoon of screen time — and the screen-time limit (M25) would lock a child out of a device they had not been using". On a phone, that is not a hypothetical: children put devices down mid-lesson constantly.
 - M13's lesson player and M23's story reader are the two mount sites, both already built with the call site left ready.
 
 ## Detailed Requirements
@@ -31,8 +32,8 @@ Report presence honestly. Port the web app's heartbeat to native, with `AppState
 4. **Immediate first beat.** One beat on becoming active-and-focused, then the 30s interval — same as the web hook, so a two-minute story earns its minutes.
 5. **`lib/track-event.ts`** — `trackEvent(type: ActivityEventType, refId: string): void`, fire-and-forget, `retries: 0`, no `await` at any call site. Ported from the web app's `trackEvent`, minus the `console.warn` (`document/standards/general.md` — no console output in shipped code; a failed milestone is a silent precision loss by design).
 6. **Call sites, and only these:**
-   - lesson player (M13): `useHeartbeat({ enabled: ready && !locked })`, `trackEvent("lesson_start", lessonId)` on mount, `trackEvent("lesson_complete", lessonId)` after the completion call;
-   - story reader (M23): `useHeartbeat({ enabled: ready })`, `trackEvent("story_start", storyId)` on mount, `trackEvent("story_complete", storyId)` after completion.
+   - lesson player (M13): `useHeartbeat({ enabled: ready && !locked })`. **No `trackEvent` here** — the web lesson player reports `lesson_start` / `step_complete` / `lesson_complete` solely through `POST /api/progress/events` (M13), and sending them to both surfaces would double-count milestones;
+   - story reader (M23): `useHeartbeat({ enabled: ready })`, `trackEvent("story_start", storyId)` on mount, `trackEvent("story_complete", storyId)` after completion (as `StoryReader.tsx` does).
    Nothing else in the app mounts the heartbeat. Add a comment at both call sites naming the rule, because the next person's instinct will be to hoist it into a layout.
 7. **`minutesToday` display.** Where a student surface shows today's minutes, it shows what the server returned and nothing else — no local increment between beats. `null` renders as no figure, never as `0`.
 8. **Backgrounding during a lesson does not lose progress.** The beat stops; the lesson state stays; resuming restarts the beat with an immediate tick. Verify the whole cycle on a device, including a long background (10+ minutes) to confirm the server's minutes do not include the gap.
@@ -143,7 +144,7 @@ The long-background check cannot be faked — do it on a device with the server 
 
 ## Step-by-Step Plan
 
-1. Read `apps/web/lib/use-heartbeat.ts` in full, including the docstring rules. (~15 min)
+1. Read `apps/web/features/screen-time/use-heartbeat.ts` in full, including the docstring rules. (~15 min)
 2. Write the failing hook tests (immediate beat, interval, background stop, `inactive` stop, focus loss, `enabled: false`, no retry, `null` start). (~45 min)
 3. Implement `lib/use-heartbeat.ts` with the combined `AppState` + focus gate until green. (~35 min)
 4. Write `lib/track-event.ts` + its test. (~20 min)
@@ -163,7 +164,7 @@ The long-background check cannot be faked — do it on a device with the server 
 - [ ] A failed beat is not retried and does not lower or clear `minutesToday`.
 - [ ] A 10-minute background during a lesson is **not** billed, verified against `GET /api/children/:id/learning-time` on a real device.
 - [ ] The heartbeat is mounted in exactly two places: the lesson player and the story reader, each with the rule stated in a comment.
-- [ ] `trackEvent` posts `lesson_start`, `lesson_complete`, `story_start` and `story_complete` fire-and-forget with no retries and no console output.
+- [ ] `trackEvent` posts `story_start` and `story_complete` fire-and-forget with no retries and no console output.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm --filter mobile test` pass.
 
 ## Out of Scope

@@ -6,24 +6,14 @@ import type {
 } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 
-/**
- * The activity editor's form state, and the compiler that turns it into a payload
- * (FR-ACT-06).
- */
-
 export type LocalizedDraft = Record<Locale, string>;
 
 export interface ItemDraft {
   id: string;
   label: LocalizedDraft;
-  /** A `MediaAsset` delivery URL, or empty for none. */
   imageUrl: string;
-  /**
-   * The image's alternative text, per locale. Carried even though the schema makes
-   * it optional — an edit that dropped it would undescribe a picture silently.
-   */
+  /** Alt text per locale; carried so an edit never silently undescribes a picture. */
   imageAlt: LocalizedDraft;
-  /** Per-locale audio URLs for the label, or empty for none. */
   audio: LocalizedDraft;
 }
 
@@ -31,24 +21,18 @@ export interface ActivityDraft {
   type: ActivityType;
   /** Per-locale instruction audio URLs. Required in both, for every type. */
   instructionAudio: LocalizedDraft;
-  /** `drag_drop` and `match`. */
   items: ItemDraft[];
   /** `drag_drop` targets / `match` right-hand set. */
   targets: ItemDraft[];
   /** Item id → target id. `drag_drop` maps every item; `match` pairs them. */
   mapping: Record<string, string>;
-  /** `trace`. */
   glyph: string;
   pathData: string;
   guideDots: Array<{ x: number; y: number }>;
-  /**
-   * Which subpath is traced first, as the comma-separated list an author types.
-   * Empty for a single-stroke glyph, which is what the schema means by omitting it.
-   */
+  /** Subpath traced first, comma-separated; empty for a single-stroke glyph. */
   strokeOrder: string;
   /** How far a finger may stray and still count, in the 0–100 glyph space. Empty = the renderer's default. */
   tolerance: string;
-  /** `puzzle`. */
   imageUrl: string;
   imageAlt: LocalizedDraft;
   rows: number;
@@ -69,7 +53,6 @@ export function emptyItem(index: number, prefix: string): ItemDraft {
   };
 }
 
-/** The bounds every set-based activity type shares, from the shared schemas. */
 export const MINIMUM_ITEMS = 2;
 export const MAXIMUM_ITEMS = 6;
 
@@ -84,8 +67,7 @@ export function emptyActivityDraft(type: ActivityType): ActivityDraft {
     pathData: "",
     strokeOrder: "",
     tolerance: "",
-    // Two is the schema's floor. A single waypoint describes no direction, so a
-    // trace built from one could not be scored.
+    // Two is the schema's floor: one waypoint has no direction.
     guideDots: [
       { x: 20, y: 20 },
       { x: 80, y: 80 },
@@ -98,7 +80,6 @@ export function emptyActivityDraft(type: ActivityType): ActivityDraft {
   };
 }
 
-/** A `LocalizedAudio`, or `undefined` when *neither* locale is filled. */
 function localizedAudio(urls: LocalizedDraft) {
   if (LOCALES.every((locale) => urls[locale] === "")) return undefined;
   return Object.fromEntries(
@@ -109,10 +90,7 @@ function localizedAudio(urls: LocalizedDraft) {
   );
 }
 
-/**
- * A `LocalizedText`, emitting only the locales that are filled — so a half-typed
- * label is reported as a missing locale rather than disappearing (FR-I18N-01).
- */
+/** Emits only filled locales, so a half-typed label reports a missing locale rather than vanishing. */
 function localizedText(text: LocalizedDraft) {
   return Object.fromEntries(
     LOCALES.filter((locale) => text[locale] !== "").map((locale) => [
@@ -122,7 +100,6 @@ function localizedText(text: LocalizedDraft) {
   );
 }
 
-/** A comma-separated list of numbers, as the schema wants it. */
 function numberList(value: string): Array<number | string> | undefined {
   const parts = value
     .split(",")
@@ -142,9 +119,7 @@ function compileItem(item: ItemDraft, isImageRequired: boolean) {
     id: item.id,
     label: localizedText(item.label),
     ...(audio === undefined ? {} : { audio }),
-    // A required-but-empty image keeps its key so the schema reports the missing
-    // URL against the field the author can see, rather than against an object with
-    // no `image` at all.
+    // Keep the key when empty so the schema reports the missing URL against the visible field.
     ...(hasImage || isImageRequired
       ? {
           image: {
@@ -157,7 +132,6 @@ function compileItem(item: ItemDraft, isImageRequired: boolean) {
   };
 }
 
-/** The grid cells a puzzle of this size has, in reading order. */
 export function puzzleSlots(rows: number, cols: number): PuzzleSlot[] {
   return Array.from({ length: rows * cols }, (_unused, index) => ({
     index,
@@ -166,7 +140,6 @@ export function puzzleSlots(rows: number, cols: number): PuzzleSlot[] {
   }));
 }
 
-/** The draft as a payload, ready for `safeParseActivityDefinition`. */
 export function compileActivity(draft: ActivityDraft): unknown {
   const audio = localizedAudio(draft.instructionAudio);
   const shared = {

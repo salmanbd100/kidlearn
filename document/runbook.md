@@ -2,13 +2,15 @@
 
 > **What this is for:** the thing you open when production is down, when a deploy
 > has to be rolled back, or when you have forgotten where a value lives. It is
-> written to be read in a hurry. Design rationale lives in
-> `document/implementation/38-deployment-aws-docker.md`; this file is procedure.
+> written to be read in a hurry. > Design rationale lives in
+> `document/implementation/38-deployment-aws-docker.md`; this file is procedure
+> and reference.
 >
 > **Bringing this into existence for the first time?** You want
-> `document/deployment-walkthrough.md`, not this file. It is the same work in
-> beginner's order, with every command spelled out and the AWS vocabulary
-> explained. Come back here once production is up.
+> `document/deployment-walkthrough.md`, not this file. It is the one-time,
+> sequential provisioning, with every command spelled out and the AWS vocabulary
+> explained, and it links back here for the reference tables. Come back here once
+> production is up.
 >
 > **Status:** the repository half of file 38 is implemented and verified locally.
 > **No AWS, Vercel, Cloudflare or Supabase resource has been provisioned yet.**
@@ -28,8 +30,8 @@
 One `t4g.small` in `ap-south-1` runs both API stacks behind Caddy. Vercel serves
 the three web hostnames and terminates their TLS itself. Media is on Cloudinary.
 
-Three Compose projects on one box, deliberately separate so that deploying one
-cannot restart another:
+Three Compose projects on one box (separate so that deploying one cannot restart
+another):
 
 | Project | Files | Holds |
 |---|---|---|
@@ -46,19 +48,10 @@ alias.
 
 ### What is and is not isolated
 
-- **Data is properly isolated.** Production is on Supabase, dev on a container.
-  No connection string, credential or network path joins them.
-- **The frontends are properly isolated.** Two Vercel projects, separate
-  project-scoped variables.
-- **API runtime is soft-isolated.** Separate containers, projects, SSM paths and
-  memory limits — but one kernel and one disk. **A dev container that fills the
-  EBS volume takes the production API down with it.**
-- **CI/CD isolation is a convention, not a boundary.** `ssm:SendCommand` is
-  scoped to an *instance*, so a workflow that can deploy dev can technically
-  touch production's containers. File 38a narrows this as far as IAM allows.
-
-If any of that stops being acceptable, the fix is a second instance and nothing
-else in the design changes.
+Data and frontends are isolated; API runtime is only soft-isolated. **A dev
+container that fills the EBS volume takes the production API down with it.**
+The full statement, and the fix if it stops being acceptable, is in file 38,
+"The isolation this design does and does not give you".
 
 ---
 
@@ -195,6 +188,34 @@ passed both gates — recorded in `/opt/kidlearn/<env>/last-good-tag`, written o
 on success. `compose.env` cannot serve: it is written before the gate, so after a
 failed deploy it names the broken image.
 
+### Putting `deploy/` on the box
+
+`bootstrap.sh` creates `/opt/kidlearn/deploy` and deliberately pulls nothing, so
+the repository's `deploy/` tree is a copy you make — the first time, and again
+whenever anything in it changes. The box has no other way to hear about it until
+file 38a. If a deploy behaves like an older version of the scripts, this is why.
+Pick one, as root:
+
+```bash
+# 1. Clone on the box (copies what is on main, not your working tree)
+dnf install -y git
+git clone https://github.com/salmanbd100/kidlearn.git /tmp/kidlearn
+cp -r /tmp/kidlearn/deploy/. /opt/kidlearn/deploy/ && rm -rf /tmp/kidlearn
+
+# 2. rsync your working tree from your Mac (needs §2a)
+rsync -az --delete deploy/ kidlearn:/tmp/deploy/
+ssh kidlearn 'sudo cp -r /tmp/deploy/. /opt/kidlearn/deploy/ && rm -rf /tmp/deploy'
+
+# 3. No SSH set up: stream a tarball through Session Manager, from the repository root
+tar cz deploy | aws ssm start-session --target <instance-id> \
+  --document-name AWS-StartInteractiveCommand \
+  --parameters 'command=["sudo tar xz -C /opt/kidlearn --strip-components=1"]'
+```
+
+Then `chmod +x /opt/kidlearn/deploy/*.sh`. Expect `app  backup.sh  bootstrap.sh
+deploy.sh  edge  weekly-reports.sh` in `ls /opt/kidlearn/deploy`, with
+`app/compose.yml` and `app/compose.dev.yml` under `app/`.
+
 ### Migrations are a separate step, deliberately
 
 A schema change must be a decision, not a side effect of restarting a container.
@@ -259,12 +280,11 @@ missing or malformed variable, naming the field. This table is the inventory.
 
 **Secrets: SSM Parameter Store, every one a `SecureString`**, under
 `/kidlearn/prod/` and `/kidlearn/dev/`. Standard tier, free to 10,000 parameters;
-this uses about 35. Not Secrets Manager, which would be ~$16/month for the same
-values.
+this uses about 30.
 
 | Var | Where | Production | Development |
 |---|---|---|---|
-| `NODE_ENV` | compose | `production` | `production` — see below |
+| `NODE_ENV` | compose | `production` | `production` — both, see file 38 requirement 7 |
 | `PORT` | compose | `4000` | `4000` |
 | `DATABASE_URL` | SSM | Supabase pooled `:6543`, `?pgbouncer=true&connection_limit=5` | `postgresql://kidlearn:<pw>@dev-postgres:5432/kidlearn` — **neither flag** |
 | `DIRECT_URL` | SSM | Supabase direct `:5432` | identical to the dev `DATABASE_URL` |
@@ -286,6 +306,7 @@ values.
 | `POSTGRES_PASSWORD` | SSM (dev only) | — | `openssl rand -base64 24` |
 | `BACKUP_S3_BUCKET` | SSM (prod only) | the backup bucket name, no `s3://` | — ; dev is never backed up |
 | `BACKUP_HEARTBEAT_URL` | SSM (prod only, optional) | a healthchecks.io-style check URL — see §8 | — |
+| `WEEKLY_REPORTS_HEARTBEAT_URL` | SSM (prod only, optional) | a second check URL — see §9 | — |
 | `NEXT_PUBLIC_API_URL` | **Vercel**, build-time | `https://api.kidlearn.net` | `https://api.dev.kidlearn.net` |
 | `NEXT_PUBLIC_SITE_URL` | **Vercel**, build-time | `https://kidlearn.net` | `https://dev.kidlearn.net` |
 | `MEDIA_ASSET_HOSTS` | **Vercel**, build-time | `https://res.cloudinary.com` | `https://res.cloudinary.com` |
@@ -296,7 +317,7 @@ values.
 are read only by `seed:admin` and passed inline — a deployment must not need an
 admin password present just to start.
 
-**Two generated files per environment, and they are not interchangeable.**
+**Three generated files per environment; the first two are not interchangeable.**
 `deploy.sh` writes both, root-owned `0600`:
 
 | File | Job |
@@ -313,21 +334,21 @@ you: **do not read a value out of `app.env` and paste it somewhere else** —
 `psql`, a `DATABASE_URL` you are debugging with, anything. Read it from SSM
 instead, which is what `backup.sh` does.
 
-### Three things in that table that will cost you an afternoon
-
-**Both deployed environments run `NODE_ENV=production`.** "Development" names the
-environment, not the Node mode. A dev deployment that runs React in development
-mode, skips the production build and sets non-`Secure` cookies is not testing
-what production will do. Hostnames, database, credentials and `ENABLE_API_DOCS`
-are the whole difference.
+### Two things in that table that will cost you an afternoon
 
 **The dev `DATABASE_URL` carries neither `pgbouncer=true` nor
 `connection_limit`.** `pgbouncer=true` exists for Supabase's PgBouncer; against a
 plain Postgres it needlessly disables prepared statements. `connection_limit=5`
 is what Prisma picks on the box's two CPUs anyway — production states it only so
-nobody "fixes" it to the `=1` that serverless guides recommend, which serialises
-the whole app through one connection. Copying production's URL shape is the
-obvious mistake.
+nobody "fixes" it to the `=1` that serverless guides recommend. That value is for
+functions where every instance opens its own pool; this API is one long-running
+process, so with one connection every request queues behind every other, a
+transaction that cannot get it within two seconds fails, and account deletion
+holds it for up to two minutes. Five is well inside the pooler's limit. Copying
+production's URL shape into dev is the obvious mistake. The two production URLs
+differ in job: the app uses the pooled one (many short connections), while
+migrations and `pg_dump` use the direct one (one long connection, which the
+pooler would kill).
 
 **Four Vercel variables are build-time, and one of them does not look it.**
 `NEXT_PUBLIC_*` are inlined into the client bundle — everyone expects that. So is
@@ -347,11 +368,12 @@ you **redeploy**. `DEV_SITE_BASIC_AUTH` is the one that genuinely is runtime.
 The failure mode this guards against is `dev.kidlearn.net` quietly calling
 `api.kidlearn.net`. It looks like a CORS bug, is not one, and would have a dev
 build writing to the production database. **Check the deployed bundle, not the
-dashboard:**
+dashboard.** If the first command matches, the dev project was built with
+production's `NEXT_PUBLIC_API_URL`: fix the variable and **redeploy**.
 
 ```bash
-curl -s https://dev.kidlearn.net/_next/static/chunks/ -o /dev/null   # find a chunk
-curl -s <a deployed dev chunk URL> | grep -c 'api\.kidlearn\.net'    # must be 0
+curl -s --user 'dev:<password>' https://dev.kidlearn.net | grep -o 'api\.kidlearn\.net'      # NOTHING
+curl -s --user 'dev:<password>' https://dev.kidlearn.net | grep -o 'api\.dev\.kidlearn\.net' # matches
 ```
 
 ---
@@ -401,13 +423,10 @@ is no dry run, and Let's Encrypt's production endpoint allows 5 duplicate
 certificates per week and rate-limits failed validations. A wrong A record burns
 them without asking.
 
-First run:
+The first-run sequence is walkthrough A13. Changing endpoint later is editing that
+line and force-recreating the edge stack.
 
-1. Leave `acme_ca …acme-staging-v02…` alone. `docker compose -p kidlearn-edge -f deploy/edge/compose.yml up -d`.
-2. Confirm both hostnames answer on an untrusted (staging) certificate.
-3. Comment the line out, then
-   `docker compose -p kidlearn-edge -f deploy/edge/compose.yml up -d --force-recreate`.
-4. **Record here which endpoint the box is currently on:** `<staging | production>`.
+- Endpoint the box is currently on: `<staging | production>`
 
 **The `caddy_data` volume is load-bearing.** It holds the ACME account key and
 both certificates. Losing it on every deploy re-requests them until the rate
@@ -419,11 +438,7 @@ run `docker volume prune` on this box without checking what it would take.
 
 ## 7. The dev database
 
-A `postgres:16-alpine` container on the dev stack's internal network. **No
-published host port** — nothing outside that stack can reach it.
-
-**It is deliberately disposable and is never backed up.** That is the point of
-it: dev is where a migration gets tried against a real deploy.
+Disposable and never backed up (file 38 requirement 2).
 
 ```bash
 # THE WIPE-AND-RESEED ONE-LINER. Destroys the dev database completely.
@@ -436,10 +451,6 @@ dc down -v && dc up -d && dc --profile migrate run --rm migrate
 Then reseed — either the repository seed, or (better, and it rehearses the
 restore) the latest production `pg_dump`, per §8.
 
-The `dev-postgres` healthcheck gates the migrate job with
-`depends_on: { condition: service_healthy }`. Without it the migrate job races
-the database on first boot and fails in a way that looks like a bad migration.
-
 ---
 
 ## 8. Backups — production only ⬜ not yet done
@@ -447,8 +458,7 @@ the database on first boot and fails in a way that looks like a bad migration.
 Supabase's free tier has **no point-in-time recovery**, so this is yours to own.
 
 `deploy/backup.sh` runs `pg_dump` against production's `DIRECT_URL`, gzips it,
-and streams it to a private S3 bucket with versioning on and a lifecycle rule
-expiring objects after 30 days. It reads both `DIRECT_URL` and
+and streams it to the backup bucket (settings: walkthrough A4). It reads both `DIRECT_URL` and
 `BACKUP_S3_BUCKET` from SSM, dumps through the `postgres:<major>-alpine` image
 matching the server's major version — asked of the server on every run, because
 `pg_dump` refuses a server newer than itself and Supabase upgrades projects in
@@ -492,9 +502,7 @@ installs `cronie` and enables `crond` for exactly this. If the box was built
 before that was added, `dnf install -y cronie && systemctl enable --now crond`
 first, or nothing in this section or §9 has ever run.
 
-**Restore it once, into the dev Postgres container, before declaring this done.**
-An unrehearsed backup is a guess — and it is also the fastest way to get
-realistic data into dev.
+**Restore it once into the dev Postgres container** (file 38 requirement 16).
 
 ```bash
 aws s3 cp s3://<backup-bucket>/<object> - | gunzip \
@@ -521,8 +529,8 @@ writing a date on the rehearsal line.
 
 ## 9. Scheduled jobs — production only ⬜ not yet done
 
-File 30's weekly report job, moved off cron-job.org onto the box. One fewer
-external account, and the secret stays in SSM.
+The weekly parent-report job (`POST /api/admin/jobs/weekly-reports`, bearer
+`CRON_SECRET`) is triggered from the box (file 38 requirement 17).
 
 `sudo crontab -e`:
 
@@ -556,13 +564,8 @@ backlog — expect it to take longer than later runs.
 
 ## 10. Vercel — two Hobby projects ⬜ not yet done
 
-One project tracks `main` and serves `kidlearn.net` + `www`; one tracks `dev` and
-serves `dev.kidlearn.net`. Each sets its own production branch so neither builds
-the other's commits.
-
-Two projects rather than one with a branch-scoped domain: per-project variables
-cannot be selected by the wrong scope, and branch domains are a plan-tier feature
-this design would rather not depend on.
+Each project sets its own production branch (the §1 table) so neither builds the
+other's commits.
 
 **Settings, both projects:**
 
@@ -605,9 +608,8 @@ already lists it in `transpilePackages`. `packages/db` is not a dependency of
 **Trigger:** either Hobby condition in §10 — a commercial trigger, or a paused
 project on a ceiling. Running this is a response to a trigger, not routine work.
 
-`apps/web/Dockerfile` and `output: "standalone"` stay in the repository even
-though nothing deploys them, and CI builds the image on every run so it cannot
-rot. Expect about thirty minutes.
+Expect about thirty minutes (file 38 requirement 5 explains why the image is kept
+buildable).
 
 1. **Resize the box to `t4g.medium` first.** Two Next.js servers do not fit in
    2 GiB. This is a stop, change instance type, start — the Elastic IP survives it.
@@ -643,48 +645,28 @@ rot. Expect about thirty minutes.
 | Supabase free: PITR | **none** — see §8 | 2026-09-06 |
 | Let's Encrypt | 5 duplicate certificates per week | — |
 | SSM Parameter Store Standard | 10,000 parameters, free — this uses ~35 | — |
-| AWS Budgets alarm | **$20/month**, 80% actual + 100% forecast | ⬜ not yet created |
+| AWS Budgets alarm | **$20/month** — thresholds in walkthrough A1 | ⬜ not yet created |
 | API flood guard | **300 requests/min per client IP** on `/api/*` — a `429 RATE_LIMITED`. Raise `API_RATE_LIMIT_PER_MINUTE` if a school or shared network trips it | 2026-10-05 |
 | API JSON body | **100 KB** — a `413`. An editor sends one activity or question at a time | 2026-10-05 |
 
-`t4g` instances default to **unlimited** CPU-credit mode, which silently bills
-surplus credits rather than throttling. That is the right default for a live
-site, but only with the budget alarm behind it.
-
-Steady state is ≈ $13.75/month: EC2 `t4g.small` $8.18, the public IPv4 address
-$3.65 (charged since 2024-02-01 even when attached), 20 GB gp3 ~$1.70, ECR $0.10,
-S3 backups ~$0.10. Cloudflare, Vercel Hobby, Supabase free, Cloudinary free and
-the Gemini free tier are $0.
+Cost and sizing are file 38's "Costs, at steady state".
 
 ---
 
-## 13. Google OAuth — two clients, not one
+## 13. Google OAuth — the two clients
 
 | Client | Authorized JavaScript origins | Authorized redirect URIs |
 |---|---|---|
 | existing (local + dev) | `http://localhost:3000`, `https://dev.kidlearn.net` | `http://localhost:4000/api/auth/callback/google`, `https://api.dev.kidlearn.net/api/auth/callback/google` |
 | new (production) | `https://kidlearn.net` | `https://api.kidlearn.net/api/auth/callback/google` |
 
-One client with four entries would work and is worse: the production client
-secret would then be sitting in a dev environment that is deliberately less
-locked down.
-
-**The session cookie stays `SameSite=Lax`.** `kidlearn.net` and
-`api.kidlearn.net` are different origins but the **same site** — one registrable
-domain — which is exactly what `Lax` permits on a `credentials: "include"` fetch.
-`src/config/auth.ts` is already correct; **do not add a `SameSite=None`
-override.** That is what keeps Safari's cross-site tracking prevention out of the
-question of whether a parent stays signed in.
-
-**No basic auth on `api.dev.kidlearn.net`.** The OAuth callback lands on the API
-host and a prompt mid-redirect breaks the flow. After the callback better-auth
-redirects to `https://dev.kidlearn.net/parent` — a top-level navigation into the
-gate, which the browser satisfies from the credential it already cached for that
-origin, so the round trip is silent.
+Why two clients, why the cookie stays `SameSite=Lax`, and why there is no basic auth
+on `api.dev.kidlearn.net`: file 38 requirements 14, 4 and the Goal.
 
 **Dev basic-auth credential:** stored as `DEV_SITE_BASIC_AUTH` in the dev Vercel
 project's settings. That is its only home — it is deliberately not duplicated
-into SSM, which would give two places to forget to rotate.
+into SSM, which would give two places to forget to rotate. It is the one
+frontend value worth protecting; Vercel stores it encrypted.
 
 ---
 
@@ -700,6 +682,9 @@ Run on a real phone, against production, after any deploy you are unsure about.
 4. A seeded lesson plays through all five steps, with audio.
 5. The parent dashboard shows the learning time just spent.
 6. `/admin/ai-queue` loads for the admin user and lists and filters jobs.
+7. **Reload the page — you are still signed in.** This is the step that proves
+   the proxy and cookie settings are right; if you are logged out on reload,
+   investigate that first.
 
 Plus, from anywhere:
 
@@ -711,73 +696,3 @@ curl -si https://dev.kidlearn.net | head -1      # 401
 curl -si https://api.dev.kidlearn.net/health     # 200, X-Robots-Tag: noindex
 nmap <elastic-ip>                                # only 80 and 443 open
 ```
-
----
-
-## 15. First-time provisioning order ⬜ not yet done
-
-**`document/deployment-walkthrough.md` is this list with the commands filled in.**
-Follow that; this is the summary to check yourself against.
-
-Production first, completely, then dev — so a half-finished dev environment can
-never be the reason production is not up. Within production, the API comes up
-before the frontend, so the first thing the Vercel deployment does is talk to
-something that already works.
-
-1. AWS account, **$20 budget alarm**, region `ap-south-1`.
-2. Production Supabase project in `ap-south-1`; `prisma migrate deploy` against
-   `DIRECT_URL`, then seed, then `seed:admin` — all from your own machine.
-3. Production Cloudinary cloud.
-4. `/kidlearn/prod/` SSM parameters, including `BACKUP_S3_BUCKET`, plus the
-   backup bucket itself: private, versioning on, a 30-day expiry lifecycle rule.
-5. Two ECR repositories (`kidlearn-api`, `kidlearn-migrate`) with
-   "keep the last 10 tagged images" lifecycle policies. Both images are
-   environment-agnostic, so a blanket policy is correct — there are no
-   environment-specific tags to evict each other.
-6. Build and push `kidlearn-api:<sha>` and `kidlearn-migrate:<sha>`.
-7. EC2 `t4g.small`, Elastic IP, security group (**443/tcp, 443/udp, 80/tcp from
-   `0.0.0.0/0`; no port 22 rule**), instance role, `deploy/bootstrap.sh` as
-   user-data. Prove `aws ssm start-session` works before anything depends on it.
-   Then put the repository's `deploy/` tree on the box — `bootstrap.sh` creates
-   the directory but deliberately pulls nothing, so this is a copy you make:
-
-   ```bash
-   # from the repository root, on your own machine
-   tar cz deploy | aws ssm start-session --target <instance-id> \
-     --document-name AWS-StartInteractiveCommand \
-     --parameters 'command=["sudo tar xz -C /opt/kidlearn --strip-components=1"]'
-   # or simply: clone the repo on the box and copy deploy/ into /opt/kidlearn/deploy
-   ```
-
-   `deploy.sh`, `backup.sh` and `weekly-reports.sh` must be executable, and
-   `app/compose.yml`, `app/compose.dev.yml` must land in
-   `/opt/kidlearn/deploy/app/`. Re-copy it whenever any of them changes — the box
-   has no other way to hear about it until file 38a.
-8. Cloudflare zone, nameserver delegation, the two `api` A records.
-9. Edge stack against **ACME staging**, then the production API stack; confirm
-   `https://api.kidlearn.net/health`; switch to production ACME.
-10. Production Vercel project; `kidlearn.net` and `www`; region `bom1`.
-11. Production Google OAuth client. **Confirm the session survives a reload**,
-    and that the cookie is `Secure; HttpOnly; SameSite=Lax`.
-12. Backup and weekly-report crons (§8, §9). Confirm `systemctl is-active crond`
-    first — `bootstrap.sh` installs it, and without it both entries are inert.
-    Run `backup.sh` once by hand and check the object size in S3.
-13. **Production smoke test — checkpoint, production is live.**
-14. Dev Gemini key and Cloudinary cloud; `/kidlearn/dev/` parameters including
-    `POSTGRES_PASSWORD`.
-15. Dev API stack with the Postgres overlay; migrate; **restore the production
-    dump into it**, which also rehearses the restore.
-16. Extend the Caddyfile with `api.dev.kidlearn.net`.
-17. Dev Vercel project with `DEV_SITE_BASIC_AUTH` and `SITE_NOINDEX`.
-18. Dev entries on the existing OAuth client.
-19. Dev smoke test.
-20. Fill in every `<placeholder>` in this file and delete the ⬜ markers.
-
-**IAM, for reference.** The instance role needs
-`AmazonSSMManagedInstanceCore`, ECR pull (`ecr:GetAuthorizationToken`,
-`ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`), `ssm:GetParametersByPath` on
-`/kidlearn/prod/*` and `/kidlearn/dev/*` with `kms:Decrypt` on their key, and
-`s3:PutObject` and `s3:GetObject` on the backup bucket, plus `s3:DeleteObject` on
-`prod/.partial/*` only (`backup.sh` promotes with `s3 mv`, which deletes its
-source). Nothing wider. The GitHub OIDC roles
-are file 38a's. Vercel needs no AWS credential at all.

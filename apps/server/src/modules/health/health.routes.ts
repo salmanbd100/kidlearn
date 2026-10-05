@@ -3,10 +3,8 @@ import { prisma } from "../../config/prisma.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 
 /**
- * Root-mounted probes. `/health` is liveness and deliberately free of database
- * access (NFR-PERF-04): free-tier hosts poll it to keep the instance warm, so it
- * must stay cheap and must not fail when the database is asleep. `/ready` is the
- * opposite probe, for the deploy gate: it fails when the database cannot answer.
+ * `/health` is liveness and must not touch the database (NFR-PERF-04): free-tier hosts poll it to stay warm.
+ * `/ready` is the deploy gate and fails when the database cannot answer.
  */
 export const healthRouter = Router();
 

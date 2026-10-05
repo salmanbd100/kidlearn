@@ -5,8 +5,6 @@ import { Button, Label, Select } from "@kidlearn/ui";
 import Image from "next/image";
 import { useMediaPages } from "@/features/admin/use-media-pages";
 
-// Choose an asset from the media library, never type a URL (FR-CMS-02).
-
 export interface MediaPickerProps {
   id: string;
   label: string;
@@ -63,10 +61,7 @@ export function MediaPicker({
         ))}
       </Select>
 
-      {/* A URL the author has chosen but the library no longer offers — an asset
-          filtered out by a locale change, or one deleted behind their back. Shown
-          rather than silently cleared, because clearing a field an author filled
-          in is worse than telling them it no longer resolves. */}
+      {/* A chosen URL the library no longer offers is shown, not silently cleared. */}
       {value !== "" && selected === undefined && status === "ready" ? (
         <p className="text-muted-foreground text-xs">
           {hasMore
@@ -106,14 +101,12 @@ export function MediaPicker({
   );
 }
 
-/** The tail of the delivery URL, which is the filename an author uploaded. */
 function assetLabel(asset: MediaAsset): string {
   const filename = asset.url.split("/").pop() ?? asset.url;
   const uploaded = new Date(asset.createdAt).toLocaleDateString("en-GB");
   return `${filename} — ${uploaded}`;
 }
 
-/** Playable or viewable inline, per kind. */
 function AssetPreview({ asset }: { asset: MediaAsset }) {
   if (asset.kind === "audio") {
     // biome-ignore lint/a11y/useMediaCaption: an admin preview of a narration clip has no caption track to offer — the clip *is* the caption of the text beside it.
@@ -132,8 +125,7 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
   }
   return (
     <Image
-      // Decorative: the filename beside it names the asset, and its real
-      // alternative text is authored on whatever payload uses it.
+      // Decorative: the filename beside it names the asset.
       alt=""
       src={asset.url}
       width={160}

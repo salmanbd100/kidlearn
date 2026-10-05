@@ -1,28 +1,10 @@
 /**
- * The human gate (file 37, FR-AI-07, FR-AI-08, FR-CMS-05..06).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One array per table, and every write lands in
- *     it. Each assertion reads back the row the service moved rather than a value
- *     queued in advance, which is what makes "the lesson is now `published` and
- *     the quiz went with it" a claim about behaviour rather than about a mock.
- *  2. *Assert the query, not just the result.* The central claims here are about
- *     status, so they are read off the stored rows — and the negative one, that a
- *     rejected job leaves nothing at `published`, is asserted over the whole
- *     store rather than over the return value.
- *  3. *`where` clauses are not the whole guard.* Not applicable directly: nothing
- *     here reads student-facing content. That a `rejected` row cannot reach a
- *     child is a property of the student API's filter, asserted in
- *     `modules/content/content.routes.test.ts` and `modules/content/stories.routes.test.ts`; what this file
- *     proves is that the row lands on `rejected` in the first place.
- *  4. *Name what the stub cannot prove.* Two things. Atomicity is Postgres's:
- *     the stub runs the `$transaction` callback directly and rethrows, so a
- *     failure mid-chain is asserted as "the job was not decided" rather than as a
- *     rollback. And Serializable isolation is asserted against the options passed
- *     to `$transaction`, matching `children.routes.test.ts`, rather than by racing two
- *     callers.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`; the four bounds:
+ *  1. Stub state: one array per table, every write lands in it, assertions read the rows back.
+ *  2. Status claims are read off the stored rows; "rejected leaves nothing published" is asserted over the whole store.
+ *  3. Student-facing filtering is asserted in `content.routes.test.ts` and `stories.routes.test.ts`; here only that the row lands on `rejected`.
+ *  4. Atomicity is Postgres's: the stub runs the `$transaction` callback directly, so a mid-chain failure is asserted
+ *     as "job not decided", and Serializable isolation against the options passed to `$transaction`.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,13 +25,11 @@ const store = vi.hoisted(() => ({
   storyPageTranslations: [] as Row[],
   quizQuestionTranslations: [] as Row[],
   storyPages: [] as Row[],
-  /** Every `$transaction` option object, so the isolation level is checkable. */
   transactions: [] as unknown[],
 }));
 
 vi.mock("../../../../config/prisma.js", () => {
-  // `{ id: { in: [...] } }` and `{ aiJobId: { not: null } }` are the two Prisma
-  // filter objects file 37 uses; everything else in these suites is equality.
+  // Only `{ id: { in } }` and `{ aiJobId: { not: null } }` are non-equality filters.
   function matches(row: Row, where: Record<string, unknown>): boolean {
     return Object.entries(where).every(([key, value]) => {
       if (
@@ -108,12 +88,7 @@ vi.mock("../../../../config/prisma.js", () => {
     };
   }
 
-  /**
-   * The three translation tables address rows by a compound unique key, which
-   * the generic `matches` above cannot express — so they get their own lookup
-   * that unpacks it. This is exactly the `(targetId, locale)` pair file 36
-   * records and file 37 writes against.
-   */
+  /** Translation tables use a compound unique key the generic `matches` cannot express. */
   function translationTable(rows: () => Row[], parentKey: string) {
     const find = (where: Record<string, unknown>) => {
       const compound = Object.values(where)[0] as Record<string, unknown>;
@@ -170,11 +145,8 @@ vi.mock("../../../../config/prisma.js", () => {
     mediaAsset: table(() => store.mediaAssets),
     quizQuestion: {
       ...table(() => store.questions),
-      // `linkedContentRows` selects the parent quiz through the relation, which
-      // the generic table cannot resolve — the join is done here instead. The
-      // projection is built from `select` rather than assumed, because the three
-      // callers ask for three different shapes and `readQuizAiJobIds` also asks
-      // for `distinct`.
+      // The generic table cannot resolve the parent-quiz relation; the projection is built from `select`
+      // because callers ask for different shapes (and `readQuizAiJobIds` for `distinct`).
       findMany: async ({
         where = {},
         select,
@@ -248,7 +220,6 @@ const { approveJob, recordEditDecision, rejectJob } = await import(
 
 const REVIEWER = "admin-1";
 
-/** Awaits a call expected to throw and hands back the `ApiError`. */
 async function expectRejection(work: Promise<unknown>): Promise<ApiError> {
   try {
     await work;
@@ -389,8 +360,7 @@ describe("approveJob", () => {
   });
 
   it("stamps the reviewer on the lesson's own audit column", async () => {
-    // `Lesson` is the only linked table carrying `updatedBy` (file 32); the
-    // others record this decision through the job's `reviewerId` instead.
+    // `Lesson` is the only linked table with `updatedBy`; the others use the job's `reviewerId`.
     const jobId = seedLessonJob();
 
     await approveJob(jobId, REVIEWER);
@@ -399,8 +369,7 @@ describe("approveJob", () => {
   });
 
   it("preserves an edit_then_approve decision rather than overwriting it", async () => {
-    // The only record that the words which went live are not the words the model
-    // wrote. Overwriting it to "approve" loses that permanently (FR-AI-08).
+    // Only record that the live words differ from the model's; overwriting it to "approve" loses that (FR-AI-08).
     const jobId = seedLessonJob({ decision: "edit_then_approve" });
 
     await approveJob(jobId, REVIEWER);
@@ -411,9 +380,7 @@ describe("approveJob", () => {
   });
 
   it("publishes the parent quiz of generated questions even when the quiz predates the job", async () => {
-    // A quiz generated against a lesson that already had one stamps `aiJobId` on
-    // the questions only. A question has no status, so approving it means
-    // publishing the quiz it belongs to — or the questions go live invisibly.
+    // Quiz questions have no status, so approving them means publishing their quiz, or they go live invisibly.
     store.jobs.push({
       id: "job-quiz",
       type: "quiz",
@@ -502,10 +469,8 @@ describe("approveJob", () => {
   });
 
   it("returns a payload with no blockers, so the screen shows a success and not a warning", async () => {
-    // `finish` rebuilds the detail *after* the decision lands, so a blocker
-    // computed from "this job is not awaiting review" would come back on every
-    // successful approval — and the review screen renders those as a `role="alert"`
-    // "This cannot be approved yet" box, directly beneath its own success notice.
+    // `finish` rebuilds the detail after the decision, so a blocker computed from "not awaiting review"
+    // would show "cannot be approved yet" beneath the success notice.
     const jobId = seedLessonJob();
 
     const result = await approveJob(jobId, REVIEWER);
@@ -515,9 +480,7 @@ describe("approveJob", () => {
   });
 
   it("runs at Serializable isolation", async () => {
-    // Two admins deciding the same job at once must not both read
-    // `awaiting_review`. The stub cannot race them, so the guarantee is asserted
-    // against the level requested — same approach as `children.routes.test.ts`.
+    // The stub cannot race two admins; assert the isolation level requested instead.
     await approveJob(seedLessonJob(), REVIEWER);
 
     expect(store.transactions[0]).toMatchObject({
@@ -526,9 +489,7 @@ describe("approveJob", () => {
   });
 
   it("attaches an audio job's asset to the foreign key the generation recorded", async () => {
-    // This is what "publish" means for a media job: the clip has no status and no
-    // student query of its own, so writing the key is the moment it becomes
-    // reachable — and only through its published parent (FR-CMS-05).
+    // For a media job "publish" means writing the key; the clip is reachable only via its published parent (FR-CMS-05).
     const jobId = seedNarrationJob();
 
     const result = await approveJob(jobId, REVIEWER);
@@ -538,8 +499,7 @@ describe("approveJob", () => {
   });
 
   it("creates the quiz question translation row when the clip's target has none", async () => {
-    // A `QuizQuestionTranslation` exists only once a question gains audio, so the
-    // attachment upserts rather than updating an id that may not be there.
+    // A `QuizQuestionTranslation` exists only once a question gains audio, hence upsert.
     store.jobs.push({
       id: "job-quiz-audio",
       type: "audio",
@@ -584,8 +544,7 @@ describe("rejectJob", () => {
   const REASON = "The Bangla script reads as a translation, not as speech.";
 
   it("walks every linked row to rejected through in_review", async () => {
-    // The matrix has no `draft → rejected` edge, so the chain goes through
-    // review. Both hops are real transitions.
+    // No `draft → rejected` edge, so the chain goes through review.
     const jobId = seedLessonJob();
 
     const result = await rejectJob(jobId, REVIEWER, REASON);
@@ -613,8 +572,6 @@ describe("rejectJob", () => {
   });
 
   it("keeps rawOutput, so a rejected generation stays diagnosable", async () => {
-    // FR-AI-08: a rejection is the case where knowing exactly what the model was
-    // asked and exactly what it said matters most.
     const jobId = seedLessonJob();
 
     await rejectJob(jobId, REVIEWER, REASON);
@@ -634,8 +591,7 @@ describe("rejectJob", () => {
   });
 
   it("attaches no media", async () => {
-    // A rejected clip must stay unreachable: nothing points at it, which is the
-    // only thing keeping it out of a lesson a child plays.
+    // Nothing points at a rejected clip, which keeps it out of lessons a child plays.
     const jobId = seedNarrationJob();
 
     const result = await rejectJob(jobId, REVIEWER, REASON);
@@ -653,9 +609,8 @@ describe("rejectJob", () => {
   });
 
   it("rejects a row somebody published by hand, routing it round through draft", async () => {
-    // The matrix has no `published → in_review` edge. A fixed two-hop chain threw
-    // `INVALID_TRANSITION` here and rolled the whole rejection back, so the job
-    // whose content was actually live was the one job that could not be rejected.
+    // No `published → in_review` edge: a fixed two-hop chain threw `INVALID_TRANSITION` and rolled back,
+    // so a job whose content was live could not be rejected.
     const jobId = seedLessonJob({
       lessonStatus: "published",
       quizStatus: "approved",
@@ -705,9 +660,7 @@ describe("recordEditDecision", () => {
   });
 
   it("leaves reviewedAt unset, because an edit is not a decision", async () => {
-    // The job is still `awaiting_review` and still unpublishable. Stamping the
-    // decision timestamp made the queue read "Edited by a reviewer, then approved
-    // · 2 minutes ago" on a job nobody had approved.
+    // Still `awaiting_review` and unpublishable; stamping the decision time showed "approved" for an unapproved job.
     const jobId = seedLessonJob();
 
     await recordEditDecision(jobId, REVIEWER);
@@ -717,8 +670,7 @@ describe("recordEditDecision", () => {
   });
 
   it("does not publish anything on its own", async () => {
-    // The decision alone is not a gate opener: `assertAiPublishable` also
-    // requires the job to *be* approved, which only `approveJob` writes.
+    // `assertAiPublishable` also requires the job to be approved, which only `approveJob` writes.
     const jobId = seedLessonJob();
 
     await recordEditDecision(jobId, REVIEWER);
@@ -728,9 +680,7 @@ describe("recordEditDecision", () => {
   });
 
   it("is a no-op on a job somebody has already decided", async () => {
-    // The `jobId` is a breadcrumb the queue put in a URL; the save it rides on is
-    // real work. Losing the save to a colleague's concurrent decision would be
-    // the wrong trade, and the leniency weakens nothing.
+    // `jobId` is only a breadcrumb; losing the save to a concurrent decision would be the wrong trade.
     const jobId = seedLessonJob({ jobStatus: "rejected", decision: "reject" });
 
     await recordEditDecision(jobId, REVIEWER);
@@ -758,8 +708,7 @@ describe("listJobs", () => {
   });
 
   it("labels a narration job with the words its clip reads", async () => {
-    // A media job creates no content row, so there is no title to borrow — and a
-    // queue of five unlabelled "audio" rows is a queue nobody can triage.
+    // A media job has no content row to borrow a title from.
     seedNarrationJob();
 
     const result = await listJobs({
@@ -804,8 +753,7 @@ describe("getJob", () => {
   });
 
   it("reports the same blockers the approval would refuse on", async () => {
-    // One function, two consumers: the button this list disables and the `409`
-    // the endpoint returns cannot disagree about why.
+    // The disabled button and the `409` must agree about why.
     const jobId = seedLessonJob({
       questionDefinition: {
         type: "mcq",

@@ -1,7 +1,4 @@
-/**
- * Quiz question payload schemas (FR-QUIZ-07) — the single source of truth for
- * the JSONB stored in `QuizQuestion.definition`.
- */
+/** Quiz question payload schemas (FR-QUIZ-07) — source of truth for `QuizQuestion.definition` JSONB. */
 import { z } from "zod";
 import {
   ImageAssetRefSchema,
@@ -16,11 +13,7 @@ import {
   addSingleBlankTokenIssues,
 } from "../refinements.js";
 
-/**
- * The `satisfies` clause is the drift guard: an entry here that no union member
- * declares is a compile error. The reverse direction — a union member missing
- * from this list — is covered by the coverage test in `./schemas.test.ts`.
- */
+/** `satisfies` makes an entry no union member declares a compile error; the reverse is covered in `./schemas.test.ts`. */
 export const QUIZ_QUESTION_TYPES = [
   "mcq",
   "match_pair",

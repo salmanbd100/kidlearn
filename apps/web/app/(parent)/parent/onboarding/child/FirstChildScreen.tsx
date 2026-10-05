@@ -7,7 +7,6 @@ import { ChildProfileForm } from "@/features/children/ChildProfileForm";
 import { OnboardingStep } from "@/features/parent/OnboardingStep";
 import { createChild } from "@/features/parent/parent-api";
 
-/** Step three: the first child profile (FR-PROF-01..02). */
 export function FirstChildScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { refresh } = useParentSession();

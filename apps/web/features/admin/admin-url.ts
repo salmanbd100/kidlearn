@@ -1,5 +1,3 @@
-// What every `/api/admin/content/*` client shares.
-
 export const CONTENT_BASE = "/api/admin/content";
 
 export type ListOptions = { includeArchived?: boolean };

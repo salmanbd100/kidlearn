@@ -3,7 +3,6 @@
 export type AvatarArt = {
   /** Decorative — the character's name carries the meaning. */
   glyph: string;
-  /** Tailwind classes for the tile behind the glyph. */
   tileClassName: string;
 };
 
@@ -16,7 +15,6 @@ const AVATAR_ART_BY_SLUG: Record<string, AvatarArt> = {
   "ollie-the-owl": { glyph: "🦉", tileClassName: "bg-sunshine/20" },
 };
 
-/** For a character published after this map was written. */
 export const FALLBACK_AVATAR_ART: AvatarArt = {
   glyph: "⭐",
   tileClassName: "bg-muted",

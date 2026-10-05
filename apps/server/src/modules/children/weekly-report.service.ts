@@ -30,12 +30,9 @@ import { computeLearningMinutes } from "../progress/learning-time.service.js";
 import { sessionEventRetentionCutoff } from "../progress/session-event-retention.service.js";
 import { STORY_COMPLETION } from "../rewards/reward.service.js";
 
-// The weekly progress report (FR-DASH-05..06).
-
-/** Below this many first attempts an accuracy figure is about the sample, not the child. */
+// Below this many first attempts, accuracy describes the sample, not the child.
 export const QUIZ_STAR_MIN_ATTEMPTS = 10;
 
-/** The accuracy `quizStar` asks for, in whole percent. */
 export const QUIZ_STAR_MIN_ACCURACY = 90;
 
 export interface WeeklyMetricsInput {
@@ -52,16 +49,12 @@ export interface WeeklyMetricsInput {
   }[];
   badges: readonly { slug: string; name: string; earnedAt: Date }[];
   weekStart: Date;
-  /** Exclusive — the following Monday's local midnight. */
   weekEnd: Date;
   timeZone: string;
 }
 
-/**
- * Inputs are re-filtered to `[weekStart, weekEnd)` here even though the queries
- * already select that window — a fixture suite that had to pre-filter its own
- * inputs could not tell a window bug from a fixture bug.
- */
+// Re-filtered to `[weekStart, weekEnd)` even though the queries select that
+// window, so a fixture bug and a window bug stay distinguishable.
 export function computeWeeklyMetrics(
   input: WeeklyMetricsInput,
 ): WeeklyReportMetrics {
@@ -82,8 +75,7 @@ export function computeWeeklyMetrics(
   const quizResponses = inWeek(input.quizResponses, (r) => r.answeredAt);
   const badges = inWeek(input.badges, (r) => r.earnedAt);
 
-  // A *local* calendar day: a child learning at 00:30 Asia/Dhaka has started a new
-  // day even though UTC still says the evening before.
+  // A *local* calendar day: 00:30 Asia/Dhaka is already a new day though UTC says the evening before.
   const activeDays = new Set(
     eventTimestamps.map((at) => localDateIn(timeZone, at)),
   ).size;
@@ -118,11 +110,8 @@ export function computeWeeklyMetrics(
   return { ...metrics, ...selectNote(metrics) };
 }
 
-/**
- * An unrecognised prefix — or a token with no `:` — is ignored, never fatal:
- * `conceptsIntroduced` is admin-authored free text and a typo must not fail a
- * parent's report. Splits on the first colon so a value may contain one.
- */
+// An unrecognised prefix or a token with no `:` is ignored, never fatal
+// (admin-authored free text). Splits on the first colon so a value may contain one.
 function collectConcepts(
   tokens: readonly string[],
 ): Record<ConceptPrefix, string[]> {
@@ -149,11 +138,8 @@ function collectConcepts(
   };
 }
 
-/**
- * Accuracy over the *first* answer to each question. A quiz here has no fail
- * state — a child retries until they are right — so counting every attempt would
- * report 100% for everybody.
- */
+// Accuracy over the *first* answer to each question: a quiz has no fail state
+// (children retry until right), so counting every attempt would report 100%.
 function firstAttemptAccuracy(
   responses: readonly {
     questionId: string;
@@ -170,8 +156,7 @@ function firstAttemptAccuracy(
   for (const response of responses) {
     const answeredAt = response.answeredAt.getTime();
     const held = first.get(response.questionId);
-    // Strictly earlier, so two rows sharing a millisecond keep the first seen
-    // rather than flipping with the query's ordering.
+    // Strictly earlier, so rows sharing a millisecond keep the first seen, not the query's ordering.
     if (held === undefined || answeredAt < held.answeredAt) {
       first.set(response.questionId, {
         isCorrect: response.isCorrect,
@@ -193,8 +178,7 @@ function firstAttemptAccuracy(
   return {
     quizAccuracy: Math.round((100 * correct) / attempts.length),
     quizFirstAttempts: attempts.length,
-    // Stored, not left to the client to invert out of the rounded percentage: 50
-    // of 101 rounds to 50%, and 50% of 101 rounds back to 51.
+    // Stored, not inverted by the client from the rounded percentage (50 of 101 is 50%, but 50% of 101 is 51).
     quizFirstAttemptsCorrect: correct,
   };
 }
@@ -203,10 +187,7 @@ export type NoteFacts = Omit<WeeklyReportMetrics, "noteKey" | "noteParams">;
 
 export type SelectedNote = Pick<WeeklyReportMetrics, "noteKey" | "noteParams">;
 
-/**
- * The encouraging note (FR-DASH-05), as a key plus its interpolation values — not
- * a generated sentence, so the note renders in the parent's own language.
- */
+// A key plus interpolation values, not a sentence, so the note renders in the parent's language.
 export function selectNote(metrics: NoteFacts): SelectedNote {
   const {
     activeDays,
@@ -258,12 +239,7 @@ export function selectNote(metrics: NoteFacts): SelectedNote {
   return { noteKey: "gentleNudge", noteParams: { count: learningMinutes } };
 }
 
-/**
- * The English sentence stored in `WeeklyReport.note` — a fallback and a debugging
- * aid, not the copy a parent reads (the client renders from `noteKey`). Stored
- * anyway because a row whose meaning needs this year's locale files to recover is
- * not a record.
- */
+// Fallback and debugging aid stored in `WeeklyReport.note`; the client renders from `noteKey`.
 const NOTE_TEMPLATES: Record<ReportNoteKey, string> = {
   quietWeek:
     "A quiet week — no learning time recorded. A short story together is a gentle way back in.",
@@ -295,11 +271,8 @@ export function renderEnglishNote({
   );
 }
 
-/**
- * `weekStart` arrives as the UTC-midnight encoding of a date-only value, which is
- * how Prisma round-trips a `@db.Date` column. Both edges resolve as *local*
- * midnights, so the seven days measured are the seven the household lived through.
- */
+// `weekStart` is the UTC-midnight encoding of a `@db.Date`; both edges resolve as
+// *local* midnights, so the seven days measured are the household's own.
 export function weekBounds(
   weekStart: Date,
   timeZone: string,
@@ -311,11 +284,8 @@ export function weekBounds(
   };
 }
 
-/**
- * UTC midnight, so a caller passing `new Date()` is not silently floored into a
- * week they did not ask for and merged with another intent by the unique index.
- * Monday, because every other window in this product starts on one (FR-DASH-02).
- */
+// UTC midnight, so a `new Date()` is not silently floored into a week nobody
+// asked for. Monday because every window in this product starts on one.
 export function assertMondayWeekStart(weekStart: Date): string {
   const time = weekStart.getTime();
   if (Number.isNaN(time)) {
@@ -341,25 +311,19 @@ export function assertMondayWeekStart(weekStart: Date): string {
   return weekStart.toISOString().slice(0, 10);
 }
 
-/**
- * The week containing `now` is excluded: a report for a week still being lived
- * through would be replaced on every read.
- */
+// The week containing `now` is excluded: it would be replaced on every read.
 export function lastCompletedWeekStart(now: Date, timeZone: string): Date {
   const thisMonday = mondayOfLocalWeek(localDateIn(timeZone, now));
   return localDateToUtcMidnight(addLocalDays(thisMonday, -DAYS_PER_WEEK));
 }
 
-/**
- * Generates — or regenerates — one child's report for one week (FR-DASH-05).
- */
 export async function generateWeeklyReport(
   childId: string,
   weekStart: Date,
 ): Promise<void> {
   const { from, to } = weekBounds(weekStart, env.APP_TIMEZONE);
 
-  /** Status and world, no grade — see the header note. */
+  // Status and world, no grade, as in the dashboard feed.
   const visibleLesson: Prisma.LessonWhereInput = {
     ...publishedOnly,
     world: publishedRelation,
@@ -383,10 +347,9 @@ export async function generateWeeklyReport(
       },
     }),
 
-    // One row per story, not two: `grantStoryCompletion` writes a star row *and* a
-    // coin row, so filtering to the star makes this a true distinct count.
-    // `sourceId` comes back because the ledger has no relation to `Story` — only
-    // the id as text — so the published check has to be a second query.
+    // One row per story: `grantStoryCompletion` writes a star and a coin row, so
+    // filtering to the star gives a distinct count. `sourceId` is text (no relation
+    // to `Story`), so the published check is a second query.
     prisma.rewardLedger.findMany({
       where: {
         childId,
@@ -457,9 +420,8 @@ export async function generateWeeklyReport(
   });
 
   const note = renderEnglishNote(metrics);
-  // `metrics` is a plain object of JSON scalars, arrays and records by
-  // construction (`WeeklyReportMetricsSchema`), which Prisma's `InputJsonValue`
-  // cannot infer from a named interface — hence the widening, not a shape change.
+  // `metrics` is JSON scalars/arrays/records by construction, which Prisma's
+  // `InputJsonValue` cannot infer from a named interface.
   const stored = metrics as unknown as Prisma.InputJsonObject;
 
   await prisma.weeklyReport.upsert({
@@ -469,11 +431,8 @@ export async function generateWeeklyReport(
   });
 }
 
-/**
- * The ledger row is never dropped — the child earned those stars — but a story
- * pulled from the catalogue is unreviewed content, and `storiesCompleted` is a
- * figure about it. A second query rather than a `where`: `sourceId` is text.
- */
+// The ledger row stays (the stars were earned), but a pulled story is unreviewed
+// content, so it is not counted. A second query: `sourceId` is text.
 async function visibleStoryIds(
   rows: readonly { sourceId: string | null }[],
 ): Promise<Set<string>> {
@@ -490,22 +449,16 @@ async function visibleStoryIds(
   return new Set(published.map((story) => story.id));
 }
 
-/**
- * Without this the lazy fill aggregates weeks that ended before the child existed
- * and stores the truthful-but-absurd result — `activeDays: 0`, note `quietWeek` —
- * as the first thing a parent sees about a profile made yesterday.
- */
+// Without this the lazy fill stores `activeDays: 0` / `quietWeek` for weeks that
+// ended before the child existed.
 function firstReportableWeek(createdAt: Date, timeZone: string): Date {
   return localDateToUtcMidnight(
     mondayOfLocalWeek(localDateIn(timeZone, createdAt)),
   );
 }
 
-/**
- * The oldest week whose events are all still kept. A missing week before it is
- * left missing: its minutes were pruned, and a report written now would tell
- * the parent the child did not play.
- */
+// The oldest week whose events are all still kept; a missing week before it
+// stays missing, since pruned minutes would read as "did not play".
 export function oldestRetainedWeek(now: Date, timeZone: string): Date {
   const cutoff = sessionEventRetentionCutoff(now);
   const week = localDateToUtcMidnight(
@@ -519,10 +472,7 @@ export function oldestRetainedWeek(now: Date, timeZone: string): Date {
   );
 }
 
-/**
- * Every report this child has, newest first, generating last week's if missing
- * (FR-DASH-06). The lazy fill is one week only — see the header.
- */
+// Newest first, generating last week's if missing (FR-DASH-06); the lazy fill is one week only.
 export async function getWeeklyReports(child: {
   id: string;
   createdAt: Date;
@@ -552,11 +502,8 @@ export async function getWeeklyReports(child: {
   return { reports: rows.flatMap((row) => toWeeklyReport(row) ?? []) };
 }
 
-/**
- * `metrics` is a `Json` column, so reading it is a genuine external boundary even
- * though this service is its only writer: a shape change shipped without migrating
- * stored blobs would reach a parent's screen as `undefined` percentages.
- */
+// `metrics` is a `Json` column: a shape change shipped without migrating stored
+// blobs would reach a parent's screen as `undefined` percentages.
 function toWeeklyReport(row: {
   weekStart: Date;
   metrics: Prisma.JsonValue;
@@ -582,11 +529,8 @@ function toWeeklyReport(row: {
   };
 }
 
-/**
- * `lastWeek` itself is excluded: the caller regenerates it unconditionally, so
- * offering it here would spend the run's one backfill on a week about to be
- * written anyway.
- */
+// `lastWeek` is excluded: the caller regenerates it unconditionally, so offering
+// it would waste the run's one backfill.
 function oldestMissingWeek(
   firstWeek: Date,
   lastWeek: Date,
@@ -605,13 +549,8 @@ function oldestMissingWeek(
   return undefined;
 }
 
-/**
- * Brings every child's history up to date — what the cron job runs. Two weeks per
- * child at most: the last completed week always (the upsert is idempotent, and a
- * week that already has a row may still be missing a late event), plus the oldest
- * week still missing, so a single missed Monday does not leave a permanent hole —
- * as long as it is filled inside the event retention window.
- */
+// Cron entry point. At most two weeks per child: the last completed week always
+// (late events may still arrive), plus the oldest missing one within event retention.
 export async function generateLastCompletedWeekForAllChildren(): Promise<
   Omit<WeeklyReportJobResult, "sessionEventsPruned">
 > {

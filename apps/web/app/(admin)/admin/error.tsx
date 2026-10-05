@@ -3,10 +3,7 @@
 import { Button } from "@kidlearn/ui";
 import { useEffect } from "react";
 
-/**
- * A render-time throw inside a CMS screen. Sits inside the admin shell, so the
- * rail survives and the reviewer can move to another section.
- */
+/** Sits inside the admin shell, so the rail survives a render throw. */
 export default function AdminError({
   error,
   reset,

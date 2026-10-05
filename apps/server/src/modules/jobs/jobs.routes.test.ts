@@ -1,15 +1,7 @@
 /**
- * `POST /api/admin/jobs/weekly-reports` — the cron trigger (file 30).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. Rule 1 (stub state, not answers) is what makes the
- * idempotency assertion real: `store.reports` is a table and the stubbed `upsert`
- * matches on `(childId, weekStart)`, so "safe to re-run" is a row count rather than
- * a mock told to return the same thing twice. Rule 4's half of the same guarantee —
- * the unique index itself — is asserted in `reports.routes.test.ts`.
- *
- * There is no session anywhere in this file, deliberately: the whole point of the
- * endpoint is that its caller has none.
+ * Stubs `config/prisma.js` under the stub exception in `general.md §5`. Rule 1 makes idempotency real: `store.reports` is a table
+ * and the stubbed `upsert` matches on `(childId, weekStart)`; the unique index itself is asserted in `reports.routes.test.ts`.
+ * No session anywhere, deliberately: the endpoint's caller has none.
  */
 import { WeeklyReportJobResponseSchema } from "@kidlearn/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,11 +20,7 @@ const LAST_WEEK = "2026-08-10T00:00:00.000Z";
 const WEEK_BEFORE = "2026-08-03T00:00:00.000Z";
 const THREE_WEEKS_BACK = "2026-07-27T00:00:00.000Z";
 
-/**
- * Created inside the last completed week, so `firstReportableWeek` and the week the
- * job regenerates are the same one and there is no older gap to backfill. The
- * backfill tests below opt into an older profile explicitly.
- */
+/** Created in the last completed week so there is no older gap to backfill; the backfill tests opt into an older profile. */
 const CREATED_LAST_WEEK = new Date("2026-08-10T05:00:00.000Z");
 
 type ReportRow = {
@@ -61,8 +49,7 @@ const db = vi.hoisted(() => ({
   ledgerFindMany: vi.fn(),
   quizResponseFindMany: vi.fn(),
   storyFindMany: vi.fn(),
-  // Present so an accidental read of one of these fails loudly rather than
-  // silently returning undefined: a job must never grow a per-child read.
+  // A per-child read must fail loudly, not return undefined: a job must never grow one.
   parentFindUnique: vi.fn(),
 }));
 
@@ -206,8 +193,7 @@ describe("POST /api/admin/jobs/weekly-reports — the secret", () => {
   });
 
   it("returns 401 for a secret with the right length but wrong bytes", async () => {
-    // The comparison is constant-time and length is compared first, so this is the
-    // case that actually exercises `timingSafeEqual` rather than the early return.
+    // Length is compared first, so this case exercises `timingSafeEqual` rather than the early return.
     const wrong = `${SECRET.slice(0, -1)}X`;
     expect(wrong).toHaveLength(SECRET.length);
 
@@ -229,15 +215,13 @@ describe("POST /api/admin/jobs/weekly-reports — the secret", () => {
       .post(PATH)
       .set("Authorization", `bearer ${SECRET}`);
 
-    // A scheduler configured with a lowercase scheme — or a proxy that normalises
-    // it — must not get a 401 indistinguishable from a wrong secret.
+    // A lowercase scheme (scheduler or proxy) must not yield a 401 indistinguishable from a wrong secret.
     expect(res.status).toBe(200);
   });
 
   it("does not accept a session cookie in place of the secret", async () => {
     const { auth } = await import("../../config/auth.js");
-    // `getSession` returns a deep better-auth type; only the fields the middleware
-    // reads are supplied, so the shape is narrowed at this boundary.
+    // Narrowed: `getSession` returns a deep better-auth type; only the fields the middleware reads are supplied.
     vi.spyOn(auth.api, "getSession").mockResolvedValue({
       user: { id: "user_1", email: "parent@example.com" },
       session: { id: "session_1", userId: "user_1" },
@@ -245,8 +229,7 @@ describe("POST /api/admin/jobs/weekly-reports — the secret", () => {
 
     const res = await request(app).post(PATH);
 
-    // A signed-in parent is not an authorised scheduler. The two credentials are
-    // separate schemes in the document for exactly this reason.
+    // A signed-in parent is not an authorised scheduler; the credentials are separate schemes.
     expect(res.status).toBe(401);
   });
 });
@@ -278,8 +261,7 @@ describe("POST /api/admin/jobs/weekly-reports — generation", () => {
       .post(PATH)
       .set("Authorization", `Bearer ${SECRET}`);
 
-    // What lets a scheduler retry through a cold start without a lock or a run
-    // log (FR-DASH-06).
+    // Lets a scheduler retry through a cold start without a lock or run log (FR-DASH-06).
     expect(second.status).toBe(200);
     expect(second.body.data.childrenProcessed).toBe(2);
     expect(store.reports).toHaveLength(2);
@@ -292,8 +274,7 @@ describe("POST /api/admin/jobs/weekly-reports — generation", () => {
       .post(PATH)
       .set("Authorization", `Bearer ${SECRET}`);
 
-    // An honest zero rather than a 404: "nobody has signed up" is not a missing
-    // resource, and an operator reading a cron log needs to tell it from a failure.
+    // An honest zero, not a 404: an operator reading a cron log must tell "nobody signed up" from a failure.
     expect(res.status).toBe(200);
     assertContract(WeeklyReportJobResponseSchema, res.body, OPERATION);
     expect(res.body.data.childrenProcessed).toBe(0);
@@ -308,8 +289,7 @@ describe("POST /api/admin/jobs/weekly-reports — generation", () => {
     const weeks = db.reportUpsert.mock.calls.map((call) =>
       call[0].where.childId_weekStart.weekStart.toISOString(),
     );
-    // One run is one week. A per-child clock read could straddle midnight and
-    // write two different weeks from a single job.
+    // One run is one week: a per-child clock read could straddle midnight and write two weeks.
     expect(new Set(weeks)).toEqual(new Set([LAST_WEEK]));
   });
 
@@ -318,12 +298,10 @@ describe("POST /api/admin/jobs/weekly-reports — generation", () => {
 
     await request(app).post(PATH).set("Authorization", `Bearer ${SECRET}`);
 
-    // The credential is a static secret in a third party's config field, so there
-    // is no human for a response to be scoped to. Nothing here loads a parent.
+    // The credential is a static secret, so nothing here loads a parent.
     expect(db.parentFindUnique).not.toHaveBeenCalled();
     expect(db.childFindMany.mock.calls[0][0]).toEqual({
-      // `createdAt` decides which weeks the child may have a report for at all;
-      // still nothing about who they are.
+      // `createdAt` decides which weeks the child may have a report for.
       select: { id: true, createdAt: true },
     });
   });
@@ -338,9 +316,7 @@ describe("POST /api/admin/jobs/weekly-reports — closing older gaps", () => {
 
     await request(app).post(PATH).set("Authorization", `Bearer ${SECRET}`);
 
-    // The half that was documented and missing: recomputing only the newest week
-    // left a missed Monday unrecoverable, because the read path only fills the
-    // newest week too.
+    // Recomputing only the newest week left a missed Monday unrecoverable, as the read path also fills only the newest.
     expect(weeksWritten()).toEqual(
       ["2026-07-20T00:00:00.000Z", LAST_WEEK].sort(),
     );
@@ -392,8 +368,7 @@ describe("POST /api/admin/jobs/weekly-reports — closing older gaps", () => {
       .post(PATH)
       .set("Authorization", `Bearer ${SECRET}`);
 
-    // A profile made on Wednesday has no completed week yet, and a manufactured
-    // `quietWeek` for a week before it existed is a false record, not an empty one.
+    // No completed week yet: a manufactured `quietWeek` before the profile existed is a false record.
     expect(db.reportUpsert).not.toHaveBeenCalled();
     // Still counted as walked, so an operator can tell this from an empty database.
     expect(res.body.data.childrenProcessed).toBe(1);
@@ -410,17 +385,14 @@ describe("POST /api/admin/jobs/weekly-reports — closing older gaps", () => {
 
     await request(app).post(PATH).set("Authorization", `Bearer ${SECRET}`);
 
-    // Aborting the run would let one unaggregatable child block every later
-    // child's gap from ever closing — next Monday's retry stops in the same place.
+    // Aborting would let one unaggregatable child block every later child's gap from closing.
     expect((store.reports as ReportRow[]).map((row) => row.childId)).toEqual([
       "child_2",
     ]);
   });
 
   it("answers 500 when any child failed, so the scheduler's --fail sees it", async () => {
-    // R-08. A 200 here is what the cron script reports to the heartbeat as
-    // success — with every child failing, the week's reports would simply not
-    // exist and nobody would hear about it.
+    // A 200 is what the cron script reports as success; with every child failing, no reports would exist and nobody would hear.
     store.children = [child("child_1"), child("child_2")];
     db.sessionEventFindMany.mockImplementation(
       async ({ where }: { where: { childId: string } }) => {
@@ -446,8 +418,7 @@ describe("POST /api/admin/jobs/weekly-reports — closing older gaps", () => {
   });
 
   it("joins a run already in flight rather than starting a second pass", async () => {
-    // R-08. curl's retry after `--max-time` reaches the server while the first
-    // run is still going; without this it walked every child twice at once.
+    // curl's retry after `--max-time` reaches the server mid-run; without this it walked every child twice at once.
     store.children = [child("child_1"), child("child_2")];
     let release = () => {};
     const gate = new Promise<void>((resolve) => {
@@ -484,7 +455,6 @@ function weeksWritten(): string[] {
 }
 
 describe("POST /api/admin/jobs/weekly-reports — session event retention (R-25)", () => {
-  /** 90 days before `NOW`. */
   const CUTOFF = new Date("2026-05-21T06:00:00.000Z");
 
   function event(id: string, occurredAt: Date, childId = "child_1"): EventRow {
@@ -524,9 +494,8 @@ describe("POST /api/admin/jobs/weekly-reports — session event retention (R-25)
   });
 
   it("does not backfill a week whose events have been pruned", async () => {
-    // Created in March, with no reports at all: the oldest missing week is in
-    // March, but its minutes are gone and a report would say the child never
-    // played. The oldest week still wholly kept starts Monday 25 May.
+    // The oldest missing week is in March but its minutes are gone, so a report would say the child never played;
+    // the oldest wholly kept week starts Monday 25 May.
     store.children = [child("child_1", new Date("2026-03-02T05:00:00.000Z"))];
 
     await request(app).post(PATH).set("Authorization", `Bearer ${SECRET}`);

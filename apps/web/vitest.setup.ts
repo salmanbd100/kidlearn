@@ -2,11 +2,8 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
-// jsdom implements no layout, so it ships no ResizeObserver either. A component
-// that reflows on resize — the match board's connection lines — would throw on
-// mount without this. It deliberately never fires: there is nothing to observe in
-// an environment with no box sizes, and a test that needs a reflow drives the
-// measurement directly.
+// jsdom has no ResizeObserver; components that reflow on resize (match board lines) would throw on
+// mount. It never fires — tests that need a reflow drive the measurement directly.
 if (!("ResizeObserver" in globalThis)) {
   globalThis.ResizeObserver = class {
     observe() {}
@@ -15,7 +12,5 @@ if (!("ResizeObserver" in globalThis)) {
   };
 }
 
-// Vitest runs without `globals: true`, so React Testing Library cannot install
-// its own auto-cleanup hook. Without this, a second render() in the same file
-// finds two copies of every element.
+// Without `globals: true` RTL cannot install auto-cleanup, so a second render() would find duplicates.
 afterEach(cleanup);

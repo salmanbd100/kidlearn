@@ -10,7 +10,6 @@ import { emptyActivityDraft } from "@/features/admin/activity-draft";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { createActivity } from "@/features/admin/editors-api";
 
-/** `/admin/curriculum/activity/new` — authoring an activity from nothing. */
 export function NewActivityScreen() {
   const router = useRouter();
   const [isBusy, setIsBusy] = useState(false);

@@ -13,7 +13,6 @@ import { useTranslation } from "react-i18next";
 import { pickLabel } from "@/shared/lib/localized-label";
 import { formatAbsolute, formatRelative } from "@/shared/lib/relative-time";
 
-/** What this child has finished lately (FR-DASH-04). */
 const ACTIVITY_ICONS: Record<
   DashboardActivityType,
   ComponentType<{ className?: string; "aria-hidden"?: boolean }>
@@ -44,7 +43,6 @@ const iconVariants = cva(
 
 export interface ActivityTimelineProps {
   items: readonly DashboardActivityItem[];
-  /** The child whose feed this is — the empty state says their name. */
   childName: string;
   now: Date;
 }
@@ -64,9 +62,7 @@ export function ActivityTimeline({
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
-          {/* Lucide, not an emoji: the three feed icons below are Lucide, and an
-              emoji ignores `currentColor` and redraws itself per OS
-              (design.md §9 — never mix icon families on one surface). */}
+          {/* Lucide, not an emoji: an emoji ignores `currentColor` and redraws per OS (design.md §9). */}
           <span
             aria-hidden="true"
             className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"
@@ -93,10 +89,7 @@ export function ActivityTimeline({
                 </span>
 
                 <div className="flex min-w-0 flex-1 flex-col">
-                  {/* Wrapped to two lines, not truncated: a Bangla title gets
-                      ~180px beside the icon and the date on a 360px phone, and
-                      this is the content the parent came to read
-                      (design.md §1 — never truncate meaning). */}
+                  {/* Wrapped, not truncated: a Bangla title gets ~180px on a 360px phone (design.md §1). */}
                   <p className="line-clamp-2 font-medium text-card-foreground text-sm">
                     {pickLabel(item.title, i18n.language)}
                   </p>

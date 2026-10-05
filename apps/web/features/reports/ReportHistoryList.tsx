@@ -9,9 +9,7 @@ import { useTranslation } from "react-i18next";
 import { formatWeekRange } from "@/features/reports/week-range";
 import { formatMinutes } from "@/features/screen-time/duration";
 
-/** Every earlier week, one row each (FR-DASH-06). */
 export interface ReportHistoryListProps {
-  /** The earlier weeks, newest first. */
   reports: readonly WeeklyReport[];
   /** Path the week links hang off — `?week=` is appended to it. */
   basePath: string;
@@ -46,10 +44,7 @@ export function ReportHistoryList({
             );
             return (
               <li key={report.weekStart}>
-                {/* The label is on the link itself, which *replaces* its contents
-                    for the accessible name. On the icon it only appended to them,
-                    so the week was announced twice — the opposite of what it was
-                    there for. */}
+                {/* The label is on the link, replacing its contents for the accessible name; on the icon it appended and the week was announced twice. */}
                 <Link
                   href={`${basePath}?child=${encodeURIComponent(childId)}&week=${encodeURIComponent(report.weekStart)}`}
                   aria-label={t("reports.historyOpen", { range })}
@@ -67,9 +62,7 @@ export function ReportHistoryList({
                       {range}
                     </time>
                     <span className="text-muted-foreground text-xs">
-                      {/* `count`, not `lessons`: it is what selects i18next's
-                          plural form, and without it a one-lesson week read
-                          "1 lessons" in English. */}
+                      {/* `count` selects i18next's plural form; without it, "1 lessons". */}
                       {t("reports.historyMeta", {
                         minutes: formatMinutes(
                           report.metrics.learningMinutes,

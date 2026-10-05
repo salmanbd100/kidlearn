@@ -1,38 +1,8 @@
 /**
- * `GET /api/children/:id/dashboard` — the one read the `/parent` screen makes
- * (FR-DASH-01..04).
- *
- * The route itself lives on `modules/children/children.routes.ts`, beside the other per-child
- * reads, so this file is named for the endpoint rather than for a module of its
- * own — a deliberate exception to the `<file-under-test>.test.ts` convention in
- * `general.md §4`, not the precedent `screen-time.routes.test.ts` sets (that suite does
- * have a `modules/screen-time/screen-time.routes.ts`). `children.routes.test.ts` already covers the profile
- * CRUD on that router; folding twenty-four dashboard cases into it would bury
- * both. If a `modules/children/dashboard.routes.ts` ever appears, this name is already right.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four rules that bound it shape this suite:
- *
- *  - **Rule 1, stub state not answers.** `store` holds curriculum rows, progress
- *    rows and ledger rows, and the stubbed queries *filter* them the way Prisma
- *    would. So "a draft lesson is not in the denominator" is a real row this
- *    request could not see, not a mock told to return a smaller number.
- *  - **Rule 2, assert the query.** A stub cannot prove a draft row stayed in the
- *    database, so the `where` clauses carrying `status: "published"` — on the
- *    lesson count, the topic list, the progress join and the feed — are asserted
- *    directly.
- *  - **Rule 3, `where` is not the whole guard.** The badge title arrives through
- *    an `include`d relation, so its gate is asserted on the response body as well
- *    as on the query. The story title does *not*: it is a separate top-level
- *    `story.findMany` with a `where` of its own, and an earlier version of this
- *    file mis-filed it under this rule and asserted only the body — which let both
- *    feed guards be deleted with the suite still green, because the stubs were
- *    applying the status filter themselves. They now apply only what the query
- *    asks for; see `WhereNode`.
- *  - **Rule 4, name what the stub cannot prove.** Nothing here rests on database
- *    behaviour — no cascade, no transaction, no unique constraint. The arithmetic
- *    itself is unit-tested without any Prisma at all in
- *    `services/dashboardService.test.ts`.
+ * Stubs `config/prisma.js` under the general.md §5 stub exception. The stubs
+ * filter in-memory rows and interpret the query's `where` (see `WhereNode`), so
+ * a guard deleted from the service fails a behavioural test (rules 1-3). Nothing
+ * here rests on database behaviour (rule 4).
  */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import { DashboardSummaryResponseSchema } from "@kidlearn/types";
@@ -99,7 +69,6 @@ const store = vi.hoisted(() => ({
   ledger: [] as unknown[],
   badges: [] as unknown[],
   stories: [] as unknown[],
-  /** Presence rows the three minute figures are derived from. */
   events: [] as Date[],
 }));
 
@@ -172,8 +141,7 @@ type SignInOptions = {
 };
 
 function signInAs({ child = childProfile() }: SignInOptions = {}) {
-  // `getSession` returns a deep better-auth type; only the fields the middleware
-  // reads are supplied, so the shape is narrowed at this boundary.
+  // `getSession` returns a deep better-auth type; only the fields read are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -183,8 +151,7 @@ function signInAs({ child = childProfile() }: SignInOptions = {}) {
     },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
   db.parentFindUnique.mockResolvedValue(PARENT);
-  // `loadOwnedChild` filters on `parentId`, so another parent's child is simply
-  // not found — which is what the 404 test drives by passing `null`.
+  // Another parent's child is simply not found; the 404 test passes `null`.
   db.childFindFirst.mockResolvedValue(child);
 }
 
@@ -193,11 +160,7 @@ const PUBLISHED_NURSERY: StatusRow = {
   gradeLevels: ["NURSERY", "KG1"],
 };
 
-/**
- * `World` carries its own `status` and every lesson and story requires one, so a
- * fixture needs both kinds: the reviewed world everything hangs off by default,
- * and one pulled back for revision that a lesson or story can be moved into.
- */
+// `World` carries its own `status`: fixtures need a reviewed world and one pulled back for revision.
 const LIVE_WORLD = "world_meadow";
 const DRAFT_WORLD = "world_unreviewed";
 
@@ -273,28 +236,19 @@ function completed(lessonId: string, at: string): ProgressRow {
   return { childId: CHILD_ID, lessonId, completedAt: new Date(at) };
 }
 
-/** Seeds enough beats to make `getLearningMinutes` report `minutes` today. */
 function seedMinutes(minutes: number) {
   const start = new Date("2026-08-19T06:00:00.000Z").getTime();
-  // One beat every 30s: the density rule credits the span plus a 30s tail, so
-  // `n` beats are `n * 0.5` minutes.
+  // One beat per 30s: the density rule credits the span plus a 30s tail, so `n` beats are `n * 0.5` minutes.
   store.events = Array.from(
     { length: minutes * 2 },
     (_, index) => new Date(start + index * 30_000),
   );
 }
 
-/**
- * The subset of Prisma's `where` grammar this service sends.
- *
- * The stubs below **interpret** it rather than reimplementing the visibility rule,
- * and that is the whole point: a clause the service stops sending stops being
- * applied here, so rows the guard was keeping out start arriving and a
- * behavioural test fails. A stub that applied `status === "published"` of its own
- * accord passes whether the query asked for it or not — which is exactly how the
- * story and badge guards came to be untested while looking covered
- * (`general.md §5`, rule 2).
- */
+// The subset of Prisma's `where` grammar the service sends. The stubs interpret
+// it rather than reimplement the visibility rule: a stub applying
+// `status === "published"` on its own passes whether or not the query asked for
+// it (general.md §5, rule 2).
 type WhereNode = {
   status?: string;
   gradeLevels?: { has: string };
@@ -315,7 +269,6 @@ function worldsById(): Map<string, WorldRow> {
   return new Map((store.worlds as WorldRow[]).map((row) => [row.id, row]));
 }
 
-/** `status` and `gradeLevels`, applied only where the query asked for them. */
 function matchesStatus(
   row: { status: string; gradeLevels?: string[] },
   node: WhereNode,
@@ -327,7 +280,6 @@ function matchesStatus(
   return true;
 }
 
-/** The `world: { is: … }` relation filter — absent from the node means unasked. */
 function matchesWorld(worldId: string, node: WhereNode): boolean {
   if (node.world === undefined) return true;
   const world = worldsById().get(worldId);
@@ -369,8 +321,7 @@ beforeEach(() => {
   for (const fn of Object.values(db)) fn.mockReset();
 
   vi.useFakeTimers({ toFake: ["Date"] });
-  // Midday in Asia/Dhaka (UTC+6), so `today`, `week` and `month` all contain the
-  // seeded beats without a boundary case in the way.
+  // Midday in Asia/Dhaka (UTC+6): `today`, `week` and `month` all contain the seeded beats.
   vi.setSystemTime(new Date("2026-08-19T06:00:00.000Z"));
 
   db.sessionEventFindMany.mockImplementation(
@@ -410,9 +361,7 @@ beforeEach(() => {
       where: { childId: string; lesson: { is: WhereNode } };
       take?: number;
     }) => {
-      // Both calls gate through `lesson.is`; they differ only in what that node
-      // asks for, which is the distinction under test (grade for the fraction,
-      // status and world for the feed).
+      // Both calls gate through `lesson.is` but differ in what the node asks for (grade vs status and world).
       const visible = new Map(
         lessonsMatching(args.where.lesson.is).map((lesson) => [
           lesson.id,
@@ -473,9 +422,7 @@ beforeEach(() => {
         .filter((row) => {
           if (row.childId !== args.where.childId) return false;
 
-          // Each branch of the query's `OR`, applied exactly as it arrived. Drop
-          // `badge: publishedRelation` from the service and the badge branch
-          // stops checking a status here too — which is the point.
+          // Each `OR` branch is applied as it arrived: dropping `badge: publishedRelation` from the service stops this checking status too.
           return args.where.OR.some((clause) => {
             if (clause.rewardType !== row.rewardType) return false;
             if (
@@ -503,7 +450,6 @@ beforeEach(() => {
             rewardType: row.rewardType,
             sourceId: row.sourceId,
             createdAt: row.createdAt,
-            // Only the two columns the service selects.
             badge:
               badge === undefined ? null : { id: badge.id, name: badge.name },
           };
@@ -517,9 +463,7 @@ beforeEach(() => {
         .filter(
           (story) =>
             where.id.in.includes(story.id) &&
-            // Status and world come from the query, not from this stub — the
-            // guard is only tested while the stub can be made to leak by
-            // removing it.
+            // Status and world come from the query, not this stub, so removing the guard makes it leak.
             matchesStatus(story, where) &&
             matchesWorld(story.worldId, where),
         )
@@ -561,7 +505,7 @@ describe("GET /api/children/:id/dashboard — scoping", () => {
       `/api/children/${OTHER_CHILD_ID}/dashboard`,
     );
 
-    // Not 403: a 403 would confirm the profile exists (NFR-SAFE-02).
+    // Not 403: that would confirm the profile exists (NFR-SAFE-02).
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
   });
@@ -597,7 +541,6 @@ describe("GET /api/children/:id/dashboard — learning minutes", () => {
 
     expect(res.status).toBe(200);
     assertContract(DashboardSummaryResponseSchema, res.body, OPERATION);
-    // All the beats sit inside today, which is inside this week and this month.
     expect(res.body.data.learningMinutes).toEqual({
       today: 12,
       week: 12,
@@ -608,7 +551,6 @@ describe("GET /api/children/:id/dashboard — learning minutes", () => {
   it("sums each window from one read of the events covering all three", async () => {
     signInAs();
     seedCurriculum();
-    // `n` beats 30s apart are `n * 0.5` minutes (see `seedMinutes`).
     const beats = (startIso: string, count: number) =>
       Array.from(
         { length: count },
@@ -628,7 +570,6 @@ describe("GET /api/children/:id/dashboard — learning minutes", () => {
       week: 5,
       month: 10,
     });
-    // R-25: one read, not one per window.
     expect(db.sessionEventFindMany).toHaveBeenCalledTimes(1);
   });
 
@@ -748,8 +689,7 @@ describe("GET /api/children/:id/dashboard — subject progress", () => {
       (subject: { slug: string }) => subject.slug === "maths",
     );
     expect(maths.total).toBe(2);
-    // Rule 2: the stub cannot show that the draft row stayed in the database, so
-    // the clause that keeps it out of the count is asserted directly.
+    // Rule 2: assert the clause that keeps the draft row out of the count.
     expect(db.lessonGroupBy.mock.calls[0][0].where).toMatchObject({
       status: "published",
       gradeLevels: { has: "NURSERY" },
@@ -799,7 +739,6 @@ describe("GET /api/children/:id/dashboard — subject progress", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
 
-    // No 0% bar and no `NaN%` for a curriculum this child has not reached.
     expect(
       res.body.data.subjects.map((subject: { slug: string }) => subject.slug),
     ).toEqual(["language", "maths"]);
@@ -830,8 +769,7 @@ describe("GET /api/children/:id/dashboard — subject progress", () => {
     const language = res.body.data.subjects.find(
       (subject: { slug: string }) => subject.slug === "language",
     );
-    // A published lesson under an unreviewed topic is neither counted nor
-    // credited — the fraction stays over the visible curriculum only.
+    // A published lesson under an unreviewed topic is neither counted nor credited.
     expect(language).toMatchObject({ completed: 0, total: 4 });
   });
 
@@ -851,8 +789,7 @@ describe("GET /api/children/:id/dashboard — subject progress", () => {
       (subject: { slug: string }) => subject.slug === "language",
     );
     // `requireVisibleLessonId` gates on the world, so this lesson can never be
-    // completed. Counting it in `total` would cap Language below 100% for as long
-    // as the world stayed in review — a bar the child cannot fill.
+    // completed; counting it would cap Language below 100%.
     expect(language).toMatchObject({ completed: 0, total: 4 });
     expect(db.lessonGroupBy.mock.calls[0][0].where.world).toEqual({
       is: { status: "published" },
@@ -885,8 +822,7 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
         translations: [],
       },
       {
-        // Published itself, but its world was pulled back for revision — so the
-        // child can no longer open it and its title is not the parent's to read.
+        // Published, but its world was pulled back, so the child cannot open it.
         id: "story_withdrawn_world",
         worldId: DRAFT_WORLD,
         title: "Behind The Curtain",
@@ -957,7 +893,6 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
     signInAs();
     seedCurriculum();
     seedFeed();
-    // What `grantStoryCompletion` actually writes: a star row and a coin row.
     store.ledger = [
       ledger({ rewardType: "star" }),
       ledger({ rewardType: "coin" }),
@@ -977,8 +912,7 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
 
-    // Rule 3: the title comes through a relation, so no `where` assertion can
-    // show this — the response body is the only proof.
+    // Rule 3: the title comes through a relation, so only the response body proves the gate.
     expect(res.body.data.recentActivity).toEqual([]);
   });
 
@@ -1027,8 +961,7 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
 
-    // The story row is `published`; its *world* is not, which is what takes it
-    // down — the same rule `storyService.requireVisibleStoryId` applies.
+    // The story is published; its world is not, which takes it down (as in `requireVisibleStoryId`).
     expect(res.body.data.recentActivity).toEqual([]);
   });
 
@@ -1048,9 +981,7 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
 
     await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
 
-    // Rule 2 again, for the two feed gates the response body alone cannot pin:
-    // the stub honours whatever `where` it is handed, so without these a guard
-    // could be deleted and the behavioural tests above would still pass.
+    // Rule 2: the stub honours whatever `where` it is handed, so assert the two feed gates directly.
     expect(db.storyFindMany.mock.calls[0][0].where).toMatchObject({
       status: "published",
       world: { is: { status: "published" } },
@@ -1084,7 +1015,6 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
       },
     ] satisfies StoryRow[];
 
-    // Newest first, with the withdrawn story third — inside a 20-row window.
     const order = [
       "story_0",
       "story_1",
@@ -1100,8 +1030,7 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
 
-    // The cap is applied after the drop, so the slot the withdrawn story would
-    // have taken goes to the next readable one instead of shortening the feed.
+    // The cap applies after the drop, so a withdrawn story's slot goes to the next readable one.
     expect(res.body.data.recentActivity).toHaveLength(20);
     expect(
       res.body.data.recentActivity.map((item: { refId: string }) => item.refId),
@@ -1117,9 +1046,8 @@ describe("GET /api/children/:id/dashboard — recent activity", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
 
-    // The feed gate is status-only, so a month of work does not vanish because a
-    // parent corrected an age. The progress fraction still excludes it, because
-    // its two halves must be counted over the same lessons.
+    // The feed gate is status-only, so a parent correcting an age does not erase a
+    // month of work; the progress fraction still excludes it.
     expect(res.body.data.recentActivity).toHaveLength(1);
     expect(res.body.data.subjects).toEqual([]);
     expect(db.progressFindMany.mock.calls[1][0].where.lesson).toEqual({

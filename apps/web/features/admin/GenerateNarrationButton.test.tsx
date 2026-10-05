@@ -2,8 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateNarrationButton } from "./GenerateNarrationButton";
 
-// The "Generate narration" button (file 36, FR-AI-04, FR-CMS-05).
-
 const generateNarration = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/admin/ai-api", () => ({ generateNarration }));
@@ -38,8 +36,7 @@ beforeEach(() => {
 
 describe("what the button sends", () => {
   it("sends only the entity and its id", async () => {
-    // No language: the server works out which locales have text and no audio, so
-    // a picker here would let an admin ask for a clip that cannot exist.
+    // No language: the server works out which locales lack audio.
     renderButton();
     click();
 
@@ -108,8 +105,7 @@ describe("what the button does with the answer", () => {
   });
 
   it("reads an all-skipped batch as nothing to do, not as a failure", async () => {
-    // Clicking twice is the ordinary case: the second click finds every pair
-    // already covered by a clip in the review queue.
+    // The second click finds every pair already covered.
     generateNarration.mockResolvedValue({
       ok: true,
       data: { jobIds: [], skipped: 4, failed: 0 },
@@ -155,9 +151,7 @@ describe("what the button does with the answer", () => {
   });
 
   it("reports a wholly failed batch as an error, not as clips recorded", async () => {
-    // The batch answers 202 with the ids even when every provider call failed —
-    // the jobs exist and hold their own diagnosis. Reading that as success sent
-    // the admin to the queue to listen to sixteen clips that were never recorded.
+    // The batch answers 202 even when every provider call failed; the jobs hold the diagnosis, so it is not success.
     generateNarration.mockResolvedValue({
       ok: true,
       data: { jobIds: ["job-1", "job-2"], skipped: 0, failed: 2 },
@@ -187,9 +181,7 @@ describe("what the button does with the answer", () => {
   });
 
   it("does not claim skipped clips already exist, since some have no text", async () => {
-    // `skipped` folds three reasons together — already recorded, already queued,
-    // and no text to read. A lesson whose only script is blank returns
-    // `{ jobIds: [], skipped: 1 }`, and "already exist" is untrue of it.
+    // `skipped` folds three reasons together; `{ jobIds: [], skipped: 1 }` must not read "already exist".
     generateNarration.mockResolvedValue({
       ok: true,
       data: { jobIds: [], skipped: 1, failed: 0 },

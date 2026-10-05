@@ -8,8 +8,6 @@ import { Coins, Flame, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-// What the child has earned, at the top of every world screen (FR-GAM-06).
-
 const chipVariants = cva(
   "inline-flex min-h-11 items-center gap-2 rounded-pill px-4 py-2 font-display text-lg leading-none",
   {
@@ -25,12 +23,8 @@ const chipVariants = cva(
 );
 
 /**
- * Reward icons are the sanctioned brand-hue exception (design.md §2.1–2.2,
- * decorative art): a star is yellow and a streak flame is orange because that is
- * what those objects *are*, not because a surface is being themed. Routing them
- * through `--warning` or `--destructive` would say something untrue about them —
- * a reward is neither a caution nor an error — and would flip their colour with
- * the parent theme, which never renders this strip.
+ * Reward icons are the sanctioned brand-hue exception (design.md §2.1–2.2): a star is yellow and a flame orange.
+ * `--warning`/`--destructive` would say something untrue about a reward and flip with the parent theme.
  */
 const REWARD_ICON_CLASS = {
   star: "fill-accent text-accent",
@@ -42,11 +36,7 @@ interface RewardChipProps extends VariantProps<typeof chipVariants> {
   icon: ReactNode;
   /** What a screen reader announces — "3 stars", not "3". */
   label: string;
-  /**
-   * The bare number on screen, when there is one. Omitted when `label` is itself
-   * what the chip shows ("Start a streak!"), so the string is not both read out
-   * and printed — one chip, one announcement.
-   */
+  /** The bare number on screen; omitted when `label` is itself what the chip shows, so it is not both read out and printed. */
   value?: number;
 }
 

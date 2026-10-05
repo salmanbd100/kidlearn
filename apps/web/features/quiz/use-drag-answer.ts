@@ -5,21 +5,12 @@ import { type DragAnswerQuestion, evaluateAnswer } from "@kidlearn/types";
 import { useCallback, useState } from "react";
 import type { QuestionProps } from "./types";
 
-/**
- * Everything that happens between a child letting go and the sentence being
- * finished (FR-QUIZ-03).
- */
-
-/** The droppable the blank in the sentence registers as. */
 export const BLANK_DROPPABLE_ID = "blank";
 
 export interface DragAnswerState {
-  /** The option sitting in the blank, once the right one has been dropped in. */
   lockedId: string | undefined;
-  /** Options already tried and set aside. */
   dimmedIds: ReadonlySet<string>;
   handleDragEnd: (event: DragEndEvent) => void;
-  /** The same answer, reached by tapping rather than dragging. */
   place: (optionId: string, targetId: string) => void;
 }
 
@@ -41,14 +32,11 @@ export function useDragAnswer({
 
   const place = useCallback(
     (optionId: string, targetId: string) => {
-      // Anything that is not the blank: the card is back in the tray. Silence is
-      // right — the child has not answered yet, so there is nothing to encourage
-      // them about.
+      // Anything but the blank: the card is back in the tray, and the child has not answered yet.
       if (targetId !== BLANK_DROPPABLE_ID) return;
 
-      // Locked covers both holds: the cheer after the right answer, and the beat
-      // after a wrong one. A card placed during either was picked up before the
-      // feedback began.
+      // Locked covers the post-right cheer and the post-wrong beat; a card placed during either was
+      // picked up before feedback began.
       if (isLocked || lockedId !== undefined || dimmedIds.has(optionId)) return;
 
       const isCorrect = evaluateAnswer(definition, optionId);
@@ -77,7 +65,6 @@ export function useDragAnswer({
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
-      // Let go over nothing: dnd-kit has already dropped the transform.
       if (over === null) return;
       place(String(active.id), String(over.id));
     },
@@ -87,7 +74,6 @@ export function useDragAnswer({
   return { lockedId, dimmedIds, handleDragEnd, place };
 }
 
-/** The sentence either side of its `{blank}`. */
 export function splitAtBlank(sentence: string): {
   before: string;
   after: string;

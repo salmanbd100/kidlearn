@@ -7,15 +7,10 @@ import { evaluateDrop, isActivityComplete, type PlacedItems } from "./evaluate";
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { useWiggle, type WiggleRequest } from "./use-wiggle";
 
-/**
- * Everything that happens between a child letting go and the activity being over.
- */
-
 export interface PlacementState {
   placed: PlacedItems;
   wiggle: WiggleRequest | undefined;
   handleDragEnd: (event: DragEndEvent) => void;
-  /** The same answer, reached by tapping rather than dragging. */
   place: (
     itemId: string,
     targetId: string,
@@ -51,16 +46,15 @@ export function usePlacementState(
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
-      // Let go over nothing: dnd-kit drops the transform and the card is already
-      // back in the tray. Silence is right — the child has not answered yet.
+      // Let go over nothing: the card is already back in the tray, and the child has not answered
+      // yet.
       if (over === null) return;
       place(String(active.id), String(over.id), centreOf(over.rect));
     },
     [place],
   );
 
-  // Once, and only once. The effect re-runs on every placement, and a second
-  // call would advance the lesson two steps.
+  // Once only: the effect re-runs on every placement and a second call would advance two steps.
   const hasReportedComplete = useRef(false);
   useEffect(() => {
     if (hasReportedComplete.current) return;

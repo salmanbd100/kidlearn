@@ -18,11 +18,6 @@ import type {
 import { useQuestionFeedback } from "./use-question-feedback";
 import { useQuizSession } from "./use-quiz-session";
 
-/**
- * The quiz step of every lesson, whatever the questions happen to be
- * (FR-QUIZ-01, FR-QUIZ-04, FR-QUIZ-05, FR-QUIZ-07).
- */
-
 interface PlayableQuizQuestion {
   id: string;
   definition: PlayableQuestion;
@@ -51,11 +46,8 @@ function prepareQuestions(questions: QuizEngineProps["questions"]): {
       });
       continue;
     }
-    // Read before the guard narrows the union away: every format the schema
-    // carries is playable today, so inside the branch `parsed.data` is `never`
-    // and has no `type` to report. Keeping the branch is the point — a fifth
-    // format added to the schema must be dropped from the quiz, not rendered
-    // blank at a child.
+    // Read before the guard narrows the union to `never`. Keep the branch: a fifth format added to
+    // the schema must be dropped, not rendered blank.
     const format = parsed.data.type;
     if (!isPlayableQuestion(parsed.data)) {
       skipped.push({ id: question.id, reason: "unsupported", detail: format });
@@ -78,8 +70,8 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
 
   useEffect(() => {
     for (const question of skipped) {
-      // Unconditional, not dev-gated: a question that reaches a child and cannot
-      // be asked is a content incident, and this line is the only trace of it.
+      // Unconditional, not dev-gated: an unaskable question is a content incident and this is its
+      // only trace.
       console.error(
         `[kidlearn] quiz question skipped (${question.reason})`,
         question.id,
@@ -98,9 +90,8 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
     [playable],
   );
 
-  // Keyed on the question object, not on its audio URL: two questions in one
-  // quiz may legitimately share a clip, and this must speak again on arrival at
-  // the second one (FR-QUIZ-05).
+  // Keyed on the question object, not its audio URL: two questions may share a clip and must each
+  // speak on arrival (FR-QUIZ-05).
   const speakPrompt = useCallback(() => {
     if (current === undefined) return;
     void play(current.definition.promptAudio[locale].url, { interrupt: true });
@@ -122,8 +113,7 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
     [session, current],
   );
 
-  // The quiz is over, or had nothing askable in it. Either way the session has
-  // already reported itself finished and the step is on its way out.
+  // The quiz is over or had nothing askable; the session has already reported itself finished.
   if (current === undefined) return null;
 
   return (
@@ -132,9 +122,8 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
       className="flex min-h-0 flex-1 flex-col items-center gap-4"
     >
       {/*
-        The one thing that changed, in words: which question this is. The fruit
-        strip says the same thing in pictures and is hidden from assistive
-        technology so it is not said twice (FR-I18N-01).
+        The one thing that changed, in words: which question this is. The fruit strip is hidden from
+        assistive technology so it is not said twice (FR-I18N-01).
       */}
       <span role="status" className="sr-only">
         {t("quiz.progress", {
@@ -149,11 +138,8 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
       />
 
       {/*
-        The question and the way to hear it again, side by side: a phone held
-        sideways has around 240px of usable height, and stacking a 64px control
-        above the prompt costs a quarter of it before an answer is on screen
-        (design.md §6). The text is there for the parent sitting alongside —
-        audio is the channel the child actually reads with (FR-QUIZ-05).
+        Question and replay side by side: a sideways phone has ~240px and a stacked 64px control
+        costs a quarter of it (design.md §6). Audio is how the child reads (FR-QUIZ-05).
       */}
       <div className="flex w-full max-w-2xl shrink-0 items-center justify-center gap-4">
         <p
@@ -170,10 +156,8 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
       </div>
 
       {/*
-        Keyed on the question id, so advancing gives the next question its own
-        component instance: the tried-and-set-aside options belong to the
-        question they were tapped on, and carrying them across would fade out
-        cards on the next one.
+        Keyed on the question id so tried options do not carry over and fade out cards on the next
+        question.
       */}
       <div
         key={current.id}

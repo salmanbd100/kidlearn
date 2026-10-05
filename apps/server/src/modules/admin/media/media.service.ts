@@ -3,26 +3,17 @@ import { v2 as cloudinary, type UploadApiErrorResponse } from "cloudinary";
 import { env } from "../../../config/env.js";
 import { prisma } from "../../../config/prisma.js";
 
-// The media library (file 33, FR-CMS-02).
-
-/** `cloudinary.config` rather than credentials per call. */
 cloudinary.config({
   cloud_name: env.CLOUDINARY_CLOUD_NAME,
   api_key: env.CLOUDINARY_API_KEY,
   api_secret: env.CLOUDINARY_API_SECRET,
 });
 
-/** Where an upload lands, keyed by kind so the console is browsable. */
 export function uploadFolderFor(kind: MediaKind): string {
   return `kidlearn/${kind}`;
 }
 
-/**
- * What Cloudinary will accept under a signature, per kind. Signed, so the browser
- * cannot widen it: without it, one image credential could put an HTML page or a
- * scripted SVG on our delivery host for the length of the signature's life. SVG is
- * left out of `image` for that reason, not by oversight.
- */
+// Signed, so the browser cannot widen it (an HTML page or scripted SVG on our delivery host); SVG is excluded from `image` deliberately.
 export const ALLOWED_UPLOAD_FORMATS: Record<MediaKind, string> = {
   image: "png,jpg,jpeg,webp,gif",
   audio: "mp3,m4a,aac,wav,ogg",
@@ -38,11 +29,7 @@ export type UploadSignature = {
   cloudName: string;
 };
 
-/**
- * The signed parameter set the browser posts to Cloudinary alongside the file.
- * Every signed parameter has to be posted back exactly, or Cloudinary refuses the
- * upload — so the browser is handed each one rather than left to rebuild it.
- */
+// Every signed parameter must be posted back exactly or Cloudinary refuses, so the browser is handed each one.
 export function signUploadParams(kind: MediaKind): UploadSignature {
   const timestamp = Math.round(Date.now() / 1000);
   const folder = uploadFolderFor(kind);
@@ -62,17 +49,11 @@ export function signUploadParams(kind: MediaKind): UploadSignature {
   };
 }
 
-/** The prefix every delivery URL for this account starts with. */
 export function deliveryUrlPrefix(): string {
   return `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
 }
 
-/**
- * A prefix test alone is not enough: `<cloud>/../other-cloud/x.png` starts with
- * our prefix as written, but the browser normalises it onto another cloud's
- * path before it fetches. So the URL is parsed, and a dot segment — raw or
- * percent-encoded — is refused outright.
- */
+// A prefix test alone passes `<cloud>/../other-cloud/x.png`, which the browser normalises onto another cloud; so parse and refuse dot segments, raw or percent-encoded.
 export function isDeliveryUrl(url: string): boolean {
   if (!url.startsWith(deliveryUrlPrefix())) return false;
 
@@ -101,7 +82,6 @@ export type MediaAssetDto = {
   id: string;
   url: string;
   kind: MediaKind;
-  /** `null` for a language-neutral asset — an image or an illustration. */
   language: Language | null;
   createdAt: Date;
 };
@@ -119,33 +99,21 @@ export function registerAsset(
     url: string;
     kind: MediaKind;
     language: Language | null;
-    /**
-     * The generating job (file 36). Absent for a browser upload, which is the
-     * difference between "a person chose this file" and "a model produced it" —
-     * file 37's review queue reads it, and its publish guard depends on it.
-     */
+    /** The generating job; absent for a browser upload. The review queue and its publish guard depend on it. */
     aiJobId?: string;
   },
-  /**
-   * The transaction to write inside, when there is one. `runGenerationJob` calls
-   * this from its `persist` step, where the asset row and the job's audit record
-   * have to land together or not at all — a row Cloudinary holds bytes for but no
-   * job points at is unreviewable, and a job naming an asset that was rolled back
-   * is a broken reference in the review queue.
-   */
+  /** The transaction to write inside: the asset row and the job's audit record must land together or not at all. */
   client: Prisma.TransactionClient = prisma,
 ): Promise<MediaAssetDto> {
   return client.mediaAsset.create({ data: input, select: mediaSelect });
 }
 
-/** The resource type Cloudinary files an upload under. */
 export type UploadResourceType = "image" | "video";
 
 export function resourceTypeFor(kind: MediaKind): UploadResourceType {
   return kind === "image" ? "image" : "video";
 }
 
-/** Uploads bytes this process is holding and resolves with the delivery URL. */
 export function uploadBuffer(
   buffer: Buffer,
   options: { folder: string; resourceType: UploadResourceType },
@@ -170,7 +138,6 @@ export function uploadBuffer(
   });
 }
 
-/** Cloudinary's failure, as an `Error` that still says what went wrong. */
 function asUploadError(error: UploadApiErrorResponse): Error {
   if (error instanceof Error) return error;
 
@@ -184,11 +151,7 @@ function asUploadError(error: UploadApiErrorResponse): Error {
   return new Error(`Cloudinary upload failed: ${message}${status}`);
 }
 
-/**
- * One page of the library, newest first. `id` breaks a `createdAt` tie, so a
- * batch of assets one generation job registered in the same millisecond still
- * pages without repeating or skipping one.
- */
+// `id` breaks a `createdAt` tie so assets registered in the same millisecond page without repeats or gaps.
 export function listAssets(filters: {
   kind?: MediaKind;
   language?: Language;

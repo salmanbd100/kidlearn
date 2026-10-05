@@ -1,30 +1,13 @@
 /**
- * `/api/admin/ai/jobs/*` — the review queue's HTTP surface (file 37, FR-AI-07,
- * FR-CMS-05..06).
+ * `/api/admin/ai/jobs/*` HTTP surface. Mocks the review service for guard and contract cases, then runs it
+ * for real against a stubbed database.
  *
- * **A second suite over `modules/admin/ai/ai.routes.ts`**, rather than more cases in
- * `ai.routes.test.ts`. That file mocks the five generator services at their own boundary
- * because it is about the generation routes; this one mocks the review service
- * for the guard and contract cases and then runs it for real against a stubbed
- * database, because the queue's interesting claims are about what a decision
- * writes. One file cannot hold both mockings of the same module, and splitting
- * by concern is what keeps each stub honest about what it proves.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One array per table, written by the service
- *     under test. The approve round trip reads back the lesson row it moved.
- *  2. *Assert the query, not just the result.* The claim that an unauthenticated
- *     caller cannot decide anything is negative, so it is asserted as the job
- *     still sitting at `awaiting_review` afterwards rather than only as a `401`.
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here
- *     serves student-facing content. That a rejected row cannot reach a child is
- *     the student API's filter, covered in `modules/content/content.routes.test.ts`.
- *  4. *Name what the stub cannot prove.* Atomicity across the job update and the
- *     status chain is Postgres's; the stub runs the `$transaction` callback
- *     directly. `services/ai/review.test.ts` asserts the isolation level asked
- *     for, and this file asserts the HTTP contract over the top of it.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: one array per table, written by the service under test.
+ *  2. Assert the query: an unauthenticated decision is asserted as the job still at `awaiting_review`.
+ *  3. `include` gates: not applicable, nothing here serves student-facing content.
+ *  4. Not provable: atomicity across the job update and status chain is Postgres's; `review.test.ts`
+ *     asserts the isolation level.
  */
 
 import {
@@ -64,10 +47,6 @@ const store = vi.hoisted(() => ({
 const db = vi.hoisted(() => ({ adminFindUnique: vi.fn() }));
 
 vi.mock("../../../config/prisma.js", () => {
-  /**
-   * Applies a `where` clause, including the `AND`/`OR` nesting and the
-   * `input: { path, equals | array_contains }` JSON filters `listJobs` builds.
-   */
   const matches = (row: Row, where: Record<string, unknown> = {}): boolean =>
     Object.entries(where).every(([key, value]) => {
       if (key === "AND") {
@@ -221,8 +200,7 @@ vi.mock("../../../config/prisma.js", () => {
     ),
     storyPageTranslation: translationTable(() => [], "storyPageId"),
     quizQuestionTranslation: translationTable(() => [], "questionId"),
-    // Present so a stray parent-provisioning read fails loudly: no admin route
-    // may create a Parent row.
+    // A stray parent-provisioning read fails loudly: no admin route may create a Parent row.
     parent: { findUnique: vi.fn(), upsert: vi.fn() },
     account: { findFirst: vi.fn() },
   };
@@ -239,8 +217,7 @@ const { app } = await import("../../../app.js");
 const { auth } = await import("../../../config/auth.js");
 
 function mockSession(userId: string) {
-  // Only the fields the guards read are supplied, so the deep better-auth return
-  // type is narrowed at this boundary.
+  // Only the fields the guards read are supplied; the deep better-auth return type is narrowed here.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
     session: { id: `session_${userId}`, userId, createdAt: new Date() },
@@ -357,12 +334,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/**
- * `requireAdmin` guards the parent router, so it holds for every path here by
- * construction — but "by construction" is exactly the claim a route mounted in
- * the wrong place breaks, and the decision routes are the two in this product
- * that can make content visible to a child.
- */
+// requireAdmin guards the parent router, but the decision routes can make content visible to a child,
+// so a route mounted in the wrong place must fail here.
 describe("the admin guard", () => {
   const DECISIONS: Array<{
     path: () => string;
@@ -388,8 +361,7 @@ describe("the admin guard", () => {
     });
 
     it(`403s a signed-in parent on POST ${route.path()}, deciding nothing`, async () => {
-      // A Google sign-in never writes an AdminUser row, and that absence *is* the
-      // authorisation check (spec §4.3).
+      // A Google sign-in never writes an AdminUser row; that absence is the authorisation check.
       seedLessonJob();
       mockSession(PARENT_USER_ID);
 
@@ -450,8 +422,7 @@ describe("GET /api/admin/ai/jobs", () => {
   });
 
   it("filters by language against the job's input JSON", async () => {
-    // The filter reaches into `input`, which is where the generator recorded what
-    // it was asked for — there is no column to filter on, deliberately.
+    // The filter reads `input`, where the generator recorded its request; there is no column.
     seedLessonJob();
     store.jobs.push({
       id: "bbbbbbbb-0000-4000-8000-000000000002",
@@ -522,8 +493,7 @@ describe("GET /api/admin/ai/jobs/count", () => {
   });
 
   it("is not shadowed by the detail route", async () => {
-    // `count` is a valid path segment, so registration order is what keeps every
-    // badge poll from landing in the uuid params validator.
+    // `count` is a valid path segment: registration order keeps badge polls out of the uuid params validator.
     const res = await request(app).get(`${BASE}/count`);
 
     expect(res.status).toBe(200);
@@ -620,7 +590,7 @@ describe("POST /api/admin/ai/jobs/:id/approve", () => {
     expect(store.lessons[0].status).toBe("draft");
   });
 
-  // R-23 — an admin's edit-then-approve save can put any https URL in a payload.
+  // An admin's edit-then-approve save can put any https URL in a payload.
   it("409s publishing a quiz whose question links outside the media library", async () => {
     seedLessonJob();
     store.questions[0].definition = {
@@ -635,9 +605,8 @@ describe("POST /api/admin/ai/jobs/:id/approve", () => {
       code: "UNREGISTERED_ASSET",
       urls: ["https://tracker.example.com/p.png"],
     });
-    // Refused on the publish hop, after the walk's earlier hops have run: that
-    // they roll back with it is the transaction's job, which this stub's
-    // `$transaction` does not model, so the quiz's status is not asserted here.
+    // Refused on the publish hop after earlier hops ran; rollback is the transaction's job, which this stub
+    // does not model, so the quiz's status is not asserted.
   });
 
   it("409s a job that has already been decided", async () => {

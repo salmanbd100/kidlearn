@@ -5,11 +5,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 
-/**
- * A render-time throw inside a student screen. Sits inside the student layout,
- * so the kid theme and the parent corner survive it — a child is never left on
- * a blank page with nothing to tap.
- */
+/** Sits inside the student layout so the kid theme and parent corner survive; a child is never left on a blank page. */
 export default function StudentError({
   error,
   reset,

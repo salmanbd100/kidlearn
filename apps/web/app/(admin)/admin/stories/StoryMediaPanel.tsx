@@ -5,11 +5,6 @@ import { useState } from "react";
 import { generateIllustrations } from "@/features/admin/ai-api";
 import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
 
-/**
- * Narration and illustrations for one generated story (file 36, FR-AI-04,
- * FR-AI-05, FR-AI-09).
- */
-
 /** Loose enough to catch a typo, not a validator — the server owns that. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

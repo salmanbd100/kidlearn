@@ -1,13 +1,11 @@
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 
-/** One platform counter on the admin analytics page (FR-CMS-07, basic tier). */
 const adminStatCardVariants = cva(
   "flex flex-1 flex-col gap-1 rounded-(--radius) border border-border bg-card p-4",
   {
     variants: {
-      // Reserved for files 32+ — a counter that needs attention (a review queue
-      // backing up) reads differently from one that is merely a total.
+      // A counter needing attention (e.g. a backed-up queue) reads differently from a total.
       tone: {
         default: "",
         attention: "border-warning/40",

@@ -10,17 +10,7 @@ import { BadgeReveal } from "@/shared/components/kid/BadgeReveal";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { unlockNames } from "@/shared/lib/unlock-names";
 
-/**
- * The last screen of a story: what it was about, and what finishing it was worth
- * (FR-STORY-03, FR-STORY-06..07).
- */
-
-/**
- * The part of a story completion this screen renders. Narrower than
- * `StoryCompletionResponse` on purpose: `streak` and `totals` are the server's
- * running figures, which the reader has no honest value for on a replay it never
- * posted — see `REPLAY_COMPLETION` in `StoryReader`.
- */
+/** Narrower than `StoryCompletionResponse`: `streak` and `totals` are server running figures the reader has no honest value for on an unposted replay (`REPLAY_COMPLETION`). */
 export type StoryFinishReward = Pick<
   StoryCompletionResponse,
   "granted" | "newBadges" | "newCharacters"
@@ -29,7 +19,6 @@ export type StoryFinishReward = Pick<
 export interface FinishScreenProps {
   moral: string | null;
   moralAudioUrl: string | null;
-  /** `undefined` while the completion call is in flight, or if it failed. */
   completion: StoryFinishReward | undefined;
   onReadAgain: () => void;
   onMoreStories: () => void;
@@ -43,9 +32,7 @@ export function FinishScreen({
   onMoreStories,
 }: FinishScreenProps) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
-  // The unlock copy is the lesson celebration's, reused verbatim rather than
-  // translated a second time into this namespace: a badge earned by reading and
-  // a badge earned by finishing a lesson are the same event to a child.
+  // The unlock copy is the lesson celebration's, reused: a badge from reading and one from a lesson are the same event to a child.
   const { t: tLesson } = useTranslation(LESSON_NAMESPACE);
   const { play } = useAudio();
 
@@ -55,12 +42,10 @@ export function FinishScreen({
   }, [play, moralAudioUrl]);
 
   const granted = completion?.granted ?? null;
-  /** Nothing true to say about the reward yet — see the file header. */
+  /** Nothing true to say about the reward yet. */
   const isRewardUnknown = completion === undefined;
 
-  // A story can unlock a badge or a character in its own right (FR-GAM-04..05):
-  // "Reading Star — 10 stories" is earned by reading, so it has to be celebrated
-  // here rather than waiting for the child's next lesson.
+  // A story can unlock a badge or character itself ("Reading Star"), so celebrate it here rather than at the next lesson.
   const newBadges = completion?.newBadges ?? [];
   const newCharacters = completion?.newCharacters ?? [];
   const unlockSentences = [
@@ -92,8 +77,7 @@ export function FinishScreen({
       data-testid="story-finish"
       className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center"
     >
-      {/* One announcement for the whole screen: the moral, then the reward, in
-          the order they are read. */}
+      {/* One announcement for the whole screen, in reading order. */}
       <span role="status" className="sr-only">
         {[t("reader.finish.title"), moral, rewardSentence, ...unlockSentences]
           .filter((line): line is string => line !== null)
@@ -113,8 +97,7 @@ export function FinishScreen({
         </p>
       )}
 
-      {/* Everything below is `aria-hidden`: the sentence above already said it,
-          and two icons plus two numbers read aloud say nothing. */}
+      {/* `aria-hidden`: the sentence above already said it. */}
       {isRewardUnknown ? null : (
         <p
           aria-hidden="true"
@@ -138,8 +121,7 @@ export function FinishScreen({
         </p>
       )}
 
-      {/* `aria-hidden` for the same reason the reward line above is: the
-          sentence in the live region already named every one of them. */}
+      {/* `aria-hidden` as above: the live region already named every one. */}
       {newBadges.length === 0 && newCharacters.length === 0 ? null : (
         <div
           aria-hidden="true"

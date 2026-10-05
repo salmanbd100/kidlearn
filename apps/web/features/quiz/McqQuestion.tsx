@@ -7,7 +7,6 @@ import { OptionCard } from "./OptionCard";
 import type { QuestionProps } from "./types";
 import { useOptionChoice } from "./use-option-choice";
 
-/** Pick the right one (FR-QUIZ-01). */
 export function McqQuestion({
   definition,
   locale,

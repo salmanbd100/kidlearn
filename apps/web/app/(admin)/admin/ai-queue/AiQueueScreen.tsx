@@ -18,14 +18,8 @@ import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { type AiJobFilters, fetchAiJobs } from "@/features/admin/ai-api";
 import { AI_JOB_TYPE_LABELS, formatRelativeAge } from "./job-labels";
 
-/**
- * `/admin/ai-queue` — everything a model wrote and nobody has read yet
- * (file 37, FR-CMS-05).
- */
-
 const PAGE_SIZE = 25;
 
-/** The queue proper, then the two archives worth reading back. */
 const STATUS_TABS: Array<{ value: AiJobStatus; label: string }> = [
   { value: "awaiting_review", label: "Awaiting review" },
   { value: "rejected", label: "Rejected" },
@@ -43,13 +37,7 @@ export function AiQueueScreen() {
   const [language, setLanguage] = useState<Locale>();
   const [gradeLevel, setGradeLevel] = useState<GradeLevelValue>();
 
-  /**
-   * `isCurrent` is what stops a slow response for the filters an admin has since
-   * moved off from overwriting a fast one for the filters they are looking at —
-   * chips reading "Awaiting review" above a list of rejected jobs, which never
-   * self-corrects. Every caller passes its own flag; the effect clears it on
-   * cleanup, and the manual retry button owns one for the length of its call.
-   */
+  /** Stops a slow response for stale filters overwriting a fast one for the current filters. */
   const load = useCallback(
     async (isCurrent: () => boolean) => {
       setState("loading");
@@ -219,13 +207,9 @@ function FilterRow({
   children: React.ReactNode;
 }) {
   return (
-    // A `fieldset` rather than a `div` with `role="group"`: these are controls,
-    // and the native element carries the grouping without an ARIA attribute.
-    // Its default border and padding are removed — the grouping is semantic here,
-    // not visual.
+    // Native `fieldset` carries the grouping without ARIA; border and padding are reset.
     <fieldset className="flex flex-wrap items-center gap-1.5 border-0 p-0">
-      {/* The visible label is `aria-hidden` because the legend already names the
-          group; without that a screen reader announces the axis twice. */}
+      {/* `aria-hidden`: the legend already names the group. */}
       <legend className="sr-only">{label}</legend>
       <span
         aria-hidden="true"
@@ -268,8 +252,7 @@ function FilterChip({
   return (
     <button
       type="button"
-      // `aria-pressed` rather than colour alone — meaning is never carried by
-      // colour on its own (design.md §2.3).
+      // `aria-pressed`: meaning is never carried by colour alone.
       aria-pressed={isSelected}
       onClick={onClick}
       className={filterChipVariants({ isSelected })}
@@ -313,7 +296,6 @@ function JobRow({ job }: { job: AiJobSummary }) {
   );
 }
 
-/** The empty states differ, and the difference matters. */
 function EmptyState({
   status,
   isFiltered,

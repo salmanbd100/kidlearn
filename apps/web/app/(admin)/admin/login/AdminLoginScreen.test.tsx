@@ -2,10 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
-/**
- * `/admin/login` — the only password form in the product (file 31, spec §4.3).
- */
-
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
   fetchAdminMe: vi.fn(),
@@ -68,9 +64,7 @@ describe("AdminLoginScreen", () => {
   it("offers no signup or password-reset affordance", () => {
     renderScreen();
 
-    // Neither exists to link to: sign-up is disabled server-side and a password is
-    // reset by re-running the seed script. A link would be a dead end that also
-    // implied a self-service path into the CMS.
+    // Sign-up is disabled server-side and passwords are reset by re-running the seed; a link would imply self-service.
     expect(screen.queryAllByRole("link")).toHaveLength(0);
     expect(screen.queryByText(/forgot/i)).not.toBeInTheDocument();
   });
@@ -99,8 +93,7 @@ describe("AdminLoginScreen", () => {
     renderScreen();
     signIn();
 
-    // One message for a wrong password and an unknown email alike: the server makes
-    // them indistinguishable so a probe cannot confirm which addresses are admins.
+    // One message for wrong password and unknown email so a probe can't confirm which addresses are admins.
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /did not match an administrator account/i,
     );

@@ -27,18 +27,14 @@ import { usePlacementState } from "./use-placement-state";
 import { centreOfElement, useTapToPlace } from "./use-tap-to-place";
 import { isWiggling, type WiggleRequest } from "./use-wiggle";
 
-// Put each thing where it belongs (FR-ACT-01).
-
 const itemCardVariants = cva(
-  // `touch-action: manipulation` and not `none`: the touch sensor activates on a
-  // 100ms hold, so the browser can keep owning scroll gestures that start here.
+  // `touch-action: manipulation`, not `none`: the touch sensor activates on a 100ms hold, so scroll
+  // gestures stay with the browser.
   "relative flex size-24 shrink-0 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-2 bg-card p-2 text-card-foreground touch-manipulation focus-ring",
   {
     variants: {
       state: {
         dragging: "z-30 cursor-grabbing border-primary shadow-pop",
-        // In hand by tapping: the same look as in hand by dragging, plus the
-        // lift a child reads as "this one".
         selected: "border-primary shadow-pop motion-safe:scale-105",
         idle: "border-border shadow-md",
       },
@@ -63,7 +59,6 @@ const dropTargetVariants = cva(
 
 const IMAGE_PX = 96;
 
-/** Shared so an empty target is not handed a fresh array on every render. */
 const EMPTY_ITEMS: readonly ActivityItem[] = [];
 
 export function DragDropActivity({
@@ -142,8 +137,7 @@ export function DragDropActivity({
         dragHandlers.onDragEnd();
         handleDragEnd(event);
       }}
-      // dnd-kit's own live-region copy is English; every string a child's device
-      // reads out has to come through i18next like any other (FR-I18N-01).
+      // dnd-kit's live-region copy is English; route it through i18next (FR-I18N-01).
       accessibility={{
         announcements,
         screenReaderInstructions: { draggable: t("activity.dnd.instructions") },
@@ -151,8 +145,8 @@ export function DragDropActivity({
     >
       <div
         data-testid="activity-drag-drop"
-        // Portrait stacks — targets above, tray under the thumb. Landscape puts
-        // them side by side, where vertical space is the scarce thing (design.md §6).
+        // Portrait stacks targets above the tray; landscape goes side by side to save vertical
+        // space (design.md §6).
         className="flex flex-1 flex-col items-center justify-center gap-6 landscape:flex-row landscape:items-center"
       >
         <span role="status" className="sr-only">
@@ -161,12 +155,7 @@ export function DragDropActivity({
             : t("activity.dnd.picked", { item: selectedLabel })}
         </span>
 
-        {/*
-          Two labelled lists rather than two labelled `div`s. It is what the
-          board actually is — a set of places and a set of things left to move —
-          and it is what tells a screen-reader user how many of each there are,
-          which is the sighted child's "three cards left" made audible.
-        */}
+        {/* Labelled lists so screen readers announce how many of each remain. */}
         <ul
           aria-label={t("activity.targets")}
           className="flex flex-wrap items-center justify-center gap-4 landscape:flex-1"
@@ -185,10 +174,7 @@ export function DragDropActivity({
         </ul>
 
         {/*
-          Capped at two cards wide in landscape rather than forced into a single
-          column: six items down one side is taller than a phone held sideways,
-          and a wrapping block beside the targets is the same shape at two items
-          as at six.
+          Two cards wide in landscape: six items in one column is taller than a sideways phone.
         */}
         <ul
           aria-label={t("activity.tray")}
@@ -238,9 +224,8 @@ function DraggableItem({
       data-testid={`activity-item-${item.id}`}
       data-state={state}
       className={cn(itemCardVariants({ state }))}
-      // Written out rather than pulled from `@dnd-kit/utilities`: a translate is
-      // the only transform this component ever applies, and `transform` is the
-      // one property a drag may animate (design.md §5.2).
+      // Hand-written translate: the only transform used, and the one property a drag may animate
+      // (design.md §5.2).
       style={{
         transform:
           transform === null
@@ -249,17 +234,13 @@ function DraggableItem({
       }}
       {...listeners}
       {...attributes}
-      // After the spread: dnd-kit's attributes set `aria-pressed` for a drag in
-      // progress and would otherwise clear the tap selection's.
+      // After the spread: dnd-kit's attributes set `aria-pressed` and would clear the tap
+      // selection's.
       aria-pressed={isSelected || isDragging}
       onClick={onTap}
     >
       {/*
-        Keyed on the wiggle count, not on whether one is running: re-applying an
-        animation class that is already applied restarts nothing, and the second
-        wrong drop of the same card is the attempt that most needs the answer.
-        Remounting a plain span is free — the draggable node above is untouched,
-        so dnd-kit never sees it happen.
+        Keyed on the wiggle count: re-applying an already-applied animation class restarts nothing.
       */}
       <span
         key={wiggle?.count ?? 0}
@@ -287,9 +268,7 @@ function DropZone({
 }: {
   target: DropTargetDefinition;
   locale: Locale;
-  /** Every item that belongs here, not just the most recent one. */
   placedItems: readonly ActivityItem[];
-  /** A card is in hand, so this is somewhere it could go. */
   isInviting: boolean;
   onTap: (anchor: { x: number; y: number }) => void;
 }) {
@@ -298,8 +277,6 @@ function DropZone({
     placedItems.length > 0 ? "filled" : isOver || isInviting ? "over" : "empty";
 
   return (
-    // A button, so a tap, Enter or a VoiceOver double-tap can put the card in
-    // hand here — the drop a child who cannot drag still has.
     <button
       ref={setNodeRef}
       type="button"
@@ -314,10 +291,7 @@ function DropZone({
       </span>
 
       {placedItems.length === 0 ? null : (
-        // The answers, locked in. Not buttons and not draggable: the child got
-        // them right, and taking one back out again is not a move this activity
-        // has. Wrapping, because a target may hold several — a home the child is
-        // filling up, which is the whole point of a sorting payload.
+        // Locked-in answers: not buttons, not draggable. Wraps because a target may hold several.
         <span className="flex flex-wrap items-center justify-center gap-1">
           {placedItems.map((placedItem) => (
             <span
@@ -341,12 +315,7 @@ function DropZone({
   );
 }
 
-/**
- * `alt=""` throughout: every card shows its label as text as well, so the picture
- * repeats what is already announced rather than adding to it (design.md §7).
- * `locale` is still read, because a payload authored without art is normal and
- * the alt text is what the CMS reviewer sees when one is missing.
- */
+/** `alt=""`: the label is shown as text too, so the picture would only repeat it (design.md §7). */
 function ItemArt({
   image,
   locale,

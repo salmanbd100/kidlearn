@@ -7,10 +7,7 @@ export const MEDIA_PAGE_SIZE = 100;
 
 type MediaFilters = { kind?: AssetKind; language?: Locale };
 
-/**
- * The media library, a page at a time, newest first. A page shorter than
- * `MEDIA_PAGE_SIZE` is the last one, so `hasMore` costs no extra request.
- */
+/** The media library a page at a time; a short page is the last, so `hasMore` costs no request. */
 export function useMediaPages(
   { kind, language }: MediaFilters,
   { isEnabled = true }: { isEnabled?: boolean } = {},

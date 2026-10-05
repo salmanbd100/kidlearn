@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { googleSignInUrl } from "@/features/parent/parent-api";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
 
-/** Google, and nothing else (FR-AUTH-02). */
 export function LoginScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
 

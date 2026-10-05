@@ -2,17 +2,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { brand, motion, radius, themes } from "./index";
 
-// design.md is the prose source of truth and this package the machine-readable
-// one. Every value design.md's tables state exactly is checked here, so the
-// two cannot drift; a row that names a hue by word ("slate-100") states no
-// value and is skipped.
+// design.md is the prose source of truth: every value its tables state exactly is
+// checked here. Rows naming a hue by word ("slate-100") state no value and are skipped.
 
 const design = readFileSync(
   new URL("../../../document/design.md", import.meta.url),
   "utf8",
 );
 
-/** The table rows of one `### <heading>` section, split into cells. */
 function tableRows(heading: string): string[][] {
   const start = design.indexOf(`### ${heading}`);
   expect(start, `design.md has a "${heading}" section`).toBeGreaterThan(-1);
@@ -32,9 +29,8 @@ function tableRows(heading: string): string[][] {
 const hexIn = (cell: string): string | undefined =>
   /#[0-9a-fA-F]{6}\b/.exec(cell)?.[0].toLowerCase();
 
-// The casts below index a token map by a name read out of design.md's text,
-// which no type can know in advance; a name the map lacks reads `undefined`
-// and fails the comparison, which is the point.
+// The casts index a token map by a name read from design.md; a missing name reads
+// `undefined` and fails the comparison, which is the point.
 
 const camel = (name: string): string =>
   name.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());

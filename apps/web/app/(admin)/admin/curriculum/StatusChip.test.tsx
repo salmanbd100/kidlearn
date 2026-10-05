@@ -3,12 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { StatusChip } from "./StatusChip";
 
-/**
- * The chip answers one question — can a child see this? — so the assertion worth
- * making is that `published` and only `published` reads as live. A sixth status
- * added to the matrix and given the wrong tone here would put a "live" badge on
- * something no child can reach, or worse, hide that something is.
- */
+/** Only `published` may read as live; a wrong tone on a new status would mislead. */
 
 describe("StatusChip", () => {
   it("gives published the live tone, and nothing else", () => {

@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-// NFR-SAFE-07 — nothing on the Student Portal leaves it.
+// NFR-SAFE-07: nothing on the Student Portal leaves it.
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const navigation = vi.hoisted(() => ({ pathname: "/home" }));
@@ -57,11 +57,7 @@ const CHILD: ChildProfileResponse = {
   stats: { stars: 3, coins: 8, badges: 1, currentStreak: 2 },
 };
 
-/**
- * Content values are hostile on purpose: a CMS author could save any string in a
- * world name or a lesson title, and the sweep must fail if one of them ever
- * reaches the DOM as a link.
- */
+/** Hostile on purpose: a CMS author could save any string as a world name or lesson title. */
 const WORLDS: WorldSummaryResponse[] = [
   {
     id: "world_jungle",
@@ -94,7 +90,6 @@ const TOPICS: WorldTopicLessonsResponse[] = [
   },
 ];
 
-/** Every anchor in the document that leaves this origin. */
 function externalHrefs(): string[] {
   return [...document.querySelectorAll("a[href]")]
     .map((anchor) => anchor.getAttribute("href") ?? "")
@@ -147,8 +142,7 @@ describe("no external links anywhere in the Student Portal", () => {
   });
 
   it("holds on /select-profile", async () => {
-    // The one screen where the parent corner is a named chip carrying a photo
-    // from Google's CDN — the sweep must cover that variant too.
+    // The parent corner here is a named chip with a photo from Google's CDN; the sweep must cover it.
     navigation.pathname = "/select-profile";
     renderStudent(<SelectProfileScreen />);
 

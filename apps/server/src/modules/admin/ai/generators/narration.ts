@@ -22,9 +22,6 @@ import {
 } from "../run-generation-job.js";
 import { failStaleJobs } from "../stale-jobs.js";
 
-// Batch narration (file 36, FR-AI-04, FR-I18N-05, FR-CMS-05).
-
-/** The three tables that hold a narration foreign key. */
 const NARRATION_TABLES = [
   "LessonTranslation",
   "StoryPageTranslation",
@@ -32,7 +29,6 @@ const NARRATION_TABLES = [
 ] as const;
 export type NarrationTable = (typeof NARRATION_TABLES)[number];
 
-/** One clip to record. */
 interface NarrationTarget {
   table: NarrationTable;
   targetId: string;
@@ -45,13 +41,10 @@ export interface GenerateNarrationInput {
   id: string;
 }
 
-/** The upload result, which is all an audio "generation" has to validate. */
 const NarrationUploadSchema = z.object({ url: z.string().url() }).strict();
 type NarrationUpload = z.infer<typeof NarrationUploadSchema>;
 
-/**
- * Job statuses that mean "a clip for this pair already exists or is coming".
- */
+// Statuses meaning a clip for this pair exists or is coming.
 const LIVE_JOB_STATUSES = [
   "pending",
   "generating",
@@ -62,16 +55,13 @@ const LIVE_JOB_STATUSES = [
 export async function generateNarrationBatch(
   input: GenerateNarrationInput,
 ): Promise<BatchGenerationRef> {
-  // Before the in-flight read: a pair whose job was stranded by a crash would
-  // otherwise look "already coming" for good.
+  // Before the in-flight read, so a crash-stranded job does not make a pair look "already coming" for good.
   await failStaleJobs();
 
   const candidates = await readNarrationCandidates(input);
   const inFlight = await readInFlightPairs(input.id);
 
-  // `flatMap` rather than `filter`, so the result is `NarrationTarget[]` — a
-  // filter on `target !== undefined` narrows nothing the compiler can carry out,
-  // and the alternative is a cast asserting what the predicate already checked.
+  // flatMap, not filter: a filter on `!== undefined` narrows nothing, and the alternative is a cast.
   const missing = candidates.flatMap((candidate) =>
     candidate.target !== undefined &&
     !candidate.hasAudio &&
@@ -80,17 +70,13 @@ export async function generateNarrationBatch(
       : [],
   );
 
-  // Before the first provider call, and for the whole batch at once: a cap
-  // checked one clip at a time would let a sixteen-clip request spend the last
-  // eleven and stop with a story narrated on five pages and silent on three.
+  // Checked for the whole batch before any provider call: per-clip checks could narrate part of a story and stop.
   await assertWithinDailyCap("audio", missing.length);
 
   const jobIds: string[] = [];
   let failed = 0;
   for (const target of missing) {
-    // `runNarrationJob` records a provider failure on the job row and resolves;
-    // it does not throw. Counting the failures is the only way the batch can
-    // report them, since one response covers *n* jobs.
+    // runNarrationJob records provider failures on the job and resolves; counting is the only way the batch reports them.
     const { jobId, status } = await runNarrationJob(input, target);
     jobIds.push(jobId);
     if (status === "failed") failed += 1;
@@ -111,10 +97,7 @@ function runNarrationJob(
 ): Promise<GenerationJobResult> {
   return runGenerationJob<NarrationUpload>({
     type: "audio",
-    // The text that was spoken, not a reference to it. A reviewer months later
-    // needs the words the voice actually read, and the row it came from may have
-    // been edited since (FR-AI-08). `charCount` because Google TTS meters
-    // characters — it is what this job cost.
+    // The spoken text, not a reference: the source row may be edited later. charCount is what Google TTS bills.
     input: {
       entity: input.entity,
       entityId: input.id,
@@ -132,10 +115,7 @@ function runNarrationJob(
         resourceType: resourceTypeFor("audio"),
       });
 
-      // Zeroed rather than omitted. `runGenerationJob` totals token usage across
-      // attempts for the text generators; Google TTS meters characters, and that
-      // figure is in `input.charCount` above. Reporting the character count as
-      // "tokens" would corrupt the one number the audit trail sums.
+      // Zeroed: TTS meters characters (input.charCount), and the audit trail sums tokens across attempts.
       return { raw: { url }, usage: { inputTokens: 0, outputTokens: 0 } };
     },
     persist: async (parsed, jobId, tx) => {
@@ -143,9 +123,7 @@ function runNarrationJob(
         {
           url: parsed.url,
           kind: "audio",
-          // The clip's own language, which is what FR-I18N-05 asks for: an asset
-          // with a null language here is a clip nobody can tell the language of
-          // and a Bangla reader could be served.
+          // The clip's own language (FR-I18N-05): a null language could be served to a reader of the wrong language.
           language: target.locale,
           aiJobId: jobId,
         },
@@ -164,9 +142,6 @@ function runNarrationJob(
   });
 }
 
-/**
- * Every pair that could carry narration, flagged with whether it already does.
- */
 type NarrationCandidate = {
   hasAudio: boolean;
   /** Absent when there is no text to read — nothing to generate from. */
@@ -258,7 +233,6 @@ async function readStoryCandidates(
   );
 }
 
-/** A quiz's pairs come from the payload, not from a text column. */
 async function readQuizCandidates(
   quizId: string,
 ): Promise<NarrationCandidate[]> {
@@ -303,14 +277,11 @@ async function readQuizCandidates(
   });
 }
 
-/** `definition.prompt` as a locale map, or an empty one. */
 function readPrompts(
   definition: Prisma.JsonValue,
 ): Partial<Record<Locale, string>> {
   if (typeof definition !== "object" || definition === null) return {};
-  // The JSONB column boundary: Prisma types it as `JsonValue`, and narrowing it
-  // to "an object that may have a `prompt` object" is what the two guards above
-  // and the per-key check below actually verify.
+  // JSONB boundary: Prisma types it as JsonValue; the guards below verify the shape.
   const prompt = (definition as Record<string, unknown>).prompt;
   if (typeof prompt !== "object" || prompt === null) return {};
 
@@ -324,7 +295,6 @@ function readPrompts(
   return prompts;
 }
 
-/** The pairs a live audio job already covers. */
 async function readInFlightPairs(entityId: string): Promise<Set<string>> {
   const jobs = await prisma.aIGenerationJob.findMany({
     where: {
@@ -338,8 +308,7 @@ async function readInFlightPairs(entityId: string): Promise<Set<string>> {
   const pairs = new Set<string>();
   for (const job of jobs) {
     if (typeof job.input !== "object" || job.input === null) continue;
-    // Same JSONB boundary as `readPrompts`: the shape was written by
-    // `runNarrationJob` above, and every field is re-checked before use.
+    // Same JSONB boundary as readPrompts: shape written by runNarrationJob, re-checked.
     const record = job.input as Record<string, unknown>;
     const table = record.targetTable;
     const targetId = record.targetId;

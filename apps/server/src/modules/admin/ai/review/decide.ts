@@ -21,7 +21,6 @@ import {
 } from "./job.js";
 import { buildDetail } from "./queue.js";
 
-/** Approve and publish, in one transaction (FR-CMS-06). */
 export async function approveJob(
   jobId: string,
   reviewerId: string,
@@ -65,7 +64,6 @@ export async function approveJob(
   );
 }
 
-/** Reject, with a mandatory reason (FR-AI-08). */
 export async function rejectJob(
   jobId: string,
   reviewerId: string,
@@ -121,7 +119,6 @@ async function readDecidableJob(
   return job;
 }
 
-/** Walks every linked row to a destination status, one legal hop at a time. */
 async function walkChain(
   tx: ReviewWriter,
   rows: LinkedRow[],
@@ -146,10 +143,7 @@ async function walkChain(
   return moved;
 }
 
-/**
- * File 32 added `updatedBy` to the curriculum hierarchy; `Quiz`, `Activity` and
- * `Story` predate it, so their audit trail is the job's own `reviewerId`.
- */
+// `Quiz`, `Activity` and `Story` have no `updatedBy`, so their audit trail is the job's `reviewerId`.
 async function writeStatus(
   tx: ReviewWriter,
   row: LinkedRow,
@@ -188,7 +182,6 @@ async function finish(
   return { job: await buildDetail(job, tx), ...outcome };
 }
 
-/** Records that a reviewer rewrote a job's content before deciding on it. */
 export async function recordEditDecision(
   jobId: string,
   reviewerId: string,

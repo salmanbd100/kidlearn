@@ -5,11 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-/**
- * The two-tap rule, which is the whole reason this component exists: a pre-reader
- * has to be able to hear what a cover says without opening it (FR-STORY-01).
- */
-
 const audio = vi.hoisted(() => ({ play: vi.fn(async () => {}) }));
 
 vi.mock("@/shared/components/AudioProvider", () => ({
@@ -123,9 +118,7 @@ describe("StoryGrid", () => {
   });
 
   it("opens on the first tap when no title recording exists yet", () => {
-    // `titleAudioUrl` is `null` until the voice pipeline (file 36) fills it.
-    // Requiring a confirming tap for something the child was never told would be
-    // a door that needs two pushes for no reason.
+    // `titleAudioUrl` is `null` until the voice pipeline fills it; a confirming tap for something never announced is a pointless second push.
     const { onOpen } = renderGrid([story({ titleAudioUrl: null })]);
 
     fireEvent.click(cover("The Sharing Monkey"));

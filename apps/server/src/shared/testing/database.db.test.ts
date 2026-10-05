@@ -4,7 +4,6 @@ import { createChild, createParent } from "./factories.js";
 import { assertIsTestDatabase } from "./test-database-url.js";
 
 describe("the test-database harness", () => {
-  // Two tests in order: the first writes, the second must not see it.
   it("writes through to Postgres", async () => {
     const parent = await createParent();
     await createChild(parent.id);

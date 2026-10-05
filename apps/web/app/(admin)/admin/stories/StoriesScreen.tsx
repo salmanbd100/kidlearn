@@ -9,8 +9,6 @@ import { fetchWorlds } from "@/features/admin/content-api";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 import { StoryMediaPanel } from "./StoryMediaPanel";
 
-// `/admin/stories` — the story section (file 35, FR-AI-02).
-
 export function StoriesScreen() {
   const [worlds, setWorlds] = useState<AdminWorld[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(

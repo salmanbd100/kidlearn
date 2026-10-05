@@ -4,12 +4,8 @@ import { evaluateAnswer } from "@kidlearn/types";
 import { useCallback, useState } from "react";
 import type { PlayableQuestion, QuestionProps } from "./types";
 
-// Tap one, and that is your answer (FR-QUIZ-01, FR-QUIZ-04).
-
 export interface OptionChoice {
-  /** The option that was right, once it has been tapped. */
   chosenId: string | undefined;
-  /** Options already tried and set aside. */
   triedIds: ReadonlySet<string>;
   choose: (optionId: string) => void;
 }
@@ -32,9 +28,8 @@ export function useOptionChoice({
 
   const choose = useCallback(
     (optionId: string) => {
-      // Locked means the feedback for the last tap is still playing. Ignoring
-      // taps here is what makes a double-tap on the right answer harmless — the
-      // second one would otherwise land on the next question.
+      // Locked while the last tap's feedback plays: makes a double-tap on the right answer
+      // harmless.
       if (isLocked || triedIds.has(optionId)) return;
 
       const isCorrect = evaluateAnswer(definition, optionId);

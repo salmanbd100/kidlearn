@@ -6,8 +6,6 @@ import type * as React from "react";
 import { cn } from "../lib/cn";
 import { usePortalContainer } from "./theme-scope";
 
-// DropdownMenu — the shadcn/Radix primitive, tokenized for both themes.
-
 function DropdownMenu(
   props: React.ComponentProps<typeof DropdownMenuPrimitive.Root>,
 ) {
@@ -21,8 +19,7 @@ function DropdownMenuTrigger(
 }
 
 const dropdownMenuContentVariants = cva(
-  // `var(--radius)` rather than a fixed step, for the reason `dialog.tsx`
-  // spells out: only `--radius` is redefined per theme.
+  // `var(--radius)`, not a fixed step, for the reason given in `dialog.tsx`.
   "z-50 min-w-56 overflow-hidden rounded-[var(--radius)] border border-border bg-card p-1 text-card-foreground shadow-lg",
 );
 
@@ -59,11 +56,7 @@ function DropdownMenuItem({
   );
 }
 
-/**
- * A non-interactive row — an identity block, a section heading. Radix skips it
- * in keyboard navigation, which is what makes it safe to put a name and email
- * at the top of a menu.
- */
+/** A non-interactive row (identity block, section heading); Radix skips it in keyboard navigation. */
 function DropdownMenuLabel({
   className,
   ...props

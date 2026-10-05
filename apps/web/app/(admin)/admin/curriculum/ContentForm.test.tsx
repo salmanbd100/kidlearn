@@ -2,8 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ContentForm } from "./ContentForm";
 
-// The submit path, which is where the form used to fail silently.
-
 function renderForm(
   overrides: Partial<Parameters<typeof ContentForm>[0]> = {},
 ) {
@@ -30,8 +28,7 @@ describe("ContentForm", () => {
   it("carries no required attribute on a locale field", () => {
     renderForm();
 
-    // The panels are both mounted, so both are queryable — and neither may be
-    // `required`, which is the whole point.
+    // Both panels are mounted and neither may be `required`.
     expect(
       screen.getByLabelText("Name a child sees (English)"),
     ).not.toBeRequired();

@@ -1,29 +1,11 @@
 /**
- * `GET /api/content/lessons/:id?preview=1` — the administrator preview
- * (file 33, FR-CMS-04).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One draft lesson, and `lesson.findFirst` applies
- *     the route's real `where` to it — the `status` condition, the grade condition
- *     and the `world.is.status` relation filter. So "a parent gets a 404" is a
- *     consequence of the query the student path sent, not of a mock told to say
- *     `null`.
- *  2. *Assert the query, not just the result.* The whole point of the file. The
- *     student path's `where` is asserted to carry `status: "published"`, and the
- *     preview path's is asserted to carry **no** status condition at all — which
- *     is the difference the feature consists of.
- *  3. *`where` clauses are not the whole guard.* The lesson's `activity` and
- *     `quiz` carry their own `status` and are gated after the read, where no
- *     `where`-clause assertion can see them. Both directions are asserted on the
- *     response body: omitted for a child, present for a preview.
- *  4. *Name what the stub cannot prove.* That no `LessonProgress` or
- *     `SessionEvent` row is written — asserted here as the *absence of any write
- *     delegate on the stub*, which throws loudly if one is reached. The stronger
- *     guarantee is structural and lives outside this file: every endpoint that
- *     records progress is behind `requireParent` + `requireActiveChild`, which an
- *     admin session cannot pass.
+ * Stubs `config/prisma.js` under the general.md §5 stub exception. `lesson.findFirst`
+ * applies the route's real `where` to one draft lesson (rule 1); the student path's
+ * `where` must carry `status: "published"` and the preview path's none (rule 2);
+ * the lesson's `activity`/`quiz` gate is asserted on the response body (rule 3).
+ * That no progress row is written is asserted as the absence of any write delegate
+ * on the stub (rule 4); the structural guarantee is that progress endpoints sit
+ * behind `requireParent` + `requireActiveChild`, which an admin session cannot pass.
  */
 
 import type { ChildProfile, Parent } from "@kidlearn/db";
@@ -59,9 +41,8 @@ vi.mock("../../config/prisma.js", () => ({
     childProfile: { findFirst: db.childFindFirst },
     lesson: { findFirst: db.lessonFindFirst },
     screenTimeSetting: { findUnique: db.screenTimeFindUnique },
-    // Reads only. There is deliberately no `create`, `update` or `upsert` on
-    // either of these: a preview that wrote progress or an event would reach a
-    // `not a function` failure here rather than passing quietly (bound 4).
+    // Reads only: with no `create`/`update`/`upsert` on these, a preview that wrote
+    // progress would fail with `not a function` (rule 4).
     sessionEvent: { findMany: db.sessionEventFindMany },
     lessonProgress: { findUnique: db.lessonProgressFindUnique },
   },
@@ -92,10 +73,6 @@ const CHILD = {
   parentId: PARENT.id,
 } as unknown as ChildProfile;
 
-/**
- * A lesson nobody has published yet: the lesson, its world, its activity and its
- * quiz are all `draft`, which is the state a reviewer actually opens a preview in.
- */
 const DRAFT_LESSON = {
   id: LESSON_ID,
   topicId: "22222222-2222-4222-8222-222222222222",
@@ -164,10 +141,6 @@ const DRAFT_LESSON = {
   },
 };
 
-/**
- * Applies the parts of the route's real `where` that decide visibility, so a
- * `404` is produced by the query rather than by a mock.
- */
 function findFirstAgainstTheDraft(args: {
   where: Record<string, unknown>;
 }): typeof DRAFT_LESSON | null {
@@ -188,11 +161,8 @@ function findFirstAgainstTheDraft(args: {
   return DRAFT_LESSON;
 }
 
-/**
- * An admin session, as the database really describes one: an `AdminUser` row, no
- * `Parent` row, and no Google account. That last part is what makes every parent
- * route answer `403` for an admin without any code saying so.
- */
+// An admin session as the database describes one: an `AdminUser` row, no `Parent`
+// row and no Google account, so every parent route answers `403` for an admin.
 function signInAsAdmin(createdAt = new Date()) {
   mockSession(ADMIN_USER_ID, createdAt);
   db.adminFindUnique.mockResolvedValue(ADMIN_ROW);
@@ -208,8 +178,7 @@ function signInAsParent() {
 }
 
 function mockSession(userId: string, createdAt = new Date()) {
-  // Only the fields the guards read are supplied, so the deep better-auth return
-  // type is narrowed at this boundary.
+  // Only the fields the guards read are supplied; narrows the deep better-auth return type.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
     session: {
@@ -221,7 +190,6 @@ function mockSession(userId: string, createdAt = new Date()) {
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
-/** The `where` the lesson read was actually sent. */
 function lastWhere(): Record<string, unknown> {
   const calls = db.lessonFindFirst.mock.calls;
   const [args] = calls[calls.length - 1] as [
@@ -253,8 +221,7 @@ describe("the preview bypass matrix", () => {
     );
 
     expect(res.status).toBe(200);
-    // The same contract as the student response, which is what lets the CMS mount
-    // the real player against it.
+    // Same contract as the student response, so the CMS can mount the real player against it.
     assertContract(
       LessonDetailResponseSchema,
       res.body,
@@ -268,15 +235,13 @@ describe("the preview bypass matrix", () => {
 
     await request(app).get(`/api/content/lessons/${LESSON_ID}?preview=1`);
 
-    // Not "the filter matched" — the filter is absent. A preview that happened to
-    // pass a `published` condition against a draft row would be a preview that
-    // stopped working the moment the row changed.
+    // The filter is absent, not merely matching: a preview passing a `published`
+    // condition against a draft row would break the moment the row changed.
     expect(lastWhere()).toEqual({ id: LESSON_ID });
   });
 
   it("includes the unpublished activity and quiz a reviewer is there to look at", async () => {
-    // These two edges are gated *after* the read, so no `where`-clause assertion
-    // can see them (bound 3).
+    // Gated *after* the read, so no `where` assertion can see them (rule 3).
     signInAsAdmin();
 
     const res = await request(app).get(
@@ -315,8 +280,7 @@ describe("the preview bypass matrix", () => {
   });
 
   it("404s for a parent who asks for a preview themselves", async () => {
-    // The query parameter requests the mode; the session grants it. This is the
-    // case the feature would be a content leak without.
+    // The query parameter requests the mode; the session grants it. Without that this would be a content leak.
     signInAsParent();
 
     const res = await request(app).get(
@@ -361,9 +325,8 @@ describe("the preview bypass matrix", () => {
   });
 
   it("gives an admin nothing without the parameter", async () => {
-    // An admin is not a parent: `requireParent` refuses to provision a `Parent`
-    // for an account with no Google sign-in, so the ordinary student path answers
-    // `403` rather than serving anything.
+    // An admin is not a parent: `requireParent` refuses to provision a `Parent` for
+    // an account with no Google sign-in, so the student path answers `403`.
     signInAsAdmin();
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
@@ -375,8 +338,7 @@ describe("the preview bypass matrix", () => {
 
 describe("what the interception does not touch", () => {
   it("leaves every other content path to the ordinary guards", async () => {
-    // `preview=1` on a path that is not one lesson detail must not be intercepted
-    // — otherwise the middleware would be a second, undocumented read surface.
+    // `preview=1` off the lesson-detail path must not be intercepted, or the middleware is a second undocumented read surface.
     vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
 
     const res = await request(app).get("/api/content/worlds?preview=1");
@@ -391,8 +353,7 @@ describe("what the interception does not touch", () => {
       "/api/content/lessons/not-a-uuid?preview=1",
     );
 
-    // Falls through, so an admin meets `requireParent` and its `403` rather than a
-    // `400` describing their own typo.
+    // Falls through, so an admin meets `requireParent`'s `403`, not a `400` about their typo.
     expect(res.status).toBe(403);
     expect(db.lessonFindFirst).not.toHaveBeenCalled();
   });
@@ -404,8 +365,7 @@ describe("what the interception does not touch", () => {
       .post(`/api/progress/lessons/${LESSON_ID}/step?preview=1`)
       .send({ step: "intro", completed: false });
 
-    // Not a `200`: the progress surface is behind the parent guards, which an
-    // admin cannot pass. Nothing was written.
+    // Not a `200`: the progress surface is behind the parent guards. Nothing was written.
     expect(res.status).toBe(403);
   });
 });

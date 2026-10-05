@@ -5,11 +5,7 @@ import { describe, expect, it } from "vitest";
 import request from "../testing/request.js";
 import { redactAuthQuery } from "./request-logger.js";
 
-/**
- * The serializer runs inside pino-http, which hands it pino's already-serialised
- * request rather than the `IncomingMessage` — so it is exercised through a real
- * pino-http instance, not called with a hand-built object.
- */
+/** Exercised through a real pino-http instance: the serializer receives pino's already-serialised request. */
 async function logLineFor(path: string): Promise<string> {
   const lines: string[] = [];
   const app = express();

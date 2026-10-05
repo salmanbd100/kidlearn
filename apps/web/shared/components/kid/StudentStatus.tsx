@@ -5,10 +5,6 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { BigButton } from "./BigButton";
 
-/**
- * The waiting and failure states, shaped like the screens around them: centred,
- * large, and never below the 20px floor a child reads at (design.md §3.2).
- */
 export function StudentStatus({
   tone,
   onRetry,

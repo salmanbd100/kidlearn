@@ -74,7 +74,6 @@ CI needs no secrets. `apps/server/vitest.setup.ts` supplies everything `config/e
 ## Where decisions live
 
 - **`document/mobile-app-plan.md`** is the architecture of record for what is and is not shared between web and mobile. `packages/ui` is web-only by design (§4.2) — do not hoist `apps/web` components into it without a second consumer.
-- **`document/improvement-plan.md`** and **`document/improvement-tracker.md`** for anything phrased as cleanup, refactoring or tech debt. Check the tracker before starting such work — the item may already be recorded, decided, or declined.
 
 ## Layout & current state
 

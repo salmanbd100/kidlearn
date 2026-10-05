@@ -6,7 +6,6 @@ import { EXTERNAL_ROUTE_DOCS, ROUTE_DOCS } from "./paths/index.js";
 
 const document = buildOpenApiDocument({ serverUrl: "http://localhost:4000" });
 
-/** Every operation in the document, flattened, with its location for messages. */
 const operations = Object.entries(document.paths).flatMap(([path, pathItem]) =>
   Object.entries(pathItem).map(([method, operation]) => ({
     id: `${method.toUpperCase()} ${path}`,
@@ -14,14 +13,12 @@ const operations = Object.entries(document.paths).flatMap(([path, pathItem]) =>
   })),
 );
 
-/** Operations better-auth serves, which this repo documents but does not shape. */
 const EXTERNAL_OPERATION_IDS = new Set(
   EXTERNAL_ROUTE_DOCS.map(
     ({ method, path }) => `${method.toUpperCase()} ${path}`,
   ),
 );
 
-/** Collects every `$ref` string anywhere in the document. */
 function collectRefs(node: unknown, found: string[] = []): string[] {
   if (Array.isArray(node)) {
     for (const item of node) collectRefs(item, found);
@@ -38,10 +35,7 @@ function collectRefs(node: unknown, found: string[] = []): string[] {
 
 describe("openapi document", () => {
   it("is OpenAPI 3.0.3", () => {
-    // Not 3.1: `nullable: true` is what `zod-to-json-schema` emits and what this
-    // document relies on throughout. 3.1 spells it `type: [x, "null"]`, which is a
-    // conversion this repo has no reason to make and some readers render as an
-    // empty type.
+    // Not 3.1: `nullable: true` is what `zod-to-json-schema` emits, and 3.1's `type: [x, "null"]` renders as an empty type in some readers.
     expect(document.openapi).toBe("3.0.3");
   });
 
@@ -52,10 +46,7 @@ describe("openapi document", () => {
   });
 
   it("gives every operation a unique operationId", () => {
-    // The name a generated client gives the method, and the anchor a `/docs` link
-    // points at. Both break silently: a missing id makes a generator invent one
-    // from the path, and a duplicate makes it drop or rename a method without
-    // saying so. Asserted here so a new route cannot land without one.
+    // A missing id makes a generator invent one from the path; a duplicate makes it drop or rename a method.
     const ids = operations.map(({ id, operation }) => {
       expect(operation.operationId, `${id} has no operationId`).toBeTruthy();
       return operation.operationId as string;
@@ -71,10 +62,7 @@ describe("openapi document", () => {
   });
 
   it("puts every tag in exactly one sidebar group", () => {
-    // `x-tagGroups` is not additive: a reader that honours it builds its whole
-    // navigation from the groups and silently drops a tag no group names. The
-    // operations stay in the document and disappear from the page, which is
-    // exactly the failure nobody notices — hence both directions.
+    // A reader that honours `x-tagGroups` silently drops any tag no group names, hence both directions.
     const declared = (document.tags as Array<{ name: string }>).map(
       (t) => t.name,
     );
@@ -107,11 +95,7 @@ describe("openapi document", () => {
   });
 
   it("uses only the declared security scheme, or none at all", () => {
-    // An operation may inherit the document-level default (a session cookie) by
-    // omitting `security`, which fails closed — a new operation that forgets it is
-    // documented as authenticated, not as public. What must not happen is an
-    // operation naming a scheme that `components.securitySchemes` does not define:
-    // a reader silently offers no way to authenticate it.
+    // An omitted `security` inherits the cookie default and fails closed; a scheme missing from `securitySchemes` leaves a reader with no way to authenticate.
     const declaredSchemes = Object.keys(
       document.components.securitySchemes as object,
     );
@@ -145,17 +129,14 @@ describe("openapi document", () => {
       .map(({ id }) => id)
       .sort();
 
-    // Pinned deliberately: accidentally publishing an endpoint as public is a
-    // security regression, and it should have to be written down here to happen.
+    // Pinned: accidentally publishing an endpoint as public is a security regression and must be written down here.
     expect(publicOperations).toEqual([
       "GET /",
       "GET /api/auth/callback/google",
       "GET /api/auth/google",
       "GET /health",
       "GET /ready",
-      // The admin credential endpoints (file 31). Public because they *are* the
-      // sign-in: `sign-in/email` is where an admin session comes from, and
-      // `sign-up/email` is disabled for every caller regardless.
+      // Public because they are the sign-in; `sign-up/email` is disabled for every caller.
       "POST /api/auth/sign-in/email",
       "POST /api/auth/sign-in/social",
       "POST /api/auth/sign-up/email",
@@ -170,11 +151,7 @@ describe("openapi document", () => {
       >;
 
       for (const [status, response] of Object.entries(responses)) {
-        // 302s carry no body; better-auth's own operations use their own error
-        // shapes because they are not ours to envelope. Derived from the registry
-        // rather than matched on a path prefix, so documenting another better-auth
-        // endpoint (file 31 added the two credential ones) does not mean editing
-        // an exclusion list here as well.
+        // 302s carry no body, and better-auth's own operations use their own error shapes; derived from the registry, not a path prefix.
         if (!status.startsWith("4") && !status.startsWith("5")) continue;
         if (!EXTERNAL_OPERATION_IDS.has(id)) {
           const ref = response.content?.["application/json"]?.schema?.$ref;
@@ -188,12 +165,7 @@ describe("openapi document", () => {
   });
 
   it("parses every hand-written example against its own schema", () => {
-    // An example is the part of the document a reader copies, and nothing else
-    // checks it: JSON Schema conversion drops refinements, and a reader will
-    // happily display a sample body that the API could never send. Parsing with
-    // the Zod object — the same one the route test asserts the real response
-    // against — is what stops a renamed field leaving a plausible-looking lie on
-    // the page.
+    // JSON Schema conversion drops refinements, so parsing with the Zod object stops a renamed field leaving a plausible-looking lie on the page.
     const examples: Array<{ id: string; schema: string; value: unknown }> = [];
 
     for (const { id, operation } of operations) {
@@ -223,8 +195,7 @@ describe("openapi document", () => {
       }
     }
 
-    // Guards the walk itself: a refactor that stopped finding examples would
-    // otherwise turn this test into an assertion about an empty list.
+    // Guards the walk itself: otherwise a refactor that found no examples would assert on an empty list.
     expect(examples.length).toBeGreaterThan(50);
 
     for (const { id, schema, value } of examples) {
@@ -245,8 +216,7 @@ describe("openapi document", () => {
   });
 
   it("resolves every $ref against components.schemas", () => {
-    // The failure this catches is a page that renders with empty models: a reader
-    // does not complain about a dangling ref, it just shows nothing.
+    // A dangling ref makes a reader render empty models without complaint.
     const schemas = (document.components.schemas ?? {}) as Record<
       string,
       unknown
@@ -264,18 +234,14 @@ describe("openapi document", () => {
   });
 
   it("registers the activity and quiz payload contracts", () => {
-    // These are the reason a frontend engineer can build the engines in files
-    // 18–22 from the spec alone, so their presence is asserted rather than hoped.
+    // The activity and quiz payload schemas are what frontend engines are built from, so their presence is asserted.
     const schemas = document.components.schemas as Record<string, unknown>;
     expect(schemas).toHaveProperty("ActivityDefinition");
     expect(schemas).toHaveProperty("QuizQuestion");
   });
 
   it("describes the session cookie and the job secret, and nothing else", () => {
-    // Two schemes since file 30, and the pair is the point: everything a human
-    // reaches is the cookie, and the one bearer token belongs to a scheduler that
-    // has nobody to sign in as. A third scheme appearing here without a reason in
-    // `components.ts` is a credential nobody decided to add.
+    // Everything human is the cookie; the one bearer token belongs to a scheduler. A third scheme needs a reason in `components.ts`.
     expect(document.components.securitySchemes).toEqual({
       sessionCookie: expect.objectContaining({
         type: "apiKey",
@@ -287,9 +253,7 @@ describe("openapi document", () => {
   });
 
   it("applies the session cookie by default and the job secret only to jobs", () => {
-    // The default is what an operation gets by saying nothing, so an operation
-    // that forgot its `security` override is documented as cookie-authenticated —
-    // wrong in the safe direction for a reader, and worth pinning either way.
+    // An operation that forgot its `security` override is documented as cookie-authenticated, which is the safe direction.
     expect(document.security).toEqual([{ sessionCookie: [] }]);
 
     const jobOperations = Object.entries(document.paths).filter(([path]) =>

@@ -9,8 +9,7 @@ describe("Select", () => {
   });
 
   it("keeps the browser's own dropdown arrow, so it does not read as a text field", () => {
-    // `appearance-none` with no arrow drawn in its place removed the only cue
-    // that this opens a list.
+    // `appearance-none` with no arrow drawn removed the only cue that this opens a list.
     expect(selectVariants({})).not.toContain("appearance-none");
   });
 

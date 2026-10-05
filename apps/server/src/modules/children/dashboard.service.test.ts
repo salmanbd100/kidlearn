@@ -1,4 +1,3 @@
-/** The dashboard's arithmetic, on in-memory fixtures. */
 import { RECENT_ACTIVITY_LIMIT } from "@kidlearn/types";
 import { describe, expect, it } from "vitest";
 import {
@@ -34,7 +33,6 @@ const MATHS = subject({
   translations: [{ language: "en", name: "Maths" }],
 });
 
-/** One topic per subject unless a test needs the many-topics case. */
 function topics(...refs: SubjectRef[]): TopicSubjectLink[] {
   return refs.map((ref) => ({ topicId: `topic_${ref.slug}`, subject: ref }));
 }
@@ -47,7 +45,6 @@ describe("computeSubjectProgress", () => {
       Array.from({ length: 9 }, () => "topic_language"),
     );
 
-    // 9/26 is 34.6%, which rounds up.
     expect(subjects).toEqual([
       {
         subjectId: "subject_language",
@@ -86,8 +83,7 @@ describe("computeSubjectProgress", () => {
       [],
     );
 
-    // `bn` is null rather than the English string: the client shows English
-    // knowingly instead of being handed it under a Bangla key.
+    // `bn` is null, not the English string, so the client does not show English under a Bangla key.
     expect(subjects[0].name).toEqual({ en: "Maths", bn: null });
   });
 
@@ -108,8 +104,7 @@ describe("computeSubjectProgress", () => {
       ["topic_language"],
     );
 
-    // No `NaN%` and no bar for an empty curriculum, which is not a child's
-    // failure to report (FR-DASH-03).
+    // No `NaN%` or bar for an empty curriculum (FR-DASH-03).
     expect(subjects.map((entry) => entry.slug)).toEqual(["language"]);
   });
 
@@ -170,7 +165,6 @@ describe("computeSubjectProgress", () => {
         { topicId: "topic_maths", total: 4 },
         { topicId: "topic_science", total: 4 },
       ],
-      // Maths and Science both at 50%, Language at 25%.
       [
         "topic_language",
         "topic_maths",
@@ -180,7 +174,6 @@ describe("computeSubjectProgress", () => {
       ],
     );
 
-    // Maths has the lower `sortOrder`, so it takes the chip.
     expect(result.strongestSubjectId).toBe("subject_maths");
     expect(result.weakestSubjectId).toBe("subject_language");
   });
@@ -195,7 +188,6 @@ describe("computeSubjectProgress", () => {
       [],
     );
 
-    // A brand-new child has no weak area (FR-DASH-03).
     expect(result.subjects).toHaveLength(2);
     expect(result.strongestSubjectId).toBeNull();
     expect(result.weakestSubjectId).toBeNull();
@@ -325,8 +317,7 @@ describe("mergeActivity", () => {
       [badge(sameMoment)],
     );
 
-    // A feed whose order changed between two reads of the same data would make
-    // the newest entry jump around on refresh.
+    // A feed whose order changed between reads would make the newest entry jump on refresh.
     expect(first.map((entry) => entry.refId)).toEqual(
       second.map((entry) => entry.refId),
     );
@@ -336,7 +327,6 @@ describe("mergeActivity", () => {
   it("truncates to the newest entries and drops the rest", () => {
     const lessons = Array.from({ length: 30 }, (_, index) =>
       lesson(
-        // Index 0 is the newest.
         new Date(Date.UTC(2026, 7, 19, 12) - index * 60_000).toISOString(),
         { lessonId: `lesson_${String(index).padStart(2, "0")}` },
       ),

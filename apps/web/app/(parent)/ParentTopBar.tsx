@@ -27,8 +27,6 @@ import { signOut } from "@/shared/api/api-client";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
 import { ParentAvatar } from "@/shared/components/ParentAvatar";
 
-// The frame around every parent page once onboarding is behind them.
-
 const NAV_ITEMS = [
   { href: PARENT_ROUTES.dashboard, labelKey: "nav.dashboard" },
   { href: PARENT_ROUTES.children, labelKey: "nav.children" },
@@ -56,8 +54,7 @@ export function ParentTopBar() {
   const { status, parent, refresh } = useParentSession();
   const [hasSignOutFailed, setHasSignOutFailed] = useState(false);
 
-  // Onboarding steps stay bare: a parent part-way through first-run has nowhere
-  // to navigate to, and a sign-out control mid-consent is a dead end.
+  // Onboarding stays bare: nothing to navigate to, and sign-out mid-consent is a dead end.
   if (
     status !== "ready" ||
     parent === undefined ||
@@ -70,19 +67,14 @@ export function ParentTopBar() {
   const handleSignOut = async () => {
     setHasSignOutFailed(false);
 
-    // A failure here leaves the cookie live. Navigating anyway would bounce off
-    // `resolveParentRedirect` — which reads a signed-in parent on the login page
-    // as someone who has finished onboarding — straight back to the dashboard,
-    // and the parent would be left believing they had signed out.
+    // A failure leaves the cookie live; navigating anyway would bounce off `resolveParentRedirect`
+    // back to the dashboard and the parent would think they had signed out.
     if (!(await signOut())) {
       setHasSignOutFailed(true);
       return;
     }
 
-    // Before navigating: the provider still holds the signed-in parent, and the
-    // same resolver sends them away from the login page — so without clearing it
-    // first, the redirect below bounces back to the dashboard for that reason
-    // instead.
+    // Clear the provider first: it still holds the signed-in parent, and the resolver would bounce the redirect back.
     await refresh();
     router.replace(PARENT_ROUTES.login);
   };
@@ -96,8 +88,7 @@ export function ParentTopBar() {
         {tCommon("app.name")}
       </Link>
 
-      {/* A full-width second row on a phone, inline from `sm` up. `order-last`
-          is what keeps the avatar beside the wordmark at the narrow width. */}
+      {/* Full-width second row on a phone, inline from `sm`; `order-last` keeps the avatar beside the wordmark. */}
       <nav
         aria-label={t("nav.label")}
         className="-mx-1 order-last flex w-full gap-1 overflow-x-auto px-1 sm:order-none sm:mx-0 sm:w-auto sm:overflow-visible sm:px-0"
@@ -121,16 +112,11 @@ export function ParentTopBar() {
       ) : null}
 
       <div className="ml-auto flex items-center gap-2">
-        {/* The control a parent reaches for most often, and the only route back
-            into the child's half of the app. It spent long enough inside the
-            account menu, two taps deep behind an avatar, that nobody found it —
-            so it sits on the bar itself, in the filled variant, ahead of the
-            quieter outline controls beside it. */}
+        {/* On the bar, not in the account menu: two taps deep behind an avatar, nobody found it. */}
         <Button asChild size="default">
           <Link href={STUDENT_ROUTES.selectProfile}>
             <Baby aria-hidden="true" />
-            {/* The label carries the accessible name at every width; below `sm`
-                a third labelled pill would wrap the row, so only the icon shows. */}
+            {/* Below `sm` only the icon shows, so a third labelled pill doesn't wrap the row. */}
             <span className="max-sm:sr-only">{t("nav.backToKidMode")}</span>
           </Link>
         </Button>

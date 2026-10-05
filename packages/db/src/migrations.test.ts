@@ -1,14 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-/**
- * The locking convention in `backend.md §3`, applied to every migration after
- * the last one written before it existed. The earlier three that break it
- * (`20260822010000`, `20260911000000`, `20260912010000`) ran against tables
- * small enough not to matter, and editing an applied migration changes its
- * checksum, so they stay as they are — the second block below uses them to
- * prove the checker would have caught them.
- */
+/** Locking convention from `backend.md §3`, applied after the last pre-convention migration; the three earlier offenders stay (editing changes the checksum). */
 
 const MIGRATIONS_DIR = new URL("../prisma/migrations/", import.meta.url);
 const CONVENTION_STARTS_AFTER = "20260912010000";
@@ -23,7 +16,6 @@ function statementsOf(sql: string): string[] {
     .filter((statement) => statement.length > 0);
 }
 
-/** Every way `sql` would hold a lock on a table that already has rows. */
 function lockingViolations(sql: string): string[] {
   const statements = statementsOf(sql);
   const created = new Set(
@@ -44,8 +36,7 @@ function lockingViolations(sql: string): string[] {
       if (concurrently === undefined && !created.has(table)) {
         violations.push(`index on existing "${table}" without CONCURRENTLY`);
       }
-      // Postgres runs a multi-statement script as one implicit transaction,
-      // and CONCURRENTLY refuses to run inside one.
+      // Postgres runs a multi-statement script as one implicit transaction, and CONCURRENTLY refuses to run inside one.
       if (concurrently !== undefined && statements.length > 1) {
         violations.push("CREATE INDEX CONCURRENTLY shares its migration");
       }

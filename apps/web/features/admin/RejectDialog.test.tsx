@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RejectDialog } from "./RejectDialog";
 
-/** The mandatory rejection reason (file 37, FR-AI-08). */
 describe("RejectDialog", () => {
   function setup(overrides: Partial<Parameters<typeof RejectDialog>[0]> = {}) {
     const onConfirm = vi.fn();
@@ -44,8 +43,7 @@ describe("RejectDialog", () => {
   });
 
   it("says how many more characters are needed", () => {
-    // The reason a disabled button is disabled has to be readable, and the live
-    // region is what carries it to a screen-reader user (design.md §2.3).
+    // The disabled reason must reach screen-reader users via the live region (design.md §2.3).
     setup();
 
     fireEvent.change(screen.getByLabelText("What was wrong with it?"), {

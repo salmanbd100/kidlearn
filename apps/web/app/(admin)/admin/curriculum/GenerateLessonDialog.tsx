@@ -24,21 +24,14 @@ import { type FormEvent, useState } from "react";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { generateLesson } from "@/features/admin/ai-api";
 
-/**
- * "Write this lesson for me" — the admin end of the AI Lesson Generator
- * (file 34, FR-AI-01).
- */
-
 export interface GenerateLessonDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   subjects: AdminSubject[];
   topics: AdminTopic[];
   worlds: AdminWorld[];
-  /** Preselected from the tree, so the dialog opens on what is already in view. */
   subjectId?: string;
   topicId?: string;
-  /** Reloads the tree and shows the "sent to review" notice. */
   onGenerated: (message: string) => void;
 }
 
@@ -72,8 +65,7 @@ export function GenerateLessonDialog({
     setLanguages((current) =>
       current.includes(locale)
         ? current.filter((one) => one !== locale)
-        : // Kept in `LOCALES` order rather than click order, so the request is
-          // the same whichever way an admin got to the same pair.
+        : // Kept in `LOCALES` order, not click order, so equal pairs give equal requests.
           LOCALES.filter((one) => one === locale || current.includes(one)),
     );
   }
@@ -102,8 +94,7 @@ export function GenerateLessonDialog({
     }
 
     if (result.data.status === "failed") {
-      // Not an error response — the job exists and holds both attempts. Saying
-      // which job it was is what makes it findable in the queue.
+      // Not an error response: the job exists with both attempts; naming it makes it findable.
       setError(
         `The model could not produce a usable lesson. Job ${result.data.jobId} kept what it tried, so it can be read in the AI Queue.`,
       );

@@ -7,8 +7,6 @@ import type * as React from "react";
 import { cn } from "../lib/cn";
 import { usePortalContainer } from "./theme-scope";
 
-// Dialog — the shadcn/Radix primitive, tokenized for both themes.
-
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root {...props} />;
 }
@@ -31,10 +29,8 @@ function DialogOverlay({
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
-      // Deliberately unanimated. `tailwindcss-animate` is not a dependency here,
-      // and design.md §1.4 asks that motion answer "what just happened?" — a
-      // scrim fade does not, and a hand-rolled keyframe would be the one piece of
-      // motion in the system that no reduced-motion query covers.
+      // Unanimated on purpose: `tailwindcss-animate` is not a dependency, and a hand-rolled
+      // keyframe would be motion no reduced-motion query covers.
       className={cn("fixed inset-0 z-50 bg-foreground/50", className)}
       {...props}
     />
@@ -42,11 +38,8 @@ function DialogOverlay({
 }
 
 const dialogContentVariants = cva(
-  // `var(--radius)`, not `rounded-xl`: the `--radius-*` scale `tokens.css`
-  // declares in `@theme` is static, so `rounded-xl` would pin every dialog to the
-  // 28px kid-panel radius on both surfaces. Only `--radius` is redefined per
-  // theme (design.md §4.2), so this is what actually follows `[data-theme]` —
-  // 20px on the kid surface, 12px on the parent one.
+  // `var(--radius)`, not `rounded-xl`: the `@theme` `--radius-*` scale is static, so `rounded-xl`
+  // would pin both surfaces to 28px. Only `--radius` is redefined per theme (design.md §4.2).
   "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-[var(--radius)] bg-card p-6 text-card-foreground shadow-lg",
   {
     variants: {
@@ -84,28 +77,19 @@ type DialogContentBaseProps = Omit<
 export type DialogContentProps = DialogContentBaseProps &
   (
     | {
-        /** Defaults to true. */
         isDismissable?: true;
-        /** Accessible name for the close button, which this variant renders. */
         closeLabel: string;
         closeSize?: VariantProps<typeof dialogCloseVariants>["closeSize"];
       }
     | {
-        /**
-         * When false the dialog has no close button and ignores Escape and
-         * outside clicks — for a dialog that is itself a gate.
-         */
+        /** When false: no close button, and Escape and outside clicks are ignored — for a gate. */
         isDismissable: false;
         closeLabel?: never;
         closeSize?: never;
       }
   );
 
-/**
- * A caller's own handler still runs, but cannot undo the gate: spreading `props`
- * after these used to let any `onEscapeKeyDown` silently disable
- * `isDismissable={false}`.
- */
+/** A caller's own handler still runs but cannot undo the gate (spreading `props` after these used to disable `isDismissable={false}`). */
 function gated<TEvent extends Event>(
   isDismissable: boolean,
   handler: ((event: TEvent) => void) | undefined,
@@ -153,11 +137,7 @@ function DialogContent({
   );
 }
 
-/**
- * `inset` reserves room for the close button so a long title cannot run under it.
- * `flush` is for a dialog rendered with `isDismissable={false}`, where there is no
- * button to clear and the reserved gutter would be dead space.
- */
+/** `inset` reserves room for the close button; `flush` is for `isDismissable={false}`, which has none. */
 const dialogHeaderVariants = cva("flex flex-col gap-1.5", {
   variants: {
     gutter: {

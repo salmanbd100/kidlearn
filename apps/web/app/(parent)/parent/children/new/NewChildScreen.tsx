@@ -8,7 +8,6 @@ import { ChildProfileForm } from "@/features/children/ChildProfileForm";
 import { createChild } from "@/features/parent/parent-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 
-/** Add a second-through-fifth profile (FR-PROF-01). */
 export function NewChildScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();

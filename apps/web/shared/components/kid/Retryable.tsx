@@ -2,10 +2,7 @@
 
 import { type ReactNode, useCallback, useState } from "react";
 
-/**
- * Remounts its children when `retry` is called, so a screen that loads in an
- * effect starts over from `loading` without tracking an attempt counter itself.
- */
+/** Remounts its children on `retry`, so a screen that loads in an effect restarts from `loading`. */
 export function Retryable({
   children,
 }: {

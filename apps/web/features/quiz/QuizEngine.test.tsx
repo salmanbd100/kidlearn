@@ -58,7 +58,6 @@ function tap(optionId: string) {
   fireEvent.click(screen.getByTestId(`quiz-option-${optionId}`));
 }
 
-/** The feedback hold between the right answer and the next question. */
 function settle() {
   act(() => vi.advanceTimersByTime(CORRECT_HOLD_MS));
 }
@@ -120,7 +119,7 @@ describe("QuizEngine", () => {
     });
 
     it("asks a question carrying a field this bundle does not know", () => {
-      // Content from a newer deploy reaching an older bundle (R-24).
+      // Content from a newer deploy reaching an older bundle.
       renderEngine([
         { id: "q1", definition: { ...validMcq, difficulty: "easy" } },
       ]);

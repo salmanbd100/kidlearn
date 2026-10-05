@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-/**
- * The concept-token vocabulary stored in `Lesson.conceptsIntroduced` (file 30).
- */
+/** The concept-token vocabulary stored in `Lesson.conceptsIntroduced`. */
 export const CONCEPT_PREFIXES = ["letter", "word", "number"] as const;
 
 export const ConceptPrefixSchema = z.enum(CONCEPT_PREFIXES);

@@ -1,29 +1,9 @@
 /**
- * `GET /api/children/:id/reports` — the weekly report list, and the lazy
- * generation behind it (FR-DASH-05..06).
- *
- * The route lives on `modules/children/children.routes.ts`, beside the other per-child reads, so
- * this file is named for the endpoint rather than a module of its own — the same
- * deliberate exception to `general.md §4` that `dashboard.routes.test.ts` records, and for
- * the same reason.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four rules that bound it shape this suite:
- *
- *  - **Rule 1, stub state not answers.** `store.reports` is a table: the stubbed
- *    `upsert` matches on `(childId, weekStart)` and replaces in place, exactly as
- *    the unique index makes Postgres do. So "calling this twice does not duplicate
- *    a week" is a row count over real state rather than a mock told to return one
- *    row twice — which is the whole of FR-DASH-06.
- *  - **Rule 2, assert the query.** A stub cannot show that a draft lesson stayed in
- *    the database, so the `where` clauses that keep unreviewed content out of the
- *    concept tokens and the badge list are asserted directly.
- *  - **Rule 3, `where` is not the whole guard.** The badge name arrives through an
- *    `include`d relation, so its gate is asserted on the response body as well.
- *  - **Rule 4, name what the stub cannot prove.** The one-row-per-week guarantee
- *    ultimately rests on the `@@unique([childId, weekStart])` index, which no stub
- *    can demonstrate. The declaration it rests on is asserted at the bottom of this
- *    file; a real concurrency test replaces it once the harness exists.
+ * Stubs `config/prisma.js` under the general.md §5 stub exception. `store.reports`
+ * is a table whose `upsert` matches on `(childId, weekStart)` like the unique
+ * index (rule 1); unreviewed-content `where` clauses are asserted directly
+ * (rule 2) and the badge name's gate on the response body (rule 3). The index
+ * itself is asserted against the schema at the bottom (rule 4).
  */
 import { readFileSync } from "node:fs";
 import type { ChildProfile, Parent } from "@kidlearn/db";
@@ -36,7 +16,6 @@ const CHILD_ID = "child_1";
 const OTHER_CHILD_ID = "child_2";
 const OPERATION = "GET /api/children/{id}/reports";
 
-/** Wednesday midday in Dhaka, so "last completed week" is 10–16 August. */
 const NOW = new Date("2026-08-19T06:00:00.000Z");
 const LAST_WEEK = "2026-08-10T00:00:00.000Z";
 const WEEK_BEFORE = "2026-08-03T00:00:00.000Z";
@@ -71,7 +50,6 @@ type LedgerRow = {
 
 type StoryRow = { id: string; status: string; worldId: string };
 
-/** `QuizResponse.question -> QuizQuestion.quiz`, the path the quiz gate walks. */
 type QuestionRow = { id: string; quizId: string };
 type QuizRow = { id: string; status: string };
 
@@ -164,8 +142,7 @@ function signInAs({
 }: {
   child?: ChildProfile | null;
 } = {}) {
-  // `getSession` returns a deep better-auth type; only the fields the middleware
-  // reads are supplied, so the shape is narrowed at this boundary.
+  // `getSession` returns a deep better-auth type; only the fields read are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -242,12 +219,10 @@ function seedCurriculum() {
   ] satisfies BadgeRow[];
 }
 
-/** A completion inside last week (10–16 August, local). */
 function completed(lessonId: string, at = "2026-08-11T04:00:00.000Z") {
   return { childId: CHILD_ID, lessonId, completedAt: new Date(at) };
 }
 
-/** One of the two ledger rows a finished story writes. */
 function storyCompletion(
   storyId: string,
   rewardType: "star" | "coin",
@@ -310,14 +285,8 @@ function matchesWorld(worldId: string, node: WhereNode): boolean {
   return wanted === undefined || world.status === wanted;
 }
 
-/**
- * Lessons the query asked for — the clauses are **interpreted**, not reimplemented.
- *
- * A gate the service stops sending stops being applied here, so rows it was keeping
- * out start arriving and a behavioural test fails. A stub that filtered on
- * `status === "published"` of its own accord would pass whether the query asked for
- * it or not (`general.md §5`, rule 2).
- */
+// Interprets the query's clauses rather than reimplementing them: a gate the
+// service stops sending stops being applied here, so a test fails (rule 2).
 function visibleLessons(node: WhereNode): LessonRow[] {
   return (store.lessons as LessonRow[]).filter((lesson) => {
     if (node.status !== undefined && lesson.status !== node.status)
@@ -369,8 +338,7 @@ beforeEach(() => {
       ),
   );
 
-  // Rule 1: the table, not the answer. Matching on the same pair the unique index
-  // covers is what makes the idempotency assertions below mean anything.
+  // Rule 1: match on the pair the unique index covers, so the idempotency assertions mean something.
   db.reportUpsert.mockImplementation(
     async (args: {
       where: { childId_weekStart: { childId: string; weekStart: Date } };
@@ -475,7 +443,6 @@ beforeEach(() => {
           if (args.where.badge !== undefined) {
             const badge =
               row.badgeId === null ? undefined : badges.get(row.badgeId);
-            // A to-one relation filter also excludes rows with no relation.
             if (badge === undefined) return false;
             const wanted = args.where.badge.is.status;
             if (wanted !== undefined && badge.status !== wanted) return false;
@@ -497,9 +464,8 @@ beforeEach(() => {
     },
   );
 
-  // The story count's gate is a second query, because `RewardLedger.sourceId` is
-  // text rather than a relation. Interpreted, not reimplemented (rule 2): drop the
-  // `status` clause from the service and a pulled story starts being counted.
+  // The story count's gate is a second query because `RewardLedger.sourceId` is
+  // text, not a relation. Interpreted, not reimplemented (rule 2).
   db.storyFindMany.mockImplementation(
     async ({ where }: { where: { id: { in: string[] } } & WhereNode }) =>
       (store.stories as StoryRow[])
@@ -547,7 +513,6 @@ beforeEach(() => {
         if (where.question === undefined) return true;
         const quizId = questions.get(row.questionId)?.quizId;
         const quiz = quizId === undefined ? undefined : quizzes.get(quizId);
-        // A to-one relation filter also excludes rows with no relation.
         if (quiz === undefined) return false;
         const wanted = where.question.is.quiz.is.status;
         return wanted === undefined || quiz.status === wanted;
@@ -586,10 +551,9 @@ describe("GET /api/children/:id/reports — scoping", () => {
       `/api/children/${OTHER_CHILD_ID}/reports`,
     );
 
-    // Not 403: a 403 would confirm the profile exists (NFR-SAFE-02).
+    // Not 403: that would confirm the profile exists (NFR-SAFE-02).
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
-    // And nothing was generated for a child the caller does not own.
     expect(db.reportUpsert).not.toHaveBeenCalled();
   });
 
@@ -621,9 +585,7 @@ describe("GET /api/children/:id/reports — lazy generation", () => {
     expect(res.status).toBe(200);
     assertContract(WeeklyReportListResponseSchema, res.body, OPERATION);
     expect(res.body.data.reports).toHaveLength(1);
-    // The Monday of the week before the one containing `NOW`, not this week's.
     expect(res.body.data.reports[0].weekStart).toBe(LAST_WEEK);
-    // The Sunday, inclusive — the far edge the range header renders.
     expect(res.body.data.reports[0].weekEnd).toBe("2026-08-16T00:00:00.000Z");
     expect(res.body.data.reports[0].metrics).toMatchObject({
       activeDays: 1,
@@ -641,10 +603,8 @@ describe("GET /api/children/:id/reports — lazy generation", () => {
     await request(app).get(`/api/children/${CHILD_ID}/reports`);
     const second = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // FR-DASH-06: the history stays clean however often the screen is opened.
     expect(second.body.data.reports).toHaveLength(1);
     expect(store.reports).toHaveLength(1);
-    // The row already existed, so the second read did not regenerate it.
     expect(db.reportUpsert).toHaveBeenCalledTimes(1);
   });
 
@@ -665,16 +625,14 @@ describe("GET /api/children/:id/reports — lazy generation", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // A parent returning after a long absence gets last week's card immediately
-    // rather than waiting on an aggregation per missing week.
+    // A parent returning after a long absence gets last week's card at once, not an aggregation per missing week.
     expect(db.reportUpsert).toHaveBeenCalledTimes(1);
     expect(res.body.data.reports).toHaveLength(1);
   });
 
   it("generates nothing for a week the child did not exist in", async () => {
-    // Created Wednesday, so the last completed week (10–16 Aug) ended before the
-    // profile did. Aggregating it would store `activeDays: 0` and a `quietWeek`
-    // note as the first thing a parent ever reads about a profile they just made.
+    // Created Wednesday, so the last completed week ended before the profile did;
+    // aggregating it would store a `quietWeek` note as the first thing a parent reads.
     signInAs({
       child: childProfile({ createdAt: new Date("2026-08-19T05:00:00.000Z") }),
     });
@@ -689,8 +647,7 @@ describe("GET /api/children/:id/reports — lazy generation", () => {
   });
 
   it("generates the partial week a child was created in, once it has ended", async () => {
-    // Created on the Tuesday of 10–16 Aug: that week has ended and the child did
-    // learn in part of it, so withholding it would be withholding their first week.
+    // Created on the Tuesday of that week and the child learned in part of it, so withhold nothing.
     signInAs({
       child: childProfile({ createdAt: new Date("2026-08-11T05:00:00.000Z") }),
     });
@@ -722,8 +679,7 @@ describe("GET /api/children/:id/reports — lazy generation", () => {
     signInAs();
     seedCurriculum();
     store.progress = [completed("lesson_a")] satisfies ProgressRow[];
-    // A finished lesson always leaves session events behind, and without them the
-    // week has zero active days — which `quietWeek` correctly claims first.
+    // A finished lesson always leaves session events; without them `quietWeek` would claim first.
     store.events = [new Date("2026-08-11T04:00:00.000Z")];
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
@@ -731,8 +687,7 @@ describe("GET /api/children/:id/reports — lazy generation", () => {
     const report = res.body.data.reports[0];
     expect(report.metrics.noteKey).toBe("steadyProgress");
     expect(report.metrics.noteParams).toEqual({ count: 1 });
-    // The stored string is a fallback and a debugging aid; the client renders from
-    // the key so the note can be Bangla.
+    // The stored string is a fallback; the client renders from the key so the note can be Bangla.
     expect(report.note).toContain("1 lessons finished this week");
   });
 
@@ -746,8 +701,7 @@ describe("GET /api/children/:id/reports — lazy generation", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // One unreadable blob must not 500 a parent's whole history — the week is
-    // dropped and logged instead.
+    // One unreadable blob must not 500 a parent's whole history: the week is dropped and logged.
     expect(res.status).toBe(200);
     assertContract(WeeklyReportListResponseSchema, res.body, OPERATION);
     expect(res.body.data.reports).toHaveLength(1);
@@ -758,8 +712,7 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
   it("counts the local week, not seven UTC days", async () => {
     signInAs();
     seedCurriculum();
-    // 16 Aug 18:30 UTC is 17 Aug 00:30 in Dhaka — the Monday *after* the reported
-    // week, so it must not be counted. A UTC window would include it.
+    // 16 Aug 18:30 UTC is 17 Aug in Dhaka, the Monday after the reported week; a UTC window would include it.
     store.events = [new Date("2026-08-16T18:30:00.000Z")];
     store.progress = [
       completed("lesson_a", "2026-08-16T18:30:00.000Z"),
@@ -787,8 +740,7 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
     expect(res.body.data.reports[0].metrics.newLetters).toEqual(["A"]);
-    // Rule 2: the stub cannot show the draft row stayed in the database, so the
-    // clause that keeps it out of the aggregate is asserted directly.
+    // Rule 2: assert the clause that keeps the draft row out of the aggregate.
     expect(db.progressFindMany.mock.calls[0][0].where.lesson).toEqual({
       is: { status: "published", world: { is: { status: "published" } } },
     });
@@ -801,8 +753,7 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // `World.status` defaults to draft and takes its lessons down with it, so its
-    // concept tokens are no more the parent's to read than the child's.
+    // `World.status` defaults to draft and takes its lessons down with it.
     expect(res.body.data.reports[0].metrics).toMatchObject({
       lessonsCompleted: 0,
       newLetters: [],
@@ -833,11 +784,9 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // The ledger rows stay — the child earned those stars — but a figure about
-    // withdrawn content is not one a parent is told, and the endpoint documents
-    // that unpublished content never reaches the figures (`backend.md §4`).
+    // The ledger rows stay (the stars were earned), but a figure about withdrawn content is not one a parent is told.
     expect(res.body.data.reports[0].metrics.storiesCompleted).toBe(1);
-    // Rule 2: the gate is a `where` on a second query, so assert it directly.
+    // Rule 2: the gate is a `where` on a second query.
     expect(db.storyFindMany.mock.calls[0][0].where).toMatchObject({
       status: "published",
       world: { is: { status: "published" } },
@@ -854,8 +803,7 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // 100% of one published answer, not 50% of two — a quiz withdrawn from the
-    // catalogue does not go on shaping the figure a parent reads.
+    // 100% of one published answer, not 50% of two: a withdrawn quiz does not shape the figure.
     expect(res.body.data.reports[0].metrics).toMatchObject({
       quizAccuracy: 100,
       quizFirstAttempts: 1,
@@ -889,8 +837,7 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
 
     const res = await request(app).get(`/api/children/${CHILD_ID}/reports`);
 
-    // Rule 3: the name arrives through a relation, so the response body is the
-    // only place the gate on it can be seen.
+    // Rule 3: the name arrives through a relation, so only the response body shows its gate.
     expect(res.body.data.reports[0].metrics.badgesEarned).toEqual([
       { slug: "first-lesson", name: "First Lesson" },
     ]);
@@ -928,7 +875,6 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
     expect(res.body.data.reports[0].metrics).toMatchObject({
       quizAccuracy: 50,
       quizFirstAttempts: 2,
-      // Stored, not left to the client to invert out of the rounded percentage.
       quizFirstAttemptsCorrect: 1,
     });
   });
@@ -945,13 +891,7 @@ describe("GET /api/children/:id/reports — what the figures may see", () => {
 });
 
 describe("one-row-per-week contract", () => {
-  /**
-   * The idempotency assertions above run against a stub that matches on
-   * `(childId, weekStart)` because that is what the index makes Postgres do. A
-   * stubbed client cannot demonstrate the index itself, so this asserts the
-   * declaration the guarantee rests on. Replace it with a real concurrent-write
-   * test once the test-database harness exists.
-   */
+  // The idempotency assertions rest on the unique index, which a stub cannot demonstrate, so assert its declaration.
   it("declares the unique index generation upserts against", () => {
     const schema = readFileSync(
       new URL(
@@ -967,8 +907,7 @@ describe("one-row-per-week contract", () => {
     );
 
     expect(model).toContain("@@unique([childId, weekStart])");
-    // A date column, not a timestamp: the upsert key is a calendar week, and two
-    // instants inside one Monday must not be two rows.
+    // A date column, not a timestamp: two instants inside one Monday must not be two rows.
     expect(model).toContain("weekStart DateTime     @db.Date");
   });
 });

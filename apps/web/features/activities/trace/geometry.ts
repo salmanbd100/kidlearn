@@ -1,51 +1,37 @@
 import { svgPathProperties } from "svg-path-properties";
 
-/**
- * Everything the tracing activity needs to know about an SVG path, computed in
- * pure JavaScript (FR-ACT-02).
- */
-
 export interface Point {
   x: number;
   y: number;
 }
 
-/** The coordinate space `tolerance` and every stroke width below are written in. */
 export const REFERENCE_EXTENT = 100;
 
-/** Breathing room around the glyph, in reference units, so thick ink never clips. */
 const FRAME_PADDING = 9;
 
 export interface GlyphFrame {
-  /** Ready for the `viewBox` attribute. */
   viewBox: string;
-  /** Multiply a reference-space length by this to get the payload's own units. */
   unit: number;
 }
 
 export interface PathArrow extends Point {
-  /** Degrees clockwise from the positive x-axis — ready for an SVG `rotate()`. */
   angle: number;
-  /** Position along the stroke, so the renderer has a key that is not a render-time index. */
   order: number;
 }
 
-/** SVG numbers: optional sign, optional leading dot, optional exponent. */
 const NUMBER_PATTERN = /[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?/g;
 
-/** A relative moveto and the whole run of numbers belonging to it. */
 const RELATIVE_MOVETO_PATTERN =
   /^m[\s,]*(?:[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?[\s,]*)+/;
 
-/** The library exports the constructor only — its instance type has no name to import. */
+/** The library exports the constructor only; its instance type has no importable name. */
 type PathProperties = InstanceType<typeof svgPathProperties>;
 
 function properties(pathData: string): PathProperties | undefined {
   try {
     return new svgPathProperties(pathData);
   } catch {
-    // A payload can carry any string, and the renderer's job when it carries a
-    // broken one is to draw nothing rather than to take the lesson down with it.
+    // A broken payload draws nothing rather than taking the lesson down.
     return undefined;
   }
 }
@@ -57,9 +43,6 @@ function endPointOf(pathData: string): Point | undefined {
   return Number.isFinite(total) ? path.getPointAtLength(total) : undefined;
 }
 
-/**
- * Rewrite a subpath's opening `m dx dy` as the absolute point it resolves to.
- */
 function toAbsoluteMoveTo(chunk: string, cursor: Point): string {
   const match = RELATIVE_MOVETO_PATTERN.exec(chunk);
   if (match === null) return chunk;
@@ -76,7 +59,6 @@ function toAbsoluteMoveTo(chunk: string, cursor: Point): string {
   )}`;
 }
 
-/** Split on every moveto, resolving relative ones. */
 function resolveSubpaths(pathData: string): string[] {
   const chunks = pathData
     .split(/(?=[Mm])/)
@@ -99,10 +81,8 @@ function resolveSubpaths(pathData: string): string[] {
 }
 
 /**
- * `strokeOrder` is only honoured when it is a permutation of the strokes that
- * actually exist. A payload whose order drops, repeats or invents a stroke would
- * otherwise leave part of the glyph untraceable and the child unable to finish,
- * so document order — always complete — wins instead (FR-ACT-05).
+ * `strokeOrder` is honoured only when it is a permutation of the existing strokes; otherwise a
+ * dropped or invented stroke would make the glyph untraceable, so document order wins (FR-ACT-05).
  */
 function isPermutationOf(order: readonly number[], count: number): boolean {
   if (order.length !== count) return false;
@@ -123,7 +103,6 @@ export function splitStrokes(
   return strokeOrder.map((index) => subpaths[index] ?? "");
 }
 
-/** `n` points from the stroke's start to its end inclusive, evenly spaced by length. */
 export function samplePath(pathData: string, n: number): Point[] {
   if (n < 2) return [];
 
@@ -154,9 +133,8 @@ export function glyphFrameOf(points: readonly Point[]): GlyphFrame {
   const spanX = Math.max(...xs) - minX;
   const spanY = Math.max(...ys) - minY;
 
-  // A glyph is scaled by its longer side, so an "l" is not blown up to the width
-  // of an "m". A single-point glyph has no extent to scale by and falls back to
-  // the reference one, which keeps the padding below non-zero.
+  // Scaled by the longer side so an "l" is not blown up to an "m"'s width; a single point falls
+  // back to the reference extent, keeping padding non-zero.
   const extent = Math.max(spanX, spanY) || REFERENCE_EXTENT;
   const unit = extent / REFERENCE_EXTENT;
   const padding = FRAME_PADDING * unit;
@@ -169,15 +147,10 @@ export function glyphFrameOf(points: readonly Point[]): GlyphFrame {
   };
 }
 
-/** Convert a reference-space (0–100) length into the glyph's own units. */
 export function toPathUnits(length: number, frame: GlyphFrame): number {
   return length * frame.unit;
 }
 
-/**
- * Direction hints along a stroke, spaced so neither the start dot nor the end of
- * the stroke has an arrow sitting on top of it.
- */
 export function arrowsAlong(pathData: string, count: number): PathArrow[] {
   if (count < 1) return [];
 

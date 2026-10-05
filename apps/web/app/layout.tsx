@@ -42,9 +42,7 @@ const fontVariables = [
 const SITE_NAME = "KidLearn";
 
 export const metadata: Metadata = {
-  // `||`, not `??`: an omitted build-arg or a blank Vercel variable is a defined
-  // empty string, which `??` passes to `new URL("")` — that throws at module
-  // scope and fails every route in the build.
+  // `||`, not `??`: a blank variable is a defined empty string, and `new URL("")` throws at module scope, failing every route.
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000",
   ),
@@ -63,30 +61,25 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-// Every route is dynamic by decision, not oversight: this layout reads the
-// locale cookie.
+// Every route is dynamic by decision: this layout reads the locale cookie.
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
-  // Read on the server so the first response is in the right language; detecting
-  // in the browser gives a Bangla visitor a flash of English and a hydration
-  // mismatch. See the note in `lib/i18n.ts`.
+  // Read on the server: detecting in the browser gives a Bangla visitor a flash of English and a hydration mismatch.
   const cookieStore = await cookies();
   const locale = toLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
 
   return (
     <html
       lang={locale}
-      // The bootstrap script below edits this element's class list before React
-      // hydrates, so the mismatch is expected.
+      // The bootstrap script edits this element's classes before hydration, so the mismatch is expected.
       suppressHydrationWarning
       className={`${fontVariables} h-full antialiased`}
     >
       <body className="flex min-h-dvh flex-col bg-background font-body text-foreground">
-        {/* Blocking and first, so a user who needs high contrast or a dyslexia
-            font never sees a frame of the default theme (NFR-A11Y-03..05). */}
+        {/* Blocking and first, so high-contrast and dyslexia users never see a default-theme frame. */}
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a fixed, build-time string with no interpolated input — the only way to run before paint. */}
         <script dangerouslySetInnerHTML={{ __html: A11Y_BOOTSTRAP_SCRIPT }} />
         <Providers locale={locale}>{children}</Providers>

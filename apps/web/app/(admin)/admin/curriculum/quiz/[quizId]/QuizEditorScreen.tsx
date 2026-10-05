@@ -30,10 +30,6 @@ import {
   type QuestionDraft,
 } from "@/features/admin/quiz-draft";
 
-/**
- * `/admin/curriculum/quiz/[quizId]` — one quiz's ordered questions (FR-CMS-03).
- */
-
 type DialogState =
   | { kind: "closed" }
   | { kind: "new"; draft: QuestionDraft }
@@ -41,7 +37,6 @@ type DialogState =
 
 export interface QuizEditorScreenProps {
   quizId: string;
-  /** The `AIGenerationJob` this edit belongs to, when opened from the queue. */
   jobId?: string;
 }
 
@@ -130,10 +125,8 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
             <Link href={ADMIN_ROUTES.curriculum}>Back</Link>
           </Button>
 
-          {/* File 36 — prompt narration per question per locale (FR-AI-04,
-              FR-QUIZ-05). Offered whatever the quiz's status: recording a clip
-              changes nothing a child can reach, since the audio is attached on
-              approval and not here. */}
+          {/* Offered whatever the quiz status: audio is attached on approval, so recording
+              changes nothing a child can reach. */}
           <GenerateNarrationButton
             entity="quiz"
             id={quizId}
@@ -269,8 +262,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
               </DialogHeader>
 
               <QuizQuestionEditor
-                // Keyed so opening a different question remounts the form rather
-                // than feeding new initial state into a mounted one.
+                // Keyed so a different question remounts the form.
                 key={dialog.kind === "edit" ? dialog.question.id : "new"}
                 initial={dialog.draft}
                 isBusy={isBusy}
@@ -303,11 +295,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
     if (succeeded) setDialog({ kind: "closed" });
   }
 
-  /**
-   * Applies each hop in order and stops at the first refusal — sequential rather
-   * than concurrent because the second hop is only legal from the status the first
-   * one wrote. Same reasoning as the curriculum tree.
-   */
+  /** Sequential: the second hop is only legal from the status the first wrote. */
   async function runHops(hops: AdminQuizDetail["status"][]) {
     setIsBusy(true);
     setNotice(undefined);

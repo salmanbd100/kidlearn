@@ -2,10 +2,7 @@ import { z } from "zod";
 
 // The vocabulary of parental screen-time control (FR-TIME-01..05).
 
-/**
- * The daily limits the picker offers, in minutes. `null` — "off" — is the absence
- * of a limit and is not a member here.
- */
+/** The daily limits the picker offers, in minutes; `null` ("off") is the absence of a limit, not a member. */
 export const SCREEN_TIME_LIMIT_OPTIONS = [15, 30, 45, 60, 90] as const;
 export type ScreenTimeLimitOption = (typeof SCREEN_TIME_LIMIT_OPTIONS)[number];
 
@@ -24,9 +21,7 @@ export const SCREEN_TIME_BLOCK_CODES = [
 export const ScreenTimeBlockCodeSchema = z.enum(SCREEN_TIME_BLOCK_CODES);
 export type ScreenTimeBlockCode = z.infer<typeof ScreenTimeBlockCodeSchema>;
 
-/**
- * `PATCH /api/children/{id}/screen-time` — the whole setting, always sent whole.
- */
+/** `PATCH /api/children/{id}/screen-time` — the whole setting, always sent whole. */
 export const ScreenTimeUpdateSchema = z
   .object({
     dailyLimitMinutes: z

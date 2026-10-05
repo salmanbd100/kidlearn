@@ -1,6 +1,5 @@
 import { Prisma } from "@kidlearn/db";
 
-/** Postgres aborted a Serializable transaction rather than let it interleave. */
 function isSerializationFailure(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -8,14 +7,7 @@ function isSerializationFailure(error: unknown): boolean {
   );
 }
 
-/**
- * Prisma gave up waiting `maxWait` for a pooled connection to open the
- * transaction on. Nothing ran, so a retry is as safe as the first attempt.
- *
- * P2028 also covers a transaction that ran past its `timeout` and was rolled
- * back — that one is matched out by message and not retried, because the same
- * work would only time out again, holding a connection the whole way.
- */
+/** Nothing ran, so a retry is safe. P2028 also covers a transaction past its `timeout`; that is matched out by message and not retried. */
 function isTransactionStartTimeout(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -24,21 +16,11 @@ function isTransactionStartTimeout(error: unknown): boolean {
   );
 }
 
-/** How many times a retryable failure is retried before it surfaces. */
 export const MAX_SERIALIZATION_RETRIES = 3;
 
-/** Base for the exponential backoff, in milliseconds. */
 const RETRY_BASE_MS = 20;
 
-/**
- * Runs a Serializable transaction, retrying if Postgres aborted it rather than
- * let it interleave, or if the pool had no connection free to start it on.
- *
- * Backs off with jitter between attempts. An immediate retry re-runs into the
- * same contention window that caused the abort, which is how two writers
- * finishing a lesson at once could both lose — the reward grant is the hot path
- * and it is the one where losing means a celebration screen showing nothing.
- */
+/** Backs off with jitter: an immediate retry re-enters the contention window, and losing the reward grant shows a blank celebration. */
 export async function withSerializationRetry<T>(
   run: () => Promise<T>,
 ): Promise<T> {
@@ -57,10 +39,7 @@ export async function withSerializationRetry<T>(
   }
 }
 
-/**
- * Exponential, with full jitter. The jitter is the point: without it, two
- * transactions that collided once wait exactly the same time and collide again.
- */
+/** Full jitter, so transactions that collided once do not wait the same time and collide again. */
 function backoffMs(attempt: number): number {
   return Math.random() * RETRY_BASE_MS * 2 ** attempt;
 }

@@ -129,10 +129,7 @@ describe("ScreenTimeForm", () => {
     });
   });
 
-  /**
-   * The point of validating with the server's own schema rather than a local copy:
-   * whatever this form can produce is something `PATCH` accepts.
-   */
+  /** Validating with the server's own schema proves whatever this form can produce, `PATCH` accepts. */
   it("submits a payload the server's schema accepts", async () => {
     const { onSubmit } = renderForm();
 

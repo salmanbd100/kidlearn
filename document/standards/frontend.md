@@ -37,7 +37,7 @@ packages/ui/src/
 
 #### Recorded decision — `packages/ui` is the primitive layer, not a component library
 
-**Decided 2026-09-04 (improvement plan P1-4), confirmed 2026-10-05.** This section
+**Decided 2026-09-04 , confirmed 2026-10-05.** This section
 once specified `kid/` and `parent/` layers inside `packages/ui`. Nothing was ever
 placed there, and nothing should be: their only payoff is reuse by a second app,
 and [`mobile-app-plan.md §4.2`](../mobile-app-plan.md) rules that out — Radix

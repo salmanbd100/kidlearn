@@ -3,8 +3,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 
-// The AI Story Generator's form (file 35, FR-AI-02).
-
 const generateStory = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/admin/ai-api", () => ({ generateStory }));
@@ -101,9 +99,7 @@ describe("what the dialog sends", () => {
   });
 
   it("keeps grade levels in a stable order however they were toggled", async () => {
-    // The same set clicked in a different order must be the same request — the
-    // server stores it as `Story.gradeLevels` and an admin comparing two stories
-    // should not see them differ by click order.
+    // Click order must not change the request: it's stored as `Story.gradeLevels`.
     renderDialog();
     theme("Sharing toys");
     world(WORLD_ID);
@@ -146,8 +142,7 @@ describe("what the dialog sends", () => {
 
 describe("what the dialog refuses to send", () => {
   it("will not submit without a world to set the story in", () => {
-    // There is nothing to inherit from and no safe default: the world decides
-    // whether the characters are jungle animals or sea creatures.
+    // Nothing to inherit: the world decides whether the characters are jungle animals or sea creatures.
     renderDialog();
     theme("Sharing toys");
 
@@ -212,8 +207,7 @@ describe("what the dialog does with the answer", () => {
   });
 
   it("reports a failed job as a failure, naming it so it can be found", async () => {
-    // The HTTP call succeeded — a generation that could not produce valid output
-    // still has a job row holding both attempts (FR-AI-08).
+    // The HTTP call succeeded; invalid output still leaves a job row with both attempts (FR-AI-08).
     generateStory.mockResolvedValue({
       ok: true,
       data: { jobId: "job-7", status: "failed" },

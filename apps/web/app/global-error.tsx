@@ -6,11 +6,7 @@ import { getI18n } from "@/shared/lib/i18n";
 import { readLocaleCookie } from "@/shared/lib/locale";
 import "./globals.css";
 
-/**
- * The last resort: it replaces the root layout, so there is no provider tree
- * and no i18n context — the copy is read straight from the instance, in the
- * language the locale cookie names.
- */
+/** Replaces the root layout, so there is no provider tree or i18n context; copy is read from the instance in the cookie's locale. */
 export default function GlobalError({
   error,
   reset,

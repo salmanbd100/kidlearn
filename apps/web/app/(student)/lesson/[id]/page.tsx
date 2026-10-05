@@ -2,7 +2,6 @@ import { StudentGuard } from "@/app/(student)/StudentGuard";
 import { LessonPlayer } from "@/features/lesson/LessonPlayer";
 import { LessonPreviewGate } from "./LessonPreviewGate";
 
-/** One lesson, start to finish (FR-LSN-01..07). */
 export default async function LessonPage({
   params,
   searchParams,

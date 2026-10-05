@@ -7,8 +7,6 @@ import { Flame } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-// The three- and seven-day streak party (FR-GAM-06).
-
 /** Enough to read as a burst, few enough to animate on a cheap tablet. */
 const FLAME_COUNT = 8;
 

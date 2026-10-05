@@ -1,5 +1,3 @@
-// The highlight a matched pair shares (FR-ACT-03).
-
 const PAIR_CARD_CLASSES = [
   "border-pair-1 bg-pair-1/15",
   "border-pair-2 bg-pair-2/15",

@@ -2,8 +2,6 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
-// Tap one, tap its partner (FR-ACT-03).
-
 export type PairSide = "left" | "right";
 
 export interface PairingSelection {
@@ -21,10 +19,8 @@ export interface PairingCallbacks {
 
 export interface PairingState {
   selected: PairingSelection | undefined;
-  /** leftId → rightId, in the order the child matched them. */
   matched: ReadonlyMap<string, string>;
   isLocked: (id: string) => boolean;
-  /** Which pair a locked card belongs to, for the shared highlight and line. */
   pairIndexOf: (id: string) => number | undefined;
   tap: (side: PairSide, id: string) => void;
 }
@@ -50,9 +46,7 @@ export function usePairing({
 
   const isLocked = useCallback((id: string) => lockedIds.has(id), [lockedIds]);
 
-  // Insertion order is the pair order, so the index a card gets never changes as
-  // later pairs are matched — a highlight that shifted colour mid-activity would
-  // undo the one thing it is there to say.
+  // Insertion order is the pair order, so a card's index never shifts as later pairs match.
   const pairIndexOf = useCallback(
     (id: string) => {
       let index = 0;
@@ -65,13 +59,11 @@ export function usePairing({
     [matched],
   );
 
-  // Once, and only once, however the last pair is reached.
   const hasReportedAll = useRef(false);
 
   const tap = useCallback(
     (side: PairSide, id: string) => {
-      // A matched card is finished. Tapping it is not a mistake and gets no
-      // encouragement — it simply does nothing.
+      // A matched card is finished: tapping it gets no encouragement.
       if (lockedIds.has(id)) return;
 
       if (selected === undefined) {
@@ -82,7 +74,6 @@ export function usePairing({
         setSelected(undefined);
         return;
       }
-      // A second tap in the same column is a change of mind, not an answer.
       if (selected.side === side) {
         setSelected({ side, id });
         return;

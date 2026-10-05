@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatMinutes } from "./duration";
 
-/**
- * The translate function is a spy that echoes its key and params, so the
- * assertions are about which rule fired rather than about English copy — the copy
- * lives in the locale files and is free to change.
- */
+// The translate function is a spy echoing key and params, so assertions are about which rule fired, not English copy.
 function echo(key: string, params?: Record<string, unknown>): string {
   return `${key}(${JSON.stringify(params ?? {})})`;
 }

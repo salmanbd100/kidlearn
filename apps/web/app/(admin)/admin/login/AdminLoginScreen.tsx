@@ -7,9 +7,6 @@ import { useAdminSession } from "@/app/(admin)/context/admin-session";
 import { adminSignIn } from "@/features/admin/admin-api";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
-/**
- * `/admin/login` — email and password, and nothing else (file 31, spec §4.3).
- */
 export function AdminLoginScreen() {
   const router = useRouter();
   const { refresh } = useAdminSession();
@@ -27,9 +24,7 @@ export function AdminLoginScreen() {
 
     const { ok } = await adminSignIn(email, password);
     if (ok) {
-      // The provider above mounted on this page and resolved `signedOut`, so the
-      // session has to be re-read before navigating or `AdminGuard` would bounce
-      // the brand-new session straight back here.
+      // The provider resolved `signedOut` on mount; re-read the session or `AdminGuard` bounces it back here.
       await refresh();
       router.replace(ADMIN_ROUTES.analytics);
       return;

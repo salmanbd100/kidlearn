@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { updateContent } from "./content-api";
 import { createQuestion, deleteQuestion, replaceQuestion } from "./editors-api";
 
-/** A JSON 200 for every request, recorded. */
 function stubFetch() {
   const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
     Promise.resolve(

@@ -3,8 +3,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateLessonDialog } from "./GenerateLessonDialog";
 
-// The AI Lesson Generator's form (file 34, FR-AI-01).
-
 const generateLesson = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/admin/ai-api", () => ({ generateLesson }));
@@ -196,8 +194,7 @@ describe("what the dialog does with the answer", () => {
   });
 
   it("reports a failed job as a failure, naming it so it can be found", async () => {
-    // The HTTP call succeeded — a generation that could not produce valid output
-    // still has a job row holding both attempts (FR-AI-08).
+    // The HTTP call succeeded; invalid output still leaves a job row with both attempts (FR-AI-08).
     generateLesson.mockResolvedValue({
       ok: true,
       data: { jobId: "job-7", status: "failed" },

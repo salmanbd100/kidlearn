@@ -34,9 +34,8 @@ function contrast(a: string, b: string): number {
   return ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05);
 }
 
-// WCAG AA for normal text (design.md §2.3). Kid `secondary` is left out on
-// purpose: white on grape is 4.23:1 and ink is worse, so it needs a new hue, not a
-// foreground swap — a recorded gap, not a pass.
+// WCAG AA for normal text (design.md §2.3). Kid `secondary` is omitted on purpose: white on grape is
+// 4.23:1 and ink is worse, so it needs a new hue — a recorded gap, not a pass.
 const AA = 4.5;
 const SURFACES = [
   ["background", "foreground"],
@@ -49,11 +48,8 @@ const SURFACES = [
   ["muted", "muted-foreground"],
 ] as const;
 
-// WCAG 1.4.11 for the shapes that carry meaning on their own: the ink glyph on
-// a status mark's disc, and the ring on a lesson progress dot. Fills such as
-// `success`, `primary` and `accent` against the page are deliberately absent —
-// they are under 3:1 in the kid theme, which is why those components put an ink
-// glyph or ring on top rather than relying on the hue.
+// WCAG 1.4.11 for shapes that carry meaning alone (status-mark glyph on its disc, progress-dot ring).
+// Fills such as `success` and `primary` are under 3:1 in the kid theme, hence the ink glyph or ring on top.
 const NON_TEXT = 3;
 const MARKS = [
   ["success", "success-foreground"],

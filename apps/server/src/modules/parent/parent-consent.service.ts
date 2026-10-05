@@ -1,4 +1,3 @@
-/** COPPA consent (FR-AUTH-03). */
 import type { Parent } from "@kidlearn/db";
 import { CONSENT_VERSION } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
@@ -9,11 +8,7 @@ export type ConsentRecord = {
   consentVersion: string;
 };
 
-/**
- * Records COPPA consent (FR-AUTH-03, NFR-SAFE-03). Idempotent: re-posting the
- * current version refreshes the timestamp, which is the honest record of the
- * last time the parent actively agreed.
- */
+/** Idempotent: re-posting the current version refreshes the timestamp, the honest record of the last active agreement (NFR-SAFE-03). */
 export async function recordParentConsent(
   parent: Parent,
   version: string,

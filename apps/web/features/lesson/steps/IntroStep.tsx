@@ -12,11 +12,6 @@ import { BigButton } from "@/shared/components/kid/BigButton";
 import { IconControl } from "@/shared/components/kid/IconControl";
 import type { LessonStepProps } from "./lesson-step-props";
 
-/**
- * The lesson's opening beat — the mascot greets the child and says what the
- * lesson is about (FR-LSN-01, NFR-A11Y-01).
- */
-
 const MASCOT_PX = 320;
 
 export function IntroStep({ lesson, onComplete }: LessonStepProps) {
@@ -30,8 +25,8 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
       lesson.assetFallbacks.introAudioUrl &&
       process.env.NODE_ENV !== "production"
     ) {
-      // Loud in dev, silent in production: the child hears English either way,
-      // and the gap is reported through the `step_complete` event instead.
+      // Loud in dev, silent in production: the child hears English either way and the gap is
+      // reported via `step_complete`.
       console.warn(
         `[kidlearn] lesson ${lesson.id}: speaking the English narration — no recording for the child's locale`,
       );
@@ -40,8 +35,8 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
 
   useEffect(() => {
     if (introAudioUrl === null) {
-      // No recording yet for this lesson. The advance cue appears immediately
-      // rather than never — silence must not read as "still loading".
+      // No recording yet: the advance cue appears immediately, as silence must not read as "still
+      // loading".
       setHasNarrationFinished(true);
       return;
     }
@@ -92,7 +87,6 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
   );
 }
 
-/** The mascot, breathing. */
 function MascotGreeting({ url, name }: { url?: string; name: string }) {
   const isMotionReduced = useIsMotionReduced();
 

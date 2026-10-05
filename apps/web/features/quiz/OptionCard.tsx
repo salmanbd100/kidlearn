@@ -6,8 +6,6 @@ import { cva } from "class-variance-authority";
 import Image from "next/image";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
 
-// One answer, as something a child taps (FR-QUIZ-01, FR-QUIZ-04).
-
 const optionCardVariants = cva(
   "relative flex w-full flex-col items-center justify-center gap-2 rounded-lg border-4 bg-card p-3 text-card-foreground shadow-md transition-opacity touch-manipulation focus-ring",
   {
@@ -19,8 +17,7 @@ const optionCardVariants = cva(
       state: {
         idle: "border-border",
         correct: "border-success shadow-pop motion-safe:scale-105",
-        // Still readable, still there — a card a child can see they have tried
-        // tells them more than one that vanished under their finger.
+        // Still readable: a tried card a child can see tells them more than one that vanished.
         tried: "border-border opacity-40",
       },
     },
@@ -34,14 +31,11 @@ export interface OptionCardProps {
   optionId: string;
   shape: "text" | "picture";
   state: "idle" | "correct" | "tried";
-  /** The option's own words, when the payload gives it any. */
   label: string | undefined;
   image: ImageAssetRef | undefined;
   locale: Locale;
-  /** Spoken after the label once the option has been tried and set aside. */
   triedLabel: string;
   correctLabel: string;
-  /** Names a wordless picture the payload never described — see `alt` below. */
   pictureLabel: string;
   onSelect: () => void;
 }
@@ -65,9 +59,7 @@ export function OptionCard({
       type="button"
       data-testid={`quiz-option-${optionId}`}
       data-state={state}
-      // `aria-disabled` rather than `disabled`: a tried option is still part of
-      // the question a screen-reader user is reading back, and a disabled button
-      // drops out of the tab order half-way through answering.
+      // `aria-disabled`, not `disabled`: a disabled button drops out of the tab order mid-answer.
       aria-disabled={isTried}
       className={cn(optionCardVariants({ shape, state }))}
       onClick={onSelect}
@@ -75,8 +67,8 @@ export function OptionCard({
       {image === undefined ? null : (
         <Image
           src={image.url}
-          // The picture is the answer where there are no words for it, and
-          // decoration where the card already says the same thing in text.
+          // The picture is the answer where there are no words, and decoration where the card says
+          // the same in text.
           alt={label === undefined ? (image.alt?.[locale] ?? pictureLabel) : ""}
           width={IMAGE_PX}
           height={IMAGE_PX}
@@ -88,8 +80,8 @@ export function OptionCard({
       )}
 
       {label === undefined ? null : (
-        // 20px floor on a kid surface (design.md §3.2); the words on an MCQ card
-        // are the answer itself, so they get the larger end of the scale.
+        // 20px floor on a kid surface (design.md §3.2); the words are the answer, so the larger end
+        // of the scale.
         <span
           className={cn(
             "font-display leading-tight",

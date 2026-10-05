@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { reorderContent } from "./content-api";
 
-/** What a reorder actually puts on the wire. */
 function stubFetch() {
   const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
     Promise.resolve(

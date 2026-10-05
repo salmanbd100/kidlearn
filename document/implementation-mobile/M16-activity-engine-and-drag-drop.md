@@ -11,13 +11,13 @@ Build the generic, JSON-driven activity engine — the piece that makes new acti
 
 ## Context & Current State
 
-- `apps/web/components/activities/ActivityEngine.tsx` is the reference, and its module docstring states the architecture this file must reproduce:
+- `apps/web/features/activities/ActivityEngine.tsx` is the reference, and its module docstring states the architecture this file must reproduce:
   - **"It is handed `unknown` and validates it here."** The payload is JSONB written by a CMS author or an AI pipeline; the renderer trusts nothing and parses at the boundary with `safeParseActivityDefinition`. A malformed payload renders `ActivityUnavailable`, not a crash mid-lesson.
   - **"The concerns that belong to every activity live here, not in the renderers":** speaking the instruction on arrival, offering it again, the feedback channel, and the celebration between "finished" and the step engine's `onComplete`. A renderer implements one game and nothing else.
   - `CELEBRATION_MS = 1500`, tappable-through.
 - `packages/types/src/activity/schemas.ts` owns the contract. `ActivityDefinitionSchema` is a discriminated union over `drag_drop | trace | match | puzzle`, all `schemaVersion: 1`, all carrying `instructionAudio: LocalizedAudioSchema`. `DragDropActivitySchema` specifically: `items` (2–6), `targets` (2–6), `correctMappings` (`{ itemId, targetId }`), with `superRefine` guaranteeing no duplicate ids, no unknown ids, no item mapped twice, and — importantly for the renderer — **every item has exactly one correct target**, because "every draggable must have somewhere correct to go, or the child can never finish".
 - `parseActivityDefinition` / `safeParseActivityDefinition` are exported from `packages/types` — use them; never `JSON.parse` a definition by hand.
-- `apps/web/components/activities/` also has the pieces worth porting conceptually: `registry.tsx` (type → renderer), `evaluate.ts` (grading, pure), `FeedbackLayer.tsx`, `use-activity-feedback.ts`, `use-placement-state.ts`, `use-pairing.ts`, `pair-colours.ts`, `ActivityUnavailable.tsx`. **`evaluate.ts` is platform-free** — read it and reuse its logic verbatim rather than writing a second grader.
+- `apps/web/features/activities/` also has the pieces worth porting conceptually: `registry.tsx` (type → renderer), `evaluate.ts` (grading, pure), `FeedbackLayer.tsx`, `use-activity-feedback.ts`, `use-placement-state.ts`, `use-pairing.ts`, `pair-colours.ts`, `ActivityUnavailable.tsx`. **`evaluate.ts` is platform-free** — read it and reuse its logic verbatim rather than writing a second grader.
 - M13 gives the step contract; the activity step is one of its five. M14 gives narration and feedback sounds. M05 gives reduced motion and touch-target constants.
 - design.md §7: ≥64px targets — a draggable item and a drop target must both clear that comfortably, so plan for ~96px on a 360px-wide phone with 2–3 targets per row.
 
@@ -30,7 +30,7 @@ Build the generic, JSON-driven activity engine — the piece that makes new acti
    - hold the celebration for `CELEBRATION_MS`, tappable-through, then call `onComplete()`.
 2. **Registry.** `components/activities/registry.tsx` mapping `definition.type` → renderer component. Adding an activity type is adding one file and one registry entry — no change to the engine (NFR-SCALE-02). An unknown type renders `ActivityUnavailable`, because a future content version must degrade rather than crash an old app.
 3. **Renderer contract.** `components/activities/activity-props.ts`: every renderer receives `{ definition, onFinished, onWrongAttempt }` and renders the game only. It does not play instruction audio, does not celebrate, and does not call `onComplete` — those belong to the engine. This is what makes M17 and M18 independent files.
-4. **Grading is pure and shared.** `lib/activity-evaluate.ts` ported from `apps/web/components/activities/evaluate.ts`, unit-tested against the fixtures already in `packages/types/src/__fixtures__/activities.ts`. Same rules, same edge cases. If the web version and this one ever disagree, that is a bug in one of them — which is why the fixtures are the shared reference.
+4. **Grading is pure and shared.** `lib/activity-evaluate.ts` ported from `apps/web/features/activities/evaluate.ts`, unit-tested against the fixtures already in `packages/types/src/__fixtures__/activities.ts`. Same rules, same edge cases. If the web version and this one ever disagree, that is a bug in one of them — which is why the fixtures are the shared reference.
 5. **Drag-drop renderer** (`components/activities/DragDropActivity.tsx`) on `react-native-gesture-handler`'s `Gesture.Pan()` + Reanimated:
    - each item is draggable with a lift effect (scale + shadow) on gesture begin;
    - drop targets highlight when the dragged item is over them (hit-testing by measured layout, not by guesswork);
@@ -144,6 +144,6 @@ Wrap the drag surface in `GestureHandlerRootView` (already at the app root from 
 
 - Tracing — M17. Match and puzzle — M18. They are registry entries against the contract this file defines.
 - Quiz drag-answer — M20. It looks similar and is a different schema with a different grader; do not try to share the renderer.
-- Authoring or editing activity payloads — the admin CMS (web file 33), which is web-only.
+- Authoring or editing activity payloads — the admin CMS (`apps/web/features/admin/`), which is web-only.
 - New activity types beyond the four in `ActivityDefinitionSchema`.
 - Haptics. Tempting for drop feedback, and a separate decision: it needs a mute-equivalent setting and it is not in the spec.

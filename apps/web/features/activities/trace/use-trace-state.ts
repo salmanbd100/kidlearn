@@ -28,39 +28,26 @@ import {
   toPathUnits,
 } from "./geometry";
 
-// The tracing gesture, from the first touch to the finished glyph.
-
-/** Points sampled per stroke. Fine enough to follow a curve, coarse enough to stay cheap. */
 const SAMPLES_PER_STROKE = 40;
 
-/** Points one key press advances. Kept under `LOOK_AHEAD` so every step lands. */
 const KEYBOARD_STEP = 4;
 
 export interface TraceStroke {
-  /**
-   * Which stroke of the glyph this is, in trace order. A glyph may legitimately
-   * repeat a subpath — the two dots of an "ï" — so `d` is not an identity.
-   */
+  /** A glyph may repeat a subpath (the two dots of an "ï"), so `d` is not an identity. */
   id: string;
-  /** The subpath, ready for a `<path d>`. */
   d: string;
   points: Point[];
 }
 
-/** Client coordinates in, glyph coordinates out. Injected so tests need no SVG matrix. */
 export type ToViewBox = (client: Point) => Point | undefined;
 
 export interface TraceState {
   strokes: readonly TraceStroke[];
   frame: GlyphFrame;
-  /** Strokes below this index are finished ink; equal to `strokes.length` when the glyph is done. */
   strokeIndex: number;
-  /** Furthest covered point of the current stroke, or `-1`. Drives the progress ink and the resume dot. */
   frontier: number;
-  /** The current gesture's path, cleared the moment the finger lifts. */
   trail: readonly Point[];
   isDrawing: boolean;
-  /** How far off the guide still counts, in the payload's own units — the size of the target. */
   tolerance: number;
   svgRef: RefObject<SVGSVGElement | null>;
   handlePointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
@@ -103,7 +90,6 @@ export function useTraceState(
   const [isDrawing, setIsDrawing] = useState(false);
 
   const strokeIndexRef = useRef(0);
-  /** The pointer that opened the current gesture; `undefined` between gestures. */
   const activePointerRef = useRef<number | undefined>(undefined);
   const coverageRef = useRef<CoverageState>(createCoverage(0));
   const trailRef = useRef<Point[]>([]);
@@ -111,11 +97,9 @@ export function useTraceState(
     undefined,
   );
   const animationFrameRef = useRef<number | undefined>(undefined);
-  /** Did this gesture cover anything? Decides whether lifting off earns encouragement. */
   const hasProgressedRef = useRef(false);
   const hasCompletedRef = useRef(false);
 
-  // A new payload is a new glyph: the child starts again from the first stroke.
   useEffect(() => {
     strokeIndexRef.current = 0;
     coverageRef.current = createCoverage(strokes[0]?.points.length ?? 0);
@@ -153,11 +137,6 @@ export function useTraceState(
     [toViewBox],
   );
 
-  /**
-   * The stroke is done. Its coverage becomes permanent ink, the loose trail goes,
-   * and the start dot moves on — or, on the last stroke, the glyph is finished
-   * and the engine takes over for the celebration.
-   */
   const finishStroke = useCallback(
     (anchor?: Point) => {
       feedback.success(anchor);
@@ -171,8 +150,8 @@ export function useTraceState(
       coverageRef.current = createCoverage(strokes[next]?.points.length ?? 0);
 
       if (next < strokes.length || hasCompletedRef.current) return;
-      // `strokeIndex === strokes.length` renders every stroke as ink, so the
-      // glyph is solid underneath the engine's celebration overlay.
+      // Past the last stroke every stroke renders as ink, so the glyph is solid under the
+      // celebration.
       hasCompletedRef.current = true;
       onActivityComplete();
     },
@@ -222,10 +201,6 @@ export function useTraceState(
     [convert, drainPendingMove],
   );
 
-  /**
-   * Walk the frontier forward one key press' worth, feeding each sampled point
-   * through `updateCoverage` exactly as a finger passing over it would.
-   */
   const traceAhead = useCallback(() => {
     const stroke = strokes[strokeIndexRef.current];
     if (stroke === undefined) return;
@@ -246,7 +221,6 @@ export function useTraceState(
     setFrontier(state.frontier);
 
     if (isStrokeComplete(state, stroke.points.length)) {
-      // No pointer means no viewport point to burst from; the cheer centres itself.
       finishStroke();
     }
   }, [strokes, tolerance, finishStroke]);
@@ -260,7 +234,7 @@ export function useTraceState(
       ) {
         return;
       }
-      // Space scrolls the lesson out from under the child otherwise.
+      // Space would scroll the lesson out from under the child.
       event.preventDefault();
       traceAhead();
     },
@@ -269,13 +243,12 @@ export function useTraceState(
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
-      // A second contact — a resting thumb, a steadying palm — is not a new
-      // gesture. The board belongs to the pointer that opened it until it lifts.
+      // A second contact (resting thumb, palm) is not a new gesture; the board belongs to the
+      // pointer that opened it.
       if (activePointerRef.current !== undefined) return;
       activePointerRef.current = event.pointerId;
 
-      // Capture, so a finger that wanders off the glyph — or off the screen edge
-      // — keeps feeding this element instead of silently ending the stroke.
+      // Capture, so a finger wandering off the glyph or screen edge keeps feeding this element.
       event.currentTarget.setPointerCapture(event.pointerId);
       hasProgressedRef.current = false;
       trailRef.current = [];
@@ -310,15 +283,13 @@ export function useTraceState(
       }
       pendingRef.current = undefined;
 
-      // Coverage survives the lift — the child resumes where they stopped — but
-      // the loose trail does not, because everything it earned is already drawn
-      // as progress ink and the rest was a wander.
+      // Coverage survives the lift so the child resumes; the trail does not, as its progress is
+      // already ink.
       trailRef.current = [];
       setTrail([]);
 
-      // Nothing covered by that whole gesture means the finger never found the
-      // guide. That is the only moment worth speaking up, and it is a gentle
-      // nudge, never a failure (FR-ACT-05).
+      // Nothing covered means the finger never found the guide: the only moment for a gentle nudge,
+      // never a failure (FR-ACT-05).
       if (
         strokeIndexRef.current < strokes.length &&
         !hasProgressedRef.current

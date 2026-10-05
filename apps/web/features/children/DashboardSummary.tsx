@@ -9,7 +9,6 @@ import { StatCard } from "@/shared/components/StatCard";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { SubjectProgressCard } from "./SubjectProgressCard";
 
-/** The whole dashboard for one child, from one payload (FR-DASH-01..04). */
 export interface DashboardSummaryProps {
   data: DashboardData;
   childName: string;
@@ -24,9 +23,7 @@ export function DashboardSummary({
   const { t } = useTranslation(PARENT_NAMESPACE);
 
   const { today, week, month } = data.learningMinutes;
-  // Per window rather than "has this child ever learned": a parent looking at
-  // Monday morning has a real month and an empty day, and one blanket note would
-  // be wrong about both.
+  // Per window, not "ever learned": Monday morning has a real month and an empty day.
   const nothingYet = t("dashboard.noTimeYet");
 
   return (

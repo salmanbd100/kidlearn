@@ -5,20 +5,12 @@ import { apiFetch } from "@/shared/api/api-client";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-/**
- * The layout is now more than a theme boundary: it wraps everything in the session
- * provider and the guard, so this suite covers the two things that changed with it —
- * that the theme still applies, and that a page is not rendered to someone the guard
- * has not cleared.
- */
-
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
 }));
 
-/** Widened past the literal so a test can point the guard at another route. */
 let pathname: string = PARENT_ROUTES.children;
 
 vi.mock("next/navigation", () => ({
@@ -98,8 +90,7 @@ describe("ParentLayout", () => {
   it("shows a loading status rather than the page while the session loads", () => {
     renderLayout();
 
-    // Rendering first would flash a profile list at someone who turns out to be
-    // signed out.
+    // Rendering first would flash a profile list at someone signed out.
     expect(screen.getByRole("status")).toHaveTextContent("Loading profiles…");
     expect(screen.queryByText("dashboard")).toBeNull();
   });
@@ -201,8 +192,7 @@ describe("ParentLayout", () => {
       expect(screen.getByText("dashboard")).toBeInTheDocument(),
     );
 
-    // The cookie expired mid-visit: the next fetch anywhere answers 401, and the
-    // session re-reads itself rather than leaving every screen on a generic error.
+    // The cookie expired mid-visit: the next fetch answers 401 and the session re-reads itself.
     api.fetchAuthMe.mockResolvedValue({
       ok: false,
       error: { code: "UNAUTHORIZED", message: "Sign in required", status: 401 },
