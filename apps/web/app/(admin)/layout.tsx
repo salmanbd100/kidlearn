@@ -1,5 +1,14 @@
 import { ThemeScope } from "@kidlearn/ui";
+import { JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
+
+// Here, not in the root layout: nothing outside the CMS sets monospace, so
+// every other route would preload a font it never draws.
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 /** Admin CMS shell — internal content review and publishing. */
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -15,7 +24,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       // There is no vertical padding at any width. It used to wrap a child that
       // was already `dvh` tall, which scrolled the whole page by exactly that
       // padding with nothing to reveal.
-      className="flex min-h-dvh flex-col bg-background font-ui text-foreground md:h-dvh md:overflow-hidden"
+      //
+      // `--family-mono` is redeclared because `:root` resolved it while
+      // `--font-jetbrains-mono` was still undefined there.
+      className={`${jetbrainsMono.variable} [--family-mono:var(--font-jetbrains-mono)] flex min-h-dvh flex-col bg-background font-ui text-foreground md:h-dvh md:overflow-hidden`}
     >
       {/* The `md` scroll rule is a safety net for the shell-less pages in this
           group (the login screen), which own their height and must still scroll

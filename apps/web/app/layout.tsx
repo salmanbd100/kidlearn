@@ -1,12 +1,6 @@
 import { A11Y_BOOTSTRAP_SCRIPT } from "@kidlearn/ui";
 import type { Metadata, Viewport } from "next";
-import {
-  Fredoka,
-  Inter,
-  JetBrains_Mono,
-  Noto_Sans_Bengali,
-  Nunito,
-} from "next/font/google";
+import { Fredoka, Inter, Noto_Sans_Bengali, Nunito } from "next/font/google";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { Providers } from "@/shared/components/Providers";
@@ -28,23 +22,19 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
-
+// Not preloaded: only a Bangla page needs it, and the `unicode-range` in its
+// `@font-face` still fetches it the moment a Bengali glyph is drawn.
 const notoSansBengali = Noto_Sans_Bengali({
   variable: "--font-noto-bengali",
   subsets: ["bengali", "latin"],
   display: "swap",
+  preload: false,
 });
 
 const fontVariables = [
   fredoka.variable,
   nunito.variable,
   inter.variable,
-  jetbrainsMono.variable,
   notoSansBengali.variable,
 ].join(" ");
 

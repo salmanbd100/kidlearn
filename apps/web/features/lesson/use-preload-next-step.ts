@@ -4,31 +4,10 @@ import type { LessonDetailResponse } from "@kidlearn/types";
 import { useEffect, useRef } from "react";
 
 /**
- * Warms the activity step while the child is still watching the video
- * (NFR-PERF-02).
+ * Warms the activity step's images while the child is still watching the
+ * video (NFR-PERF-02). The payload itself needs no warming: it arrived with the
+ * lesson.
  */
-
-const cache = new Map<string, unknown>();
-
-export function activityCacheKey(activityId: string): string {
-  return `activity:${activityId}`;
-}
-
-/**
- * Reads what the video step warmed. `undefined` means "not preloaded" and never
- * "no activity" — a caller that misses simply renders from the lesson payload.
- */
-export function getPreloaded<T>(key: string): T | undefined {
-  const value = cache.get(key);
-  // Callers pass the key that they themselves wrote, so the pairing of key to
-  // type is theirs to keep; nothing in a `Map<string, unknown>` can carry it.
-  return value === undefined ? undefined : (value as T);
-}
-
-/** Test-only: the cache outlives a render, so a suite must be able to empty it. */
-export function clearPreloadCache(): void {
-  cache.clear();
-}
 
 /**
  * Most images an activity needs warming. A large definition must not open a dozen
@@ -72,8 +51,6 @@ export function usePreloadNextStep(
     const { activity } = lesson;
     if (activity === null) return;
     hasRun.current = true;
-
-    cache.set(activityCacheKey(activity.id), activity);
 
     const urls = new Set<string>();
     collectAssetUrls(activity.definition, urls);

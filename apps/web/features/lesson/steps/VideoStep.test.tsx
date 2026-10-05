@@ -1,7 +1,6 @@
 import type { LessonDetailResponse } from "@kidlearn/types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearPreloadCache } from "@/features/lesson/use-preload-next-step";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { VideoStep } from "./VideoStep";
@@ -102,7 +101,6 @@ let pauseSpy: ReturnType<typeof vi.spyOn>;
 describe("VideoStep", () => {
   beforeEach(() => {
     resetI18nForTests();
-    clearPreloadCache();
     audio.stop.mockClear();
     playSpy = vi
       .spyOn(HTMLMediaElement.prototype, "play")

@@ -154,6 +154,15 @@ components that are not screens, guards or providers.
 What stays a finding: a Client Component that fetches data no session is needed
 for (a public, cacheable read) — that one has no reason to leave the server.
 
+In `(student)` a screen's own reads start only after `ActiveChildProvider`'s
+three have resolved, because `StudentGuard` does not mount a screen without a
+child. That is one extra round trip, not two cold starts — the provider's
+requests wake the API, so the screen's find it awake. It stays serial on
+purpose: mounting a screen before the child is known starts its narration and
+screen-time gate with no child, and the alternative — a cross-screen prefetch
+cache — is the kind of module-level state R-27 deleted from the lesson player
+for having no reader.
+
 **Exit condition:** the day the API and the web app share a registrable domain
 and the cookie is issued with a `domain` the Next server can read, or a
 token-exchange route lets Server Components act as the signed-in parent. Delete

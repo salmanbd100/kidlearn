@@ -1,12 +1,7 @@
 import { type LessonDetailResponse, validDragDrop } from "@kidlearn/types";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  activityCacheKey,
-  clearPreloadCache,
-  getPreloaded,
-  usePreloadNextStep,
-} from "./use-preload-next-step";
+import { usePreloadNextStep } from "./use-preload-next-step";
 
 const ACTIVITY_ID = "activity_letter_a";
 // From the canonical drag-drop fixture: an item's image and a target's, so the
@@ -61,7 +56,6 @@ const RealImage = globalThis.Image;
 
 describe("usePreloadNextStep", () => {
   beforeEach(() => {
-    clearPreloadCache();
     requestedUrls = [];
     class RecordingImage {
       set src(value: string) {
@@ -83,7 +77,6 @@ describe("usePreloadNextStep", () => {
     // Preloading on mount would compete for bandwidth with the video's own
     // first frames — the point is to spend the idle middle of the film.
     expect(requestedUrls).toEqual([]);
-    expect(getPreloaded(activityCacheKey(ACTIVITY_ID))).toBeUndefined();
   });
 
   it("warms every image the activity definition points at", () => {
@@ -127,15 +120,6 @@ describe("usePreloadNextStep", () => {
     expect(requestedUrls).toHaveLength(8);
   });
 
-  it("publishes the activity payload under the key file 18 reads", () => {
-    renderHook(() => usePreloadNextStep(lessonDetail(), true));
-
-    expect(getPreloaded(activityCacheKey(ACTIVITY_ID))).toMatchObject({
-      id: ACTIVITY_ID,
-      type: "drag_drop",
-    });
-  });
-
   it("ignores strings that are not asset urls", () => {
     renderHook(() => usePreloadNextStep(lessonDetail(), true));
 
@@ -167,9 +151,5 @@ describe("usePreloadNextStep", () => {
     );
 
     expect(requestedUrls).toEqual([]);
-  });
-
-  it("returns undefined for a key nothing has warmed", () => {
-    expect(getPreloaded("activity:never-seen")).toBeUndefined();
   });
 });
