@@ -143,18 +143,116 @@ export async function assertAiPublishable(
   }
 }
 
-/** Every job answerable for what a quiz puts in front of a child. */
-export async function readQuizAiJobIds(
+/**
+ * What a publish hop has to clear for one quiz or activity: every job answerable
+ * for what it puts in front of a child, and any asset URL the media library does
+ * not hold.
+ */
+export type ContentsGuard = { aiJobIds: string[]; unregisteredUrls: string[] };
+
+/** The publish guard's view of a quiz, through its questions. */
+export async function readQuizGuard(
   quizId: string,
-  tx: Pick<typeof prisma, "quizQuestion"> = prisma,
-): Promise<string[]> {
+  tx: Pick<typeof prisma, "quizQuestion" | "mediaAsset"> = prisma,
+): Promise<ContentsGuard> {
   const questions = await tx.quizQuestion.findMany({
-    where: { quizId, aiJobId: { not: null } },
-    select: { aiJobId: true },
-    distinct: ["aiJobId"],
+    where: { quizId },
+    select: { aiJobId: true, definition: true },
   });
 
-  return questions
-    .map((one) => one.aiJobId)
-    .filter((id): id is string => id !== null);
+  const assets = await readPayloadAssets(
+    questions.map((question) => question.definition),
+    tx,
+  );
+
+  return {
+    aiJobIds: distinctIds([
+      ...questions.map((question) => question.aiJobId),
+      ...assets.aiJobIds,
+    ]),
+    unregisteredUrls: assets.unregisteredUrls,
+  };
+}
+
+/** The publish guard's view of an activity. */
+export async function readActivityGuard(
+  activityId: string,
+  tx: Pick<typeof prisma, "activity" | "mediaAsset"> = prisma,
+): Promise<ContentsGuard> {
+  const activity = await tx.activity.findUnique({
+    where: { id: activityId },
+    select: { aiJobId: true, definition: true },
+  });
+  if (!activity) return { aiJobIds: [], unregisteredUrls: [] };
+
+  const assets = await readPayloadAssets([activity.definition], tx);
+
+  return {
+    aiJobIds: distinctIds([activity.aiJobId, ...assets.aiJobIds]),
+    unregisteredUrls: assets.unregisteredUrls,
+  };
+}
+
+function distinctIds(ids: readonly (string | null)[]): string[] {
+  return [...new Set(ids)].filter((id) => typeof id === "string");
+}
+
+/**
+ * Every `url` an asset ref carries, however deep the payload schema nests it —
+ * the same key `withPlaceholderAssets` rewrites, so the two cannot disagree on
+ * what counts as an asset.
+ */
+export function collectAssetUrls(
+  value: unknown,
+  into = new Set<string>(),
+): Set<string> {
+  if (Array.isArray(value)) {
+    for (const item of value) collectAssetUrls(item, into);
+  } else if (typeof value === "object" && value !== null) {
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "url" && typeof child === "string") into.add(child);
+      else collectAssetUrls(child, into);
+    }
+  }
+  return into;
+}
+
+/** Resolves a payload's asset URLs against the media library. */
+async function readPayloadAssets(
+  definitions: readonly unknown[],
+  tx: Pick<typeof prisma, "mediaAsset">,
+): Promise<ContentsGuard> {
+  const urls = new Set<string>();
+  for (const definition of definitions) collectAssetUrls(definition, urls);
+  if (urls.size === 0) return { aiJobIds: [], unregisteredUrls: [] };
+
+  const assets = await tx.mediaAsset.findMany({
+    where: { url: { in: [...urls] } },
+    select: { url: true, aiJobId: true },
+  });
+  const known = new Set(assets.map((asset) => asset.url));
+
+  return {
+    aiJobIds: distinctIds(assets.map((asset) => asset.aiJobId)),
+    unregisteredUrls: [...urls].filter((url) => !known.has(url)),
+  };
+}
+
+/**
+ * Refuses a publish whose payload links to media outside the library.
+ *
+ * The payload schema accepts any https URL, so this is where a link to a host
+ * nobody reviewed — a third-party tracker, a generated image's raw model URL — is
+ * stopped. It sits on the publish hop rather than on save because a draft may
+ * legitimately point at a placeholder until its job's assets are attached, and
+ * the editors only ever pick from the library: a refusal here means the payload
+ * was written some other way.
+ */
+export function assertAssetsRegistered(unregisteredUrls: readonly string[]) {
+  if (unregisteredUrls.length === 0) return;
+
+  throw ApiError.conflict(
+    "Content links to media that is not in the media library — pick it from the library before publishing",
+    { code: "UNREGISTERED_ASSET", urls: unregisteredUrls },
+  );
 }

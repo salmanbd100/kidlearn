@@ -59,7 +59,7 @@ const SIGN_DESCRIPTION = [
   "",
   "**The API secret is never in the response.** It signs `timestamp` and `folder` server-side and stays there, which is the whole reason this endpoint exists rather than an unsigned upload preset the client could use directly.",
   "",
-  "`signature` covers exactly `timestamp` and `folder`. Cloudinary verifies it over the parameters it was computed from, so the upload form must send those two and no other *signed* field — adding one is what produces `Invalid Signature`. The signature also expires (Cloudinary rejects a timestamp much over an hour old), which stops one handed out today from being a permanent upload credential.",
+  "`signature` covers exactly `timestamp`, `folder` and `allowedFormats` (posted as `allowed_formats`). Cloudinary verifies it over the parameters it was computed from, so the upload form must send those three and no other *signed* field — adding one is what produces `Invalid Signature`. `allowedFormats` is per kind and signed so the browser cannot widen it: an image credential will not take SVG, which can carry script, or HTML. The signature also expires (Cloudinary rejects a timestamp much over an hour old), which stops one handed out today from being a permanent upload credential.",
   "",
   "`POST` rather than `GET` despite reading nothing: it mints a time-limited credential, so it must not be cacheable, prefetchable, or reachable from a link. `kind` is the only input, because it decides the folder the signature is computed over.",
 ].join("\n");
@@ -77,7 +77,7 @@ const REGISTER_DESCRIPTION = [
 ].join("\n");
 
 const LIST_DESCRIPTION = [
-  "The library, newest first — what the media grid and every asset picker read.",
+  "The library, newest first, a page at a time — what the media grid and every asset picker read. Paged by cursor rather than offset, so an upload landing between two requests does not shift the next page.",
   "",
   "Both filters are optional and combine: `?kind=audio&language=bn` is how a picker offers only Bangla narration for a prompt field, which is what keeps an author choosing an asset rather than typing a URL.",
   "",
@@ -150,10 +150,25 @@ export const ADMIN_MEDIA_ROUTES: RouteDoc[] = [
             "Restrict to one locale. Language-neutral assets (`language: null`) are excluded when this is set — an image is not Bangla.",
           schema: { type: "string", enum: [...LOCALES] },
         },
+        {
+          name: "limit",
+          in: "query",
+          required: false,
+          description: "Page size. A page shorter than this is the last one.",
+          schema: { type: "integer", minimum: 1, maximum: 200, default: 100 },
+        },
+        {
+          name: "before",
+          in: "query",
+          required: false,
+          description:
+            "The `id` of the last asset the caller already has; the page starts after it.",
+          schema: { type: "string", format: "uuid" },
+        },
       ],
       responses: {
         "200": jsonResponse(
-          "Every matching asset, newest first.",
+          "One page of matching assets, newest first.",
           "MediaAssetListResponse",
         ),
         "400": VALIDATION_RESPONSE,

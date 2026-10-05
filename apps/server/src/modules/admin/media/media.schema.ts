@@ -29,11 +29,20 @@ export const RegisterAssetSchema = z
 
 export type RegisterAssetBody = z.infer<typeof RegisterAssetSchema>;
 
-/** Both filters are optional: the library grid opens unfiltered. */
+/** The page size when a caller does not ask for one. */
+export const MEDIA_PAGE_SIZE = 100;
+
+/**
+ * Both filters are optional: the library grid opens unfiltered. Paged by cursor —
+ * `before` is the id of the last asset the caller already has — and a page
+ * shorter than `limit` is the last one, so the response stays a plain list.
+ */
 export const MediaListQuerySchema = z
   .object({
     kind: MediaKindSchema.optional(),
     language: MediaLanguageSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(MEDIA_PAGE_SIZE),
+    before: z.string().uuid().optional(),
   })
   .strict();
 

@@ -65,7 +65,8 @@ vi.mock("../../../config/prisma.js", () => {
     mediaAsset: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row: Row = {
-          id: `asset-${store.assets.length + 1}`,
+          // Uuid-shaped, because `?before=` demands one.
+          id: `00000000-0000-4000-8000-${String(store.assets.length + 1).padStart(12, "0")}`,
           createdAt: new Date(
             `2026-08-2${store.assets.length + 1}T00:00:00.000Z`,
           ),
@@ -75,20 +76,34 @@ vi.mock("../../../config/prisma.js", () => {
         store.assets.push(row);
         return row;
       },
+      // Newest first with `id` as the tie-break, then Prisma's cursor semantics:
+      // start at the cursor row, `skip` it, `take` the page.
       findMany: async ({
         where,
-        orderBy,
+        take,
+        cursor,
+        skip = 0,
       }: {
         where?: Record<string, unknown>;
-        orderBy?: { createdAt?: "asc" | "desc" };
+        take?: number;
+        cursor?: { id: string };
+        skip?: number;
       }) => {
-        const found = store.assets.filter((row) => matches(row, where));
-        const direction = orderBy?.createdAt === "desc" ? -1 : 1;
-        return [...found].sort(
-          (left, right) =>
-            direction *
-            ((left.createdAt as Date).getTime() -
-              (right.createdAt as Date).getTime()),
+        const sorted = store.assets
+          .filter((row) => matches(row, where))
+          .sort(
+            (left, right) =>
+              (right.createdAt as Date).getTime() -
+                (left.createdAt as Date).getTime() ||
+              String(right.id).localeCompare(String(left.id)),
+          );
+        const start = cursor
+          ? sorted.findIndex((row) => row.id === cursor.id)
+          : 0;
+        if (start === -1) return [];
+        return sorted.slice(
+          start + skip,
+          take ? start + skip + take : undefined,
         );
       },
     },
@@ -176,7 +191,7 @@ describe("the admin guard covers every media path", () => {
 describe("POST /api/admin/media/sign", () => {
   const OPERATION = "POST /api/admin/media/sign";
 
-  it("signs the timestamp and folder with Cloudinary's documented algorithm", async () => {
+  it("signs the timestamp, folder and formats with Cloudinary's documented algorithm", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(FIXED_NOW_MS);
 
@@ -190,12 +205,15 @@ describe("POST /api/admin/media/sign", () => {
     // this way is what makes the test evidence that Cloudinary will accept the
     // signature, which no stub can prove directly.
     const expected = createHash("sha1")
-      .update(`folder=kidlearn/image&timestamp=${FIXED_TIMESTAMP}${API_SECRET}`)
+      .update(
+        `allowed_formats=png,jpg,jpeg,webp,gif&folder=kidlearn/image&timestamp=${FIXED_TIMESTAMP}${API_SECRET}`,
+      )
       .digest("hex");
 
     expect(res.body.data).toEqual({
       timestamp: FIXED_TIMESTAMP,
       folder: "kidlearn/image",
+      allowedFormats: "png,jpg,jpeg,webp,gif",
       signature: expected,
       apiKey: API_KEY,
       cloudName: CLOUD_NAME,
@@ -206,6 +224,12 @@ describe("POST /api/admin/media/sign", () => {
     const res = await request(app).post(`${BASE}/sign`).send({ kind: "audio" });
 
     expect(res.body.data.folder).toBe("kidlearn/audio");
+  });
+
+  it("never lets an image credential upload SVG, which can carry script", async () => {
+    const res = await request(app).post(`${BASE}/sign`).send({ kind: "image" });
+
+    expect(res.body.data.allowedFormats.split(",")).not.toContain("svg");
   });
 
   it("never returns the API secret", async () => {
@@ -366,6 +390,29 @@ describe("GET /api/admin/media", () => {
     expect(res.body.data.map((asset: { url: string }) => asset.url)).toEqual([
       `${DELIVERY_BASE}/c.mp3`,
     ]);
+  });
+
+  it("pages by cursor, newest first, without repeating an asset", async () => {
+    await seedThree();
+
+    const first = await request(app).get(`${BASE}?limit=2`);
+    const lastId = first.body.data[1].id;
+    const second = await request(app).get(`${BASE}?limit=2&before=${lastId}`);
+
+    assertContract(MediaAssetListResponseSchema, second.body, OPERATION);
+    expect(first.body.data.map((asset: { url: string }) => asset.url)).toEqual([
+      `${DELIVERY_BASE}/c.mp3`,
+      `${DELIVERY_BASE}/b.mp3`,
+    ]);
+    expect(second.body.data.map((asset: { url: string }) => asset.url)).toEqual(
+      [`${DELIVERY_BASE}/a.png`],
+    );
+  });
+
+  it("caps a page at 200", async () => {
+    const res = await request(app).get(`${BASE}?limit=201`);
+
+    expect(res.status).toBe(400);
   });
 
   it("rejects an unknown filter", async () => {

@@ -620,6 +620,26 @@ describe("POST /api/admin/ai/jobs/:id/approve", () => {
     expect(store.lessons[0].status).toBe("draft");
   });
 
+  // R-23 — an admin's edit-then-approve save can put any https URL in a payload.
+  it("409s publishing a quiz whose question links outside the media library", async () => {
+    seedLessonJob();
+    store.questions[0].definition = {
+      type: "picture_selection",
+      options: [{ image: { url: "https://tracker.example.com/p.png" } }],
+    };
+
+    const res = await request(app).post(`${BASE}/${LESSON_JOB_ID}/approve`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toEqual({
+      code: "UNREGISTERED_ASSET",
+      urls: ["https://tracker.example.com/p.png"],
+    });
+    // Refused on the publish hop, after the walk's earlier hops have run: that
+    // they roll back with it is the transaction's job, which this stub's
+    // `$transaction` does not model, so the quiz's status is not asserted here.
+  });
+
   it("409s a job that has already been decided", async () => {
     seedLessonJob({ status: "approved", decision: "approve" });
 
@@ -658,6 +678,23 @@ describe("POST /api/admin/ai/jobs/:id/reject", () => {
       reviewNote: REASON,
       reviewerId: ADMIN_ID,
     });
+  });
+
+  it("rejects a job whose questions still hold placeholder assets", async () => {
+    seedLessonJob();
+    store.questions[0].definition = {
+      type: "picture_selection",
+      options: [
+        { image: { url: "https://placeholder.kidlearn.invalid/a.png" } },
+      ],
+    };
+
+    const res = await request(app)
+      .post(`${BASE}/${LESSON_JOB_ID}/reject`)
+      .send({ reason: REASON });
+
+    expect(res.status).toBe(200);
+    expect(store.quizzes[0].status).toBe("rejected");
   });
 
   it("400s a reason shorter than ten characters", async () => {

@@ -218,8 +218,14 @@ export function reorderContent(
 
 const MEDIA_BASE = "/api/admin/media";
 
+/** One page of the library; `before` is the id of the last asset already shown. */
 export function fetchMediaAssets(
-  filters: { kind?: AssetKind; language?: Locale } = {},
+  filters: {
+    kind?: AssetKind;
+    language?: Locale;
+    limit?: number;
+    before?: string;
+  } = {},
 ): Promise<ApiResult<MediaAsset[]>> {
   return apiFetch<MediaAsset[]>(`${MEDIA_BASE}${listQuery(filters)}`);
 }
@@ -262,6 +268,7 @@ export function uploadToCloudinary(
   form.set("api_key", signature.apiKey);
   form.set("timestamp", String(signature.timestamp));
   form.set("folder", signature.folder);
+  form.set("allowed_formats", signature.allowedFormats);
   form.set("signature", signature.signature);
 
   return new Promise((resolve) => {

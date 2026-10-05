@@ -92,6 +92,8 @@ const CONFLICT_RESPONSE = errorResponse(
     "`409` rather than `400`: the request is well formed and the target status is a real one. What is wrong is the state the row happens to be in, which may not be wrong a moment later.",
     "",
     'Publishing carries a second cause. `code: "AI_REVIEW_REQUIRED"` means the row was written by a generation job that no reviewer has approved (FR-AI-07); `details` carries `jobId`, `jobStatus` and `decision`. A quiz reports its **questions\'** jobs as well as its own, because a generator appending to an existing quiz stamps only the questions — so a quiz whose own `aiJobId` is null can still be refused. The fix is the AI review queue, not the matrix.',
+    "",
+    "A quiz or activity can be refused a third way: `UNREGISTERED_ASSET` — an asset URL in the payload is not in the media library; `details.urls` lists them. The payload schema accepts any https URL, so this is what stops a link to an unreviewed host reaching a child. Every library asset the payload links to also answers to `AI_REVIEW_REQUIRED` through its own `aiJobId`.",
   ].join("\n"),
   ["CONFLICT"],
 );

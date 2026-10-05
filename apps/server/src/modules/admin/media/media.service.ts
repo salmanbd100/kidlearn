@@ -17,9 +17,22 @@ export function uploadFolderFor(kind: MediaKind): string {
   return `kidlearn/${kind}`;
 }
 
+/**
+ * What Cloudinary will accept under a signature, per kind. Signed, so the browser
+ * cannot widen it: without it, one image credential could put an HTML page or a
+ * scripted SVG on our delivery host for the length of the signature's life. SVG is
+ * left out of `image` for that reason, not by oversight.
+ */
+export const ALLOWED_UPLOAD_FORMATS: Record<MediaKind, string> = {
+  image: "png,jpg,jpeg,webp,gif",
+  audio: "mp3,m4a,aac,wav,ogg",
+  video: "mp4,webm,mov",
+};
+
 export type UploadSignature = {
   timestamp: number;
   folder: string;
+  allowedFormats: string;
   signature: string;
   apiKey: string;
   cloudName: string;
@@ -27,18 +40,22 @@ export type UploadSignature = {
 
 /**
  * The signed parameter set the browser posts to Cloudinary alongside the file.
+ * Every signed parameter has to be posted back exactly, or Cloudinary refuses the
+ * upload — so the browser is handed each one rather than left to rebuild it.
  */
 export function signUploadParams(kind: MediaKind): UploadSignature {
   const timestamp = Math.round(Date.now() / 1000);
   const folder = uploadFolderFor(kind);
+  const allowedFormats = ALLOWED_UPLOAD_FORMATS[kind];
   const signature = cloudinary.utils.api_sign_request(
-    { timestamp, folder },
+    { timestamp, folder, allowed_formats: allowedFormats },
     env.CLOUDINARY_API_SECRET,
   );
 
   return {
     timestamp,
     folder,
+    allowedFormats,
     signature,
     apiKey: env.CLOUDINARY_API_KEY,
     cloudName: env.CLOUDINARY_CLOUD_NAME,
@@ -167,17 +184,25 @@ function asUploadError(error: UploadApiErrorResponse): Error {
   return new Error(`Cloudinary upload failed: ${message}${status}`);
 }
 
-/** The library, newest first. */
+/**
+ * One page of the library, newest first. `id` breaks a `createdAt` tie, so a
+ * batch of assets one generation job registered in the same millisecond still
+ * pages without repeating or skipping one.
+ */
 export function listAssets(filters: {
   kind?: MediaKind;
   language?: Language;
+  limit: number;
+  before?: string;
 }): Promise<MediaAssetDto[]> {
   return prisma.mediaAsset.findMany({
     where: {
       ...(filters.kind ? { kind: filters.kind } : {}),
       ...(filters.language ? { language: filters.language } : {}),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: filters.limit,
+    ...(filters.before ? { cursor: { id: filters.before }, skip: 1 } : {}),
     select: mediaSelect,
   });
 }

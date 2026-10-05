@@ -470,9 +470,10 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
         "404": JOB_NOT_FOUND_RESPONSE,
         "409": errorResponse(
           [
-            "The approval was refused, and `error.details.code` says which of two reasons:",
+            "The approval was refused, and `error.details.code` says which of three reasons:",
             "",
             "- `JOB_NOT_AWAITING_REVIEW` — the job is already decided, still generating, or failed. `details.status` carries its state.",
+            "- `UNREGISTERED_ASSET` — an asset URL in the payload is not in the media library; `details.urls` lists them. The payload schema accepts any https URL, so this is what stops a link to an unreviewed host reaching a child. Every library asset the payload links to also answers to `AI_REVIEW_REQUIRED` through its own `aiJobId`.",
             "- `APPROVAL_BLOCKED` — `details.blockers` lists the sentences. A linked row is no longer `draft`, meaning somebody changed it since the job was generated; or a generated quiz question still points at a placeholder asset on the reserved `.invalid` host, meaning its picture or clip was never produced. Publishing either would put something broken in front of a child mid-lesson.",
           ].join("\n"),
           ["CONFLICT"],

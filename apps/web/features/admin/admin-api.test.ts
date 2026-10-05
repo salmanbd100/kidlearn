@@ -117,6 +117,7 @@ describe("the upload path", () => {
     await uploadToCloudinary(file, {
       timestamp: 1_700_000_000,
       folder: "kidlearn/image",
+      allowedFormats: "png,jpg,jpeg,webp,gif",
       signature: "deadbeef",
       apiKey: "test-api-key",
       cloudName: "test-cloud",
@@ -141,6 +142,7 @@ describe("the upload path", () => {
     await uploadToCloudinary(new File([""], "a.png"), {
       timestamp: 1_700_000_000,
       folder: "kidlearn/image",
+      allowedFormats: "png,jpg,jpeg,webp,gif",
       signature: "deadbeef",
       apiKey: "test-api-key",
       cloudName: "test-cloud",
@@ -148,12 +150,14 @@ describe("the upload path", () => {
 
     const form = sent[0].body as FormData;
     expect([...form.keys()].sort()).toEqual([
+      "allowed_formats",
       "api_key",
       "file",
       "folder",
       "signature",
       "timestamp",
     ]);
+    expect(form.get("allowed_formats")).toBe("png,jpg,jpeg,webp,gif");
   });
 
   it("reports a refused upload rather than resolving with a broken URL", async () => {
@@ -163,6 +167,7 @@ describe("the upload path", () => {
     const result = await uploadToCloudinary(new File([""], "a.png"), {
       timestamp: 1,
       folder: "kidlearn/image",
+      allowedFormats: "png",
       signature: "x",
       apiKey: "k",
       cloudName: "test-cloud",

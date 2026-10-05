@@ -1,10 +1,9 @@
 "use client";
 
 import type { AssetKind, Locale, MediaAsset } from "@kidlearn/types";
-import { Label, Select } from "@kidlearn/ui";
+import { Button, Label, Select } from "@kidlearn/ui";
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { fetchMediaAssets } from "@/features/admin/admin-api";
+import { useMediaPages } from "@/features/admin/use-media-pages";
 
 // Choose an asset from the media library, never type a URL (FR-CMS-02).
 
@@ -32,31 +31,10 @@ export function MediaPicker({
   isDisabled,
   error,
 }: MediaPickerProps) {
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
-
-  useEffect(() => {
-    let isCurrent = true;
-    setStatus("loading");
-
-    void fetchMediaAssets({ kind, ...(language ? { language } : {}) }).then(
-      (result) => {
-        if (!isCurrent) return;
-        if (!result.ok) {
-          setStatus("error");
-          return;
-        }
-        setAssets(result.data);
-        setStatus("ready");
-      },
-    );
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [kind, language]);
+  const { assets, status, hasMore, isLoadingMore, loadMore } = useMediaPages({
+    kind,
+    ...(language ? { language } : {}),
+  });
 
   const selected = assets.find((asset) => asset.url === value);
   const hintId = `${id}-hint`;
@@ -91,9 +69,24 @@ export function MediaPicker({
           in is worse than telling them it no longer resolves. */}
       {value !== "" && selected === undefined && status === "ready" ? (
         <p className="text-muted-foreground text-xs">
-          Currently set to an asset outside this filter:{" "}
+          {hasMore
+            ? "Currently set to an asset not among those loaded — show older files to find it, or pick another: "
+            : "Currently set to an asset outside this filter: "}
           <span className="break-all font-mono">{value}</span>
         </p>
+      ) : null}
+
+      {hasMore ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          disabled={isDisabled || isLoadingMore}
+          onClick={() => void loadMore()}
+        >
+          {isLoadingMore ? "Loading…" : "Show older files"}
+        </Button>
       ) : null}
 
       {selected ? <AssetPreview asset={selected} /> : null}

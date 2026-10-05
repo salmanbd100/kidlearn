@@ -20,7 +20,10 @@ import { ApiError } from "../../../shared/errors/errors.js";
 import { withSerializationRetry } from "../../../shared/utils/serializable-retry.js";
 import {
   assertAiPublishable,
-  readQuizAiJobIds,
+  assertAssetsRegistered,
+  type ContentsGuard,
+  readActivityGuard,
+  readQuizGuard,
   routeToStatus,
 } from "../../content/content-status.service.js";
 import type { AiJobListQuery } from "../admin-ai.schema.js";
@@ -44,6 +47,8 @@ type LinkedRow = {
   status: ContentStatus;
   /** Every job answerable for the row's contents — a quiz answers for its questions' jobs too. */
   aiJobIds: string[];
+  /** Asset URLs in the row's payload that the media library does not hold. */
+  unregisteredUrls: string[];
 };
 
 type ReviewWriter = Pick<
@@ -108,6 +113,7 @@ async function linkedContentRows(
       label: row.title,
       status: row.status,
       aiJobIds: idList(row.aiJobId),
+      unregisteredUrls: [],
     })),
     ...quizzes.map((row) => ({
       resource: "quizzes" as const,
@@ -115,6 +121,7 @@ async function linkedContentRows(
       label: row.title ?? UNTITLED_QUIZ,
       status: row.status,
       aiJobIds: idList(row.aiJobId),
+      unregisteredUrls: [],
     })),
     ...activities.map((row) => ({
       resource: "activities" as const,
@@ -122,6 +129,7 @@ async function linkedContentRows(
       label: row.type,
       status: row.status,
       aiJobIds: idList(row.aiJobId),
+      unregisteredUrls: [],
     })),
     ...stories.map((row) => ({
       resource: "stories" as const,
@@ -129,6 +137,7 @@ async function linkedContentRows(
       label: row.title,
       status: row.status,
       aiJobIds: idList(row.aiJobId),
+      unregisteredUrls: [],
     })),
   ];
 
@@ -142,17 +151,23 @@ async function linkedContentRows(
       label: quiz.title ?? UNTITLED_QUIZ,
       status: quiz.status,
       aiJobIds: idList(quiz.aiJobId),
+      unregisteredUrls: [],
     });
   }
 
   // A quiz publishes its questions, so the publish guard has to see their jobs —
   // including questions from a *different* job than the one being reviewed, which
   // a per-job read cannot find (FR-AI-07).
+  // Each also answers for the library assets its payload links to.
   for (const row of rows) {
-    if (row.resource !== "quizzes") continue;
-    row.aiJobIds = [
-      ...new Set([...row.aiJobIds, ...(await readQuizAiJobIds(row.id, tx))]),
-    ];
+    const contents: ContentsGuard =
+      row.resource === "quizzes"
+        ? await readQuizGuard(row.id, tx)
+        : row.resource === "activities"
+          ? await readActivityGuard(row.id, tx)
+          : { aiJobIds: [], unregisteredUrls: [] };
+    row.aiJobIds = [...new Set([...row.aiJobIds, ...contents.aiJobIds])];
+    row.unregisteredUrls = contents.unregisteredUrls;
   }
 
   return rows;
@@ -717,7 +732,10 @@ async function walkChain(
   for (const row of rows) {
     let status = row.status;
     for (const to of routeToStatus(status, destination)) {
-      if (to === "published") await assertAiPublishable(row.aiJobIds, tx);
+      if (to === "published") {
+        assertAssetsRegistered(row.unregisteredUrls);
+        await assertAiPublishable(row.aiJobIds, tx);
+      }
       await writeStatus(tx, row, to, reviewerId);
       status = to;
     }

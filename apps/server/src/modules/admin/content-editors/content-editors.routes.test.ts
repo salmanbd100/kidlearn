@@ -49,6 +49,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../../openapi/assert-contract.js";
 import request from "../../../shared/testing/request.js";
+import { collectAssetUrls } from "../../content/content-status.service.js";
 
 const BASE = "/api/admin/content";
 
@@ -72,6 +73,8 @@ const store = vi.hoisted(() => ({
   responses: [] as Row[],
   activities: [] as Row[],
   badges: [] as Row[],
+  /** The media library, by URL — what the publish hop resolves payload links to. */
+  mediaAssets: [] as Array<{ url: string; aiJobId: string | null }>,
   /** File 37 — the jobs a `?jobId` save can record its decision on. */
   jobs: [] as Row[],
   /** Isolation levels `$transaction` was called with, for bound 4 above. */
@@ -312,6 +315,10 @@ vi.mock("../../../config/prisma.js", async () => {
         store.responses.filter((row) => matches(row, where)).length,
     },
     activity: table(() => store.activities, timestamps),
+    mediaAsset: {
+      findMany: async ({ where }: { where: { url: { in: string[] } } }) =>
+        store.mediaAssets.filter((asset) => where.url.in.includes(asset.url)),
+    },
     // File 37 — the edit-then-approve breadcrumb. `updateMany` rather than
     // `update` in the service, so the "still awaiting review" condition is part
     // of the write; the stub applies it for the same reason.
@@ -423,6 +430,16 @@ beforeEach(() => {
   store.responses = [];
   store.activities = [];
   store.badges = [];
+  // Every fixture's media is in the library, as it is for anything an editor
+  // built with the picker; the cases about unregistered links clear it.
+  store.mediaAssets = [
+    ...collectAssetUrls([
+      validDragDrop,
+      validMcq,
+      validMatchPair,
+      validPictureSelect,
+    ]),
+  ].map((url) => ({ url, aiJobId: null }));
   store.jobs = [];
   store.isolationLevels = [];
   store.nextId = 0;
@@ -1381,6 +1398,95 @@ describe("transitions", () => {
 
       expect(res.status).toBe(200);
       expect(store.quizzes[0].status).toBe("published");
+    });
+  });
+
+  /** R-23 — a payload's asset links are resolved against the media library. */
+  describe("a payload answers for the media it links to", () => {
+    const TRACKER = "https://tracker.example.com/pixel.png";
+
+    function seedActivityLinking(url: string) {
+      seedActivity("approved").definition = {
+        ...validDragDrop,
+        items: validDragDrop.items.map((item, index) =>
+          index === 0 ? { ...item, image: { kind: "image", url } } : item,
+        ),
+      };
+    }
+
+    async function publishActivity() {
+      return request(app)
+        .post(`${BASE}/activities/${ACTIVITY_ID}/transition`)
+        .send({ to: "published" });
+    }
+
+    it("409s publishing an activity that links outside the library", async () => {
+      seedActivityLinking(TRACKER);
+
+      const res = await publishActivity();
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toEqual({
+        code: "UNREGISTERED_ASSET",
+        urls: [TRACKER],
+      });
+      expect(store.activities[0].status).toBe("approved");
+    });
+
+    it("409s publishing a quiz whose question links outside the library", async () => {
+      seedQuiz(QUIZ_ID, "approved");
+      store.questions.push({
+        id: "q-tracker",
+        quizId: QUIZ_ID,
+        format: "mcq",
+        schemaVersion: 1,
+        sortOrder: 0,
+        definition: { ...validMcq, image: { kind: "image", url: TRACKER } },
+        aiJobId: null,
+      });
+
+      const res = await request(app)
+        .post(`${BASE}/quizzes/${QUIZ_ID}/transition`)
+        .send({ to: "published" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details.urls).toEqual([TRACKER]);
+    });
+
+    it("409s when a linked library image is a generated one nobody reviewed", async () => {
+      const generated =
+        "https://res.cloudinary.com/test-cloud/image/upload/generated.png";
+      store.mediaAssets.push({ url: generated, aiJobId: "job-image" });
+      store.jobs.push({
+        id: "job-image",
+        status: "awaiting_review",
+        decision: null,
+      });
+      seedActivityLinking(generated);
+
+      const res = await publishActivity();
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toMatchObject({
+        code: "AI_REVIEW_REQUIRED",
+        jobId: "job-image",
+      });
+    });
+
+    it("does not check links on a hop short of published", async () => {
+      seedActivity().definition = {
+        ...validDragDrop,
+        items: validDragDrop.items.map((item) => ({
+          ...item,
+          image: { kind: "image", url: TRACKER },
+        })),
+      };
+
+      const res = await request(app)
+        .post(`${BASE}/activities/${ACTIVITY_ID}/transition`)
+        .send({ to: "in_review" });
+
+      expect(res.status).toBe(200);
     });
   });
 });

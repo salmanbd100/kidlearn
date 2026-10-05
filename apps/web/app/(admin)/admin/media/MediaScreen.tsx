@@ -17,8 +17,8 @@ import {
 } from "@kidlearn/ui";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
-import { fetchMediaAssets } from "@/features/admin/admin-api";
+import { useState } from "react";
+import { useMediaPages } from "@/features/admin/use-media-pages";
 import { AttachDialog } from "./AttachDialog";
 import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";
@@ -45,35 +45,24 @@ type Tab = "library" | "characters";
 
 export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
   const [tab, setTab] = useState<Tab>("library");
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [kind, setKind] = useState<AssetKind>();
   const [language, setLanguage] = useState<Locale>();
-  const [status, setStatus] = useState<
-    "loading" | "waking" | "ready" | "error"
-  >("loading");
   const [dialog, setDialog] = useState<DialogState>({ kind: "closed" });
   const [notice, setNotice] = useState<string>();
   const [copiedId, setCopiedId] = useState<string>();
 
-  const load = useCallback(async () => {
-    setStatus("loading");
-    const result = await fetchMediaAssets({
-      ...(kind ? { kind } : {}),
-      ...(language ? { language } : {}),
-    });
-
-    if (!result.ok) {
-      setStatus("error");
-      return;
-    }
-    setAssets(result.data);
-    setStatus("ready");
-  }, [kind, language]);
-
-  useEffect(() => {
-    // Only the library tab reads assets; the characters tab holds its own data.
-    if (tab === "library") void load();
-  }, [load, tab]);
+  // Only the library tab reads assets; the characters tab holds its own data.
+  const {
+    assets,
+    status,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+    reload: load,
+  } = useMediaPages(
+    { ...(kind ? { kind } : {}), ...(language ? { language } : {}) },
+    { isEnabled: tab === "library" },
+  );
 
   async function handleCopy(asset: MediaAsset) {
     try {
@@ -145,7 +134,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
           The media library could not be loaded.
         </p>
         <div>
-          <Button type="button" variant="outline" onClick={() => void load()}>
+          <Button type="button" variant="outline" onClick={() => load()}>
             Try again
           </Button>
         </div>
@@ -253,6 +242,18 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
         </ul>
       )}
 
+      {status === "ready" && hasMore ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="self-center"
+          disabled={isLoadingMore}
+          onClick={() => void loadMore()}
+        >
+          {isLoadingMore ? "Loading…" : "Show older files"}
+        </Button>
+      ) : null}
+
       {videoWorkflow}
 
       <Dialog
@@ -275,7 +276,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
                 onUploaded={() => {
                   setDialog({ kind: "closed" });
                   setNotice("Uploaded and recorded.");
-                  void load();
+                  load();
                 }}
               />
             </>

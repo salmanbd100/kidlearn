@@ -23,9 +23,12 @@ import { ApiError } from "../../../shared/errors/errors.js";
 import { withSerializationRetry } from "../../../shared/utils/serializable-retry.js";
 import {
   assertAiPublishable,
+  assertAssetsRegistered,
   assertEditable,
   assertTransition,
-  readQuizAiJobIds,
+  type ContentsGuard,
+  readActivityGuard,
+  readQuizGuard,
 } from "../../content/content-status.service.js";
 import type {
   ActivityUpsertBody,
@@ -371,7 +374,7 @@ export async function deleteQuestion(
 /** The slice of the client a transaction callback and the plain client share. */
 type EditorWriter = Pick<
   typeof prisma,
-  "quiz" | "quizQuestion" | "quizResponse" | "activity" | "badge"
+  "quiz" | "quizQuestion" | "quizResponse" | "activity" | "badge" | "mediaAsset"
 >;
 
 /**
@@ -691,7 +694,14 @@ export async function transitionEditorContent(
       async (tx) => {
         const current = await readEditorGuardFields(tx, resource, id);
         assertTransition(current.status, to);
-        if (to === "published") await assertAiPublishable(current.aiJobIds, tx);
+        if (to === "published") {
+          const contents = await readContentsGuard(tx, resource, id);
+          assertAssetsRegistered(contents.unregisteredUrls);
+          await assertAiPublishable(
+            [...current.aiJobIds, ...contents.aiJobIds],
+            tx,
+          );
+        }
         await writeEditorStatus(tx, resource, id, to);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -702,8 +712,8 @@ export async function transitionEditorContent(
 }
 
 /**
- * The status a transition is judged against, and every job answerable for the
- * row's contents.
+ * The status a transition is judged against, and the row's own job — or, for a
+ * badge, its icon's.
  */
 async function readEditorGuardFields(
   tx: EditorWriter,
@@ -733,11 +743,22 @@ async function readEditorGuardFields(
 
   if (!row) throw ApiError.notFound(`No such ${SINGULAR[resource]}`);
 
-  const own = row.aiJobId ? [row.aiJobId] : [];
-  const fromQuestions =
-    resource === "quizzes" ? await readQuizAiJobIds(id, tx) : [];
+  return { status: row.status, aiJobIds: row.aiJobId ? [row.aiJobId] : [] };
+}
 
-  return { status: row.status, aiJobIds: [...own, ...fromQuestions] };
+/**
+ * What only the publish hop needs: a quiz's questions and an activity's payload
+ * answer for their own jobs and for the library assets they link to. Read only
+ * there, so a plain edit's editability check stays one query.
+ */
+function readContentsGuard(
+  tx: EditorWriter,
+  resource: EditorResource,
+  id: string,
+): Promise<ContentsGuard> {
+  if (resource === "quizzes") return readQuizGuard(id, tx);
+  if (resource === "activities") return readActivityGuard(id, tx);
+  return Promise.resolve({ aiJobIds: [], unregisteredUrls: [] });
 }
 
 async function readEditorStatus(

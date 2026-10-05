@@ -35,7 +35,12 @@ import { ApiError } from "../../shared/errors/errors.js";
 
 const store = vi.hoisted(() => ({
   jobs: [] as { id: string; status: string; decision: string | null }[],
-  questions: [] as { quizId: string; aiJobId: string | null }[],
+  questions: [] as {
+    quizId: string;
+    aiJobId: string | null;
+    definition?: unknown;
+  }[],
+  mediaAssets: [] as { url: string; aiJobId: string | null }[],
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -45,19 +50,14 @@ vi.mock("../../config/prisma.js", () => ({
         store.jobs.filter((job) => where.id.in.includes(job.id)),
     },
     quizQuestion: {
-      // `distinct: ["aiJobId"]` is part of the query under test — a stub that
-      // ignored it would pass a guard that shipped duplicate ids to the database.
-      findMany: async ({ where }: { where: { quizId: string } }) => {
-        const seen = new Set<string>();
-        return store.questions
-          .filter((one) => one.quizId === where.quizId && one.aiJobId !== null)
-          .filter((one) => {
-            if (seen.has(one.aiJobId as string)) return false;
-            seen.add(one.aiJobId as string);
-            return true;
-          })
-          .map((one) => ({ aiJobId: one.aiJobId }));
-      },
+      findMany: async ({ where }: { where: { quizId: string } }) =>
+        store.questions
+          .filter((one) => one.quizId === where.quizId)
+          .map((one) => ({ aiJobId: one.aiJobId, definition: one.definition })),
+    },
+    mediaAsset: {
+      findMany: async ({ where }: { where: { url: { in: string[] } } }) =>
+        store.mediaAssets.filter((asset) => where.url.in.includes(asset.url)),
     },
   },
 }));
@@ -70,7 +70,8 @@ const {
   CONTENT_STATUS_VALUES,
   canTransition,
   nextStatuses,
-  readQuizAiJobIds,
+  collectAssetUrls,
+  readQuizGuard,
   routeToStatus,
 } = await import("./content-status.service.js");
 
@@ -390,9 +391,13 @@ describe("assertAiPublishable", () => {
 });
 
 /** The questions half of the FR-AI-07 guard. */
-describe("readQuizAiJobIds", () => {
+describe("readQuizGuard", () => {
+  const LIBRARY_IMAGE =
+    "https://res.cloudinary.com/test-cloud/image/upload/a.png";
+
   beforeEach(() => {
     store.questions = [];
+    store.mediaAssets = [];
   });
 
   it("collects the distinct jobs that wrote a quiz's questions", async () => {
@@ -404,16 +409,71 @@ describe("readQuizAiJobIds", () => {
       { quizId: "quiz-2", aiJobId: "job-c" },
     );
 
-    expect((await readQuizAiJobIds("quiz-1")).sort()).toEqual([
-      "job-a",
-      "job-b",
-    ]);
+    const guard = await readQuizGuard("quiz-1");
+
+    expect(guard.aiJobIds.sort()).toEqual(["job-a", "job-b"]);
   });
 
   it("answers nothing for a hand-written quiz", async () => {
     store.questions.push({ quizId: "quiz-1", aiJobId: null });
 
-    expect(await readQuizAiJobIds("quiz-1")).toEqual([]);
+    expect(await readQuizGuard("quiz-1")).toEqual({
+      aiJobIds: [],
+      unregisteredUrls: [],
+    });
+  });
+
+  it("answers for the job behind a library image a question links to", async () => {
+    store.mediaAssets.push({ url: LIBRARY_IMAGE, aiJobId: "job-image" });
+    store.questions.push({
+      quizId: "quiz-1",
+      aiJobId: null,
+      definition: { image: { kind: "image", url: LIBRARY_IMAGE } },
+    });
+
+    expect((await readQuizGuard("quiz-1")).aiJobIds).toEqual(["job-image"]);
+  });
+
+  it("names every link the library does not hold", async () => {
+    store.mediaAssets.push({ url: LIBRARY_IMAGE, aiJobId: null });
+    store.questions.push({
+      quizId: "quiz-1",
+      aiJobId: null,
+      definition: {
+        options: [
+          { image: { kind: "image", url: LIBRARY_IMAGE } },
+          {
+            image: { kind: "image", url: "https://tracker.example.com/p.png" },
+          },
+        ],
+      },
+    });
+
+    expect((await readQuizGuard("quiz-1")).unregisteredUrls).toEqual([
+      "https://tracker.example.com/p.png",
+    ]);
+  });
+});
+
+describe("collectAssetUrls", () => {
+  it("finds a url at any depth, once each", () => {
+    const urls = collectAssetUrls({
+      promptAudio: {
+        en: { url: "https://a/en.mp3" },
+        bn: { url: "https://a/bn.mp3" },
+      },
+      options: [
+        { image: { url: "https://a/x.png" } },
+        { image: { url: "https://a/x.png" } },
+      ],
+      text: { en: "url", bn: "url" },
+    });
+
+    expect([...urls].sort()).toEqual([
+      "https://a/bn.mp3",
+      "https://a/en.mp3",
+      "https://a/x.png",
+    ]);
   });
 });
 

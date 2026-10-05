@@ -26,6 +26,8 @@ export const UploadSignatureSchema = z
   .object({
     timestamp: z.number().int(),
     folder: z.string(),
+    /** Comma-separated extensions — signed, and posted back as `allowed_formats`. */
+    allowedFormats: z.string(),
     signature: z.string(),
     apiKey: z.string(),
     cloudName: z.string(),
