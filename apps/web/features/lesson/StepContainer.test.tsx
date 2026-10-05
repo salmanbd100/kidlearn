@@ -51,6 +51,26 @@ describe("StepContainer", () => {
     expect(dotStates()).toEqual([...expected]);
   });
 
+  it("hands focus to the new step's name when the old step took it away", () => {
+    const view = (step: LessonStep) => (
+      <Providers locale="en">
+        <StepContainer step={step} onExit={vi.fn()}>
+          <button key={step} type="button">
+            {step} answer
+          </button>
+        </StepContainer>
+      </Providers>
+    );
+    const { rerender } = render(view("video"));
+    screen.getByRole("button", { name: "video answer" }).focus();
+
+    rerender(view("activity"));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Play" }),
+    ).toHaveFocus();
+  });
+
   it("reports its position to assistive tech rather than leaving five bare circles", () => {
     renderContainer("quiz");
 

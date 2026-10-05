@@ -7,18 +7,24 @@ import { X } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { IconControl } from "@/shared/components/kid/IconControl";
+import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 
 // The frame every lesson step is rendered inside (Pillar A, design.md §6).
 
+// Every dot is ringed, and the ring carries the step: sky, sunshine and the muted
+// wash all sit under the 3:1 non-text floor against the cream background
+// (design.md §2.3), so filled-versus-hollow is what a child reads, not the hue.
 const dotVariants = cva(
-  "block size-4 rounded-pill transition-[background-color,transform]",
+  "block size-4 rounded-pill border-2 transition-[background-color,transform]",
   {
     variants: {
       state: {
-        done: "bg-primary",
-        current: "bg-accent scale-125 motion-safe:animate-pulse",
-        todo: "bg-muted",
+        done: "border-foreground bg-primary",
+        current:
+          "border-foreground bg-accent scale-125 motion-safe:animate-pulse",
+        todo: "border-muted-foreground bg-background",
       },
     },
   },
@@ -42,6 +48,7 @@ export function StepContainer({
 }: StepContainerProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const currentIndex = LESSON_STEPS.indexOf(step);
+  const headingRef = useFocusWhenDropped<HTMLHeadingElement>(step);
 
   return (
     // `flex-1`, not a viewport height and the safe-area insets: the student layout
@@ -85,19 +92,21 @@ export function StepContainer({
           })}
         </ol>
 
-        <button
-          type="button"
-          // 64px, because this is a control a *child* uses (design.md §7) —
-          // unlike the parent-corner lock, which is deliberately small.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill text-muted-foreground transition-colors touch-manipulation hover:text-foreground focus-ring"
-          aria-label={t("exit.open")}
-          onClick={onExit}
-        >
+        {/* 64px, because this is a control a *child* uses (design.md §7) —
+            unlike the parent-corner lock, which is deliberately small. */}
+        <IconControl label={t("exit.open")} tone="quiet" onPress={onExit}>
           <X aria-hidden="true" className="size-8" />
-        </button>
+        </IconControl>
       </header>
 
-      <main className="flex flex-1 flex-col px-6 pb-6">{children}</main>
+      <main className="flex flex-1 flex-col px-6 pb-6">
+        {/* Named for assistive technology only — the dots and the mascot say it
+            for the sighted child — and the place focus lands on a new step. */}
+        <h1 ref={headingRef} tabIndex={-1} className="sr-only">
+          {t(`steps.${step}`)}
+        </h1>
+        {children}
+      </main>
 
       {mascotUrl === undefined ? null : (
         // Bottom corner, behind the step's content and non-interactive: company for

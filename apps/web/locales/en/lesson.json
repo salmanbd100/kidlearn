@@ -58,8 +58,9 @@
       "done": "The picture is finished!"
     },
     "dnd": {
-      "instructions": "Press space or enter to pick something up, move it with the arrow keys, then press space or enter to drop it. Press escape to put it back.",
+      "instructions": "Tap a card, then tap where it goes. You can drag it there too.",
       "roleDescription": "movable",
+      "picked": "{{item}} is picked. Now tap where it goes.",
       "pickedUp": "Holding {{item}}.",
       "over": "{{item}} is over {{target}}.",
       "dropped": "{{item}} is in {{target}}!",
@@ -85,8 +86,9 @@
     "drag": {
       "blank": "the gap",
       "tray": "Words to move",
-      "instructions": "Press space or enter to pick a word up, move it with the arrow keys, then press space or enter to drop it. Press escape to put it back.",
+      "instructions": "Tap a word, then tap the gap. You can drag it there too.",
       "roleDescription": "movable",
+      "picked": "{{item}} is picked. Now tap the gap.",
       "pickedUp": "Holding {{item}}.",
       "over": "{{item}} is over {{target}}.",
       "dropped": "{{item}} is in {{target}}!",

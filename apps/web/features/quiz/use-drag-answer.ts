@@ -19,6 +19,8 @@ export interface DragAnswerState {
   /** Options already tried and set aside. */
   dimmedIds: ReadonlySet<string>;
   handleDragEnd: (event: DragEndEvent) => void;
+  /** The same answer, reached by tapping rather than dragging. */
+  place: (optionId: string, targetId: string) => void;
 }
 
 export function useDragAnswer({
@@ -37,18 +39,16 @@ export function useDragAnswer({
 
   const { isLocked, correct, retry } = feedback;
 
-  const handleDragEnd = useCallback(
-    ({ active, over }: DragEndEvent) => {
-      // Let go over nothing, or over anything that is not the blank: dnd-kit has
-      // already dropped the transform and the card is back in the tray. Silence
-      // is right — the child has not answered yet, so there is nothing to
-      // encourage them about.
-      if (over === null || String(over.id) !== BLANK_DROPPABLE_ID) return;
+  const place = useCallback(
+    (optionId: string, targetId: string) => {
+      // Anything that is not the blank: the card is back in the tray. Silence is
+      // right — the child has not answered yet, so there is nothing to encourage
+      // them about.
+      if (targetId !== BLANK_DROPPABLE_ID) return;
 
-      const optionId = String(active.id);
       // Locked covers both holds: the cheer after the right answer, and the beat
-      // after a wrong one. A card released during either is a drag that started
-      // before the feedback did.
+      // after a wrong one. A card placed during either was picked up before the
+      // feedback began.
       if (isLocked || lockedId !== undefined || dimmedIds.has(optionId)) return;
 
       const isCorrect = evaluateAnswer(definition, optionId);
@@ -75,7 +75,16 @@ export function useDragAnswer({
     ],
   );
 
-  return { lockedId, dimmedIds, handleDragEnd };
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      // Let go over nothing: dnd-kit has already dropped the transform.
+      if (over === null) return;
+      place(String(active.id), String(over.id));
+    },
+    [place],
+  );
+
+  return { lockedId, dimmedIds, handleDragEnd, place };
 }
 
 /** The sentence either side of its `{blank}`. */

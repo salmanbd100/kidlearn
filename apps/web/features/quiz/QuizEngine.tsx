@@ -5,6 +5,8 @@ import { Volume2 } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { IconControl } from "@/shared/components/kid/IconControl";
+import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { ProgressFruit } from "./ProgressFruit";
 import { isPlayableQuestion, renderQuestion } from "./registry";
@@ -89,6 +91,7 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
   const feedback = useQuestionFeedback(locale);
   const session = useQuizSession(playable.length, onFinish);
   const current = playable[session.currentIndex];
+  const promptRef = useFocusWhenDropped<HTMLParagraphElement>(current?.id);
 
   const questionIds = useMemo(
     () => playable.map((question) => question.id),
@@ -153,19 +156,17 @@ export function QuizEngine({ questions, locale, onFinish }: QuizEngineProps) {
         audio is the channel the child actually reads with (FR-QUIZ-05).
       */}
       <div className="flex w-full max-w-2xl shrink-0 items-center justify-center gap-4">
-        <p className="font-display text-2xl text-foreground sm:text-3xl">
+        <p
+          ref={promptRef}
+          // Where focus lands when the answered question's cards go away.
+          tabIndex={-1}
+          className="font-display text-2xl text-foreground outline-none sm:text-3xl"
+        >
           {current.definition.prompt[locale]}
         </p>
-        <button
-          type="button"
-          // 64px square, the same control in the same place as the intro step's
-          // and the activity engine's: a child who learned it there knows it here.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors touch-manipulation hover:bg-secondary/80 focus-ring"
-          aria-label={t("quiz.replay")}
-          onClick={speakPrompt}
-        >
+        <IconControl label={t("quiz.replay")} onPress={speakPrompt}>
           <Volume2 aria-hidden="true" className="size-8" />
-        </button>
+        </IconControl>
       </div>
 
       {/*

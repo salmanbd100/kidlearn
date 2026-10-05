@@ -15,6 +15,12 @@ export interface PlacementState {
   placed: PlacedItems;
   wiggle: WiggleRequest | undefined;
   handleDragEnd: (event: DragEndEvent) => void;
+  /** The same answer, reached by tapping rather than dragging. */
+  place: (
+    itemId: string,
+    targetId: string,
+    anchor?: { x: number; y: number },
+  ) => void;
 }
 
 function centreOf(rect: ClientRect): { x: number; y: number } {
@@ -29,17 +35,10 @@ export function usePlacementState(
   const [placed, setPlaced] = useState<PlacedItems>({});
   const { wiggle, requestWiggle } = useWiggle();
 
-  const handleDragEnd = useCallback(
-    ({ active, over }: DragEndEvent) => {
-      // Let go over nothing: dnd-kit drops the transform and the card is already
-      // back in the tray. Silence is right — the child has not answered yet.
-      if (over === null) return;
-
-      const itemId = String(active.id);
-      const targetId = String(over.id);
-
+  const place = useCallback(
+    (itemId: string, targetId: string, anchor?: { x: number; y: number }) => {
       if (evaluateDrop(definition, itemId, targetId)) {
-        feedback.success(centreOf(over.rect));
+        feedback.success(anchor);
         setPlaced((current) => ({ ...current, [itemId]: targetId }));
         return;
       }
@@ -48,6 +47,16 @@ export function usePlacementState(
       requestWiggle([itemId]);
     },
     [definition, feedback, requestWiggle],
+  );
+
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      // Let go over nothing: dnd-kit drops the transform and the card is already
+      // back in the tray. Silence is right — the child has not answered yet.
+      if (over === null) return;
+      place(String(active.id), String(over.id), centreOf(over.rect));
+    },
+    [place],
   );
 
   // Once, and only once. The effect re-runs on every placement, and a second
@@ -60,5 +69,5 @@ export function usePlacementState(
     onActivityComplete();
   }, [definition, placed, onActivityComplete]);
 
-  return { placed, wiggle, handleDragEnd };
+  return { placed, wiggle, handleDragEnd, place };
 }

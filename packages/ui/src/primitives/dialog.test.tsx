@@ -11,7 +11,7 @@ import {
 // `isDismissable={false}` is the security-relevant half of this primitive.
 
 type DismissableProps =
-  | { isDismissable?: true; closeLabel: string }
+  | { isDismissable?: true; closeLabel: string; closeSize?: "default" | "kid" }
   | { isDismissable: false; closeLabel?: never };
 
 function renderDialog(
@@ -35,6 +35,20 @@ describe("DialogContent — dismissable (the default)", () => {
   it("renders a labelled close button", () => {
     renderDialog({ closeLabel: "Close" });
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
+  it("keeps the close button at the parent surface's 44px floor by default", () => {
+    renderDialog({ closeLabel: "Close" });
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "size-11",
+    );
+  });
+
+  it("grows the close button to the 64px kid floor on request", () => {
+    renderDialog({ closeLabel: "Close", closeSize: "kid" });
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "size-16",
+    );
   });
 
   it("closes on Escape", () => {

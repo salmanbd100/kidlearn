@@ -18,6 +18,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useActivitySensors } from "@/features/activities/use-activity-sensors";
+import { useTapToPlace } from "@/features/activities/use-tap-to-place";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { QuestionProps } from "./types";
 import {
@@ -37,6 +38,9 @@ const optionCardVariants = cva(
       state: {
         idle: "border-border shadow-md",
         dragging: "z-30 cursor-grabbing border-primary shadow-pop",
+        // In hand by tapping: the same look as in hand by dragging, plus the
+        // lift a child reads as "this one".
+        selected: "border-primary shadow-pop motion-safe:scale-105",
         // Still readable, still there — a card a child can see they have tried
         // tells them more than one that vanished under their finger.
         dimmed: "border-border opacity-40",
@@ -50,7 +54,7 @@ const blankVariants = cva(
   // 96px of drop target inside a line of 30px text: the gap is the only thing on
   // this screen a child has to hit, so it is sized like a button, not like a
   // word (design.md §7).
-  "mx-2 inline-flex min-h-24 min-w-24 items-center justify-center rounded-2xl border-4 border-dashed p-2 align-middle transition-colors",
+  "mx-2 inline-flex min-h-24 min-w-24 items-center justify-center rounded-2xl border-4 border-dashed p-2 align-middle transition-colors touch-manipulation focus-ring",
   {
     variants: {
       state: {
@@ -74,16 +78,20 @@ export function DragAnswerQuestion({
 }: QuestionProps<DragAnswerDefinition>) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const sensors = useActivitySensors();
-  const { lockedId, dimmedIds, handleDragEnd } = useDragAnswer({
+  const { lockedId, dimmedIds, handleDragEnd, place } = useDragAnswer({
     definition,
     feedback,
     onAttempt,
     onCommit,
   });
+  const { selectedId, toggle, placeOn, dragHandlers } = useTapToPlace(place);
 
   const { before, after } = splitAtBlank(definition.sentence[locale]);
   const lockedOption = definition.options.find(
     (option) => option.id === lockedId,
+  );
+  const selectedOption = definition.options.find(
+    (option) => option.id === selectedId,
   );
 
   const announcements = useMemo<Announcements>(() => {
@@ -121,7 +129,11 @@ export function DragAnswerQuestion({
   return (
     <DndContext
       sensors={sensors}
-      onDragEnd={handleDragEnd}
+      onDragStart={dragHandlers.onDragStart}
+      onDragEnd={(event) => {
+        dragHandlers.onDragEnd();
+        handleDragEnd(event);
+      }}
       // dnd-kit's own live-region copy is English; every string a child's device
       // reads out has to come through i18next like any other (FR-I18N-01).
       accessibility={{
@@ -133,6 +145,14 @@ export function DragAnswerQuestion({
         data-testid="quiz-drag-answer"
         className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-8 overflow-auto"
       >
+        <span role="status" className="sr-only">
+          {selectedOption === undefined
+            ? ""
+            : t("quiz.drag.picked", {
+                item: selectedOption.text?.[locale] ?? selectedOption.id,
+              })}
+        </span>
+
         {/*
           The sentence is not a heading and not a label — it is the question
           itself, with a hole in it, so it is one paragraph whose middle happens
@@ -145,6 +165,8 @@ export function DragAnswerQuestion({
             option={lockedOption}
             locale={locale}
             emptyLabel={t("quiz.drag.blank")}
+            isInviting={selectedId !== undefined}
+            onTap={() => placeOn(BLANK_DROPPABLE_ID)}
           />
           {after}
         </p>
@@ -165,6 +187,13 @@ export function DragAnswerQuestion({
                 locale={locale}
                 isDimmed={dimmedIds.has(option.id)}
                 isPlaced={option.id === lockedId}
+                isSelected={option.id === selectedId}
+                onTap={() => {
+                  // A tried card and the one in the gap are not answers any more.
+                  if (dimmedIds.has(option.id) || option.id === lockedId)
+                    return;
+                  toggle(option.id);
+                }}
                 roleDescription={t("quiz.drag.roleDescription")}
                 triedLabel={t("quiz.optionTried")}
                 fallbackLabel={t("quiz.optionPicture", { number: index + 1 })}
@@ -181,20 +210,30 @@ function BlankSlot({
   option,
   locale,
   emptyLabel,
+  isInviting,
+  onTap,
 }: {
   option: QuizOption | undefined;
   locale: Locale;
   emptyLabel: string;
+  /** A word is in hand, so the gap is where it could go. */
+  isInviting: boolean;
+  onTap: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: BLANK_DROPPABLE_ID });
-  const state = option !== undefined ? "filled" : isOver ? "over" : "empty";
+  const state =
+    option !== undefined ? "filled" : isOver || isInviting ? "over" : "empty";
 
   return (
-    <span
+    // A button — still inline, still inside the sentence — so a tap, Enter or a
+    // VoiceOver double-tap can put the word in hand into the gap.
+    <button
       ref={setNodeRef}
+      type="button"
       data-testid="quiz-drag-blank"
       data-state={state}
       className={cn(blankVariants({ state }))}
+      onClick={onTap}
     >
       {option === undefined ? (
         // The gap has to be readable as a gap by a screen reader too, or the
@@ -205,7 +244,7 @@ function BlankSlot({
           {option.text?.[locale]}
         </span>
       )}
-    </span>
+    </button>
   );
 }
 
@@ -214,6 +253,8 @@ function DraggableOption({
   locale,
   isDimmed,
   isPlaced,
+  isSelected,
+  onTap,
   roleDescription,
   triedLabel,
   fallbackLabel,
@@ -223,6 +264,8 @@ function DraggableOption({
   isDimmed: boolean;
   /** Answered correctly and now sitting in the blank — nothing left to drag. */
   isPlaced: boolean;
+  isSelected: boolean;
+  onTap: () => void;
   roleDescription: string;
   triedLabel: string;
   fallbackLabel: string;
@@ -235,7 +278,13 @@ function DraggableOption({
     });
 
   const label = option.text?.[locale];
-  const state = isDragging ? "dragging" : isDimmed ? "dimmed" : "idle";
+  const state = isDragging
+    ? "dragging"
+    : isDimmed
+      ? "dimmed"
+      : isSelected
+        ? "selected"
+        : "idle";
 
   return (
     <button
@@ -264,6 +313,10 @@ function DraggableOption({
       }}
       {...listeners}
       {...attributes}
+      // After the spread: dnd-kit's attributes set `aria-pressed` for a drag in
+      // progress and would otherwise clear the tap selection's.
+      aria-pressed={isSelected || isDragging}
+      onClick={onTap}
     >
       <OptionArt
         image={option.image}

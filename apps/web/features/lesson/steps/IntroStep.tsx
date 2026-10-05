@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
+import { IconControl } from "@/shared/components/kid/IconControl";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { LessonStepProps } from "./lesson-step-props";
 
@@ -74,15 +75,9 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
 
       <div className="flex w-full items-center justify-center gap-4">
         {introAudioUrl === null ? null : (
-          <button
-            type="button"
-            // 64px square: a child's control, sized like the exit (design.md §7).
-            className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors touch-manipulation hover:bg-secondary/80 focus-ring"
-            aria-label={t("intro.replay")}
-            onClick={replay}
-          >
+          <IconControl label={t("intro.replay")} onPress={replay}>
             <Volume2 aria-hidden="true" className="size-8" />
-          </button>
+          </IconControl>
         )}
 
         <BigButton

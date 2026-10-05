@@ -11,6 +11,7 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { IconControl } from "@/shared/components/kid/IconControl";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { ActivityUnavailable } from "./ActivityUnavailable";
 import { FeedbackLayer } from "./FeedbackLayer";
@@ -126,16 +127,9 @@ function PlayableActivity({
       className="relative flex flex-1 flex-col gap-4 landscape:flex-row landscape:items-center"
     >
       <div className="flex justify-center">
-        <button
-          type="button"
-          // 64px square, the same control the intro step offers, in the same
-          // place: a child who learned it there does not learn it twice.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors touch-manipulation hover:bg-secondary/80 focus-ring"
-          aria-label={t("activity.replay")}
-          onClick={speakInstruction}
-        >
+        <IconControl label={t("activity.replay")} onPress={speakInstruction}>
           <Volume2 aria-hidden="true" className="size-8" />
-        </button>
+        </IconControl>
       </div>
 
       {renderActivity({

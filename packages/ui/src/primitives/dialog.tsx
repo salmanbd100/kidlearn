@@ -60,6 +60,21 @@ const dialogContentVariants = cva(
   },
 );
 
+const dialogCloseVariants = cva(
+  "absolute right-3 top-3 inline-flex items-center justify-center text-muted-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+  {
+    variants: {
+      closeSize: {
+        // 44px, so the parent surface's minimum target holds (design.md §7).
+        default: "size-11 rounded-sm [&_svg]:size-5",
+        // 64px — the kid floor — for a dialog a child answers.
+        kid: "size-16 rounded-pill [&_svg]:size-8",
+      },
+    },
+    defaultVariants: { closeSize: "default" },
+  },
+);
+
 type DialogContentBaseProps = Omit<
   React.ComponentProps<typeof DialogPrimitive.Content>,
   "children"
@@ -73,6 +88,7 @@ export type DialogContentProps = DialogContentBaseProps &
         isDismissable?: true;
         /** Accessible name for the close button, which this variant renders. */
         closeLabel: string;
+        closeSize?: VariantProps<typeof dialogCloseVariants>["closeSize"];
       }
     | {
         /**
@@ -81,6 +97,7 @@ export type DialogContentProps = DialogContentBaseProps &
          */
         isDismissable: false;
         closeLabel?: never;
+        closeSize?: never;
       }
   );
 
@@ -105,6 +122,7 @@ function DialogContent({
   children,
   isDismissable = true,
   closeLabel,
+  closeSize,
   onEscapeKeyDown,
   onPointerDownOutside,
   onInteractOutside,
@@ -124,11 +142,10 @@ function DialogContent({
         {children}
         {isDismissable ? (
           <DialogPrimitive.Close
-            // 44px, so the parent surface's minimum target holds (design.md §7).
-            className="absolute right-3 top-3 inline-flex size-11 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className={cn(dialogCloseVariants({ closeSize }))}
             aria-label={closeLabel}
           >
-            <X aria-hidden="true" className="size-5" />
+            <X aria-hidden="true" />
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Content>
@@ -145,6 +162,8 @@ const dialogHeaderVariants = cva("flex flex-col gap-1.5", {
   variants: {
     gutter: {
       inset: "pr-11",
+      // Clears the `kid` close button.
+      kidInset: "pr-16",
       flush: "",
     },
   },

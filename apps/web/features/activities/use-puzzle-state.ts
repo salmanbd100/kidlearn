@@ -24,6 +24,12 @@ export interface PuzzleState {
   isComplete: boolean;
   wiggle: WiggleRequest | undefined;
   handleDragEnd: (event: DragEndEvent) => void;
+  /** The same answer, reached by tapping rather than dragging. */
+  place: (
+    pieceId: string,
+    slotId: string,
+    anchor?: { x: number; y: number },
+  ) => void;
   /** Ends the shine early. A no-op until the picture is actually finished. */
   skipShine: () => void;
 }
@@ -45,18 +51,13 @@ export function usePuzzleState(
   const [isComplete, setIsComplete] = useState(false);
   const { wiggle, requestWiggle } = useWiggle();
 
-  const handleDragEnd = useCallback(
-    ({ active, over }: DragEndEvent) => {
-      // Let go over nothing: dnd-kit drops the transform and the piece is already
-      // back in the tray. The child has not answered yet, so nothing is said.
-      if (over === null) return;
-
-      const pieceId = String(active.id);
-      const slotId = String(over.id);
+  const place = useCallback(
+    (pieceId: string, slotId: string, anchor?: { x: number; y: number }) => {
       const slot = definition.slots.find(
         (candidate) => puzzleSlotId(candidate.index) === slotId,
       );
-      if (slot === undefined) return;
+      // A filled space is no longer a target — tapped, it is just the picture.
+      if (slot === undefined || filled.has(slot.index)) return;
 
       if (!evaluatePiecePlacement(definition, pieceId, slotId)) {
         feedback.retry();
@@ -64,12 +65,22 @@ export function usePuzzleState(
         return;
       }
 
-      feedback.success(centreOf(over.rect));
+      feedback.success(anchor);
       const next = new Set(filled).add(slot.index);
       setFilled(next);
       if (isPuzzleComplete(definition, next)) setIsComplete(true);
     },
     [definition, feedback, filled, requestWiggle],
+  );
+
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      // Let go over nothing: dnd-kit drops the transform and the piece is already
+      // back in the tray. The child has not answered yet, so nothing is said.
+      if (over === null) return;
+      place(String(active.id), String(over.id), centreOf(over.rect));
+    },
+    [place],
   );
 
   // The picture gets a beat to be looked at whole before the engine's celebration
@@ -101,5 +112,5 @@ export function usePuzzleState(
     if (isComplete) reportComplete();
   }, [isComplete, reportComplete]);
 
-  return { filled, isComplete, wiggle, handleDragEnd, skipShine };
+  return { filled, isComplete, wiggle, handleDragEnd, place, skipShine };
 }

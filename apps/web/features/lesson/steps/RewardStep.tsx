@@ -318,7 +318,11 @@ function announce(
   return [earned, ...unlocks].join(" ");
 }
 
-/** The mascot, bouncing, once the counting is over. */
+/**
+ * The mascot, bouncing once when the counting is over. Once, and inside
+ * `--dur-slow`: celebrations are capped there (design.md §5.2), and a bounce
+ * that never stops is motion a child cannot switch off (WCAG 2.2.2).
+ */
 function MascotCheer({ url }: { url?: string }) {
   const isMotionReduced = useIsMotionReduced();
 
@@ -328,11 +332,7 @@ function MascotCheer({ url }: { url?: string }) {
     <motion.div
       data-testid="reward-mascot"
       animate={isMotionReduced ? undefined : { y: [0, -20, 0] }}
-      transition={{
-        duration: 0.9,
-        repeat: Number.POSITIVE_INFINITY,
-        ease: "easeInOut",
-      }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
     >
       <Image
         src={url}

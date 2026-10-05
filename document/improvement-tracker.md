@@ -42,10 +42,10 @@
 
 | # | ID | Item | Sev. | Area | Depends on | Est. | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 17 | R-18 | Static wrong-answer cue; contrast of ticks and progress dots; non-text contrast test | Medium | web, ui | — | 2h | ⬜ Not started | |
-| 18 | R-17 | Focus management on question/step/page change | Medium | web | — | 2h | ⬜ Not started | |
-| 19 | R-16 | Tap-to-place for drag activities; droppable-jumping keyboard sensor | Medium | web | — | 3–4h | ⬜ Not started | |
-| 20 | R-19 | Kid close-button size, celebration durations, `IconControl` cva | Low | web | — | 1–2h | ⬜ Not started | |
+| 17 | R-18 | Static wrong-answer cue; contrast of ticks and progress dots; non-text contrast test | Medium | web, ui | — | 2h | 🟨 In progress | `StatusMark` (ink glyph on a filled disc): ✓ for matched cards and the correct MCQ option, a round-again arrow — never a ✗ (FR-ACT-05) — beside every shake, held 1.2s. Progress dots ringed. `tokens.test.ts` checks 3:1 non-text pairs; rule added to design.md §2.3. Uncommitted on `dev`, no PR yet |
+| 18 | R-17 | Focus management on question/step/page change | Medium | web | — | 2h | 🟨 In progress | `useFocusWhenDropped`: focus moves only when the focused control unmounted — to the step's sr-only `h1`, the quiz prompt, or the story page. The lesson and story finish screens are not covered. Uncommitted on `dev`, no PR yet |
+| 19 | R-16 | Tap-to-place for drag activities; droppable-jumping keyboard sensor | Medium | web | — | 3–4h | 🟨 In progress | `useTapToPlace` in drag-drop, puzzle and quiz drag-answer: every target is a button. **Decision:** no droppable-jumping sensor — `KeyboardSensor` removed from kid activities, because it and tap-to-select both claim Enter; tap-to-place is the keyboard and VoiceOver path. New en/bn strings — **the Bangla needs a native speaker's check**. Not tried on an iPad with VoiceOver. Uncommitted on `dev`, no PR yet |
+| 20 | R-19 | Kid close-button size, celebration durations, `IconControl` cva | Low | web | — | 1–2h | 🟨 In progress | `DialogContent closeSize="kid"` (64px) on ExitConfirm, which keeps Escape. Mascot bounces once; stars and flames capped at 400ms (durations have no test — jsdom does not run Motion). `shared/components/kid/IconControl` replaces the four copies plus StepContainer's exit. Uncommitted on `dev`, no PR yet |
 
 ## Phase D — Security hardening
 

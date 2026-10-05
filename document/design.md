@@ -105,6 +105,14 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 - Body text vs. background ≥ **4.5:1**; large text (≥24px or 18.66px bold) ≥ **3:1**.
 - Never encode meaning in color alone — pair with icon, shape, label, or motion
   (color-blind safety; matters for "correct/incorrect" quiz feedback).
+- Shapes that carry meaning on their own (status marks, progress dots, focus rings) need
+  **3:1** against what they sit on. Kid `--success`, `--accent` and `--primary` fall below
+  that on cream or white, so a kid "done" or "have another go" mark is an ink glyph on a
+  filled disc (`StatusMark`), and a progress dot is ringed in ink or `--muted-foreground`.
+  `tokens.test.ts` asserts the pairs these depend on.
+- Feedback must survive reduced motion. A wrong attempt's shake is `motion-safe:` only, so
+  every shake is paired with a static have-another-go mark that outlives it (1.2s) — never
+  a ✗ (FR-ACT-05).
 - Dark mode: **parent theme only** for MVP. The kid theme stays light (predictable,
   print-bright). Keep the dark token block scaffolded but ship parent-only.
 
@@ -260,7 +268,14 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 
 - **Touch targets:** kid ≥ **64×64px**; parent ≥ **44×44px** (WCAG 2.5.5).
 - Visible focus ring (`--ring`, 2px offset) on every interactive element. Never remove outlines.
+  The exception is a non-interactive `tabIndex={-1}` landing spot (a quiz prompt, a story
+  page) — it is where focus goes, not something to press.
 - Full keyboard operability on parent/admin surfaces; logical tab order; trapped focus in modals.
+- **Every drag has a tap path.** Tap a card, then tap where it goes — every drop target is a
+  button. That is also the keyboard and VoiceOver path, so kid activities mount no dnd-kit
+  `KeyboardSensor` (`useTapToPlace`, `useActivitySensors`).
+- **Focus is never dropped.** When a transition removes the focused control, focus moves to
+  the new step's heading, question or page (`useFocusWhenDropped`) — never back to `<body>`.
 - Semantic HTML + ARIA only where semantics fall short. Radix (via shadcn) gives correct roles —
   don't override them.
 - Decorative images `alt=""`; meaningful images get real localized alt text.

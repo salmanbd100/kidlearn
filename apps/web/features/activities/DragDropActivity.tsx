@@ -18,11 +18,13 @@ import { cva } from "class-variance-authority";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { StatusMark } from "@/shared/components/kid/StatusMark";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { evaluateDrop, groupItemsByTarget } from "./evaluate";
 import type { ActivityRendererProps } from "./registry";
 import { useActivitySensors } from "./use-activity-sensors";
 import { usePlacementState } from "./use-placement-state";
+import { centreOfElement, useTapToPlace } from "./use-tap-to-place";
 import { isWiggling, type WiggleRequest } from "./use-wiggle";
 
 // Put each thing where it belongs (FR-ACT-01).
@@ -30,20 +32,23 @@ import { isWiggling, type WiggleRequest } from "./use-wiggle";
 const itemCardVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a
   // 100ms hold, so the browser can keep owning scroll gestures that start here.
-  "flex size-24 shrink-0 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-2 bg-card p-2 text-card-foreground touch-manipulation focus-ring",
+  "relative flex size-24 shrink-0 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-2 bg-card p-2 text-card-foreground touch-manipulation focus-ring",
   {
     variants: {
-      isDragging: {
-        true: "z-30 cursor-grabbing border-primary shadow-pop",
-        false: "border-border shadow-md",
+      state: {
+        dragging: "z-30 cursor-grabbing border-primary shadow-pop",
+        // In hand by tapping: the same look as in hand by dragging, plus the
+        // lift a child reads as "this one".
+        selected: "border-primary shadow-pop motion-safe:scale-105",
+        idle: "border-border shadow-md",
       },
     },
-    defaultVariants: { isDragging: false },
+    defaultVariants: { state: "idle" },
   },
 );
 
 const dropTargetVariants = cva(
-  "flex min-h-28 min-w-28 flex-col items-center justify-center gap-2 rounded-xl border-4 p-3 text-center transition-colors",
+  "flex min-h-28 min-w-28 flex-col items-center justify-center gap-2 rounded-xl border-4 p-3 text-center transition-colors touch-manipulation focus-ring",
   {
     variants: {
       state: {
@@ -68,11 +73,12 @@ export function DragDropActivity({
   onActivityComplete,
 }: ActivityRendererProps<DragDropDefinition>) {
   const { t } = useTranslation(LESSON_NAMESPACE);
-  const { placed, wiggle, handleDragEnd } = usePlacementState(
+  const { placed, wiggle, handleDragEnd, place } = usePlacementState(
     definition,
     feedback,
     onActivityComplete,
   );
+  const { selectedId, toggle, placeOn, dragHandlers } = useTapToPlace(place);
 
   const sensors = useActivitySensors();
 
@@ -123,11 +129,19 @@ export function DragDropActivity({
   }, [t, locale, definition, itemById, targetById]);
 
   const trayItems = definition.items.filter((item) => !(item.id in placed));
+  const selectedLabel =
+    selectedId === undefined
+      ? undefined
+      : itemById.get(selectedId)?.label[locale];
 
   return (
     <DndContext
       sensors={sensors}
-      onDragEnd={handleDragEnd}
+      onDragStart={dragHandlers.onDragStart}
+      onDragEnd={(event) => {
+        dragHandlers.onDragEnd();
+        handleDragEnd(event);
+      }}
       // dnd-kit's own live-region copy is English; every string a child's device
       // reads out has to come through i18next like any other (FR-I18N-01).
       accessibility={{
@@ -141,6 +155,12 @@ export function DragDropActivity({
         // them side by side, where vertical space is the scarce thing (design.md §6).
         className="flex flex-1 flex-col items-center justify-center gap-6 landscape:flex-row landscape:items-center"
       >
+        <span role="status" className="sr-only">
+          {selectedLabel === undefined
+            ? ""
+            : t("activity.dnd.picked", { item: selectedLabel })}
+        </span>
+
         {/*
           Two labelled lists rather than two labelled `div`s. It is what the
           board actually is — a set of places and a set of things left to move —
@@ -157,6 +177,8 @@ export function DragDropActivity({
                 target={target}
                 locale={locale}
                 placedItems={itemsByTargetId.get(target.id) ?? EMPTY_ITEMS}
+                isInviting={selectedId !== undefined}
+                onTap={(anchor) => placeOn(target.id, anchor)}
               />
             </li>
           ))}
@@ -179,6 +201,8 @@ export function DragDropActivity({
                 locale={locale}
                 roleDescription={t("activity.dnd.roleDescription")}
                 wiggle={isWiggling(wiggle, item.id) ? wiggle : undefined}
+                isSelected={selectedId === item.id}
+                onTap={() => toggle(item.id)}
               />
             </li>
           ))}
@@ -193,21 +217,27 @@ function DraggableItem({
   locale,
   roleDescription,
   wiggle,
+  isSelected,
+  onTap,
 }: {
   item: ActivityItem;
   locale: Locale;
   roleDescription: string;
   wiggle: WiggleRequest | undefined;
+  isSelected: boolean;
+  onTap: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: item.id, attributes: { roleDescription } });
+  const state = isDragging ? "dragging" : isSelected ? "selected" : "idle";
 
   return (
     <button
       ref={setNodeRef}
       type="button"
       data-testid={`activity-item-${item.id}`}
-      className={cn(itemCardVariants({ isDragging }))}
+      data-state={state}
+      className={cn(itemCardVariants({ state }))}
       // Written out rather than pulled from `@dnd-kit/utilities`: a translate is
       // the only transform this component ever applies, and `transform` is the
       // one property a drag may animate (design.md §5.2).
@@ -219,6 +249,10 @@ function DraggableItem({
       }}
       {...listeners}
       {...attributes}
+      // After the spread: dnd-kit's attributes set `aria-pressed` for a drag in
+      // progress and would otherwise clear the tap selection's.
+      aria-pressed={isSelected || isDragging}
+      onClick={onTap}
     >
       {/*
         Keyed on the wiggle count, not on whether one is running: re-applying an
@@ -239,6 +273,7 @@ function DraggableItem({
           {item.label[locale]}
         </span>
       </span>
+      {wiggle === undefined ? null : <StatusMark tone="retry" />}
     </button>
   );
 }
@@ -247,21 +282,31 @@ function DropZone({
   target,
   locale,
   placedItems,
+  isInviting,
+  onTap,
 }: {
   target: DropTargetDefinition;
   locale: Locale;
   /** Every item that belongs here, not just the most recent one. */
   placedItems: readonly ActivityItem[];
+  /** A card is in hand, so this is somewhere it could go. */
+  isInviting: boolean;
+  onTap: (anchor: { x: number; y: number }) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: target.id });
-  const state = placedItems.length > 0 ? "filled" : isOver ? "over" : "empty";
+  const state =
+    placedItems.length > 0 ? "filled" : isOver || isInviting ? "over" : "empty";
 
   return (
-    <div
+    // A button, so a tap, Enter or a VoiceOver double-tap can put the card in
+    // hand here — the drop a child who cannot drag still has.
+    <button
       ref={setNodeRef}
+      type="button"
       data-testid={`activity-target-${target.id}`}
       data-state={state}
       className={cn(dropTargetVariants({ state }))}
+      onClick={(event) => onTap(centreOfElement(event.currentTarget))}
     >
       <ItemArt image={target.image} locale={locale} className="size-12" />
       <span className="font-display text-lg leading-tight text-foreground">
@@ -273,7 +318,7 @@ function DropZone({
         // them right, and taking one back out again is not a move this activity
         // has. Wrapping, because a target may hold several — a home the child is
         // filling up, which is the whole point of a sorting payload.
-        <div className="flex flex-wrap items-center justify-center gap-1">
+        <span className="flex flex-wrap items-center justify-center gap-1">
           {placedItems.map((placedItem) => (
             <span
               key={placedItem.id}
@@ -290,9 +335,9 @@ function DropZone({
               </span>
             </span>
           ))}
-        </div>
+        </span>
       )}
-    </div>
+    </button>
   );
 }
 

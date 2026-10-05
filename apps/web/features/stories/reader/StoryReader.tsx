@@ -5,12 +5,9 @@ import type {
   StoryCompletionResponse,
   StoryDetailResponse,
 } from "@kidlearn/types";
-import { cn } from "@kidlearn/ui";
-import { cva } from "class-variance-authority";
 import { ArrowLeft, ArrowRight, BookOpen, Home, Volume2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
-  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -28,8 +25,10 @@ import {
 import { trackEvent, useHeartbeat } from "@/features/screen-time/use-heartbeat";
 import { completeStory } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { IconControl } from "@/shared/components/kid/IconControl";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
+import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
 import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { FinishScreen, type StoryFinishReward } from "./FinishScreen";
 import { activeSpanIndex } from "./NarratedText";
@@ -198,6 +197,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
 
   const storyId = story.id;
   const page = story.pages[state.pageIndex];
+  const pageRef = useFocusWhenDropped<HTMLElement>(state.pageIndex);
   const narrationUrl = page?.narrationUrl ?? null;
   const isReading = state.phase === "reading";
   const isLastPage = state.pageIndex === story.pages.length - 1;
@@ -397,7 +397,13 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
         </IconControl>
       </header>
 
-      <main className="flex flex-1 flex-col px-6 pb-4">
+      <main
+        ref={pageRef}
+        // Where focus lands when the control the child used leaves with the
+        // page — the back arrow, on returning to page one.
+        tabIndex={-1}
+        className="flex flex-1 flex-col px-6 pb-4 outline-none"
+      >
         {page === undefined ? null : (
           <StoryPageView page={page} elapsedMs={elapsedMs} />
         )}
@@ -447,49 +453,5 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
         </IconControl>
       </nav>
     </div>
-  );
-}
-
-/**
- * A round 64px control — the kid touch-target floor (design.md §7, NFR-A11Y-02).
- */
-const iconControlVariants = cva(
-  "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors touch-manipulation focus-ring",
-  {
-    variants: {
-      tone: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-      },
-    },
-    defaultVariants: { tone: "secondary" },
-  },
-);
-
-function IconControl({
-  label,
-  tone,
-  isPressed,
-  onPress,
-  children,
-}: {
-  label: string;
-  tone?: "primary" | "secondary";
-  /** Sets `aria-pressed`; omitted for controls that are not toggles. */
-  isPressed?: boolean;
-  onPress: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={isPressed}
-      className={cn(iconControlVariants({ tone }))}
-      onClick={onPress}
-    >
-      {children}
-    </button>
   );
 }

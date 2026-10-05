@@ -16,6 +16,7 @@ import { cn, useIsMotionReduced } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { StatusMark } from "@/shared/components/kid/StatusMark";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import {
   evaluatePiecePlacement,
@@ -26,6 +27,7 @@ import {
 import type { ActivityRendererProps } from "./registry";
 import { useActivitySensors } from "./use-activity-sensors";
 import { usePuzzleState } from "./use-puzzle-state";
+import { centreOfElement, useTapToPlace } from "./use-tap-to-place";
 import { isWiggling, type WiggleRequest } from "./use-wiggle";
 
 // Build the picture (FR-ACT-04).
@@ -34,17 +36,19 @@ const pieceVariants = cva(
   // `touch-action: manipulation` and not `none`: the touch sensor activates on a
   // 100ms hold, so the browser can keep owning scroll gestures that start on a
   // piece — which matters most here, where the tray is the thing that scrolls.
-  "size-20 shrink-0 cursor-grab rounded-md touch-manipulation focus-ring",
+  "relative size-20 shrink-0 cursor-grab rounded-md touch-manipulation focus-ring",
   {
     variants: {
-      isDragging: {
+      state: {
         // The gap the piece left behind, so a child who is mid-drag can still see
         // where it came from — the moving copy is the `DragOverlay` below.
-        true: "cursor-grabbing opacity-30",
-        false: "shadow-md",
+        dragging: "cursor-grabbing opacity-30",
+        // In hand by tapping — ringed like the overlay copy of a dragged piece.
+        selected: "shadow-pop ring-4 ring-primary motion-safe:scale-105",
+        idle: "shadow-md",
       },
     },
-    defaultVariants: { isDragging: false },
+    defaultVariants: { state: "idle" },
   },
 );
 
@@ -83,8 +87,9 @@ export function PuzzleActivity({
   const { t } = useTranslation(LESSON_NAMESPACE);
   const sensors = useActivitySensors();
   const isMotionReduced = useIsMotionReduced();
-  const { filled, isComplete, wiggle, handleDragEnd, skipShine } =
+  const { filled, isComplete, wiggle, handleDragEnd, place, skipShine } =
     usePuzzleState(definition, feedback, onActivityComplete);
+  const { selectedId, toggle, placeOn, dragHandlers } = useTapToPlace(place);
 
   // Counted from one wherever a number is spoken or read out: slot indexes are
   // an implementation detail of the payload, and "piece 0" is not a thing a child
@@ -144,17 +149,22 @@ export function PuzzleActivity({
   const handleDragFinished = useCallback(
     (event: DragEndEvent) => {
       setDraggingIndex(undefined);
+      dragHandlers.onDragEnd();
       handleDragEnd(event);
     },
-    [handleDragEnd],
+    [handleDragEnd, dragHandlers],
   );
+
+  const selectedIndex =
+    selectedId === undefined ? undefined : puzzleIndexOfId(selectedId);
 
   return (
     <DndContext
       sensors={sensors}
-      onDragStart={({ active }) =>
-        setDraggingIndex(puzzleIndexOfId(String(active.id)))
-      }
+      onDragStart={({ active }) => {
+        dragHandlers.onDragStart();
+        setDraggingIndex(puzzleIndexOfId(String(active.id)));
+      }}
       onDragEnd={handleDragFinished}
       onDragCancel={() => setDraggingIndex(undefined)}
       // dnd-kit's own live-region copy is English; every string a child's device
@@ -177,6 +187,11 @@ export function PuzzleActivity({
                 placed: filled.size,
                 total: definition.slots.length,
               })}
+        </span>
+        <span role="status" className="sr-only">
+          {selectedIndex === undefined
+            ? ""
+            : t("activity.dnd.picked", { item: pieceLabel(selectedIndex) })}
         </span>
 
         <div
@@ -230,7 +245,9 @@ export function PuzzleActivity({
                 slot={slot}
                 definition={definition}
                 isFilled={filled.has(slot.index)}
+                isInviting={selectedId !== undefined}
                 label={slotLabel(slot.index)}
+                onTap={(anchor) => placeOn(puzzleSlotId(slot.index), anchor)}
               />
             ))}
           </ul>
@@ -276,6 +293,8 @@ export function PuzzleActivity({
                     ? wiggle
                     : undefined
                 }
+                isSelected={selectedId === puzzlePieceId(slot.index)}
+                onTap={() => toggle(puzzlePieceId(slot.index))}
               />
             </li>
           ))}
@@ -315,12 +334,16 @@ function PuzzlePiece({
   label,
   roleDescription,
   wiggle,
+  isSelected,
+  onTap,
 }: {
   slot: PuzzleSlot;
   definition: PuzzleDefinition;
   label: string;
   roleDescription: string;
   wiggle: WiggleRequest | undefined;
+  isSelected: boolean;
+  onTap: () => void;
 }) {
   // No `transform` read off this hook: the piece the child is moving is the
   // overlay copy, and translating this one as well would move two.
@@ -335,9 +358,17 @@ function PuzzlePiece({
       type="button"
       data-testid={`puzzle-piece-${slot.index}`}
       aria-label={label}
-      className={cn(pieceVariants({ isDragging }))}
+      className={cn(
+        pieceVariants({
+          state: isDragging ? "dragging" : isSelected ? "selected" : "idle",
+        }),
+      )}
       {...listeners}
       {...attributes}
+      // After the spread: dnd-kit's attributes set `aria-pressed` for a drag in
+      // progress and would otherwise clear the tap selection's.
+      aria-pressed={isSelected || isDragging}
+      onClick={onTap}
     >
       {/*
         The crop lives on this inner span, not on the button, so that keying it on
@@ -354,6 +385,7 @@ function PuzzlePiece({
         )}
         style={cropStyle(definition.image.url, definition.grid, slot)}
       />
+      {wiggle === undefined ? null : <StatusMark tone="retry" />}
     </button>
   );
 }
@@ -362,12 +394,17 @@ function PuzzleSlotCell({
   slot,
   definition,
   isFilled,
+  isInviting,
   label,
+  onTap,
 }: {
   slot: PuzzleSlot;
   definition: PuzzleDefinition;
   isFilled: boolean;
+  /** A piece is in hand, so an empty space is somewhere it could go. */
+  isInviting: boolean;
   label: string;
+  onTap: (anchor: { x: number; y: number }) => void;
 }) {
   // A filled slot stops being a target: the piece is locked in, and leaving it
   // droppable would let a second piece claim a cell that is already answered.
@@ -376,17 +413,13 @@ function PuzzleSlotCell({
     disabled: isFilled,
   });
 
-  const state = isFilled ? "filled" : isOver ? "over" : "empty";
+  const state = isFilled ? "filled" : isOver || isInviting ? "over" : "empty";
 
   return (
     <li
       ref={setNodeRef}
       data-testid={`puzzle-slot-${slot.index}`}
       data-state={state}
-      // A filled space is the picture again, not somewhere to put something: the
-      // crop it shows is announced by the board's own name, so labelling it
-      // "space 4" would tell a screen-reader user there is still a gap there.
-      aria-label={isFilled ? undefined : label}
       className={cn(slotVariants({ state }))}
       style={{
         gridRow: slot.row + 1,
@@ -395,6 +428,22 @@ function PuzzleSlotCell({
           ? cropStyle(definition.image.url, definition.grid, slot)
           : undefined),
       }}
-    />
+    >
+      {/*
+        A filled space is the picture again, not somewhere to put something: the
+        crop it shows is announced by the board's own name, so it gets no button
+        and no "space 4" — that would tell a screen-reader user there is still a
+        gap there. An empty one is a button, so a tap, Enter or a VoiceOver
+        double-tap can put the piece in hand here.
+      */}
+      {isFilled ? null : (
+        <button
+          type="button"
+          aria-label={label}
+          className="size-full rounded-md touch-manipulation focus-ring"
+          onClick={(event) => onTap(centreOfElement(event.currentTarget))}
+        />
+      )}
+    </li>
   );
 }

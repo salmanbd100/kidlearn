@@ -1,6 +1,12 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { validPuzzle, validPuzzlePrePlaced } from "@kidlearn/types";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
@@ -8,7 +14,7 @@ import { puzzlePieceId, puzzleSlotId } from "./evaluate";
 import { PuzzleActivity } from "./PuzzleActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { SHINE_MS, usePuzzleState } from "./use-puzzle-state";
-import { WIGGLE_MS } from "./use-wiggle";
+import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
  * jsdom cannot perform a drag — there is no layout, so no collision detection and
@@ -143,7 +149,7 @@ describe("usePuzzleState", () => {
     expect(result.current.wiggle?.count).not.toBe(first);
   });
 
-  it("stops wiggling once the animation has run", () => {
+  it("clears the wiggle once the have-another-go cue has run", () => {
     vi.useFakeTimers();
     const { result } = renderHook(() =>
       usePuzzleState(validPuzzle, feedbackSpy(), vi.fn()),
@@ -151,7 +157,7 @@ describe("usePuzzleState", () => {
 
     act(() => result.current.handleDragEnd(dropPiece(0, 3)));
     act(() => {
-      vi.advanceTimersByTime(WIGGLE_MS);
+      vi.advanceTimersByTime(NOT_QUITE_MS);
     });
 
     expect(result.current.wiggle).toBeUndefined();
@@ -370,5 +376,47 @@ describe("PuzzleActivity", () => {
     renderActivity();
 
     expect(screen.queryByTestId("puzzle-shine")).not.toBeInTheDocument();
+  });
+
+  describe("tap to place — the path that needs no drag", () => {
+    function renderWithSpies() {
+      const feedback = feedbackSpy();
+      render(
+        <Providers locale="en">
+          <PuzzleActivity
+            definition={validPuzzle}
+            locale="en"
+            feedback={feedback}
+            onActivityComplete={vi.fn()}
+          />
+        </Providers>,
+      );
+      return { feedback };
+    }
+
+    it("puts the piece in hand into the space it belongs in", () => {
+      const { feedback } = renderWithSpies();
+
+      fireEvent.click(screen.getByRole("button", { name: "Piece 1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Space 1" }));
+
+      expect(feedback.success).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("puzzle-slot-0")).toHaveAttribute(
+        "data-state",
+        "filled",
+      );
+      // Filled, the space is the picture again — nothing left to press.
+      expect(screen.queryByRole("button", { name: "Space 1" })).toBeNull();
+    });
+
+    it("encourages and keeps the piece in the tray on the wrong space", () => {
+      const { feedback } = renderWithSpies();
+
+      fireEvent.click(screen.getByRole("button", { name: "Piece 1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Space 4" }));
+
+      expect(feedback.retry).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("puzzle-piece-0")).toBeInTheDocument();
+    });
   });
 });

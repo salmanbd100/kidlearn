@@ -3,8 +3,8 @@
 import type { ImageAssetRef, Locale } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
-import { Check } from "lucide-react";
 import Image from "next/image";
+import { StatusMark } from "@/shared/components/kid/StatusMark";
 
 // One answer, as something a child taps (FR-QUIZ-01, FR-QUIZ-04).
 
@@ -102,10 +102,7 @@ export function OptionCard({
 
       {state === "correct" ? (
         <>
-          <Check
-            aria-hidden="true"
-            className="absolute top-2 right-2 size-6 text-success"
-          />
+          <StatusMark tone="done" />
           <span className="sr-only">{correctLabel}</span>
         </>
       ) : null}

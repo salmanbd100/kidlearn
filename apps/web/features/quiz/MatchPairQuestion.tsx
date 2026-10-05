@@ -8,7 +8,6 @@ import type {
 } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
-import { Check } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,6 +16,7 @@ import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback
 import { type PairSide, usePairing } from "@/features/activities/use-pairing";
 import { isWiggling, useWiggle } from "@/features/activities/use-wiggle";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { StatusMark } from "@/shared/components/kid/StatusMark";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { QuestionProps, QuizAnswerValue } from "./types";
 
@@ -25,7 +25,7 @@ import type { QuestionProps, QuizAnswerValue } from "./types";
 const matchCardVariants = cva(
   // 96px square before its contents — the same floor the match activity sets,
   // half again the 64px kid minimum, because two are tapped in sequence.
-  "flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform touch-manipulation focus-ring",
+  "relative flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform touch-manipulation focus-ring",
   {
     variants: {
       state: {
@@ -293,10 +293,11 @@ function MatchCard({
       */}
       {isMatched ? (
         <>
-          <Check aria-hidden="true" className="size-4 text-success" />
+          <StatusMark tone="done" />
           <span className="sr-only">{matchedLabel}</span>
         </>
       ) : null}
+      {isShaking && !isMatched ? <StatusMark tone="retry" /> : null}
     </button>
   );
 }

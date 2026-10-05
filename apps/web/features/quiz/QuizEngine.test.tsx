@@ -90,6 +90,20 @@ describe("QuizEngine", () => {
       expect(screen.queryByTestId("quiz-mcq")).not.toBeInTheDocument();
     });
 
+    it("moves focus to the next question's prompt, not back to the top of the page", () => {
+      vi.useFakeTimers();
+      renderEngine(twoQuestions);
+
+      const apple = screen.getByTestId("quiz-option-apple");
+      apple.focus();
+      tap("apple");
+      settle();
+
+      expect(
+        screen.getByText(validPictureSelect.prompt.en, { selector: "p" }),
+      ).toHaveFocus();
+    });
+
     it("skips a malformed question rather than trapping the child", () => {
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       renderEngine([

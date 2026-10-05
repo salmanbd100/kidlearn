@@ -49,6 +49,33 @@ const SURFACES = [
   ["muted", "muted-foreground"],
 ] as const;
 
+// WCAG 1.4.11 for the shapes that carry meaning on their own: the ink glyph on
+// a status mark's disc, and the ring on a lesson progress dot. Fills such as
+// `success`, `primary` and `accent` against the page are deliberately absent —
+// they are under 3:1 in the kid theme, which is why those components put an ink
+// glyph or ring on top rather than relying on the hue.
+const NON_TEXT = 3;
+const MARKS = [
+  ["success", "success-foreground"],
+  ["warning", "warning-foreground"],
+  ["background", "foreground"],
+  ["background", "muted-foreground"],
+  ["card", "muted-foreground"],
+] as const;
+
+function expectContrast(
+  tokens: Record<string, string>,
+  [surface, mark]: readonly [string, string],
+  floor: number,
+) {
+  const fill = tokens[surface];
+  const ink = tokens[mark];
+  expect(fill, `--${surface} is defined`).toBeDefined();
+  expect(ink, `--${mark} is defined`).toBeDefined();
+
+  expect(contrast(ink as string, fill as string)).toBeGreaterThanOrEqual(floor);
+}
+
 describe.each([
   ["kid", ':root,\n[data-theme="kid"] {'],
   ["parent", '[data-theme="parent"] {'],
@@ -56,12 +83,11 @@ describe.each([
   const tokens = themeTokens(selector);
 
   it.each(SURFACES)("%s / %s meets AA", (surface, foreground) => {
-    const fill = tokens[surface];
-    const text = tokens[foreground];
-    expect(fill, `--${surface} is defined`).toBeDefined();
-    expect(text, `--${foreground} is defined`).toBeDefined();
+    expectContrast(tokens, [surface, foreground], AA);
+  });
 
-    expect(contrast(text as string, fill as string)).toBeGreaterThanOrEqual(AA);
+  it.each(MARKS)("%s / %s meets the 3:1 non-text floor", (surface, mark) => {
+    expectContrast(tokens, [surface, mark], NON_TEXT);
   });
 });
 

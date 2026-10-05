@@ -5,6 +5,7 @@ import {
   render,
   renderHook,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
@@ -13,7 +14,7 @@ import { evaluatePair } from "./evaluate";
 import { MatchActivity } from "./MatchActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { usePairing } from "./use-pairing";
-import { WIGGLE_MS } from "./use-wiggle";
+import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
  * The tap rules are driven through `usePairing` directly, which is the reason
@@ -347,18 +348,49 @@ describe("MatchActivity", () => {
     );
   });
 
-  it("stops shaking once the animation has run", () => {
+  it("marks a wrong pair with a have-another-go cue that needs no motion", () => {
+    renderActivity();
+
+    tapCard("sun");
+    tapCard("night");
+
+    // The shake is `motion-safe:` and vanishes under reduced motion; the mark is
+    // static, so it is still there for a child who can neither see the shake nor
+    // hear the encouragement (design.md §2.3).
+    for (const id of ["sun", "night"]) {
+      expect(
+        within(screen.getByTestId(`match-card-${id}`)).getByTestId(
+          "status-mark-retry",
+        ),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("marks a matched card done with a shape, not only its pair colour", () => {
+    renderActivity();
+
+    tapCard("sun");
+    tapCard("day");
+
+    expect(
+      within(screen.getByTestId("match-card-sun")).getByTestId(
+        "status-mark-done",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("clears the shake and the cue once it has run", () => {
     vi.useFakeTimers();
     renderActivity();
 
     tapCard("sun");
     tapCard("night");
     act(() => {
-      vi.advanceTimersByTime(WIGGLE_MS);
+      vi.advanceTimersByTime(NOT_QUITE_MS);
     });
 
-    expect(screen.getByTestId("match-card-sun").innerHTML).not.toMatch(
-      /animate-wiggle/,
-    );
+    const card = screen.getByTestId("match-card-sun");
+    expect(card.innerHTML).not.toMatch(/animate-wiggle/);
+    expect(within(card).queryByTestId("status-mark-retry")).toBeNull();
   });
 });

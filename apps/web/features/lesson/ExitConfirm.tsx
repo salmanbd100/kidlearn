@@ -47,8 +47,8 @@ export function ExitConfirm({
           unlabelled one would be a control with no accessible name on the one dialog
           a child has to answer. Its own label rather than the *Stay* string, so the
           two are distinguishable to a screen reader even though they do the same. */}
-      <DialogContent size="sm" closeLabel={t("exit.close")}>
-        <DialogHeader>
+      <DialogContent size="sm" closeLabel={t("exit.close")} closeSize="kid">
+        <DialogHeader gutter="kidInset">
           <DialogTitle className="font-display text-2xl">
             {t("exit.title")}
           </DialogTitle>

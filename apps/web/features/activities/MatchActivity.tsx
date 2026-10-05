@@ -8,7 +8,6 @@ import type {
 } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
-import { Check } from "lucide-react";
 import Image from "next/image";
 import {
   useCallback,
@@ -20,6 +19,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { StatusMark } from "@/shared/components/kid/StatusMark";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { evaluatePair } from "./evaluate";
 import { pairCardClass, pairLineClass } from "./pair-colours";
@@ -32,7 +32,7 @@ import { isWiggling, useWiggle } from "./use-wiggle";
 const matchCardVariants = cva(
   // 96px square before its contents — the floor this spec sets for a match card,
   // half again the 64px kid minimum, because two of these are tapped in sequence.
-  "flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform touch-manipulation focus-ring",
+  "relative flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform touch-manipulation focus-ring",
   {
     variants: {
       state: {
@@ -372,10 +372,9 @@ function MatchCard({
         the high-contrast theme — the ink on the card is `card-foreground` over a
         15% wash, so the text contrast the theme guarantees is untouched.
       */}
-      {isMatched ? (
-        <Check aria-hidden="true" className="size-4 text-success" />
-      ) : null}
+      {isMatched ? <StatusMark tone="done" /> : null}
       {isMatched ? <span className="sr-only">{matchedLabel}</span> : null}
+      {isShaking && !isMatched ? <StatusMark tone="retry" /> : null}
     </button>
   );
 }

@@ -40,7 +40,8 @@ export function StreakCelebration({ milestone }: StreakCelebrationProps) {
                 : { scale: [0.2, 1.15, 1], opacity: 1 }
             }
             transition={{
-              duration: 0.6,
+              // `--dur-slow`, the cap on a celebration (design.md §5.2).
+              duration: 0.4,
               delay: isMotionReduced ? 0 : index * 0.08,
               ease: "easeOut",
             }}

@@ -1,6 +1,12 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { validDragAnswer } from "@kidlearn/types";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
@@ -272,5 +278,45 @@ describe("DragAnswerQuestion", () => {
     expect(screen.getByTestId("quiz-drag-answer").textContent).not.toMatch(
       /wrong|try again/i,
     );
+  });
+
+  describe("tap to place — the path that needs no drag", () => {
+    function renderWithSpies() {
+      const onAttempt =
+        vi.fn<(answer: QuizAnswerValue, isCorrect: boolean) => void>();
+      render(
+        <Providers locale="en">
+          <DragAnswerQuestion
+            definition={validDragAnswer}
+            locale="en"
+            feedback={{ isLocked: false, correct: vi.fn(), retry: vi.fn() }}
+            onAttempt={onAttempt}
+            onCommit={vi.fn()}
+          />
+        </Providers>,
+      );
+      return { onAttempt };
+    }
+
+    it("answers with the word in hand when the gap is tapped", () => {
+      const { onAttempt } = renderWithSpies();
+
+      fireEvent.click(screen.getByTestId("quiz-drag-option-blue"));
+      fireEvent.click(screen.getByTestId("quiz-drag-blank"));
+
+      expect(onAttempt).toHaveBeenCalledWith("blue", true);
+    });
+
+    it("does not pick up a word that has already been tried", () => {
+      const { onAttempt } = renderWithSpies();
+
+      fireEvent.click(screen.getByTestId("quiz-drag-option-green"));
+      fireEvent.click(screen.getByTestId("quiz-drag-blank"));
+      fireEvent.click(screen.getByTestId("quiz-drag-option-green"));
+      fireEvent.click(screen.getByTestId("quiz-drag-blank"));
+
+      expect(onAttempt).toHaveBeenCalledTimes(1);
+      expect(onAttempt).toHaveBeenCalledWith("green", false);
+    });
   });
 });
