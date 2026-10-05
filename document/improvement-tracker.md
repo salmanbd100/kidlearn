@@ -60,7 +60,7 @@
 
 | # | ID | Item | Sev. | Area | Depends on | Est. | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 25 | R-24 | Lenient read parse + `migratePayload` for content payloads | Medium | types, web, server | R-05 | 2–3h | ⬜ Not started | |
+| 25 | R-24 | Lenient read parse + `migratePayload` for content payloads | Medium | types, web, server | R-05 | 2–3h | 🟨 In progress | Confirmed. Writes stay strict; reads (lesson API, quiz grading, both engines) use `readActivityDefinition`/`readQuizQuestion`: `migratePayload` up to `SCHEMA_VERSION` (migration tables empty today; a test fails if a version below current has no step), then a `lenient()` copy dropping unknown keys at every depth. The lesson API serves the read result, so `schemaVersion` in the response is the payload's, not the column's. **`lenient()` uses Zod 3 internals — the Zod 4 upgrade must rewrite it.** A *version* bump still breaks an older client — no version negotiation, which matters once `apps/mobile` exists. On `dev`, no PR yet |
 | 26 | R-25 | `SessionEvent` retention; one dashboard read instead of three | Low/Med | server | — | 2h | ⬜ Not started | |
 | 27 | R-27 | Parallel kid-screen fetches; font preloads; dead preload cache; amend `frontend.md §3` | Low/Med | web, docs | — | 2–3h | ⬜ Not started | |
 | 28 | R-26 | Migration locking convention; stale migration line in the walkthrough | Low | db, docs | — | 1h | ⬜ Not started | |
