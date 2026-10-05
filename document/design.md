@@ -286,34 +286,30 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 ## 8. Component architecture
 
 ```
-packages/ui/                 # shared, theme-agnostic component library (shadcn lives here)
-├── src/
-│   ├── primitives/          # shadcn/ui components (button, dialog, input, …) — you own these
-│   ├── kid/                 # kid-surface components & game widgets (balloon-pop, tracing, …)
-│   ├── parent/              # dashboard components (stat-card, data-table, …)
-│   ├── lib/                 # cn() + shared helpers
-│   └── styles/              # tokens.css (the variables in this doc), themes
-└── package.json             # name: "@kidlearn/ui"
+packages/ui/src/             # @kidlearn/ui — theme-agnostic, app-agnostic
+├── primitives/              # shadcn/ui components (button, dialog, input, …) — you own these
+├── hooks/                   # useIsMotionReduced
+├── lib/                     # cn(), the a11y preference store
+└── styles/                  # tokens.css (the variables in this doc), themes
+
+apps/web/
+├── features/<domain>/       # surface components one feature renders (game widgets, stat cards, …)
+└── shared/components/
+    ├── kid/                 # kid-surface components two or more features render
+    └── …                    # the same, elsewhere
 ```
 
 - **`primitives/`** — unstyled-but-tokenized shadcn components. Both themes, no surface
   assumptions. This is the foundation; everything composes from here.
-- **`kid/`** and **`parent/`** — compose primitives into surface-specific components.
+- **Surface components live in the app that renders them** and compose primitives. One is
+  promoted into `packages/ui` only when a second surface needs it *and* it depends on nothing
+  app-owned. There is no `kid/` or `parent/` layer in `packages/ui`, by decision —
+  `standards/frontend.md §1` records why and has the full placement table.
 - Theme is applied by `<ThemeScope theme="kid" | "parent">` on a layout boundary, which sets
   `data-theme` and makes dialogs and menus portal inside it rather than into `<body>`; token
   values cascade. Components never branch on theme in JS — they read tokens.
-- `apps/web` consumes `@kidlearn/ui`; quiz/game renderers map JSON payloads (see brief §B) to
-  `kid/` components.
-
-> **Status, 2026-09-10:** `@kidlearn/ui` is an active workspace holding `primitives/`
-> (button, dialog, dropdown-menu, input, label, select, textarea), `lib/` (`cn`, the a11y
-> preference store) and `hooks/` (`useIsMotionReduced`), plus `styles/tokens.css`. There is still
-> no `kid/` or `parent/` directory: surface-specific components live in the app that renders
-> them, under `apps/web/features/<domain>/`, with the kid-surface layer at
-> `apps/web/shared/components/kid/`. The tree above is the shape this document originally
-> specified, not the shape on disk — `improvement-plan.md §3 P1-4` explains why the split never
-> earned its keep with one consumer. A component is promoted only when a second consumer needs it
-> *and* it depends on nothing app-owned. Do not move files to match the diagram otherwise.
+- Quiz and activity engines in `apps/web/features/` map JSON payloads (see brief §B) to
+  components.
 
 ### Variants & styling
 
