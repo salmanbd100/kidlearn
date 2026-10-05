@@ -3,7 +3,7 @@ import { logger } from "../../config/logger.js";
 import { adminContext } from "../../shared/middleware/require-admin.js";
 import { optionalValidatedQuery } from "../../shared/middleware/validate.js";
 import type { JobBreadcrumbQuery } from "./admin-ai.schema.js";
-import { recordEditDecision } from "./ai/review.js";
+import { recordEditDecision } from "./ai/review/decide.js";
 
 /**
  * Edit-then-approve, as a breadcrumb the queue puts in a URL (file 37,

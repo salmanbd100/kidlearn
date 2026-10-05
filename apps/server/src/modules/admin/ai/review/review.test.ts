@@ -26,8 +26,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "../../../shared/errors/errors.js";
-import { PLACEHOLDER_ASSET_HOST } from "./placeholder-assets.js";
+import { ApiError } from "../../../../shared/errors/errors.js";
+import { PLACEHOLDER_ASSET_HOST } from "../placeholder-assets.js";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -47,7 +47,7 @@ const store = vi.hoisted(() => ({
   transactions: [] as unknown[],
 }));
 
-vi.mock("../../../config/prisma.js", () => {
+vi.mock("../../../../config/prisma.js", () => {
   // `{ id: { in: [...] } }` and `{ aiJobId: { not: null } }` are the two Prisma
   // filter objects file 37 uses; everything else in these suites is equality.
   function matches(row: Row, where: Record<string, unknown>): boolean {
@@ -241,14 +241,10 @@ vi.mock("../../../config/prisma.js", () => {
   };
 });
 
-const {
-  approveJob,
-  countAwaitingReview,
-  getJob,
-  listJobs,
-  recordEditDecision,
-  rejectJob,
-} = await import("./review.js");
+const { countAwaitingReview, getJob, listJobs } = await import("./queue.js");
+const { approveJob, recordEditDecision, rejectJob } = await import(
+  "./decide.js"
+);
 
 const REVIEWER = "admin-1";
 

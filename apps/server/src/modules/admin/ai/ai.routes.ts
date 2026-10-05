@@ -27,16 +27,13 @@ import { generateNarrationBatch } from "./generators/narration.js";
 import { generateQuiz } from "./generators/quiz.js";
 import { generateStory } from "./generators/story.js";
 import { requireGenerationBudget } from "./require-generation-budget.middleware.js";
-import {
-  type AiJobDetailDto,
-  type AiJobListDto,
-  type AiReviewResultDto,
-  approveJob,
-  countAwaitingReview,
-  getJob,
-  listJobs,
-  rejectJob,
-} from "./review.js";
+import { approveJob, rejectJob } from "./review/decide.js";
+import type {
+  AiJobDetailDto,
+  AiJobListDto,
+  AiReviewResultDto,
+} from "./review/job.js";
+import { countAwaitingReview, getJob, listJobs } from "./review/queue.js";
 
 /** `/api/admin/ai` — the generation pipeline (file 34, FR-AI-01, FR-AI-08). */
 export const adminAiRouter = Router();
