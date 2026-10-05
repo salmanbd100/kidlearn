@@ -24,7 +24,6 @@
 set -euo pipefail
 
 AWS_REGION="${AWS_REGION:-ap-south-1}"
-PG_IMAGE="postgres:16-alpine"
 
 log() { echo "[backup] $*"; }
 
@@ -85,9 +84,12 @@ PARTIAL_KEY="s3://${BUCKET}/prod/.partial/${STAMP}.sql.gz"
 # like a clean EOF — so uploading straight to the final key left a truncated file
 # there, newest in the listing, exactly where an emergency restore looks first.
 #
-# pg_dump from the same image the dev stack already pulls, so the box needs no
-# postgres-client package and the dump is made by the major version that wrote
-# the data. Piped straight to S3 — the 20 GB volume has no room for a copy.
+# pg_dump from the postgres image of the SERVER's major version, asked of the
+# server on every run, so the box needs no postgres-client package. pg_dump
+# refuses a server newer than itself, and Supabase upgrades projects in place:
+# a pinned image would start failing the night after one. psql has no such
+# limit, so any image can ask. Piped straight to S3 — the 20 GB volume has no
+# room for a copy.
 #
 # `set -o pipefail` is in force, so a pg_dump failure fails the whole pipeline
 # rather than writing a valid gzip of nothing.
@@ -96,6 +98,14 @@ log "dumping production → ${PARTIAL_KEY}"
 # than passed as an argument, so the password never appears in `ps` or
 # `docker inspect`.
 export DIRECT_URL
+SERVER_VERSION_NUM="$(docker run --rm -e PGCONNECT_TIMEOUT=15 -e DIRECT_URL postgres:17-alpine \
+  sh -c 'exec psql "$DIRECT_URL" -XAtc "SHOW server_version_num"')"
+if [[ ! "${SERVER_VERSION_NUM}" =~ ^[0-9]{5,6}$ ]]; then
+  echo "[backup] could not read the server version (got '${SERVER_VERSION_NUM}')" >&2
+  exit 1
+fi
+PG_IMAGE="postgres:$((SERVER_VERSION_NUM / 10000))-alpine"
+log "server is Postgres ${SERVER_VERSION_NUM}; dumping with ${PG_IMAGE}"
 docker run --rm -i -e PGCONNECT_TIMEOUT=15 -e DIRECT_URL "${PG_IMAGE}" \
   sh -c 'exec pg_dump --no-owner --no-privileges --format=plain "$DIRECT_URL"' |
   gzip -9 |

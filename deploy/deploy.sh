@@ -101,11 +101,17 @@ log "wrote ${ENV_DIR}/app.env ($(wc -l <"${ENV_DIR}/app.env") variables)"
 #
 # 0600 root: for dev it carries POSTGRES_PASSWORD.
 COMPOSE_ENV="${ENV_DIR}/compose.env"
-# Read before the install below overwrites it: this is the only record of what was
-# running, and the failure path prints it as the rollback target. Empty on a
-# first deploy, where there is nothing to roll back to.
+# The rollback target the failure path prints. Not compose.env's IMAGE_TAG:
+# that is written below, before the health gate, so after one failed deploy it
+# names the broken image, and a second failure would offer it as the way back.
+# last-good-tag is written only once a deploy passes the gate. compose.env is
+# the fallback for a box deployed before that file existed. Empty on a first
+# deploy, where there is nothing to roll back to.
+LAST_GOOD_TAG_FILE="${ENV_DIR}/last-good-tag"
 PREVIOUS_TAG=""
-if [[ -f "${COMPOSE_ENV}" ]]; then
+if [[ -s "${LAST_GOOD_TAG_FILE}" ]]; then
+  PREVIOUS_TAG="$(head -n 1 "${LAST_GOOD_TAG_FILE}")"
+elif [[ -f "${COMPOSE_ENV}" ]]; then
   PREVIOUS_TAG="$(sed -n 's/^IMAGE_TAG=//p' "${COMPOSE_ENV}" | head -n 1)"
 fi
 TMP_COMPOSE_ENV="$(mktemp "${ENV_DIR}/compose.env.XXXXXX")"
@@ -173,6 +179,7 @@ for _ in $(seq 1 30); do
     # the pool may still be warming.
     for _ in $(seq 1 6); do
       if docker exec "${ENV_NAME}-api" node -e "fetch('http://localhost:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
+        printf '%s\n' "${IMAGE_TAG}" >"${LAST_GOOD_TAG_FILE}"
         log "healthy and database reachable — deploy complete at ${IMAGE_TAG}"
         exit 0
       fi
@@ -193,7 +200,9 @@ for _ in $(seq 1 30); do
   sleep 5
 done
 
-echo "[deploy:${ENV_NAME}] ${ENV_NAME}-api did not become healthy" >&2
+# The new image is left running, not rolled back automatically: the logs below
+# are the evidence, and rolling back is the one command printed after them.
+echo "[deploy:${ENV_NAME}] ${ENV_NAME}-api did not become healthy — ${IMAGE_TAG} is still running" >&2
 docker compose -p "${PROJECT}" "${COMPOSE_FILES[@]}" logs --tail 50 api >&2
 if [[ -n "${PREVIOUS_TAG}" && "${PREVIOUS_TAG}" != "${IMAGE_TAG}" ]]; then
   echo "[deploy:${ENV_NAME}] ROLL BACK WITH: $0 ${ENV_NAME} ${PREVIOUS_TAG}" >&2

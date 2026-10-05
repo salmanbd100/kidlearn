@@ -189,9 +189,11 @@ Then on the box:
 `/opt/kidlearn/<env>/app.env` (root-owned, `0600`), pulls, brings the stack up,
 and polls the container healthcheck for 150 seconds, then calls `/ready` — one
 database read — so a wrong `DATABASE_URL` or a paused Supabase project fails the
-deploy instead of passing the DB-free `/health`. If either gate fails it prints the
-rollback command with the tag that was running before (read from `compose.env`
-before it is overwritten).
+deploy instead of passing the DB-free `/health`. If either gate fails it leaves
+the new image running and prints the rollback command with the last tag that
+passed both gates — recorded in `/opt/kidlearn/<env>/last-good-tag`, written only
+on success. `compose.env` cannot serve: it is written before the gate, so after a
+failed deploy it names the broken image.
 
 ### Migrations are a separate step, deliberately
 
@@ -301,6 +303,7 @@ admin password present just to start.
 |---|---|
 | `/opt/kidlearn/<env>/app.env` | handed to the container as Compose's `env_file:` — the secrets above |
 | `/opt/kidlearn/<env>/compose.env` | the `${...}` substitutions the Compose files themselves contain: `ENV_NAME`, `ECR_REGISTRY`, `IMAGE_TAG`, the compose-sourced rows above, and (dev) `POSTGRES_PASSWORD`. Passed with `--env-file` |
+| `/opt/kidlearn/<env>/last-good-tag` | the image tag of the last deploy that passed `/health` and `/ready` — the rollback target `deploy.sh` prints on failure. Written only on success |
 
 **Every `$` in both files is doubled.** Compose interpolates `env_file` *and*
 `--env-file`, so a raw `s3cr$tastic` reaches the process as `s3cr` — and since
@@ -446,10 +449,18 @@ Supabase's free tier has **no point-in-time recovery**, so this is yours to own.
 `deploy/backup.sh` runs `pg_dump` against production's `DIRECT_URL`, gzips it,
 and streams it to a private S3 bucket with versioning on and a lifecycle rule
 expiring objects after 30 days. It reads both `DIRECT_URL` and
-`BACKUP_S3_BUCKET` from SSM, dumps through the `postgres:16-alpine` image the
-dev stack already pulls (so the box needs no postgres-client package), pipes
-straight to S3 rather than staging on the 20 GB volume, and fails if the
-uploaded object is under 1 KB — a gzip of nothing uploads perfectly happily.
+`BACKUP_S3_BUCKET` from SSM, dumps through the `postgres:<major>-alpine` image
+matching the server's major version — asked of the server on every run, because
+`pg_dump` refuses a server newer than itself and Supabase upgrades projects in
+place (so the box needs no postgres-client package) — pipes straight to S3
+rather than staging on the 20 GB volume, and fails if the uploaded object is
+under 1 KB — a gzip of nothing uploads perfectly happily.
+
+**Restoring into an older Postgres.** The dev stack runs `postgres:16-alpine`. A
+plain dump made by a newer `pg_dump` can carry settings 16 does not know (17's
+emits `SET transaction_timeout`); if the restore rehearsal stops on one, delete
+that line from the dump and carry on — or bump the dev image to the server's
+major.
 
 **The dump lands under `prod/.partial/` and is moved to `prod/<timestamp>.sql.gz`
 only after the whole pipeline succeeds.** A `pg_dump` that dies midway ends its

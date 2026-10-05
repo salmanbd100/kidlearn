@@ -53,9 +53,13 @@ CRON_SECRET="$(ssm /kidlearn/prod/CRON_SECRET)"
 # timeouts and 408/429/5xx, and `--retry-connrefused` adds the connection refused
 # a deploy recreating the API at 02:00 on a Monday produces. A 401 is not retried
 # (`--retry-all-errors` would), so a wrong secret still fails at once.
-curl -fsS --max-time 300 --retry 2 --retry-delay 60 --retry-connrefused -X POST \
-  -H "Authorization: Bearer ${CRON_SECRET}" \
-  https://api.kidlearn.net/api/admin/jobs/weekly-reports
+#
+# The header goes in as curl config on stdin (`-K -`), not as `-H`: an argument
+# is readable by every user on the box in `ps` for the whole run. printf is a
+# shell builtin, so the secret is never an argument to any process.
+printf 'header = "Authorization: Bearer %s"\n' "${CRON_SECRET}" |
+  curl -fsS --max-time 300 --retry 2 --retry-delay 60 --retry-connrefused -X POST \
+    -K - https://api.kidlearn.net/api/admin/jobs/weekly-reports
 
 heartbeat ""
 echo "[weekly-reports] done"
