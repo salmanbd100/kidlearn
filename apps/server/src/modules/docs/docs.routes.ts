@@ -2,6 +2,7 @@ import { apiReference } from "@scalar/express-api-reference";
 import { Router } from "express";
 import { env } from "../../config/env.js";
 import { buildOpenApiDocument } from "../../openapi/document.js";
+import { docsSecurityHeaders } from "../../shared/middleware/security.js";
 
 /** The API reference and the raw spec. */
 export const docsRouter = Router();
@@ -38,6 +39,7 @@ docsRouter.get("/docs.json", (_req, res) => {
  */
 docsRouter.use(
   "/docs",
+  docsSecurityHeaders,
   apiReference({
     // `url`, not `content`: the document is ~730 KB, and inlining it would put
     // all of it in the HTML of every page load. As a URL the browser fetches it

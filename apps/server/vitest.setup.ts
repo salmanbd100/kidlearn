@@ -13,3 +13,7 @@ process.env.CLOUDINARY_API_KEY ??= "test-api-key";
 process.env.CLOUDINARY_API_SECRET ??= "test-api-secret";
 process.env.GEMINI_API_KEY ??= "test-gemini-key";
 process.env.GOOGLE_TTS_API_KEY ??= "test-google-tts-key";
+// Every Supertest call in a file shares one in-memory limiter and arrives from
+// one address, so the production default would 429 a long suite. The limiter's
+// own tests build an app with a small limit instead.
+process.env.API_RATE_LIMIT_PER_MINUTE ??= "1000000";

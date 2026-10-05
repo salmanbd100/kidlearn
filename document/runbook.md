@@ -626,6 +626,8 @@ rot. Expect about thirty minutes.
 | Let's Encrypt | 5 duplicate certificates per week | — |
 | SSM Parameter Store Standard | 10,000 parameters, free — this uses ~35 | — |
 | AWS Budgets alarm | **$20/month**, 80% actual + 100% forecast | ⬜ not yet created |
+| API flood guard | **300 requests/min per client IP** on `/api/*` — a `429 RATE_LIMITED`. Raise `API_RATE_LIMIT_PER_MINUTE` if a school or shared network trips it | 2026-10-05 |
+| API JSON body | **100 KB** — a `413`. An editor sends one activity or question at a time | 2026-10-05 |
 
 `t4g` instances default to **unlimited** CPU-credit mode, which silently bills
 surplus credits rather than throttling. That is the right default for a live

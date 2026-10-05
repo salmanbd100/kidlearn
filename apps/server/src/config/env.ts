@@ -99,6 +99,13 @@ const EnvSchema = z
     AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(3),
     AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
     AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(15),
+    /**
+     * Requests one client IP may make to `/api/*` in a minute — a flood guard, not
+     * an abuse control. A kid's device sends ~10 a minute mid-lesson (heartbeat,
+     * step reports, prefetches) and a household shares one IP behind NAT, so the
+     * default leaves room for several devices and the CMS's bursty screens.
+     */
+    API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
     ENABLE_API_DOCS: z
       .enum(["true", "false"])
       .default("false")

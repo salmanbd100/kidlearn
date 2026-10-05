@@ -12,12 +12,15 @@ import {
   notFoundHandler,
 } from "./shared/middleware/error-handler.js";
 import { requestLogger } from "./shared/middleware/request-logger.js";
+import { apiRateLimit, securityHeaders } from "./shared/middleware/security.js";
 
 /**
  * Builds the Express application without binding a port, so tests can drive it
  * through Supertest. Middleware order is load-bearing: logging first (so every
- * request is recorded, including rejected ones), then CORS, then the auth
- * routes, then body parsing, then routes, then the two terminal handlers.
+ * request is recorded, including rejected ones), then security headers and
+ * CORS, then the rate limit (after CORS, so a browser can read the 429), then
+ * the auth routes, then body parsing, then routes, then the two terminal
+ * handlers.
  */
 export function buildApp(): Express {
   const app = express();
@@ -34,12 +37,14 @@ export function buildApp(): Express {
   }
 
   app.use(requestLogger);
+  app.use(securityHeaders);
   app.use(
     cors({
       origin: [env.WEB_ORIGIN],
       credentials: true,
     }),
   );
+  app.use("/api", apiRateLimit(env.API_RATE_LIMIT_PER_MINUTE));
 
   app.use("/api/auth", authRouter);
   // better-auth reads the raw request stream, so it must be mounted *before*
@@ -48,7 +53,10 @@ export function buildApp(): Express {
 
   app.all("/api/auth/{*any}", toNodeHandler(auth));
 
-  app.use(express.json());
+  // Editors send one activity, question or badge per request, and the whole seed
+  // curriculum is ~27 KB of source — so Express's own 100 KB default, stated here
+  // so nobody raises it by accident. An oversized body is a 413 envelope.
+  app.use(express.json({ limit: "100kb" }));
 
   app.use(healthRouter);
 

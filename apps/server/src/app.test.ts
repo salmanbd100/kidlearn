@@ -135,3 +135,102 @@ describe("trust proxy", () => {
     expect(outsideProduction.get("trust proxy")).toBe(false);
   });
 });
+
+describe("security headers", () => {
+  it("sends a CSP that allows nothing on an API response", async () => {
+    const res = await request(app).get("/health");
+
+    const csp = res.headers["content-security-policy"];
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(res.headers["x-content-type-options"]).toBe("nosniff");
+    expect(res.headers["cross-origin-resource-policy"]).toBe("same-site");
+  });
+
+  it("lets the Scalar reference load its CDN bundle and call this origin", async () => {
+    const res = await request(app).get("/docs");
+
+    const csp = res.headers["content-security-policy"];
+    expect(csp).toContain(
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    );
+    expect(csp).toContain("connect-src 'self'");
+    expect(csp).not.toContain("default-src 'none'");
+    // The shell's bundle URL is what the CSP above allows; if Scalar moves CDN,
+    // this fails rather than the page going blank in production.
+    expect(res.text).toContain('src="https://cdn.jsdelivr.net/');
+  });
+});
+
+describe("JSON body limit", () => {
+  it("answers a body over 100 KB with a 413 envelope", async () => {
+    const res = await request(app)
+      .post("/api/does-not-matter")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify({ blob: "x".repeat(101 * 1024) }));
+
+    expect(res.status).toBe(413);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+  });
+});
+
+describe("/api rate limit", () => {
+  async function buildWithLimit(limit: number) {
+    vi.resetModules();
+    vi.doMock("./config/env.js", async () => {
+      const actual =
+        await vi.importActual<typeof import("./config/env.js")>(
+          "./config/env.js",
+        );
+      return {
+        ...actual,
+        env: { ...actual.env, API_RATE_LIMIT_PER_MINUTE: limit },
+      };
+    });
+    const { buildApp } = await import("./app.js");
+    return buildApp();
+  }
+
+  afterEach(() => {
+    vi.doUnmock("./config/env.js");
+    vi.resetModules();
+  });
+
+  it("answers past the limit with a 429 envelope the web origin can read", async () => {
+    const limited = await buildWithLimit(2);
+
+    await request(limited).get("/api/not-a-resource");
+    await request(limited).get("/api/not-a-resource");
+    const res = await request(limited)
+      .get("/api/not-a-resource")
+      .set("Origin", env.WEB_ORIGIN);
+
+    expect(res.status).toBe(429);
+    expect(res.body).toEqual({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests — try again in a minute",
+      },
+    });
+    expect(res.headers["access-control-allow-origin"]).toBe(env.WEB_ORIGIN);
+    expect(res.headers.ratelimit).toBeDefined();
+  });
+
+  it("covers the better-auth routes too", async () => {
+    const limited = await buildWithLimit(1);
+
+    await request(limited).get("/api/auth/get-session");
+    const res = await request(limited).get("/api/auth/get-session");
+
+    expect(res.status).toBe(429);
+  });
+
+  it("leaves /health alone, so an uptime check cannot be throttled", async () => {
+    const limited = await buildWithLimit(1);
+
+    await request(limited).get("/health");
+    const res = await request(limited).get("/health");
+
+    expect(res.status).toBe(200);
+  });
+});

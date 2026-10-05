@@ -21,6 +21,9 @@ export const ERROR_CODES = [
    * on `/api/admin/ai/generate/*`; `error.details` carries `{ used, pending, cap }`
    * so the CMS can say how much budget is left rather than only that there is
    * none. Resets at midnight in the deployment's `APP_TIMEZONE`.
+   *
+   * Also the `429` from the per-IP flood guard on every `/api/*` route, with no
+   * `details` and a `RateLimit` header saying when the window resets.
    */
   "RATE_LIMITED",
 ] as const;
