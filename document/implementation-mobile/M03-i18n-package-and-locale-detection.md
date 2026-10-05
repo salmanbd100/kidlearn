@@ -14,7 +14,7 @@ Make the EN/BN copy shared rather than copied: extract `apps/web/locales/**` int
 - `apps/web/locales/{en,bn}/` holds four namespace files each: `common.json`, `student.json`, `parent.json`, `lesson.json`. The split is deliberate and documented in `apps/web/lib/i18n.ts` — `parent` copy never ships to a child's surface and vice versa.
 - `apps/web/lib/i18n.ts` imports all eight JSON files statically (both locales bundled, so `changeLanguage` cannot fail offline — FR-I18N-02) and exports `DEFAULT_NAMESPACE`, `PARENT_NAMESPACE`, `STUDENT_NAMESPACE`, `LESSON_NAMESPACE`.
 - `apps/web/lib/locale.ts` owns locale plumbing with no i18next dependency: `LOCALE_COOKIE_NAME`, `DEFAULT_LOCALE`, `SUPPORTED_LOCALES` (re-exported from `@kidlearn/types`' `LOCALES`), `isLocale`, `toLocale`.
-- The web app detects locale from a cookie server-side and registers `i18next-browser-languagedetector` in the browser. Neither mechanism exists on native.
+- The web app detects locale from a cookie server-side and writes it back from `LanguageSwitch` in the browser. Neither mechanism exists on native.
 - `packages/types` exports `LOCALES`, `LocaleSchema` and `type Locale` — the canonical locale list for the whole repo. Do not introduce a second one.
 - `ChildProfile.language` in the database is the per-child preference; once a child is active it wins over the device default (wired on mobile in M10).
 - **Risk this file closes:** React Native's Hermes engine ships narrower ICU data than a browser. `Intl.RelativeTimeFormat`, `Intl.DateTimeFormat` and `Intl.NumberFormat` with the `bn` locale may fall back to English or throw on Android. The parent dashboard (M26) and reports (M27) depend on all three.

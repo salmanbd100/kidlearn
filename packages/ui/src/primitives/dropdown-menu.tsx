@@ -4,6 +4,7 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { cva } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "../lib/cn";
+import { usePortalContainer } from "./theme-scope";
 
 // DropdownMenu — the shadcn/Radix primitive, tokenized for both themes.
 
@@ -30,8 +31,9 @@ function DropdownMenuContent({
   sideOffset = 8,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  const container = usePortalContainer();
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={container}>
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(dropdownMenuContentVariants(), className)}

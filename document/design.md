@@ -227,6 +227,9 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   locking. If a game truly needs landscape, show a friendly animated "rotate" prompt, never a dead end.
 - **Real device chrome.** Use `min-h-dvh` (not `100vh`) and `env(safe-area-inset-*)` padding so
   controls clear notches and home indicators. Set the viewport meta with `viewport-fit=cover`.
+  Apply them **once**, at the route-group layout: a screen inside it fills the space with
+  `flex-1`, because repeating them doubles the insets and overflows the viewport by their
+  height. `app/(student)/viewport-chrome.test.ts` enforces this for the Student Portal.
 - **Fluid sizing.** Prefer `clamp()` for display type and large spacing so they scale smoothly
   across phone→tablet. Kid text stays **≥20px** and touch targets **≥64px** at every width.
 - Kid screens are **full-bleed and immersive** — no traditional nav chrome; navigation is
@@ -281,8 +284,9 @@ packages/ui/                 # shared, theme-agnostic component library (shadcn 
 - **`primitives/`** — unstyled-but-tokenized shadcn components. Both themes, no surface
   assumptions. This is the foundation; everything composes from here.
 - **`kid/`** and **`parent/`** — compose primitives into surface-specific components.
-- Theme is applied by setting `data-theme="kid"` / `data-theme="parent"` (or a class) on a
-  layout boundary; token values cascade. Components never branch on theme in JS — they read tokens.
+- Theme is applied by `<ThemeScope theme="kid" | "parent">` on a layout boundary, which sets
+  `data-theme` and makes dialogs and menus portal inside it rather than into `<body>`; token
+  values cascade. Components never branch on theme in JS — they read tokens.
 - `apps/web` consumes `@kidlearn/ui`; quiz/game renderers map JSON payloads (see brief §B) to
   `kid/` components.
 

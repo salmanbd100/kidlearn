@@ -77,7 +77,11 @@ function renderIntro(overrides: Partial<LessonDetailResponse> = {}) {
   const onComplete = vi.fn();
   render(
     <Providers locale="en">
-      <IntroStep lesson={lessonDetail(overrides)} onComplete={onComplete} />
+      <IntroStep
+        lesson={lessonDetail(overrides)}
+        onComplete={onComplete}
+        locale="en"
+      />
     </Providers>,
   );
   return onComplete;

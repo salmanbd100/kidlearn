@@ -95,8 +95,8 @@ document/     design.md, project-requirement-details.md, key-description.md
 ### Dual-portal & theming
 
 The app has two distinct surfaces sharing one component library:
-- **Student Portal** — ages 3–5, visual-first, large touch targets (≥64px), no text below 20px, gamified. Apply `data-theme="kid"` at the layout boundary.
-- **Parent Dashboard** — dense, professional, reached from the signed-in Google session. Apply `data-theme="parent"`.
+- **Student Portal** — ages 3–5, visual-first, large touch targets (≥64px), no text below 20px, gamified. Wrap the layout boundary in `<ThemeScope theme="kid">` from `@kidlearn/ui`.
+- **Parent Dashboard** — dense, professional, reached from the signed-in Google session. `<ThemeScope theme="parent">`. A bare `data-theme` div is not enough: Radix dialogs and menus portal into `<body>`, outside it, and only `ThemeScope` carries the theme to them.
 
 Token values swap at runtime via CSS variables (`--primary`, `--background`, etc.) — components never branch on theme in JS.
 

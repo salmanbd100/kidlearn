@@ -23,7 +23,7 @@ function renderSwitch() {
 describe("LanguageSwitch", () => {
   beforeEach(() => {
     resetI18nForTests();
-    // biome-ignore lint/suspicious/noDocumentCookie: jsdom implements document.cookie, not the Cookie Store API — and this is the same interface i18next's detector writes through.
+    // biome-ignore lint/suspicious/noDocumentCookie: jsdom implements document.cookie, not the Cookie Store API — and this is the same interface `writeLocaleCookie` writes through.
     document.cookie = `${LOCALE_COOKIE_NAME}=; Max-Age=0; path=/`;
     document.documentElement.lang = "en";
   });

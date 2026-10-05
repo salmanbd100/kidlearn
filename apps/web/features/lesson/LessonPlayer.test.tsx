@@ -1,4 +1,5 @@
 import type { LessonDetailResponse, LessonStep } from "@kidlearn/types";
+import { validMcq } from "@kidlearn/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
@@ -32,6 +33,20 @@ vi.mock("@/features/screen-time/use-heartbeat", () => ({
     return { minutesToday: null };
   },
 }));
+
+const audio = vi.hoisted(() => ({
+  play: vi.fn(async () => {}),
+  stop: vi.fn(),
+  isPlaying: false,
+  muted: false,
+  setMuted: vi.fn(),
+}));
+vi.mock("@/shared/components/AudioProvider", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/shared/components/AudioProvider")
+  >("@/shared/components/AudioProvider");
+  return { ...actual, useAudio: () => audio };
+});
 
 const { LessonPlayer } = await import("./LessonPlayer");
 
@@ -126,6 +141,8 @@ describe("LessonPlayer", () => {
     router.replace.mockReset();
     content.getLesson.mockReset();
     heartbeat.useHeartbeat.mockReset();
+    audio.play.mockClear();
+    audio.stop.mockReset();
     for (const fn of Object.values(progress)) fn.mockReset();
 
     content.getLesson.mockResolvedValue({
@@ -386,6 +403,34 @@ describe("resuming (FR-LSN-06)", () => {
     expect(progress.reportStep).not.toHaveBeenCalled();
   });
 
+  it("never starts the intro narration on a resumed lesson (R-14)", async () => {
+    const introAudioUrl = "https://res.cloudinary.com/kidlearn/intro-a.mp3";
+    content.getLesson.mockResolvedValue({
+      ok: true,
+      data: { lesson: { ...lessonDetail(), introAudioUrl } },
+    });
+    withSavedProgress("video");
+    renderPlayer();
+
+    await waitFor(() => expect(currentStep()).toBe("activity"));
+    // Mounting the intro for one commit and jumping in an effect was enough to
+    // start its narration over the step the child resumed into.
+    expect(audio.play).not.toHaveBeenCalledWith(
+      introAudioUrl,
+      expect.anything(),
+    );
+  });
+
+  it("stops the narration when the child leaves the lesson (R-14)", async () => {
+    const { unmount } = renderPlayer();
+    await waitFor(() => expect(currentStep()).toBe("intro"));
+
+    unmount();
+
+    // The audio provider sits at the root and outlives the player.
+    expect(audio.stop).toHaveBeenCalled();
+  });
+
   it("reports the resumed step when the child finishes it", async () => {
     withSavedProgress("video");
     renderPlayer();
@@ -623,5 +668,45 @@ describe("a lesson that is not there", () => {
     expect(
       await screen.findByRole("heading", { name: `See you at ${expected}!` }),
     ).toBeInTheDocument();
+  });
+
+  it("plays a Bangla preview's quiz in Bangla on an English interface (R-13)", async () => {
+    content.getLesson.mockResolvedValue({
+      ok: true,
+      data: {
+        lesson: {
+          ...lessonDetail(),
+          quiz: {
+            id: "44444444-4444-4444-8444-444444444444",
+            title: "Colours",
+            questions: [
+              {
+                id: "q_1",
+                format: "mcq",
+                schemaVersion: 1,
+                sortOrder: 0,
+                definition: validMcq,
+              },
+            ],
+          },
+        },
+      },
+    });
+    render(
+      <Providers locale="en">
+        <LessonPlayer lessonId={LESSON_ID} isPreview previewLanguage="bn" />
+      </Providers>,
+    );
+    await waitFor(() => expect(currentStep()).toBe("intro"));
+
+    for (const step of ["intro", "video", "activity"] as const) {
+      completeStep();
+      await waitFor(() => expect(currentStep()).not.toBe(step));
+    }
+
+    // The reviewer is approving the Bangla content; the interface around it
+    // stays in the reviewer's own language.
+    expect(await screen.findByText(validMcq.prompt.bn)).toBeInTheDocument();
+    expect(screen.queryByText(validMcq.prompt.en)).not.toBeInTheDocument();
   });
 });

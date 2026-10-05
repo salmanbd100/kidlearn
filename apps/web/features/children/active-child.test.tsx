@@ -1,9 +1,11 @@
 import type { ChildProfileResponse } from "@kidlearn/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
+import { LOCALE_COOKIE_NAME } from "@/shared/lib/locale";
 
 // The provider every student screen reads from.
 
@@ -65,6 +67,23 @@ function Probe() {
   );
 }
 
+function PortalExit() {
+  const [inPortal, setInPortal] = useState(true);
+  const { i18n } = useTranslation();
+
+  if (!inPortal) return <p>device language: {i18n.resolvedLanguage}</p>;
+  return (
+    <>
+      <button type="button" onClick={() => setInPortal(false)}>
+        leave
+      </button>
+      <ActiveChildProvider>
+        <Probe />
+      </ActiveChildProvider>
+    </>
+  );
+}
+
 function renderProvider() {
   return render(
     <Providers locale="en">
@@ -78,6 +97,8 @@ function renderProvider() {
 describe("ActiveChildProvider", () => {
   beforeEach(() => {
     resetI18nForTests();
+    // biome-ignore lint/suspicious/noDocumentCookie: jsdom implements document.cookie, not the Cookie Store API.
+    document.cookie = `${LOCALE_COOKIE_NAME}=en; path=/`;
     for (const fn of Object.values(api)) fn.mockReset();
 
     api.fetchAuthMe.mockResolvedValue({
@@ -122,6 +143,44 @@ describe("ActiveChildProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "pick Rubi" }));
 
     await screen.findByText("language: bn");
+  });
+
+  it("leaves the device's language cookie alone (R-11)", async () => {
+    api.activateChild.mockResolvedValue({
+      ok: true,
+      data: { activeChildProfileId: RUBI.id },
+    });
+    renderProvider();
+
+    await screen.findByText("language: en");
+    fireEvent.click(screen.getByRole("button", { name: "pick Rubi" }));
+    await screen.findByText("language: bn");
+
+    // The cookie is the parent's choice: it decides the dashboard, the login
+    // page and `<html lang>` on the next load.
+    expect(document.cookie).not.toContain(`${LOCALE_COOKIE_NAME}=bn`);
+  });
+
+  it("hands the interface back to the device's language on leaving the portal", async () => {
+    api.activateChild.mockResolvedValue({
+      ok: true,
+      data: { activeChildProfileId: RUBI.id },
+    });
+    // The root layout's `Providers` survives a client navigation; only the
+    // student layout, and the provider in it, unmounts.
+    render(
+      <Providers locale="en">
+        <PortalExit />
+      </Providers>,
+    );
+
+    await screen.findByText("language: en");
+    fireEvent.click(screen.getByRole("button", { name: "pick Rubi" }));
+    await screen.findByText("language: bn");
+
+    fireEvent.click(screen.getByRole("button", { name: "leave" }));
+
+    await screen.findByText("device language: en");
   });
 
   it("restores the child the session already remembers, without a second pick", async () => {

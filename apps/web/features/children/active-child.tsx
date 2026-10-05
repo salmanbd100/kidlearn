@@ -23,6 +23,7 @@ import {
   listChildren,
 } from "@/features/parent/parent-api";
 import { type ApiResult, onUnauthorized } from "@/shared/api/api-client";
+import { DEFAULT_LOCALE, readLocaleCookie } from "@/shared/lib/locale";
 
 // Who is playing, for the whole `(student)` route group.
 
@@ -166,6 +167,19 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
       void i18n.changeLanguage(language);
     }
   }, [language, i18n]);
+
+  // The root layout's i18n instance outlives this provider, so leaving the
+  // portal would otherwise carry the child's language into the dashboard. A
+  // ref, because `useTranslation` returns a new `i18n` on every language change
+  // — as a dependency, the cleanup would undo each switch the moment it landed.
+  const i18nRef = useRef(i18n);
+  i18nRef.current = i18n;
+  useEffect(
+    () => () => {
+      void i18nRef.current.changeLanguage(readLocaleCookie() ?? DEFAULT_LOCALE);
+    },
+    [],
+  );
 
   const value = useMemo<ActiveChildValue>(
     () => ({

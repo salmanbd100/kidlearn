@@ -54,7 +54,7 @@ export function ScreenTimeLock({ reason, windowStart }: ScreenTimeLockProps) {
   }, [play, reason, i18n.language]);
 
   return (
-    <main className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
       <span aria-hidden="true" className="text-8xl">
         {isWindow ? "🌤️" : "🌙"}
       </span>

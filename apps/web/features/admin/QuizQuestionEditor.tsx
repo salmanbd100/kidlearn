@@ -6,7 +6,7 @@ import {
   QUIZ_QUESTION_SCHEMAS,
   QUIZ_QUESTION_TYPES,
 } from "@kidlearn/types";
-import { Button, Input, Label, Select } from "@kidlearn/ui";
+import { Button, Input, Label, Select, ThemeScope } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { optionValue } from "@/features/admin/select-option";
@@ -342,10 +342,10 @@ export function QuizQuestionEditor({
           </div>
         </div>
 
-        {/* `data-theme="kid"` so the preview wears the palette a child sees —
+        {/* The kid theme so the preview wears the palette a child sees —
             components read tokens and never branch on theme (`frontend.md §1`). */}
-        <div
-          data-theme="kid"
+        <ThemeScope
+          theme="kid"
           className="min-h-[420px] overflow-hidden rounded-(--radius) border border-border bg-background"
         >
           {parsed.success ? (
@@ -367,7 +367,7 @@ export function QuizQuestionEditor({
               The preview appears once the question is valid.
             </p>
           )}
-        </div>
+        </ThemeScope>
       </aside>
     </div>
   );

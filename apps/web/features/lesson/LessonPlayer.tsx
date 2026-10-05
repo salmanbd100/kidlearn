@@ -24,10 +24,12 @@ import {
   reportStep,
   sendSessionEvent,
 } from "@/shared/api/progress-api";
+import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { toLocale } from "@/shared/lib/locale";
 import { stepAssetFallback } from "./asset-fallback";
 import { ExitConfirm } from "./ExitConfirm";
 import {
@@ -102,7 +104,10 @@ function LessonPlayerContent({
   previewLanguage,
   onRetry,
 }: LessonPlayerProps & { onRetry: () => void }) {
-  const { t } = useTranslation(LESSON_NAMESPACE);
+  const { t, i18n } = useTranslation(LESSON_NAMESPACE);
+  const contentLocale =
+    (isPreview ? previewLanguage : undefined) ??
+    toLocale(i18n.resolvedLanguage);
   const router = useRouter();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [isWakingUp, setIsWakingUp] = useState(false);
@@ -156,6 +161,10 @@ function LessonPlayerContent({
       // (FR-LSN-06) — the server's completion record is untouched by the replay.
       const resumeAt = resumeLessonStep(saved?.currentStep ?? null);
 
+      // Batched with `setLoad`, so the first render with a lesson is already on
+      // the resumed step. Resuming in an effect mounted the intro for a commit
+      // first — long enough to start its narration over the step resumed into.
+      dispatch({ type: "RESUME", step: resumeAt });
       setLoad({ status: "ready", lesson: lessonResult.data.lesson, resumeAt });
     });
 
@@ -169,15 +178,19 @@ function LessonPlayerContent({
   // One per lesson session, so the reward step can wait out the quiz upload.
   const [pendingWrites] = useState(createPendingWrites);
 
-  // Resume and announce the start, once, as soon as the data lands.
+  // Announce the start, once, as soon as the data lands.
   const hasStarted = useRef(false);
   useEffect(() => {
     if (resumeAt === undefined || hasStarted.current) return;
     hasStarted.current = true;
 
     if (!isPreview) sendSessionEvent({ type: "lesson_start", lessonId });
-    dispatch({ type: "RESUME", step: resumeAt });
   }, [resumeAt, lessonId, isPreview]);
+
+  // The audio provider sits at the root and outlives the player, so leaving
+  // mid-narration would otherwise keep it talking over the world screen.
+  const { stop } = useAudio();
+  useEffect(() => stop, [stop]);
 
   useLessonRecording(
     state,
@@ -217,7 +230,7 @@ function LessonPlayerContent({
 
   if (state.status === "finished") {
     return (
-      <section className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
+      <section className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
         <h1 className="font-display text-3xl text-foreground">
           {t("finished.title")}
         </h1>
@@ -253,6 +266,7 @@ function LessonPlayerContent({
           lesson={lesson}
           isPreview={isPreview}
           pendingWrites={pendingWrites}
+          locale={contentLocale}
           onComplete={() => dispatch({ type: "STEP_COMPLETE" })}
         />
       </StepContainer>

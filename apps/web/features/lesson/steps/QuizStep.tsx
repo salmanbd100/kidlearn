@@ -9,7 +9,6 @@ import { QuizScoreScreen } from "@/features/quiz/QuizScoreScreen";
 import type { QuizAnswerRecord } from "@/features/quiz/types";
 import { submitQuizResponses } from "@/shared/api/progress-api";
 import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
-import { toLocale } from "@/shared/lib/locale";
 import type { LessonStepProps } from "./lesson-step-props";
 
 /** The quiz (FR-LSN-04, FR-QUIZ-01..08). */
@@ -18,9 +17,9 @@ export function QuizStep({
   onComplete,
   isPreview,
   pendingWrites,
+  locale,
 }: LessonStepProps) {
-  const { t, i18n } = useTranslation(LESSON_NAMESPACE);
-  const locale = toLocale(i18n.resolvedLanguage);
+  const { t } = useTranslation(LESSON_NAMESPACE);
   const [finishedRecords, setFinishedRecords] = useState<
     readonly QuizAnswerRecord[] | undefined
   >(undefined);
