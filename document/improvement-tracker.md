@@ -69,8 +69,8 @@
 
 | # | ID | Item | Sev. | Area | Depends on | Est. | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 29 | R-28 | `pg_dump` version; deploy writes tag before health gate; `CRON_SECRET` in `ps` | Medium | deploy | — | 2h | ⬜ Not started | Needs `SELECT version()` from you |
-| 30 | R-29 | Pin Actions by SHA; add Dependabot | Low | ci | — | 1h | ⬜ Not started | `promotion-guard` stays with file 38a |
+| 29 | R-28 | `pg_dump` version; deploy writes tag before health gate; `CRON_SECRET` in `ps` | Medium | deploy | — | 2h | 🟨 In progress | **No `SELECT version()` needed:** `backup.sh` asks the server (`SHOW server_version_num`) each run and dumps with `postgres:<major>-alpine`, so a Supabase in-place upgrade cannot break it. Probe tried against local Postgres 16 only; **the full dump-to-S3 path not run**. Runbook warns that a newer dump restored into dev's 16 may carry unknown `SET`s. `deploy.sh` keeps `compose.env` as is (Compose needs the new tag) but takes the rollback target from `last-good-tag`, written only after `/ready` passes; no automatic rollback. `weekly-reports.sh` passes the header as curl config on stdin — checked against a local server. On `dev`, no PR yet |
+| 30 | R-29 | Pin Actions by SHA; add Dependabot | Low | ci | — | 1h | 🟨 In progress | All five actions pinned to the SHA their major tag pointed at on 2026-10-05, release in a trailing comment. `dependabot.yml`: actions grouped weekly; npm minors and patches grouped weekly, **majors ignored** — they follow the P2-3 ladder. Both target `dev`. Not seen running until pushed. `promotion-guard` stays with file 38a. On `dev`, no PR yet |
 
 ## Phase G — Housekeeping
 
