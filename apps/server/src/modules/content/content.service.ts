@@ -5,9 +5,11 @@ import type {
   Prisma,
 } from "@kidlearn/db";
 import {
+  type ActivityDefinition,
   type LessonAssetFallbacks,
-  safeParseActivityDefinition,
-  safeParseQuizQuestion,
+  type QuizQuestionDefinition,
+  readActivityDefinition,
+  readQuizQuestion,
 } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
@@ -117,7 +119,7 @@ export type LessonDetail = {
     id: string;
     type: string;
     schemaVersion: number;
-    definition: Prisma.JsonValue;
+    definition: ActivityDefinition;
   } | null;
   quiz: {
     id: string;
@@ -128,7 +130,7 @@ export type LessonDetail = {
       format: string;
       schemaVersion: number;
       sortOrder: number;
-      definition: Prisma.JsonValue;
+      definition: QuizQuestionDefinition;
     }>;
   } | null;
   progress: null;
@@ -497,10 +499,12 @@ function toLessonDetail(
   // A payload that does not parse, or disagrees with its column, is a content
   // bug in one step, not in the lesson: it is logged and left out, so the intro,
   // the video and the rest of the quiz still play. The player already degrades
-  // a missing activity or quiz per step — a 500 would never let it.
+  // a missing activity or quiz per step — a 500 would never let it. What is
+  // served is the *read* payload — migrated to the current version, unknown
+  // keys dropped — so a row a newer deploy wrote still plays after a rollback.
   let activity: LessonDetail["activity"] = null;
   if (lesson.activity && isVisible(lesson.activity)) {
-    const parsed = safeParseActivityDefinition(lesson.activity.definition);
+    const parsed = readActivityDefinition(lesson.activity.definition);
     if (!parsed.success) {
       log.error(
         { activityId: lesson.activity.id, issues: parsed.error.issues },
@@ -517,8 +521,8 @@ function toLessonDetail(
       activity = {
         id: lesson.activity.id,
         type: lesson.activity.type,
-        schemaVersion: lesson.activity.schemaVersion,
-        definition: lesson.activity.definition,
+        schemaVersion: parsed.data.schemaVersion,
+        definition: parsed.data,
       };
     }
   }
@@ -527,7 +531,7 @@ function toLessonDetail(
   if (lesson.quiz && isVisible(lesson.quiz)) {
     const questions = [];
     for (const question of lesson.quiz.questions) {
-      const parsed = safeParseQuizQuestion(question.definition);
+      const parsed = readQuizQuestion(question.definition);
       if (!parsed.success) {
         log.error(
           { questionId: question.id, issues: parsed.error.issues },
@@ -548,9 +552,9 @@ function toLessonDetail(
       questions.push({
         id: question.id,
         format: question.format,
-        schemaVersion: question.schemaVersion,
+        schemaVersion: parsed.data.schemaVersion,
         sortOrder: question.sortOrder,
-        definition: question.definition,
+        definition: parsed.data,
       });
     }
     // A quiz with every question omitted is no quiz: the player skips a null

@@ -1,7 +1,20 @@
-/** Shared primitives for every versioned content payload in kidlearn. */
+/**
+ * Shared primitives for every versioned content payload in kidlearn.
+ *
+ * Versioning rule (NFR-SCALE-02). An optional field this code declares may be
+ * added within a version — every payload written before it still parses. Any
+ * other change to the shape — a new required field, a rename, a narrowed type —
+ * bumps `SCHEMA_VERSION`, moves every `schemaVersion` literal with it, and adds
+ * the step from the old version to the `*_MIGRATIONS` table beside the parser,
+ * so stored rows are upgraded as they are read rather than rewritten in place.
+ *
+ * Writes are strict: an author or a model may not store a key the schema does
+ * not declare. Reads are lenient (`./versioning`): a key this code does not know
+ * — written by a newer deploy — is dropped rather than failing the step.
+ */
 import { z } from "zod";
 
-/** The current content schema version. Bump only by adding a new literal union member. */
+/** The version every payload is written at, and migrated up to when read. */
 export const SCHEMA_VERSION = 1;
 
 export const LOCALES = ["en", "bn"] as const;

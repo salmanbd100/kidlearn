@@ -7,8 +7,8 @@ import {
   type LessonStepReport,
   type QuizResponsesSubmit,
   type QuizScoreResponse,
+  readQuizQuestion,
   type SessionEventReport,
-  safeParseQuizQuestion,
 } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
@@ -312,7 +312,7 @@ function gradeResponse(
   response: QuizResponsesSubmit["responses"][number],
   log: QuizLogger,
 ): boolean {
-  const parsed = safeParseQuizQuestion(definition);
+  const parsed = readQuizQuestion(definition);
   if (!parsed.success) {
     log.error(
       { questionId: response.questionId, issues: parsed.error.issues },

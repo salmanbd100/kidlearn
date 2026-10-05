@@ -1787,6 +1787,29 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
     expect(storedResponses()[0].isCorrect).toBe(false);
   });
 
+  it("grades against a stored question carrying a field this deploy does not know", async () => {
+    signInAs(childProfile());
+    db.lessonFindFirst.mockResolvedValue({
+      id: LESSON_ID,
+      quiz: {
+        questions: QUESTION_IDS.map((id) => ({
+          id,
+          // Written by a newer deploy, then read after a rollback (R-24).
+          definition: { ...validMcq, difficulty: "easy" },
+        })),
+      },
+    });
+
+    const res = await submit([
+      { questionId: "q_1", answer: "apple", attempts: 1 },
+    ]);
+
+    // A strict read would grade a right answer as wrong and cost the child
+    // the coin.
+    expect(res.body.data.correctCount).toBe(1);
+    expect(storedResponses()[0].isCorrect).toBe(true);
+  });
+
   it("stores a match_pair answer as the pair set the child ended with", async () => {
     signInAs(childProfile());
     const pairs = [

@@ -817,6 +817,36 @@ describe("GET /api/content/lessons/:id", () => {
     expect(res.text).not.toContain("barn");
   });
 
+  it("plays a payload carrying a field this deploy does not know, without the field", async () => {
+    signInAs(childProfile());
+    const row = lessonRow({
+      activity: {
+        id: "activity_1",
+        type: "drag_drop",
+        schemaVersion: 1,
+        status: "published",
+        // Written by a newer deploy, then read after a rollback (R-24).
+        definition: { ...validDragDrop, hint: "from a newer deploy" },
+      },
+    });
+    row.quiz.questions[0] = {
+      ...row.quiz.questions[0],
+      // Assigned rather than spread: the row is typed from the fixture, and the
+      // unknown key is the point.
+      definition: Object.assign({ difficulty: "easy" }, validMcq),
+    };
+    db.lessonFindFirst.mockResolvedValue(row);
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity.definition).toEqual(validDragDrop);
+    expect(res.body.data.lesson.quiz.questions[0].definition).toEqual(validMcq);
+    // Served stripped, so a client whose schema is older still reads it.
+    expect(res.text).not.toContain("from a newer deploy");
+    expect(res.text).not.toContain("difficulty");
+  });
+
   it("omits a corrupt published quiz question and keeps the others", async () => {
     signInAs(childProfile());
     const row = lessonRow();

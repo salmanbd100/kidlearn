@@ -7,6 +7,7 @@ import {
   ImageAssetRefSchema,
   LocalizedAudioSchema,
   LocalizedTextSchema,
+  SCHEMA_VERSION,
 } from "../primitives.js";
 import {
   addAnswerOptionIssues,
@@ -48,7 +49,7 @@ export type PictureQuizOption = z.infer<typeof PictureQuizOptionSchema>;
 
 export const McqQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("mcq"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,
@@ -63,7 +64,7 @@ export type McqQuestion = z.infer<typeof McqQuestionSchema>;
 
 export const MatchPairQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("match_pair"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,
@@ -108,7 +109,7 @@ export type MatchPairQuestion = z.infer<typeof MatchPairQuestionSchema>;
 
 export const DragAnswerQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("drag_answer"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,
@@ -126,7 +127,7 @@ export type DragAnswerQuestion = z.infer<typeof DragAnswerQuestionSchema>;
 
 export const PictureSelectQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("picture_select"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,

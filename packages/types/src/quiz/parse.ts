@@ -1,3 +1,8 @@
+import {
+  lenient,
+  migratePayload,
+  type PayloadMigrations,
+} from "../versioning.js";
 import { type QuizQuestionDefinition, QuizQuestionSchema } from "./schemas.js";
 
 /**
@@ -10,10 +15,29 @@ export function parseQuizQuestion(json: unknown): QuizQuestionDefinition {
 
 /**
  * Non-throwing variant for validators that need to collect issues and respond
- * with a `400` rather than unwind (see `standards/backend.md §2`).
+ * with a `400` rather than unwind (see `standards/backend.md §2`). Strict: this
+ * is the write path's check — never use it to read a stored payload.
  */
 export function safeParseQuizQuestion(
   json: unknown,
 ): ReturnType<typeof QuizQuestionSchema.safeParse> {
   return QuizQuestionSchema.safeParse(json);
+}
+
+/** Steps from each older quiz question version to the next — none exist yet. */
+export const QUIZ_QUESTION_MIGRATIONS: PayloadMigrations = {};
+
+const QuizQuestionReadSchema = lenient(QuizQuestionSchema);
+
+/**
+ * Reads a *stored* quiz question — the lesson API serving it, the server grading
+ * an answer against it, the engine rendering it. Same contract as
+ * `readActivityDefinition`.
+ */
+export function readQuizQuestion(
+  json: unknown,
+): ReturnType<typeof QuizQuestionSchema.safeParse> {
+  return QuizQuestionReadSchema.safeParse(
+    migratePayload(json, QUIZ_QUESTION_MIGRATIONS),
+  );
 }

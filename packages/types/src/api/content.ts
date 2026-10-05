@@ -90,7 +90,7 @@ export const LessonActivitySchema = z
     id: z.string(),
     type: z.string(),
     schemaVersion: z.number().int(),
-    /** Validated against `ActivityDefinitionSchema` before it is served. */
+    /** Served as `readActivityDefinition` returns it: current version, no unknown keys. */
     definition: ActivityDefinitionSchema,
   })
   .strict();

@@ -1,6 +1,6 @@
 "use client";
 
-import { safeParseQuizQuestion } from "@kidlearn/types";
+import { readQuizQuestion } from "@kidlearn/types";
 import { Volume2 } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -42,7 +42,7 @@ function prepareQuestions(questions: QuizEngineProps["questions"]): {
   const skipped: SkippedQuestion[] = [];
 
   for (const question of questions) {
-    const parsed = safeParseQuizQuestion(question.definition);
+    const parsed = readQuizQuestion(question.definition);
     if (!parsed.success) {
       skipped.push({
         id: question.id,

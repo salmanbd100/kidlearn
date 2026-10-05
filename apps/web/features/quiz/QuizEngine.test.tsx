@@ -119,6 +119,18 @@ describe("QuizEngine", () => {
       error.mockRestore();
     });
 
+    it("asks a question carrying a field this bundle does not know", () => {
+      // Content from a newer deploy reaching an older bundle (R-24).
+      renderEngine([
+        { id: "q1", definition: { ...validMcq, difficulty: "easy" } },
+      ]);
+
+      expect(screen.getByTestId("quiz-mcq")).toBeInTheDocument();
+      expect(screen.getByTestId("quiz-progress-fruit").children).toHaveLength(
+        1,
+      );
+    });
+
     it.each([
       ["mcq", validMcq, "quiz-mcq"],
       ["picture_select", validPictureSelect, "quiz-picture-select"],

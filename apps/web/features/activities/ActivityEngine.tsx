@@ -3,7 +3,7 @@
 import {
   type ActivityDefinition,
   type Locale,
-  safeParseActivityDefinition,
+  readActivityDefinition,
 } from "@kidlearn/types";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import { Volume2 } from "lucide-react";
@@ -40,7 +40,7 @@ export function ActivityEngine({
 }: ActivityEngineProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const parsed = useMemo(
-    () => safeParseActivityDefinition(definition),
+    () => readActivityDefinition(definition),
     [definition],
   );
 

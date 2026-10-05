@@ -81,6 +81,15 @@ describe("ActivityEngine", () => {
       expect(screen.getByTestId("activity-puzzle")).toBeInTheDocument();
     });
 
+    it("plays a payload carrying a field this bundle does not know", () => {
+      // An old bundle still open on a tablet, served content from a newer
+      // deploy (R-24): the field is dropped, not the step.
+      renderEngine({ ...validDragDrop, hint: "from a newer deploy" });
+
+      expect(screen.getByTestId("activity-drag-drop")).toBeInTheDocument();
+      expect(screen.queryByTestId("activity-oops")).not.toBeInTheDocument();
+    });
+
     it("shows the oops screen instead of crashing on an unknown type", () => {
       renderEngine(invalidActivityUnknownType);
 

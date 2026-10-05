@@ -7,6 +7,7 @@ import {
   ImageAssetRefSchema,
   LocalizedAudioSchema,
   LocalizedTextSchema,
+  SCHEMA_VERSION,
 } from "../primitives.js";
 import { addDuplicateIdIssues, addPairingIssues } from "../refinements.js";
 
@@ -60,7 +61,7 @@ function addUnknownMappingIdIssue(
 
 export const DragDropActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("drag_drop"),
     instructionAudio: LocalizedAudioSchema,
     items: z.array(ActivityItemSchema).min(2).max(6),
@@ -114,7 +115,7 @@ export type DragDropActivity = z.infer<typeof DragDropActivitySchema>;
 
 export const TraceActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("trace"),
     instructionAudio: LocalizedAudioSchema,
     /** The glyph being traced — a letter, Bangla character, or digit, e.g. "A" or "৩". */
@@ -157,7 +158,7 @@ export type TraceActivity = z.infer<typeof TraceActivitySchema>;
 
 export const MatchActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("match"),
     instructionAudio: LocalizedAudioSchema,
     leftSet: z.array(ActivityItemSchema).min(2).max(6),
@@ -190,7 +191,7 @@ export type PuzzleSlot = z.infer<typeof PuzzleSlotSchema>;
 
 export const PuzzleActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("puzzle"),
     instructionAudio: LocalizedAudioSchema,
     image: ImageAssetRefSchema,
