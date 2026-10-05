@@ -77,7 +77,7 @@
 | # | ID | Item | Sev. | Area | Depends on | Est. | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 31 | V1-P1-4 / R-31 | Correct `frontend.md` and the `create-component` skill | Low | docs | — | 1h | 🟨 In progress | `frontend.md §1`: the `kid/`/`parent/` layers replaced by a recorded decision (citing `mobile-app-plan.md §4.2`) and a placement table spanning `packages/ui` and `apps/web`; §3 route rule and the §6 checklist follow it, as does `general.md`'s review table. Skill: decision flow, file paths, skeleton (`useIsMotionReduced`, not Motion's hook), the obsolete package-setup step removed, and loading/empty/error states added (plan §5.3). On `dev`, no PR yet |
-| 32 | R-32 | Uncommented `as` casts; unused `dotenv`; video captions decision | Low | server, ui, db | — | 1h | ⬜ Not started | |
+| 32 | R-32 | Uncommented `as` casts; unused `dotenv`; video captions decision | Low | server, ui, db | — | 1h | 🟨 In progress | `routeToStatus`'s two casts removed (the loops narrow instead); the `fromEntries` and `Object.keys` casts kept with the comment `general.md` asks for. `dotenv` dropped from `packages/db` — nothing imported it. **Captions: recorded as a dated exception in `design.md §7` — deferred, not dropped**, with what it takes and an exit condition; **the product owner should confirm or overrule.** On `dev`, no PR yet |
 
 ## Carried from v1 — larger items
 
