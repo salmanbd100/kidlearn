@@ -65,6 +65,17 @@ pnpm --filter server test:db   # *.db.test.ts against the Postgres service
 
 CI needs no secrets. `apps/server/vitest.setup.ts` supplies everything `config/env.ts` requires, and `pnpm test` opens no database connection. The real-database suites (`*.db.test.ts`) are a separate step, `pnpm --filter server test:db`, against a `postgres:16-alpine` service container — locally, `docker compose up -d postgres` and set `TEST_DATABASE_URL` if your port differs from 5432. The harness refuses any database not named `*_test`. Rules in `document/standards/general.md §5`.
 
+## Testing
+
+- **Server suites mostly stub Prisma.** 35 `apps/server` test files `vi.mock` the client; that is a recorded exception in `document/standards/general.md §5`, with rules a new stubbed suite must follow and cite. Anything a stub cannot prove — the `status` gate on `include`d relations, cascades, unique constraints, transaction races — belongs in a `*.db.test.ts` using the harness in `apps/server/src/shared/testing/`.
+- **Every successful response in a route test goes through `assertContract`** (`apps/server/src/openapi/assert-contract.ts`) against its schema in `packages/types/src/api/`.
+- **An undocumented route fails the suite** — `src/openapi/coverage.test.ts`, see API documentation below.
+
+## Where decisions live
+
+- **`document/mobile-app-plan.md`** is the architecture of record for what is and is not shared between web and mobile. `packages/ui` is web-only by design (§4.2) — do not hoist `apps/web` components into it without a second consumer.
+- **`document/improvement-plan.md`** and **`document/improvement-tracker.md`** for anything phrased as cleanup, refactoring or tech debt. Check the tracker before starting such work — the item may already be recorded, decided, or declined.
+
 ## Layout & current state
 
 ```

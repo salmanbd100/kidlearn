@@ -57,7 +57,7 @@ kidlearn/
 │   └── server/     # Express API — progress, quiz responses, AI pipeline
 │       └── src/openapi/   # OpenAPI document served at /docs
 ├── packages/
-│   ├── ui/         # Shared React components
+│   ├── ui/         # Theme-agnostic React primitives — web-only by design (mobile-app-plan.md §4.2)
 │   ├── types/      # Shared Zod schemas — activity/quiz payloads + API contracts (src/api/)
 │   ├── db/         # Prisma schema + client (PostgreSQL)
 │   ├── i18n/       # en/bn UI strings — one copy for web and mobile
@@ -217,7 +217,7 @@ Port conflicts belong in `docker-compose.override.yml` — see step 2.
 
 ### CI
 
-`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every pull request and every push to `main` or `dev`. It needs no secrets and no database. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
+`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck`, `pnpm test:coverage` and `pnpm --filter server test:db` as one `gates` job on every pull request and every push to `main` or `dev`. It needs no secrets; the database tests run against a `postgres:16-alpine` service container, and every other step opens no database connection. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
 
 ### Production build
 
