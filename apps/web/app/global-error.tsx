@@ -1,8 +1,9 @@
 "use client";
 
+import { DEFAULT_NAMESPACE, toLocale } from "@kidlearn/i18n";
 import { useEffect } from "react";
-import { DEFAULT_NAMESPACE, getI18n } from "@/shared/lib/i18n";
-import { readLocaleCookie, toLocale } from "@/shared/lib/locale";
+import { getI18n } from "@/shared/lib/i18n";
+import { readLocaleCookie } from "@/shared/lib/locale";
 import "./globals.css";
 
 /**

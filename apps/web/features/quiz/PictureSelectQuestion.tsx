@@ -1,8 +1,8 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type { PictureSelectQuestion as PictureSelectDefinition } from "@kidlearn/types";
 import { useTranslation } from "react-i18next";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { OptionCard } from "./OptionCard";
 import type { QuestionProps } from "./types";
 import { useOptionChoice } from "./use-option-choice";

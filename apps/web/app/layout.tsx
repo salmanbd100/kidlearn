@@ -1,10 +1,11 @@
+import { toLocale } from "@kidlearn/i18n";
 import { A11Y_BOOTSTRAP_SCRIPT } from "@kidlearn/ui";
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Inter, Noto_Sans_Bengali, Nunito } from "next/font/google";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { Providers } from "@/shared/components/Providers";
-import { LOCALE_COOKIE_NAME, toLocale } from "@/shared/lib/locale";
+import { LOCALE_COOKIE_NAME } from "@/shared/lib/locale";
 import "./globals.css";
 
 const fredoka = Fredoka({

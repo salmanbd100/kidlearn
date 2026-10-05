@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type { QuizResponseRecord } from "@kidlearn/types";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +9,6 @@ import { QuizEngine } from "@/features/quiz/QuizEngine";
 import { QuizScoreScreen } from "@/features/quiz/QuizScoreScreen";
 import type { QuizAnswerRecord } from "@/features/quiz/types";
 import { submitQuizResponses } from "@/shared/api/progress-api";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { LessonStepProps } from "./lesson-step-props";
 
 /** The quiz (FR-LSN-04, FR-QUIZ-01..08). */

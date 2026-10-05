@@ -1,8 +1,8 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 
 // Everything a three-year-old is allowed to do to a video (FR-LSN-02).
 

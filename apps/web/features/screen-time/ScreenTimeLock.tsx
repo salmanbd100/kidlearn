@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type { ScreenTimeBlockCode } from "@kidlearn/types";
 import { Home } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -8,7 +9,6 @@ import { useTranslation } from "react-i18next";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /**
  * What a child sees when their grown-up's screen-time rule says no (FR-TIME-02,

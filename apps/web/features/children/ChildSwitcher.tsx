@@ -1,11 +1,11 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { ChildProfileResponse } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Which child's dashboard is showing (FR-DASH-01). */
 export interface ChildSwitcherProps {

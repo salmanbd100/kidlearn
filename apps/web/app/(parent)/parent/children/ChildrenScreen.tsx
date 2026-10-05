@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
@@ -13,7 +14,6 @@ import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildCard } from "@/features/children/ChildCard";
 import { DeleteChildDialog } from "@/features/children/DeleteChildDialog";
 import { deleteChild, listAvatars } from "@/features/parent/parent-api";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** FR-PROF-01 — a household may hold at most five learner profiles. */
 const MAX_CHILDREN = 5;

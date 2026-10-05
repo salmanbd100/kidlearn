@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type { WorldTopicLessonsResponse } from "@kidlearn/types";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,7 +12,6 @@ import { BigButton } from "@/shared/components/kid/BigButton";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Everything inside one world, as pictures (FR-PROF-03). */
 export function WorldScreen({ worldId }: { worldId: string }) {

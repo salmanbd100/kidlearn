@@ -1,12 +1,12 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type { ChildProfileResponse } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Coins, Flame, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 // What the child has earned, at the top of every world screen (FR-GAM-06).
 

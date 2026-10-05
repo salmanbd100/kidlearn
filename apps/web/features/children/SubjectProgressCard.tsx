@@ -1,12 +1,12 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { DashboardSubjectProgress } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 import { pickLabel } from "@/shared/lib/localized-label";
 
 /** Per-subject completion as labelled bars (FR-DASH-03). */

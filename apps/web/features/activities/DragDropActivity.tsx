@@ -6,6 +6,7 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ActivityItem,
   DragDropActivity as DragDropDefinition,
@@ -19,7 +20,6 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { evaluateDrop, groupItemsByTarget } from "./evaluate";
 import type { ActivityRendererProps } from "./registry";
 import { useActivitySensors } from "./use-activity-sensors";

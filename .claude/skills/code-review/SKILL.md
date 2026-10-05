@@ -252,6 +252,10 @@ Frontend:
 - **Semantic tokens** — raw hex, a CSS colour literal or a Tailwind colour class in component code
   (`frontend.md §1`).
 - **i18next** — a user-visible string not routed through it (`frontend.md §4`).
+  Key parity, blanks and `{{placeholders}}` between `en` and `bn` are `[CI]` now
+  (`packages/i18n/src/parity.test.ts`); what CI cannot see is a Bangla string that is
+  present but is a copy of the English, or a machine translation nobody checked — flag new
+  Bangla copy for a native speaker's read.
 - **`'use client'`** — a boundary higher than the leaf needing it (`frontend.md §3`).
 - **Layer placement** — the wrong `packages/ui` subdirectory, per the table in `frontend.md §1`
   ("if it matches more than one row, use the most specific match").

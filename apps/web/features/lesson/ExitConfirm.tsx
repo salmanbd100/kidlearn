@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE, toLocale } from "@kidlearn/i18n";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +13,6 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
-import { toLocale } from "@/shared/lib/locale";
 
 /**
  * "Leave the lesson?" — the one thing between a mis-tap and losing a lesson.

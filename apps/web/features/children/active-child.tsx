@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_LOCALE } from "@kidlearn/i18n";
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
@@ -23,7 +24,7 @@ import {
   listChildren,
 } from "@/features/parent/parent-api";
 import { type ApiResult, onUnauthorized } from "@/shared/api/api-client";
-import { DEFAULT_LOCALE, readLocaleCookie } from "@/shared/lib/locale";
+import { readLocaleCookie } from "@/shared/lib/locale";
 
 // Who is playing, for the whole `(student)` route group.
 

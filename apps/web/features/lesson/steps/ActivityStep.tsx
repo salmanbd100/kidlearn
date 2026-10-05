@@ -1,9 +1,9 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { useTranslation } from "react-i18next";
 import { ActivityEngine } from "@/features/activities/ActivityEngine";
 import { ActivityUnavailable } from "@/features/activities/ActivityUnavailable";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { LessonStepProps } from "./lesson-step-props";
 
 /** The interactive activity (FR-LSN-03). */

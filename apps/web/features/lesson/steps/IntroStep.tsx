@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import { Volume2 } from "lucide-react";
 import { motion } from "motion/react";
@@ -9,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { IconControl } from "@/shared/components/kid/IconControl";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { LessonStepProps } from "./lesson-step-props";
 
 /**

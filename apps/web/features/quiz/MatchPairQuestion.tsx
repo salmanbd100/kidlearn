@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ImageAssetRef,
   Locale,
@@ -17,7 +18,6 @@ import { type PairSide, usePairing } from "@/features/activities/use-pairing";
 import { isWiggling, useWiggle } from "@/features/activities/use-wiggle";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { QuestionProps, QuizAnswerValue } from "./types";
 
 // Match each one to its partner (FR-QUIZ-02).

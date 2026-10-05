@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, isLocale } from "./locale";
+import { DEFAULT_LOCALE, isLocale } from "@kidlearn/i18n";
 
 /** "3 minutes ago", "yesterday", "12 days ago" — the activity feed's dates. */
 export function formatRelative(date: Date, locale: string, now: Date): string {

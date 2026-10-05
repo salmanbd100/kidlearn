@@ -1,11 +1,11 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveParentRedirect } from "@/features/parent/parent-redirect";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 import { useParentSession } from "./context/parent-session";
 
 /** The redirect gate every `(parent)` page sits behind. */

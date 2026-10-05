@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   DashboardActivityItem,
   DashboardActivityType,
@@ -9,7 +10,6 @@ import { cva } from "class-variance-authority";
 import { Award, BookOpen, BookText, Sprout } from "lucide-react";
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 import { pickLabel } from "@/shared/lib/localized-label";
 import { formatAbsolute, formatRelative } from "@/shared/lib/relative-time";
 

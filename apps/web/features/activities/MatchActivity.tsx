@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ActivityItem,
   ImageAssetRef,
@@ -20,7 +21,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { evaluatePair } from "./evaluate";
 import { pairCardClass, pairLineClass } from "./pair-colours";
 import type { ActivityRendererProps } from "./registry";

@@ -1,28 +1,20 @@
+import { isLocale } from "@kidlearn/i18n";
 import { LOCALES, type Locale } from "@kidlearn/types";
 
 /**
- * Locale plumbing with no dependency on i18next, so a Server Component can read
- * the visitor's choice without pulling the i18n runtime into the server bundle.
+ * The browser half of locale plumbing — the cookie. What both clients need
+ * (`DEFAULT_LOCALE`, `isLocale`, `toLocale`) is in `@kidlearn/i18n`, which has
+ * no i18next dependency either, so a Server Component can still read the
+ * visitor's choice without pulling the i18n runtime into the server bundle.
  */
 
 export const LOCALE_COOKIE_NAME = "kidlearn_locale";
-
-export const DEFAULT_LOCALE: Locale = "en";
 
 const LOCALE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 export const SUPPORTED_LOCALES = LOCALES;
 
 export type { Locale };
-
-export function isLocale(value: string | undefined | null): value is Locale {
-  return LOCALES.some((locale) => locale === value);
-}
-
-/** Falls back to English rather than throwing — a bad cookie must not 500. */
-export function toLocale(value: string | undefined | null): Locale {
-  return isLocale(value) ? value : DEFAULT_LOCALE;
-}
 
 /** The device's language — `undefined` on the server or before any choice. */
 export function readLocaleCookie(): Locale | undefined {

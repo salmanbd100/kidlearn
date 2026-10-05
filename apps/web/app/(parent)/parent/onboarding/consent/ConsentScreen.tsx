@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +9,6 @@ import { OnboardingStep } from "@/features/parent/OnboardingStep";
 import { submitConsent } from "@/features/parent/parent-api";
 import { generalErrorKey } from "@/features/parent/parent-errors";
 import type { ApiFailure } from "@/shared/api/api-client";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** COPPA consent (FR-AUTH-03). */
 export function ConsentScreen() {

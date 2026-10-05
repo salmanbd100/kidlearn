@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { LESSON_STEPS, type LessonStep } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
@@ -9,7 +10,6 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { IconControl } from "@/shared/components/kid/IconControl";
 import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 
 // The frame every lesson step is rendered inside (Pillar A, design.md §6).
 

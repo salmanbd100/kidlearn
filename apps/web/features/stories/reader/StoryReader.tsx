@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ScreenTimeBlockCode,
   StoryCompletionResponse,
@@ -29,7 +30,6 @@ import { IconControl } from "@/shared/components/kid/IconControl";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { FinishScreen, type StoryFinishReward } from "./FinishScreen";
 import { activeSpanIndex } from "./NarratedText";
 import {

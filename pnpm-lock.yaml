@@ -126,6 +126,9 @@ importers:
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@kidlearn/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@kidlearn/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -232,6 +235,25 @@ importers:
       tsx:
         specifier: ^4
         version: 4.22.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@22.20.5)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@22.20.5)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
+
+  packages/i18n:
+    dependencies:
+      '@kidlearn/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@kidlearn/config':
+        specifier: workspace:*
+        version: link:../config
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(vitest@4.1.11)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

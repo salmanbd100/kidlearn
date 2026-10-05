@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import {
   type ActivityDefinition,
   type Locale,
@@ -12,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { IconControl } from "@/shared/components/kid/IconControl";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { ActivityUnavailable } from "./ActivityUnavailable";
 import { FeedbackLayer } from "./FeedbackLayer";
 import { renderActivity } from "./registry";

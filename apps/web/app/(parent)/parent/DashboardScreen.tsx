@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { DashboardData } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { CalendarRange } from "lucide-react";
@@ -11,7 +12,6 @@ import { ChildSwitcher } from "@/features/children/ChildSwitcher";
 import { DashboardSummary } from "@/features/children/DashboardSummary";
 import { getDashboard } from "@/features/children/dashboard-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** `/parent` — the dashboard a parent lands on (FR-DASH-01..04). */
 export function DashboardScreen({

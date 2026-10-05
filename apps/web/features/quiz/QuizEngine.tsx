@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { readQuizQuestion } from "@kidlearn/types";
 import { Volume2 } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
@@ -7,7 +8,6 @@ import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { IconControl } from "@/shared/components/kid/IconControl";
 import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { ProgressFruit } from "./ProgressFruit";
 import { isPlayableQuestion, renderQuestion } from "./registry";
 import type {

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
+    "@kidlearn/i18n": "workspace:*",
     "@kidlearn/types": "workspace:*",
     "@kidlearn/ui": "workspace:*",
     "canvas-confetti": "^1.9.4",

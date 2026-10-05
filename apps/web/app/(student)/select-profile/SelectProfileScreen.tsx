@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,6 @@ import { useActiveChild } from "@/features/children/active-child";
 import { ProfileCard } from "@/features/student/ProfileCard";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** "Who's learning today?" — the child's front door (FR-AUTH-06). */
 export function SelectProfileScreen() {

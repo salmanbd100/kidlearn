@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import { Sparkles, Star } from "lucide-react";
 import { motion } from "motion/react";
@@ -8,7 +9,6 @@ import { useTranslation } from "react-i18next";
 import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { QuizAnswerRecord } from "./types";
 
 // How the quiz ends (FR-QUIZ-06).

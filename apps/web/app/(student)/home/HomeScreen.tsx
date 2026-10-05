@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   RewardSummaryResponse,
   WorldSummaryResponse,
@@ -21,7 +22,6 @@ import { IconTile } from "@/shared/components/kid/IconTile";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** The child's home (FR-WORLD-01..03, FR-GAM-06 display). */
 export function HomeScreen() {

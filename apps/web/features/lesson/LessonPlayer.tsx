@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE, toLocale } from "@kidlearn/i18n";
 import type {
   LessonAssetFallbacks,
   LessonDetailResponse,
@@ -28,8 +29,6 @@ import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
-import { toLocale } from "@/shared/lib/locale";
 import { stepAssetFallback } from "./asset-fallback";
 import { ExitConfirm } from "./ExitConfirm";
 import {

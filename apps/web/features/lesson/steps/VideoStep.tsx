@@ -1,12 +1,12 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePreloadNextStep } from "@/features/lesson/use-preload-next-step";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { LessonStepProps } from "./lesson-step-props";
 import { VideoControls, type VideoState } from "./VideoControls";
 

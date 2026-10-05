@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { WeeklyReport } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { LineChart } from "lucide-react";
@@ -12,7 +13,6 @@ import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { ReportCard } from "@/features/reports/ReportCard";
 import { ReportHistoryList } from "@/features/reports/ReportHistoryList";
 import { getWeeklyReports } from "@/features/reports/reports-api";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** `/parent/reports` — every week this child has had (FR-DASH-05..06). */
 export function ReportsScreen({

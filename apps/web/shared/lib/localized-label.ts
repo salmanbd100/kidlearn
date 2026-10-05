@@ -1,5 +1,5 @@
+import { DEFAULT_LOCALE, isLocale } from "@kidlearn/i18n";
 import { type LocalizedLabel, pickLocale } from "@kidlearn/types";
-import { DEFAULT_LOCALE, isLocale } from "./locale";
 
 /**
  * The string to show from a both-locales label the dashboard received — the

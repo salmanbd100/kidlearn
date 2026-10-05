@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import {
   Button,
   DropdownMenu,
@@ -25,7 +26,6 @@ import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { signOut } from "@/shared/api/api-client";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
 import { ParentAvatar } from "@/shared/components/ParentAvatar";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 // The frame around every parent page once onboarding is behind them.
 

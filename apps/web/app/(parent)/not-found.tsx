@@ -1,10 +1,10 @@
 "use client";
 
+import { DEFAULT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
-import { DEFAULT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Reached through `parent/[...missing]` — an unknown `/parent/*` URL. */
 export default function ParentNotFound() {

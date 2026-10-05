@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type { WorldSummaryResponse } from "@kidlearn/types";
 import { cn, useIsMotionReduced } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
@@ -7,7 +8,6 @@ import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { worldGradientStyle } from "@/features/content/worlds";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /**
  * A themed world, drawn entirely from the row that describes it (FR-WORLD-05).

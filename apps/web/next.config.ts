@@ -90,7 +90,7 @@ const siteHeaders: NonNullable<NextConfig["headers"]> = async () => {
 
 const nextConfig: NextConfig = {
   // The shared UI package ships raw .ts/.tsx source — let Next transpile it.
-  transpilePackages: ["@kidlearn/ui"],
+  transpilePackages: ["@kidlearn/i18n", "@kidlearn/ui"],
   /**
    * Escape hatch only (file 38 req 5). The frontend deploys to Vercel, which
    * needs none of this; `apps/web/Dockerfile` does, and an untested Dockerfile

@@ -1,10 +1,10 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import { useTranslation } from "react-i18next";
 import { googleSignInUrl } from "@/features/parent/parent-api";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Google, and nothing else (FR-AUTH-02). */
 export function LoginScreen() {

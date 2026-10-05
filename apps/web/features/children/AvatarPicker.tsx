@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE, toLocale } from "@kidlearn/i18n";
 import type { AvatarCharacterResponse } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { Lock } from "lucide-react";
@@ -8,8 +9,6 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { avatarArtFor } from "@/features/children/avatars";
 import { useAudio } from "@/shared/components/AudioProvider";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { toLocale } from "@/shared/lib/locale";
 
 /** Pick the character a child wears (FR-PROF-02, FR-GAM-05). */
 export interface AvatarPickerOption extends AvatarCharacterResponse {

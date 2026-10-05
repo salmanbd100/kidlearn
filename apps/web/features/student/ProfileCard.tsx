@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
@@ -10,7 +11,6 @@ import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/features/children/avatars";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 // How a child says "that one is me" (FR-AUTH-06).
 

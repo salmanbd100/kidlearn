@@ -1,9 +1,9 @@
 "use client";
 
+import { DEFAULT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { DEFAULT_NAMESPACE } from "@/shared/lib/i18n";
 
 /**
  * Catches a render-time throw anywhere below the root layout. Content is data,

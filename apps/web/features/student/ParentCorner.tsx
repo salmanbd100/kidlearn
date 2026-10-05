@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import { cva } from "class-variance-authority";
 import { Lock } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -7,7 +8,6 @@ import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/features/children/active-child";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { ParentAvatar } from "@/shared/components/ParentAvatar";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Where the parent area opens. */
 const PARENT_DESTINATION = "/parent/children";

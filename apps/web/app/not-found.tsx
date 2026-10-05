@@ -1,9 +1,9 @@
 "use client";
 
+import { DEFAULT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
-import { DEFAULT_NAMESPACE } from "@/shared/lib/i18n";
 
 export default function NotFound() {
   const { t } = useTranslation(DEFAULT_NAMESPACE);

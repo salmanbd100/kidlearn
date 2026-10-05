@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { ScreenTimeSettingResponse } from "@kidlearn/types";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,7 +11,6 @@ import {
   getScreenTime,
   updateScreenTime,
 } from "@/features/screen-time/screen-time-api";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** One child's screen-time settings (FR-TIME-01, FR-TIME-04..05). */
 export function ScreenTimeScreen({ childId }: { childId: string }) {

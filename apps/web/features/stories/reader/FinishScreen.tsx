@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE, STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type { StoryCompletionResponse } from "@kidlearn/types";
 import { BookOpen, Coins, RotateCcw, Star } from "lucide-react";
 import { useEffect } from "react";
@@ -7,7 +8,6 @@ import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BadgeReveal } from "@/shared/components/kid/BadgeReveal";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE, STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 import { unlockNames } from "@/shared/lib/unlock-names";
 
 /**

@@ -6,6 +6,7 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   DragAnswerQuestion as DragAnswerDefinition,
   ImageAssetRef,
@@ -19,7 +20,6 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useActivitySensors } from "@/features/activities/use-activity-sensors";
 import { useTapToPlace } from "@/features/activities/use-tap-to-place";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { QuestionProps } from "./types";
 import {
   BLANK_DROPPABLE_ID,

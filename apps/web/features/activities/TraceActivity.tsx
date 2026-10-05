@@ -1,9 +1,9 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type { TraceActivity as TraceDefinition } from "@kidlearn/types";
 import { useEffect, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { ActivityUnavailable } from "./ActivityUnavailable";
 import type { ActivityRendererProps } from "./registry";
 import { arrowsAlong, type Point, toPathUnits } from "./trace/geometry";

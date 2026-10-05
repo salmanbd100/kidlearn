@@ -1,8 +1,8 @@
 "use client";
 
+import { DEFAULT_NAMESPACE } from "@kidlearn/i18n";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { DEFAULT_NAMESPACE } from "@/shared/lib/i18n";
 import { BigButton } from "./BigButton";
 
 /**

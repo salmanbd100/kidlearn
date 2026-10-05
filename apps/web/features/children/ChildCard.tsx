@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
@@ -11,7 +12,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/features/children/avatars";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 // One learner profile in the list (FR-PROF-05).
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { WeeklyReport } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { ChevronRight } from "lucide-react";
@@ -7,7 +8,6 @@ import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { formatWeekRange } from "@/features/reports/week-range";
 import { formatMinutes } from "@/features/screen-time/duration";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** Every earlier week, one row each (FR-DASH-06). */
 export interface ReportHistoryListProps {

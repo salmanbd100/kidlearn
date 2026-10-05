@@ -101,8 +101,10 @@ apps/web/
 │   ├── components/ # Providers and cross-feature components (kid/ surface layer)
 │   ├── hooks/      # Cross-feature React hooks
 │   └── lib/        # i18n, locale and formatting helpers — no JSX
-└── locales/        # i18next resource bundles
 ```
+
+The strings themselves are not here: they are `@kidlearn/i18n`
+(`packages/i18n/locales/{en,bn}/`), shared with the mobile app.
 
 A feature owns everything one domain needs: its components, its hooks, its pure
 helpers, its API client, and every suite that covers them. `features/screen-time/`

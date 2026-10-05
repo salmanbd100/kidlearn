@@ -83,6 +83,7 @@ packages/
   db/         @kidlearn/db — Prisma schema + client (Supabase/PostgreSQL)
   types/      @kidlearn/types — versioned content payloads + HTTP contracts
   config/     @kidlearn/config — shared tsconfig bases, no source
+  i18n/       @kidlearn/i18n — en/bn UI strings, namespaces, locale helpers (shared with mobile)
 document/     design.md, project-requirement-details.md, key-description.md
 ```
 
@@ -131,8 +132,8 @@ All content has a `status` field (`draft → in_review → approved/rejected →
 - Build components with **`cva`** (class-variance-authority) + `cn()` from `@kidlearn/ui/lib/cn`.
 - Animation via **Motion** (`motion` package). Always check `prefers-reduced-motion`. Animate only `transform` and `opacity`.
 - Fonts: `--font-display` (Fredoka) for kid headings, `--font-body` (Nunito) for body, `--font-ui` (Inter) for parent UI. Load via `next/font`.
-- All strings go through `i18next` — no hard-coded user-facing text.
+- All strings go through `i18next` — no hard-coded user-facing text. The JSON lives in `packages/i18n/locales/{en,bn}/`; a key in one locale and not the other fails `@kidlearn/i18n`'s parity test.
 
 ## Workspace wiring
 
-New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. All four of `ui`, `db`, `types` and `config` are active workspaces.
+New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. All five of `ui`, `db`, `types`, `config` and `i18n` are active workspaces.

@@ -1,9 +1,9 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /**
  * A render-time throw inside a parent screen. Sits inside the parent layout, so

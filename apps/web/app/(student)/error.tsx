@@ -1,9 +1,9 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /**
  * A render-time throw inside a student screen. Sits inside the student layout,

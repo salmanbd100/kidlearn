@@ -1,11 +1,11 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { DashboardData } from "@kidlearn/types";
 import { CalendarDays, CalendarRange, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatMinutes } from "@/features/screen-time/duration";
 import { StatCard } from "@/shared/components/StatCard";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { SubjectProgressCard } from "./SubjectProgressCard";
 

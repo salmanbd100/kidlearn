@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type { LessonCompletionResponse } from "@kidlearn/types";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import type { TFunction } from "i18next";
@@ -19,7 +20,6 @@ import { completeLesson } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BadgeReveal } from "@/shared/components/kid/BadgeReveal";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import { unlockNames } from "@/shared/lib/unlock-names";
 import type { LessonStepProps } from "./lesson-step-props";
 

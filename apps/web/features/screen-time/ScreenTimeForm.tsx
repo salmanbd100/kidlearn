@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ScreenTimeSettingResponse,
   ScreenTimeUpdate,
@@ -15,7 +16,6 @@ import { useTranslation } from "react-i18next";
 import { screenTimeErrorKey } from "@/features/parent/parent-errors";
 import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
 import { SegmentedField } from "@/shared/components/SegmentedField";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /**
  * The parent's screen-time controls for one child (FR-TIME-01, FR-TIME-04..05).

@@ -8,6 +8,7 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   PuzzleActivity as PuzzleDefinition,
   PuzzleSlot,
@@ -17,7 +18,6 @@ import { cva } from "class-variance-authority";
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import {
   evaluatePiecePlacement,
   puzzleIndexOfId,
