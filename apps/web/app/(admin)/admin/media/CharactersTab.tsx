@@ -6,10 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createCharacterSheet,
   fetchCharacterSheets,
-  fetchWorlds,
   promoteJobCharacters,
   updateCharacterSheet,
-} from "@/features/admin/admin-api";
+} from "@/features/admin/ai-api";
+import { fetchWorlds } from "@/features/admin/content-api";
 
 // The Characters tab on `/admin/media` (file 36, FR-AI-09).
 

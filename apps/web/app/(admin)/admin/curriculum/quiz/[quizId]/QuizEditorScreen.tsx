@@ -14,14 +14,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   createQuestion,
   deleteQuestion,
   fetchQuiz,
   replaceQuestion,
   transitionEditorContent,
-} from "@/features/admin/admin-api";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+} from "@/features/admin/editors-api";
 import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
 import { QuizQuestionEditor } from "@/features/admin/QuizQuestionEditor";
 import {

@@ -2,7 +2,7 @@
 
 import { Button, Input, Label } from "@kidlearn/ui";
 import { useState } from "react";
-import { generateIllustrations } from "@/features/admin/admin-api";
+import { generateIllustrations } from "@/features/admin/ai-api";
 import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
 
 /**

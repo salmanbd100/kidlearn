@@ -17,7 +17,7 @@ const api = vi.hoisted(() => ({
   rejectAiJob: vi.fn(),
 }));
 
-vi.mock("@/features/admin/admin-api", () => api);
+vi.mock("@/features/admin/ai-api", () => api);
 
 const JOB_ID = "aaaaaaaa-0000-4000-8000-000000000001";
 const QUIZ_ID = "bbbbbbbb-0000-4000-8000-000000000001";

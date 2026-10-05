@@ -12,7 +12,7 @@ import {
   registerMediaAsset,
   signMediaUpload,
   uploadToCloudinary,
-} from "@/features/admin/admin-api";
+} from "@/features/admin/media-api";
 import { optionValue } from "@/features/admin/select-option";
 
 // Sign → upload → register, as one form (FR-CMS-02).

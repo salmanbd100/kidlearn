@@ -4,8 +4,8 @@ import { Button } from "@kidlearn/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { AdminSidebar } from "@/features/admin/AdminSidebar";
-import { fetchAiJobCount } from "@/features/admin/admin-api";
 import { ADMIN_ROUTES, isPublicAdminPath } from "@/features/admin/admin-routes";
+import { fetchAiJobCount } from "@/features/admin/ai-api";
 import { useAdminSession } from "./context/admin-session";
 
 // The sidebar-and-content frame around every CMS page (FR-CMS-01 shell).

@@ -1,13 +1,13 @@
 import type { MediaAsset } from "@kidlearn/types";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchMediaAssets } from "@/features/admin/admin-api";
+import { fetchMediaAssets } from "@/features/admin/media-api";
 import {
   MEDIA_PAGE_SIZE,
   useMediaPages,
 } from "@/features/admin/use-media-pages";
 
-vi.mock("@/features/admin/admin-api", () => ({ fetchMediaAssets: vi.fn() }));
+vi.mock("@/features/admin/media-api", () => ({ fetchMediaAssets: vi.fn() }));
 
 const fetchMock = vi.mocked(fetchMediaAssets);
 

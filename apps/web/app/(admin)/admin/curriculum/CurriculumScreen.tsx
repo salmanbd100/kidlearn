@@ -20,10 +20,10 @@ import {
 } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   type ContentDraft,
   createContent,
-  createQuiz,
   fetchLessons,
   fetchSubjects,
   fetchTopics,
@@ -31,8 +31,8 @@ import {
   reorderContent,
   transitionContent,
   updateContent,
-} from "@/features/admin/admin-api";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+} from "@/features/admin/content-api";
+import { createQuiz } from "@/features/admin/editors-api";
 import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 import { ContentForm } from "./ContentForm";

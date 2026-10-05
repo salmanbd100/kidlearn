@@ -27,6 +27,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/features/admin/admin-api", () => api);
+vi.mock("@/features/admin/ai-api", () => api);
 
 const { default: AdminCmsLayout } = await import("./layout");
 

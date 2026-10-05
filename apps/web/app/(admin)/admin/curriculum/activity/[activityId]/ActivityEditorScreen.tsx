@@ -12,12 +12,12 @@ import {
   type ActivityDraft,
   draftFromActivity,
 } from "@/features/admin/activity-draft";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   fetchActivity,
   transitionEditorContent,
   updateActivity,
-} from "@/features/admin/admin-api";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+} from "@/features/admin/editors-api";
 
 /**
  * `/admin/curriculum/activity/[activityId]` — one activity's payload (FR-ACT-06).

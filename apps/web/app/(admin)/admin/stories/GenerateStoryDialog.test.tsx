@@ -7,7 +7,7 @@ import { GenerateStoryDialog } from "./GenerateStoryDialog";
 
 const generateStory = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/admin/admin-api", () => ({ generateStory }));
+vi.mock("@/features/admin/ai-api", () => ({ generateStory }));
 
 const WORLD_ID = "cccccccc-0000-4000-8000-000000000001";
 const OTHER_WORLD_ID = "cccccccc-0000-4000-8000-000000000002";

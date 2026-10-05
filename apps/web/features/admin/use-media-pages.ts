@@ -1,6 +1,6 @@
 import type { AssetKind, Locale, MediaAsset } from "@kidlearn/types";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchMediaAssets } from "@/features/admin/admin-api";
+import { fetchMediaAssets } from "@/features/admin/media-api";
 
 /** Matches the server's default; a full page is how the client knows to offer more. */
 export const MEDIA_PAGE_SIZE = 100;

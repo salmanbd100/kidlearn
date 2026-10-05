@@ -11,12 +11,11 @@ import { isContentEditable, LOCALES } from "@kidlearn/types";
 import { Button, Label, Select } from "@kidlearn/ui";
 import { useEffect, useState } from "react";
 import {
-  fetchBadges,
   fetchLessons,
   fetchWorlds,
-  updateBadge,
   updateContent,
-} from "@/features/admin/admin-api";
+} from "@/features/admin/content-api";
+import { fetchBadges, updateBadge } from "@/features/admin/editors-api";
 import { optionValue } from "@/features/admin/select-option";
 
 /**

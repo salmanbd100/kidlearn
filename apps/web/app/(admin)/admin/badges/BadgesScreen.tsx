@@ -13,13 +13,13 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
+import type { ContentDraft } from "@/features/admin/content-api";
 import {
-  type ContentDraft,
   createBadge,
   fetchBadges,
   transitionEditorContent,
   updateBadge,
-} from "@/features/admin/admin-api";
+} from "@/features/admin/editors-api";
 import { BadgeForm } from "./BadgeForm";
 
 // `/admin/badges` — the badge manager (FR-GAM-04).

@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ActivityEditor } from "@/features/admin/ActivityEditor";
 import { emptyActivityDraft } from "@/features/admin/activity-draft";
-import { createActivity } from "@/features/admin/admin-api";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { createActivity } from "@/features/admin/editors-api";
 
 /** `/admin/curriculum/activity/new` — authoring an activity from nothing. */
 export function NewActivityScreen() {

@@ -4,8 +4,8 @@ import type { AdminWorld } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { fetchWorlds } from "@/features/admin/admin-api";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { fetchWorlds } from "@/features/admin/content-api";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 import { StoryMediaPanel } from "./StoryMediaPanel";
 

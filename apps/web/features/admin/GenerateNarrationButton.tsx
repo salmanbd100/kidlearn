@@ -3,7 +3,7 @@
 import type { NarrationEntity } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { useState } from "react";
-import { generateNarration } from "@/features/admin/admin-api";
+import { generateNarration } from "@/features/admin/ai-api";
 
 /**
  * "Generate narration" — the admin end of the text-to-speech pipeline

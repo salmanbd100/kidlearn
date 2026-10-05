@@ -13,9 +13,9 @@ import { cva } from "class-variance-authority";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Chip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { type AiJobFilters, fetchAiJobs } from "@/features/admin/admin-api";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { type AiJobFilters, fetchAiJobs } from "@/features/admin/ai-api";
 import { AI_JOB_TYPE_LABELS, formatRelativeAge } from "./job-labels";
 
 /**

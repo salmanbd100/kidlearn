@@ -15,8 +15,8 @@ import {
   Select,
 } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
-import { generateStory } from "@/features/admin/admin-api";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
+import { generateStory } from "@/features/admin/ai-api";
 
 /**
  * "Write this story for me" — the admin end of the AI Story Generator
