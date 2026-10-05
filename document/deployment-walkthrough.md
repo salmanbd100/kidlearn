@@ -189,8 +189,9 @@ DIRECT_URL="<your DIRECT_URL>" \
 pnpm --filter @kidlearn/db exec prisma migrate deploy
 ```
 
-Expect a list ending in `20260910000000_content_visibility_indexes_and_session_child_fk`
-and `All migrations have been successfully applied.`
+Expect a list ending in the newest directory under `packages/db/prisma/migrations/`
+(`ls packages/db/prisma/migrations | tail -2` shows it, above `migration_lock.toml`) and
+`All migrations have been successfully applied.`
 
 > **Never run `prisma migrate dev` against a deployed database.** It can wipe it.
 > `migrate deploy` only applies what is already committed.

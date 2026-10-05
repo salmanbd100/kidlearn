@@ -120,6 +120,30 @@ Service functions are plain async functions and must not import or reference Exp
 - `packages/db` owns both `DATABASE_URL` (pooled, port 6543, runtime) and `DIRECT_URL` (direct, port 5432, migrations). Apps never hold database credentials themselves.
 - Activity and quiz JSON payloads are stored as versioned `JSONB`. The schema for those payloads is defined once in `packages/types` and consumed by the frontend renderer, the backend validator, and the AI generation prompts. **[REVIEW]**
 
+### Migrations on tables that already hold rows
+
+`prisma migrate deploy` runs while the live API keeps serving, so a migration must not
+take a long lock on a table that has rows — `SessionEvent` and `QuizResponse` grow with
+every child at play. **[CI]** — `packages/db/src/migrations.test.ts` applies this to every
+migration after `20260912010000`.
+
+- **An index on an existing table is `CREATE INDEX CONCURRENTLY`, alone in its own
+  migration.** A plain `CREATE INDEX` blocks writes for the whole build. Prisma 6 does not
+  wrap a migration in a transaction, but Postgres runs a multi-statement script as one
+  implicit transaction, and `CONCURRENTLY` refuses to run inside one. Write it with
+  `prisma migrate dev --create-only` and edit the SQL.
+- **A foreign key added to an existing table is `NOT VALID`, then `VALIDATE CONSTRAINT`.**
+  `ADD CONSTRAINT … FOREIGN KEY` on its own scans every row under a lock that blocks
+  writes; `NOT VALID` is instant and `VALIDATE` checks the rows under a lock that does not.
+  This includes dropping and re-adding a key to change its `ON DELETE`.
+- A table created in the same migration is exempt — it has no rows to lock.
+- **Before a Prisma upgrade:** Prisma 8 runs a whole `migrate` in one transaction, which
+  no `CONCURRENTLY` survives. Re-read this rule as part of that upgrade.
+
+Three earlier migrations break this (`20260822010000`, `20260911000000`,
+`20260912010000`). They ran when the tables were small, and editing an applied migration
+changes its checksum, so they stay.
+
 ---
 
 ## 4. Content-Status Guard — Hard Rule
