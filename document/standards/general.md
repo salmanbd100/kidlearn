@@ -296,7 +296,7 @@ A reviewer is responsible for catching these. **They are mandatory — not optio
 | Semantic tokens only — no raw hex, brand hues, or Tailwind color literals in component code | frontend | CSS string values are not type-checked |
 | All user-facing strings via `i18next` — no hard-coded text | frontend | No static analysis for JSX string literals |
 | `'use client'` boundary placed as low as possible | frontend | Architectural judgment |
-| Component placed in the correct `packages/ui` layer (`primitives/`, `kid/`, `parent/`) | frontend | Requires understanding of surface assumptions |
+| Component placed where `frontend.md §1` puts it — `packages/ui/src/primitives/` only when two surfaces render it and it depends on nothing app-owned | frontend | Requires understanding of surface assumptions |
 | Design rules: touch targets, motion, accessibility — see `document/design.md §7, §5, §11` | frontend | Visual and accessibility review |
 | Service layer holds business logic; route handlers are thin | backend | Structural, not syntactic |
 | Zod validation present on every route that accepts user input | backend | Requires reading the full route |

@@ -25,7 +25,7 @@
 
 ## 1. `packages/ui` Component Architecture
 
-### Full intended structure
+### Structure
 
 ```
 packages/ui/src/
@@ -35,27 +35,34 @@ packages/ui/src/
 └── styles/         # tokens.css + theme blocks — CSS only, no TS
 ```
 
-`kid/` and `parent/` layers are described in the table below but do not exist
-yet, and nothing should be created there speculatively. A surface component
-earns promotion out of `apps/web` only once it has a second consumer **and**
-depends on nothing app-owned. `BigButton` and `IconTile` are the closest
-candidates and still fail the second test: both call `useAudio`, whose provider
-loads assets from `apps/web/public`.
+#### Recorded decision — `packages/ui` is the primitive layer, not a component library
 
-### Layer decision rules
+**Decided 2026-09-04 (improvement plan P1-4), confirmed 2026-10-05.** This section
+once specified `kid/` and `parent/` layers inside `packages/ui`. Nothing was ever
+placed there, and nothing should be: their only payoff is reuse by a second app,
+and [`mobile-app-plan.md §4.2`](../mobile-app-plan.md) rules that out — Radix
+primitives are DOM-bound and Tailwind's CSS variables do not exist in React
+Native, so the mobile app shares tokens, types and strings, not components.
 
-Use this table to decide where a new file goes. If it matches more than one row, use the most specific match.
+`packages/ui` therefore holds what is theme-agnostic and app-agnostic. A
+surface component lives in the app that renders it. It is promoted into
+`packages/ui/src/primitives/` only when a second surface renders it **and** it
+depends on nothing app-owned — `BigButton` and `IconTile` fail the second test,
+because both call `useAudio`, whose provider loads assets from `apps/web/public`.
 
-| Question | Layer |
+### Where a new file goes
+
+If it matches more than one row, use the first.
+
+| Question | Home |
 |---|---|
-| Is it a copied shadcn/ui primitive? | `primitives/` |
-| Does it work identically in both `kid` and `parent` themes with no surface assumptions? | `primitives/` |
-| Is it a game widget (balloon-pop, tracing, drag-drop matching, puzzle)? | `kid/` |
-| Is it a kid-portal-specific composed component (world map, reward ceremony, character selector)? | `kid/` |
-| Is it a parent-dashboard-specific component (stat card, weekly report card, data table)? | `parent/` |
-| Is it a React hook with no JSX? | `hooks/` |
-| Is it a pure function with no JSX? | `lib/` |
-| Is it a CSS variable declaration or theme block? | `styles/` |
+| Is it a copied shadcn/ui primitive, or a component both themes render with no surface assumptions? | `packages/ui/src/primitives/` |
+| Is it a React hook with no JSX and no app-owned dependency? | `packages/ui/src/hooks/` |
+| Is it a pure function with no JSX and no app-owned dependency? | `packages/ui/src/lib/` |
+| Is it a CSS variable declaration or theme block? | `packages/ui/src/styles/` |
+| Does one feature use it (a game widget, a stat card, a reward ceremony)? | `apps/web/features/<domain>/` |
+| Do two or more features use it on the kid surface? | `apps/web/shared/components/kid/` |
+| Do two or more features use it elsewhere? | `apps/web/shared/components/` |
 
 ### Rules that apply to every layer
 
@@ -68,7 +75,7 @@ Use this table to decide where a new file goes. If it matches more than one row,
 **Theme isolation**
 
 - Components never branch on theme in JavaScript (`if theme === 'kid'`). Theme is applied by `<ThemeScope theme="kid">` or `<ThemeScope theme="parent">` (`@kidlearn/ui`) on a layout boundary; token values cascade automatically. A hand-written `data-theme` div does not reach portalled dialogs and menus, which mount in `<body>`. **[REVIEW]**
-- `kid/` and `parent/` components compose from `primitives/` — they never duplicate primitive markup inline. **[REVIEW]**
+- Surface components compose from `packages/ui` primitives — they never duplicate primitive markup inline. **[REVIEW]**
 
 **Adding a shadcn component**
 
@@ -183,7 +190,7 @@ app/
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
-A layout file in `(student)` must never import components from `(parent)` or `(admin)`, and vice versa. Shared components live in `packages/ui`. **[REVIEW]**
+A layout file in `(student)` must never import components from `(parent)` or `(admin)`, and vice versa. What two groups share lives in `features/` or `shared/` — see §1 for when it goes further, into `packages/ui`. **[REVIEW]**
 
 ### Component files
 
@@ -234,7 +241,7 @@ Test rendered, observable output — not internal state or markup structure.
 
 Before considering frontend work complete:
 
-- [ ] Component sits in the correct `packages/ui` layer (`primitives/` / `kid/` / `parent/` / `hooks/` / `lib/` / `styles/`)
+- [ ] Component sits where §1's table puts it: a component two surfaces render, depending on nothing app-owned, belongs in `packages/ui/src/primitives/`; one a single surface renders stays in `apps/web`
 - [ ] Variants built with `cva` + `cn()` — no ad-hoc `className` concatenation
 - [ ] Semantic tokens only — no raw hex, brand hue names, or Tailwind color literals
 - [ ] No theme branching in JavaScript — `ThemeScope` on the layout boundary only
