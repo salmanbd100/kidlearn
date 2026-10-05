@@ -43,9 +43,12 @@ type ReportRow = {
   createdAt: Date;
 };
 
+type EventRow = { id: string; childId: string; occurredAt: Date };
+
 const store = vi.hoisted(() => ({
   children: [] as { id: string; createdAt: Date }[],
   reports: [] as unknown[],
+  events: [] as EventRow[],
 }));
 
 const db = vi.hoisted(() => ({
@@ -53,6 +56,7 @@ const db = vi.hoisted(() => ({
   reportFindMany: vi.fn(),
   reportUpsert: vi.fn(),
   sessionEventFindMany: vi.fn(),
+  sessionEventDeleteMany: vi.fn(),
   progressFindMany: vi.fn(),
   ledgerFindMany: vi.fn(),
   quizResponseFindMany: vi.fn(),
@@ -67,7 +71,10 @@ vi.mock("../../config/prisma.js", () => ({
     parent: { findUnique: db.parentFindUnique },
     childProfile: { findMany: db.childFindMany },
     weeklyReport: { findMany: db.reportFindMany, upsert: db.reportUpsert },
-    sessionEvent: { findMany: db.sessionEventFindMany },
+    sessionEvent: {
+      findMany: db.sessionEventFindMany,
+      deleteMany: db.sessionEventDeleteMany,
+    },
     lessonProgress: { findMany: db.progressFindMany },
     rewardLedger: { findMany: db.ledgerFindMany },
     quizResponse: { findMany: db.quizResponseFindMany },
@@ -94,13 +101,41 @@ function storedReport(childId: string, weekStart: string): ReportRow {
 beforeEach(() => {
   store.children = [];
   store.reports = [];
+  store.events = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
 
   db.childFindMany.mockImplementation(async () => store.children);
-  db.sessionEventFindMany.mockResolvedValue([]);
+  // Interprets the two queries this file sends: a report's per-child window,
+  // and retention's "older than the cutoff", in batches.
+  db.sessionEventFindMany.mockImplementation(
+    async ({
+      where,
+      take,
+    }: {
+      where: { childId?: string; occurredAt: { gte?: Date; lt: Date } };
+      take?: number;
+    }) =>
+      store.events
+        .filter(
+          (row) =>
+            (where.childId === undefined || row.childId === where.childId) &&
+            (where.occurredAt.gte === undefined ||
+              row.occurredAt >= where.occurredAt.gte) &&
+            row.occurredAt < where.occurredAt.lt,
+        )
+        .slice(0, take),
+  );
+  db.sessionEventDeleteMany.mockImplementation(
+    async ({ where }: { where: { id: { in: string[] } } }) => {
+      const doomed = new Set(where.id.in);
+      const before = store.events.length;
+      store.events = store.events.filter((row) => !doomed.has(row.id));
+      return { count: before - store.events.length };
+    },
+  );
   db.progressFindMany.mockResolvedValue([]);
   db.ledgerFindMany.mockResolvedValue([]);
   db.quizResponseFindMany.mockResolvedValue([]);
@@ -230,6 +265,7 @@ describe("POST /api/admin/jobs/weekly-reports — generation", () => {
       childrenProcessed: 3,
       childrenFailed: 0,
       weekStart: LAST_WEEK,
+      sessionEventsPruned: 0,
     });
     expect(store.reports).toHaveLength(3);
   });
@@ -403,6 +439,7 @@ describe("POST /api/admin/jobs/weekly-reports — closing older gaps", () => {
       childrenProcessed: 2,
       childrenFailed: 1,
       weekStart: LAST_WEEK,
+      sessionEventsPruned: 0,
     });
     // Says how many, never which: the secret is not a licence to read children.
     expect(res.text).not.toContain("child_1");
@@ -445,3 +482,66 @@ function weeksWritten(): string[] {
     .map((row) => row.weekStart.toISOString())
     .sort();
 }
+
+describe("POST /api/admin/jobs/weekly-reports — session event retention (R-25)", () => {
+  /** 90 days before `NOW`. */
+  const CUTOFF = new Date("2026-05-21T06:00:00.000Z");
+
+  function event(id: string, occurredAt: Date, childId = "child_1"): EventRow {
+    return { id, childId, occurredAt };
+  }
+
+  it("deletes events older than 90 days and keeps the rest", async () => {
+    store.events = [
+      event("old", new Date(CUTOFF.getTime() - 1)),
+      event("edge", CUTOFF),
+      event("recent", new Date("2026-08-12T04:00:00.000Z")),
+    ];
+
+    const res = await request(app)
+      .post(PATH)
+      .set("Authorization", `Bearer ${SECRET}`);
+
+    expect(res.status).toBe(200);
+    assertContract(WeeklyReportJobResponseSchema, res.body, OPERATION);
+    expect(res.body.data.sessionEventsPruned).toBe(1);
+    expect(store.events.map((row) => row.id)).toEqual(["edge", "recent"]);
+  });
+
+  it("works through a backlog in batches rather than one long delete", async () => {
+    const old = new Date("2026-01-01T00:00:00.000Z");
+    store.events = Array.from({ length: 12_000 }, (_, index) =>
+      event(`e${index}`, old),
+    );
+
+    const res = await request(app)
+      .post(PATH)
+      .set("Authorization", `Bearer ${SECRET}`);
+
+    expect(res.body.data.sessionEventsPruned).toBe(12_000);
+    expect(store.events).toHaveLength(0);
+    expect(db.sessionEventDeleteMany).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not backfill a week whose events have been pruned", async () => {
+    // Created in March, with no reports at all: the oldest missing week is in
+    // March, but its minutes are gone and a report would say the child never
+    // played. The oldest week still wholly kept starts Monday 25 May.
+    store.children = [child("child_1", new Date("2026-03-02T05:00:00.000Z"))];
+
+    await request(app).post(PATH).set("Authorization", `Bearer ${SECRET}`);
+
+    expect(weeksWritten()).toEqual(["2026-05-25T00:00:00.000Z", LAST_WEEK]);
+  });
+
+  it("answers 500 when pruning fails, so a growing table does not go unnoticed", async () => {
+    store.events = [event("old", new Date("2026-01-01T00:00:00.000Z"))];
+    db.sessionEventDeleteMany.mockRejectedValue(new Error("lock timeout"));
+
+    const res = await request(app)
+      .post(PATH)
+      .set("Authorization", `Bearer ${SECRET}`);
+
+    expect(res.status).toBe(500);
+  });
+});

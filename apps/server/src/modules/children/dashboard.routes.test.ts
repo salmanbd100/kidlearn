@@ -605,6 +605,55 @@ describe("GET /api/children/:id/dashboard — learning minutes", () => {
     });
   });
 
+  it("sums each window from one read of the events covering all three", async () => {
+    signInAs();
+    seedCurriculum();
+    // `n` beats 30s apart are `n * 0.5` minutes (see `seedMinutes`).
+    const beats = (startIso: string, count: number) =>
+      Array.from(
+        { length: count },
+        (_, index) => new Date(new Date(startIso).getTime() + index * 30_000),
+      );
+    store.events = [
+      ...beats("2026-07-20T04:00:00.000Z", 20), // last month — no window
+      ...beats("2026-08-05T04:00:00.000Z", 10), // this month only
+      ...beats("2026-08-17T04:00:00.000Z", 6), // this week (Monday)
+      ...beats("2026-08-19T05:00:00.000Z", 4), // today
+    ];
+
+    const res = await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
+
+    expect(res.body.data.learningMinutes).toEqual({
+      today: 2,
+      week: 5,
+      month: 10,
+    });
+    // R-25: one read, not one per window.
+    expect(db.sessionEventFindMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads from the week's start when the week began last month", async () => {
+    // Tuesday 1 September in Dhaka: the week began on Monday 31 August.
+    vi.setSystemTime(new Date("2026-09-01T06:00:00.000Z"));
+    signInAs();
+    seedCurriculum();
+    store.events = Array.from(
+      { length: 6 },
+      (_, index) =>
+        new Date(
+          new Date("2026-08-31T04:00:00.000Z").getTime() + index * 30_000,
+        ),
+    );
+
+    const res = await request(app).get(`/api/children/${CHILD_ID}/dashboard`);
+
+    expect(res.body.data.learningMinutes).toEqual({
+      today: 0,
+      week: 3,
+      month: 0,
+    });
+  });
+
   it("reports zero minutes for a child who has never opened the app", async () => {
     signInAs();
     seedCurriculum();

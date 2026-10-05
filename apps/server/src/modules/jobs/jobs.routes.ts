@@ -3,6 +3,7 @@ import { Router } from "express";
 import { ApiError, type SuccessEnvelope } from "../../shared/errors/errors.js";
 import { requireCronSecret } from "../../shared/middleware/require-cron-secret.js";
 import { generateLastCompletedWeekForAllChildren } from "../children/weekly-report.service.js";
+import { pruneSessionEvents } from "../progress/session-event-retention.service.js";
 
 /** `/api/admin/jobs` — the endpoints an external scheduler calls (file 30). */
 export const jobsRouter = Router();
@@ -17,8 +18,20 @@ jobsRouter.use(requireCronSecret);
  */
 let inFlight: Promise<WeeklyReportJobResult> | undefined;
 
+/**
+ * Retention rides on this run rather than a cron entry of its own: weekly is
+ * often enough, the scheduler and its heartbeat already exist, and pruning
+ * *after* the reports means the week just reported is read before anything
+ * is deleted.
+ */
+async function runWeeklyJob(): Promise<WeeklyReportJobResult> {
+  const reports = await generateLastCompletedWeekForAllChildren();
+  const sessionEventsPruned = await pruneSessionEvents();
+  return { ...reports, sessionEventsPruned };
+}
+
 function runWeeklyReportsOnce(): Promise<WeeklyReportJobResult> {
-  inFlight ??= generateLastCompletedWeekForAllChildren().finally(() => {
+  inFlight ??= runWeeklyJob().finally(() => {
     inFlight = undefined;
   });
   return inFlight;

@@ -27,6 +27,7 @@ import {
   publishedRelation,
 } from "../../shared/utils/published-for-child.js";
 import { computeLearningMinutes } from "../progress/learning-time.service.js";
+import { sessionEventRetentionCutoff } from "../progress/session-event-retention.service.js";
 import { STORY_COMPLETION } from "../rewards/reward.service.js";
 
 // The weekly progress report (FR-DASH-05..06).
@@ -501,6 +502,24 @@ function firstReportableWeek(createdAt: Date, timeZone: string): Date {
 }
 
 /**
+ * The oldest week whose events are all still kept. A missing week before it is
+ * left missing: its minutes were pruned, and a report written now would tell
+ * the parent the child did not play.
+ */
+export function oldestRetainedWeek(now: Date, timeZone: string): Date {
+  const cutoff = sessionEventRetentionCutoff(now);
+  const week = localDateToUtcMidnight(
+    mondayOfLocalWeek(localDateIn(timeZone, cutoff)),
+  );
+  if (weekBounds(week, timeZone).from.getTime() >= cutoff.getTime()) {
+    return week;
+  }
+  return localDateToUtcMidnight(
+    addLocalDays(week.toISOString().slice(0, 10), DAYS_PER_WEEK),
+  );
+}
+
+/**
  * Every report this child has, newest first, generating last week's if missing
  * (FR-DASH-06). The lazy fill is one week only — see the header.
  */
@@ -590,10 +609,15 @@ function oldestMissingWeek(
  * Brings every child's history up to date — what the cron job runs. Two weeks per
  * child at most: the last completed week always (the upsert is idempotent, and a
  * week that already has a row may still be missing a late event), plus the oldest
- * week still missing, so a single missed Monday does not leave a permanent hole.
+ * week still missing, so a single missed Monday does not leave a permanent hole —
+ * as long as it is filled inside the event retention window.
  */
-export async function generateLastCompletedWeekForAllChildren(): Promise<WeeklyReportJobResult> {
-  const lastWeek = lastCompletedWeekStart(new Date(), env.APP_TIMEZONE);
+export async function generateLastCompletedWeekForAllChildren(): Promise<
+  Omit<WeeklyReportJobResult, "sessionEventsPruned">
+> {
+  const now = new Date();
+  const lastWeek = lastCompletedWeekStart(now, env.APP_TIMEZONE);
+  const retainedFrom = oldestRetainedWeek(now, env.APP_TIMEZONE);
   const children = await prisma.childProfile.findMany({
     select: { id: true, createdAt: true },
   });
@@ -604,6 +628,8 @@ export async function generateLastCompletedWeekForAllChildren(): Promise<WeeklyR
   for (const child of children) {
     const firstWeek = firstReportableWeek(child.createdAt, env.APP_TIMEZONE);
     if (lastWeek.getTime() < firstWeek.getTime()) continue;
+    const backfillFrom =
+      firstWeek.getTime() > retainedFrom.getTime() ? firstWeek : retainedFrom;
 
     try {
       const existing = await prisma.weeklyReport.findMany({
@@ -612,7 +638,7 @@ export async function generateLastCompletedWeekForAllChildren(): Promise<WeeklyR
       });
       const present = new Set(existing.map((row) => row.weekStart.getTime()));
 
-      const gap = oldestMissingWeek(firstWeek, lastWeek, present);
+      const gap = oldestMissingWeek(backfillFrom, lastWeek, present);
       if (gap !== undefined) {
         await generateWeeklyReport(child.id, gap);
         weeksGenerated += 1;

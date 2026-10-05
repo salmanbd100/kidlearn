@@ -15,7 +15,7 @@ import {
   publishedRelationForChild,
   visibleLessonWhere,
 } from "../../shared/utils/published-for-child.js";
-import { getLearningMinutes } from "../progress/learning-time.service.js";
+import { getLearningMinutesForRanges } from "../progress/learning-time.service.js";
 import { STORY_COMPLETION } from "../rewards/reward.service.js";
 
 // The parent dashboard, in one read (FR-DASH-01..04).
@@ -227,18 +227,14 @@ export async function getDashboardSummary(
   };
 
   const [
-    minutesToday,
-    minutesWeek,
-    minutesMonth,
+    [minutesToday, minutesWeek, minutesMonth],
     totalsByTopic,
     topics,
     completedForProgress,
     lessonFeed,
     ledgerFeed,
   ] = await Promise.all([
-    getLearningMinutes(child.id, "today"),
-    getLearningMinutes(child.id, "week"),
-    getLearningMinutes(child.id, "month"),
+    getLearningMinutesForRanges(child.id, ["today", "week", "month"]),
 
     prisma.lesson.groupBy({
       by: ["topicId"],

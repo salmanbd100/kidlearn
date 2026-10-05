@@ -105,24 +105,45 @@ export async function getLearningMinutes(
   childId: string,
   range: LearningTimeRange,
 ): Promise<LearningTimeResponse> {
-  const { from, to } = learningTimeWindow(range, new Date(), env.APP_TIMEZONE);
+  const [result] = await getLearningMinutesForRanges(childId, [range]);
+  return result;
+}
+
+/**
+ * Several windows from one read: the events covering all of them are fetched
+ * once and each window is summed in memory. The parent dashboard asks for
+ * today, week and month together, and three reads would scan today's beats
+ * three times. Results come back in the order `ranges` was given.
+ */
+export async function getLearningMinutesForRanges(
+  childId: string,
+  ranges: readonly LearningTimeRange[],
+): Promise<LearningTimeResponse[]> {
+  const now = new Date();
+  const windows = ranges.map((range) => ({
+    range,
+    ...learningTimeWindow(range, now, env.APP_TIMEZONE),
+  }));
+  if (windows.length === 0) return [];
+
+  // The covering span, not the month alone: a week that began in last month
+  // starts before it.
+  const from = new Date(Math.min(...windows.map((w) => w.from.getTime())));
+  const to = new Date(Math.max(...windows.map((w) => w.to.getTime())));
 
   const events = await prisma.sessionEvent.findMany({
     where: { childId, occurredAt: { gte: from, lt: to } },
     select: { occurredAt: true },
     orderBy: { occurredAt: "asc" },
   });
+  const timestamps = events.map((event) => event.occurredAt);
 
-  return {
-    range,
-    minutes: computeLearningMinutes(
-      events.map((event) => event.occurredAt),
-      from,
-      to,
-    ),
-    from: from.toISOString(),
-    to: to.toISOString(),
-  };
+  return windows.map((window) => ({
+    range: window.range,
+    minutes: computeLearningMinutes(timestamps, window.from, window.to),
+    from: window.from.toISOString(),
+    to: window.to.toISOString(),
+  }));
 }
 
 /** Records one heartbeat and answers with the child's total for today. */

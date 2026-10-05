@@ -532,6 +532,13 @@ nobody. Set `/kidlearn/prod/WEEKLY_REPORTS_HEARTBEAT_URL` in SSM; unset, the scr
 says so on every run. The job is idempotent (an upsert per child per week), which is
 why the script retries once on a failed request.
 
+The same run then **deletes `SessionEvent` rows older than 90 days**, in batches of
+5,000, and reports the count as `sessionEventsPruned`. Each week's aggregate is kept
+in its `WeeklyReport`; the backfill never writes a week older than the retention
+window, because its minutes would read as zero. A failed prune fails the run like a
+failed report does. The first run against a long-lived database deletes the whole
+backlog — expect it to take longer than later runs.
+
 **Dev runs no scheduled jobs.** Trigger it by hand there when testing.
 
 ---

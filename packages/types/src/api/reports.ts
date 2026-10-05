@@ -97,6 +97,8 @@ export const WeeklyReportJobResultSchema = z
     /** Children whose generation threw. The route answers 500 when above zero. */
     childrenFailed: z.number().int().min(0),
     weekStart: IsoDateTimeSchema,
+    /** Raw session events past the retention window, deleted after the reports. */
+    sessionEventsPruned: z.number().int().min(0),
   })
   .strict();
 
