@@ -1,15 +1,15 @@
-import type { Language } from "@kidlearn/db";
+import type { Locale } from "../primitives.js";
 
-/** The two locales kidlearn ships (FR-I18N-01). Mirrors the Prisma `Language` enum. */
-export type Lang = Language;
-
+// Locale fallback for child-facing content (FR-I18N-01, FR-PROF-03), shared so
+// the API and the web app resolve a missing Bangla string the same way and
+// both can say which locale they ended up with.
 /**
  * Every child-facing string is guaranteed to exist in English; Bangla is
  * best-effort. So `en` is the one safe fallback — never the other direction.
  */
-export const FALLBACK_LANG = "en" as const satisfies Lang;
+export const FALLBACK_LOCALE = "en" as const satisfies Locale;
 
-export type LocalePick<T> = { value: T | null; locale: Lang };
+export type LocalePick<T> = { value: T | null; locale: Locale };
 
 /**
  * A blank string is a translation nobody has written yet, not one to serve: a
@@ -28,18 +28,18 @@ function isSupplied<T>(value: T | null | undefined): value is T {
  * language's copy).
  */
 export function pickLocale<T>(
-  map: Partial<Record<Lang, T | null>> | null | undefined,
-  lang: Lang,
+  map: Partial<Record<Locale, T | null>> | null | undefined,
+  lang: Locale,
 ): LocalePick<T> {
   const preferred = map?.[lang];
   if (isSupplied(preferred)) {
     return { value: preferred, locale: lang };
   }
-  const fallback = map?.[FALLBACK_LANG];
+  const fallback = map?.[FALLBACK_LOCALE];
   if (isSupplied(fallback)) {
-    return { value: fallback, locale: FALLBACK_LANG };
+    return { value: fallback, locale: FALLBACK_LOCALE };
   }
-  return { value: null, locale: FALLBACK_LANG };
+  return { value: null, locale: FALLBACK_LOCALE };
 }
 
 /**
@@ -49,11 +49,11 @@ export function pickLocale<T>(
  * This adapter turns such an array into the map `pickLocale` expects, so the
  * helper's signature and intent survive the schema change.
  */
-export function toLocaleMap<TRow extends { language: Lang }, TValue>(
+export function toLocaleMap<TRow extends { language: Locale }, TValue>(
   rows: readonly TRow[] | null | undefined,
   select: (row: TRow) => TValue | null | undefined,
-): Partial<Record<Lang, TValue | null>> {
-  const map: Partial<Record<Lang, TValue | null>> = {};
+): Partial<Record<Locale, TValue | null>> {
+  const map: Partial<Record<Locale, TValue | null>> = {};
   for (const row of rows ?? []) {
     map[row.language] = select(row) ?? null;
   }

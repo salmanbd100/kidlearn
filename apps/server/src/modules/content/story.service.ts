@@ -1,17 +1,15 @@
 import type { ChildProfile, MediaAsset, Prisma } from "@kidlearn/db";
-import type {
-  NarrationTimings,
-  StoryDetailResponse,
-  StorySummaryResponse,
+import {
+  type Locale,
+  type NarrationTimings,
+  NarrationTimingsSchema,
+  pickLocale,
+  type StoryDetailResponse,
+  type StorySummaryResponse,
+  toLocaleMap,
 } from "@kidlearn/types";
-import { NarrationTimingsSchema } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
-import {
-  type Lang,
-  pickLocale,
-  toLocaleMap,
-} from "../../shared/utils/locale.js";
 import {
   publishedForChild,
   publishedRelation,
@@ -33,11 +31,11 @@ type StoryWorld = {
   name: string;
   palette: Prisma.JsonValue;
   mascotAsset: MediaAsset | null;
-  translations?: { language: Lang; name: string }[];
+  translations?: { language: Locale; name: string }[];
 };
 
 type StoryTranslationRow = {
-  language: Lang;
+  language: Locale;
   title: string;
   moral: string | null;
   titleAudioAsset?: { url: string } | null;
@@ -93,7 +91,7 @@ function toNarrationTimings(value: Prisma.JsonValue): NarrationTimings | null {
  */
 function toWorldSummary(
   world: StoryWorld,
-  language: Lang,
+  language: Locale,
 ): StorySummaryResponse["world"] {
   return {
     id: world.id,
@@ -115,7 +113,7 @@ function toWorldSummary(
 }
 
 /** The child-facing title and which locale supplied it. */
-function pickTitle(story: StoryRow, language: Lang) {
+function pickTitle(story: StoryRow, language: Locale) {
   const picked = pickLocale(
     toLocaleMap(story.translations, (row) => row.title),
     language,
@@ -125,7 +123,7 @@ function pickTitle(story: StoryRow, language: Lang) {
 
 function toSummary(
   story: StoryRow & { _count: { pages: number } },
-  language: Lang,
+  language: Locale,
   isCompleted: boolean,
 ): StorySummaryResponse {
   const title = pickTitle(story, language);

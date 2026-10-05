@@ -39,6 +39,9 @@ export * from "./domain/concepts.js";
 // Server-derived learning time (file 27): the activity-event and range
 // vocabulary both halves of the wire share.
 export * from "./domain/learning-time.js";
+// Locale fallback (FR-I18N-01): the API and the web app pick a translation the
+// same way, English as the one safe fallback, and report which one they used.
+export * from "./domain/locale.js";
 // The lesson-flow vocabulary (file 16): step order, resume arithmetic, and the
 // two request contracts the player posts. Shared because the reducer in
 // `apps/web` and the monotonic guard in `apps/server` must walk the same array.

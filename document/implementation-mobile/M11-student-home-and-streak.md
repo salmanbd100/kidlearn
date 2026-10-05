@@ -104,7 +104,7 @@ export function WorldWaypoint({ world, locked, onPress }: WorldWaypointProps) {
 }
 ```
 
-`localizedLabel` should mirror `apps/web/lib/localized-label.ts` (`label[locale] ?? label.en`) — add it to `apps/mobile/lib/localized-label.ts` here, since every content screen from now on needs it. One line of logic, but three files would otherwise each grow their own fallback.
+`localizedLabel` wraps `pickLocale` from `@kidlearn/types` — the fallback the API and `apps/web/shared/lib/localized-label.ts` already share (English when Bangla is missing *or blank*) — in `apps/mobile/lib/localized-label.ts` here, since every content screen from now on needs it. Do not write the fallback again: it was written twice once and the two disagreed about blank strings.
 
 Orientation, handled once in the screen:
 

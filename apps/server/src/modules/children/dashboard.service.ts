@@ -3,11 +3,12 @@ import {
   type DashboardActivityItem,
   type DashboardData,
   type DashboardSubjectProgress,
+  type Locale,
   type LocalizedLabel,
   RECENT_ACTIVITY_LIMIT,
+  toLocaleMap,
 } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
-import { type Lang, toLocaleMap } from "../../shared/utils/locale.js";
 import {
   publishedForChild,
   publishedOnly,
@@ -31,7 +32,7 @@ export interface SubjectRef {
   /** The admin label — the fallback when no translation row exists at all. */
   name: string;
   sortOrder: number;
-  translations: readonly { language: Lang; name: string }[];
+  translations: readonly { language: Locale; name: string }[];
 }
 
 /** One topic and the subject it hangs off. `Lesson` carries no `subjectId`. */
@@ -140,14 +141,14 @@ export interface LessonActivityRow {
   lessonId: string;
   completedAt: Date;
   title: string;
-  translations: readonly { language: Lang; title: string }[];
+  translations: readonly { language: Locale; title: string }[];
 }
 
 export interface StoryActivityRow {
   storyId: string;
   completedAt: Date;
   title: string;
-  translations: readonly { language: Lang; title: string }[];
+  translations: readonly { language: Locale; title: string }[];
 }
 
 export interface BadgeActivityRow {
@@ -205,7 +206,7 @@ export function mergeActivity(
 }
 
 /** Both locales of a display string, from the row's translations. */
-function toLocalizedLabel<TRow extends { language: Lang }>(
+function toLocalizedLabel<TRow extends { language: Locale }>(
   translations: readonly TRow[] | undefined,
   fallback: string,
   select: (row: TRow) => string | null | undefined,

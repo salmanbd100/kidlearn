@@ -1,10 +1,10 @@
+import type { Locale } from "@kidlearn/types";
 import { fromNodeHeaders } from "better-auth/node";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { auth } from "../../config/auth.js";
 import { prisma } from "../../config/prisma.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import { isAdminSessionExpired } from "../../shared/middleware/require-admin.js";
-import type { Lang } from "../../shared/utils/locale.js";
 import { ContentIdParamsSchema } from "./content.schema.js";
 import { getLessonForPreview, type LessonDetail } from "./content.service.js";
 
@@ -69,6 +69,6 @@ async function findAdminForSession(req: Request) {
 }
 
 /** Which locale to render the preview in. */
-function previewLanguage(value: unknown): Lang {
+function previewLanguage(value: unknown): Locale {
   return value === "bn" ? "bn" : "en";
 }

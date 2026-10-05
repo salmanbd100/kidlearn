@@ -7,18 +7,16 @@ import type {
 import {
   type ActivityDefinition,
   type LessonAssetFallbacks,
+  type Locale,
+  type LocalePick,
+  pickLocale,
   type QuizQuestionDefinition,
   readActivityDefinition,
   readQuizQuestion,
+  toLocaleMap,
 } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
-import {
-  type Lang,
-  type LocalePick,
-  pickLocale,
-  toLocaleMap,
-} from "../../shared/utils/locale.js";
 import {
   isPublished,
   publishedForChild,
@@ -108,7 +106,7 @@ export type LessonDetail = {
   worldId: string;
   world: WorldSummary;
   /** Which locale supplied `introScript` — `videoUrl` falls back independently. */
-  locale: Lang;
+  locale: Locale;
   introScript: string | null;
   introAudioUrl: string | null;
   videoUrl: string | null;
@@ -140,7 +138,7 @@ export type LessonDetail = {
  * Whether an asset the child is about to receive came from English instead of
  * their own locale (FR-I18N-01).
  */
-function isSubstituted(pick: LocalePick<string>, requested: Lang): boolean {
+function isSubstituted(pick: LocalePick<string>, requested: Locale): boolean {
   return pick.value !== null && pick.locale !== requested;
 }
 
@@ -162,9 +160,9 @@ function discriminatorAgrees(
 
 /** The child-facing name of a curriculum row, in their language. */
 function pickName(
-  translations: readonly { language: Lang; name: string }[] | undefined,
+  translations: readonly { language: Locale; name: string }[] | undefined,
   fallbackLabel: string,
-  language: Lang,
+  language: Locale,
 ): string {
   return (
     pickLocale(
@@ -186,9 +184,9 @@ function toWorldSummary(
     palette: Prisma.JsonValue;
   } & {
     mascotAsset: MediaAsset | null;
-    translations?: { language: Lang; name: string }[];
+    translations?: { language: Locale; name: string }[];
   },
-  language: Lang,
+  language: Locale,
 ): WorldSummary {
   return {
     id: world.id,
@@ -270,9 +268,9 @@ function toTopicSummary(
     slug: string;
     name: string;
     sortOrder: number;
-    translations?: { language: Lang; name: string }[];
+    translations?: { language: Locale; name: string }[];
   },
-  language: Lang,
+  language: Locale,
 ): TopicSummary {
   return {
     id: topic.id,
@@ -289,9 +287,9 @@ function toLessonListItem(
     title: string;
     worldId: string;
     sortOrder: number;
-    translations?: { language: Lang; title: string }[];
+    translations?: { language: Locale; title: string }[];
   },
-  language: Lang,
+  language: Locale,
 ): LessonListItem {
   return {
     id: lesson.id,
@@ -414,7 +412,7 @@ export async function getLessonForChild(
  */
 export async function getLessonForPreview(
   lessonId: string,
-  language: Lang,
+  language: Locale,
   log: ContentLogger,
 ): Promise<LessonDetail> {
   const lesson = await findLessonRow({ id: lessonId });
@@ -451,7 +449,7 @@ type LessonRow = NonNullable<Awaited<ReturnType<typeof findLessonRow>>>;
 /** Turns one lesson row into the payload the player renders. */
 function toLessonDetail(
   lesson: LessonRow,
-  language: Lang,
+  language: Locale,
   log: ContentLogger,
   options: { isPreview: boolean },
 ): LessonDetail {
