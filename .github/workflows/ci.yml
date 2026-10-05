@@ -28,22 +28,26 @@ jobs:
     runs-on: ubuntu-latest
     # The four gates measure under a minute cold. This is a hang detector.
     timeout-minutes: 20
+    # Every action is pinned to a commit SHA, with its release in the trailing
+    # comment: a tag can be moved to new code by whoever controls the repo, and
+    # once file 38a gives a workflow AWS credentials that is a supply-chain
+    # path into production. Dependabot (.github/dependabot.yml) bumps both.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # Must precede setup-node: its pnpm cache resolves `pnpm store path`.
       # No `version` input — the action reads `packageManager` from package.json,
       # so the pinned pnpm version keeps exactly one home.
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           # File 46 replaces this with `node-version-file: .nvmrc`.
           node-version: 22
           cache: pnpm
 
       - name: Restore Turbo cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -105,7 +109,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage
           path: |
