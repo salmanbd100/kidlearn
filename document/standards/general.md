@@ -220,17 +220,23 @@ each test, and runs files one at a time. It refuses any database whose name does
 `src/shared/testing/factories.ts`. `pnpm test` excludes these files and still needs no
 database.
 
-**A new suite that touches the database is a `.db.test.ts`.** The exception below covers
-the stubbed suites that already exist, while they are ported.
+**A new suite that touches the database is a `.db.test.ts`.** The suites that stubbed
+`config/prisma.js` before the harness existed stay stubbed until they are next substantially
+changed; they cover routing, validation and response contracts, which a stub tests honestly.
+What a stub cannot prove — rows a status gate lets back, cascades, transaction isolation,
+unique constraints — lives in a `.db.test.ts` beside the stubbed suite (`content.service`,
+`story.service`, `child-profile.service`, `account-deletion.service`, `reward.service`). A
+change to one of those guarantees adds its proof there, not to the stub.
 
-#### Recorded exception — `apps/server` stubs `config/prisma.js` until the suites are ported
+#### Recorded exception — the stubbed suites still standing
 
-**Status: active as of 2026-08-05; the harness it waited for exists since 2026-10-05. Remove
-this section when the risk-ordered port (improvement tracker V1-P0-2b) is done — not before.**
+**Status: narrowed 2026-10-05.** From 2026-08-05 until the harness landed, every `apps/server`
+suite stubbed `config/prisma.js`; that was this section's exception, and its exit condition —
+port the suites whose guarantees a stub cannot express — is met by the five `.db.test.ts`
+files above. What remains is the stubbed suites themselves, kept rather than rewritten. Test
+comments cite the "stub exception" rules below by number; they still bind every stubbed suite.
 
-Until the test database existed, every route and service suite in `apps/server` stubbed `config/prisma.js` instead. This is a deliberate, documented deviation, not an oversight — recording it here is what keeps it from reading as an unnoticed violation on review.
-
-The deviation is bounded by four rules. A suite that breaks one of them is not covered by this exception:
+A stubbed suite is bounded by four rules:
 
 1. **Stub state, not answers.** The stub models the store — `children.test.ts` keeps an in-memory array; `parent.test.ts` applies Prisma's `{ increment: n }` to a row it carries across writes. A chain of one-shot `mockResolvedValue`s asserts nothing about behaviour and is not permitted.
 2. **Assert the query, not just the result.** A stubbed suite cannot show that a draft row stayed in the database, so it asserts the `where` clause that keeps it there. This is how the content-safety guard is testable at all before the harness exists — see `content.test.ts`.
@@ -239,7 +245,7 @@ The deviation is bounded by four rules. A suite that breaks one of them is not c
 
 **What this exception costs, so the cost is on the record:** two defects shipped through it in files 10–12 — a content-safety leak through `include`d relations, invisible to `where`-clause assertions, and a lost-update on the PIN counter that a fixed-row stub could not express. Rules 1, 3 and 4 above are the direct response. Rule 2 is not a substitute for the real thing; it is what is possible in the meantime.
 
-**Exit condition:** the suites whose guarantees a stub cannot express — content and story status gates, cascades, the reward ledger's unique grant — are ported to the harness (V1-P0-2b); then delete this section. Until then, an existing stubbed suite that grows must still cite this exception in its file-header comment, and a new suite is not stubbed at all.
+**Exit condition:** the last stubbed suite is ported or deleted. No new stubbed suite is written in the meantime.
 
 ### No snapshot tests
 

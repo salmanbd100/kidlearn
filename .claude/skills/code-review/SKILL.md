@@ -237,9 +237,11 @@ Always:
 - **`as` cast with no comment** explaining why narrowing is impossible (`general.md §2`).
 - **Testing rules** — the three `[REVIEW]` rules in `general.md §5` nothing else checks: tests
   co-located beside the file under test (no `__tests__/`); no snapshot tests; Prisma not mocked
-  except under the recorded exception. A suite using that exception is in scope for all four of
-  its bounding rules and the file-header comment citing it — a suite breaking one is **not
-  covered**, and that is a finding quoting the numbered rule. Test names describe observable
+  in a **new** suite — that is a `.db.test.ts` (`pnpm --filter server test:db`). An existing
+  stubbed suite is in scope for all four bounding rules of the recorded exception and the
+  file-header comment citing it — a suite breaking one is **not covered**, and that is a finding
+  quoting the numbered rule. A diff that changes a status gate, a cascade, a transaction or a
+  unique constraint with no `.db.test.ts` assertion for it is a finding: the stub cannot see it. Test names describe observable
   behaviour, not implementation.
 - **The progress tracker** — `general.md §7` makes it mandatory and tags it `[REVIEW]`: the row in
   `document/implementation/00-progress-tracker.md` for this branch's file reads `✅ Done` before
@@ -397,7 +399,9 @@ A migration is the one change that cannot be reverted by reverting the commit.
 - **Old code against new schema.** Containers roll over one at a time, so for a moment the
   previous release runs against the new schema. Does it survive?
 - **Backfill inside the migration** on a large table, holding a lock.
-- **Index creation** on a large table without `CONCURRENTLY` where the table is hot.
+- **Index creation** on a table with rows without `CONCURRENTLY`, or a foreign key added to one
+  without `NOT VALID` — `backend.md §3`; `packages/db/src/migrations.test.ts` catches the
+  common shapes, not every one.
 - **Schema and migration disagree** — an edit to `schema.prisma` with no migration, or a
   hand-edited migration already applied elsewhere (rewriting history).
 - **Cascades.** A new relation's `onDelete` against the deletion requirement: removing a parent
