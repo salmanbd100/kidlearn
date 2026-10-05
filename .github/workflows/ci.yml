@@ -28,6 +28,21 @@ jobs:
     runs-on: ubuntu-latest
     # The four gates measure under a minute cold. This is a hang detector.
     timeout-minutes: 20
+    # For `test:db` only — every other step still needs no database. The name
+    # must end in `_test`: the harness refuses anything else.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: kidlearn_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kidlearn_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     # Every action is pinned to a commit SHA, with its release in the trailing
     # comment: a tag can be moved to new code by whoever controls the repo, and
     # once file 38a gives a workflow AWS credentials that is a supply-chain
@@ -57,7 +72,7 @@ jobs:
 
       # Four separate steps, not one chained command: a failed step names itself
       # in the checks UI, which is the difference between "CI is red" and "types
-      # are broken". No `env:` block and no secrets — verified unnecessary in
+      # are broken". No secrets — verified unnecessary in
       # document/implementation/39-ci-pipeline-and-branch-protection.md.
       - run: pnpm lint
 
@@ -75,6 +90,13 @@ jobs:
       - run: pnpm test:coverage
         env:
           TURBO_CONCURRENCY: 1
+
+      # The real-database suites (`*.db.test.ts`): `prisma migrate deploy` into
+      # the service above, then every table truncated before each test.
+      - name: Database tests
+        run: pnpm --filter server test:db
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:password@localhost:5432/kidlearn_test
 
       # An escape hatch that has never been built is not an escape hatch — file 38
       # req 5. The frontend deploys to Vercel and nothing ever runs this image; no

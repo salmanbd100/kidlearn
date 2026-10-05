@@ -209,11 +209,26 @@ No separate `__tests__` directories. **[REVIEW]**
 
 Service tests and route integration tests run against a real test database. Do not mock Prisma. The lesson from `document/project-requirement-details.md §12` (assumption 8) applies: mock/real divergence masks broken migrations. The only permitted mocks are external network boundaries — AI generation APIs, text-to-speech APIs, media hosting APIs. **[REVIEW]**
 
-#### Recorded exception — `apps/server` stubs `config/prisma.js` until the test database lands
+#### The test-database harness
 
-**Status: active as of 2026-08-05. Remove this section the day the harness exists.**
+**Landed 2026-10-05 (improvement tracker V1-P0-2a).** A suite named `*.db.test.ts` runs
+against Postgres: `pnpm --filter server test:db` (CI runs it with a `postgres:16-alpine`
+service; locally, `docker compose up -d postgres`). `vitest.db.config.ts` applies the
+committed migrations with `prisma migrate deploy` once per run, truncates every table before
+each test, and runs files one at a time. It refuses any database whose name does not end in
+`_test`, so `TEST_DATABASE_URL` cannot be pointed at a real one by mistake. Build rows with
+`src/shared/testing/factories.ts`. `pnpm test` excludes these files and still needs no
+database.
 
-No test database is provisioned yet, so every route and service suite in `apps/server` stubs `config/prisma.js` instead. This is a deliberate, documented deviation, not an oversight — recording it here is what keeps it from reading as an unnoticed violation on review.
+**A new suite that touches the database is a `.db.test.ts`.** The exception below covers
+the stubbed suites that already exist, while they are ported.
+
+#### Recorded exception — `apps/server` stubs `config/prisma.js` until the suites are ported
+
+**Status: active as of 2026-08-05; the harness it waited for exists since 2026-10-05. Remove
+this section when the risk-ordered port (improvement tracker V1-P0-2b) is done — not before.**
+
+Until the test database existed, every route and service suite in `apps/server` stubbed `config/prisma.js` instead. This is a deliberate, documented deviation, not an oversight — recording it here is what keeps it from reading as an unnoticed violation on review.
 
 The deviation is bounded by four rules. A suite that breaks one of them is not covered by this exception:
 
@@ -224,7 +239,7 @@ The deviation is bounded by four rules. A suite that breaks one of them is not c
 
 **What this exception costs, so the cost is on the record:** two defects shipped through it in files 10–12 — a content-safety leak through `include`d relations, invisible to `where`-clause assertions, and a lost-update on the PIN counter that a fixed-row stub could not express. Rules 1, 3 and 4 above are the direct response. Rule 2 is not a substitute for the real thing; it is what is possible in the meantime.
 
-**Exit condition:** once the Vitest test-database harness exists, port these suites to it and delete this section. Until then, a new suite that stubs Prisma must cite this exception in its file-header comment.
+**Exit condition:** the suites whose guarantees a stub cannot express — content and story status gates, cascades, the reward ledger's unique grant — are ported to the harness (V1-P0-2b); then delete this section. Until then, an existing stubbed suite that grows must still cite this exception in its file-header comment, and a new suite is not stubbed at all.
 
 ### No snapshot tests
 

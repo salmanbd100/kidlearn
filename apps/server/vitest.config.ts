@@ -5,6 +5,8 @@ export default defineConfig({
     environment: "node",
     env: { TZ: "UTC" },
     include: ["src/**/*.test.ts"],
+    // The real-database suites run under `vitest.db.config.ts` (`pnpm test:db`).
+    exclude: ["**/node_modules/**", "src/**/*.db.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
     coverage: {
       provider: "v8",
