@@ -1,3 +1,16 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Every dependency more than one workspace declares, declared once. A manifest
+# names it as `catalog:`, so two packages cannot drift onto different versions
+# of zod or motion. Bump a version here, never in a package.json.
+catalog:
+  "@types/node": ^22.0.0
+  "@vitest/coverage-v8": ^4.1.11
+  class-variance-authority: ^0.7.1
+  lucide-react: ^0.469.0
+  motion: ^11.15.0
+  typescript: ^5
+  vitest: ^4.1.11
+  zod: ^3.24.0

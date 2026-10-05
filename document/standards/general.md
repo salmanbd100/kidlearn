@@ -51,6 +51,18 @@ All four packages — `ui`, `db`, `types`, `config` — have completed this chec
 - `packages/db` owns both `DATABASE_URL` (pooled, runtime) and `DIRECT_URL` (direct, migrations). Apps import `@kidlearn/db` — they never hold database credentials themselves.
 - Consuming apps copy the example: `cp packages/db/.env.example packages/db/.env`.
 
+### Dependency versions
+
+- A dependency more than one workspace declares is declared **once**, in the `catalog:` block of
+  `pnpm-workspace.yaml`, and each manifest names it as `"catalog:"`. Bump it there, never in a
+  `package.json`. A second workspace adding a dependency moves it into the catalog in the same
+  change. **[REVIEW]**
+- The Node major is pinned in three places that must agree: `.nvmrc` (developers and CI's
+  `setup-node`), `engines.node` in the root `package.json`, and the `FROM node:<major>` lines of
+  both Dockerfiles. `@types/node` in the catalog tracks the same major. **[REVIEW]**
+- Major upgrades follow the ladder in `improvement-plan.md` P2-3, one branch each — Dependabot
+  is configured to propose minors and patches only.
+
 ### Turborepo pipeline rule
 
 `typecheck` depends on `^build` — consuming packages must build before their dependents can typecheck. When you add a new inter-package dependency, add the corresponding `dependsOn` entry in `turbo.json` before the pipeline will resolve correctly.

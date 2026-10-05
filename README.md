@@ -71,7 +71,7 @@ kidlearn/
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) 22+
+- [Node.js](https://nodejs.org) 22 — the major in `.nvmrc` (`nvm use` picks it up); pnpm warns on any other, from `engines` in `package.json`
 - [pnpm](https://pnpm.io) 9+ — install with `npm install -g pnpm`
 - [Docker Desktop](https://docs.docker.com/desktop/) — runs the local PostgreSQL. You can point at a hosted Supabase instance instead, but Docker is the shortest path to a working checkout.
 
