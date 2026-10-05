@@ -85,7 +85,7 @@ These are the v1 findings still open. Each is bigger than one sitting; split the
 
 | # | ID | Item | Area | Depends on | Est. | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 33 | V1-P0-2a | Test-database harness: `globalSetup`, migrate, truncation, factories | server | — | 3–4h | ⬜ Not started | Was proposed file 42; also unblocks the Supertest flake fix |
+| 33 | V1-P0-2a | Test-database harness: `globalSetup`, migrate, truncation, factories | server | — | 3–4h | 🟨 In progress | `*.db.test.ts` under `vitest.db.config.ts` (`pnpm --filter server test:db`): `migrate deploy` once, one `TRUNCATE … CASCADE` of every table before each test, files serial; refuses a DB not named `*_test`. Factories for parent/session/child/curriculum. First proof: child deletion cascades and nulls the session pointer (R-07). `pnpm test` unchanged, still DB-free. CI: `postgres:16-alpine` service + a `Database tests` step — **not yet seen running in Actions.** Run locally against Postgres 16 (4 tests). Supertest flake not addressed. On `dev`, no PR yet |
 | 34 | V1-P0-2b | Port content-safety, cascade and reward-ledger suites to the real DB; split `progress.routes.test.ts` | server | V1-P0-2a | 4–6h | ⬜ Not started | Was proposed file 43 |
 | 35 | V1-P2-3 | pnpm catalog, `engines.node` + `.nvmrc`, `@types/node` to 22 | repo | — | 1–2h | ⬜ Not started | Upgrade ladder after V1-P0-2b |
 | 36 | V1-P2-2 | One locale-resolution function in `packages/types` | types, web, server | — | 1–2h | ⬜ Not started | |
