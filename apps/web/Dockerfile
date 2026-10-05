@@ -10,6 +10,7 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/
 COPY packages/i18n/package.json packages/i18n/
+COPY packages/tokens/package.json packages/tokens/
 COPY packages/types/package.json packages/types/
 COPY packages/ui/package.json packages/ui/
 COPY packages/config/package.json packages/config/

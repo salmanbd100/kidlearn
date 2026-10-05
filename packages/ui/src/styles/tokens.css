@@ -1,9 +1,13 @@
-/* kidlearn design tokens — single source of truth in code.
-   Mirrors document/design.md. Update design.md first, then this file. */
+/* kidlearn design tokens. The values come from @kidlearn/tokens
+   (packages/tokens/src/index.ts), which design.md's tables are tested against.
+   Every `@generated` region below is rewritten by
+   `pnpm --filter @kidlearn/ui tokens:generate` — edit the TypeScript, never a
+   region. Everything outside the regions is hand-written. */
 
 /* 1. Static design tokens ─────────────────────────────────────────────────── */
 @theme {
   /* Brand palette (raw) — decorative/game art only; UI uses semantic tokens. */
+  /* @generated:brand */
   --color-sky: #36b3f5;
   --color-grape: #8b5cf6;
   --color-sunshine: #ffc93c;
@@ -12,26 +16,33 @@
   --color-blossom: #d16cc9;
   --color-ink: #2b2a4a;
   --color-cream: #fffdf7;
+  /* @end:brand */
 
   /* Type scale (design.md §3.2). Tailwind's own `text-lg` is 1.125rem; kid
      surfaces may never go below 20px, so the default would break that rule on
      every kid button, input and label. */
+  /* @generated:type */
   --text-lg: 1.25rem;
   --text-lg--line-height: 1.4;
+  /* @end:type */
 
   /* Radius scale (design.md §4.2) */
+  /* @generated:radius */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
   --radius-xl: 28px;
   --radius-pill: 9999px;
+  /* @end:radius */
 
   /* Elevation (design.md §4.3) — soft, ink-tinted */
+  /* @generated:shadow */
   --shadow-sm: 0 1px 2px 0 rgb(43 42 74 / 0.06);
   --shadow-md: 0 4px 12px -2px rgb(43 42 74 / 0.12);
   --shadow-lg: 0 12px 32px -8px rgb(43 42 74 / 0.18);
   --shadow-pop:
     0 8px 0 0 rgb(54 179 245 / 0.16), 0 12px 24px -6px rgb(43 42 74 / 0.18);
+  /* @end:shadow */
 }
 
 /* 2. Per-theme semantic values ────────────────────────────────────────────── */
@@ -39,6 +50,7 @@
 /* Kid theme (default): bright, playful, rounded. design.md §2.2 */
 :root,
 [data-theme="kid"] {
+  /* @generated:kid */
   --background: #fffdf7;
   --foreground: #2b2a4a;
   --card: #ffffff;
@@ -62,16 +74,14 @@
   --border: #d6eefc;
   --input: #d6eefc;
   --ring: #36b3f5;
-  /* Decorative sweep across a surface — the puzzle tile's shine. Light on
-     the kid theme's cream ground; see design.md §2.2. */
   --shine: rgb(255 255 255 / 0.65);
-
-  /* base radius for this surface = rounded-lg (design.md §4.2) */
   --radius: var(--radius-lg);
+  /* @end:kid */
 }
 
 /* Parent / admin theme: calm, neutral, professional. design.md §2.2 */
 [data-theme="parent"] {
+  /* @generated:parent */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
@@ -96,17 +106,18 @@
   --input: #e2e8f0;
   --ring: #6366f1;
   --shine: rgb(255 255 255 / 0.55);
-
-  /* base radius for this surface = rounded-md */
   --radius: var(--radius-md);
+  /* @end:parent */
 }
 
 /* Motion tokens (design.md §5.1) — plain custom props, used via Motion / arbitrary values */
 :root {
+  /* @generated:motion */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-base: 220ms;
   --dur-slow: 400ms;
+  /* @end:motion */
 }
 
 /* Font families (design.md §3.1). The indirection is load-bearing: `@theme

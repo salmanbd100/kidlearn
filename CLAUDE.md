@@ -84,13 +84,14 @@ packages/
   types/      @kidlearn/types — versioned content payloads + HTTP contracts
   config/     @kidlearn/config — shared tsconfig bases, no source
   i18n/       @kidlearn/i18n — en/bn UI strings, namespaces, locale helpers (shared with mobile)
+  tokens/     @kidlearn/tokens — design-token values as TypeScript (shared with mobile)
 document/     design.md, project-requirement-details.md, key-description.md
 ```
 
 - **`apps/web`** — Next.js 16 App Router. `app/` is routing only; everything else lives in `features/<domain>/` (named after the server module) or `shared/{api,components,hooks,lib}/`. Path alias `@/*` maps to the app root; there are no barrel files, so imports name the file (`@/features/quiz/QuizEngine`). Tailwind v4 via `postcss.config.mjs` (no `tailwind.config`). Imports `@kidlearn/ui`. Read `apps/web/AGENTS.md` before writing Next.js code — v16 has breaking changes from prior versions.
 - **`apps/server`** — Express 5 ESM, port 4000. Imports `@kidlearn/db`. Copy `packages/db/.env.example` → `packages/db/.env` (Supabase connection strings) before running.
 - **`packages/db`** — Prisma 6 against Supabase PostgreSQL. Entry: `src/index.ts` exports `prisma` singleton + all Prisma types. Schema: `Parent` ↔ `Child[]`. Runtime uses the pooled `DATABASE_URL` (port 6543, `?pgbouncer=true`); migrations use `DIRECT_URL` (port 5432).
-- **`packages/ui`** — shadcn/ui "new-york" style. `src/primitives/` holds copied shadcn components (own the code — no upstream dependency). `src/styles/tokens.css` is the token contract. `src/lib/` is `cn()` plus the a11y preference store; `src/hooks/` is `useIsMotionReduced`. No build step — exports raw TypeScript via `exports` map.
+- **`packages/ui`** — shadcn/ui "new-york" style. `src/primitives/` holds copied shadcn components (own the code — no upstream dependency). `src/styles/tokens.css` is the token contract; its `@generated` regions come from `@kidlearn/tokens` — change a value in `packages/tokens/src/index.ts`, run `pnpm --filter @kidlearn/ui tokens:generate`, never edit a region by hand (a test fails if the two disagree, and another if `design.md`'s tables disagree with the TypeScript). `src/lib/` is `cn()` plus the a11y preference store; `src/hooks/` is `useIsMotionReduced`. No build step — exports raw TypeScript via `exports` map.
 
 ## Architecture
 
@@ -136,4 +137,4 @@ All content has a `status` field (`draft → in_review → approved/rejected →
 
 ## Workspace wiring
 
-New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. All five of `ui`, `db`, `types`, `config` and `i18n` are active workspaces.
+New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. All six of `ui`, `db`, `types`, `config`, `i18n` and `tokens` are active workspaces.

@@ -49,6 +49,10 @@ These are settled. Revisit only with a deliberate ADR-style note appended to thi
 
 ## 2. Color
 
+Every value in §2–§5 is also `packages/tokens/src/index.ts` — the machine-readable copy the
+web's `tokens.css` is generated from and the mobile app reads directly. A test fails when a
+value this document states exactly differs from it, so change both together.
+
 Colors are defined as CSS variables and consumed through the shadcn semantic contract
 (`--primary`, `--background`, …) plus a kidlearn brand palette. **Both themes implement
 the same variable names**, so any component built against the contract works in both.

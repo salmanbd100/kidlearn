@@ -19,6 +19,14 @@ Give `apps/mobile` the design system: a new `@kidlearn/tokens` workspace package
 
 ## Detailed Requirements
 
+> **Already done on the web side (improvement tracker V1-P2-1, 2026-10-05).** `@kidlearn/tokens`
+> exists: `brand`, `radius`, `shadow`, `motion`, `typeScale` and `themes.kid`/`themes.parent`
+> (`ThemeName`, `ThemeTokens`), with `design.test.ts` holding it to design.md and the web's
+> `tokens.css` generated from it. Requirements 1, 2 and 4 are met — read the values from the
+> package, not from the example below (its `primaryForeground: "#FFFFFF"` predates the switch
+> to ink). This file adds what only mobile needs: `spacing`, native `elevation`, the
+> phone/tablet `fontSize` pairs, and everything from requirement 5 on.
+
 1. **`packages/tokens` workspace package** named `@kidlearn/tokens`, no build step, exporting raw TypeScript through an `exports` map — the same pattern `packages/types` uses. Scripts: `typecheck`, `test`.
 2. **Semantic colour tokens.** Export `themes.kid` and `themes.parent` objects with one key per design.md §2.2 row: `background`, `foreground`, `card`, `cardForeground`, `popover`, `popoverForeground`, `primary`, `primaryForeground`, `secondary`, `secondaryForeground`, `accent`, `accentForeground`, `muted`, `mutedForeground`, `success`, `warning`, `destructive`, `border`, `input`, `ring`. Values copied verbatim from the design doc — no invented colours, no rounding of hex values.
 3. **Scale tokens.** `spacing` (4px grid, §4.1), `radius` (§4.2), `elevation` (§4.3, as an object per level with `ios` shadow props and `android` elevation), `motion` (§5.1 durations and easing names), `fontSize`/`lineHeight` (§3.2, with the phone and tablet value for display sizes since `clamp()` has no native equivalent).

@@ -61,6 +61,7 @@ kidlearn/
 │   ├── types/      # Shared Zod schemas — activity/quiz payloads + API contracts (src/api/)
 │   ├── db/         # Prisma schema + client (PostgreSQL)
 │   ├── i18n/       # en/bn UI strings — one copy for web and mobile
+│   ├── tokens/     # Design-token values — tokens.css is generated from them
 │   └── config/     # Shared TS configs
 ├── docker/         # Local Postgres init scripts
 └── document/       # Full requirements spec, design decisions, DB design

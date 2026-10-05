@@ -13,6 +13,8 @@ const PACKAGES = [
   "apps/web",
   "apps/server",
   "packages/db",
+  "packages/i18n",
+  "packages/tokens",
   "packages/types",
   "packages/ui",
 ];

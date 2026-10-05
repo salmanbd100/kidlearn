@@ -282,6 +282,24 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@22.20.5)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@22.20.5)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
 
+  packages/tokens:
+    devDependencies:
+      '@kidlearn/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(vitest@4.1.11)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@22.20.5)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.16(@types/node@22.20.5)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
+
   packages/types:
     dependencies:
       zod:
@@ -303,6 +321,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@kidlearn/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       '@radix-ui/react-dialog':
         specifier: ^1.1.23
         version: 1.1.23(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -358,6 +379,9 @@ importers:
       react-dom:
         specifier: ^19
         version: 19.2.4(react@19.2.4)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.22.4
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

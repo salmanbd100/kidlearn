@@ -58,6 +58,8 @@
       "Bash(pnpm --filter @kidlearn/db build)",
       "Bash(pnpm --filter @kidlearn/ui:*)",
       "Bash(pnpm --filter @kidlearn/types:*)",
+      "Bash(pnpm --filter @kidlearn/i18n:*)",
+      "Bash(pnpm --filter @kidlearn/tokens:*)",
       "Bash(pnpm turbo run:*)",
       "Bash(docker compose up -d postgres)",
       "Bash(docker compose ps)",
