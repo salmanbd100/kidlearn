@@ -89,7 +89,7 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
   return (
     <StepShell>
       <div className="relative w-full max-w-3xl overflow-hidden rounded-lg bg-muted">
-        {/* biome-ignore lint/a11y/useMediaCaption: captions are post-MVP and not in the master spec — file 17 "Out of Scope". */}
+        {/* biome-ignore lint/a11y/useMediaCaption: deferred, not dropped — the recorded exception in design.md §7. */}
         <video
           ref={videoRef}
           src={videoUrl}

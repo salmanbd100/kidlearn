@@ -58,9 +58,11 @@ export function routeToStatus(
   const queue: ContentStatus[] = [from];
   const seen = new Set<ContentStatus>([from]);
 
-  while (queue.length > 0) {
-    const current = queue.shift() as ContentStatus;
-
+  for (
+    let current = queue.shift();
+    current !== undefined;
+    current = queue.shift()
+  ) {
     for (const next of ALLOWED_TRANSITIONS[current]) {
       if (seen.has(next)) continue;
       seen.add(next);
@@ -68,9 +70,14 @@ export function routeToStatus(
 
       if (next === to) {
         const route: ContentStatus[] = [];
-        for (let at: ContentStatus = to; at !== from; ) {
+        // Every status reached has a `cameFrom` entry, so the walk ends at
+        // `from`; the `undefined` check only satisfies the type.
+        for (
+          let at: ContentStatus | undefined = to;
+          at !== undefined && at !== from;
+          at = cameFrom.get(at)
+        ) {
           route.unshift(at);
-          at = cameFrom.get(at) as ContentStatus;
         }
         return route;
       }

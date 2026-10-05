@@ -16,6 +16,8 @@ import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
  * accepts (see `generate-questions.ts`). Quoting only the format being asked for
  * also keeps the prompt a quarter of the size it would otherwise be.
  */
+// `Object.fromEntries` returns `Record<string, …>` whatever goes in; mapping the
+// entries of a `Record<QuizQuestionType, …>` keeps exactly its keys.
 export const QUIZ_QUESTION_JSON_SCHEMAS = Object.fromEntries(
   Object.entries(QUIZ_QUESTION_SCHEMAS).map(([type, schema]) => [
     type,

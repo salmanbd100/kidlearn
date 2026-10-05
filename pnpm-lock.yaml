@@ -199,9 +199,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.11
         version: 4.1.11(vitest@4.1.11)
-      dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
       prisma:
         specifier: ^6
         version: 6.19.3(typescript@5.9.3)

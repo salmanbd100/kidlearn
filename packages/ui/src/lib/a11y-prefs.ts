@@ -13,6 +13,8 @@ export type A11yPrefKey = keyof typeof A11Y_PREF_CLASSES;
 
 export type A11yPrefs = Record<A11yPrefKey, boolean>;
 
+// `Object.keys` is typed `string[]` because an object may carry extra keys at
+// runtime; this one is an `as const` literal that cannot.
 export const A11Y_PREF_KEYS = Object.keys(A11Y_PREF_CLASSES) as A11yPrefKey[];
 
 export const DEFAULT_A11Y_PREFS: A11yPrefs = {

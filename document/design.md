@@ -281,6 +281,17 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 - Decorative images `alt=""`; meaningful images get real localized alt text.
 - Respect `prefers-reduced-motion` and `prefers-color-scheme` (parent theme).
 
+> **Recorded exception — lesson videos have no captions.** *Recorded 2026-10-05 (improvement
+> plan R-32).* WCAG 1.2.2 (Captions, prerecorded) is Level A, so the AA target in §1 requires
+> them, and `VideoStep` ships none — file 17 put captions out of scope and the master spec does
+> not ask for them. The decision is to defer, not to drop: the audience is three to five and
+> mostly cannot read a caption, but a deaf or hard-of-hearing child still gets no way into the
+> video's words, and a parent watching along gets none either. What it takes: a
+> `captionsAssetId` per `LessonTranslation` (a WebVTT `MediaAsset`), a `<track kind="captions">`
+> in `VideoStep`, and captions in the AI review flow. **Exit condition:** that work lands, or
+> the product owner rules the AA claim in §1 does not cover video — either way, this note and the
+> `biome-ignore` in `VideoStep.tsx` change with it.
+
 ---
 
 ## 8. Component architecture

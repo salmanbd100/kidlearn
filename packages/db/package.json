@@ -39,7 +39,6 @@
     "@kidlearn/types": "workspace:*",
     "@types/node": "^20",
     "@vitest/coverage-v8": "^4.1.11",
-    "dotenv": "^17.4.2",
     "prisma": "^6",
     "tsx": "^4",
     "typescript": "^5",
