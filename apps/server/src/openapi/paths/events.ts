@@ -16,9 +16,9 @@ type _ActivityTypesExistInPrisma = ActivityEventType extends SessionEventType
 const _activityTypesAreRealEvents: _ActivityTypesExistInPrisma = true;
 void _activityTypesAreRealEvents;
 
-const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
-  "No active child profile on this session. Call `POST /api/children/{id}/activate` first — time is recorded against a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.",
-  ["FORBIDDEN"],
+const FORBIDDEN_RESPONSE = errorResponse(
+  "`FORBIDDEN` — no active child profile on this session. Call `POST /api/children/{id}/activate` first — time is recorded against a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.\n\n`CONSENT_REQUIRED` — the parent has never accepted the consent text, or accepted only an older version (FR-AUTH-03). Nothing is recorded until they accept it again through `POST /api/parent/consent`.",
+  ["FORBIDDEN", "CONSENT_REQUIRED"],
 );
 
 /** Same reasoning as the content API's `404`: an event must not be recordable against content the child cannot open. */
@@ -62,7 +62,7 @@ export const EVENTS_ROUTES: RouteDoc[] = [
           "HeartbeatResponse",
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -100,7 +100,7 @@ export const EVENTS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": REF_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },

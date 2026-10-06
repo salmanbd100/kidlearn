@@ -308,6 +308,7 @@ export const AUTH_ME_EXAMPLE = {
       avatarUrl:
         "https://lh3.googleusercontent.com/a/ACg8ocKq1x2v3w4y5z6a7b8c9d0e1f2g3h4i5j6=s96-c",
       consentGivenAt: "2026-02-11T09:02:44.118Z",
+      hasCurrentConsent: true,
     },
     // Null until `POST /api/children/{id}/activate`; `/api/content/*` answers 403 while it is.
     activeChildProfileId: CHILD_ID,

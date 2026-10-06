@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireActiveChild } from "../shared/middleware/require-active-child.js";
+import { requireConsent } from "../shared/middleware/require-consent.js";
 import { adminRouter } from "./admin/admin.routes.js";
 import { charactersRouter } from "./characters/characters.routes.js";
 import { childrenRouter } from "./children/children.routes.js";
@@ -32,11 +33,26 @@ apiRouter.use(
   contentRouter,
 );
 
-// Same guards: progress belongs to the active child resolved server-side, so no request body names whose.
-apiRouter.use("/progress", requireParent, requireActiveChild, progressRouter);
+// Progress belongs to the active child resolved server-side, so no request body names whose. Consent is checked on
+// every request, not just at profile creation: these writes grow the child's record, and a bumped `CONSENT_VERSION`
+// must stop that until the parent accepts the new text (FR-AUTH-03). `/content`, `/me` and `/screen-time` stay
+// ungated: they only read what is already held, and blocking them would strand a child mid-session for no gain.
+apiRouter.use(
+  "/progress",
+  requireParent,
+  requireConsent,
+  requireActiveChild,
+  progressRouter,
+);
 
 // Same guards: a heartbeat is about the session's child; no body can name whose time is recorded (FR-TIME-06).
-apiRouter.use("/events", requireParent, requireActiveChild, eventsRouter);
+apiRouter.use(
+  "/events",
+  requireParent,
+  requireConsent,
+  requireActiveChild,
+  eventsRouter,
+);
 
 // Same guards: "me" is the session's child, so no path names whose rewards are read.
 apiRouter.use("/me", requireParent, requireActiveChild, meRouter);

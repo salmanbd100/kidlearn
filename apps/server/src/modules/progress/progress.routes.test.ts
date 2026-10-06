@@ -8,6 +8,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ChildProfile, LessonProgress, Parent } from "@kidlearn/db";
 import {
+  CONSENT_VERSION,
   LessonCompletionResponseSchema,
   LessonProgressReadResponseSchema,
   LessonProgressResponseSchema,
@@ -209,8 +210,9 @@ const PARENT: Parent = {
   email: SESSION_USER.email,
   name: SESSION_USER.name,
   avatarUrl: null,
-  consentGivenAt: null,
-  consentVersion: null,
+  // Consented to the current text: `requireConsent` guards this mount.
+  consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
+  consentVersion: CONSENT_VERSION,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -603,6 +605,20 @@ describe("progress route guards", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 CONSENT_REQUIRED, and records nothing, when consent is to an older text", async () => {
+    signInAs(childProfile());
+    db.parentFindUnique.mockResolvedValue({
+      ...PARENT,
+      consentVersion: "2020-01-v0",
+    });
+
+    const res = await postStep("intro", false);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("CONSENT_REQUIRED");
     expect(db.transaction).not.toHaveBeenCalled();
   });
 

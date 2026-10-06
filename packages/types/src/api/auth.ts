@@ -11,6 +11,11 @@ export const ParentSummarySchema = z
     avatarUrl: z.string().url().nullable(),
     /** `null` until the parent accepts COPPA consent (FR-AUTH-03). */
     consentGivenAt: IsoDateTimeSchema.nullable(),
+    /**
+     * Whether the consent on record is to the current text. `false` once `CONSENT_VERSION` moves on, even with
+     * `consentGivenAt` set — the parent must accept again before a child's data is recorded.
+     */
+    hasCurrentConsent: z.boolean(),
   })
   .strict();
 

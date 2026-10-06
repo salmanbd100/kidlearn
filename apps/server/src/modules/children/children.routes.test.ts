@@ -677,7 +677,7 @@ describe("POST /api/children", () => {
       expect(res.body).toEqual({
         error: {
           code: "CONSENT_REQUIRED",
-          message: "Parental consent is required before adding a child",
+          message: "Parental consent to the current terms is required",
         },
       });
       expect(state.children).toHaveLength(0);

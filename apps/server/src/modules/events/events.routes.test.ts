@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import {
   ActivityEventResponseSchema,
+  CONSENT_VERSION,
   HeartbeatResponseSchema,
   LearningTimeReadResponseSchema,
 } from "@kidlearn/types";
@@ -76,8 +77,9 @@ const PARENT: Parent = {
   email: SESSION_USER.email,
   name: SESSION_USER.name,
   avatarUrl: null,
-  consentGivenAt: null,
-  consentVersion: null,
+  // Consented to the current text: `requireConsent` guards this mount.
+  consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
+  consentVersion: CONSENT_VERSION,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -205,6 +207,20 @@ describe("POST /api/events/heartbeat", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(store.events).toHaveLength(0);
+  });
+
+  it("returns 403 CONSENT_REQUIRED, and records nothing, when consent is to an older text", async () => {
+    signInAs(childProfile());
+    db.parentFindUnique.mockResolvedValue({
+      ...PARENT,
+      consentVersion: "2020-01-v0",
+    });
+
+    const res = await postHeartbeat();
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("CONSENT_REQUIRED");
     expect(store.events).toHaveLength(0);
   });
 
