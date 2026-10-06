@@ -14,8 +14,8 @@ Run from the repo root:
 pnpm install          # install all workspaces (pnpm 9)
 pnpm dev              # turbo run dev — starts web (port 3000) + server (port 4000) together
 pnpm build            # turbo run build — caches .next/** and dist/**
-pnpm lint             # biome check .        — lint + format-check + import sort (no writes)
-pnpm format           # biome check --write . — apply Biome fixes
+pnpm lint             # biome check . + prisma format --check — lint, format-check, import sort (no writes)
+pnpm format           # biome check --write . + prisma format — apply the fixes
 pnpm typecheck        # turbo run typecheck  — runs tsc --noEmit per package
 ```
 

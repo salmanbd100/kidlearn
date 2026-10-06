@@ -101,6 +101,11 @@ describe("per-child uniqueness", () => {
     );
   });
 
+  it("requires a ledger row's sourceId, so its idempotency key cannot hold a NULL", () => {
+    // Postgres treats NULLs as distinct in a unique index: a NULL `sourceId` would escape the once-only grant.
+    expect(field("RewardLedger", "sourceId")).not.toContain("String?");
+  });
+
   it("holds one streak and one screen-time setting per child", () => {
     expect(field("Streak", "childId")).toContain("@unique");
     expect(field("ScreenTimeSetting", "childId")).toContain("@unique");
@@ -180,6 +185,15 @@ describe("indexes on the columns the read paths filter by", () => {
     ["SessionEvent", "@@index([childId, occurredAt])"],
     ["RewardLedger", "@@index([childId, createdAt])"],
     ["QuizResponse", "@@index([childId, answeredAt])"],
+    // Publish guards match payload asset URLs with `url IN (...)`.
+    ["MediaAsset", "@@index([url])"],
+    // The AI review gate finds rows by the job that wrote them.
+    ["MediaAsset", "@@index([aiJobId])"],
+    ["Lesson", "@@index([aiJobId])"],
+    ["Activity", "@@index([aiJobId])"],
+    ["Quiz", "@@index([aiJobId])"],
+    ["QuizQuestion", "@@index([aiJobId])"],
+    ["Story", "@@index([aiJobId])"],
   ])("indexes %s on %s", (model, index) => {
     expect(modelBlock(model).join("\n")).toContain(index);
   });

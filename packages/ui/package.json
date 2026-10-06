@@ -27,7 +27,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "catalog:",
     "motion": "catalog:",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^3.7.0"
   },
   "peerDependencies": {
     "react": "^19",
