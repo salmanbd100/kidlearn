@@ -4,11 +4,11 @@ import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type { TraceActivity as TraceDefinition } from "@kidlearn/types";
 import { useEffect, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { oopsAudioUrl } from "@/shared/components/kid/feedback-audio";
 import { ActivityUnavailable } from "./ActivityUnavailable";
 import type { ActivityRendererProps } from "./registry";
 import { arrowsAlong, type Point, toPathUnits } from "./trace/geometry";
 import { useTraceState } from "./trace/use-trace-state";
-import { oopsAudioUrl } from "./use-activity-feedback";
 
 const OUTLINE_WIDTH = 11;
 const INK_WIDTH = 7;

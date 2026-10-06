@@ -18,8 +18,8 @@ import { cva } from "class-variance-authority";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useActivitySensors } from "@/features/activities/use-activity-sensors";
-import { useTapToPlace } from "@/features/activities/use-tap-to-place";
+import { useActivitySensors } from "@/shared/hooks/use-activity-sensors";
+import { useTapToPlace } from "@/shared/hooks/use-tap-to-place";
 import type { QuestionProps } from "./types";
 import {
   BLANK_DROPPABLE_ID,

@@ -99,7 +99,7 @@ export function WorldWaypoint({ world, onPress }: WorldWaypointProps) {
 }
 ```
 
-World, topic and lesson names arrive already localised, so this screen does not need it — but `localizedLabel` wraps `pickLocale` from `@kidlearn/types` (the fallback the API and `apps/web/shared/lib/localized-label.ts` already share: English when Bangla is missing *or blank*) in `apps/mobile/lib/localized-label.ts`, shipped here for the content payloads that do carry locale maps (quiz prompts, activity text). Do not write the fallback again: it was written twice once and the two disagreed about blank strings.
+World, topic and lesson names arrive already localised, so this screen does not need it — but `localizedLabel` wraps `pickLocale` from `@kidlearn/types` (the fallback the API and `apps/web/features/children/localized-label.ts` already share: English when Bangla is missing *or blank*) in `apps/mobile/lib/localized-label.ts`, shipped here for the content payloads that do carry locale maps (quiz prompts, activity text). Do not write the fallback again: it was written twice once and the two disagreed about blank strings.
 
 Orientation, handled once in the screen:
 

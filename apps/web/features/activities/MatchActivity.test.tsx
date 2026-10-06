@@ -9,12 +9,12 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
+import { usePairing } from "@/shared/hooks/use-pairing";
+import { NOT_QUITE_MS } from "@/shared/hooks/use-wiggle";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { evaluatePair } from "./evaluate";
 import { MatchActivity } from "./MatchActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
-import { usePairing } from "./use-pairing";
-import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
  * Tap rules are driven through `usePairing` directly; jsdom does no layout, so connecting lines are

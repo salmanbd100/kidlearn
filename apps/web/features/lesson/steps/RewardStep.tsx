@@ -9,7 +9,6 @@ import { motion } from "motion/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback";
 import {
   COIN_COUNT_DURATION_MS,
   CoinCountUp,
@@ -20,6 +19,7 @@ import { completeLesson } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BadgeReveal } from "@/shared/components/kid/BadgeReveal";
 import { BigButton } from "@/shared/components/kid/BigButton";
+import { randomCheerAudioUrl } from "@/shared/components/kid/feedback-audio";
 import { unlockNames } from "@/shared/lib/unlock-names";
 import type { LessonStepProps } from "./lesson-step-props";
 

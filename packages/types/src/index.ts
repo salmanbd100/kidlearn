@@ -26,6 +26,7 @@ export * from "./api/rewards.js";
 export * from "./api/screen-time.js";
 export * from "./api/stories.js";
 export * from "./domain/badges.js";
+export * from "./domain/children.js";
 export * from "./domain/concepts.js";
 export * from "./domain/learning-time.js";
 export * from "./domain/locale.js";

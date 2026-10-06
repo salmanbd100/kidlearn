@@ -10,7 +10,7 @@ import { cva } from "class-variance-authority";
 import { Award, BookOpen, BookText, Sprout } from "lucide-react";
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { pickLabel } from "@/shared/lib/localized-label";
+import { pickLabel } from "@/features/children/localized-label";
 import { formatAbsolute, formatRelative } from "@/shared/lib/relative-time";
 
 const ACTIVITY_ICONS: Record<

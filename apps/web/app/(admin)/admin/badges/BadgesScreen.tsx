@@ -11,8 +11,6 @@ import {
   DialogTitle,
 } from "@kidlearn/ui";
 import { useCallback, useEffect, useState } from "react";
-import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
 import type { ContentDraft } from "@/features/admin/content-api";
 import {
   createBadge,
@@ -20,6 +18,8 @@ import {
   transitionEditorContent,
   updateBadge,
 } from "@/features/admin/editors-api";
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 import { BadgeForm } from "./BadgeForm";
 
 type DialogState =

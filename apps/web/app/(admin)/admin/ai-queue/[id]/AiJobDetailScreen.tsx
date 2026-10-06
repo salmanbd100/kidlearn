@@ -11,12 +11,12 @@ import {
   decisionLabel,
   formatRelativeAge,
 } from "@/app/(admin)/admin/ai-queue/job-labels";
-import { Chip, StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { approveAiJob, fetchAiJob, rejectAiJob } from "@/features/admin/ai-api";
 import { JsonInspector } from "@/features/admin/JsonInspector";
 import { RejectDialog } from "@/features/admin/RejectDialog";
+import { Chip, StatusChip } from "@/features/admin/StatusChip";
 
 export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   const [job, setJob] = useState<AiJobDetail>();

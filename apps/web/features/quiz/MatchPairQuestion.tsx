@@ -12,12 +12,12 @@ import { cva } from "class-variance-authority";
 import Image from "next/image";
 import { useCallback, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { pairCardClass } from "@/features/activities/pair-colours";
-import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback";
-import { type PairSide, usePairing } from "@/features/activities/use-pairing";
-import { isWiggling, useWiggle } from "@/features/activities/use-wiggle";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { randomCheerAudioUrl } from "@/shared/components/kid/feedback-audio";
+import { pairCardClass } from "@/shared/components/kid/pair-colours";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
+import { type PairSide, usePairing } from "@/shared/hooks/use-pairing";
+import { isWiggling, useWiggle } from "@/shared/hooks/use-wiggle";
 import type { QuestionProps, QuizAnswerValue } from "./types";
 
 const matchCardVariants = cva(

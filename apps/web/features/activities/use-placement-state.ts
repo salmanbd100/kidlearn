@@ -3,9 +3,9 @@
 import type { ClientRect, DragEndEvent } from "@dnd-kit/core";
 import type { DragDropActivity } from "@kidlearn/types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWiggle, type WiggleRequest } from "@/shared/hooks/use-wiggle";
 import { evaluateDrop, isActivityComplete, type PlacedItems } from "./evaluate";
 import type { ActivityFeedback } from "./use-activity-feedback";
-import { useWiggle, type WiggleRequest } from "./use-wiggle";
 
 export interface PlacementState {
   placed: PlacedItems;
