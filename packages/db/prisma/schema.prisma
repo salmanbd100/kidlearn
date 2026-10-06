@@ -113,6 +113,8 @@ model MediaAsset {
   characterAssets        Character[]               @relation("CharacterAsset")
 
   @@index([kind, createdAt])
+  @@index([aiJobId])
+  @@index([url])
 }
 
 model World {
@@ -238,6 +240,7 @@ model Lesson {
   @@index([worldId])
   @@index([status])
   @@index([gradeLevels], type: Gin)
+  @@index([aiJobId])
 }
 
 model LessonTranslation {
@@ -285,6 +288,8 @@ model Activity {
   aiJob         AIGenerationJob?      @relation(fields: [aiJobId], references: [id])
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
+
+  @@index([aiJobId])
 }
 
 model ActivityTranslation {
@@ -308,6 +313,8 @@ model Quiz {
   aiJob     AIGenerationJob? @relation(fields: [aiJobId], references: [id])
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+
+  @@index([aiJobId])
 }
 
 model QuizQuestion {
@@ -324,6 +331,7 @@ model QuizQuestion {
   responses     QuizResponse[]
 
   @@unique([quizId, sortOrder])
+  @@index([aiJobId])
 }
 
 model QuizQuestionTranslation {
@@ -358,6 +366,7 @@ model Story {
 
   @@index([status, worldId])
   @@index([gradeLevels], type: Gin)
+  @@index([aiJobId])
 }
 
 model StoryTranslation {

@@ -180,6 +180,15 @@ describe("indexes on the columns the read paths filter by", () => {
     ["SessionEvent", "@@index([childId, occurredAt])"],
     ["RewardLedger", "@@index([childId, createdAt])"],
     ["QuizResponse", "@@index([childId, answeredAt])"],
+    // Publish guards match payload asset URLs with `url IN (...)`.
+    ["MediaAsset", "@@index([url])"],
+    // The AI review gate finds rows by the job that wrote them.
+    ["MediaAsset", "@@index([aiJobId])"],
+    ["Lesson", "@@index([aiJobId])"],
+    ["Activity", "@@index([aiJobId])"],
+    ["Quiz", "@@index([aiJobId])"],
+    ["QuizQuestion", "@@index([aiJobId])"],
+    ["Story", "@@index([aiJobId])"],
   ])("indexes %s on %s", (model, index) => {
     expect(modelBlock(model).join("\n")).toContain(index);
   });
