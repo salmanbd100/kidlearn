@@ -61,10 +61,8 @@ pnpm test
 to fix it or open the PR anyway with the failure stated in the description. Do not open a PR
 that silently claims green.
 
-Known flake: `apps/server`'s Supertest suites time out intermittently under load, which is why
-`gates` is not yet a required check (`CLAUDE.md` → CI). If a server suite times out, re-run that
-package's suite alone once — `pnpm --filter server test` — before treating it as a real failure.
-If it passes alone, say so in the PR rather than hiding it.
+`apps/server`'s old Supertest socket flake is fixed, so a red server suite is a real failure until
+proven otherwise.
 
 ---
 

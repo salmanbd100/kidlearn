@@ -30,16 +30,14 @@ has the originals. Only unfinished work is listed below.
 | 38 · code | `38-deployment-aws-docker.md` | The repository half: both Dockerfiles (`kidlearn-api` + `kidlearn-migrate` targets, web escape hatch), `deploy/` (Caddy edge, per-env Compose, bootstrap/deploy/backup/weekly-reports scripts), `trust proxy`, the `SITE_NOINDEX` header, `apps/web/proxy.ts` basic auth, the CI escape-hatch build, `runbook.md` and the walkthrough | §9, NFR-PERF-02, NFR-PERF-04 | 16, 29, 37, 37a | ~2h | ✅ Done — verified locally: both images build for `linux/arm64` and their containers answer (`/health` 200, `/docs` 404, Prisma's arm64 engine present) |
 | 38 · provisioning | `38-deployment-aws-docker.md` + `document/deployment-walkthrough.md` | Frontend on Vercel (two Hobby projects); both APIs on one EC2 `t4g.small` (`ap-south-1`) behind Caddy: prod on `api.kidlearn.net` + Supabase, dev on `api.dev.kidlearn.net` + a Postgres container. SSM secrets, Cloudflare DNS, per-env Cloudinary/Gemini — ~$13.73/month | §9, NFR-PERF-02, NFR-PERF-04 | 38 · code | 6–8h | ⬜ Not started — no AWS, Vercel, Cloudflare or Supabase resource exists, so file 38's acceptance criteria are unmet and `runbook.md` is a plan rather than a record. Done when walkthrough A1–B7 and Part C are executed and every acceptance criterion is ticked |
 | 38a | `38a-github-actions-continuous-deployment.md` | API deploys only (Vercel ships the frontend): `dev` → api.dev.kidlearn.net, `main` → api.kidlearn.net. Per-environment OIDC roles (no stored AWS keys), native arm64 build → ECR, `promotion-guard` on `main`, health-gated SSM rollout, rollback by env + image tag | §9 | 38 · provisioning, 39 | 3–4h | ⬜ Not started |
-| 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions gates (lint → build → typecheck → test), pnpm + Turbo caching, coverage reporting, `gates` required on `main` and `dev` | — (makes `general.md §6`'s `[CI]` tier real) | — | 2–3h | 🟨 In progress — pipeline landed and green (#45). Requirement 10 (added 2026-09-10) extends the triggers to `dev`, which had gone unchecked through #46, #47 and #49 — on `39-…-fix-2`, verified by that branch's own PR into `dev`. The ruleset rule is still pending on the Supertest flake |
+| 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions gates (lint → build → typecheck → test), pnpm + Turbo caching, coverage reporting, `gates` required on `main` and `dev` | — (makes `general.md §6`'s `[CI]` tier real) | — | 2–3h | 🟨 In progress — pipeline landed and green (#45); requirement 10's `dev` triggers merged in #50. The Supertest flake that blocked the ruleset is fixed (`fcb8fa4`). All that is left is the ruleset itself: neither existing ruleset requires a status check, so `gates` must be added as one on `main` and `dev` |
 
 ### Open follow-up fixes
 
 `general.md §7` sends a bug found while implementing one file to its own branch rather than the
 current one. Closed entries are removed; they live in git history.
 
-| Branch | What | Found by | Status |
-| --- | --- | --- | --- |
-| Supertest listener lifecycle in `apps/server` (no branch yet) | `request(app)` binds a fresh ephemeral listener per call, so under load the suite churns ports faster than the OS retires them. **Eleven** files have failed this way across ~40 runs with four signatures: `socket hang up`, `Parse Error: Expected HTTP/`, `Test timed out in 5000ms`, and assertions on a body that never arrived. Each passes 8/8 in isolation. `TURBO_CONCURRENCY=1` does **not** fix it (3 runs in 6 serialised). The fix is one listener per file rather than per request; the real-database suites (`*.db.test.ts`) replace part of that suite, so it belongs with them. **This is what blocks making `gates` a required status check.** | File 39 | ⬜ Not started |
+None open.
 
 ---
 
@@ -60,7 +58,7 @@ These are fixed across all implementation files so chunks stay consistent:
 - **Media:** Cloudinary free tier (images, audio, short video).
 - **Publishing rule:** every content row carries `status` (`draft → in_review → approved/rejected → published`); student-facing queries filter `status = published` — always, at the query layer.
 - **Server-authoritative:** rewards, streaks, screen time, completion are computed server-side; the client only reports events.
-- **CI (from file 39):** `.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every PR and every push to either long-lived branch (`main`, `dev`). A PR is not done until it is green (`gh pr checks`). The test step is serialised (`TURBO_CONCURRENCY=1`) because five concurrent Vitest instances oversubscribe a 4-core runner — not as a flake fix; `apps/server`'s Supertest suites still fail intermittently at the socket level, which is why `gates` is not a required check yet. See file 39's Context. Coverage is reported, never gated on a threshold.
+- **CI (from file 39):** `.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every PR and every push to either long-lived branch (`main`, `dev`). A PR is not done until it is green (`gh pr checks`). The test step is serialised (`TURBO_CONCURRENCY=1`) because five concurrent Vitest instances oversubscribe a 4-core runner — not as a flake fix. The Supertest socket flake is fixed: `apps/server/src/shared/testing/request.ts` shares one listener per app. `gates` is still not a required check until the ruleset rule lands. Coverage is reported, never gated on a threshold.
 
 ## Working Agreement
 
