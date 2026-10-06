@@ -511,7 +511,7 @@ model RewardLedger {
   rewardType RewardType
   amount     Int
   sourceType String
-  sourceId   String?
+  sourceId   String
   badgeId    String?
   badge      Badge?       @relation(fields: [badgeId], references: [id])
   createdAt  DateTime     @default(now())

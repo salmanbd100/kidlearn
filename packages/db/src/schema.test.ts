@@ -101,6 +101,11 @@ describe("per-child uniqueness", () => {
     );
   });
 
+  it("requires a ledger row's sourceId, so its idempotency key cannot hold a NULL", () => {
+    // Postgres treats NULLs as distinct in a unique index: a NULL `sourceId` would escape the once-only grant.
+    expect(field("RewardLedger", "sourceId")).not.toContain("String?");
+  });
+
   it("holds one streak and one screen-time setting per child", () => {
     expect(field("Streak", "childId")).toContain("@unique");
     expect(field("ScreenTimeSetting", "childId")).toContain("@unique");
