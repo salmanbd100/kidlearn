@@ -44,6 +44,8 @@ const db = vi.hoisted(() => ({
   eventCreate: vi.fn(),
   eventFindFirst: vi.fn(),
   eventFindMany: vi.fn(),
+  eventCount: vi.fn(),
+  screenTimeSettingFindUnique: vi.fn(),
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -56,12 +58,17 @@ vi.mock("../../config/prisma.js", () => ({
       create: db.eventCreate,
       findFirst: db.eventFindFirst,
       findMany: db.eventFindMany,
+      count: db.eventCount,
     },
+    screenTimeSetting: { findUnique: db.screenTimeSettingFindUnique },
   },
 }));
 
 const { app } = await import("../../app.js");
 const { auth } = await import("../../config/auth.js");
+const { CLIENT_EVENTS_PER_MINUTE } = await import(
+  "../progress/session-event.service.js"
+);
 
 const SESSION_USER = {
   id: "user_1",
@@ -182,6 +189,27 @@ beforeEach(() => {
         .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())
         .map((row) => ({ occurredAt: row.occurredAt })),
   );
+
+  db.eventCount.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: {
+        childId: string;
+        type: { not: string };
+        occurredAt: { gte: Date };
+      };
+    }) =>
+      events().filter(
+        (row) =>
+          row.childId === where.childId &&
+          row.type !== where.type.not &&
+          row.occurredAt >= where.occurredAt.gte,
+      ).length,
+  );
+
+  // No limit configured unless a test sets one, so the screen-time gate stays open.
+  db.screenTimeSettingFindUnique.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -388,6 +416,49 @@ describe("POST /api/events/activity", () => {
 
     // One 160s sitting + 30s tail = 3 minutes; without the middle event they are two 1-minute sittings.
     expect(res.body.data.minutesToday).toBe(3);
+  });
+
+  it("answers 429, and records nothing, once a child has posted a minute's worth of milestones", async () => {
+    signInAs(childProfile());
+    for (let n = 0; n < CLIENT_EVENTS_PER_MINUTE; n += 1) {
+      const ok = await postActivity({ type: "lesson_start", refId: LESSON_ID });
+      expect(ok.status).toBe(201);
+    }
+
+    const res = await postActivity({ type: "lesson_start", refId: LESSON_ID });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe("RATE_LIMITED");
+    expect(store.events).toHaveLength(CLIENT_EVENTS_PER_MINUTE);
+  });
+
+  it("lets the budget refill once the minute has passed", async () => {
+    signInAs(childProfile());
+    for (let n = 0; n < CLIENT_EVENTS_PER_MINUTE; n += 1) {
+      await postActivity({ type: "lesson_start", refId: LESSON_ID });
+    }
+
+    setNow("2026-08-18T09:01:00.001Z");
+    const res = await postActivity({ type: "lesson_start", refId: LESSON_ID });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("refuses a story_start, and records nothing, while the screen-time gate is shut", async () => {
+    signInAs(childProfile());
+    db.screenTimeSettingFindUnique.mockResolvedValue({
+      id: "setting_1",
+      childId: CHILD_ID,
+      dailyLimitMinutes: 0,
+      windowStart: null,
+      windowEnd: null,
+    });
+
+    const res = await postActivity({ type: "story_start", refId: STORY_ID });
+
+    expect(res.status).toBe(423);
+    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
+    expect(store.events).toHaveLength(0);
   });
 
   it("rejects a type outside the five surface milestones", async () => {

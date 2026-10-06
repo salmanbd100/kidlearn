@@ -103,6 +103,7 @@ describe("GET /api/auth/me", () => {
           name: SESSION_USER.name,
           avatarUrl: null,
           consentGivenAt: null,
+          hasCurrentConsent: false,
         },
         activeChildProfileId: null,
       },
@@ -161,6 +162,7 @@ describe("GET /api/auth/me", () => {
       "avatarUrl",
       "consentGivenAt",
       "email",
+      "hasCurrentConsent",
       "id",
       "name",
     ]);

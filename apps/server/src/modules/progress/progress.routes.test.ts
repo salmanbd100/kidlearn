@@ -133,6 +133,8 @@ const db = vi.hoisted(() => ({
   progressCreate: vi.fn(),
   progressUpdate: vi.fn(),
   sessionEventCreate: vi.fn(),
+  sessionEventFindFirst: vi.fn(),
+  sessionEventCount: vi.fn(),
   quizResponseCreateMany: vi.fn(),
   quizResponseFindMany: vi.fn(),
   ledgerFindMany: vi.fn(),
@@ -171,7 +173,11 @@ vi.mock("../../config/prisma.js", () => ({
       create: db.progressCreate,
       update: db.progressUpdate,
     },
-    sessionEvent: { create: db.sessionEventCreate },
+    sessionEvent: {
+      create: db.sessionEventCreate,
+      findFirst: db.sessionEventFindFirst,
+      count: db.sessionEventCount,
+    },
     quizResponse: {
       createMany: db.quizResponseCreateMany,
       findMany: db.quizResponseFindMany,
@@ -254,8 +260,19 @@ function postStep(step: string, completed: boolean, lessonId = LESSON_ID) {
     .send({ step, completed });
 }
 
+/** Steps must be reported in order, so reaching `reward` means walking every step before it. */
+async function playThroughQuiz(lessonId = LESSON_ID) {
+  for (const step of ["intro", "video", "activity", "quiz"] as const) {
+    await postStep(step, false, lessonId);
+  }
+}
+
 function progressRows(): ProgressRow[] {
   return store.progressRows as ProgressRow[];
+}
+
+function events(): EventRow[] {
+  return store.events as EventRow[];
 }
 
 function currentRow(lessonId = LESSON_ID): ProgressRow {
@@ -354,6 +371,34 @@ beforeEach(() => {
       store.events.push(row);
       return row;
     },
+  );
+
+  db.sessionEventFindFirst.mockImplementation(
+    async ({ where }: { where: { childId: string; type: string } }) =>
+      events()
+        .filter(
+          (row) => row.childId === where.childId && row.type === where.type,
+        )
+        .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())[0] ??
+      null,
+  );
+
+  db.sessionEventCount.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: {
+        childId: string;
+        type: { not: string };
+        occurredAt: { gte: Date };
+      };
+    }) =>
+      events().filter(
+        (row) =>
+          row.childId === where.childId &&
+          row.type !== where.type.not &&
+          row.occurredAt >= where.occurredAt.gte,
+      ).length,
   );
 
   db.quizResponseCreateMany.mockImplementation(
@@ -682,6 +727,7 @@ describe("POST /api/progress/lessons/:id/step", () => {
 
   it("stamps completedAt when the reward step is reported complete", async () => {
     signInAs(childProfile());
+    await playThroughQuiz();
 
     const res = await postStep("reward", true);
 
@@ -691,6 +737,7 @@ describe("POST /api/progress/lessons/:id/step", () => {
 
   it("keeps the original completedAt when a finished lesson is replayed", async () => {
     signInAs(childProfile());
+    await playThroughQuiz();
     await postStep("reward", true);
     const firstCompletion = currentRow().completedAt;
 
@@ -699,6 +746,41 @@ describe("POST /api/progress/lessons/:id/step", () => {
 
     // A child re-watching something must not move the date they first finished it.
     expect(currentRow().completedAt).toEqual(firstCompletion);
+  });
+
+  it("answers 409 STEP_OUT_OF_ORDER, and writes nothing, for a first report past the intro", async () => {
+    signInAs(childProfile());
+
+    const res = await postStep("activity", false);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STEP_OUT_OF_ORDER");
+    expect(db.progressCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a jump of more than one step past the furthest reached", async () => {
+    signInAs(childProfile());
+    await postStep("intro", false);
+
+    const res = await postStep("activity", false);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STEP_OUT_OF_ORDER");
+    expect(currentRow().currentStep).toBe("intro");
+  });
+
+  it("records a server-stamped beat on a step report, so minutes do not rest on the client's heartbeats", async () => {
+    signInAs(childProfile());
+
+    await postStep("intro", false);
+
+    expect(events()).toEqual([
+      expect.objectContaining({
+        childId: CHILD_ID,
+        type: "heartbeat",
+        payload: { source: "server", activity: "lesson_step" },
+      }),
+    ]);
   });
 
   it("rejects completed: true on any step but the reward", async () => {
@@ -1424,6 +1506,7 @@ describe("GET /api/progress/lessons/:id", () => {
 
   it("serialises completedAt as an ISO string, not a Date", async () => {
     signInAs(childProfile());
+    await playThroughQuiz();
     await postStep("reward", true);
 
     const res = await request(app).get(`/api/progress/lessons/${LESSON_ID}`);

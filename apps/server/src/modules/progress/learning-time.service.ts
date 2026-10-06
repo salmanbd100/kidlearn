@@ -32,7 +32,6 @@ export const LEARNING_TIME_GAP_MS = 90_000;
 /** What the last event of a sitting is worth on its own. */
 export const LEARNING_TIME_TAIL_MS = 30_000;
 
-
 export function computeLearningMinutes(
   timestamps: Date[],
   from: Date,

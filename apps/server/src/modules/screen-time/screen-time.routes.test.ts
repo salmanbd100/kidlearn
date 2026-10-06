@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import {
+  CONSENT_VERSION,
   ScreenTimeSettingResponseSchema,
   ScreenTimeStatusResponseSchema,
 } from "@kidlearn/types";
@@ -101,7 +102,7 @@ const PARENT: Parent = {
   name: SESSION_USER.name,
   avatarUrl: null,
   consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
-  consentVersion: "1.0",
+  consentVersion: CONSENT_VERSION,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
