@@ -1,20 +1,23 @@
-FROM node:22-bookworm-slim AS base
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+# Pinned by digest as well as exact version, like apps/server/Dockerfile;
+# Dependabot moves both together.
+FROM node:22.23.3-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS base
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    PNPM_HOME=/pnpm
+ENV PATH="${PNPM_HOME}:${PATH}"
 RUN corepack enable
 WORKDIR /repo
 
-FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Same reasoning as apps/server/Dockerfile: a server-only change no longer
+# invalidates the install layer. Keep the version in step with pnpm-lock.yaml.
+FROM base AS prune
+RUN npm install -g turbo@2.9.18
+COPY . .
+RUN turbo prune web --docker
 
-COPY apps/server/package.json apps/server/
-COPY apps/web/package.json apps/web/
-COPY packages/db/package.json packages/db/
-COPY packages/i18n/package.json packages/i18n/
-COPY packages/tokens/package.json packages/tokens/
-COPY packages/types/package.json packages/types/
-COPY packages/ui/package.json packages/ui/
-COPY packages/config/package.json packages/config/
-RUN pnpm install --frozen-lockfile
+FROM base AS deps
+COPY --from=prune /repo/out/json/ ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile
 
 FROM deps AS build
 
@@ -29,7 +32,7 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
     SITE_NOINDEX=${SITE_NOINDEX} \
     NEXT_TELEMETRY_DISABLED=1
 
-COPY . .
+COPY --from=prune /repo/out/full/ ./
 
 RUN pnpm turbo run build --filter=web
 
