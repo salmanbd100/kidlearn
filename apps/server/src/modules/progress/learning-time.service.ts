@@ -16,7 +16,15 @@ import {
   mondayOfLocalWeek,
 } from "../../shared/utils/local-date.js";
 import { requireVisibleStoryId } from "../content/story.service.js";
+import {
+  evaluateStartForChild,
+  screenTimeBlockedError,
+} from "../screen-time/screen-time.service.js";
 import { requireVisibleLessonId } from "./lesson-progress.service.js";
+import {
+  assertWithinClientEventBudget,
+  recordBeatUnlessRecent,
+} from "./session-event.service.js";
 
 /** Longer than this between two events and the child had walked away: a new sitting. */
 export const LEARNING_TIME_GAP_MS = 90_000;
@@ -24,8 +32,6 @@ export const LEARNING_TIME_GAP_MS = 90_000;
 /** What the last event of a sitting is worth on its own. */
 export const LEARNING_TIME_TAIL_MS = 30_000;
 
-/** Beats closer together than this are dropped. */
-export const HEARTBEAT_MIN_INTERVAL_MS = 20_000;
 
 export function computeLearningMinutes(
   timestamps: Date[],
@@ -129,24 +135,9 @@ export async function getLearningMinutesForRanges(
 export async function recordHeartbeat(
   child: ChildProfile,
 ): Promise<HeartbeatResponse> {
-  const previous = await prisma.sessionEvent.findFirst({
-    where: { childId: child.id, type: "heartbeat" },
-    orderBy: { occurredAt: "desc" },
-    select: { occurredAt: true },
-  });
-
-  const isTooSoon =
-    previous !== null &&
-    Date.now() - previous.occurredAt.getTime() < HEARTBEAT_MIN_INTERVAL_MS;
-
-  if (!isTooSoon) {
-    await prisma.sessionEvent.create({
-      data: { childId: child.id, type: "heartbeat" },
-    });
-  }
-
+  const recorded = await recordBeatUnlessRecent(child.id);
   const { minutes } = await getLearningMinutes(child.id, "today");
-  return { recorded: !isTooSoon, minutesToday: minutes };
+  return { recorded, minutesToday: minutes };
 }
 
 export async function recordActivityEvent(
@@ -159,6 +150,15 @@ export async function recordActivityEvent(
   const refId = isStoryEvent
     ? await requireVisibleStoryId(child, report.refId)
     : await requireVisibleLessonId(child, report.refId);
+
+  // A `story_start` is the evidence a story completion is paid against, and a recent one exempts that completion from the
+  // screen-time gate; recording one while the gate is shut would manufacture that exemption.
+  if (report.type === "story_start") {
+    const decision = await evaluateStartForChild(child.id, undefined);
+    if (!decision.allowed) throw screenTimeBlockedError(decision);
+  }
+
+  await assertWithinClientEventBudget(child.id);
 
   const payload: Prisma.InputJsonObject = { refId };
 

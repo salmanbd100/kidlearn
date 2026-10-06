@@ -25,6 +25,10 @@ import {
   evaluateStartForChild,
   screenTimeBlockedError,
 } from "../screen-time/screen-time.service.js";
+import {
+  assertWithinClientEventBudget,
+  recordServerObservedBeat,
+} from "./session-event.service.js";
 
 /** Position in the ordered flow. `-1` for a value outside it, which cannot occur. */
 function stepIndex(step: LessonStep): number {
@@ -33,6 +37,29 @@ function stepIndex(step: LessonStep): number {
 
 function laterStep(a: LessonStep, b: LessonStep): LessonStep {
   return stepIndex(a) >= stepIndex(b) ? a : b;
+}
+
+/**
+ * How far one report may move `currentStep`. `next` is the player's own pace — one step past the last finished, so a client cannot
+ * post `activity` into a fresh row and be paid for a lesson it never played. `completion` is `completeLesson`'s report, which may
+ * cross the quiz: that report is sent as the reward step mounts and may have been dropped.
+ */
+type StepAdvance = "next" | "completion";
+
+function assertReachable(
+  existing: LessonStep | null,
+  reported: LessonStep,
+  advance: StepAdvance,
+): void {
+  if (advance === "completion") return;
+  // A re-post of a passed step is a retry or a replay and stays a no-op, so only a forward jump is refused.
+  const furthest = existing === null ? 0 : stepIndex(existing) + 1;
+  if (stepIndex(reported) > furthest) {
+    throw ApiError.conflict("Lesson steps must be reported in order", {
+      code: "STEP_OUT_OF_ORDER",
+      currentStep: existing,
+    });
+  }
 }
 
 export async function requireVisibleLessonId(
@@ -60,17 +87,30 @@ export async function getLessonProgress(
   });
 }
 
-export async function reportLessonStep(
+export function reportLessonStep(
   child: ChildProfile,
   lessonId: string,
   report: LessonStepReport,
 ): Promise<LessonProgress> {
+  return writeLessonStep(child, lessonId, report, "next");
+}
+
+async function writeLessonStep(
+  child: ChildProfile,
+  lessonId: string,
+  report: LessonStepReport,
+  advance: StepAdvance,
+): Promise<LessonProgress> {
   const visibleLessonId = await requireVisibleLessonId(child, lessonId);
 
   await assertMayOpenLesson(child.id, visibleLessonId);
+  await recordServerObservedBeat(
+    child.id,
+    advance === "completion" ? "lesson_complete" : "lesson_step",
+  );
 
   return withSerializationRetry(() =>
-    reportLessonStepOnce(child.id, visibleLessonId, report),
+    reportLessonStepOnce(child.id, visibleLessonId, report, advance),
   );
 }
 
@@ -96,12 +136,15 @@ function reportLessonStepOnce(
   childId: string,
   lessonId: string,
   report: LessonStepReport,
+  advance: StepAdvance,
 ): Promise<LessonProgress> {
   return prisma.$transaction(
     async (tx) => {
       const existing = await tx.lessonProgress.findUnique({
         where: { childId_lessonId: { childId, lessonId } },
       });
+
+      assertReachable(existing?.currentStep ?? null, report.step, advance);
 
       const currentStep =
         existing === null
@@ -133,10 +176,12 @@ export async function completeLesson(
 ): Promise<CompletionRewards> {
   await assertPlayedThrough(child, lessonId);
 
-  const progress = await reportLessonStep(child, lessonId, {
-    step: "reward",
-    completed: true,
-  });
+  const progress = await writeLessonStep(
+    child,
+    lessonId,
+    { step: "reward", completed: true },
+    "completion",
+  );
 
   return grantLessonCompletion(child, progress.lessonId);
 }
@@ -173,6 +218,7 @@ export async function recordSessionEvent(
   event: SessionEventReport,
 ): Promise<SessionEvent> {
   const lessonId = await requireVisibleLessonId(child, event.lessonId);
+  await assertWithinClientEventBudget(child.id);
 
   const payload: Prisma.InputJsonObject = {
     lessonId,

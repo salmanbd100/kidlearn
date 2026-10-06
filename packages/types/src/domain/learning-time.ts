@@ -17,7 +17,8 @@ export type ActivityEventType = z.infer<typeof ActivityEventTypeSchema>;
 export const ActivityEventReportSchema = z
   .object({
     type: ActivityEventTypeSchema,
-    refId: z.string().min(1),
+    /** A lesson or story id. Ids are uuids; the cap stops an arbitrary string being carried into a query. */
+    refId: z.string().min(1).max(64),
   })
   .strict();
 
