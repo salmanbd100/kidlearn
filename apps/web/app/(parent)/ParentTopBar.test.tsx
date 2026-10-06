@@ -34,6 +34,7 @@ const PARENT = {
   name: "Salman Rahman",
   avatarUrl: null,
   consentGivenAt: "2026-06-01T00:00:00.000Z",
+  hasCurrentConsent: true,
 };
 
 const CHILD = {

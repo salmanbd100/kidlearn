@@ -15,6 +15,7 @@ function parent(
     name: "Parent One",
     avatarUrl: null,
     consentGivenAt: "2026-06-01T00:00:00.000Z",
+    hasCurrentConsent: true,
     ...overrides,
   };
 }
@@ -47,7 +48,7 @@ describe("resolveParentRedirect — signed out", () => {
 
 describe("resolveParentRedirect — consent missing", () => {
   const noConsent = {
-    parent: parent({ consentGivenAt: null }),
+    parent: parent({ consentGivenAt: null, hasCurrentConsent: false }),
     childCount: 0,
   };
 
@@ -69,12 +70,32 @@ describe("resolveParentRedirect — consent missing", () => {
     // A parent with neither goes to consent, not to the profile form: creating a
     // child profile on an account nobody has agreed to open is the wrong order.
     const neither = {
-      parent: parent({ consentGivenAt: null }),
+      parent: parent({ consentGivenAt: null, hasCurrentConsent: false }),
       childCount: 0,
     };
     expect(resolveParentRedirect(neither, PARENT_ROUTES.firstChild)).toBe(
       PARENT_ROUTES.consent,
     );
+  });
+});
+
+describe("resolveParentRedirect — consent to an older text", () => {
+  const outdated = {
+    parent: parent({ hasCurrentConsent: false }),
+    childCount: 2,
+  };
+
+  it("sends a fully onboarded parent back to consent once the version moves on", () => {
+    // `consentGivenAt` still holds the old acceptance, so a null check alone would let them through.
+    for (const path of ALL_PATHS.filter((p) => p !== PARENT_ROUTES.consent)) {
+      expect(resolveParentRedirect(outdated, path)).toBe(PARENT_ROUTES.consent);
+    }
+  });
+
+  it("lets the consent screen render so the new text can be accepted", () => {
+    expect(
+      resolveParentRedirect(outdated, PARENT_ROUTES.consent),
+    ).toBeUndefined();
   });
 });
 

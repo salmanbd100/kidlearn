@@ -18,6 +18,7 @@ const PARENT = {
   name: "Parent One",
   avatarUrl: null,
   consentGivenAt: "2026-06-01T00:00:00.000Z",
+  hasCurrentConsent: true,
 };
 
 type Session = ReturnType<typeof useParentSession>;

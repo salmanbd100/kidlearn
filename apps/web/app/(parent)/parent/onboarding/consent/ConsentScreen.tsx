@@ -29,7 +29,7 @@ export function ConsentScreen() {
     const result = await submitConsent();
 
     if (result.ok) {
-      // Re-reads `consentGivenAt`, which moves the guard on; not a local flag, as the server record decides.
+      // Re-reads `hasCurrentConsent`, which moves the guard on; not a local flag, as the server record decides.
       await refresh();
       // Normally unreachable, but if `refresh()` came back without the record a disabled button would strand the parent.
       setIsSubmitting(false);

@@ -47,7 +47,8 @@ export function resolveParentRedirect(
     return isPublicParentPath(pathname) ? undefined : PARENT_ROUTES.login;
   }
 
-  if (parent.consentGivenAt === null) {
+  // Not `consentGivenAt`: consent to an older text is set there too, and the API refuses child-data writes until it is renewed.
+  if (!parent.hasCurrentConsent) {
     return pathname === PARENT_ROUTES.consent
       ? undefined
       : PARENT_ROUTES.consent;
