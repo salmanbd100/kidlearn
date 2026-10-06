@@ -7,7 +7,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { pickLabel } from "@/shared/lib/localized-label";
+import { pickLabel } from "@/features/children/localized-label";
 
 const barVariants = cva("h-full rounded-full", {
   variants: {
