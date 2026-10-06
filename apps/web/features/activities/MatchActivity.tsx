@@ -20,12 +20,15 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
+import {
+  pairCardClass,
+  pairLineClass,
+} from "@/shared/components/kid/pair-colours";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
+import { type PairSide, usePairing } from "@/shared/hooks/use-pairing";
+import { isWiggling, useWiggle } from "@/shared/hooks/use-wiggle";
 import { evaluatePair } from "./evaluate";
-import { pairCardClass, pairLineClass } from "./pair-colours";
 import type { ActivityRendererProps } from "./registry";
-import { type PairSide, usePairing } from "./use-pairing";
-import { isWiggling, useWiggle } from "./use-wiggle";
 
 const matchCardVariants = cva(
   // 96px square: half again the 64px kid minimum, as two cards are tapped in sequence.

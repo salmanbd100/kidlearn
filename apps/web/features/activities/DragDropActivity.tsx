@@ -20,12 +20,15 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { StatusMark } from "@/shared/components/kid/StatusMark";
+import { useActivitySensors } from "@/shared/hooks/use-activity-sensors";
+import {
+  centreOfElement,
+  useTapToPlace,
+} from "@/shared/hooks/use-tap-to-place";
+import { isWiggling, type WiggleRequest } from "@/shared/hooks/use-wiggle";
 import { evaluateDrop, groupItemsByTarget } from "./evaluate";
 import type { ActivityRendererProps } from "./registry";
-import { useActivitySensors } from "./use-activity-sensors";
 import { usePlacementState } from "./use-placement-state";
-import { centreOfElement, useTapToPlace } from "./use-tap-to-place";
-import { isWiggling, type WiggleRequest } from "./use-wiggle";
 
 const itemCardVariants = cva(
   // `touch-action: manipulation`, not `none`: the touch sensor activates on a 100ms hold, so scroll

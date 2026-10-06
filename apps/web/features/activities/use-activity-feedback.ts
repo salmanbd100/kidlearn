@@ -5,44 +5,14 @@ import { useIsMotionReduced } from "@kidlearn/ui";
 import confetti from "canvas-confetti";
 import { type RefObject, useCallback, useMemo, useRef } from "react";
 import { useAudio } from "@/shared/components/AudioProvider";
+import {
+  randomCheerAudioUrl,
+  randomRetryAudioUrl,
+} from "@/shared/components/kid/feedback-audio";
 
 export interface ActivityFeedback {
   success: (anchor?: { x: number; y: number }) => void;
   retry: () => void;
-}
-
-const FEEDBACK_AUDIO_DIR = "/audio/feedback";
-
-/**
- * Three of each so a clip is not heard six times. Cheers are wordless and shared; encouragement is
- * per-locale.
- */
-const CHEER_COUNT = 3;
-const RETRY_COUNT = 3;
-
-function pick(count: number): number {
-  return 1 + Math.floor(Math.random() * count);
-}
-
-export function cheerAudioUrl(variant: number): string {
-  return `${FEEDBACK_AUDIO_DIR}/cheer-${variant}.mp3`;
-}
-
-export function retryAudioUrl(locale: Locale, variant: number): string {
-  return `${FEEDBACK_AUDIO_DIR}/retry-${locale}-${variant}.mp3`;
-}
-
-/** Exported so the quiz engine speaks the same two lines: one vocabulary for "yes, that's it". */
-export function randomCheerAudioUrl(): string {
-  return cheerAudioUrl(pick(CHEER_COUNT));
-}
-
-export function randomRetryAudioUrl(locale: Locale): string {
-  return retryAudioUrl(locale, pick(RETRY_COUNT));
-}
-
-export function oopsAudioUrl(locale: Locale): string {
-  return `${FEEDBACK_AUDIO_DIR}/oops-${locale}.mp3`;
 }
 
 export interface ActivityFeedbackChannel {

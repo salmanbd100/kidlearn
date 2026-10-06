@@ -3,13 +3,13 @@
 import type { ClientRect, DragEndEvent } from "@dnd-kit/core";
 import type { PuzzleActivity } from "@kidlearn/types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWiggle, type WiggleRequest } from "@/shared/hooks/use-wiggle";
 import {
   evaluatePiecePlacement,
   isPuzzleComplete,
   puzzleSlotId,
 } from "./evaluate";
 import type { ActivityFeedback } from "./use-activity-feedback";
-import { useWiggle, type WiggleRequest } from "./use-wiggle";
 
 export const SHINE_MS = 400;
 

@@ -10,11 +10,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
+import { NOT_QUITE_MS } from "@/shared/hooks/use-wiggle";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { DragDropActivity } from "./DragDropActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { usePlacementState } from "./use-placement-state";
-import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
  * jsdom cannot drag (no layout), so placement rules are driven through `usePlacementState`; render

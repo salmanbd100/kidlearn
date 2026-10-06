@@ -2,11 +2,11 @@
 
 import type { Locale } from "@kidlearn/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAudio } from "@/shared/components/AudioProvider";
 import {
   randomCheerAudioUrl,
   randomRetryAudioUrl,
-} from "@/features/activities/use-activity-feedback";
-import { useAudio } from "@/shared/components/AudioProvider";
+} from "@/shared/components/kid/feedback-audio";
 
 export const CORRECT_HOLD_MS = 1200;
 export const RETRY_HOLD_MS = 600;

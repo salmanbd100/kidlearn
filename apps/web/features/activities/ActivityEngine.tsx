@@ -12,11 +12,12 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
+import { oopsAudioUrl } from "@/shared/components/kid/feedback-audio";
 import { IconControl } from "@/shared/components/kid/IconControl";
 import { ActivityUnavailable } from "./ActivityUnavailable";
 import { FeedbackLayer } from "./FeedbackLayer";
 import { renderActivity } from "./registry";
-import { oopsAudioUrl, useActivityFeedback } from "./use-activity-feedback";
+import { useActivityFeedback } from "./use-activity-feedback";
 
 export const CELEBRATION_MS = 1500;
 

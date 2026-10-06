@@ -9,12 +9,12 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
+import { NOT_QUITE_MS } from "@/shared/hooks/use-wiggle";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { puzzlePieceId, puzzleSlotId } from "./evaluate";
 import { PuzzleActivity } from "./PuzzleActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { SHINE_MS, usePuzzleState } from "./use-puzzle-state";
-import { NOT_QUITE_MS } from "./use-wiggle";
 
 /**
  * jsdom cannot drag (no layout), so placement rules are driven through `usePuzzleState`; render

@@ -6,9 +6,9 @@ import { Sparkles, Star } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
+import { randomCheerAudioUrl } from "@/shared/components/kid/feedback-audio";
 import type { QuizAnswerRecord } from "./types";
 
 const STAR_STAGGER_S = 0.08;
