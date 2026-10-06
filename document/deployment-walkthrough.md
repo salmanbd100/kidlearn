@@ -164,11 +164,17 @@ Then **Project Settings → Database → Connection string**, and take two:
 | You need | Which tab | Ends with |
 |---|---|---|
 | `DATABASE_URL` | **Transaction pooler**, port **6543** | `?pgbouncer=true&connection_limit=5` |
-| `DIRECT_URL` | **Direct connection**, port **5432** | nothing extra |
+| `DIRECT_URL` | **Session pooler**, port **5432** | nothing extra |
 
 Make sure `DATABASE_URL` really ends with `?pgbouncer=true&connection_limit=5`.
 Supabase's copy button sometimes leaves it off. **Not `connection_limit=1`**,
 which most guides show — `runbook.md` §4 explains why, and why there are two URLs.
+
+**Not the "Direct connection" string** (`db.<ref>.supabase.co`). On the free plan
+it resolves over IPv6 only, and the instance's default VPC has no IPv6 — every
+nightly `pg_dump` would fail to connect. The session pooler is IPv4, holds one
+connection per client for its lifetime, and is what Supabase recommends for
+migrations and dumps from an IPv4 network.
 
 ### Create the tables
 
@@ -273,7 +279,7 @@ is `runbook.md` §4; this table is the production half of its SSM rows.
 | Name | Value |
 |---|---|
 | `/kidlearn/prod/DATABASE_URL` | the pooled `:6543` string from A2 |
-| `/kidlearn/prod/DIRECT_URL` | the direct `:5432` string from A2 |
+| `/kidlearn/prod/DIRECT_URL` | the session pooler `:5432` string from A2 |
 | `/kidlearn/prod/WEB_ORIGIN` | `https://kidlearn.net` |
 | `/kidlearn/prod/BETTER_AUTH_URL` | `https://api.kidlearn.net` |
 | `/kidlearn/prod/BETTER_AUTH_SECRET` | first `openssl` output |

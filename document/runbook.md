@@ -287,7 +287,7 @@ this uses about 30.
 | `NODE_ENV` | compose | `production` | `production` — both, see file 38 requirement 7 |
 | `PORT` | compose | `4000` | `4000` |
 | `DATABASE_URL` | SSM | Supabase pooled `:6543`, `?pgbouncer=true&connection_limit=5` | `postgresql://kidlearn:<pw>@dev-postgres:5432/kidlearn` — **neither flag** |
-| `DIRECT_URL` | SSM | Supabase direct `:5432` | identical to the dev `DATABASE_URL` |
+| `DIRECT_URL` | SSM | Supabase **session pooler** `:5432` — not the IPv6-only direct connection | identical to the dev `DATABASE_URL` |
 | `WEB_ORIGIN` | SSM | `https://kidlearn.net` | `https://dev.kidlearn.net` |
 | `BETTER_AUTH_URL` | SSM | `https://api.kidlearn.net` | `https://api.dev.kidlearn.net` |
 | `BETTER_AUTH_SECRET` | SSM | fresh `openssl rand -base64 32` | **a different** fresh value |
@@ -347,8 +347,8 @@ transaction that cannot get it within two seconds fails, and account deletion
 holds it for up to two minutes. Five is well inside the pooler's limit. Copying
 production's URL shape into dev is the obvious mistake. The two production URLs
 differ in job: the app uses the pooled one (many short connections), while
-migrations and `pg_dump` use the direct one (one long connection, which the
-pooler would kill).
+migrations and `pg_dump` use the session-pooler one (one long connection, which the
+transaction pooler would kill).
 
 **Four Vercel variables are build-time, and one of them does not look it.**
 `NEXT_PUBLIC_*` are inlined into the client bundle — everyone expects that. So is
