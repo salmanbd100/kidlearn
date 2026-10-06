@@ -218,7 +218,21 @@ deploy.sh  edge  weekly-reports.sh` in `ls /opt/kidlearn/deploy`, with
 
 ### Migrations are a separate step, deliberately
 
-A schema change must be a decision, not a side effect of restarting a container.
+A schema change must be a decision, not a side effect of restarting a container,
+so it takes an explicit flag on the deploy that ships it:
+
+```bash
+/opt/kidlearn/deploy/deploy.sh prod <new-sha> --migrate     # or: dev <new-sha> --migrate
+```
+
+`deploy.sh` writes `compose.env` with the new tag, pulls `kidlearn-migrate:<new-sha>`,
+runs it, and only restarts the API if it succeeds. **Do not run the migrate service
+by hand before a deploy**: the migrations are baked into the image, and until
+`deploy.sh` rewrites `compose.env` its `IMAGE_TAG` names the release already
+serving — so the hand-run command applies *that* release's migrations, prints
+`No pending migrations to apply`, and the new API then boots on the old schema.
+
+The hand-run form is only for re-running the deployed release's migrations:
 
 ```bash
 cd /opt/kidlearn/deploy/app

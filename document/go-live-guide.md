@@ -400,16 +400,23 @@ command, so no secret is saved in a file.
 > **Never run `prisma migrate dev` against this database.** It can delete data.
 > `migrate deploy` is the only safe one.
 
-**8d. Add the starting content** (lessons, activities):
+**8d. Add the starting structure** (worlds, subjects, characters, badges):
 
 ```bash
 DATABASE_URL='<your DATABASE_URL>' \
 DIRECT_URL='<your DIRECT_URL>' \
-pnpm --filter @kidlearn/db db:seed
+pnpm --filter @kidlearn/db db:seed:reference
 ```
 
+*Why:* this adds only the shapes the app needs before any lesson exists.
+Lessons and stories come later, through the admin CMS.
+
+> **Never run plain `db:seed` here.** It also adds the developer sample lessons,
+> whose pictures and sounds exist only on a developer's Mac. Children would see
+> broken images and hear nothing.
+
 ✅ **Check:** it finishes with no red error. In Supabase → **Table Editor**,
-you can see tables with rows.
+`World` has 2 rows, `Badge` has 6, and `Lesson` is empty.
 
 > **Free Supabase projects pause after 7 days with no use.** Until you launch,
 > open the Supabase dashboard once a week. If the site breaks later, check
@@ -937,19 +944,18 @@ On the server terminal (`sudo su -` first if it is a new window):
 ✅ **Check:** the last line is:
 
 ```
-[deploy:prod] healthy — deploy complete at <sha>
+[deploy:prod] healthy and database reachable — deploy complete at <sha>
 ```
 
 Now test the database-update path once, while nothing depends on it. You will
-use this exact command for every future database change:
+use this exact command for every future release with database changes:
 
 ```bash
-cd /opt/kidlearn/deploy/app
-docker compose --env-file /opt/kidlearn/prod/compose.env \
-  -p kidlearn-prod -f compose.yml --profile migrate run --rm migrate
+/opt/kidlearn/deploy/deploy.sh prod <IMAGE TAG from Step 16> --migrate
 ```
 
-✅ Expect `No pending migrations to apply.` (You already applied them in Step 8.)
+✅ Expect `No pending migrations to apply.` (you already applied them in Step 8),
+then the same "deploy complete" line as above.
 
 💻 From your Mac:
 
@@ -1148,9 +1154,9 @@ then:
 - **Website:** merge `dev` into `main` on GitHub. Vercel deploys by itself.
 - **API:**
   1. 💻 On `main`, run Step 16 again → you get a new `SHA`.
-  2. 🖥️ If the release adds database changes, run the migrate command from
-     Step 23 **first**.
-  3. 🖥️ `/opt/kidlearn/deploy/deploy.sh prod <new SHA>`
+  2. 🖥️ `/opt/kidlearn/deploy/deploy.sh prod <new SHA>` — add `--migrate` at
+     the end if the release adds database changes. It applies them from the
+     new release before restarting the API.
 - **If `deploy/` files changed:** repeat Step 20c first.
 
 ### How to undo a bad release

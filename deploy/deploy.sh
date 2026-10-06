@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Deploys one environment's API stack. Runs ON THE BOX, as root.
 #
-#   /opt/kidlearn/deploy/deploy.sh prod <image-tag>
-#   /opt/kidlearn/deploy/deploy.sh dev  <image-tag>
+#   /opt/kidlearn/deploy/deploy.sh prod <image-tag> [--migrate]
+#   /opt/kidlearn/deploy/deploy.sh dev  <image-tag> [--migrate]
 #
 # <image-tag> is the bare commit SHA both images were built and pushed under.
 # Both images are environment-agnostic — configured entirely at runtime — so one
@@ -12,21 +12,25 @@
 # a deploy nobody has performed manually is a pipeline that fails on something the
 # author never saw.
 #
-# What this does NOT do: apply migrations. That is a separate, deliberate step —
-# see MIGRATIONS at the bottom — because a schema change should never ride along
-# with a container restart unnoticed.
+# Migrations run only with --migrate, because a schema change should never ride
+# along with a container restart unnoticed. See MIGRATIONS at the bottom.
 
 set -euo pipefail
 
 ENV_NAME="${1:-}"
 IMAGE_TAG="${2:-}"
+MIGRATE_FLAG="${3:-}"
 
 if [[ "${ENV_NAME}" != "prod" && "${ENV_NAME}" != "dev" ]]; then
-  echo "usage: $0 <prod|dev> <image-tag>" >&2
+  echo "usage: $0 <prod|dev> <image-tag> [--migrate]" >&2
   exit 64
 fi
 if [[ -z "${IMAGE_TAG}" ]]; then
-  echo "usage: $0 ${ENV_NAME} <image-tag>   (the bare commit SHA)" >&2
+  echo "usage: $0 ${ENV_NAME} <image-tag> [--migrate]   (the bare commit SHA)" >&2
+  exit 64
+fi
+if [[ -n "${MIGRATE_FLAG}" && "${MIGRATE_FLAG}" != "--migrate" ]]; then
+  echo "usage: $0 ${ENV_NAME} ${IMAGE_TAG} [--migrate]   (unknown option: ${MIGRATE_FLAG})" >&2
   exit 64
 fi
 
@@ -154,6 +158,20 @@ fi
 log "pulling ${IMAGE_TAG}"
 docker compose -p "${PROJECT}" "${COMPOSE_FILES[@]}" pull api
 
+# --- 2b. Migrate (only with --migrate) --------------------------------------
+# Here, not as a hand-run step beforehand: the migrations are baked into the
+# image, and only now does compose.env name the NEW tag. Run any earlier and
+# `kidlearn-migrate:${IMAGE_TAG}` resolves to the release already serving, which
+# reports "No pending migrations" and lets the new API boot on the old schema.
+if [[ "${MIGRATE_FLAG}" == "--migrate" ]]; then
+  log "applying migrations from kidlearn-migrate:${IMAGE_TAG}"
+  docker compose -p "${PROJECT}" "${COMPOSE_FILES[@]}" --profile migrate pull migrate
+  if ! docker compose -p "${PROJECT}" "${COMPOSE_FILES[@]}" --profile migrate run --rm migrate; then
+    echo "[deploy:${ENV_NAME}] migration failed — nothing was restarted; the previous release is still serving" >&2
+    exit 1
+  fi
+fi
+
 # --- 3. Up ------------------------------------------------------------------
 log "starting the stack"
 docker compose -p "${PROJECT}" "${COMPOSE_FILES[@]}" up -d --remove-orphans
@@ -211,14 +229,22 @@ else
 fi
 exit 1
 
-# --- MIGRATIONS, deliberately not run above ---------------------------------
-# A schema change must be a decision, not a side effect of restarting a container.
-# Run it as its own step, before the deploy that needs it:
+# --- MIGRATIONS -------------------------------------------------------------
+# A schema change must be a decision, not a side effect of restarting a container,
+# so it takes an explicit flag on the deploy that needs it:
+#
+#   /opt/kidlearn/deploy/deploy.sh <env> <new-sha> --migrate
+#
+# To re-run the migrations of the release ALREADY deployed (compose.env's tag),
+# for example after a failed --migrate was fixed in the database by hand:
 #
 #   cd /opt/kidlearn/deploy/app
 #   docker compose --env-file /opt/kidlearn/<env>/compose.env \
 #     -p kidlearn-<env> -f compose.yml [-f compose.dev.yml] \
 #     --profile migrate run --rm migrate
+#
+# That command cannot ship a new release's migrations: IMAGE_TAG comes from
+# compose.env, which names the deployed SHA until deploy.sh rewrites it.
 #
 # THE --env-file IS NOT OPTIONAL. Without it Compose has no ENV_NAME, no
 # ECR_REGISTRY and no IMAGE_TAG, so it looks for `/opt/kidlearn//app.env`, fails

@@ -24,6 +24,7 @@
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "db:seed:reference": "prisma db seed -- --reference-only",
     "seed:stories": "tsx prisma/seed-stories.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"

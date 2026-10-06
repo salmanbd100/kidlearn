@@ -86,8 +86,8 @@ services:
   migrate:
     image: ${ECR_REGISTRY}/kidlearn-migrate:${IMAGE_TAG}
     container_name: ${ENV_NAME}-migrate
-    # Run on demand, never as part of `up`:
-    #   docker compose -p kidlearn-<env> --profile migrate run --rm migrate
+    # Never part of `up`. Ship a release's migrations with `deploy.sh <env> <sha> --migrate`;
+    # a hand-run `--profile migrate run` uses compose.env's tag, the release already serving.
     profiles: [migrate]
     env_file:
       - /opt/kidlearn/${ENV_NAME}/app.env

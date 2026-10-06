@@ -193,13 +193,18 @@ Expect a list ending in the newest directory under `packages/db/prisma/migration
 > `migrate deploy` only applies what is already committed. Never `migrate dev`
 > against a deployed database (`runbook.md` §3).
 
-### Seed the content
+### Seed the reference data
 
 ```bash
 DATABASE_URL="<your DATABASE_URL>" \
 DIRECT_URL="<your DIRECT_URL>" \
-pnpm --filter @kidlearn/db db:seed
+pnpm --filter @kidlearn/db db:seed:reference
 ```
+
+Worlds, subjects, characters and badges only. Plain `db:seed` also writes the dev
+fixtures, whose media is on `placehold.co`, `cdn.kidlearn.test` and the gitignored
+`apps/web/public/dev` — none of which a deployed web app can load. Lessons arrive
+through the admin CMS.
 
 The admin user comes later, in **A6** — it needs secrets that do not exist yet.
 

@@ -53,45 +53,8 @@ async function seedNames(
   }
 }
 
-async function main() {
-  // No `account` row on purpose, so this parent cannot sign in; it only satisfies the FK for local fixtures.
-  const devUser = await prisma.user.upsert({
-    where: { id: DEV_PARENT_USER_ID },
-    update: {},
-    create: {
-      id: DEV_PARENT_USER_ID,
-      email: DEV_PARENT_EMAIL,
-      name: "Dev Parent",
-      emailVerified: true,
-    },
-  });
-
-  const parent = await prisma.parent.upsert({
-    where: { email: DEV_PARENT_EMAIL },
-    update: {},
-    create: {
-      userId: devUser.id,
-      googleId: "dev-google-id",
-      email: DEV_PARENT_EMAIL,
-      name: "Dev Parent",
-      consentGivenAt: new Date(),
-      consentVersion: "dev-1",
-    },
-  });
-
-  await prisma.childProfile.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000001" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000001",
-      firstName: "Ava",
-      age: 4,
-      gradeLevel: "NURSERY",
-      preferredLanguage: "en",
-      parentId: parent.id,
-    },
-  });
-
+/** Structure a production database needs before the admin CMS can add lessons: worlds, subjects, characters, badges. */
+async function seedReference() {
   const jungle = await prisma.world.upsert({
     where: { slug: "jungle" },
     update: {},
@@ -184,6 +147,171 @@ async function main() {
     { subject: socialSkills.id, en: "Social Skills", bn: "সামাজিক দক্ষতা" },
     { topic: alphabet.id, en: "Alphabet", bn: "বর্ণমালা" },
   ]);
+
+  const characterLion = await prisma.character.upsert({
+    where: { slug: "leo-the-lion" },
+    update: {},
+    create: {
+      slug: "leo-the-lion",
+      name: "Leo the Lion",
+      isDefault: true,
+      status: "published",
+      unlockRule: {},
+    },
+  });
+
+  // The picker offers every published `isDefault` character; Leo alone gave no choice (FR-PROF-02).
+  const STARTER_CHARACTERS = [
+    { slug: "ellie-the-elephant", name: "Ellie the Elephant" },
+    { slug: "tara-the-turtle", name: "Tara the Turtle" },
+    { slug: "bella-the-butterfly", name: "Bella the Butterfly" },
+    { slug: "dara-the-dolphin", name: "Dara the Dolphin" },
+    { slug: "ollie-the-owl", name: "Ollie the Owl" },
+  ];
+
+  for (const { slug, name } of STARTER_CHARACTERS) {
+    await prisma.character.upsert({
+      where: { slug },
+      update: {},
+      create: {
+        slug,
+        name,
+        isDefault: true,
+        status: "published",
+        unlockRule: {},
+      },
+    });
+  }
+
+  // `isDefault: false` with a real `unlockRule`: shown as locked silhouettes until the child's ledger meets the criteria.
+  const UNLOCKABLE_CHARACTERS = [
+    {
+      slug: "mia-the-monkey",
+      name: "Mia the Monkey",
+      unlockRule: { stars: 10 },
+    },
+    {
+      slug: "ollie-the-octopus",
+      name: "Ollie the Octopus",
+      unlockRule: { coins: 50 },
+    },
+    {
+      slug: "zara-the-zebra",
+      name: "Zara the Zebra",
+      unlockRule: { badges: 2 },
+    },
+  ];
+
+  for (const { slug, name, unlockRule } of UNLOCKABLE_CHARACTERS) {
+    await prisma.character.upsert({
+      where: { slug },
+      update: { unlockRule, isDefault: false },
+      create: { slug, name, isDefault: false, status: "published", unlockRule },
+    });
+  }
+
+  /** `ruleType` and `rule` are owned on update, unlike most upserts here. */
+  const MVP_BADGES = [
+    {
+      slug: "alphabet-hero",
+      name: "Alphabet Hero",
+      description: "Complete all letters in the Alphabet topic",
+      ruleType: "lessons_completed_in_topic",
+      // `"all"`, not 26: a twenty-seventh letter lesson must move the goalposts without re-authoring this row.
+      rule: { topicSlug: "alphabet", count: "all" },
+    },
+    {
+      slug: "math-champion",
+      name: "Math Champion",
+      description: "Complete every lesson in the Numbers topic",
+      ruleType: "lessons_completed_in_topic",
+      rule: { topicSlug: "numbers", count: "all" },
+    },
+    {
+      slug: "reading-star",
+      name: "Reading Star",
+      description: "Finish 10 stories",
+      ruleType: "stories_completed",
+      rule: { count: 10 },
+    },
+    {
+      slug: "animal-expert",
+      name: "Animal Expert",
+      // 20 questions answered right, not 20 lessons opened.
+      description: "Identify 20 animals correctly",
+      ruleType: "quiz_correct_in_topic",
+      rule: { topicSlug: "animals", count: 20 },
+    },
+    {
+      slug: "streak-starter",
+      name: "Streak Starter",
+      description: "Learn 3 days in a row",
+      ruleType: "streak_days",
+      rule: { days: 3 },
+    },
+    {
+      slug: "week-warrior",
+      name: "Week Warrior",
+      description: "Learn 7 days in a row",
+      ruleType: "streak_days",
+      rule: { days: 7 },
+    },
+  ];
+
+  for (const badge of MVP_BADGES) {
+    await prisma.badge.upsert({
+      where: { slug: badge.slug },
+      update: { ruleType: badge.ruleType, rule: badge.rule },
+      create: { ...badge, status: "published" },
+    });
+  }
+
+  return { jungle, alphabet, characterLion };
+}
+
+/** Dev parent, sample lessons and stories. Their media lives in the gitignored `apps/web/public/dev` and on placeholder hosts, so none of it may reach a deployed database. */
+async function seedDevFixtures({
+  jungle,
+  alphabet,
+  characterLion,
+}: Awaited<ReturnType<typeof seedReference>>) {
+  // No `account` row on purpose, so this parent cannot sign in; it only satisfies the FK for local fixtures.
+  const devUser = await prisma.user.upsert({
+    where: { id: DEV_PARENT_USER_ID },
+    update: {},
+    create: {
+      id: DEV_PARENT_USER_ID,
+      email: DEV_PARENT_EMAIL,
+      name: "Dev Parent",
+      emailVerified: true,
+    },
+  });
+
+  const parent = await prisma.parent.upsert({
+    where: { email: DEV_PARENT_EMAIL },
+    update: {},
+    create: {
+      userId: devUser.id,
+      googleId: "dev-google-id",
+      email: DEV_PARENT_EMAIL,
+      name: "Dev Parent",
+      consentGivenAt: new Date(),
+      consentVersion: "dev-1",
+    },
+  });
+
+  await prisma.childProfile.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000001" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000001",
+      firstName: "Ava",
+      age: 4,
+      gradeLevel: "NURSERY",
+      preferredLanguage: "en",
+      parentId: parent.id,
+    },
+  });
 
   /** Owned on update too: the `weekly_report_concepts` backfill leaves an empty array, so `update: {}` would leave demo lessons teaching nothing. */
   const lessonA = await prisma.lesson.upsert({
@@ -325,124 +453,6 @@ async function main() {
   });
 
   // The dev story library is `stories.ts` + `seedStories()`; a second inline owner made `db:seed` non-idempotent (page id collision).
-
-  const characterLion = await prisma.character.upsert({
-    where: { slug: "leo-the-lion" },
-    update: {},
-    create: {
-      slug: "leo-the-lion",
-      name: "Leo the Lion",
-      isDefault: true,
-      status: "published",
-      unlockRule: {},
-    },
-  });
-
-  // The picker offers every published `isDefault` character; Leo alone gave no choice (FR-PROF-02).
-  const STARTER_CHARACTERS = [
-    { slug: "ellie-the-elephant", name: "Ellie the Elephant" },
-    { slug: "tara-the-turtle", name: "Tara the Turtle" },
-    { slug: "bella-the-butterfly", name: "Bella the Butterfly" },
-    { slug: "dara-the-dolphin", name: "Dara the Dolphin" },
-    { slug: "ollie-the-owl", name: "Ollie the Owl" },
-  ];
-
-  for (const { slug, name } of STARTER_CHARACTERS) {
-    await prisma.character.upsert({
-      where: { slug },
-      update: {},
-      create: {
-        slug,
-        name,
-        isDefault: true,
-        status: "published",
-        unlockRule: {},
-      },
-    });
-  }
-
-  // `isDefault: false` with a real `unlockRule`: shown as locked silhouettes until the child's ledger meets the criteria.
-  const UNLOCKABLE_CHARACTERS = [
-    {
-      slug: "mia-the-monkey",
-      name: "Mia the Monkey",
-      unlockRule: { stars: 10 },
-    },
-    {
-      slug: "ollie-the-octopus",
-      name: "Ollie the Octopus",
-      unlockRule: { coins: 50 },
-    },
-    {
-      slug: "zara-the-zebra",
-      name: "Zara the Zebra",
-      unlockRule: { badges: 2 },
-    },
-  ];
-
-  for (const { slug, name, unlockRule } of UNLOCKABLE_CHARACTERS) {
-    await prisma.character.upsert({
-      where: { slug },
-      update: { unlockRule, isDefault: false },
-      create: { slug, name, isDefault: false, status: "published", unlockRule },
-    });
-  }
-
-  /** `ruleType` and `rule` are owned on update, unlike most upserts here. */
-  const MVP_BADGES = [
-    {
-      slug: "alphabet-hero",
-      name: "Alphabet Hero",
-      description: "Complete all letters in the Alphabet topic",
-      ruleType: "lessons_completed_in_topic",
-      // `"all"`, not 26: a twenty-seventh letter lesson must move the goalposts without re-authoring this row.
-      rule: { topicSlug: "alphabet", count: "all" },
-    },
-    {
-      slug: "math-champion",
-      name: "Math Champion",
-      description: "Complete every lesson in the Numbers topic",
-      ruleType: "lessons_completed_in_topic",
-      rule: { topicSlug: "numbers", count: "all" },
-    },
-    {
-      slug: "reading-star",
-      name: "Reading Star",
-      description: "Finish 10 stories",
-      ruleType: "stories_completed",
-      rule: { count: 10 },
-    },
-    {
-      slug: "animal-expert",
-      name: "Animal Expert",
-      // 20 questions answered right, not 20 lessons opened.
-      description: "Identify 20 animals correctly",
-      ruleType: "quiz_correct_in_topic",
-      rule: { topicSlug: "animals", count: 20 },
-    },
-    {
-      slug: "streak-starter",
-      name: "Streak Starter",
-      description: "Learn 3 days in a row",
-      ruleType: "streak_days",
-      rule: { days: 3 },
-    },
-    {
-      slug: "week-warrior",
-      name: "Week Warrior",
-      description: "Learn 7 days in a row",
-      ruleType: "streak_days",
-      rule: { days: 7 },
-    },
-  ];
-
-  for (const badge of MVP_BADGES) {
-    await prisma.badge.upsert({
-      where: { slug: badge.slug },
-      update: { ruleType: badge.ruleType, rule: badge.rule },
-      create: { ...badge, status: "published" },
-    });
-  }
 
   const ChildProfileUpdate = await prisma.childProfile.update({
     where: { id: "00000000-0000-0000-0000-000000000001" },
@@ -714,6 +724,14 @@ async function main() {
 
   // Last: resolves worlds, subjects and reused video assets by the ids created above.
   await seedJourney(prisma);
+}
+
+async function main() {
+  const reference = await seedReference();
+  if (process.argv.includes("--reference-only")) {
+    return;
+  }
+  await seedDevFixtures(reference);
 }
 
 main()
