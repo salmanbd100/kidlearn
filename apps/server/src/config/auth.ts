@@ -30,6 +30,11 @@ export const auth = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
   },
+  // Off, not just implicit: the seeded admin is `emailVerified`, so a Google sign-in on the admin's address
+  // would otherwise be linked onto the admin user and hand out an admin session without the password.
+  account: {
+    accountLinking: { enabled: false },
+  },
   session: {
     expiresIn: SESSION_EXPIRES_IN_SECONDS,
     updateAge: SESSION_UPDATE_AGE_SECONDS,

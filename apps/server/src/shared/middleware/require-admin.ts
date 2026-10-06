@@ -20,6 +20,16 @@ export function isAdminSessionExpired(
   return now - createdAt > ADMIN_SESSION_MAX_AGE_MS;
 }
 
+export async function hasNonCredentialAccount(
+  userId: string,
+): Promise<boolean> {
+  const account = await prisma.account.findFirst({
+    where: { userId, providerId: { not: "credential" } },
+    select: { id: true },
+  });
+  return Boolean(account);
+}
+
 export const requireAdmin: RequestHandler = async (
   req: Request,
   _res: Response,
@@ -38,6 +48,11 @@ export const requireAdmin: RequestHandler = async (
     });
     // 403, not 404: the session is real, the caller just lacks authorisation (e.g. a parent).
     if (!admin) {
+      throw ApiError.forbidden("Admin access required");
+    }
+
+    // An admin authenticates by password alone; a linked Google account means the password was not needed to get here.
+    if (await hasNonCredentialAccount(authenticated.user.id)) {
       throw ApiError.forbidden("Admin access required");
     }
 
