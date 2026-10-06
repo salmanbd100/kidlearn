@@ -1,9 +1,10 @@
 "use client";
 
 import { PARENT_NAMESPACE } from "@kidlearn/i18n";
-import type {
-  AvatarCharacterResponse,
-  ChildProfileResponse,
+import {
+  type AvatarCharacterResponse,
+  type ChildProfileResponse,
+  MAX_CHILDREN_PER_PARENT,
 } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { Plus } from "lucide-react";
@@ -14,9 +15,6 @@ import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildCard } from "@/features/children/ChildCard";
 import { DeleteChildDialog } from "@/features/children/DeleteChildDialog";
 import { deleteChild, listAvatars } from "@/features/parent/parent-api";
-
-/** A household may hold at most five learner profiles. */
-const MAX_CHILDREN = 5;
 
 export function ChildrenScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
@@ -38,7 +36,7 @@ export function ChildrenScreen() {
 
   // The guard ensures a profile exists; empty means the last one was just deleted, before the redirect.
   const items = profiles ?? [];
-  const isAtLimit = items.length >= MAX_CHILDREN;
+  const isAtLimit = items.length >= MAX_CHILDREN_PER_PARENT;
 
   return (
     <main className="flex flex-1 flex-col gap-6 py-2">

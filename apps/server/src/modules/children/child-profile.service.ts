@@ -1,14 +1,12 @@
 // `Prisma` is a value import: the isolation level below is a runtime member.
 import { type ChildProfile, Prisma } from "@kidlearn/db";
+import { MAX_CHILDREN_PER_PARENT } from "@kidlearn/types";
 import { env } from "../../config/env.js";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
 import { withSerializationRetry } from "../../shared/utils/serializable-retry.js";
 import { liveStreakLength } from "../rewards/streak.service.js";
 import type { CreateChildBody, UpdateChildBody } from "./children.schema.js";
-
-/** FR-PROF-01 */
-export const MAX_CHILDREN_PER_PARENT = 5;
 
 // Allowlist, not omission: `parentId` must never reach a client (NFR-SAFE-02).
 export type ChildProfileDto = {
