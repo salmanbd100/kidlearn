@@ -615,7 +615,6 @@ model CharacterSheet {
   @@index([worldId])
 }
 
-
 model User {
   id            String     @id
   name          String
