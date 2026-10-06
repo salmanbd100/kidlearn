@@ -15,7 +15,7 @@ import {
 import type { ContentStatusValue } from "@kidlearn/types";
 import { Button, cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
-import { StatusChip } from "./StatusChip";
+import { StatusChip } from "@/features/admin/StatusChip";
 
 export interface ColumnItem {
   id: string;

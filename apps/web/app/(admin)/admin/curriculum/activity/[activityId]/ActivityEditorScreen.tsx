@@ -5,8 +5,6 @@ import { isContentEditable } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
 import { ActivityEditor } from "@/features/admin/ActivityEditor";
 import {
   type ActivityDraft,
@@ -18,6 +16,8 @@ import {
   transitionEditorContent,
   updateActivity,
 } from "@/features/admin/editors-api";
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 
 export function ActivityEditorScreen({ activityId }: { activityId: string }) {
   const [activity, setActivity] = useState<AdminActivity>();

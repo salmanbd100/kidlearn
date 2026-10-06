@@ -12,8 +12,6 @@ import {
 } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   createQuestion,
@@ -29,6 +27,8 @@ import {
   emptyQuestionDraft,
   type QuestionDraft,
 } from "@/features/admin/quiz-draft";
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 
 type DialogState =
   | { kind: "closed" }

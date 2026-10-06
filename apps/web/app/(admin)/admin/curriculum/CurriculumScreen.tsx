@@ -34,13 +34,13 @@ import {
 } from "@/features/admin/content-api";
 import { createQuiz } from "@/features/admin/editors-api";
 import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 import { ContentForm } from "./ContentForm";
 import { GenerateLessonDialog } from "./GenerateLessonDialog";
 import { GenerateQuizButton } from "./GenerateQuizButton";
 import { LessonForm } from "./LessonForm";
-import { StatusChip } from "./StatusChip";
-import { TransitionButtons } from "./TransitionButtons";
 
 type DialogState =
   | { kind: "closed" }
