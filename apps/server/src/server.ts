@@ -28,7 +28,8 @@ function shutdown(signal: string): void {
   server.close(() => {
     prisma
       .$disconnect()
-      .then(() => process.exit(0))
+      // No argument: exits with `process.exitCode`, which a fault sets before calling here.
+      .then(() => process.exit())
       .catch((error: unknown) => {
         logger.error({ err: error }, "Failed to disconnect from the database");
         process.exit(1);
@@ -42,7 +43,10 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => shutdown(signal));
 }
 
-// An unhandled rejection is a fault to restart on, not to limp along in.
+// A listener replaces Node's default crash, so it must exit itself: an unhandled rejection is a fault to restart on,
+// not to limp along in. Set before draining so a shutdown already under way still exits non-zero.
 process.on("unhandledRejection", (reason) => {
-  logger.error({ err: reason }, "Unhandled promise rejection");
+  logger.fatal({ err: reason }, "Unhandled promise rejection");
+  process.exitCode = 1;
+  shutdown("unhandledRejection");
 });

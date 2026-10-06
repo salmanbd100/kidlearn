@@ -1,4 +1,4 @@
-import { CONSENT_VERSION } from "@kidlearn/types";
+import { hasCurrentConsent } from "@kidlearn/types";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { authContext } from "../../modules/parent/require-parent.middleware.js";
 import { ApiError } from "../errors/errors.js";
@@ -12,12 +12,12 @@ export const requireConsent: RequestHandler = (
   try {
     const { parent } = authContext(req);
 
-    // Consent to an older text is not consent to this one; `recordParentConsent` insists on the version, so the gate must too.
-    if (!parent.consentGivenAt || parent.consentVersion !== CONSENT_VERSION) {
+    // `recordParentConsent` insists on the version, so the gate must too.
+    if (!hasCurrentConsent(parent)) {
       throw new ApiError(
         403,
         "CONSENT_REQUIRED",
-        "Parental consent is required before adding a child",
+        "Parental consent to the current terms is required",
       );
     }
 

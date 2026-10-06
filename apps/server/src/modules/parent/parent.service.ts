@@ -1,4 +1,5 @@
 import { type Parent, Prisma } from "@kidlearn/db";
+import { hasCurrentConsent } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
 
@@ -20,6 +21,7 @@ export type ParentSummary = {
   name: string | null;
   avatarUrl: string | null;
   consentGivenAt: Date | null;
+  hasCurrentConsent: boolean;
 };
 
 /** Creates the `Parent` row on first sight, which is why there is no separate sign-up (FR-AUTH-02). */
@@ -88,5 +90,7 @@ export function toParentSummary(parent: Parent): ParentSummary {
     name: parent.name,
     avatarUrl: parent.avatarUrl,
     consentGivenAt: parent.consentGivenAt,
+    // Derived here rather than by the client so a web build behind the API cannot judge an old version current.
+    hasCurrentConsent: hasCurrentConsent(parent),
   };
 }

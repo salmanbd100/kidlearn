@@ -59,6 +59,8 @@ export const AUTH_ROUTES: RouteDoc[] = [
         "Returns no credential-shaped field — the `Parent` row's columns are opted into this response one at a time, so nothing can leak by accident.",
         "",
         "`name` and `avatarUrl` are the display name and photo Google supplied at sign-in, and are both `null` for an account that carries neither — every client rendering them needs a fallback.",
+        "",
+        "`hasCurrentConsent` is `false` until the parent accepts the **current** consent text, including after `CONSENT_VERSION` moves on while `consentGivenAt` still holds the older acceptance. Route the parent to consent while it is `false`: child-data writes answer `403 CONSENT_REQUIRED` until then.",
       ].join("\n"),
       responses: {
         "200": jsonResponse(

@@ -28,9 +28,9 @@ const _lessonStepMirrorIsExhaustive: [
 ] = [true, true];
 void _lessonStepMirrorIsExhaustive;
 
-const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
-  "No active child profile on this session. Call `POST /api/children/{id}/activate` first — progress belongs to a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.",
-  ["FORBIDDEN"],
+const FORBIDDEN_RESPONSE = errorResponse(
+  "`FORBIDDEN` — no active child profile on this session. Call `POST /api/children/{id}/activate` first — progress belongs to a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.\n\n`CONSENT_REQUIRED` — the parent has never accepted the consent text, or accepted only an older version (FR-AUTH-03). Nothing is recorded until they accept it again through `POST /api/parent/consent`.",
+  ["FORBIDDEN", "CONSENT_REQUIRED"],
 );
 
 /** Same as the content API's `404`: both endpoints must agree about which lessons exist for a child. */
@@ -100,7 +100,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -134,7 +134,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -181,7 +181,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
         "409": errorResponse(
           "The child has no progress on this lesson at or past the `activity` step — it was never played through. `details.code` is `LESSON_NOT_PLAYED`. Nothing is granted.",
@@ -221,7 +221,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": STORY_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -258,7 +258,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -299,7 +299,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": QUIZ_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
