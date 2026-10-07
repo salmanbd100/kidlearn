@@ -1,12 +1,11 @@
 "use client";
 
-import { SITE_NAMESPACE } from "@kidlearn/i18n";
-import { useTranslation } from "react-i18next";
 import { ExternalLink } from "./ExternalLink";
 import { REPO_URL } from "./site-routes";
+import { useSiteTranslation } from "./use-site-translation";
 
 export function SiteFooter() {
-  const { t } = useTranslation(SITE_NAMESPACE);
+  const { t } = useSiteTranslation();
 
   return (
     <footer className="mx-auto w-full max-w-6xl px-4 pt-16 pb-10 sm:px-8">

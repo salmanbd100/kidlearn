@@ -141,7 +141,7 @@ describe("SelectProfileScreen", () => {
     renderScreen();
 
     await waitFor(() =>
-      expect(router.replace).toHaveBeenCalledWith("/?signin=parent"),
+      expect(router.replace).toHaveBeenCalledWith("/parent/login"),
     );
   });
 

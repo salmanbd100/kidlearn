@@ -72,6 +72,13 @@ If it matches more than one row, use the first.
 - Components expose `variant`, `size`, and `tone` props. Callers do not pass long `className` strings to fundamentally restyle a component. If a caller needs a visual treatment that no variant covers, add the variant — do not make the caller responsible for styling internals. **[REVIEW]**
 - All color, radius, shadow, and spacing values come from semantic tokens (CSS variables). Components never reference raw hex values, brand hue names, or Tailwind color literals directly. See `document/design.md §2` for the full token contract. **[REVIEW]**
 
+#### Recorded exception — third-party brand marks
+
+**Status: active as of 2026-10-07 (file 40).** A third party's logo keeps the colours its owner
+prescribes; re-tinting it with our tokens breaks their brand terms and makes it unrecognisable.
+Covers `apps/web/features/parent/GoogleIcon.tsx` (the four Google "G" colours) and nothing else — a
+new mark is added to this list by name. The hex values stay inside the mark's own component.
+
 **Theme isolation**
 
 - Components never branch on theme in JavaScript (`if theme === 'kid'`). Theme is applied by `<ThemeScope theme="kid">` or `<ThemeScope theme="parent">` (`@kidlearn/ui`) on a layout boundary; token values cascade automatically. A hand-written `data-theme` div does not reach portalled dialogs and menus, which mount in `<body>`. **[REVIEW]**
@@ -189,7 +196,7 @@ The app has three product surfaces and one public site. Each lives in its own Ap
 app/
 ├── (site)/         # Public homepage and guides — kid theme, unauthenticated
 ├── (student)/      # Student Portal — kid theme, full-bleed, gamified
-├── (parent)/       # Parent Dashboard — parent theme, Google session only (sign-in is the homepage dialog)
+├── (parent)/       # Parent Dashboard — parent theme, Google session only (sign-in: homepage dialog, or /parent/login)
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
@@ -197,7 +204,7 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 
 `(site)` owns `/` and `/guide/*` (FR-SITE-01..03). It is public, needs no session, and is scoped `<ThemeScope theme="kid">` so it reads as the same product — but it is **not part of the Student Portal**. It carries external links (GitHub), which NFR-SAFE-07 forbids on the child's surface, so the rule runs one way: no `(student)` screen links to a `(site)` route, and `app/(student)/no-external-links.test.tsx` fails if one does. The root `not-found.tsx` is shared by every surface and still links to `/`; the homepage's primary action leads a child straight back to `/select-profile`.
 
-Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); there is no sign-in page, and `/parent/login` and `/admin/login` only redirect there. So a signed-out session on the student surface — `StudentGuard` and the profile picker — is *redirected* to `/` with the dialog open. That is a redirect for a device with no parent session, not a link a child can follow from a working screen, but it does put a child on a page with external links if they dismiss the dialog. Recorded 2026-10-07 as a known trade against NFR-SAFE-07; revisit if the homepage gains more outward links. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
+Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either: a signed-out session on the student surface — `StudentGuard` and the profile picker — goes to `/parent/login` (`PARENT_ROUTES.signInPage`), the same sign-in on a bare page inside `(parent)` with no site chrome, because a child who dismissed the homepage dialog would be one tap from GitHub. `no-external-links.test.tsx` sweeps `(student)` and `features/student` for `PARENT_ROUTES.login`, `ADMIN_ROUTES.login` and a bare `/` as a navigation target. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
 
 ### Component files
 

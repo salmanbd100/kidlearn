@@ -2,7 +2,7 @@ import type { ParentSummaryResponse } from "@kidlearn/types";
 
 // Where a parent belongs, given who they are and where they asked to go.
 
-/** `?signin=parent` on the homepage opens the sign-in dialog; it is the only sign-in screen a parent has. */
+/** `?signin=parent` on the homepage opens the sign-in dialog. */
 export const PARENT_SIGN_IN_PARAM = {
   name: "signin",
   value: "parent",
@@ -10,8 +10,11 @@ export const PARENT_SIGN_IN_PARAM = {
 
 export const PARENT_ROUTES = {
   login: `/?${PARENT_SIGN_IN_PARAM.name}=${PARENT_SIGN_IN_PARAM.value}`,
-  /** Kept as a redirect to `login`, so links to the retired sign-in page still land. */
-  legacyLogin: "/parent/login",
+  /**
+   * The same sign-in on a bare page, for the Student Portal's signed-out redirect: the homepage carries
+   * external links, and a child must not land there (NFR-SAFE-07).
+   */
+  signInPage: "/parent/login",
   consent: "/parent/onboarding/consent",
   firstChild: "/parent/onboarding/child",
   /** The progress dashboard, and where the Google callback lands. */
@@ -27,8 +30,12 @@ export type ParentSessionState = {
   childCount: number | undefined;
 };
 
+/** Reachable without a session at all. Every other path sends a signed-out visitor to sign in. */
+const PUBLIC_PATHS: readonly string[] = [PARENT_ROUTES.signInPage];
+
 /** The first-run steps, which stop being destinations once onboarding is finished. */
 const ONBOARDING_PATHS: readonly string[] = [
+  PARENT_ROUTES.signInPage,
   PARENT_ROUTES.consent,
   PARENT_ROUTES.firstChild,
 ];
@@ -43,8 +50,9 @@ export function resolveParentRedirect(
 ): string | undefined {
   const { parent, childCount } = session;
 
-  // Sign-in lives on the homepage, outside this group, so no `/parent/*` path is reachable signed out.
-  if (!parent) return PARENT_ROUTES.login;
+  if (!parent) {
+    return PUBLIC_PATHS.includes(pathname) ? undefined : PARENT_ROUTES.login;
+  }
 
   // Not `consentGivenAt`: consent to an older text is set there too, and the API refuses child-data writes until it is renewed.
   if (!parent.hasCurrentConsent) {

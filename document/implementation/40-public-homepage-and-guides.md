@@ -79,7 +79,8 @@ studio, not a SaaS landing template. See "Visual direction" for what that rules 
 
 3. **Homepage content.** In this order, and no more:
    - Wordmark and a single plain sentence: what it is, for whom, in which languages.
-   - Two actions: **Start learning** → `/select-profile`; **Parent sign-in** → `/parent/login`.
+   - Two actions: **Start learning** → `/select-profile`; **Parent sign-in** → `/parent/login`
+     (*amended*: opens the sign-in dialog on the homepage — see Amendments).
      Start learning is the primary one — a child on a shared tablet must reach it with one tap.
    - "Read the guides": three entries, each naming its reader and what they will get out of it in
      one sentence. A typographic list with numerals, not three identical icon cards.
@@ -191,7 +192,7 @@ studio, not a SaaS landing template. See "Visual direction" for what that rules 
 Per `frontend.md §5`, Vitest + React Testing Library, rendered inside `<Providers>`:
 
 - Each screen renders its title and every section heading in `en`, and its title in `bn`.
-- `HomeScreen`: "Start learning" links to `/select-profile`, "Parent sign-in" to `/parent/login`,
+- `HomeScreen`: "Start learning" links to `/select-profile`, "Parent sign-in" to `/?signin=parent`,
   each guide entry to its route.
 - `GuideLayout`: every "On this page" entry targets an element with that id.
 - `Doodle` and diagrams: decorative marks are `aria-hidden`; diagrams expose an accessible name.
@@ -223,3 +224,36 @@ light and high-contrast.
 A markdown renderer, search, a docs sidebar framework, versioned docs, analytics, a contact form,
 SEO beyond per-page `metadata`, a blog, and any change to the student, parent or admin surfaces
 beyond removing the `/` redirect.
+
+## Amendments (2026-10-07)
+
+Made on the branch, after the requirements above were written. Each overrides the line it names.
+
+1. **Sign-in is a dialog on the homepage** (requirement 3, Out of Scope). Parent sign-in opens over
+   `/` at `/?signin=parent` (`PARENT_ROUTES.login`); the CMS sign-in at `/?signin=admin`
+   (`ADMIN_ROUTES.login`), English-only under the `(admin)` exception in `frontend.md §4`.
+   `AdminLoginScreen` is deleted and `/admin/login` redirects to the dialog. A signed-out `/parent/*`
+   or `/admin/*` page lands on its dialog, and signing out of either returns to `/`.
+2. **The Student Portal never lands on the homepage** (requirement 9). A child who dismissed the
+   dialog would be one tap from GitHub, so `StudentGuard` and the profile picker send a signed-out
+   session to `/parent/login` (`PARENT_ROUTES.signInPage`): the same Google sign-in on a bare page
+   in `(parent)`, with no site chrome. `no-external-links.test.tsx` sweeps `(student)` and
+   `features/student` for `PARENT_ROUTES.login`, `ADMIN_ROUTES.login` and a bare `/` as a navigation
+   target.
+3. **The homepage knows who is signed in** (requirement 3, "no more"). `useSignedInRole` asks the
+   API once, without retries; a signed-in parent sees *Parent dashboard* in place of *Parent
+   sign-in*, an admin sees *Admin dashboard*, and everyone else a quiet *Admin sign-in* link.
+   Until the answer arrives, or if the API cannot be reached, the signed-out actions show.
+4. **Layout tuning on the student and parent surfaces** (Out of Scope). Commit `79438c7` changed
+   screens outside the site: the kid home's Story Time became a full-width card (`StoryTimeCard`),
+   kid screens are capped and centred on wide displays, `IconTile` reserves two label lines, the
+   story reader centres its sentence in portrait, and the parent dashboard and report stat grids
+   reflow on a phone. Recorded here rather than split out, as it was reviewed with this branch.
+5. **The `site` namespace is its own entry point** (requirement 7). `@kidlearn/i18n/site`, not part
+   of `resources`, so the guides' copy stays out of every app surface's bundle; site components
+   load it through `useSiteTranslation`. The parity test covers it.
+6. **Corrections to the source documents** (requirements 4 and 6). `compliance-consent-deletion.md`
+   does not exist; the parent guide links to `user-journey-manual.md §5.1` and `§5.7`. There is no
+   web page for deleting a whole account, only the API flow, so the guide says so and points to
+   per-child deletion. `mobile-app-plan.md §15`'s ~$23/month was stale and now reads ~$13.73.
+

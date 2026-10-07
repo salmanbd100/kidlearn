@@ -1,29 +1,12 @@
-import { cn } from "@kidlearn/ui";
-import { cva, type VariantProps } from "class-variance-authority";
 import type { ReactNode } from "react";
-
-// On wide screens the numeral and title hang in a margin column; on phones they stack above the text.
-const hangingSectionVariants = cva(
-  "grid scroll-mt-8 gap-4 border-foreground/15 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] md:gap-12",
-  {
-    variants: {
-      rule: {
-        true: "border-t pt-10 md:pt-14",
-        false: "",
-      },
-    },
-    defaultVariants: { rule: true },
-  },
-);
 
 export function HangingSection({
   id,
   numeral,
   title,
   marginMark,
-  rule,
   children,
-}: VariantProps<typeof hangingSectionVariants> & {
+}: {
   id: string;
   numeral?: string;
   title: ReactNode;
@@ -37,7 +20,8 @@ export function HangingSection({
     <section
       id={id}
       aria-labelledby={titleId}
-      className={cn(hangingSectionVariants({ rule }))}
+      // On wide screens the numeral and title hang in a margin column; on phones they stack above the text.
+      className="grid scroll-mt-8 gap-4 border-foreground/15 border-t pt-10 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] md:gap-12 md:pt-14"
     >
       <div className="flex flex-col gap-2">
         {numeral !== undefined || marginMark !== undefined ? (

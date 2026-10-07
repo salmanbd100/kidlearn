@@ -1,82 +1,80 @@
-import {
-  DiagramArrow,
-  DiagramBox,
-  DiagramFrame,
-  DiagramLabel,
-} from "./DiagramParts";
+import { DiagramArrow } from "./DiagramArrow";
+import { DiagramBox } from "./DiagramBox";
+import { DiagramFrame } from "./DiagramFrame";
+import { DiagramLabel } from "./DiagramLabel";
 
 // Edges follow each workspace's `@kidlearn/*` dependencies; long edges run down the gaps between columns.
-const K = "diagrams.monorepo";
+const KEY_PREFIX = "diagrams.monorepo";
 
 export function MonorepoDiagram() {
   return (
     <DiagramFrame
-      titleKey={`${K}.title`}
-      captionKey={`${K}.caption`}
+      titleKey={`${KEY_PREFIX}.title`}
+      captionKey={`${KEY_PREFIX}.caption`}
       viewBox="0 0 380 425"
     >
-      <DiagramLabel x={10} y={24} labelKey={`${K}.appsRow`} />
+      <DiagramLabel x={10} y={24} labelKey={`${KEY_PREFIX}.appsRow`} />
       <DiagramBox
         x={10}
         y={34}
         width={104}
-        labelKey={`${K}.web`}
-        captionKey={`${K}.webCaption`}
+        labelKey={`${KEY_PREFIX}.web`}
+        captionKey={`${KEY_PREFIX}.webCaption`}
         tone="sky"
       />
       <DiagramBox
         x={138}
         y={34}
         width={104}
-        labelKey={`${K}.mobile`}
-        captionKey={`${K}.mobileCaption`}
+        labelKey={`${KEY_PREFIX}.mobile`}
+        captionKey={`${KEY_PREFIX}.mobileCaption`}
         isPlanned
       />
       <DiagramBox
         x={266}
         y={34}
         width={104}
-        labelKey={`${K}.server`}
-        captionKey={`${K}.serverCaption`}
+        labelKey={`${KEY_PREFIX}.server`}
+        captionKey={`${KEY_PREFIX}.serverCaption`}
         tone="sky"
       />
 
-      <DiagramLabel x={10} y={140} labelKey={`${K}.packagesRow`} />
+      <DiagramLabel x={10} y={140} labelKey={`${KEY_PREFIX}.packagesRow`} />
       <DiagramBox
         x={10}
         y={150}
         width={104}
-        labelKey={`${K}.ui`}
-        captionKey={`${K}.uiCaption`}
+        labelKey={`${KEY_PREFIX}.ui`}
+        captionKey={`${KEY_PREFIX}.uiCaption`}
         tone="coral"
       />
       <DiagramBox
         x={138}
         y={150}
         width={104}
-        labelKey={`${K}.i18n`}
-        captionKey={`${K}.i18nCaption`}
+        labelKey={`${KEY_PREFIX}.i18n`}
+        captionKey={`${KEY_PREFIX}.i18nCaption`}
       />
       <DiagramBox
         x={266}
         y={150}
         width={104}
-        labelKey={`${K}.db`}
-        captionKey={`${K}.dbCaption`}
+        labelKey={`${KEY_PREFIX}.db`}
+        captionKey={`${KEY_PREFIX}.dbCaption`}
       />
       <DiagramBox
         x={10}
         y={262}
         width={104}
-        labelKey={`${K}.tokens`}
-        captionKey={`${K}.tokensCaption`}
+        labelKey={`${KEY_PREFIX}.tokens`}
+        captionKey={`${KEY_PREFIX}.tokensCaption`}
       />
       <DiagramBox
         x={118}
         y={262}
         width={252}
-        labelKey={`${K}.types`}
-        captionKey={`${K}.typesCaption`}
+        labelKey={`${KEY_PREFIX}.types`}
+        captionKey={`${KEY_PREFIX}.typesCaption`}
         tone="sunshine"
       />
       <DiagramBox
@@ -84,8 +82,8 @@ export function MonorepoDiagram() {
         y={336}
         width={360}
         height={46}
-        labelKey={`${K}.config`}
-        captionKey={`${K}.configCaption`}
+        labelKey={`${KEY_PREFIX}.config`}
+        captionKey={`${KEY_PREFIX}.configCaption`}
       />
 
       <DiagramArrow d="M62 88 V150" />
@@ -101,9 +99,9 @@ export function MonorepoDiagram() {
       <DiagramArrow d="M318 204 V262" />
 
       <DiagramArrow d="M10 410 H44" />
-      <DiagramLabel x={52} y={414} labelKey={`${K}.legendImports`} />
+      <DiagramLabel x={52} y={414} labelKey={`${KEY_PREFIX}.legendImports`} />
       <DiagramArrow d="M190 410 H224" isPlanned />
-      <DiagramLabel x={232} y={414} labelKey={`${K}.legendPlanned`} />
+      <DiagramLabel x={232} y={414} labelKey={`${KEY_PREFIX}.legendPlanned`} />
     </DiagramFrame>
   );
 }

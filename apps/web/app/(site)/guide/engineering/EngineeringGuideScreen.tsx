@@ -1,14 +1,14 @@
 "use client";
 
-import { SITE_NAMESPACE } from "@kidlearn/i18n";
-import { useTranslation } from "react-i18next";
 import { LifecycleDiagram } from "@/features/site/diagrams/LifecycleDiagram";
 import { MonorepoDiagram } from "@/features/site/diagrams/MonorepoDiagram";
 import { RequestDiagram } from "@/features/site/diagrams/RequestDiagram";
 import { ExternalLink } from "@/features/site/ExternalLink";
+import { GuideFacts } from "@/features/site/GuideFacts";
 import { GuideLayout, type GuideSection } from "@/features/site/GuideLayout";
-import { GuideFacts, GuideText } from "@/features/site/GuideProse";
+import { GuideText } from "@/features/site/GuideText";
 import { REPO_DOC_URL } from "@/features/site/site-routes";
+import { useSiteTranslation } from "@/features/site/use-site-translation";
 
 const STACK_ROWS = [
   "web",
@@ -32,7 +32,7 @@ const FURTHER_READING = [
 ] as const;
 
 function StackTable() {
-  const { t } = useTranslation(SITE_NAMESPACE);
+  const { t } = useSiteTranslation();
 
   return (
     <table className="w-full border-collapse text-left">
@@ -71,7 +71,7 @@ function StackTable() {
 }
 
 function FurtherReading() {
-  const { t } = useTranslation(SITE_NAMESPACE);
+  const { t } = useSiteTranslation();
 
   return (
     <ul className="flex flex-col gap-1">

@@ -1,11 +1,10 @@
 "use client";
 
-import { SITE_NAMESPACE } from "@kidlearn/i18n";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTranslation } from "react-i18next";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
 import { SITE_ROUTES } from "./site-routes";
+import { useSiteTranslation } from "./use-site-translation";
 
 const GUIDE_LINKS = [
   { href: SITE_ROUTES.parentGuide, labelKey: "nav.parents" },
@@ -14,7 +13,7 @@ const GUIDE_LINKS = [
 ] as const;
 
 export function SiteHeader() {
-  const { t } = useTranslation(SITE_NAMESPACE);
+  const { t } = useSiteTranslation();
   const pathname = usePathname();
 
   return (
@@ -36,7 +35,7 @@ export function SiteHeader() {
               <Link
                 href={href}
                 aria-current={pathname === href ? "page" : undefined}
-                className="focus-ring inline-flex min-h-11 items-center rounded-sm text-lg underline-offset-8 hover:underline aria-[current=page]:font-bold aria-[current=page]:underline aria-[current=page]:decoration-sunshine aria-[current=page]:decoration-4"
+                className="focus-ring inline-flex min-h-11 items-center rounded-sm text-lg underline-offset-8 hover:underline aria-[current=page]:font-bold aria-[current=page]:underline aria-[current=page]:decoration-accent aria-[current=page]:decoration-4"
               >
                 {t(labelKey)}
               </Link>

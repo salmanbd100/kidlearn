@@ -1,12 +1,10 @@
 "use client";
 
-import { SITE_NAMESPACE } from "@kidlearn/i18n";
-import { Button, cn, useIsMotionReduced } from "@kidlearn/ui";
+import { Button, cn } from "@kidlearn/ui";
 import { Languages, ShieldCheck, Trophy, UserCheck } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { Suspense } from "react";
-import { useTranslation } from "react-i18next";
 import { AdminSignInDialog } from "@/features/admin/AdminSignInDialog";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { ParentSignInDialog } from "@/features/parent/ParentSignInDialog";
@@ -17,7 +15,9 @@ import { HeroScene } from "@/features/site/HeroScene";
 import { HowItWorks } from "@/features/site/HowItWorks";
 import { Reveal } from "@/features/site/Reveal";
 import { SITE_ROUTES } from "@/features/site/site-routes";
+import { useIsMotionReducedAfterHydration } from "@/features/site/use-is-motion-reduced-after-hydration";
 import { useSignedInRole } from "@/features/site/use-signed-in-role";
+import { useSiteTranslation } from "@/features/site/use-site-translation";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 
 const GUIDES = [
@@ -35,8 +35,8 @@ const DIFFERENCES = [
 ] as const;
 
 export function HomeScreen() {
-  const { t } = useTranslation(SITE_NAMESPACE);
-  const isMotionReduced = useIsMotionReduced();
+  const { t } = useSiteTranslation();
+  const isMotionReduced = useIsMotionReducedAfterHydration();
   const role = useSignedInRole();
 
   return (
@@ -47,6 +47,7 @@ export function HomeScreen() {
       >
         <div className="flex flex-col gap-8">
           <motion.div
+            key={isMotionReduced ? "still" : "moving"}
             data-testid="home-headline"
             className="flex w-fit flex-col"
             // Reduced motion gets the settled headline: Motion's inline transform is out of reach of the CSS reset.
@@ -80,7 +81,7 @@ export function HomeScreen() {
               </Button>
             ) : (
               <Button asChild size="kid" variant="outline">
-                <Link href={PARENT_ROUTES.login} scroll={false}>
+                <Link href={PARENT_ROUTES.login} replace scroll={false}>
                   {t("home.parentSignIn")}
                 </Link>
               </Button>
@@ -93,7 +94,10 @@ export function HomeScreen() {
               href={
                 role === "admin" ? ADMIN_ROUTES.analytics : ADMIN_ROUTES.login
               }
-              scroll={false}
+              // The dialog opens over this page: keep the scroll, and replace rather than push so Back after
+              // closing it leaves the homepage. The CMS is a new page, with its own entry and scroll.
+              replace={role !== "admin"}
+              scroll={role === "admin"}
               className="focus-ring -mt-4 inline-flex min-h-11 w-fit items-center rounded-sm text-lg text-muted-foreground underline underline-offset-4 hover:text-foreground"
             >
               {role === "admin"
@@ -134,7 +138,7 @@ export function HomeScreen() {
               <Reveal delay={0.1 * index} className="flex flex-col gap-1">
                 <Link
                   href={href}
-                  className="focus-ring inline-flex min-h-11 w-fit items-center rounded-sm text-2xl font-bold underline decoration-sunshine decoration-4 underline-offset-8 hover:decoration-foreground"
+                  className="focus-ring inline-flex min-h-11 w-fit items-center rounded-sm text-2xl font-bold underline decoration-accent decoration-4 underline-offset-8 hover:decoration-foreground"
                 >
                   {t(`home.guides.${key}.title`)}
                 </Link>

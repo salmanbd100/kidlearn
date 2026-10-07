@@ -53,10 +53,10 @@ describe("StudentGuard", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
-  it("sends a signed-out visitor to the parent sign-in dialog without showing the screen", () => {
+  it("sends a signed-out visitor to the bare parent sign-in page without showing the screen", () => {
     renderGuard({ status: "signedOut", child: undefined });
 
-    expect(router.replace).toHaveBeenCalledWith("/?signin=parent");
+    expect(router.replace).toHaveBeenCalledWith("/parent/login");
     expect(screen.queryByText("student screen")).not.toBeInTheDocument();
   });
 

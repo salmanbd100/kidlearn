@@ -2,7 +2,6 @@
 
 import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -10,11 +9,10 @@ import {
   DialogTitle,
   ThemeScope,
 } from "@kidlearn/ui";
-import { HeartHandshake, ShieldCheck, UserPlus } from "lucide-react";
+import { HeartHandshake } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryDialog } from "@/shared/hooks/use-query-dialog";
-import { GoogleIcon } from "./GoogleIcon";
-import { googleSignInUrl } from "./parent-api";
+import { ParentSignInOptions } from "./ParentSignInOptions";
 import { PARENT_SIGN_IN_PARAM } from "./parent-redirect";
 
 /** The parent sign-in screen, as a dialog over the homepage; `PARENT_ROUTES.login` opens it. */
@@ -44,25 +42,7 @@ export function ParentSignInDialog() {
               {t("login.subtitle")}
             </DialogDescription>
           </DialogHeader>
-          <Button asChild size="lg" variant="outline" className="w-full">
-            <a href={googleSignInUrl()}>
-              <GoogleIcon />
-              {t("login.google")}
-            </a>
-          </Button>
-          <div className="flex flex-col gap-2 border-border border-t pt-5 text-muted-foreground text-sm">
-            <p className="flex items-start gap-2">
-              <ShieldCheck
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0"
-              />
-              {t("login.privacy")}
-            </p>
-            <p className="flex items-start gap-2">
-              <UserPlus aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-              {t("login.newHere")}
-            </p>
-          </div>
+          <ParentSignInOptions />
         </DialogContent>
       </Dialog>
     </ThemeScope>

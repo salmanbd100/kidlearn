@@ -448,7 +448,7 @@ flowchart LR
     Ch --> Done([Lands on profiles page])
 ```
 
-- **Google only** — there is no email/password field anywhere. One "Continue with Google" button, in the **Parent sign-in** dialog on the homepage (`/?signin=parent`). There is no separate sign-in page: `/parent/login` redirects to the dialog, and every signed-out redirect lands on it.
+- **Google only** — there is no email/password field anywhere. One "Continue with Google" button, in the **Parent sign-in** dialog on the homepage (`/?signin=parent`) or on the bare `/parent/login` page. A signed-out visit to a `/parent/*` page lands on the dialog; a signed-out session on the child's screens lands on `/parent/login` instead, because the homepage carries external links and a child must not reach it (NFR-SAFE-07).
 - 🔒 **Consent before any child** — no child-profile UI is reachable until consent is recorded (COPPA). The button stays disabled until the box is ticked.
 - **First child** — name (1–30 chars), age (3–6), grade (Nursery / KG-1), language (English / Bangla), and an avatar from a starter grid.
 

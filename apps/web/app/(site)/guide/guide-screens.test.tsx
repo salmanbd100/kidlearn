@@ -1,4 +1,4 @@
-import { resources } from "@kidlearn/i18n";
+import { siteResources } from "@kidlearn/i18n/site";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -20,7 +20,7 @@ import {
 
 /** Reads a dotted key from the English copy, so the assertions follow the strings rather than repeat them. */
 function english(key: string): string {
-  let node: unknown = resources.en.site;
+  let node: unknown = siteResources.en;
   for (const part of key.split(".")) {
     node =
       typeof node === "object" && node !== null

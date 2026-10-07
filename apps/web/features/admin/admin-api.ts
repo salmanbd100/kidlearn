@@ -1,5 +1,6 @@
 import type { AdminIdentity, PlatformOverview } from "@kidlearn/types";
 import {
+  type ApiFetchInit,
   type ApiResult,
   apiBaseUrl,
   apiFetch,
@@ -7,8 +8,10 @@ import {
 } from "@/shared/api/api-client";
 
 /** Who am I. `403` here means a signed-in *parent*, not a broken session. */
-export function fetchAdminMe(): Promise<ApiResult<AdminIdentity>> {
-  return apiFetch<AdminIdentity>("/api/admin/me");
+export function fetchAdminMe(
+  init: ApiFetchInit = {},
+): Promise<ApiResult<AdminIdentity>> {
+  return apiFetch<AdminIdentity>("/api/admin/me", init);
 }
 
 export function fetchPlatformOverview(

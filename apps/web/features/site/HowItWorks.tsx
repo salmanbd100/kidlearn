@@ -1,11 +1,11 @@
 "use client";
 
-import { SITE_NAMESPACE } from "@kidlearn/i18n";
-import { cn, useIsMotionReduced } from "@kidlearn/ui";
+import { cn } from "@kidlearn/ui";
 import { motion, type Variants } from "motion/react";
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 import { toNumeral } from "./HangingSection";
+import { useIsMotionReducedAfterHydration } from "./use-is-motion-reduced-after-hydration";
+import { useSiteTranslation } from "./use-site-translation";
 
 const SPRING = { type: "spring", stiffness: 400, damping: 15 } as const;
 
@@ -30,11 +30,15 @@ const STEPS = [
 ] as const;
 
 export function HowItWorks() {
-  const { t } = useTranslation(SITE_NAMESPACE);
-  const isMotionReduced = useIsMotionReduced();
+  const { t } = useSiteTranslation();
+  const isMotionReduced = useIsMotionReducedAfterHydration();
 
   return (
-    <ol className="grid gap-8 sm:grid-cols-3 sm:gap-6">
+    // Keyed so the flip to reduced motion remounts every picture settled rather than animating it.
+    <ol
+      key={isMotionReduced ? "still" : "moving"}
+      className="grid gap-8 sm:grid-cols-3 sm:gap-6"
+    >
       {STEPS.map(({ key, tint, Picture }, index) => (
         // Picture beside the words on a phone: three full-width tiles were a screen and a half of scrolling.
         <li
@@ -56,7 +60,7 @@ export function HowItWorks() {
             <h3 className="font-display text-2xl font-semibold">
               {t(`home.how.${key}.title`)}
             </h3>
-            <p className="leading-relaxed text-muted-foreground">
+            <p className="text-lg leading-relaxed text-muted-foreground">
               {t(`home.how.${key}.detail`)}
             </p>
           </div>

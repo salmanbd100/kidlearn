@@ -74,4 +74,36 @@ describe("useSignedInRole", () => {
     await waitFor(() => expect(parentApi.fetchAuthMe).toHaveBeenCalled());
     expect(result.current).toBe("unknown");
   });
+
+  it("asks once, without the default retries, so a cold API does not hold the page for a minute", async () => {
+    parentApi.fetchAuthMe.mockResolvedValue(failure(401));
+
+    renderHook(() => useSignedInRole());
+
+    await waitFor(() =>
+      expect(parentApi.fetchAuthMe).toHaveBeenCalledWith(
+        expect.objectContaining({ retries: 0 }),
+      ),
+    );
+  });
+
+  it("treats an admin endpoint that refuses the cookie as signed out", async () => {
+    parentApi.fetchAuthMe.mockResolvedValue(failure(403));
+    adminApi.fetchAdminMe.mockResolvedValue(failure(401));
+
+    const { result } = renderHook(() => useSignedInRole());
+
+    await waitFor(() => expect(result.current).toBe("signedOut"));
+  });
+
+  it("stays unknown when the admin endpoint cannot be reached", async () => {
+    parentApi.fetchAuthMe.mockResolvedValue(failure(403));
+    adminApi.fetchAdminMe.mockResolvedValue(failure(undefined));
+
+    const { result } = renderHook(() => useSignedInRole());
+
+    await waitFor(() => expect(adminApi.fetchAdminMe).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(result.current).toBe("unknown");
+  });
 });

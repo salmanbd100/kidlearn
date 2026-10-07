@@ -266,7 +266,7 @@
     },
     "quality": {
       "title": "Quality",
-      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,040 tests in 202 files, counted on 7 October 2026.",
+      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,068 tests in 210 files, counted on 7 October 2026.",
       "p2": "Every successful response in a route test is checked against its published schema with <code>assertContract</code>, and a coverage test walks the live Express routers and fails if any endpoint is missing from the OpenAPI document. What a stub cannot prove, such as cascades, unique constraints and the status check on related rows, runs against a real Postgres database in <code>*.db.test.ts</code> suites.",
       "p3": "On every pull request, one CI job, <code>gates</code>, runs lint, build, type-check, the tests with coverage, the real-database suites and the Docker image builds."
     },

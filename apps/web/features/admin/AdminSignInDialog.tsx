@@ -54,9 +54,21 @@ export function AdminSignInDialog() {
     setHasFailed(true);
   }
 
+  // The dialog only hides, so its state outlives a close; on a shared tablet the next visitor must not
+  // find the password typed in, one tap from the reveal button.
+  function handleOpenChange(isNowOpen: boolean) {
+    if (!isNowOpen) {
+      setEmail("");
+      setPassword("");
+      setIsPasswordShown(false);
+      setHasFailed(false);
+    }
+    onOpenChange(isNowOpen);
+  }
+
   return (
     <ThemeScope theme="parent" className="contents font-ui text-foreground">
-      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent size="sm" closeLabel="Close" className="gap-6 p-8">
           <DialogHeader
             gutter="flush"

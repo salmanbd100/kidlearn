@@ -1,9 +1,17 @@
 import { A11Y_PREF_CLASSES } from "@kidlearn/ui";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import type { Locale } from "@/shared/lib/locale";
+import { scrollEverythingIntoView } from "@/shared/testing/intersection-observer";
 
 const navigation = vi.hoisted(() => ({ search: "" }));
 const router = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -229,5 +237,18 @@ describe("HomeScreen", () => {
     const headline = screen.getByTestId("home-headline");
     expect(headline.style.opacity).not.toBe("0");
     expect(headline.style.transform).not.toContain("16px");
+  });
+
+  it("brings the guide entries into sight once they scroll into view", async () => {
+    renderHome();
+    const entry = screen.getByRole("link", { name: "For parents" })
+      .parentElement as HTMLElement;
+    expect(entry.style.opacity).toBe("0");
+
+    act(() => scrollEverythingIntoView());
+
+    await waitFor(() => expect(entry.style.opacity).toBe("1"), {
+      timeout: 2000,
+    });
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
-import { cn, useIsMotionReduced } from "@kidlearn/ui";
+import { cn } from "@kidlearn/ui";
 import { motion, useAnimate } from "motion/react";
+import { useIsMotionReducedAfterHydration } from "./use-is-motion-reduced-after-hydration";
 
 const SPRING = { type: "spring", stiffness: 400, damping: 15 } as const;
 
@@ -29,11 +30,12 @@ const SUN_RAYS = Array.from({ length: 8 }, (_, index) => {
  * drop in once, bottom row first, and bounce when tapped. Decorative, so hidden from assistive tech.
  */
 export function HeroScene({ className }: { className?: string }) {
-  const isMotionReduced = useIsMotionReduced();
+  const isMotionReduced = useIsMotionReducedAfterHydration();
 
   return (
     // Plays when the scene scrolls into view: on a phone it sits below the actions, out of sight on load.
     <motion.svg
+      key={isMotionReduced ? "still" : "moving"}
       initial={isMotionReduced ? false : "from"}
       animate={isMotionReduced ? "to" : undefined}
       whileInView="to"

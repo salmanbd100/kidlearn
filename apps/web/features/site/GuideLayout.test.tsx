@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { GuideLayout, type GuideSection } from "./GuideLayout";
-import { GuideText } from "./GuideProse";
+import { GuideText } from "./GuideText";
 
 const SECTIONS: GuideSection[] = [
   {

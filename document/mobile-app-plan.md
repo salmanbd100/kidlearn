@@ -514,10 +514,10 @@ bundle and readable by anyone who downloads it.
 | Google Play Console | $25 one-off |
 | Apple Developer Program | $99/year — the only recurring cost this plan adds |
 | EAS Build | Free tier is workable (queued builds, monthly limits). `eas build --local` on your Mac is the escape hatch for both platforms. |
-| Backend / DB / media | Unchanged — web file 38's AWS stack (~$23/month for both environments) serves the mobile app too, at no extra cost for a second client |
+| Backend / DB / media | Unchanged — web file 38's AWS stack (~$13.73/month for both environments) serves the mobile app too, at no extra cost for a second client |
 
 The backend is no longer zero-cost: web file 38 plans a single EC2 box running both a
-production and a development environment, for roughly $23/month (not yet provisioned). Mobile adds Apple's $99/year and
+production and a development environment, for roughly $13.73/month (not yet provisioned). Mobile adds Apple's $99/year and
 Google's one-off $25 on top of that, and nothing else recurring.
 
 ---

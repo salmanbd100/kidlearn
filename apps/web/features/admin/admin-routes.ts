@@ -3,8 +3,6 @@ export const ADMIN_SIGN_IN_PARAM = { name: "signin", value: "admin" } as const;
 
 export const ADMIN_ROUTES = {
   login: `/?${ADMIN_SIGN_IN_PARAM.name}=${ADMIN_SIGN_IN_PARAM.value}`,
-  /** Kept as a redirect to `login`, so links to the retired sign-in page still land. */
-  legacyLogin: "/admin/login",
   analytics: "/admin/analytics",
   curriculum: "/admin/curriculum",
   stories: "/admin/stories",

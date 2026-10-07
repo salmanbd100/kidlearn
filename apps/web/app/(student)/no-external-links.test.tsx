@@ -8,6 +8,7 @@ import type {
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { SITE_ROUTES } from "@/features/site/site-routes";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
@@ -188,26 +189,53 @@ describe("no external links anywhere in the Student Portal", () => {
 });
 
 describe("no route into the public site from the Student Portal", () => {
-  // The rendered sweep above covers three screens; this covers every source file in the group.
-  const studentDir = import.meta.dirname;
-  const sources = readdirSync(studentDir, { recursive: true, encoding: "utf8" })
-    .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
-    .map((file) => ({
-      file,
-      text: readFileSync(join(studentDir, file), "utf8"),
-    }));
+  // The rendered sweep above covers three screens; this covers every source file the portal is built from,
+  // redirects included — `router.replace` targets are invisible to a sweep of rendered links.
+  const sourceDirs = [
+    import.meta.dirname,
+    join(import.meta.dirname, "../../features/student"),
+  ];
+  const sources = sourceDirs.flatMap((dir) =>
+    readdirSync(dir, { recursive: true, encoding: "utf8" })
+      .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+      .map((file) => ({
+        file,
+        text: readFileSync(join(dir, file), "utf8"),
+      })),
+  );
 
   it("finds the screens it is meant to sweep", () => {
     expect(sources.length).toBeGreaterThan(5);
+    expect(sources.map(({ file }) => file)).toContain("ParentCorner.tsx");
   });
 
-  it("imports no site route and names no guide path", () => {
+  it("imports no site route and names no guide path or bare root", () => {
     const offending = sources
       .filter(
         ({ text }) =>
-          text.includes("features/site/") || /["'`]\/guide\//.test(text),
+          text.includes("features/site/") ||
+          /["'`]\/guide\//.test(text) ||
+          /(href=\{?|href:|push\(|replace\(|redirect\()\s*["'`]\/(\?[^"'`]*)?["'`]/.test(
+            text,
+          ),
       )
       .map(({ file }) => file);
     expect(offending).toEqual([]);
+  });
+
+  it("never sends a child to the homepage sign-in dialogs", () => {
+    // Both open over the homepage; the portal's signed-out redirect uses `PARENT_ROUTES.signInPage`.
+    const offending = sources
+      .filter(({ text }) => /\b(PARENT|ADMIN)_ROUTES\.login\b/.test(text))
+      .map(({ file }) => file);
+    expect(offending).toEqual([]);
+  });
+
+  it("signs a child's device out to a page outside the public site", () => {
+    const { pathname } = new URL(
+      PARENT_ROUTES.signInPage,
+      window.location.origin,
+    );
+    expect(Object.values(SITE_ROUTES)).not.toContain(pathname);
   });
 });

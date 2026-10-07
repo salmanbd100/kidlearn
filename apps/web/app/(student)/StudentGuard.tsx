@@ -17,7 +17,7 @@ export function StudentGuard({ children }: { children: ReactNode }) {
   // Consent before the profile picker: the API refuses every progress write until the current text is accepted.
   const redirectTo =
     status === "signedOut"
-      ? PARENT_ROUTES.login
+      ? PARENT_ROUTES.signInPage
       : status === "ready" && parent?.hasCurrentConsent === false
         ? PARENT_ROUTES.consent
         : status === "ready" && child === undefined

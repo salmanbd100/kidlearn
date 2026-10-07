@@ -6,7 +6,6 @@ const doodleVariants = cva("pointer-events-none shrink-0 fill-none", {
   variants: {
     kind: {
       underline: "h-auto w-full",
-      star: "size-8 sm:size-10",
       squiggle: "h-4 w-12",
     },
     tone: {
@@ -28,13 +27,6 @@ const PATHS = {
     d: [
       "M4 15 C 52 7, 104 19, 158 12 S 252 7, 296 13",
       "M22 19 C 86 13, 166 18, 276 15",
-    ],
-  },
-  star: {
-    viewBox: "0 0 48 48",
-    strokeWidth: 3,
-    d: [
-      "M24.5 4.5 L28.8 18.6 L43.2 19.4 L31.6 27.9 L35.7 42.1 L23.8 33.9 L11.6 41.6 L16.6 27.6 L5.1 18.7 L19.7 18.9 L23.4 7.2",
     ],
   },
   squiggle: {

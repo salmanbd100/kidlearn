@@ -222,7 +222,8 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 - Never animate `width`/`height`/`top`/`left` — animate `transform` and `opacity` only.
 - **Public homepage exception (2026-10-07):** its decorative SVG pictures may play a one-time
   entrance when scrolled into view and react to a tap, to show how the app works. They still never
-  loop, and render settled under reduced motion. See `implementation/40-public-homepage-and-guides.md §8`.
+  loop, and render settled under reduced motion. The tracing picture may also animate an SVG stroke's
+  `pathLength`, a one-off draw-in on a small path. See `implementation/40-public-homepage-and-guides.md §8`.
 
 ---
 
@@ -247,6 +248,11 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   height. `app/(student)/viewport-chrome.test.ts` enforces this for the Student Portal.
 - **Fluid sizing.** Prefer `clamp()` for display type and large spacing so they scale smoothly
   across phone→tablet. Kid text stays **≥20px** and touch targets **≥64px** at every width.
+  **Engineering-guide diagram exception (2026-10-07):** labels inside the three SVG diagrams on
+  `/guide/engineering` scale with the figure and fall to about 11–13px on a phone. The page is for an
+  adult reader; each diagram has a 20px caption and an accessible name and sits in a section whose
+  text explains it; and a three-column diagram cannot carry 20px labels at 360px. Covers
+  `features/site/diagrams/` only.
 - Kid screens are **full-bleed and immersive** — no traditional nav chrome; navigation is
   large illustrated waypoints, placed in the thumb zone (lower/center), not top corners. The one
   standing exception is the **parent corner**: a small adult-only control pinned to a top corner,

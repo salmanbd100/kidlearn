@@ -2,7 +2,8 @@
 
 import { LifecycleDiagram } from "@/features/site/diagrams/LifecycleDiagram";
 import { GuideLayout, type GuideSection } from "@/features/site/GuideLayout";
-import { GuideSteps, GuideText } from "@/features/site/GuideProse";
+import { GuideSteps } from "@/features/site/GuideSteps";
+import { GuideText } from "@/features/site/GuideText";
 
 const ADMIN_DOC = "admin-account-guide.md";
 const MANUAL = "user-journey-manual.md";

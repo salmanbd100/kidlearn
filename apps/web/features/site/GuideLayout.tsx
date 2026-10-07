@@ -1,12 +1,11 @@
 "use client";
 
-import { SITE_NAMESPACE } from "@kidlearn/i18n";
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 import { Doodle } from "./Doodle";
 import { ExternalLink } from "./ExternalLink";
 import { HangingSection, toNumeral } from "./HangingSection";
 import { REPO_DOC_URL } from "./site-routes";
+import { useSiteTranslation } from "./use-site-translation";
 
 export interface GuideSection {
   id: string;
@@ -28,7 +27,7 @@ export function GuideLayout({
   leadKey: string;
   sections: readonly GuideSection[];
 }) {
-  const { t } = useTranslation(SITE_NAMESPACE);
+  const { t } = useSiteTranslation();
 
   return (
     <article className="flex flex-col gap-12 md:gap-16">

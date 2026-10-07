@@ -95,4 +95,26 @@ describe("AdminSignInDialog", () => {
 
     expect(router.replace).toHaveBeenCalledWith("/", { scroll: false });
   });
+
+  it("forgets what was typed when closed, so the next visitor cannot reveal it", async () => {
+    api.adminSignIn.mockResolvedValue({ ok: false });
+    const { rerender } = render(<AdminSignInDialog />);
+    signIn();
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    navigation.search = "";
+    rerender(<AdminSignInDialog />);
+    navigation.search = "signin=admin";
+    rerender(<AdminSignInDialog />);
+
+    expect(await screen.findByLabelText("Email")).toHaveValue("");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(screen.getByLabelText("Password")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });
