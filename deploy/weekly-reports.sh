@@ -41,15 +41,27 @@ heartbeat() {
   curl -fsS -m 10 --retry 3 -o /dev/null "${HEARTBEAT_URL}$1" || true
 }
 
-trap 'status=$?; if [[ ${status} -ne 0 ]]; then echo "[weekly-reports] FAILED with status ${status}" >&2; heartbeat /fail; fi' EXIT
+on_exit() {
+  local status=$?
+  if [[ ${status} -ne 0 ]]; then
+    echo "[weekly-reports] FAILED with status ${status}" >&2
+    heartbeat /fail
+  fi
+}
+trap on_exit EXIT
 
 CRON_SECRET="$(ssm /kidlearn/prod/CRON_SECRET)"
 
-# --fail so a 401 or a 500 is a non-zero exit rather than a logged "success" that
-# quietly generated nothing — the API answers 500 when any child failed. The
-# retries are safe because the job is idempotent: each report is an upsert on
-# (childId, weekStart), and a retry that lands while the first run is still going
-# (past --max-time) joins that run rather than starting a second pass. curl's default retry covers
+# The API answers 202 Accepted and runs the job in the background: a pass over
+# every child outlasts any sane request timeout. So a success here means "the run
+# started" (or `"status":"alreadyRunning"` — a second trigger joins the run in
+# flight rather than starting another), NOT "every report was written". A run
+# where children fail is logged by the API at `error` level ("Weekly reports
+# failed for N of M children"), and only there — the heartbeat below cannot see
+# it. The response body is echoed into this script's log for the record.
+#
+# --fail so a 401 or a 5xx is a non-zero exit; any 2xx, 202 included, passes.
+# Retrying is safe because triggering is idempotent. curl's default retry covers
 # timeouts and 408/429/5xx, and `--retry-connrefused` adds the connection refused
 # a deploy recreating the API at 02:00 on a Monday produces. A 401 is not retried
 # (`--retry-all-errors` would), so a wrong secret still fails at once.
@@ -58,8 +70,9 @@ CRON_SECRET="$(ssm /kidlearn/prod/CRON_SECRET)"
 # is readable by every user on the box in `ps` for the whole run. printf is a
 # shell builtin, so the secret is never an argument to any process.
 printf 'header = "Authorization: Bearer %s"\n' "${CRON_SECRET}" |
-  curl -fsS --max-time 300 --retry 2 --retry-delay 60 --retry-connrefused -X POST \
+  curl -fsS --max-time 60 --retry 2 --retry-delay 60 --retry-connrefused -X POST \
     -K - https://api.kidlearn.net/api/admin/jobs/weekly-reports
+echo
 
 heartbeat ""
-echo "[weekly-reports] done"
+echo "[weekly-reports] accepted — the outcome is in the API log"

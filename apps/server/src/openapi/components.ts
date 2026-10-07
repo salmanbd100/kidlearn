@@ -130,8 +130,8 @@ import {
   UploadSignatureSchema,
   ValidationDetailsSchema,
   WeeklyReportBadgeSchema,
-  WeeklyReportJobResponseSchema,
-  WeeklyReportJobResultSchema,
+  WeeklyReportJobAcceptedResponseSchema,
+  WeeklyReportJobAcceptedSchema,
   WeeklyReportListResponseSchema,
   WeeklyReportListSchema,
   WeeklyReportMetricsSchema,
@@ -291,8 +291,8 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   WeeklyReport: WeeklyReportSchema,
   WeeklyReportList: WeeklyReportListSchema,
   WeeklyReportListResponse: WeeklyReportListResponseSchema,
-  WeeklyReportJobResult: WeeklyReportJobResultSchema,
-  WeeklyReportJobResponse: WeeklyReportJobResponseSchema,
+  WeeklyReportJobAccepted: WeeklyReportJobAcceptedSchema,
+  WeeklyReportJobAcceptedResponse: WeeklyReportJobAcceptedResponseSchema,
 
   // Response shapes only; both read the session or the server clock.
   AdminIdentity: AdminIdentitySchema,

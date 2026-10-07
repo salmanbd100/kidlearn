@@ -472,6 +472,12 @@ export function oldestRetainedWeek(now: Date, timeZone: string): Date {
   );
 }
 
+/** A year of history: the screen shows the newest card and a list beneath it, and a row a year old is not read. */
+export const WEEKLY_REPORT_HISTORY_LIMIT = 52;
+
+/** Children loaded per page by the cron run, so the job's memory does not grow with the user base. */
+export const WEEKLY_REPORT_CHILD_BATCH_SIZE = 200;
+
 // Newest first, generating last week's if missing (FR-DASH-06); the lazy fill is one week only.
 export async function getWeeklyReports(child: {
   id: string;
@@ -496,6 +502,7 @@ export async function getWeeklyReports(child: {
   const rows = await prisma.weeklyReport.findMany({
     where: { childId: child.id },
     orderBy: { weekStart: "desc" },
+    take: WEEKLY_REPORT_HISTORY_LIMIT,
     select: { weekStart: true, metrics: true, note: true, createdAt: true },
   });
 
@@ -557,46 +564,63 @@ export async function generateLastCompletedWeekForAllChildren(): Promise<
   const now = new Date();
   const lastWeek = lastCompletedWeekStart(now, env.APP_TIMEZONE);
   const retainedFrom = oldestRetainedWeek(now, env.APP_TIMEZONE);
-  const children = await prisma.childProfile.findMany({
-    select: { id: true, createdAt: true },
-  });
-
+  let childrenProcessed = 0;
   let weeksGenerated = 0;
   let childrenFailed = 0;
 
-  for (const child of children) {
-    const firstWeek = firstReportableWeek(child.createdAt, env.APP_TIMEZONE);
-    if (lastWeek.getTime() < firstWeek.getTime()) continue;
-    const backfillFrom =
-      firstWeek.getTime() > retainedFrom.getTime() ? firstWeek : retainedFrom;
+  // Keyset paging on `id`: an offset would skip or repeat a child created or deleted mid-run.
+  for (let after: string | undefined; ; ) {
+    const children = await prisma.childProfile.findMany({
+      where: after === undefined ? undefined : { id: { gt: after } },
+      orderBy: { id: "asc" },
+      take: WEEKLY_REPORT_CHILD_BATCH_SIZE,
+      select: { id: true, createdAt: true },
+    });
+    childrenProcessed += children.length;
 
-    try {
-      const existing = await prisma.weeklyReport.findMany({
-        where: { childId: child.id },
-        select: { weekStart: true },
-      });
-      const present = new Set(existing.map((row) => row.weekStart.getTime()));
+    for (const child of children) {
+      const firstWeek = firstReportableWeek(child.createdAt, env.APP_TIMEZONE);
+      if (lastWeek.getTime() < firstWeek.getTime()) continue;
+      const backfillFrom =
+        firstWeek.getTime() > retainedFrom.getTime() ? firstWeek : retainedFrom;
 
-      const gap = oldestMissingWeek(backfillFrom, lastWeek, present);
-      if (gap !== undefined) {
-        await generateWeeklyReport(child.id, gap);
+      try {
+        const existing = await prisma.weeklyReport.findMany({
+          where: { childId: child.id },
+          select: { weekStart: true },
+        });
+        const present = new Set(existing.map((row) => row.weekStart.getTime()));
+
+        const gap = oldestMissingWeek(backfillFrom, lastWeek, present);
+        if (gap !== undefined) {
+          await generateWeeklyReport(child.id, gap);
+          weeksGenerated += 1;
+        }
+
+        await generateWeeklyReport(child.id, lastWeek);
         weeksGenerated += 1;
+      } catch (error) {
+        childrenFailed += 1;
+        logger.error(
+          { err: error, childId: child.id },
+          "Weekly report generation failed for one child; continuing",
+        );
       }
-
-      await generateWeeklyReport(child.id, lastWeek);
-      weeksGenerated += 1;
-    } catch (error) {
-      childrenFailed += 1;
-      logger.error(
-        { err: error, childId: child.id },
-        "Weekly report generation failed for one child; continuing",
-      );
     }
+
+    const last = children.at(-1);
+    if (
+      last === undefined ||
+      children.length < WEEKLY_REPORT_CHILD_BATCH_SIZE
+    ) {
+      break;
+    }
+    after = last.id;
   }
 
   logger.info(
     {
-      childrenProcessed: children.length,
+      childrenProcessed,
       childrenFailed,
       weeksGenerated,
       weekStart: lastWeek.toISOString(),
@@ -605,7 +629,7 @@ export async function generateLastCompletedWeekForAllChildren(): Promise<
   );
 
   return {
-    childrenProcessed: children.length,
+    childrenProcessed,
     childrenFailed,
     weekStart: lastWeek.toISOString(),
   };

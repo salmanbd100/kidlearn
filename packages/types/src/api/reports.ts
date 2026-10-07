@@ -83,7 +83,7 @@ export type WeeklyReportList = z.infer<typeof WeeklyReportListSchema>;
 
 export const WeeklyReportListResponseSchema = ok(WeeklyReportListSchema);
 
-/** What the cron job answers (`POST /api/admin/jobs/weekly-reports`). */
+/** What one cron run computed; logged by the server, never sent — the route answers before the run ends. */
 export const WeeklyReportJobResultSchema = z
   .object({
     childrenProcessed: z.number().int().min(0),
@@ -97,4 +97,20 @@ export const WeeklyReportJobResultSchema = z
 
 export type WeeklyReportJobResult = z.infer<typeof WeeklyReportJobResultSchema>;
 
-export const WeeklyReportJobResponseSchema = ok(WeeklyReportJobResultSchema);
+/** What `POST /api/admin/jobs/weekly-reports` answers: the run is accepted, not finished. */
+export const WeeklyReportJobAcceptedSchema = z
+  .object({
+    /** `alreadyRunning` when a run was in flight and this call joined it rather than starting a second pass. */
+    status: z.enum(["started", "alreadyRunning"]),
+    /** When the run this call refers to began. */
+    startedAt: IsoDateTimeSchema,
+  })
+  .strict();
+
+export type WeeklyReportJobAccepted = z.infer<
+  typeof WeeklyReportJobAcceptedSchema
+>;
+
+export const WeeklyReportJobAcceptedResponseSchema = ok(
+  WeeklyReportJobAcceptedSchema,
+);
