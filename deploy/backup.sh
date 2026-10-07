@@ -93,6 +93,13 @@ PARTIAL_KEY="s3://${BUCKET}/prod/.partial/${STAMP}.sql.gz"
 #
 # `set -o pipefail` is in force, so a pg_dump failure fails the whole pipeline
 # rather than writing a valid gzip of nothing.
+#
+# `--schema=public` ONLY. Everything the application owns is in public, including
+# Prisma's `_prisma_migrations`, and no migration creates an extension (UUIDs are
+# core `gen_random_uuid()`). The rest of a Supabase database — auth, storage,
+# realtime, vault, graphql and the extensions behind them — exists only on
+# Supabase, so a whole-database dump cannot be restored into plain Postgres:
+# it stops at the first Supabase-only object. Restore procedure: runbook §8.
 log "dumping production → ${PARTIAL_KEY}"
 # DIRECT_URL is inherited from this shell's environment (`-e` with no value) rather
 # than passed as an argument, so the password never appears in `ps` or
@@ -107,7 +114,7 @@ fi
 PG_IMAGE="postgres:$((SERVER_VERSION_NUM / 10000))-alpine"
 log "server is Postgres ${SERVER_VERSION_NUM}; dumping with ${PG_IMAGE}"
 docker run --rm -i -e PGCONNECT_TIMEOUT=15 -e DIRECT_URL "${PG_IMAGE}" \
-  sh -c 'exec pg_dump --no-owner --no-privileges --format=plain "$DIRECT_URL"' |
+  sh -c 'exec pg_dump --no-owner --no-privileges --format=plain --schema=public "$DIRECT_URL"' |
   gzip -9 |
   aws s3 cp --region "${AWS_REGION}" --expected-size 2147483648 - "${PARTIAL_KEY}"
 

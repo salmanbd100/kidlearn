@@ -66,6 +66,9 @@ log "creating /opt/kidlearn"
 install -d -m 0755 /opt/kidlearn
 install -d -m 0700 /opt/kidlearn/prod
 install -d -m 0700 /opt/kidlearn/dev
+# caddy.env (ACME endpoint and email, runbook §6) — outside deploy/ so that
+# re-copying deploy/ never resets the box to the staging endpoint.
+install -d -m 0700 /opt/kidlearn/edge
 install -d -m 0755 /opt/kidlearn/deploy
 
 # --- Housekeeping ------------------------------------------------------------

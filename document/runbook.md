@@ -282,8 +282,13 @@ Vercel dashboard → the project → Deployments → the last known-good one
   → "Instant Rollback" (or "Promote to Production").
 ```
 
-The weekly image prune in `bootstrap.sh` runs `docker image prune -f`, never
-`-a`, precisely so the previous image is still on the box when you need it.
+The weekly image prune that `bootstrap.sh` installs
+(`/etc/cron.weekly/kidlearn-docker-prune`) keeps the **4 newest images of each
+repository**, by creation time, and `docker rmi`s the rest — it does not stop at
+dangling layers. So the previous release is on the box for a rollback only while
+it is among the 4 newest builds; anything older is pulled from ECR again, which
+`deploy.sh` does anyway. `docker rmi` refuses an image a running container uses,
+so the live release is never removed.
 
 ---
 
@@ -431,14 +436,28 @@ anything else.** A half-provisioned domain is indistinguishable from a CORS bug.
 Caddy obtains and renews both API certificates itself. Vercel handles the three
 web hostnames.
 
-**`deploy/edge/Caddyfile` ships with the ACME *staging* endpoint enabled.** That
+**`deploy/edge/Caddyfile` defaults to the ACME *staging* endpoint.** That
 is deliberate: Caddy begins requesting certificates the instant it starts, there
 is no dry run, and Let's Encrypt's production endpoint allows 5 duplicate
 certificates per week and rate-limits failed validations. A wrong A record burns
 them without asking.
 
-The first-run sequence is walkthrough A13. Changing endpoint later is editing that
-line and force-recreating the edge stack.
+**The endpoint and email are set on the box, not in the Caddyfile.** The
+Caddyfile reads `{$ACME_CA}` and `{$ACME_EMAIL}`, and `deploy/edge/compose.yml`
+loads them from `/opt/kidlearn/edge/caddy.env` (root, 0600, outside `deploy/`):
+
+```bash
+ACME_EMAIL=you@example.com
+ACME_CA=https://acme-v02.api.letsencrypt.org/directory   # omit for staging
+```
+
+Never edit the Caddyfile on the box to change endpoint — every refresh of
+`deploy/` (§3) overwrites it, and a box on production would silently drop back to
+staging certificates. The first-run sequence is walkthrough A13. Changing endpoint
+later is editing `caddy.env` and
+`docker compose -p kidlearn-edge -f compose.yml up -d --force-recreate` from
+`/opt/kidlearn/deploy/edge`. A missing `caddy.env` is not an error: Caddy starts
+on staging.
 
 - Endpoint the box is currently on: `<staging | production>`
 
@@ -471,7 +490,7 @@ restore) the latest production `pg_dump`, per §8.
 
 Supabase's free tier has **no point-in-time recovery**, so this is yours to own.
 
-`deploy/backup.sh` runs `pg_dump` against production's `DIRECT_URL`, gzips it,
+`deploy/backup.sh` runs `pg_dump --schema=public` against production's `DIRECT_URL`, gzips it,
 and streams it to the backup bucket (settings: walkthrough A4). It reads both `DIRECT_URL` and
 `BACKUP_S3_BUCKET` from SSM, dumps through the `postgres:<major>-alpine` image
 matching the server's major version — asked of the server on every run, because
@@ -480,10 +499,16 @@ place (so the box needs no postgres-client package) — pipes straight to S3
 rather than staging on the 20 GB volume, and fails if the uploaded object is
 under 1 KB — a gzip of nothing uploads perfectly happily.
 
+**Only the `public` schema is dumped.** It holds every application table and
+Prisma's `_prisma_migrations`, and no migration creates an extension. Supabase's
+own schemas (`auth`, `storage`, `realtime`, `vault`, `graphql` and their
+extensions) exist only on Supabase; a whole-database dump of them cannot be
+loaded into plain Postgres at all.
+
 **Restoring into an older Postgres.** The dev stack runs `postgres:16-alpine`. A
 plain dump made by a newer `pg_dump` can carry settings 16 does not know (17's
-emits `SET transaction_timeout`); if the restore rehearsal stops on one, delete
-that line from the dump and carry on — or bump the dev image to the server's
+emits `SET transaction_timeout = 0;`). The restore below strips that one line; if
+it stops on another, delete that line too — or bump the dev image to the server's
 major.
 
 **The dump lands under `prod/.partial/` and is moved to `prod/<timestamp>.sql.gz`
@@ -518,18 +543,41 @@ first, or nothing in this section or §9 has ever run.
 
 **Restore it once into the dev Postgres container** (file 38 requirement 16).
 
+**The restore goes into an EMPTY database — never a migrated one.** The dump
+carries the whole schema *and* `_prisma_migrations`, so a database that has been
+migrated first stops at the first `CREATE TYPE … already exists`. And the dump
+starts with `CREATE SCHEMA public`, so even a brand-new database needs its
+default `public` schema dropped first. This replaces the dev database wholesale:
+
 ```bash
+cd /opt/kidlearn/deploy/app
+dc() { docker compose --env-file /opt/kidlearn/dev/compose.env \
+         -p kidlearn-dev -f compose.yml -f compose.dev.yml "$@"; }
+dc stop api
+
+docker exec dev-postgres psql -U kidlearn -d postgres -v ON_ERROR_STOP=1 \
+  -c 'DROP DATABASE IF EXISTS kidlearn WITH (FORCE)' \
+  -c 'CREATE DATABASE kidlearn'
+docker exec dev-postgres psql -U kidlearn -d kidlearn -v ON_ERROR_STOP=1 \
+  -c 'DROP SCHEMA public'
+
 aws s3 cp s3://<backup-bucket>/<object> - | gunzip \
+  | sed '/^SET transaction_timeout = 0;$/d' \
   | docker exec -i dev-postgres psql -U kidlearn -d kidlearn \
       -v ON_ERROR_STOP=1 --single-transaction
+
+dc start api
 ```
 
 `ON_ERROR_STOP` and `--single-transaction` are what make this a rehearsal: plain
 `psql` keeps going after an error and still exits `0`, so a dump that half-loads
-(a Supabase-only schema or extension, say) would be recorded as a pass. Strict, it
-stops at the first error and loads nothing. After it succeeds, compare row counts
-with production (`SELECT count(*) FROM "ChildProfile"`, `"LessonProgress"`) before
-writing a date on the rehearsal line.
+would be recorded as a pass. Strict, it stops at the first error and loads
+nothing. After it succeeds, compare row counts with production
+(`SELECT count(*) FROM "ChildProfile"`, `"LessonProgress"`, and
+`_prisma_migrations` against the number of migration directories) before writing
+a date on the rehearsal line. The dump brings the schema at production's
+migration; if dev runs a newer release than production, apply its migrations
+afterwards with the migrate command from §3.
 
 > **This copies real children's data into dev**, which runs `LOG_LEVEL=debug` on a
 > shared disk. If that is not acceptable for the stage you are at, reseed from the
@@ -563,7 +611,14 @@ Like `backup.sh`, it pings a dead-man's-switch URL on success and at `<url>/fail
 failure, because this box has no mail agent and a bare non-zero exit would reach
 nobody. Set `/kidlearn/prod/WEEKLY_REPORTS_HEARTBEAT_URL` in SSM; unset, the script
 says so on every run. The job is idempotent (an upsert per child per week), which is
-why the script retries once on a failed request.
+why the script retries on a failed request.
+
+**The endpoint answers `202 Accepted` and runs the job in the background**, so the
+script's success — and the heartbeat — means the run *started*, not that every
+report was written. A run where children fail is logged by the API at `error`
+level (`Weekly reports failed for N of M children`); check
+`docker logs prod-api --since 3h | grep -i "weekly report"` on Monday morning, or
+alert on it from the logs, because nothing else reports it.
 
 The same run then **deletes `SessionEvent` rows older than 90 days**, in batches of
 5,000, and reports the count as `sessionEventsPruned`. Each week's aggregate is kept

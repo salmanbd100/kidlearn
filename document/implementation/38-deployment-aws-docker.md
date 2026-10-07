@@ -235,7 +235,9 @@ tables and operations are in the runbook; running configuration is in the reposi
 8. **Caddy as the only exposed process on the box,** in its own Compose project so that redeploying
    either API stack never restarts the thing holding the certificates (`deploy/edge/`). It obtains
    and renews both API certificates itself, and starts on the ACME staging endpoint so a DNS mistake
-   costs nothing (`runbook.md` §6). Application containers are reached by network alias, never by
+   costs nothing (`runbook.md` §6). The endpoint and email are read from
+   `/opt/kidlearn/edge/caddy.env` on the box, never edited into the tracked Caddyfile, which every
+   refresh of `deploy/` overwrites. Application containers are reached by network alias, never by
    service name — see `runbook.md` §1. No application container publishes a host port; only Caddy
    binds 80 and 443.
 
@@ -454,8 +456,8 @@ first thing the Vercel deployment does is talk to something that already works.
 - [ ] Media on lesson and story screens is served from `res.cloudinary.com` (NFR-PERF-02).
 - [ ] The running app connects on the **pooled** `DATABASE_URL` (:6543) while `migrate deploy` used
       `DIRECT_URL` (:5432) — confirm in Supabase's connection stats.
-- [ ] A `pg_dump` from the cron has been **restored into the dev Postgres** and the procedure is in
-      the runbook.
+- [ ] A `pg_dump` from the cron (`--schema=public` only) has been **restored into an empty dev
+      Postgres database** and the procedure is in the runbook.
 
 **Development**
 

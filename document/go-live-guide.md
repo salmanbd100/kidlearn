@@ -630,7 +630,7 @@ had unsaved changes, the image would not match the commit, and rolling back to
 it later would give you something different.
 
 ✅ **Check:** in the ECR console each repository shows one image, tagged with
-your SHA. Write the SHA in your sheet as **Image tag** — you need it in Step 20.
+your SHA. Write the SHA in your sheet as **Image tag** — you need it in Step 23.
 
 ---
 
@@ -809,7 +809,7 @@ A black terminal opens in your browser. You are now on the server.
 sudo su -
 docker --version && docker compose version
 systemctl is-active crond      # active
-ls /opt/kidlearn               # deploy  dev  prod
+ls /opt/kidlearn               # deploy  dev  edge  prod
 free -m                        # a "Swap" line of about 2000
 ```
 
@@ -849,18 +849,22 @@ when that works do we switch to the real one.
 
 **21a. Set your email**
 
+The Caddyfile in `deploy/` is overwritten every time you repeat 20c, so your
+settings live in a separate file on the server that the copy never touches:
+
 ```bash
-cd /opt/kidlearn/deploy/edge
-nano Caddyfile
+install -d -m 0700 /opt/kidlearn/edge
+printf 'ACME_EMAIL=%s\n' 'you@example.com' > /opt/kidlearn/edge/caddy.env
+chmod 600 /opt/kidlearn/edge/caddy.env
 ```
 
-Near the top, change `email ops@kidlearn.net` to **your real email**. Do **not**
-touch the `acme_ca … staging …` line yet. Save: `Ctrl+O`, `Enter`. Exit:
-`Ctrl+X`.
+Put **your real email** in place of `you@example.com`. Do **not** add an
+`ACME_CA` line yet — without one, Caddy uses the staging service.
 
 **21b. Start Caddy on staging**
 
 ```bash
+cd /opt/kidlearn/deploy/edge
 docker compose -p kidlearn-edge -f compose.yml up -d
 docker compose -p kidlearn-edge logs --tail 40 caddy
 ```
@@ -887,16 +891,14 @@ running yet" — which is true; you start it in Step 23.
 **21d. Switch to real certificates** — 🖥️ on the server:
 
 ```bash
+echo 'ACME_CA=https://acme-v02.api.letsencrypt.org/directory' >> /opt/kidlearn/edge/caddy.env
+cat /opt/kidlearn/edge/caddy.env     # ACME_EMAIL and ACME_CA, one line each
 cd /opt/kidlearn/deploy/edge
-nano Caddyfile
-```
-
-Find the line starting `acme_ca https://acme-staging-v02…` and put a `#` at the
-very start of it. Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`). Then:
-
-```bash
 docker compose -p kidlearn-edge -f compose.yml up -d --force-recreate
 ```
+
+Do **not** edit `Caddyfile` itself for this — the next 20c would undo it and
+put production back on practice certificates without telling you.
 
 💻 From your Mac — no `-k` this time:
 

@@ -563,7 +563,7 @@ You land as `ssm-user`. Become root and check the startup script worked:
 sudo su -
 docker --version && docker compose version
 systemctl is-active crond      # active
-ls /opt/kidlearn               # deploy  dev  prod
+ls /opt/kidlearn               # deploy  dev  edge  prod
 free -m                        # a Swap row with about 2 GB
 ```
 
@@ -616,10 +616,18 @@ practice mode, so the Caddyfile ships pointing at the **staging** service
 
 ### 1. Start on staging
 
+The endpoint and the expiry-notice email come from `/opt/kidlearn/edge/caddy.env`,
+not from the Caddyfile — re-copying `deploy/` (A11) overwrites the Caddyfile, so
+an edit made there on the box does not survive. With no `ACME_CA` in that file
+Caddy uses staging.
+
 In the browser terminal:
 
 ```bash
 sudo su -
+install -d -m 0700 /opt/kidlearn/edge
+printf 'ACME_EMAIL=%s\n' '<your email>' > /opt/kidlearn/edge/caddy.env
+chmod 600 /opt/kidlearn/edge/caddy.env
 cd /opt/kidlearn/deploy/edge
 docker compose -p kidlearn-edge -f compose.yml up -d
 docker compose -p kidlearn-edge logs --tail 40 caddy
@@ -648,16 +656,14 @@ step 3 until the two commands above behave as described.**
 
 ```bash
 sudo su -
+echo 'ACME_CA=https://acme-v02.api.letsencrypt.org/directory' >> /opt/kidlearn/edge/caddy.env
 cd /opt/kidlearn/deploy/edge
-nano Caddyfile
-```
-
-Find the line starting `acme_ca https://acme-staging-v02...` and put a `#` at the
-start of it. Save with `Ctrl-O`, `Enter`, then exit with `Ctrl-X`.
-
-```bash
 docker compose -p kidlearn-edge -f compose.yml up -d --force-recreate
 ```
+
+Never comment out the `acme_ca` line in the Caddyfile instead: the next refresh
+of `deploy/` (A11, and B3 asks for one) restores it and quietly moves production
+back onto untrusted staging certificates.
 
 Then from your Mac, with no `-k` this time:
 
@@ -900,15 +906,20 @@ docker compose -p kidlearn-edge logs --tail 30 caddy
 
 ```bash
 sudo su -
-/opt/kidlearn/deploy/deploy.sh dev <the same SHA as production>
+/opt/kidlearn/deploy/deploy.sh dev <the same SHA as production> --migrate
 ```
 
 One image serves both environments — everything that differs is configuration.
 
-Create the schema in the new Postgres container with the migrate command from
-`runbook.md` §3, using its dev flags (`dev/compose.env` and `compose.dev.yml`).
+**`--migrate` is not optional here.** The dev Postgres container starts empty, and
+without the schema the API boots but `/ready` fails, so the deploy stops with
+"cannot reach the database" when the real cause is a database with no tables.
+`deploy.sh` writes `dev/compose.env` (and the `POSTGRES_PASSWORD` the container
+needs) before it migrates, so this works on the very first run.
 
-Now **restore the production backup into it** — `runbook.md` §8, "Restore". Find
+Now **restore the production backup into it** — `runbook.md` §8, "Restore". That
+procedure drops and recreates the dev database and loads the dump into it empty;
+it never restores on top of the schema `--migrate` just created. Find
 the newest object with `aws s3 ls s3://<your bucket>/prod/` first. It gives dev
 realistic data *and* rehearses the restore you will one day need for real, which
 is the only way to know the backup works. Read the strict-mode and

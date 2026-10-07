@@ -9,20 +9,27 @@
 # api:4000` would resolve to whichever answered DNS first. See deploy/app/compose.yml.
 
 {
-	# Let's Encrypt expiry notices. Replace before the first production run.
-	email ops@kidlearn.net
-
-	# STAGING IS THE DEFAULT, and it ships enabled deliberately. Caddy begins
-	# requesting certificates the instant it starts — there is no dry run — so the
-	# safe default has to be the endpoint where a mistake is free. Let's Encrypt's
-	# production endpoint allows 5 duplicate certificates per week and rate-limits
-	# failed validations, and a wrong A record burns them without asking.
+	# Both values come from /opt/kidlearn/edge/caddy.env ON THE BOX, never from
+	# this file: every refresh of deploy/ (runbook §3) overwrites this file, so an
+	# edit made here on the box is silently undone by the next copy — and a box
+	# that was on production quietly goes back to staging, or the reverse.
+	# compose.yml loads that file as the container's environment.
 	#
-	# FIRST RUN: leave this line alone. Bring the stack up, confirm both hostnames
-	# answer on an untrusted (staging) certificate, THEN comment it out, and
-	# `docker compose -p kidlearn-edge up -d --force-recreate` for real ones.
-	# Record in document/runbook.md which endpoint the box is currently on.
-	acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+	# Let's Encrypt expiry notices.
+	email {$ACME_EMAIL:ops@kidlearn.net}
+
+	# STAGING IS THE DEFAULT, deliberately. Caddy begins requesting certificates
+	# the instant it starts — there is no dry run — so the safe default has to be
+	# the endpoint where a mistake is free. Let's Encrypt's production endpoint
+	# allows 5 duplicate certificates per week and rate-limits failed
+	# validations, and a wrong A record burns them without asking.
+	#
+	# FIRST RUN: no caddy.env, or ACME_CA unset. Confirm both hostnames answer on
+	# an untrusted (staging) certificate, THEN set
+	#   ACME_CA=https://acme-v02.api.letsencrypt.org/directory
+	# in caddy.env and `docker compose -p kidlearn-edge -f compose.yml up -d
+	# --force-recreate`. Walkthrough A13; record the endpoint in runbook §6.
+	acme_ca {$ACME_CA:https://acme-staging-v02.api.letsencrypt.org/directory}
 }
 
 api.kidlearn.net {

@@ -203,7 +203,9 @@ for _ in $(seq 1 30); do
       fi
       sleep 5
     done
-    echo "[deploy:${ENV_NAME}] ${ENV_NAME}-api is up but /ready failed — it cannot reach the database" >&2
+    # /ready's one query also fails against a database that is reachable but has
+    # no schema — the first deploy against an empty dev-postgres without --migrate.
+    echo "[deploy:${ENV_NAME}] ${ENV_NAME}-api is up but /ready failed — it cannot reach the database, or the database has no schema yet (a first deploy needs --migrate)" >&2
     break
     ;;
   */unhealthy)
