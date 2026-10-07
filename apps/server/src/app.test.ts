@@ -97,6 +97,76 @@ describe("CORS", () => {
   });
 });
 
+describe("cross-origin writes", () => {
+  const FOREIGN = "https://evil.kidlearn.net";
+  const API_ORIGIN = new URL(env.BETTER_AUTH_URL).origin;
+
+  it.each([
+    "post",
+    "put",
+    "patch",
+    "delete",
+  ] as const)("refuses a %s from a foreign origin with a 403 envelope", async (method) => {
+    const res = await request(app)
+      [method]("/api/not-a-resource")
+      .set("Origin", FOREIGN);
+
+    // `sameSite=lax` still lets a sibling subdomain ride the session cookie; this is what stops it.
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({
+      error: { code: "FORBIDDEN", message: "Cross-origin request refused" },
+    });
+  });
+
+  it("refuses the opaque `null` origin a sandboxed frame sends", async () => {
+    const res = await request(app)
+      .post("/api/not-a-resource")
+      .set("Origin", "null");
+
+    expect(res.status).toBe(403);
+  });
+
+  it("lets the web origin through", async () => {
+    const res = await request(app)
+      .post("/api/not-a-resource")
+      .set("Origin", env.WEB_ORIGIN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("lets the API's own origin through, which is where Scalar's Send posts from", async () => {
+    const res = await request(app)
+      .post("/api/not-a-resource")
+      .set("Origin", API_ORIGIN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("lets a caller with no Origin through, such as curl or the cron job", async () => {
+    const res = await request(app).post("/api/admin/jobs/weekly-reports");
+
+    // Reaches the secret check: a 401, not the origin 403.
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("does not refuse a read from a foreign origin", async () => {
+    const res = await request(app)
+      .get("/api/not-a-resource")
+      .set("Origin", FOREIGN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("leaves /api/auth to better-auth's own trustedOrigins check", async () => {
+    const res = await request(app)
+      .post("/api/auth/sign-out")
+      .set("Origin", FOREIGN);
+
+    expect(res.body.error?.message).not.toBe("Cross-origin request refused");
+  });
+});
+
 describe("trust proxy", () => {
   // Caddy terminates TLS; without trust proxy better-auth refuses to set a `Secure` session cookie.
   async function buildWith(nodeEnv: "production" | "test") {

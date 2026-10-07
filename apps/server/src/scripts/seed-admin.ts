@@ -2,7 +2,11 @@ import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { AdminUser } from "@kidlearn/db";
 import { z } from "zod";
-import { ADMIN_MIN_PASSWORD_LENGTH, auth } from "../config/auth.js";
+import {
+  ADMIN_MIN_PASSWORD_LENGTH,
+  auth,
+  revokeAllSessions,
+} from "../config/auth.js";
 import { prisma } from "../config/prisma.js";
 
 const SeedEnvSchema = z.object({
@@ -66,6 +70,8 @@ export async function seedAdmin({
         password: hash,
       });
     }
+    // A rotation is usually a response to a leaked password; a session signed in with the old one must not outlive it.
+    await revokeAllSessions(authUserId);
   } else {
     const created = await ctx.internalAdapter.createUser({
       email: normalisedEmail,

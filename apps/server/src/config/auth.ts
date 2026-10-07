@@ -11,6 +11,29 @@ const SESSION_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 30;
 /** How stale a session may get before a request slides its expiry forward. */
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24;
 
+/** Measured from the session's `createdAt`, which better-auth never moves, so activity cannot extend it (parents' 30-day expiry slides). */
+export const ADMIN_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/** Signs a user out everywhere: every session row goes, so every cookie for them stops resolving. */
+export async function revokeAllSessions(userId: string): Promise<number> {
+  const { count } = await prisma.session.deleteMany({ where: { userId } });
+  return count;
+}
+
+// Only admins hold a password; parents sign in with Google alone.
+async function hasPasswordSignIn(userId: string): Promise<boolean> {
+  const account = await prisma.account.findFirst({
+    where: { userId, providerId: "credential" },
+    select: { id: true },
+  });
+  return account !== null;
+}
+
+function adminSessionCap(createdAt: Date | string | undefined): Date {
+  const start = createdAt ? new Date(createdAt).getTime() : Date.now();
+  return new Date(start + ADMIN_SESSION_MAX_AGE_MS);
+}
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   baseURL: env.BETTER_AUTH_URL,
@@ -47,6 +70,31 @@ export const auth = betterAuth({
         // Never let a client write this through better-auth's own session
         // update endpoint — only our validated route may set it.
         input: false,
+      },
+    },
+  },
+  // The cap lives on the row itself so better-auth's own `/api/auth/*` endpoints honour it, not just `requireAdmin`.
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          if (!(await hasPasswordSignIn(session.userId))) return;
+          return {
+            data: { ...session, expiresAt: adminSessionCap(session.createdAt) },
+          };
+        },
+      },
+      update: {
+        // `before` sees only the changed fields, not whose session it is; a slide is pulled back here instead.
+        after: async (session) => {
+          if (!(await hasPasswordSignIn(session.userId))) return;
+          const cap = adminSessionCap(session.createdAt);
+          if (new Date(session.expiresAt).getTime() <= cap.getTime()) return;
+          await prisma.session.updateMany({
+            where: { id: session.id },
+            data: { expiresAt: cap },
+          });
+        },
       },
     },
   },

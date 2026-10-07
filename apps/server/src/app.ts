@@ -12,7 +12,11 @@ import {
   notFoundHandler,
 } from "./shared/middleware/error-handler.js";
 import { requestLogger } from "./shared/middleware/request-logger.js";
-import { apiRateLimit, securityHeaders } from "./shared/middleware/security.js";
+import {
+  apiRateLimit,
+  rejectCrossOriginWrites,
+  securityHeaders,
+} from "./shared/middleware/security.js";
 
 /** Middleware order is load-bearing: the rate limit follows CORS so a browser can read the 429. */
 export function buildApp(): Express {
@@ -34,6 +38,8 @@ export function buildApp(): Express {
       credentials: true,
     }),
   );
+  // The API's own origin is what Scalar's **Send** on `/docs` posts from.
+  app.use(rejectCrossOriginWrites([env.WEB_ORIGIN, env.BETTER_AUTH_URL]));
   app.use("/api", apiRateLimit(env.API_RATE_LIMIT_PER_MINUTE));
 
   app.use("/api/auth", authRouter);

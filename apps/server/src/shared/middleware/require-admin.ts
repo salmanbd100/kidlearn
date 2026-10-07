@@ -1,12 +1,9 @@
 import type { AdminUser } from "@kidlearn/db";
 import { fromNodeHeaders } from "better-auth/node";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { auth } from "../../config/auth.js";
+import { ADMIN_SESSION_MAX_AGE_MS, auth } from "../../config/auth.js";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../errors/errors.js";
-
-/** Measured from the session's `createdAt`, which better-auth never moves, so activity cannot extend it (parents' 30-day expiry slides). */
-export const ADMIN_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 /** Fails closed: an unreadable `createdAt` counts as expired, so a renamed better-auth field locks admins out rather than lifting the limit. */
 export function isAdminSessionExpired(

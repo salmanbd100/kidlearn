@@ -16,16 +16,22 @@ export function redactAuthQuery<T extends SerializedRequest>(req: T): T {
   };
 }
 
-/** Reuses an inbound `x-request-id` when a proxy assigned one, and echoes it on the response. */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The header is client-controlled: anything but a UUID could forge log lines, collide with another request's id, or bloat every entry. */
+export function requestIdFrom(inbound: string | string[] | undefined): string {
+  return typeof inbound === "string" && UUID_PATTERN.test(inbound)
+    ? inbound
+    : randomUUID();
+}
+
+/** Reuses an inbound `x-request-id` when a proxy assigned a UUID, and echoes it on the response. */
 export const requestLogger = pinoHttp({
   logger,
   serializers: { req: redactAuthQuery },
   genReqId: (req, res) => {
-    const inbound = req.headers["x-request-id"];
-    const requestId =
-      typeof inbound === "string" && inbound.length > 0
-        ? inbound
-        : randomUUID();
+    const requestId = requestIdFrom(req.headers["x-request-id"]);
     res.setHeader("x-request-id", requestId);
     return requestId;
   },

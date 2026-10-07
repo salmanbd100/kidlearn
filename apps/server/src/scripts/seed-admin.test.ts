@@ -27,17 +27,20 @@ type AccountRow = { providerId: string; password?: string };
 
 const store = vi.hoisted(() => ({
   admins: [] as AdminRow[],
+  sessions: [] as { id: string; userId: string }[],
   nextAdminId: 1,
 }));
 
 const db = vi.hoisted(() => ({
   adminFindUnique: vi.fn(),
   adminUpsert: vi.fn(),
+  sessionDeleteMany: vi.fn(),
 }));
 
 vi.mock("../config/prisma.js", () => ({
   prisma: {
     adminUser: { findUnique: db.adminFindUnique, upsert: db.adminUpsert },
+    session: { deleteMany: db.sessionDeleteMany },
   },
 }));
 
@@ -52,11 +55,23 @@ const identity = {
 
 beforeEach(() => {
   store.admins = [];
+  store.sessions = [];
   store.nextAdminId = 1;
   identity.users = [];
   identity.accounts = new Map();
   db.adminFindUnique.mockReset();
   db.adminUpsert.mockReset();
+  db.sessionDeleteMany.mockReset();
+
+  db.sessionDeleteMany.mockImplementation(
+    async ({ where }: { where: { userId: string } }) => {
+      const before = store.sessions.length;
+      store.sessions = store.sessions.filter(
+        (row) => row.userId !== where.userId,
+      );
+      return { count: before - store.sessions.length };
+    },
+  );
 
   db.adminFindUnique.mockImplementation(
     async ({ where }: { where: { email: string } }) =>
@@ -195,6 +210,26 @@ describe("seedAdmin", () => {
         providerId: "credential",
         password: "hashed:a-different-long-password",
       },
+    ]);
+  });
+
+  it("signs the admin out everywhere when a re-run rotates the password", async () => {
+    await seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME });
+    store.sessions = [
+      { id: "session_admin_1", userId: AUTH_USER_ID },
+      { id: "session_admin_2", userId: AUTH_USER_ID },
+      { id: "session_parent_1", userId: "user_parent_1" },
+    ];
+
+    await seedAdmin({
+      email: EMAIL,
+      password: "a-different-long-password",
+      name: NAME,
+    });
+
+    // A rotation answers a leaked password; a session minted with the old one must not survive it.
+    expect(store.sessions).toEqual([
+      { id: "session_parent_1", userId: "user_parent_1" },
     ]);
   });
 

@@ -1,7 +1,7 @@
 import { handleOAuthUserInfo } from "better-auth/oauth2";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app.js";
-import { auth } from "../../config/auth.js";
+import { ADMIN_SESSION_MAX_AGE_MS, auth } from "../../config/auth.js";
 import { prisma } from "../../config/prisma.js";
 import { seedAdmin } from "../../scripts/seed-admin.js";
 import request from "../testing/request.js";
@@ -103,5 +103,77 @@ describe("requireAdmin against Postgres", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("FORBIDDEN");
+  });
+});
+
+describe("the admin session cap on the row itself", () => {
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+  async function seededAdminUserId() {
+    const { admin } = await seedAdmin({
+      email: ADMIN_EMAIL,
+      password: "a-long-enough-admin-password",
+      name: "Reviewer",
+    });
+    return admin.authUserId ?? "";
+  }
+
+  async function storedSession(token: string) {
+    return prisma.session.findUniqueOrThrow({
+      where: { token },
+      select: { createdAt: true, expiresAt: true },
+    });
+  }
+
+  it("creates an admin session that expires 12 hours after it was made", async () => {
+    const ctx = await auth.$context;
+    const created = await ctx.internalAdapter.createSession(
+      await seededAdminUserId(),
+    );
+
+    const row = await storedSession(created.token);
+    // On the row, so better-auth's own `/api/auth/*` endpoints refuse it too — not only `requireAdmin`.
+    expect(row.expiresAt.getTime() - row.createdAt.getTime()).toBe(
+      ADMIN_SESSION_MAX_AGE_MS,
+    );
+  });
+
+  it("pulls a sliding refresh back to the cap", async () => {
+    const ctx = await auth.$context;
+    const created = await ctx.internalAdapter.createSession(
+      await seededAdminUserId(),
+    );
+
+    // What `get-session` writes when it slides a session forward.
+    await ctx.internalAdapter.updateSession(created.token, {
+      expiresAt: new Date(Date.now() + THIRTY_DAYS_MS),
+      updatedAt: new Date(),
+    });
+
+    const row = await storedSession(created.token);
+    expect(row.expiresAt.getTime() - row.createdAt.getTime()).toBe(
+      ADMIN_SESSION_MAX_AGE_MS,
+    );
+  });
+
+  it("leaves a parent's 30-day session alone", async () => {
+    const ctx = await auth.$context;
+    const parent = await ctx.internalAdapter.createUser({
+      email: "parent@kidlearn.test",
+      name: "Parent",
+      emailVerified: true,
+    });
+    await ctx.internalAdapter.linkAccount({
+      userId: parent.id,
+      providerId: "google",
+      accountId: "google-sub-parent",
+    });
+
+    const created = await ctx.internalAdapter.createSession(parent.id);
+
+    const row = await storedSession(created.token);
+    expect(row.expiresAt.getTime() - row.createdAt.getTime()).toBeGreaterThan(
+      THIRTY_DAYS_MS - 60_000,
+    );
   });
 });
