@@ -90,7 +90,7 @@ export function ParentTopBar() {
       {/* Full-width second row on a phone, inline from `sm`; `order-last` keeps the avatar beside the wordmark. */}
       <nav
         aria-label={t("nav.label")}
-        className="-mx-1 order-last flex w-full gap-1 overflow-x-auto px-1 sm:order-none sm:mx-0 sm:w-auto sm:overflow-visible sm:px-0"
+        className="-mx-1 order-last flex w-full gap-1 overflow-x-auto px-1 sm:order-0 sm:mx-0 sm:w-auto sm:overflow-visible sm:px-0"
       >
         {NAV_ITEMS.map((item) => (
           <Link
