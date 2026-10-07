@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       className={`${jetbrainsMono.variable} [--family-mono:var(--font-jetbrains-mono)] flex min-h-dvh flex-col bg-background font-ui text-foreground md:h-dvh md:overflow-hidden`}
     >
       {/* Safety net for shell-less pages (login) that own their height and must scroll on a short window. */}
-      <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col md:min-h-0 md:overflow-y-auto">
+      <div className="flex w-full flex-1 flex-col md:min-h-0 md:overflow-y-auto">
         {children}
       </div>
     </ThemeScope>

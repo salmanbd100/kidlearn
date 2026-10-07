@@ -12,7 +12,7 @@ Build the small set of native components every later screen composes from — `S
 ## Context & Current State
 
 - `packages/ui` (Radix + Tailwind + DOM) cannot be consumed by React Native. Its API shape is still the model to follow: `cva`-style variants exposed as props, never `className` overrides passed by callers (design.md §8 "Variants & styling").
-- `apps/web/shared/components/kid/BigButton.tsx` and `IconTile.tsx` are the two kid primitives already built for the web. Read them for the variant vocabulary and copy it — a `BigButton` with the same `variant`/`size`/`tone` names on both clients is what keeps the two surfaces recognisably one product.
+- `apps/web/shared/components/kid/BigButton.tsx` and `apps/web/features/content/IconTile.tsx` are the two kid primitives already built for the web. Read them for the variant vocabulary and copy it — a `BigButton` with the same `variant`/`size`/`tone` names on both clients is what keeps the two surfaces recognisably one product.
 - M02 gives `useTheme()`, the NativeWind class names, `components/ui/Text.tsx` with the §3.2 variants, and `lib/elevation.ts`.
 - design.md §7 is non-negotiable: kid touch targets **≥64×64**, parent **≥44×44**; never encode meaning in colour alone; respect reduced motion.
 - On a phone there is no keyboard focus ring to honour — the web's focus-ring obligation becomes a **screen-reader labelling** obligation (TalkBack on Android, VoiceOver on iOS) plus a visible pressed state.
@@ -146,7 +146,7 @@ fireEvent(getByRole("button"), "layout", { nativeEvent: { layout: { height: 76, 
 - [ ] Disabled and error states are distinguishable without colour (icon, shape or label), per design.md §2.3.
 - [ ] `Sheet` closes on backdrop press **and** on the Android hardware back button, and never lets a screen reader reach the content behind it.
 - [ ] `Screen` clears notches and home indicators on a physical device in portrait and landscape.
-- [ ] Primitive prop APIs (`variant`, `tone`, `size`, `label`) match `apps/web/shared/components/kid/BigButton.tsx` and `IconTile.tsx`.
+- [ ] Primitive prop APIs (`variant`, `tone`, `size`, `label`) match `apps/web/shared/components/kid/BigButton.tsx` and `apps/web/features/content/IconTile.tsx`.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm --filter mobile test` pass.
 
 ## Out of Scope

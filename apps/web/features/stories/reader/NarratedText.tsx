@@ -22,7 +22,7 @@ export function NarratedText({
     <p
       data-testid="narrated-text"
       // `max-w-prose` keeps lines near ~66 characters (design.md §3.3); past that a new reader loses their place.
-      className="max-w-prose text-balance font-body text-2xl leading-relaxed text-foreground sm:text-3xl"
+      className="mx-auto max-w-prose text-balance font-body portrait:text-center landscape:mx-0 text-2xl leading-relaxed text-foreground sm:text-3xl"
     >
       {segments === null
         ? text

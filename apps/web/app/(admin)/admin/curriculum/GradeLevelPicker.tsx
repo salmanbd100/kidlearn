@@ -1,7 +1,9 @@
 "use client";
 
 import { GRADE_LEVELS, type GradeLevelValue } from "@kidlearn/types";
-import { Button, cn } from "@kidlearn/ui";
+import { cn } from "@kidlearn/ui";
+import { Check } from "lucide-react";
+import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
 
 const LABELS: Record<GradeLevelValue, string> = {
   NURSERY: "Nursery",
@@ -23,20 +25,18 @@ export function GradeLevelPicker({
   const isEmpty = value.length === 0;
 
   return (
-    <fieldset className="flex flex-col gap-1.5" aria-describedby={HINT_ID}>
-      <legend className="font-medium text-foreground text-sm">
+    <fieldset className="flex flex-col gap-2" aria-describedby={HINT_ID}>
+      <legend className="mb-2 font-medium text-foreground text-sm">
         Grade levels
       </legend>
       <div className="flex flex-wrap gap-2">
         {GRADE_LEVELS.map((grade) => {
           const isOn = value.includes(grade);
           return (
-            <Button
+            <AdminFilterChip
               key={grade}
-              type="button"
-              variant={isOn ? "default" : "outline"}
-              aria-pressed={isOn}
-              disabled={isBusy}
+              isSelected={isOn}
+              isDisabled={isBusy}
               onClick={() =>
                 onChange(
                   isOn
@@ -45,8 +45,11 @@ export function GradeLevelPicker({
                 )
               }
             >
+              {isOn ? (
+                <Check aria-hidden="true" className="-ml-0.5 size-3.5" />
+              ) : null}
               {LABELS[grade]}
-            </Button>
+            </AdminFilterChip>
           );
         })}
       </div>

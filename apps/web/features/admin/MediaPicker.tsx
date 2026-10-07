@@ -1,9 +1,20 @@
 "use client";
 
 import type { AssetKind, Locale, MediaAsset } from "@kidlearn/types";
-import { Button, Label, Select } from "@kidlearn/ui";
+import {
+  Button,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuSeparator,
+  SelectMenuTrigger,
+} from "@kidlearn/ui";
 import Image from "next/image";
 import { useMediaPages } from "@/features/admin/use-media-pages";
+
+/** Radix reserves `""` for "no value", and "Not set" is a choice that clears the field. */
+const NO_ASSET = "none";
 
 export interface MediaPickerProps {
   id: string;
@@ -41,25 +52,31 @@ export function MediaPicker({
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
 
-      <Select
-        id={id}
-        value={selected?.id ?? ""}
+      <SelectMenu
+        value={selected?.id ?? NO_ASSET}
         disabled={isDisabled || status !== "ready"}
-        aria-invalid={error !== undefined}
-        aria-describedby={hintId}
-        onChange={(event) =>
-          onChange(assets.find((asset) => asset.id === event.target.value))
+        onValueChange={(next) =>
+          onChange(assets.find((asset) => asset.id === next))
         }
       >
-        <option value="">
-          {status === "loading" ? "Loading library…" : "Not set"}
-        </option>
-        {assets.map((asset) => (
-          <option key={asset.id} value={asset.id}>
-            {assetLabel(asset)}
-          </option>
-        ))}
-      </Select>
+        <SelectMenuTrigger
+          id={id}
+          size="sm"
+          aria-invalid={error !== undefined}
+          aria-describedby={hintId}
+        />
+        <SelectMenuContent>
+          <SelectMenuItem value={NO_ASSET}>
+            {status === "loading" ? "Loading library…" : "Not set"}
+          </SelectMenuItem>
+          {assets.length === 0 ? null : <SelectMenuSeparator />}
+          {assets.map((asset) => (
+            <SelectMenuItem key={asset.id} value={asset.id}>
+              {assetLabel(asset)}
+            </SelectMenuItem>
+          ))}
+        </SelectMenuContent>
+      </SelectMenu>
 
       {/* A chosen URL the library no longer offers is shown, not silently cleared. */}
       {value !== "" && selected === undefined && status === "ready" ? (

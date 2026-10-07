@@ -28,7 +28,8 @@ export function DashboardSummary({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row">
+      {/* Today across the top and the two longer windows beneath it on a phone: three stacked cards push the subjects below the fold. */}
+      <div className="grid grid-cols-2 gap-3 *:first:col-span-2 sm:grid-cols-3 sm:*:first:col-span-1">
         <StatCard
           tone="featured"
           icon={<Clock aria-hidden className="size-3.5" />}

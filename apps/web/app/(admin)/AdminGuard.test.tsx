@@ -43,18 +43,11 @@ describe("AdminGuard", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
-  it("redirects a signed-out visitor to the login screen without a flash of the CMS", () => {
+  it("redirects a signed-out visitor to the homepage sign-in dialog without a flash of the CMS", () => {
     renderGuard("/admin/curriculum", "signedOut");
 
-    expect(router.replace).toHaveBeenCalledWith("/admin/login");
+    expect(router.replace).toHaveBeenCalledWith("/?signin=admin");
     expect(screen.queryByText("cms page")).not.toBeInTheDocument();
-  });
-
-  it("lets a signed-out visitor see the login screen itself", () => {
-    renderGuard("/admin/login", "signedOut");
-
-    expect(screen.getByText("cms page")).toBeInTheDocument();
-    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("never renders the CMS when the session could not be read", () => {
@@ -62,12 +55,5 @@ describe("AdminGuard", () => {
 
     expect(screen.queryByText("cms page")).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
-  });
-
-  it("does not treat a lookalike path as the public login screen", () => {
-    renderGuard("/admin/login-help/../curriculum", "signedOut");
-
-    expect(screen.queryByText("cms page")).not.toBeInTheDocument();
-    expect(router.replace).toHaveBeenCalled();
   });
 });

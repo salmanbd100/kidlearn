@@ -7,11 +7,18 @@ import type {
   ChildProfileUpdate,
 } from "@kidlearn/types";
 import { CONSENT_VERSION } from "@kidlearn/types";
-import { type ApiResult, apiBaseUrl, apiFetch } from "@/shared/api/api-client";
+import {
+  type ApiFetchInit,
+  type ApiResult,
+  apiBaseUrl,
+  apiFetch,
+} from "@/shared/api/api-client";
 
 /** Who am I. Also what provisions the `Parent` row on a brand-new account. */
-export function fetchAuthMe(): Promise<ApiResult<AuthMeResponse>> {
-  return apiFetch<AuthMeResponse>("/api/auth/me");
+export function fetchAuthMe(
+  init: ApiFetchInit = {},
+): Promise<ApiResult<AuthMeResponse>> {
+  return apiFetch<AuthMeResponse>("/api/auth/me", init);
 }
 
 /** Where the browser goes to start the Google round-trip. */

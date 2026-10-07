@@ -14,7 +14,9 @@
     "title": "Parent sign-in",
     "subtitle": "KidLearn uses your Google account, so there is no extra password to remember.",
     "google": "Continue with Google",
-    "privacy": "We ask Google only for your name and email address."
+    "privacy": "We ask Google only for your name and email address.",
+    "newHere": "New here? Continuing with Google creates your account.",
+    "close": "Close"
   },
   "onboarding": {
     "stepOf": "Step {{current}} of {{total}}",

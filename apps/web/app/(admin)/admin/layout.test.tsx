@@ -62,7 +62,7 @@ describe("AdminCmsLayout", () => {
     expect(screen.getByText(ADMIN.name)).toBeInTheDocument();
   });
 
-  it("bounces a signed-in parent to the login screen without rendering the page", async () => {
+  it("bounces a signed-in parent to the sign-in dialog without rendering the page", async () => {
     // A valid parent session on `/api/admin/me`: authenticated, but no `AdminUser` row claims the identity.
     api.fetchAdminMe.mockResolvedValue({
       ok: false,
@@ -122,9 +122,8 @@ describe("AdminCmsLayout", () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it("does not poll the review count on the login screen", async () => {
-    // An unauthenticated poll is a 401 a minute, and there is no rail for the badge.
-    pathname = ADMIN_ROUTES.login;
+  it("does not poll the review count for a signed-out visitor", async () => {
+    // An unauthenticated poll is a 401 a minute; the guard keeps the shell unmounted until there is a session.
     api.fetchAdminMe.mockResolvedValue({
       ok: false,
       error: {
@@ -135,7 +134,9 @@ describe("AdminCmsLayout", () => {
     });
 
     renderLayout();
-    await screen.findByText("curriculum tree");
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
+    );
 
     expect(api.fetchAiJobCount).not.toHaveBeenCalled();
   });
@@ -151,25 +152,6 @@ describe("AdminCmsLayout", () => {
     expect(
       await screen.findByText("4 jobs awaiting review"),
     ).toBeInTheDocument();
-  });
-
-  it("shows the login screen with no rail and no redirect", async () => {
-    pathname = ADMIN_ROUTES.login;
-    api.fetchAdminMe.mockResolvedValue({
-      ok: false,
-      error: {
-        code: "UNAUTHORIZED",
-        message: "Authentication required",
-        status: 401,
-      },
-    });
-
-    renderLayout();
-
-    expect(await screen.findByText("curriculum tree")).toBeInTheDocument();
-    // A rail whose every link bounces back here would be worse than no rail.
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("signs the admin out when a later request comes back 401 (R-12)", async () => {
@@ -205,7 +187,7 @@ describe("AdminCmsLayout", () => {
     );
     vi.unstubAllGlobals();
   });
-  it("signs the admin out and goes to login when the cookie is revoked", async () => {
+  it("signs the admin out and goes to the sign-in dialog when the cookie is revoked", async () => {
     api.adminSignOut.mockResolvedValue(true);
     renderLayout();
 

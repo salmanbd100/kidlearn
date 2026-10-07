@@ -13,6 +13,7 @@
 | 0–9 — Foundation to AI pipeline | 01–37a | ✅ Shipped; specs retired |
 | 10 — Launch | 38–38a | Vercel frontend + one AWS box for both environments' APIs, GitHub Actions CD |
 | 11 — Hardening | 39 | CI gates and branch protection |
+| 12 — Public site | 40 | Homepage at `/` and the parent, admin and engineering guides |
 
 ---
 
@@ -31,6 +32,7 @@ has the originals. Only unfinished work is listed below.
 | 38 · provisioning | `38-deployment-aws-docker.md` + `document/deployment-walkthrough.md` | Frontend on Vercel (two Hobby projects); both APIs on one EC2 `t4g.small` (`ap-south-1`) behind Caddy: prod on `api.kidlearn.net` + Supabase, dev on `api.dev.kidlearn.net` + a Postgres container. SSM secrets, Cloudflare DNS, per-env Cloudinary/Gemini — ~$13.73/month | §9, NFR-PERF-02, NFR-PERF-04 | 38 · code | 6–8h | ⬜ Not started — no AWS, Vercel, Cloudflare or Supabase resource exists, so file 38's acceptance criteria are unmet and `runbook.md` is a plan rather than a record. Done when walkthrough A1–B7 and Part C are executed and every acceptance criterion is ticked |
 | 38a | `38a-github-actions-continuous-deployment.md` | API deploys only (Vercel ships the frontend): `dev` → api.dev.kidlearn.net, `main` → api.kidlearn.net. Per-environment OIDC roles (no stored AWS keys), native arm64 build → ECR, `promotion-guard` on `main`, health-gated SSM rollout, rollback by env + image tag | §9 | 38 · provisioning, 39 | 3–4h | ⬜ Not started |
 | 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions gates (lint → build → typecheck → test), pnpm + Turbo caching, coverage reporting, `gates` required on `main` and `dev` | — (makes `general.md §6`'s `[CI]` tier real) | — | 2–3h | 🟨 In progress — pipeline landed and green (#45); requirement 10's `dev` triggers merged in #50. The Supertest flake that blocked the ruleset is fixed (`fcb8fa4`). All that is left is the ruleset itself: neither existing ruleset requires a status check, so `gates` must be added as one on `main` and `dev` |
+| 40 | `40-public-homepage-and-guides.md` | `(site)` route group: homepage at `/` (replaces the student redirect), `/guide/parents`, `/guide/admins`, `/guide/engineering`; editorial look on `kid` tokens, new `site` i18n namespace in en + bn | FR-SITE-01..03 | — | 6–8h | 🟨 In progress — built, reviewed and amended (spec §Amendments). Done when the manual check (four pages at 375/768/1280px, `en` and `bn`, light and high-contrast) is recorded in PR #58 and `gates` is green on its head |
 
 ### Open follow-up fixes
 

@@ -8,6 +8,8 @@ const textareaVariants = cva(
     variants: {
       size: {
         default: "min-h-11 px-3 py-2 text-base",
+        // Dense forms (the CMS): lighter border and type, as `Input`'s `sm`.
+        sm: "min-h-11 border px-3 py-2 text-sm",
         kid: "min-h-16 rounded-[var(--radius-lg)] px-5 py-3 text-lg",
       },
     },

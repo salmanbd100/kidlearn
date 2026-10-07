@@ -58,7 +58,8 @@ export function ReportCard({ report }: ReportCardProps) {
       </header>
 
       {/* Two columns on a 360px phone: six single-file cards is a screen to scroll past (design.md §6). */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      {/* Five cards: the last spans two columns so neither layout ends on an orphan. */}
+      <div className="grid grid-cols-2 gap-3 *:last:col-span-2 lg:grid-cols-3">
         <StatCard
           tone="featured"
           icon={<CalendarCheck aria-hidden className="size-3.5" />}

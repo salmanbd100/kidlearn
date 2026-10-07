@@ -8,7 +8,8 @@ import enLesson from "../locales/en/lesson.json";
 import enParent from "../locales/en/parent.json";
 import enStudent from "../locales/en/student.json";
 
-// UI copy for every client, shared so `apps/mobile` reads the same strings (FR-I18N-01).
+// UI copy for every client, shared so `apps/mobile` reads the same strings (FR-I18N-01). The public
+// site's copy is not here: it is `./site`, so its long-form guides stay out of every app surface's bundle.
 
 export const resources = {
   en: {

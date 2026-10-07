@@ -8,13 +8,19 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   Input,
   Label,
-  Select,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
 } from "@kidlearn/ui";
+import { Check, Sparkles } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { generateStory } from "@/features/admin/ai-api";
 
@@ -116,11 +122,12 @@ export function GenerateStoryDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="story-theme">What should the story teach?</Label>
             <Input
               id="story-theme"
+              size="sm"
               value={theme}
               required
               minLength={3}
@@ -139,21 +146,26 @@ export function GenerateStoryDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="story-world">World</Label>
-              <Select
-                id="story-world"
+              <SelectMenu
                 value={worldId}
                 required
                 disabled={isBusy}
-                aria-describedby="story-world-hint"
-                onChange={(event) => setWorldId(event.target.value)}
+                onValueChange={setWorldId}
               >
-                <option value="">Pick a world</option>
-                {worlds.map((one) => (
-                  <option key={one.id} value={one.id}>
-                    {one.name}
-                  </option>
-                ))}
-              </Select>
+                <SelectMenuTrigger
+                  id="story-world"
+                  size="sm"
+                  placeholder="Pick a world"
+                  aria-describedby="story-world-hint"
+                />
+                <SelectMenuContent>
+                  {worlds.map((one) => (
+                    <SelectMenuItem key={one.id} value={one.id}>
+                      {one.name}
+                    </SelectMenuItem>
+                  ))}
+                </SelectMenuContent>
+              </SelectMenu>
               <p
                 id="story-world-hint"
                 className="text-muted-foreground text-xs"
@@ -165,18 +177,20 @@ export function GenerateStoryDialog({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="story-pages">Pages</Label>
-              <Select
-                id="story-pages"
+              <SelectMenu
                 value={String(pageCount)}
                 disabled={isBusy}
-                onChange={(event) => setPageCount(Number(event.target.value))}
+                onValueChange={(value) => setPageCount(Number(value))}
               >
-                {PAGE_COUNTS.map((count) => (
-                  <option key={count} value={count}>
-                    {count} pages
-                  </option>
-                ))}
-              </Select>
+                <SelectMenuTrigger id="story-pages" size="sm" />
+                <SelectMenuContent>
+                  {PAGE_COUNTS.map((count) => (
+                    <SelectMenuItem key={count} value={String(count)}>
+                      {count} pages
+                    </SelectMenuItem>
+                  ))}
+                </SelectMenuContent>
+              </SelectMenu>
               <p className="text-muted-foreground text-xs">
                 About as long as a 3–6 year old sits through in one go.
               </p>
@@ -184,26 +198,27 @@ export function GenerateStoryDialog({
           </div>
 
           <fieldset
-            className="flex flex-col gap-1.5"
+            className="flex flex-col gap-2"
             aria-describedby="story-grades-hint"
           >
-            <legend className="font-medium text-foreground text-sm">
+            <legend className="mb-2 font-medium text-foreground text-sm">
               Grade levels
             </legend>
             <div className="flex flex-wrap gap-2">
               {GRADE_LEVELS.map((grade) => {
                 const isOn = gradeLevels.includes(grade);
                 return (
-                  <Button
+                  <AdminFilterChip
                     key={grade}
-                    type="button"
-                    variant={isOn ? "default" : "outline"}
-                    aria-pressed={isOn}
-                    disabled={isBusy}
+                    isSelected={isOn}
+                    isDisabled={isBusy}
                     onClick={() => toggleGrade(grade)}
                   >
+                    {isOn ? (
+                      <Check aria-hidden="true" className="-ml-0.5 size-3.5" />
+                    ) : null}
                     {GRADE_LABELS[grade]}
-                  </Button>
+                  </AdminFilterChip>
                 );
               })}
             </div>
@@ -223,26 +238,27 @@ export function GenerateStoryDialog({
           </fieldset>
 
           <fieldset
-            className="flex flex-col gap-1.5"
+            className="flex flex-col gap-2"
             aria-describedby="story-languages-hint"
           >
-            <legend className="font-medium text-foreground text-sm">
+            <legend className="mb-2 font-medium text-foreground text-sm">
               Languages
             </legend>
             <div className="flex flex-wrap gap-2">
               {LOCALES.map((locale) => {
                 const isOn = languages.includes(locale);
                 return (
-                  <Button
+                  <AdminFilterChip
                     key={locale}
-                    type="button"
-                    variant={isOn ? "default" : "outline"}
-                    aria-pressed={isOn}
-                    disabled={isBusy}
+                    isSelected={isOn}
+                    isDisabled={isBusy}
                     onClick={() => toggleLanguage(locale)}
                   >
+                    {isOn ? (
+                      <Check aria-hidden="true" className="-ml-0.5 size-3.5" />
+                    ) : null}
                     {LOCALE_LABELS[locale]}
-                  </Button>
+                  </AdminFilterChip>
                 );
               })}
             </div>
@@ -270,19 +286,20 @@ export function GenerateStoryDialog({
             </p>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2">
+          <DialogFooter className="border-border border-t pt-4">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               disabled={isBusy}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={isBusy || !canSubmit}>
+              <Sparkles aria-hidden="true" className="size-4!" />
               {isBusy ? "Writing — this takes a moment…" : "Generate draft"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

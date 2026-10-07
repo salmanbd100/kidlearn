@@ -1,10 +1,11 @@
 "use client";
 
 import { Button } from "@kidlearn/ui";
+import { LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { AdminSidebar } from "@/features/admin/AdminSidebar";
-import { ADMIN_ROUTES, isPublicAdminPath } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { fetchAiJobCount } from "@/features/admin/ai-api";
 import { useAdminSession } from "./context/admin-session";
 
@@ -16,12 +17,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [awaitingReview, setAwaitingReview] = useState(0);
   const [hasSignOutFailed, setHasSignOutFailed] = useState(false);
 
-  const isPublic = isPublicAdminPath(pathname);
-
   useEffect(() => {
-    // An unauthenticated poll is a 401 a minute, and there is no rail for the badge.
-    if (isPublic) return;
-
     let isCurrent = true;
     const read = async () => {
       const result = await fetchAiJobCount();
@@ -35,17 +31,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
       isCurrent = false;
       window.clearInterval(timer);
     };
-  }, [isPublic]);
-
-  if (isPublic) return <>{children}</>;
+  }, []);
 
   async function handleSignOut() {
     setHasSignOutFailed(false);
-    // The cookie is still live on failure, so the login screen would bounce straight back in.
+    // The cookie is still live on failure, so the sign-in dialog would bounce straight back in.
     if (!(await signOut())) {
       setHasSignOutFailed(true);
       return;
     }
+    // The sign-in dialog, not the bare homepage: `signOut` has already marked the session signed out,
+    // so `AdminGuard` is redirecting there too, and two different targets would race.
     router.replace(ADMIN_ROUTES.login);
   }
 
@@ -62,28 +58,51 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 Could not sign out. Check your connection and try again.
               </p>
             ) : null}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
               <span
-                className="min-w-0 truncate text-muted-foreground text-xs"
-                title={admin?.email}
+                aria-hidden="true"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground text-xs"
               >
-                {admin?.name ?? "—"}
+                {initials(admin?.name)}
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                <span className="truncate font-medium text-foreground text-sm">
+                  {admin?.name ?? "—"}
+                </span>
+                {admin === undefined ? null : (
+                  <span className="truncate text-muted-foreground text-xs">
+                    {admin.email}
+                  </span>
+                )}
               </span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                className="size-11 shrink-0 px-0 text-muted-foreground hover:text-foreground"
+                title="Sign out"
                 onClick={handleSignOut}
               >
-                Sign out
+                <LogOut aria-hidden="true" className="size-4!" />
+                <span className="sr-only">Sign out</span>
               </Button>
             </div>
           </div>
         }
       />
-      <main className="min-w-0 flex-1 p-4 md:min-h-0 md:overflow-y-auto md:p-6">
-        {children}
+      <main className="min-w-0 flex-1 md:min-h-0 md:overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1440px] p-4 md:px-8 md:py-7">
+          {children}
+        </div>
       </main>
     </div>
   );
+}
+
+function initials(name: string | undefined): string {
+  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (words.length === 0) return "?";
+  const first = words[0].slice(0, 1);
+  const last = words.length > 1 ? words[words.length - 1].slice(0, 1) : "";
+  return `${first}${last}`.toUpperCase();
 }

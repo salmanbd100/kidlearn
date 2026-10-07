@@ -18,8 +18,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@kidlearn/ui";
+import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   type ContentDraft,
@@ -217,43 +220,41 @@ export function CurriculumScreen() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-semibold text-foreground text-xl">Curriculum</h1>
-          <p className="text-muted-foreground text-xs">
-            Publishing a row makes it visible to children immediately.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={includeArchived ? "default" : "outline"}
-            aria-pressed={includeArchived}
-            onClick={() => setIncludeArchived((current) => !current)}
-          >
-            {includeArchived ? "Hide archived" : "Show archived"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={status === "loading" || status === "waking"}
-            onClick={() => void load()}
-          >
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            disabled={isBusy}
-            onClick={() => {
-              clearMessages();
-              setIsGenerateOpen(true);
-            }}
-          >
-            Generate lesson
-          </Button>
-        </div>
-      </header>
+      <AdminPageHeader
+        title="Curriculum"
+        description="Publishing a row makes it visible to children immediately."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant={includeArchived ? "default" : "outline"}
+              aria-pressed={includeArchived}
+              onClick={() => setIncludeArchived((current) => !current)}
+            >
+              {includeArchived ? "Hide archived" : "Show archived"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={status === "loading" || status === "waking"}
+              onClick={() => void load()}
+            >
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              disabled={isBusy}
+              onClick={() => {
+                clearMessages();
+                setIsGenerateOpen(true);
+              }}
+            >
+              <Sparkles aria-hidden="true" className="size-4!" />
+              Generate lesson
+            </Button>
+          </>
+        }
+      />
 
       {status === "waking" ? (
         <p className="text-muted-foreground text-xs">Waking the API up…</p>
@@ -731,14 +732,18 @@ function singular(resource: ContentResourceName): string {
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-3">
-      <h1 className="font-semibold text-foreground text-xl">Curriculum</h1>
-      <p className="text-muted-foreground text-sm">
-        The curriculum could not be loaded.
-      </p>
-      <Button type="button" variant="outline" onClick={onRetry}>
-        Try again
-      </Button>
+    <div className="flex flex-col gap-6">
+      <AdminPageHeader title="Curriculum" />
+      <AdminEmptyState
+        tone="error"
+        icon={TriangleAlert}
+        title="The curriculum could not be loaded."
+        action={
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+        }
+      />
     </div>
   );
 }

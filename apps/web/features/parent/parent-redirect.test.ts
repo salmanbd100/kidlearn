@@ -21,7 +21,6 @@ function parent(
 }
 
 const ALL_PATHS = [
-  PARENT_ROUTES.login,
   PARENT_ROUTES.consent,
   PARENT_ROUTES.firstChild,
   PARENT_ROUTES.dashboard,
@@ -33,15 +32,15 @@ const ALL_PATHS = [
 describe("resolveParentRedirect — signed out", () => {
   const signedOut = { parent: undefined, childCount: undefined };
 
-  it("lets the login screen render", () => {
+  it("lets the bare sign-in page render", () => {
     expect(
-      resolveParentRedirect(signedOut, PARENT_ROUTES.login),
+      resolveParentRedirect(signedOut, PARENT_ROUTES.signInPage),
     ).toBeUndefined();
   });
 
-  it("sends every other path to login, including the onboarding steps", () => {
-    for (const path of ALL_PATHS.filter((p) => p !== PARENT_ROUTES.login)) {
-      expect(resolveParentRedirect(signedOut, path)).toBe(PARENT_ROUTES.login);
+  it("sends every other parent path to the homepage sign-in dialog, including the onboarding steps", () => {
+    for (const path of ALL_PATHS) {
+      expect(resolveParentRedirect(signedOut, path)).toBe("/?signin=parent");
     }
   });
 });
@@ -135,7 +134,7 @@ describe("resolveParentRedirect — fully onboarded", () => {
 
   it("sends a finished step forward instead of showing it again", () => {
     for (const path of [
-      PARENT_ROUTES.login,
+      PARENT_ROUTES.signInPage,
       PARENT_ROUTES.consent,
       PARENT_ROUTES.firstChild,
     ]) {

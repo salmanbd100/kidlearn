@@ -28,6 +28,7 @@
    - [5.12 Screen Time & Parental Controls](#512-screen-time--parental-controls-fr-time)
    - [5.13 AI Content Generation Pipeline](#513-ai-content-generation-pipeline-fr-ai)
    - [5.14 Admin Content Management](#514-admin-content-management-fr-cms)
+   - [5.15 Public Site](#515-public-site-fr-site)
 6. [Non-Functional Requirements](#6-non-functional-requirements)
 7. [Technical Architecture](#7-technical-architecture)
 8. [Data Model Overview](#8-data-model-overview)
@@ -294,6 +295,14 @@ AI generates content at scale; humans gate everything before publication.
 | FR-CMS-05 | A separate **AI review queue** lists all AI-generated content awaiting review; for each item the admin can read the text, listen to the audio, preview images, then approve, edit-then-approve, or reject. | [MVP]                                     |
 | FR-CMS-06 | Approved content is published immediately and becomes available to students; rejected content is logged but never shown to students.                                                                       | [MVP]                                     |
 | FR-CMS-07 | Admins can view platform-wide usage and analytics.                                                                                                                                                         | [MVP — basic; detailed analytics Phase 2] |
+
+### 5.15 Public Site (FR-SITE)
+
+| ID         | Requirement                                                                                                                                                                  | Scope |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| FR-SITE-01 | A public homepage at `/` says what KidLearn is and offers one-tap entry to the Student Portal (profile picker) and to parent sign-in. It is not part of the Student Portal. | [MVP] |
+| FR-SITE-02 | Public guides for parents and for admins explain, in plain language, how to use their portal, and link to the full manuals.                                                  | [MVP] |
+| FR-SITE-03 | A public engineering guide explains the architecture and system design for developers and recruiters, and links to the full design documents.                                | [MVP] |
 
 ---
 

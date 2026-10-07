@@ -22,7 +22,7 @@ export function SelectProfileScreen() {
 
   const redirectTo =
     status === "signedOut"
-      ? PARENT_ROUTES.login
+      ? PARENT_ROUTES.signInPage
       : status === "ready" && parent?.hasCurrentConsent === false
         ? PARENT_ROUTES.consent
         : undefined;

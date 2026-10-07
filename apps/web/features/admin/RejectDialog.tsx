@@ -64,11 +64,12 @@ export function RejectDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="reject-reason">What was wrong with it?</Label>
             <Textarea
               id="reject-reason"
+              size="sm"
               rows={4}
               value={reason}
               autoFocus
@@ -92,7 +93,7 @@ export function RejectDialog({
             </p>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="border-border border-t pt-4">
             <Button
               type="button"
               variant="ghost"

@@ -2,7 +2,7 @@
 
 import type { LessonListItemResponse } from "@kidlearn/types";
 import { Sparkles } from "lucide-react";
-import { IconTile } from "@/shared/components/kid/IconTile";
+import { IconTile } from "./IconTile";
 
 export interface LessonTileProps {
   lesson: LessonListItemResponse;

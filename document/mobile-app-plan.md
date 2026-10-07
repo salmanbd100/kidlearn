@@ -275,9 +275,11 @@ requests. Consequences for `lib/api-client.ts`:
 - `authClient.getCookie()` is **async** in current better-auth — any helper reading it
   must be `async`.
 - Sign-out must clear SecureStore, not just call the endpoint. It must also clear the client's
-  cached session **before** navigating to the login screen — web hit this exactly: the parent
-  redirect resolver sends a fully-onboarded parent away from `/parent/login`, so navigating first
-  bounced straight back to the dashboard. The same ordering trap exists on native.
+  cached session **before** navigating to the login screen — web hit this exactly while sign-in was
+  the `/parent/login` page: the parent redirect resolver sent a fully-onboarded parent away from it,
+  so navigating first bounced straight back to the dashboard. The same ordering trap exists on
+  native. (Web sign-in is now a dialog on the homepage, outside the parent route group, so web
+  navigates without clearing first.)
 
 ### 7.5 What does *not* change
 
@@ -512,10 +514,10 @@ bundle and readable by anyone who downloads it.
 | Google Play Console | $25 one-off |
 | Apple Developer Program | $99/year — the only recurring cost this plan adds |
 | EAS Build | Free tier is workable (queued builds, monthly limits). `eas build --local` on your Mac is the escape hatch for both platforms. |
-| Backend / DB / media | Unchanged — web file 38's AWS stack (~$23/month for both environments) serves the mobile app too, at no extra cost for a second client |
+| Backend / DB / media | Unchanged — web file 38's AWS stack (~$13.73/month for both environments) serves the mobile app too, at no extra cost for a second client |
 
 The backend is no longer zero-cost: web file 38 plans a single EC2 box running both a
-production and a development environment, for roughly $23/month (not yet provisioned). Mobile adds Apple's $99/year and
+production and a development environment, for roughly $13.73/month (not yet provisioned). Mobile adds Apple's $99/year and
 Google's one-off $25 on top of that, and nothing else recurring.
 
 ---

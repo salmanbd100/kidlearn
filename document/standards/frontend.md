@@ -72,6 +72,13 @@ If it matches more than one row, use the first.
 - Components expose `variant`, `size`, and `tone` props. Callers do not pass long `className` strings to fundamentally restyle a component. If a caller needs a visual treatment that no variant covers, add the variant — do not make the caller responsible for styling internals. **[REVIEW]**
 - All color, radius, shadow, and spacing values come from semantic tokens (CSS variables). Components never reference raw hex values, brand hue names, or Tailwind color literals directly. See `document/design.md §2` for the full token contract. **[REVIEW]**
 
+#### Recorded exception — third-party brand marks
+
+**Status: active as of 2026-10-07 (file 40).** A third party's logo keeps the colours its owner
+prescribes; re-tinting it with our tokens breaks their brand terms and makes it unrecognisable.
+Covers `apps/web/features/parent/GoogleIcon.tsx` (the four Google "G" colours) and nothing else — a
+new mark is added to this list by name. The hex values stay inside the mark's own component.
+
 **Theme isolation**
 
 - Components never branch on theme in JavaScript (`if theme === 'kid'`). Theme is applied by `<ThemeScope theme="kid">` or `<ThemeScope theme="parent">` (`@kidlearn/ui`) on a layout boundary; token values cascade automatically. A hand-written `data-theme` div does not reach portalled dialogs and menus, which mount in `<body>`. **[REVIEW]**
@@ -183,16 +190,21 @@ Next.js App Router reserves specific filenames: `page.tsx`, `layout.tsx`, `loadi
 
 ### Route organisation
 
-The app has three distinct surfaces. Each lives in its own App Router route group with its own root layout:
+The app has three product surfaces and one public site. Each lives in its own App Router route group with its own layout:
 
 ```
 app/
+├── (site)/         # Public homepage and guides — kid theme, unauthenticated
 ├── (student)/      # Student Portal — kid theme, full-bleed, gamified
-├── (parent)/       # Parent Dashboard — parent theme, Google session only
+├── (parent)/       # Parent Dashboard — parent theme, Google session only (sign-in: homepage dialog, or /parent/login)
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
 A layout file in `(student)` must never import components from `(parent)` or `(admin)`, and vice versa. What two groups share lives in `features/` or `shared/` — see §1 for when it goes further, into `packages/ui`. **[REVIEW]**
+
+`(site)` owns `/` and `/guide/*` (FR-SITE-01..03). It is public, needs no session, and is scoped `<ThemeScope theme="kid">` so it reads as the same product — but it is **not part of the Student Portal**. It carries external links (GitHub), which NFR-SAFE-07 forbids on the child's surface, so the rule runs one way: no `(student)` screen links to a `(site)` route, and `app/(student)/no-external-links.test.tsx` fails if one does. The root `not-found.tsx` is shared by every surface and still links to `/`; the homepage's primary action leads a child straight back to `/select-profile`.
+
+Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either: a signed-out session on the student surface — `StudentGuard` and the profile picker — goes to `/parent/login` (`PARENT_ROUTES.signInPage`), the same sign-in on a bare page inside `(parent)` with no site chrome, because a child who dismissed the homepage dialog would be one tap from GitHub. `no-external-links.test.tsx` sweeps `(student)` and `features/student` for `PARENT_ROUTES.login`, `ADMIN_ROUTES.login` and a bare `/` as a navigation target. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
 
 ### Component files
 
@@ -209,7 +221,7 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 
 #### Recorded exception — the `(admin)` CMS is English-only
 
-**Status: active as of 2026-08-22 (file 31).** FR-I18N covers the child and parent
+**Status: active as of 2026-08-22 (file 31).** It also covers `features/admin/AdminSignInDialog.tsx`, which renders on the homepage but belongs to the CMS. FR-I18N covers the child and parent
 surfaces, which are the ones a family reads. The CMS is an internal tool used by
 the team, so strings in `app/(admin)/` and `features/admin/`
 (including `features/admin/admin-routes.ts`) stay hard-coded English rather than wiring a fourth i18next

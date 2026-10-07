@@ -86,7 +86,7 @@ Rules the script enforces:
 pnpm dev     # web on :3000, server on :4000
 ```
 
-Open **http://localhost:3000/admin/login** and enter the email and password.
+Open **http://localhost:3000**, choose **Admin sign-in**, and enter the email and password. (`/admin/login` still works: it redirects to that dialog.)
 
 What happens behind the scenes: the login screen posts to `http://localhost:4000/api/auth/sign-in/email`, the API sets an httpOnly session cookie, and you land on `/admin/analytics`. Locally you need no frontend environment variable — `NEXT_PUBLIC_API_URL` defaults to `http://localhost:4000`.
 
@@ -161,7 +161,7 @@ ADMIN_NAME='Content Admin' \
 
 **4. Delete the throwaway file**, and make sure the password exists only in your password manager. Shell history is a real leak here — a leading space (`  ADMIN_...`) keeps the line out of history in `zsh` with `HIST_IGNORE_SPACE`, or clear the entry afterwards.
 
-**5. Sign in and confirm.** Go to `https://kidlearn.net/admin/login` (or `https://dev.kidlearn.net/admin/login`). You should land on the analytics page. If sign-in succeeds but every page bounces, see [Troubleshooting](#5-troubleshooting).
+**5. Sign in and confirm.** Go to `https://kidlearn.net` (or `https://dev.kidlearn.net`) and choose **Admin sign-in**. You should land on the analytics page. If sign-in succeeds but every page bounces, see [Troubleshooting](#5-troubleshooting).
 
 ### 3.3 Rules that must hold in production
 
@@ -268,6 +268,6 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 | `apps/server/src/config/auth.ts` | better-auth setup; password sign-up disabled; the 12-character floor |
 | `apps/server/src/shared/middleware/require-admin.ts` | The gate on every `/api/admin/*` route (`401` vs `403`) |
 | `apps/server/.env.example` | Every environment variable, with setup notes for each credential |
-| `apps/web/app/(admin)/admin/login/AdminLoginScreen.tsx` | The login form |
+| `apps/web/features/admin/AdminSignInDialog.tsx` | The login form, a dialog on the homepage |
 | `apps/web/features/admin/admin-routes.ts` | The CMS routing table and sidebar |
 | `packages/db/prisma/schema.prisma` | `AdminUser`, `user`, `account`, `session` models |

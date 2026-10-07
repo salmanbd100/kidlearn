@@ -8,6 +8,8 @@ const inputVariants = cva(
     variants: {
       size: {
         default: "h-11 px-3 text-base",
+        // Dense forms (the CMS): same 44px target, lighter border and type.
+        sm: "h-11 border px-3 text-sm",
         kid: "h-16 rounded-pill px-5 text-lg",
       },
     },
