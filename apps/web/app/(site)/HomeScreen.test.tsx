@@ -1,5 +1,5 @@
 import { A11Y_PREF_CLASSES } from "@kidlearn/ui";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
@@ -177,6 +177,43 @@ describe("HomeScreen", () => {
       "href",
       "/guide/engineering",
     );
+  });
+
+  it("explains how it works in three steps, in order", () => {
+    renderHome();
+
+    const section = screen.getByRole("region", { name: "How it works" });
+    const steps = within(section).getAllByRole("heading", { level: 3 });
+    expect(steps.map((step) => step.textContent)).toEqual([
+      "Pick your picture",
+      "Play a lesson",
+      "Earn stars",
+    ]);
+  });
+
+  it("hides the hero picture from assistive technology", () => {
+    renderHome();
+
+    expect(screen.getByTestId("hero-scene")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+  });
+
+  it("holds the hero blocks above the scene until it scrolls into view", () => {
+    renderHome();
+
+    const block = screen.getByTestId("hero-scene").querySelector("g");
+    // Motion writes an SVG element's starting values as attributes, not inline style.
+    expect(block).toHaveAttribute("opacity", "0");
+  });
+
+  it("renders the hero blocks settled under reduced motion (NFR-A11Y-05)", () => {
+    document.documentElement.classList.add(A11Y_PREF_CLASSES.reducedMotion);
+    renderHome();
+
+    const block = screen.getByTestId("hero-scene").querySelector("g");
+    expect(block).not.toHaveAttribute("opacity", "0");
   });
 
   it("starts the headline below its resting place when motion is allowed", () => {

@@ -220,6 +220,9 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   (crisp, professional).
 - Reward/celebration animations cap at `--dur-slow` and must be skippable (a tap dismisses).
 - Never animate `width`/`height`/`top`/`left` — animate `transform` and `opacity` only.
+- **Public homepage exception (2026-10-07):** its decorative SVG pictures may play a one-time
+  entrance when scrolled into view and react to a tap, to show how the app works. They still never
+  loop, and render settled under reduced motion. See `implementation/40-public-homepage-and-guides.md §8`.
 
 ---
 

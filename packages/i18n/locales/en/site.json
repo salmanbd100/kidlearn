@@ -24,6 +24,21 @@
     "adminSignIn": "Admin sign-in",
     "parentDashboard": "Parent dashboard",
     "adminDashboard": "Admin dashboard",
+    "howTitle": "How it works",
+    "how": {
+      "pick": {
+        "title": "Pick your picture",
+        "detail": "Each child taps their own profile picture. No reading or typing needed."
+      },
+      "play": {
+        "title": "Play a lesson",
+        "detail": "Short games for letters, numbers and words, read aloud in English or Bangla."
+      },
+      "stars": {
+        "title": "Earn stars",
+        "detail": "Finishing a lesson earns stars and badges, and parents see the progress on their dashboard."
+      }
+    },
     "guidesTitle": "Read the guides",
     "guides": {
       "parents": {

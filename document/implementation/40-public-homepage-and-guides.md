@@ -152,6 +152,15 @@ studio, not a SaaS landing template. See "Visual direction" for what that rules 
      carousels, animated counters, "Get started for free" copy.
    - **Motion:** one fade/translate on the homepage headline via `motion`, skipped when
      `useIsMotionReduced()` is true. Nothing else moves.
+   - **Amended 2026-10-07:** the homepage gained pictures and motion on request, to read as a
+     kids' learning product and to show how it works. Drawn inline SVG in the brand palette (no
+     stock art): a hero scene of English and Bangla letter blocks (`HeroScene`) and a three-step
+     "How it works" band (`HowItWorks`) whose pictures act out each step. Motion plays once, when
+     the picture scrolls into view, or on a tap (a hero block bounces); nothing loops. Guide
+     entries and the "What makes it different" facts fade up on scroll (`Reveal`), and each fact
+     has a tinted icon disc. Under reduced motion every picture renders settled. The flat tinted
+     band and icon discs relax the "rules, not boxes" and "not a feature grid" lines above for the
+     homepage only; the guides are unchanged.
    - **Responsive:** mobile-first per the `responsive-design` skill; primary actions keep the
      64px kid touch target because a child taps "Start learning".
 

@@ -12,5 +12,21 @@ if (!("ResizeObserver" in globalThis)) {
   };
 }
 
+// jsdom has no IntersectionObserver either; Motion's `whileInView` (the homepage pictures) needs one
+// to mount. It never fires, so a scroll-triggered animation stays at its start in tests.
+if (!("IntersectionObserver" in globalThis)) {
+  globalThis.IntersectionObserver = class {
+    readonly root = null;
+    readonly rootMargin = "";
+    readonly thresholds = [];
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  };
+}
+
 // Without `globals: true` RTL cannot install auto-cleanup, so a second render() would find duplicates.
 afterEach(cleanup);
