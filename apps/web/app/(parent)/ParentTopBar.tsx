@@ -81,8 +81,8 @@ export function ParentTopBar() {
   return (
     <header className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3 border-border border-b pb-3">
       <Link
-        href={PARENT_ROUTES.dashboard}
-        className="font-semibold text-foreground text-lg"
+        href={SITE_ROUTES.home}
+        className="inline-flex min-h-11 items-center font-semibold text-foreground text-lg"
       >
         {tCommon("app.name")}
       </Link>

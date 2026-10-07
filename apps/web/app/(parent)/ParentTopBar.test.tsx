@@ -99,6 +99,14 @@ describe("ParentTopBar", () => {
     ).not.toHaveAttribute("aria-current");
   });
 
+  it("links the wordmark to the public homepage", async () => {
+    renderBar();
+
+    expect(
+      await screen.findByRole("link", { name: "KidLearn" }),
+    ).toHaveAttribute("href", "/");
+  });
+
   it("renders nothing while the session is still loading", () => {
     renderBar();
 
