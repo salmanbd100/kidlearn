@@ -19,7 +19,7 @@ export type AdminSessionStatus = "loading" | "ready" | "signedOut" | "error";
 type AdminSessionValue = {
   status: AdminSessionStatus;
   admin: AdminIdentity | undefined;
-  /** Re-reads `/api/admin/me`; the login screen calls it because this provider resolved `signedOut` on mount. */
+  /** Re-reads `/api/admin/me`, e.g. after a 401 suggests the session has gone. */
   refresh: () => Promise<void>;
   /** `false` when the cookie could not be revoked; the session is kept, as it is still live. */
   signOut: () => Promise<boolean>;

@@ -126,22 +126,6 @@ describe("ParentLayout", () => {
     );
   });
 
-  it("does not gate the login screen", async () => {
-    pathname = PARENT_ROUTES.login;
-    api.fetchAuthMe.mockResolvedValue({
-      ok: false,
-      error: { code: "UNAUTHORIZED", message: "Sign in required", status: 401 },
-    });
-
-    renderLayout();
-
-    await waitFor(() =>
-      expect(screen.getByText("dashboard")).toBeInTheDocument(),
-    );
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(router.replace).not.toHaveBeenCalled();
-  });
-
   it("reports a network failure instead of pretending to be signed out", async () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: false,

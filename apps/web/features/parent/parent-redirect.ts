@@ -2,8 +2,16 @@ import type { ParentSummaryResponse } from "@kidlearn/types";
 
 // Where a parent belongs, given who they are and where they asked to go.
 
+/** `?signin=parent` on the homepage opens the sign-in dialog; it is the only sign-in screen a parent has. */
+export const PARENT_SIGN_IN_PARAM = {
+  name: "signin",
+  value: "parent",
+} as const;
+
 export const PARENT_ROUTES = {
-  login: "/parent/login",
+  login: `/?${PARENT_SIGN_IN_PARAM.name}=${PARENT_SIGN_IN_PARAM.value}`,
+  /** Kept as a redirect to `login`, so links to the retired sign-in page still land. */
+  legacyLogin: "/parent/login",
   consent: "/parent/onboarding/consent",
   firstChild: "/parent/onboarding/child",
   /** The progress dashboard, and where the Google callback lands. */
@@ -19,19 +27,11 @@ export type ParentSessionState = {
   childCount: number | undefined;
 };
 
-/** Reachable without a session at all. Everything else redirects to login. */
-const PUBLIC_PATHS: readonly string[] = [PARENT_ROUTES.login];
-
 /** The first-run steps, which stop being destinations once onboarding is finished. */
 const ONBOARDING_PATHS: readonly string[] = [
-  PARENT_ROUTES.login,
   PARENT_ROUTES.consent,
   PARENT_ROUTES.firstChild,
 ];
-
-export function isPublicParentPath(pathname: string): boolean {
-  return PUBLIC_PATHS.includes(pathname);
-}
 
 export function isOnboardingPath(pathname: string): boolean {
   return ONBOARDING_PATHS.includes(pathname);
@@ -43,9 +43,8 @@ export function resolveParentRedirect(
 ): string | undefined {
   const { parent, childCount } = session;
 
-  if (!parent) {
-    return isPublicParentPath(pathname) ? undefined : PARENT_ROUTES.login;
-  }
+  // Sign-in lives on the homepage, outside this group, so no `/parent/*` path is reachable signed out.
+  if (!parent) return PARENT_ROUTES.login;
 
   // Not `consentGivenAt`: consent to an older text is set there too, and the API refuses child-data writes until it is renewed.
   if (!parent.hasCurrentConsent) {

@@ -21,6 +21,7 @@
     "lead": "A playful learning app for children aged three to six, in English and Bangla, with a calm dashboard for their parents.",
     "startLearning": "Start learning",
     "parentSignIn": "Parent sign-in",
+    "adminSignIn": "Admin sign-in",
     "guidesTitle": "Read the guides",
     "guides": {
       "parents": {
@@ -63,7 +64,7 @@
     "start": {
       "title": "Getting started",
       "p1": "You sign in with your Google account, so there is no separate password to remember. The first time, KidLearn asks for your permission before anything about your child is stored.",
-      "step1": "Choose <strong>Continue with Google</strong> on the parent sign-in page.",
+      "step1": "Choose <strong>Parent sign-in</strong> on the homepage, then <strong>Continue with Google</strong>.",
       "step2": "Read what we keep and what we never do, then tick the box to confirm you are the child's parent or guardian.",
       "step3": "Add your first child. When you are done, you land on your profiles page.",
       "p2": "We keep each child's first name, age, grade and avatar (no surname, no photo), their lesson progress, and your Google name and email. There are no ads, we never sell data, and there is no chat and nothing to buy. If that wording ever changes, we ask you again."
@@ -109,7 +110,7 @@
     "lead": "The CMS is where lessons, stories and quizzes are written, drafted with AI, reviewed and published. One rule runs through all of it: nothing an AI drafts reaches a child until a person has approved it.",
     "account": {
       "title": "What an admin account is",
-      "p1": "An admin signs in with an email address and password at <code>/admin/login</code>. Parents sign in with Google. The two kinds of account never overlap, and a parent who opens an admin page is turned away.",
+      "p1": "An admin signs in with an email address and password from <strong>Admin sign-in</strong> on the homepage. Parents sign in with Google. The two kinds of account never overlap, and a parent who opens an admin page is turned away.",
       "p2": "There is no sign-up page and no invitation. An engineer creates each admin account with a script: Part 1 of the admin account guide covers local development, and Part 2 covers a deployed server. A forgotten password is reset the same way."
     },
     "workspace": {
@@ -248,7 +249,7 @@
     },
     "quality": {
       "title": "Quality",
-      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,039 tests in 202 files, counted on 7 October 2026.",
+      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,040 tests in 202 files, counted on 7 October 2026.",
       "p2": "Every successful response in a route test is checked against its published schema with <code>assertContract</code>, and a coverage test walks the live Express routers and fails if any endpoint is missing from the OpenAPI document. What a stub cannot prove, such as cascades, unique constraints and the status check on related rows, runs against a real Postgres database in <code>*.db.test.ts</code> suites.",
       "p3": "On every pull request, one CI job, <code>gates</code>, runs lint, build, type-check, the tests with coverage, the real-database suites and the Docker image builds."
     },

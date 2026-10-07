@@ -275,9 +275,11 @@ requests. Consequences for `lib/api-client.ts`:
 - `authClient.getCookie()` is **async** in current better-auth — any helper reading it
   must be `async`.
 - Sign-out must clear SecureStore, not just call the endpoint. It must also clear the client's
-  cached session **before** navigating to the login screen — web hit this exactly: the parent
-  redirect resolver sends a fully-onboarded parent away from `/parent/login`, so navigating first
-  bounced straight back to the dashboard. The same ordering trap exists on native.
+  cached session **before** navigating to the login screen — web hit this exactly while sign-in was
+  the `/parent/login` page: the parent redirect resolver sent a fully-onboarded parent away from it,
+  so navigating first bounced straight back to the dashboard. The same ordering trap exists on
+  native. (Web sign-in is now a dialog on the homepage, outside the parent route group, so web
+  navigates without clearing first.)
 
 ### 7.5 What does *not* change
 

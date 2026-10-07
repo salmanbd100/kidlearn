@@ -4,7 +4,11 @@ import { SITE_NAMESPACE } from "@kidlearn/i18n";
 import { Button, useIsMotionReduced } from "@kidlearn/ui";
 import { motion } from "motion/react";
 import Link from "next/link";
+import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
+import { AdminSignInDialog } from "@/features/admin/AdminSignInDialog";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { ParentSignInDialog } from "@/features/parent/ParentSignInDialog";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { Doodle } from "@/features/site/Doodle";
 import { GuideFacts } from "@/features/site/GuideProse";
@@ -76,9 +80,19 @@ export function HomeScreen() {
                 </Link>
               </Button>
               <Button asChild size="kid" variant="outline">
-                <Link href={PARENT_ROUTES.login}>{t("home.parentSignIn")}</Link>
+                <Link href={PARENT_ROUTES.login} scroll={false}>
+                  {t("home.parentSignIn")}
+                </Link>
               </Button>
             </div>
+            {/* Deliberately quiet: the two actions above are the front door, this one is staff-only. */}
+            <Link
+              href={ADMIN_ROUTES.login}
+              scroll={false}
+              className="focus-ring inline-flex min-h-11 w-fit items-center rounded-sm text-lg text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              {t("home.adminSignIn")}
+            </Link>
           </div>
         </div>
       </section>
@@ -112,6 +126,12 @@ export function HomeScreen() {
       <HangingSection id="different" title={t("home.differentTitle")}>
         <GuideFacts items={DIFFERENCES} />
       </HangingSection>
+
+      {/* Read the query string, so they suspend rather than forcing the page to client-render. */}
+      <Suspense fallback={null}>
+        <ParentSignInDialog />
+        <AdminSignInDialog />
+      </Suspense>
     </div>
   );
 }

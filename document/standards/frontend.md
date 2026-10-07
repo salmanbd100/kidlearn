@@ -189,13 +189,15 @@ The app has three product surfaces and one public site. Each lives in its own Ap
 app/
 ├── (site)/         # Public homepage and guides — kid theme, unauthenticated
 ├── (student)/      # Student Portal — kid theme, full-bleed, gamified
-├── (parent)/       # Parent Dashboard — parent theme, Google session only
+├── (parent)/       # Parent Dashboard — parent theme, Google session only (sign-in is the homepage dialog)
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
 A layout file in `(student)` must never import components from `(parent)` or `(admin)`, and vice versa. What two groups share lives in `features/` or `shared/` — see §1 for when it goes further, into `packages/ui`. **[REVIEW]**
 
-`(site)` owns `/` and `/guide/*` (FR-SITE-01..03). It is public, needs no session, and is scoped `<ThemeScope theme="kid">` so it reads as the same product — but it is **not part of the Student Portal**. It carries external links (GitHub), which NFR-SAFE-07 forbids on the child's surface, so the rule runs one way: no `(student)` screen links to a `(site)` route, and `app/(student)/no-external-links.test.tsx` fails if one does. The root `not-found.tsx` is shared by every surface and still links to `/`; the homepage's primary action leads a child straight back to `/select-profile`. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
+`(site)` owns `/` and `/guide/*` (FR-SITE-01..03). It is public, needs no session, and is scoped `<ThemeScope theme="kid">` so it reads as the same product — but it is **not part of the Student Portal**. It carries external links (GitHub), which NFR-SAFE-07 forbids on the child's surface, so the rule runs one way: no `(student)` screen links to a `(site)` route, and `app/(student)/no-external-links.test.tsx` fails if one does. The root `not-found.tsx` is shared by every surface and still links to `/`; the homepage's primary action leads a child straight back to `/select-profile`.
+
+Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); there is no sign-in page, and `/parent/login` and `/admin/login` only redirect there. So a signed-out session on the student surface — `StudentGuard` and the profile picker — is *redirected* to `/` with the dialog open. That is a redirect for a device with no parent session, not a link a child can follow from a working screen, but it does put a child on a page with external links if they dismiss the dialog. Recorded 2026-10-07 as a known trade against NFR-SAFE-07; revisit if the homepage gains more outward links. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
 
 ### Component files
 
@@ -212,7 +214,7 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 
 #### Recorded exception — the `(admin)` CMS is English-only
 
-**Status: active as of 2026-08-22 (file 31).** FR-I18N covers the child and parent
+**Status: active as of 2026-08-22 (file 31).** It also covers `features/admin/AdminSignInDialog.tsx`, which renders on the homepage but belongs to the CMS. FR-I18N covers the child and parent
 surfaces, which are the ones a family reads. The CMS is an internal tool used by
 the team, so strings in `app/(admin)/` and `features/admin/`
 (including `features/admin/admin-routes.ts`) stay hard-coded English rather than wiring a fourth i18next

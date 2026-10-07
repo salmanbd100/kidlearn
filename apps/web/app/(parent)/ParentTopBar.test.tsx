@@ -115,14 +115,6 @@ describe("ParentTopBar", () => {
     expect(screen.queryByRole("navigation")).toBeNull();
   });
 
-  it("stays out of the way on the login screen", async () => {
-    pathname = PARENT_ROUTES.login;
-    renderBar();
-
-    await waitFor(() => expect(api.fetchAuthMe).toHaveBeenCalled());
-    expect(screen.queryByRole("navigation")).toBeNull();
-  });
-
   it("names the signed-in parent in the account menu", async () => {
     renderBar();
     await openMenu();
@@ -153,16 +145,14 @@ describe("ParentTopBar", () => {
     expect(link).toHaveAttribute("href", "/select-profile");
   });
 
-  it("revokes the session and lands on login when signing out", async () => {
+  it("revokes the session and lands on the homepage when signing out", async () => {
     renderBar();
     await openMenu();
 
     fireEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
 
     await waitFor(() => expect(client.signOut).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(router.replace).toHaveBeenCalledWith(PARENT_ROUTES.login),
-    );
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/"));
   });
 
   it("stays put and says so when the server refuses the sign-out", async () => {
@@ -195,23 +185,20 @@ describe("ParentTopBar", () => {
     await openMenu();
     fireEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
 
-    await waitFor(() =>
-      expect(router.replace).toHaveBeenCalledWith(PARENT_ROUTES.login),
-    );
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/"));
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("clears the session before navigating, or the guard bounces it back", async () => {
+  it("goes home without clearing the session first, so the guard cannot open sign-in instead", async () => {
     renderBar();
     await openMenu();
 
     fireEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
 
-    // `resolveParentRedirect` sends a fully-onboarded parent away from login, so a stale session would
-    // undo the redirect; re-reading `/api/auth/me` empties it.
-    await waitFor(() => expect(api.fetchAuthMe).toHaveBeenCalledTimes(2));
-    expect(client.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      api.fetchAuthMe.mock.invocationCallOrder[1],
-    );
+    // Re-reading `/api/auth/me` here would empty the session while `ParentGuard` is still mounted,
+    // and its redirect to the sign-in dialog would race this one.
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/"));
+    expect(router.replace).not.toHaveBeenCalledWith(PARENT_ROUTES.login);
+    expect(api.fetchAuthMe).toHaveBeenCalledTimes(1);
   });
 });

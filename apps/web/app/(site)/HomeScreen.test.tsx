@@ -1,10 +1,20 @@
 import { A11Y_PREF_CLASSES } from "@kidlearn/ui";
-import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import type { Locale } from "@/shared/lib/locale";
-import { HomeScreen } from "./HomeScreen";
+
+const navigation = vi.hoisted(() => ({ search: "" }));
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(navigation.search),
+}));
+
+const { HomeScreen } = await import("./HomeScreen");
 
 function renderHome(locale: Locale = "en") {
   return render(
@@ -17,6 +27,8 @@ function renderHome(locale: Locale = "en") {
 describe("HomeScreen", () => {
   beforeEach(() => {
     resetI18nForTests();
+    navigation.search = "";
+    router.replace.mockReset();
   });
 
   afterEach(() => {
@@ -48,7 +60,7 @@ describe("HomeScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("sends a child to the profile picker and a parent to sign-in", () => {
+  it("sends a child to the profile picker, a parent to sign-in and an admin to the CMS login", () => {
     renderHome();
 
     expect(
@@ -56,7 +68,11 @@ describe("HomeScreen", () => {
     ).toHaveAttribute("href", "/select-profile");
     expect(
       screen.getByRole("link", { name: "Parent sign-in" }),
-    ).toHaveAttribute("href", "/parent/login");
+    ).toHaveAttribute("href", "/?signin=parent");
+    expect(screen.getByRole("link", { name: "Admin sign-in" })).toHaveAttribute(
+      "href",
+      "/?signin=admin",
+    );
   });
 
   it("puts Start learning first, so it is the first action a child reaches", () => {
@@ -64,6 +80,47 @@ describe("HomeScreen", () => {
 
     const links = screen.getAllByRole("link");
     expect(links[0]).toHaveAccessibleName("Start learning");
+  });
+
+  it("keeps the sign-in dialog closed until it is asked for", () => {
+    renderHome();
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("opens the parent sign-in dialog over the homepage from ?signin=parent", async () => {
+    navigation.search = "signin=parent";
+    renderHome();
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Parent sign-in",
+    });
+    expect(dialog.closest("[data-theme]")).toHaveAttribute(
+      "data-theme",
+      "parent",
+    );
+    expect(
+      screen.getByRole("link", { name: "Continue with Google" }),
+    ).toHaveAttribute("href", "http://localhost:4000/api/auth/google");
+  });
+
+  it("drops the query when the dialog is closed, leaving the homepage", async () => {
+    navigation.search = "signin=parent";
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Close" }));
+
+    expect(router.replace).toHaveBeenCalledWith("/", { scroll: false });
+  });
+
+  it("opens the CMS sign-in dialog from ?signin=admin, and only that one", async () => {
+    navigation.search = "signin=admin";
+    renderHome();
+
+    expect(
+      await screen.findByRole("dialog", { name: "kidlearn CMS" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
 
   it("links each guide entry to its page", () => {

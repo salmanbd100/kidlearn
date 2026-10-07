@@ -4,7 +4,7 @@ import { Button } from "@kidlearn/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { AdminSidebar } from "@/features/admin/AdminSidebar";
-import { ADMIN_ROUTES, isPublicAdminPath } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { fetchAiJobCount } from "@/features/admin/ai-api";
 import { useAdminSession } from "./context/admin-session";
 
@@ -16,12 +16,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [awaitingReview, setAwaitingReview] = useState(0);
   const [hasSignOutFailed, setHasSignOutFailed] = useState(false);
 
-  const isPublic = isPublicAdminPath(pathname);
-
   useEffect(() => {
-    // An unauthenticated poll is a 401 a minute, and there is no rail for the badge.
-    if (isPublic) return;
-
     let isCurrent = true;
     const read = async () => {
       const result = await fetchAiJobCount();
@@ -35,17 +30,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
       isCurrent = false;
       window.clearInterval(timer);
     };
-  }, [isPublic]);
-
-  if (isPublic) return <>{children}</>;
+  }, []);
 
   async function handleSignOut() {
     setHasSignOutFailed(false);
-    // The cookie is still live on failure, so the login screen would bounce straight back in.
+    // The cookie is still live on failure, so the sign-in dialog would bounce straight back in.
     if (!(await signOut())) {
       setHasSignOutFailed(true);
       return;
     }
+    // The sign-in dialog, not the bare homepage: `signOut` has already marked the session signed out,
+    // so `AdminGuard` is redirecting there too, and two different targets would race.
     router.replace(ADMIN_ROUTES.login);
   }
 

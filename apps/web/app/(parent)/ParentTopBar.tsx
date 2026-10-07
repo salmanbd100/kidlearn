@@ -19,9 +19,9 @@ import { useTranslation } from "react-i18next";
 import { useParentSession } from "@/app/(parent)/context/parent-session";
 import {
   isOnboardingPath,
-  isPublicParentPath,
   PARENT_ROUTES,
 } from "@/features/parent/parent-redirect";
+import { SITE_ROUTES } from "@/features/site/site-routes";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { signOut } from "@/shared/api/api-client";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
@@ -51,14 +51,13 @@ export function ParentTopBar() {
   const { t: tCommon } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
-  const { status, parent, refresh } = useParentSession();
+  const { status, parent } = useParentSession();
   const [hasSignOutFailed, setHasSignOutFailed] = useState(false);
 
   // Onboarding stays bare: nothing to navigate to, and sign-out mid-consent is a dead end.
   if (
     status !== "ready" ||
     parent === undefined ||
-    isPublicParentPath(pathname) ||
     isOnboardingPath(pathname)
   ) {
     return null;
@@ -74,9 +73,9 @@ export function ParentTopBar() {
       return;
     }
 
-    // Clear the provider first: it still holds the signed-in parent, and the resolver would bounce the redirect back.
-    await refresh();
-    router.replace(PARENT_ROUTES.login);
+    // No `refresh()` first: clearing the session here would let `ParentGuard` race this navigation to
+    // the sign-in dialog. Leaving the group unmounts the provider, so nothing keeps the stale parent.
+    router.replace(SITE_ROUTES.home);
   };
 
   return (
