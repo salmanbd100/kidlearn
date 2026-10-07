@@ -88,23 +88,21 @@ export function HomeScreen() {
             )}
           </div>
           {/* Deliberately quiet: the two actions above are the front door, this one is staff-only.
-              A signed-in parent has no use for it; a signed-in admin gets it as the way back in. */}
-          {role === "parent" ? null : (
-            <Link
-              href={
-                role === "admin" ? ADMIN_ROUTES.analytics : ADMIN_ROUTES.login
-              }
-              // The dialog opens over this page: keep the scroll, and replace rather than push so Back after
-              // closing it leaves the homepage. The CMS is a new page, with its own entry and scroll.
-              replace={role !== "admin"}
-              scroll={role === "admin"}
-              className="focus-ring -mt-4 inline-flex min-h-11 w-fit items-center rounded-sm text-lg text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              {role === "admin"
-                ? t("home.adminDashboard")
-                : t("home.adminSignIn")}
-            </Link>
-          )}
+              A signed-in admin gets it as the way back in; a signed-in parent is signed out on the way. */}
+          <Link
+            href={
+              role === "admin" ? ADMIN_ROUTES.analytics : ADMIN_ROUTES.login
+            }
+            // The dialog opens over this page: keep the scroll, and replace rather than push so Back after
+            // closing it leaves the homepage. The CMS is a new page, with its own entry and scroll.
+            replace={role !== "admin"}
+            scroll={role === "admin"}
+            className="focus-ring -mt-4 inline-flex min-h-11 w-fit items-center rounded-sm text-lg text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            {role === "admin"
+              ? t("home.adminDashboard")
+              : t("home.adminSignIn")}
+          </Link>
         </div>
         <HeroScene className="mx-auto max-w-sm md:max-w-none" />
       </section>
@@ -181,7 +179,7 @@ export function HomeScreen() {
       {/* Read the query string, so they suspend rather than forcing the page to client-render. */}
       <Suspense fallback={null}>
         <ParentSignInDialog />
-        <AdminSignInDialog />
+        <AdminSignInDialog isParentSignedIn={role === "parent"} />
       </Suspense>
     </div>
   );

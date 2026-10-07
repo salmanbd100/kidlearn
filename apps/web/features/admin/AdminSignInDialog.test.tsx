@@ -4,7 +4,10 @@ import { ADMIN_ROUTES } from "./admin-routes";
 
 const navigation = vi.hoisted(() => ({ search: "signin=admin" }));
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
-const api = vi.hoisted(() => ({ adminSignIn: vi.fn() }));
+const api = vi.hoisted(() => ({
+  adminSignIn: vi.fn(),
+  adminSignOut: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
@@ -29,6 +32,7 @@ beforeEach(() => {
   navigation.search = "signin=admin";
   router.replace.mockReset();
   api.adminSignIn.mockReset();
+  api.adminSignOut.mockReset().mockResolvedValue(true);
 });
 
 describe("AdminSignInDialog", () => {
@@ -72,6 +76,36 @@ describe("AdminSignInDialog", () => {
       "reviewer@kidlearn.test",
       "a-long-enough-admin-password",
     );
+  });
+
+  it("signs a signed-in parent out before signing the admin in, and says so", async () => {
+    api.adminSignIn.mockResolvedValue({ ok: true });
+    render(<AdminSignInDialog isParentSignedIn />);
+    expect(
+      await screen.findByText("This signs you out of your parent account."),
+    ).toBeInTheDocument();
+
+    signIn();
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.analytics),
+    );
+    expect(api.adminSignOut).toHaveBeenCalledOnce();
+    expect(api.adminSignOut.mock.invocationCallOrder[0]).toBeLessThan(
+      api.adminSignIn.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("leaves the session alone when no parent is signed in", async () => {
+    api.adminSignIn.mockResolvedValue({ ok: true });
+    render(<AdminSignInDialog />);
+    await screen.findByRole("dialog");
+
+    signIn();
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalled());
+    expect(api.adminSignOut).not.toHaveBeenCalled();
+    expect(screen.queryByText(/signs you out/)).toBeNull();
   });
 
   it("shows one inline error for a rejected sign-in and stays put", async () => {

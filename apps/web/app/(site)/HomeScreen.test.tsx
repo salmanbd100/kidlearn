@@ -90,7 +90,7 @@ describe("HomeScreen", () => {
     );
   });
 
-  it("offers a signed-in parent their dashboard instead of sign-in, and hides the admin link", () => {
+  it("offers a signed-in parent their dashboard instead of sign-in, and keeps the admin sign-in", () => {
     session.role = "parent";
     renderHome();
 
@@ -98,7 +98,10 @@ describe("HomeScreen", () => {
       screen.getByRole("link", { name: "Parent dashboard" }),
     ).toHaveAttribute("href", "/parent");
     expect(screen.queryByRole("link", { name: "Parent sign-in" })).toBeNull();
-    expect(screen.queryByRole("link", { name: /^Admin/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Admin sign-in" })).toHaveAttribute(
+      "href",
+      "/?signin=admin",
+    );
   });
 
   it("offers a signed-in admin the CMS instead of the admin sign-in", () => {

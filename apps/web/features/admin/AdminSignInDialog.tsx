@@ -21,14 +21,18 @@ import {
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useQueryDialog } from "@/shared/hooks/use-query-dialog";
-import { adminSignIn } from "./admin-api";
+import { adminSignIn, adminSignOut } from "./admin-api";
 import { ADMIN_ROUTES, ADMIN_SIGN_IN_PARAM } from "./admin-routes";
 
 /**
  * The CMS sign-in form, as a dialog over the homepage; `ADMIN_ROUTES.login` opens it. English-only
  * like the rest of the CMS (`frontend.md §4`), though it renders on a translated page.
  */
-export function AdminSignInDialog() {
+export function AdminSignInDialog({
+  isParentSignedIn = false,
+}: {
+  isParentSignedIn?: boolean;
+}) {
   const router = useRouter();
   const { isOpen, onOpenChange } = useQueryDialog(ADMIN_SIGN_IN_PARAM);
   const [email, setEmail] = useState("");
@@ -42,6 +46,10 @@ export function AdminSignInDialog() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setHasFailed(false);
+
+    // Signing in only overwrites the cookie, which would leave the parent's session row live and
+    // unreachable until it expired; revoke it first, while the browser still holds its token.
+    if (isParentSignedIn) await adminSignOut();
 
     const { ok } = await adminSignIn(email, password);
     if (ok) {
@@ -81,6 +89,11 @@ export function AdminSignInDialog() {
             <DialogDescription className="text-base">
               Sign in with your administrator account.
             </DialogDescription>
+            {isParentSignedIn ? (
+              <p className="text-muted-foreground text-sm">
+                This signs you out of your parent account.
+              </p>
+            ) : null}
           </DialogHeader>
           <form
             onSubmit={handleSubmit}
