@@ -11,19 +11,28 @@ export const ADMIN_ROUTES = {
   aiQueue: "/admin/ai-queue",
 } as const;
 
+export type AdminNavGroup = "content" | "review" | "insights";
+
 export interface AdminNavItem {
   href: string;
   label: string;
+  group: AdminNavGroup;
 }
 
-/** The sidebar, in order. */
+export const ADMIN_NAV_GROUP_LABELS: Record<AdminNavGroup, string> = {
+  content: "Content",
+  review: "Review",
+  insights: "Insights",
+};
+
+/** The sidebar, in order; consecutive items of one group render under one heading. */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
-  { href: ADMIN_ROUTES.curriculum, label: "Curriculum" },
-  { href: ADMIN_ROUTES.stories, label: "Stories" },
-  { href: ADMIN_ROUTES.media, label: "Media" },
-  { href: ADMIN_ROUTES.badges, label: "Badges" },
-  { href: ADMIN_ROUTES.aiQueue, label: "AI Queue" },
-  { href: ADMIN_ROUTES.analytics, label: "Analytics" },
+  { href: ADMIN_ROUTES.curriculum, label: "Curriculum", group: "content" },
+  { href: ADMIN_ROUTES.stories, label: "Stories", group: "content" },
+  { href: ADMIN_ROUTES.media, label: "Media", group: "content" },
+  { href: ADMIN_ROUTES.badges, label: "Badges", group: "content" },
+  { href: ADMIN_ROUTES.aiQueue, label: "AI Queue", group: "review" },
+  { href: ADMIN_ROUTES.analytics, label: "Analytics", group: "insights" },
 ];
 
 export function activeAdminNavHref(pathname: string): string | undefined {
