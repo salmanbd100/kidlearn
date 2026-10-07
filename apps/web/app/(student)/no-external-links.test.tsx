@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type {
   ChildProfileResponse,
   WorldSummaryResponse,
@@ -6,6 +8,7 @@ import type {
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SITE_ROUTES } from "@/features/site/site-routes";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
@@ -101,6 +104,18 @@ function externalHrefs(): string[] {
     });
 }
 
+/** The `(site)` pages carry external links, so reaching them from here would leave the portal by one hop. */
+function siteHrefs(): string[] {
+  const siteRoutes: readonly string[] = Object.values(SITE_ROUTES);
+  return [...document.querySelectorAll("a[href]")]
+    .map((anchor) => anchor.getAttribute("href") ?? "")
+    .filter((href) => {
+      if (href.startsWith("#")) return false;
+      const { pathname } = new URL(href, window.location.origin);
+      return siteRoutes.includes(pathname) || pathname.startsWith("/guide/");
+    });
+}
+
 function renderStudent(screenNode: ReactNode) {
   return render(
     <Providers locale="en">
@@ -148,6 +163,7 @@ describe("no external links anywhere in the Student Portal", () => {
 
     await screen.findByRole("button", { name: "Play as Ayaan" });
     expect(externalHrefs()).toEqual([]);
+    expect(siteHrefs()).toEqual([]);
   });
 
   it("holds on /home, including world names that contain a URL", async () => {
@@ -158,6 +174,7 @@ describe("no external links anywhere in the Student Portal", () => {
       name: "Go to Jungle World https://example.com",
     });
     expect(externalHrefs()).toEqual([]);
+    expect(siteHrefs()).toEqual([]);
   });
 
   it("holds on /world/[worldId], including lesson titles that contain a URL", async () => {
@@ -166,5 +183,31 @@ describe("no external links anywhere in the Student Portal", () => {
 
     await screen.findByText(/The Letter A/);
     expect(externalHrefs()).toEqual([]);
+    expect(siteHrefs()).toEqual([]);
+  });
+});
+
+describe("no route into the public site from the Student Portal", () => {
+  // The rendered sweep above covers three screens; this covers every source file in the group.
+  const studentDir = import.meta.dirname;
+  const sources = readdirSync(studentDir, { recursive: true, encoding: "utf8" })
+    .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+    .map((file) => ({
+      file,
+      text: readFileSync(join(studentDir, file), "utf8"),
+    }));
+
+  it("finds the screens it is meant to sweep", () => {
+    expect(sources.length).toBeGreaterThan(5);
+  });
+
+  it("imports no site route and names no guide path", () => {
+    const offending = sources
+      .filter(
+        ({ text }) =>
+          text.includes("features/site/") || /["'`]\/guide\//.test(text),
+      )
+      .map(({ file }) => file);
+    expect(offending).toEqual([]);
   });
 });

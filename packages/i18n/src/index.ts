@@ -2,10 +2,12 @@ import { LOCALES, type Locale } from "@kidlearn/types";
 import bnCommon from "../locales/bn/common.json";
 import bnLesson from "../locales/bn/lesson.json";
 import bnParent from "../locales/bn/parent.json";
+import bnSite from "../locales/bn/site.json";
 import bnStudent from "../locales/bn/student.json";
 import enCommon from "../locales/en/common.json";
 import enLesson from "../locales/en/lesson.json";
 import enParent from "../locales/en/parent.json";
+import enSite from "../locales/en/site.json";
 import enStudent from "../locales/en/student.json";
 
 // UI copy for every client, shared so `apps/mobile` reads the same strings (FR-I18N-01).
@@ -16,12 +18,14 @@ export const resources = {
     parent: enParent,
     student: enStudent,
     lesson: enLesson,
+    site: enSite,
   },
   bn: {
     common: bnCommon,
     parent: bnParent,
     student: bnStudent,
     lesson: bnLesson,
+    site: bnSite,
   },
 } as const;
 
@@ -37,6 +41,9 @@ export const STUDENT_NAMESPACE = "student" satisfies Namespace;
 
 /** Lesson player copy, split from `student` — only the player needs it. */
 export const LESSON_NAMESPACE = "lesson" satisfies Namespace;
+
+/** The public homepage and guides — long-form copy no app surface needs in its bundle. */
+export const SITE_NAMESPACE = "site" satisfies Namespace;
 
 export const DEFAULT_LOCALE: Locale = "en";
 

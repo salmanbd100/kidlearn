@@ -1,0 +1,332 @@
+{
+  "brand": "KidLearn",
+  "nav": {
+    "label": "Guides",
+    "parents": "Parents",
+    "admins": "Admins",
+    "engineering": "Engineering"
+  },
+  "external": {
+    "newTab": "(opens in a new tab)"
+  },
+  "footer": {
+    "about": "KidLearn is an open-source learning app for young children, built in English and Bangla.",
+    "source": "Source on GitHub"
+  },
+  "guide": {
+    "onThisPage": "On this page",
+    "readFull": "Read the full document"
+  },
+  "home": {
+    "lead": "A playful learning app for children aged three to six, in English and Bangla, with a calm dashboard for their parents.",
+    "startLearning": "Start learning",
+    "parentSignIn": "Parent sign-in",
+    "guidesTitle": "Read the guides",
+    "guides": {
+      "parents": {
+        "title": "For parents",
+        "description": "Set up an account, add your child, and learn what the dashboard and weekly reports tell you."
+      },
+      "admins": {
+        "title": "For content admins",
+        "description": "How a lesson reaches a child, and why nothing an AI drafts gets there without a person approving it."
+      },
+      "engineering": {
+        "title": "For engineers",
+        "description": "How it is built and why: the monorepo, a request end to end, content as data, and how it is tested."
+      }
+    },
+    "differentTitle": "What makes it different",
+    "different": {
+      "safe": {
+        "term": "No ads, no chat, nothing to buy",
+        "detail": "No one can contact a child through KidLearn, and nothing in it asks for money."
+      },
+      "reviewed": {
+        "term": "A person reviews everything an AI drafts",
+        "detail": "Lessons, stories, narration and pictures made with AI are shown to children only after an admin has approved them."
+      },
+      "languages": {
+        "term": "English and Bangla from day one",
+        "detail": "Every screen a child or parent sees exists in both languages, and each child keeps their own, so siblings can learn side by side in different languages."
+      },
+      "server": {
+        "term": "Progress that cannot be gamed",
+        "detail": "Stars, streaks and screen time are worked out on the server from what the child actually did, not counted on the device."
+      }
+    }
+  },
+  "parents": {
+    "reader": "For parents",
+    "title": "A guide for parents",
+    "lead": "How to set KidLearn up for your family and keep an eye on how it is going, in about five minutes of reading.",
+    "start": {
+      "title": "Getting started",
+      "p1": "You sign in with your Google account, so there is no separate password to remember. The first time, KidLearn asks for your permission before anything about your child is stored.",
+      "step1": "Choose <strong>Continue with Google</strong> on the parent sign-in page.",
+      "step2": "Read what we keep and what we never do, then tick the box to confirm you are the child's parent or guardian.",
+      "step3": "Add your first child. When you are done, you land on your profiles page.",
+      "p2": "We keep each child's first name, age, grade and avatar (no surname, no photo), their lesson progress, and your Google name and email. There are no ads, we never sell data, and there is no chat and nothing to buy. If that wording ever changes, we ask you again."
+    },
+    "child": {
+      "title": "Adding a child",
+      "p1": "Each child has a profile with a first name, an age from three to six, a grade, a language and an avatar from a starter set. You can change any of these later under <strong>Children</strong>.",
+      "p2": "You can add up to five children. To remove a child, you type their first name to confirm. Removing a child deletes all of their progress, rewards, screen-time settings and reports."
+    },
+    "corner": {
+      "title": "Reaching the parent area from your child's screen",
+      "p1": "On your child's screens, a small button in the top corner leads to the parent area. On the screen where your child picks their profile, it shows your Google photo and name; everywhere else it is a plain lock. It is hidden during lessons and stories, so a child in the middle of one cannot tap out by accident.",
+      "p2": "There is no PIN: your Google sign-in is the lock. If your child uses a device you are signed in on, they can reach this area, so the actions that cannot be undone ask you to confirm first."
+    },
+    "dashboard": {
+      "title": "The dashboard",
+      "p1": "<strong>Progress</strong> shows one child at a time; switch between children with the tabs. You see their learning time today, this week and this month; their progress in each subject, with the subject they are strongest in and the one that needs practice; and their 20 most recent lessons, stories and badges."
+    },
+    "reports": {
+      "title": "Weekly reports",
+      "p1": "For every week from Monday to Sunday, each child gets a report under <strong>Weekly report</strong>. It shows the days they were active, the minutes they spent learning, the new letters, words and numbers they met, the lessons and stories they finished, how often they answered quiz questions right first time, and the badges they earned. Earlier weeks are listed below the latest one.",
+      "p2": "Reports are shown in the app. They are not sent by email."
+    },
+    "screenTime": {
+      "title": "Screen-time limits",
+      "p1": "Open a child under <strong>Children</strong> and choose screen time. You can set a daily limit of 15, 30, 45, 60 or 90 minutes, or turn it off. You can also set the hours the app is open, for example from 4pm until 7pm.",
+      "p2": "Limits are checked when a lesson or story starts, so your child is never cut off halfway through one. When time is up, they see a gentle goodbye for the day, not a warning."
+    },
+    "language": {
+      "title": "Language",
+      "p1": "KidLearn works in English and Bangla. To switch the language of your own screens, use the button at the top of the parent area. Your choice is remembered on that device.",
+      "p2": "Each child also has their own language, set on their profile. On the child's screens, the child's language wins, so one child can learn in Bangla while a brother or sister learns in English on the same tablet."
+    },
+    "delete": {
+      "title": "Deleting your account and data",
+      "p1": "Deleting your account erases everything: every child, all their progress and reports, your parent record and your sign-in. It happens in one step on our server, with no grace period and no copy kept, and it cannot be undone.",
+      "p2": "To make sure it is really you, it takes two steps: a request, then a confirmation within 15 minutes. <strong>The page for this is not in the web app yet.</strong> Until it is, you can delete each child under <strong>Children</strong>, which removes all of that child's data straight away."
+    }
+  },
+  "admins": {
+    "reader": "For content admins",
+    "title": "A guide for content admins",
+    "lead": "The CMS is where lessons, stories and quizzes are written, drafted with AI, reviewed and published. One rule runs through all of it: nothing an AI drafts reaches a child until a person has approved it.",
+    "account": {
+      "title": "What an admin account is",
+      "p1": "An admin signs in with an email address and password at <code>/admin/login</code>. Parents sign in with Google. The two kinds of account never overlap, and a parent who opens an admin page is turned away.",
+      "p2": "There is no sign-up page and no invitation. An engineer creates each admin account with a script: Part 1 of the admin account guide covers local development, and Part 2 covers a deployed server. A forgotten password is reset the same way."
+    },
+    "workspace": {
+      "title": "The workspace",
+      "p1": "The sidebar has six sections: Curriculum, Stories, Media, Badges, AI Queue and Analytics. You land on Analytics when you sign in, and AI Queue shows how many drafts are waiting for review. The CMS is designed for a desktop screen; on narrower screens the sidebar becomes a bar along the top."
+    },
+    "curriculum": {
+      "title": "Building the curriculum",
+      "p1": "Content is organised as subjects, then topics, then lessons, shown side by side in three panes. You can drag to reorder at any level. A lesson's world, the setting a child sees it in, is a field on the lesson rather than another level.",
+      "p2": "Each lesson has an English tab and a Bangla tab, each with a title, intro and narration scripts, videos and grade levels, and links to one activity and one quiz. The quiz and activity editors check what you type as you go, and preview it with the same component a child will see."
+    },
+    "media": {
+      "title": "Media",
+      "p1": "Videos, audio and images upload straight from your browser to Cloudinary. No file passes through our server, which keeps only each file's address and details. You can attach media to lesson videos, story pictures, quiz questions, world mascots and badge icons."
+    },
+    "ai": {
+      "title": "The AI pipeline",
+      "p1": "From the AI Queue you can ask for a draft lesson, story, set of quiz questions, narration or illustration. Text and images come from Google's Gemini models; narration comes from Google Cloud Text-to-Speech, with English and Bangla voices.",
+      "p2": "Every draft is checked against the same rules that hand-written content must pass, then saved as a <code>draft</code> waiting for review. Each kind of draft has a daily limit, so one busy day cannot use up the whole budget."
+    },
+    "review": {
+      "title": "The review queue",
+      "p1": "Filter the queue by type, language or grade, then open a draft to read the text, listen to the audio and look at the pictures. You have three choices:",
+      "approve": "<strong>Approve</strong>: it is published as it is.",
+      "edit": "<strong>Edit, then approve</strong>: fix it in an editor that opens already filled in.",
+      "reject": "<strong>Reject</strong>: give a reason of at least ten characters, so the next person knows why.",
+      "p2": "A draft cannot be published while it still has a placeholder image. Every decision is recorded with who made it, when and why."
+    },
+    "lifecycle": {
+      "title": "The publishing lifecycle",
+      "p1": "All content, whether written by hand or drafted by AI, moves through the same statuses. Children only ever see <code>published</code> content.",
+      "p2": "Rejected content cannot jump straight to published: it goes back to <code>draft</code> and through review again. Published content can be taken back to draft, and anything can be <code>archived</code> and restored later."
+    },
+    "cannot": {
+      "title": "What an admin cannot do",
+      "p1": "Some limits are deliberate. An admin cannot:",
+      "familyData": "See any child's or parent's personal details. The CMS holds no family records, and Analytics shows totals only.",
+      "publish": "Publish AI-drafted content without a review decision. The server refuses.",
+      "accounts": "Create another admin, or reset a password, from the CMS.",
+      "google": "Sign in with Google. That is for parents only."
+    }
+  },
+  "engineering": {
+    "reader": "For engineers and recruiters",
+    "title": "How KidLearn is built",
+    "lead": "The architecture, the decisions that shape it, and how it is tested and shipped. Every claim here links to the document or code it comes from.",
+    "glance": {
+      "title": "At a glance",
+      "caption": "The stack, one row per layer, with the reason for each choice",
+      "layerHeading": "Layer",
+      "choiceHeading": "Choice and reason",
+      "web": {
+        "layer": "Web",
+        "choice": "Next.js 16, React 19, Tailwind CSS v4",
+        "why": "App Router pages built phone-first. Design tokens live in CSS variables, so two themes share one set of components."
+      },
+      "server": {
+        "layer": "Server",
+        "choice": "Express 5, TypeScript (ESM)",
+        "why": "A small, explicit REST API. Every route that takes input checks it with Zod, and every route is documented in OpenAPI."
+      },
+      "data": {
+        "layer": "Data",
+        "choice": "PostgreSQL through Prisma 6",
+        "why": "Relational data, with JSONB where content needs room to change. Production is planned to run on Supabase."
+      },
+      "auth": {
+        "layer": "Auth",
+        "choice": "better-auth: Google for parents, email and password for admins",
+        "why": "Parents never create a password, and nobody can sign up for an admin account."
+      },
+      "ai": {
+        "layer": "AI",
+        "choice": "Gemini for text and images, Google Cloud Text-to-Speech",
+        "why": "Drafts lessons, stories and narration in English and Bangla, and a person approves every one."
+      },
+      "media": {
+        "layer": "Media",
+        "choice": "Cloudinary, uploaded from the browser",
+        "why": "Signed direct uploads, so no file passes through the API."
+      },
+      "hosting": {
+        "layer": "Hosting (planned)",
+        "choice": "Vercel for the web app; one EC2 instance running Docker Compose behind Caddy for the API",
+        "why": "No load balancer and no NAT gateway: each would cost more per month than the instance itself."
+      },
+      "ci": {
+        "layer": "CI",
+        "choice": "GitHub Actions, one job called gates",
+        "why": "Lint, build, type-check, tests and real-database tests on every pull request."
+      }
+    },
+    "monorepo": {
+      "title": "The monorepo",
+      "p1": "One pnpm workspace, built with Turborepo: two apps and six packages. Shared code lives in packages, and dependencies point one way: apps import packages, never the reverse.",
+      "p2": "<code>packages/ui</code> is web-only by decision. Its Radix primitives need a browser DOM, so the planned Expo app will share tokens, types and strings with the web app, but not components."
+    },
+    "request": {
+      "title": "A request, end to end",
+      "p1": "Vercel serves the pages, but the browser calls the API itself; there is no proxy in between. The API sets an <code>httpOnly</code> session cookie on its own origin, and the browser sends it with every call.",
+      "p2": "Caddy handles TLS and is the only thing listening on the public ports. Inside Express, guards such as <code>requireParent</code> and <code>requireAdmin</code> check the session before a handler runs, and <code>requireConsent</code> holds back child data until a parent has agreed. Prisma is the only way into the database."
+    },
+    "content": {
+      "title": "Content is data",
+      "p1": "Activities (drag and drop, tracing, matching, puzzles) and quiz questions are stored as JSONB, each with a <code>schemaVersion</code>. One set of Zod schemas in <code>packages/types</code> checks them when an admin saves them, when the AI drafts them, and when the app reads them.",
+      "p2": "The web app ships generic engines that render whatever a payload describes, so a new lesson is data, not code, and goes live without a deploy. Payloads carry a version so that older ones can be migrated as they are read, which keeps every write strict."
+    },
+    "server": {
+      "title": "The server is the authority",
+      "p1": "Stars, coins, streaks, badges, screen time and lesson completion are all worked out on the server. The app reports what happened, such as a finished step or a heartbeat while a lesson is open, and the server records it and decides what it means.",
+      "p2": "Learning time is not kept as a running total. It is added up from the session events themselves, so there is no counter for a device to inflate."
+    },
+    "publishing": {
+      "title": "Publishing and the human gate",
+      "p1": "Content moves through <code>draft</code>, <code>in_review</code>, <code>approved</code> or <code>rejected</code>, and <code>published</code>. Every query a child's screen makes asks for <code>published</code> content only.",
+      "p2": "The AI pipeline drafts text and pictures with Gemini and narration with Google Cloud Text-to-Speech. A generation job can only end as <code>awaiting_review</code> or <code>failed</code>. The only way to publish AI content is a reviewer's approve decision, and the server refuses to publish without one."
+    },
+    "safety": {
+      "title": "Safety by design",
+      "social": {
+        "term": "No social features",
+        "detail": "No chat, no messages and no public profiles. Nobody can contact a child."
+      },
+      "links": {
+        "term": "No way out of the child's screens",
+        "detail": "The child's screens contain no external links, and a test fails if one appears, even inside a lesson title written in the CMS."
+      },
+      "consent": {
+        "term": "Consent before profiles",
+        "detail": "The server refuses to create a child profile or record progress until a parent has given consent."
+      },
+      "deletion": {
+        "term": "Full deletion",
+        "detail": "Deleting an account erases everything about the family in one database transaction. There is no soft delete and no grace period."
+      }
+    },
+    "quality": {
+      "title": "Quality",
+      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,039 tests in 202 files, counted on 7 October 2026.",
+      "p2": "Every successful response in a route test is checked against its published schema with <code>assertContract</code>, and a coverage test walks the live Express routers and fails if any endpoint is missing from the OpenAPI document. What a stub cannot prove, such as cascades, unique constraints and the status check on related rows, runs against a real Postgres database in <code>*.db.test.ts</code> suites.",
+      "p3": "On every pull request, one CI job, <code>gates</code>, runs lint, build, type-check, the tests with coverage, the real-database suites and the Docker image builds."
+    },
+    "shipping": {
+      "title": "Shipping",
+      "p1": "The design is deliberately small: Vercel's free tier for the web app, and one Graviton EC2 instance in Mumbai running the production and development APIs side by side behind Caddy. Supabase is planned for the production database, and Cloudinary holds the media.",
+      "p2": "The estimated running cost is about $13.73 a month for both environments (from the deployment plan, read on 7 October 2026), most of it the instance and its IP address. Cost is a design constraint, which is why there is no load balancer and no NAT gateway.",
+      "p3": "<strong>Where it stands on 7 October 2026:</strong> none of this is provisioned yet. Images are built and deployed with a script; a GitHub Actions deploy pipeline is specified but not yet built."
+    },
+    "further": {
+      "title": "Read further",
+      "requirements": "Requirements and architecture",
+      "database": "Database design",
+      "design": "Design system",
+      "journeys": "User journeys and manual",
+      "standards": "Engineering standards",
+      "runbook": "Operations runbook",
+      "mobile": "Mobile app plan"
+    }
+  },
+  "diagrams": {
+    "monorepo": {
+      "title": "Workspace dependency diagram: apps/web imports packages/ui, i18n and types; apps/server imports db and types; the planned apps/mobile will import i18n, tokens and types; ui imports tokens; i18n and db import types.",
+      "caption": "What imports what. The packages also share tsconfig bases from packages/config.",
+      "appsRow": "apps",
+      "packagesRow": "packages",
+      "web": "apps/web",
+      "webCaption": "Next.js",
+      "mobile": "apps/mobile",
+      "mobileCaption": "planned · Expo",
+      "server": "apps/server",
+      "serverCaption": "Express",
+      "ui": "ui",
+      "uiCaption": "web only",
+      "i18n": "i18n",
+      "i18nCaption": "en · bn strings",
+      "db": "db",
+      "dbCaption": "Prisma",
+      "tokens": "tokens",
+      "tokensCaption": "design values",
+      "types": "types",
+      "typesCaption": "Zod schemas and API contracts",
+      "config": "config",
+      "configCaption": "shared tsconfig bases",
+      "legendImports": "imports",
+      "legendPlanned": "planned"
+    },
+    "request": {
+      "title": "Request path diagram: the browser loads pages from Next.js on Vercel, then calls the API directly with its session cookie; Caddy passes the call to Express on EC2, which checks the session, then reaches PostgreSQL through Prisma.",
+      "caption": "Pages come from Vercel; data comes straight from the API.",
+      "browser": "Browser",
+      "browserCaption": "parent or child",
+      "vercel": "Next.js on Vercel",
+      "vercelCaption": "pages and scripts",
+      "cookie": "API call + session cookie",
+      "caddy": "Caddy on EC2",
+      "caddyCaption": "TLS, the only open ports",
+      "express": "Express",
+      "expressCaption": "session checked here: requireParent",
+      "prisma": "Prisma",
+      "prismaCaption": "one shared client",
+      "postgres": "PostgreSQL",
+      "postgresCaption": "Supabase, planned"
+    },
+    "lifecycle": {
+      "title": "Publishing lifecycle diagram: draft goes to in_review on submit; in_review goes to approved when a person approves, or to rejected; approved goes to published; rejected goes back to draft for rework.",
+      "caption": "Only published content reaches a child.",
+      "draft": "draft",
+      "submit": "submit",
+      "inReview": "in_review",
+      "approve": "a person approves",
+      "reject": "reject",
+      "approved": "approved",
+      "rejected": "rejected",
+      "rework": "rework",
+      "publish": "publish",
+      "published": "published",
+      "publishedCaption": "seen by children"
+    }
+  }
+}

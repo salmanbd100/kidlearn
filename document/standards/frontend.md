@@ -183,16 +183,19 @@ Next.js App Router reserves specific filenames: `page.tsx`, `layout.tsx`, `loadi
 
 ### Route organisation
 
-The app has three distinct surfaces. Each lives in its own App Router route group with its own root layout:
+The app has three product surfaces and one public site. Each lives in its own App Router route group with its own layout:
 
 ```
 app/
+├── (site)/         # Public homepage and guides — kid theme, unauthenticated
 ├── (student)/      # Student Portal — kid theme, full-bleed, gamified
 ├── (parent)/       # Parent Dashboard — parent theme, Google session only
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
 A layout file in `(student)` must never import components from `(parent)` or `(admin)`, and vice versa. What two groups share lives in `features/` or `shared/` — see §1 for when it goes further, into `packages/ui`. **[REVIEW]**
+
+`(site)` owns `/` and `/guide/*` (FR-SITE-01..03). It is public, needs no session, and is scoped `<ThemeScope theme="kid">` so it reads as the same product — but it is **not part of the Student Portal**. It carries external links (GitHub), which NFR-SAFE-07 forbids on the child's surface, so the rule runs one way: no `(student)` screen links to a `(site)` route, and `app/(student)/no-external-links.test.tsx` fails if one does. The root `not-found.tsx` is shared by every surface and still links to `/`; the homepage's primary action leads a child straight back to `/select-profile`. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
 
 ### Component files
 

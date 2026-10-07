@@ -4,6 +4,7 @@ import {
   LESSON_NAMESPACE,
   PARENT_NAMESPACE,
   resources,
+  SITE_NAMESPACE,
   STUDENT_NAMESPACE,
 } from "@kidlearn/i18n";
 import i18next, { type i18n as I18nInstance } from "i18next";
@@ -37,6 +38,7 @@ function createI18n(locale: Locale): I18nInstance {
       PARENT_NAMESPACE,
       STUDENT_NAMESPACE,
       LESSON_NAMESPACE,
+      SITE_NAMESPACE,
     ],
     defaultNS: DEFAULT_NAMESPACE,
     // React escapes for us; double-escaping mangles Bangla punctuation.
