@@ -50,14 +50,16 @@ export function QuizStep({
         }),
       );
 
-      const submission = submitQuizResponses(quizId, wire).then((result) => {
-        if (!result.ok) {
-          console.warn(
-            `[kidlearn] quiz responses not recorded: ${result.error.code}`,
-          );
-        }
-      });
-      pendingWrites?.add(submission);
+      const submit = () =>
+        submitQuizResponses(quizId, wire).then((result) => {
+          if (!result.ok) {
+            console.warn(
+              `[kidlearn] quiz responses not recorded: ${result.error.code}`,
+            );
+          }
+        });
+      if (pendingWrites === undefined) void submit();
+      else pendingWrites.add(submit);
     },
     [quizId, onComplete, isPreview, pendingWrites],
   );

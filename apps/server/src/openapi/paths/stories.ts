@@ -103,7 +103,7 @@ export const STORIES_ROUTES: RouteDoc[] = [
           ["NOT_FOUND"],
         ),
         "423": errorResponse(
-          "The parental screen-time gate is shut (FR-TIME-02, FR-TIME-04). `TIME_LIMIT_REACHED` — today's allowance is used up; `OUTSIDE_WINDOW` — the clock is outside the parent's access window, and `error.details.windowStart` is the time to come back at.\n\n**No in-progress exemption, and none is needed.** The reader receives every page in this one response, so a story already open is never interrupted by the gate; only opening a new one is refused. `POST /api/progress/stories/{id}/complete` is never gated either, so a story being read can always be finished and paid for.",
+          "The parental screen-time gate is shut (FR-TIME-02, FR-TIME-04). `TIME_LIMIT_REACHED` — today's allowance is used up; `OUTSIDE_WINDOW` — the clock is outside the parent's access window, and `error.details.windowStart` is the time to come back at.\n\n**No in-progress exemption, and none is needed.** The reader receives every page in this one response, so a story already open is never interrupted by the gate; only opening a new one is refused. `POST /api/progress/stories/{id}/complete` is exempt for 30 minutes after the story's `story_start`, so a story being read can be finished and paid for.",
           ["TIME_LIMIT_REACHED", "OUTSIDE_WINDOW"],
         ),
         "500": INTERNAL_RESPONSE,

@@ -146,9 +146,10 @@ describe("RewardStep", () => {
     const pendingWrites = createPendingWrites();
     let landQuiz = () => {};
     pendingWrites.add(
-      new Promise<void>((resolve) => {
-        landQuiz = resolve;
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          landQuiz = resolve;
+        }),
     );
     renderStep(pendingWrites);
 

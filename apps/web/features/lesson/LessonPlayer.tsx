@@ -20,11 +20,7 @@ import {
   windowStartFromError,
 } from "@/features/screen-time/screen-time-api";
 import { useHeartbeat } from "@/features/screen-time/use-heartbeat";
-import {
-  getLessonProgress,
-  reportStep,
-  sendSessionEvent,
-} from "@/shared/api/progress-api";
+import { getLessonProgress, sendSessionEvent } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
 import { Retryable } from "@/shared/components/kid/Retryable";
@@ -38,6 +34,7 @@ import {
 } from "./lesson-machine";
 import { createPendingWrites, type PendingWrites } from "./pending-writes";
 import { StepContainer } from "./StepContainer";
+import { createStepReporter } from "./step-reports";
 import { ActivityStep } from "./steps/ActivityStep";
 import { IntroStep } from "./steps/IntroStep";
 import type { LessonStepProps } from "./steps/lesson-step-props";
@@ -286,6 +283,9 @@ function useLessonRecording(
   assetFallbacks: LessonAssetFallbacks | undefined,
 ): void {
   const previous = useRef<LessonPlayerState | undefined>(undefined);
+  const reportFinished = useRef<
+    ReturnType<typeof createStepReporter> | undefined
+  >(undefined);
 
   useEffect(() => {
     if (previous.current === undefined) {
@@ -297,6 +297,7 @@ function useLessonRecording(
         return;
       }
       previous.current = state;
+      reportFinished.current = createStepReporter(lessonId, resumeAt);
       return;
     }
 
@@ -309,9 +310,8 @@ function useLessonRecording(
       before.step !== state.step
     ) {
       const finished = before.step;
-      pendingWrites.add(
-        reportStep(lessonId, { step: finished, completed: false }),
-      );
+      const report = reportFinished.current;
+      if (report !== undefined) pendingWrites.add(() => report(finished));
       // Which asset the step played, for the content-gap report (FR-I18N-01). Analytics only; steps
       // with no locale-resolved media omit the key.
       const fallback =

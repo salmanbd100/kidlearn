@@ -146,8 +146,16 @@ function reportLessonStepOnce(
 
       assertReachable(existing?.currentStep ?? null, report.step, advance);
 
+      // A finished run re-posting `intro` is a replay starting over, so the row follows it back and
+      // `assertPlayedThrough` can tell a replay played through from a completion merely re-posted.
+      const isReplayStart =
+        advance === "next" &&
+        existing !== null &&
+        isFinishedRun(existing) &&
+        report.step === LESSON_STEPS[0];
+
       const currentStep =
-        existing === null
+        existing === null || isReplayStart
           ? report.step
           : laterStep(existing.currentStep, report.step);
 
@@ -189,7 +197,17 @@ export async function completeLesson(
 /** The last step a completion requires; not `quiz`, whose report is sent as the reward step mounts, and a dropped request should not cost the child the celebration. */
 const STEP_BEFORE_COMPLETION: LessonStep = "activity";
 
-/** Completion pays stars, coins and streak, so it is refused for a lesson never played through. A replay of a finished lesson passes. */
+/** A row a completion has already been paid against; only a replay from `intro` moves it on. */
+function isFinishedRun(
+  progress: Pick<LessonProgress, "currentStep" | "completedAt">,
+): boolean {
+  return progress.currentStep === "reward" && progress.completedAt !== null;
+}
+
+/**
+ * Completion pays stars, coins, the day's coins and the streak, so it is refused unless this run reached the activity. A replay counts
+ * once it has been played through again; re-posting the completion of a finished run would otherwise pay the daily grant every day.
+ */
 async function assertPlayedThrough(
   child: ChildProfile,
   lessonId: string,
@@ -204,8 +222,8 @@ async function assertPlayedThrough(
 
   const hasPlayedThrough =
     progress !== null &&
-    (progress.completedAt !== null ||
-      stepIndex(progress.currentStep) >= stepIndex(STEP_BEFORE_COMPLETION));
+    !isFinishedRun(progress) &&
+    stepIndex(progress.currentStep) >= stepIndex(STEP_BEFORE_COMPLETION);
   if (!hasPlayedThrough) {
     throw ApiError.conflict("Lesson has not been played through", {
       code: "LESSON_NOT_PLAYED",
@@ -257,6 +275,7 @@ export async function recordQuizResponses(
 
   // Recording responses creates the progress row, so it is held to the same gate as the first step report.
   await assertMayOpenLesson(child.id, lesson.id);
+  await assertWithinQuizResponseBudget(child.id);
 
   const questions = new Map(
     lesson.quiz.questions.map((question) => [question.id, question]),
@@ -291,6 +310,30 @@ export async function recordQuizResponses(
   );
 
   return { lessonId: lesson.id, score, correctCount, totalQuestions };
+}
+
+/**
+ * Responses one child may store per rolling minute. A quiz holds at most ten and takes a child well over a minute, so only a scripted
+ * client reaches it. Soft, as `CLIENT_EVENTS_PER_MINUTE` is: the count is not taken under a lock.
+ */
+export const QUIZ_RESPONSES_PER_MINUTE = 30;
+
+const QUIZ_RESPONSE_WINDOW_MS = 60_000;
+
+async function assertWithinQuizResponseBudget(childId: string): Promise<void> {
+  const recent = await prisma.quizResponse.count({
+    where: {
+      childId,
+      answeredAt: { gte: new Date(Date.now() - QUIZ_RESPONSE_WINDOW_MS) },
+    },
+  });
+  if (recent >= QUIZ_RESPONSES_PER_MINUTE) {
+    throw new ApiError(
+      429,
+      "RATE_LIMITED",
+      "Too many quiz answers for this child — try again in a minute",
+    );
+  }
 }
 
 /** Structural subset of `pino`'s logger so the service stays callable without HTTP; mirrors `ContentLogger`. */

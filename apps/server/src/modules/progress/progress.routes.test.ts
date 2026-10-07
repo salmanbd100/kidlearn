@@ -137,6 +137,7 @@ const db = vi.hoisted(() => ({
   sessionEventCount: vi.fn(),
   quizResponseCreateMany: vi.fn(),
   quizResponseFindMany: vi.fn(),
+  quizResponseCount: vi.fn(),
   ledgerFindMany: vi.fn(),
   ledgerCreateMany: vi.fn(),
   ledgerGroupBy: vi.fn(),
@@ -149,12 +150,28 @@ const db = vi.hoisted(() => ({
   transaction: vi.fn(),
 }));
 
-// The screen-time gate is `screen-time.routes.test.ts`'s subject; every child here is within their limit.
+const gate = vi.hoisted(() => ({ isShut: false }));
+
+// The screen-time gate is `screen-time.routes.test.ts`'s subject; every child here is within their limit unless `gate.isShut`.
 vi.mock("../screen-time/screen-time.service.js", async (importOriginal) => ({
   ...(await importOriginal<
     typeof import("../screen-time/screen-time.service.js")
   >()),
-  evaluateStartForChild: async () => ({ allowed: true }),
+  evaluateStartForChild: async () =>
+    gate.isShut
+      ? {
+          allowed: false,
+          code: "TIME_LIMIT_REACHED",
+          details: {
+            allowed: false,
+            reason: "TIME_LIMIT_REACHED",
+            minutesToday: 30,
+            dailyLimitMinutes: 30,
+            windowStart: null,
+            windowEnd: null,
+          },
+        }
+      : { allowed: true },
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -181,6 +198,7 @@ vi.mock("../../config/prisma.js", () => ({
     quizResponse: {
       createMany: db.quizResponseCreateMany,
       findMany: db.quizResponseFindMany,
+      count: db.quizResponseCount,
     },
     rewardLedger: {
       findMany: db.ledgerFindMany,
@@ -295,6 +313,7 @@ beforeEach(() => {
   store.badges = [];
   store.characters = [];
   store.childCharacters = [];
+  gate.isShut = false;
   for (const fn of Object.values(db)) fn.mockReset();
 
   // Visible unless a test says otherwise; `quiz` is what the quiz-submission query selects.
@@ -374,10 +393,27 @@ beforeEach(() => {
   );
 
   db.sessionEventFindFirst.mockImplementation(
-    async ({ where }: { where: { childId: string; type: string } }) =>
+    async ({
+      where,
+    }: {
+      where: {
+        childId: string;
+        type: string;
+        payload?: { path: string[]; equals: string };
+        occurredAt?: { gte: Date };
+      };
+    }) =>
       events()
         .filter(
-          (row) => row.childId === where.childId && row.type === where.type,
+          (row) =>
+            row.childId === where.childId &&
+            row.type === where.type &&
+            (where.payload === undefined ||
+              (row.payload as Record<string, unknown> | null)?.[
+                where.payload.path[0]
+              ] === where.payload.equals) &&
+            (where.occurredAt === undefined ||
+              row.occurredAt >= where.occurredAt.gte),
         )
         .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())[0] ??
       null,
@@ -415,6 +451,19 @@ beforeEach(() => {
       store.quizResponses.push(...rows);
       return { count: rows.length };
     },
+  );
+
+  db.quizResponseCount.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: { childId: string; answeredAt: { gte: Date } };
+    }) =>
+      (store.quizResponses as QuizResponseRow[]).filter(
+        (row) =>
+          row.childId === where.childId &&
+          row.answeredAt >= where.answeredAt.gte,
+      ).length,
   );
 
   db.quizResponseFindMany.mockImplementation(
@@ -741,11 +790,37 @@ describe("POST /api/progress/lessons/:id/step", () => {
     await postStep("reward", true);
     const firstCompletion = currentRow().completedAt;
 
-    await postStep("intro", false);
+    await playThroughQuiz();
     await postStep("reward", true);
 
     // A child re-watching something must not move the date they first finished it.
     expect(currentRow().completedAt).toEqual(firstCompletion);
+  });
+
+  it("restarts a finished run at intro when a replay begins, keeping completedAt", async () => {
+    signInAs(childProfile());
+    await playThroughQuiz();
+    await postStep("reward", true);
+    const firstCompletion = currentRow().completedAt;
+
+    const res = await postStep("intro", false);
+
+    // The row follows the replay back so completion can tell a replay played through from a re-posted one.
+    expect(res.status).toBe(200);
+    expect(currentRow().currentStep).toBe("intro");
+    expect(currentRow().completedAt).toEqual(firstCompletion);
+  });
+
+  it("holds a replay to the same step order", async () => {
+    signInAs(childProfile());
+    await playThroughQuiz();
+    await postStep("reward", true);
+    await postStep("intro", false);
+
+    const res = await postStep("activity", false);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STEP_OUT_OF_ORDER");
   });
 
   it("answers 409 STEP_OUT_OF_ORDER, and writes nothing, for a first report past the intro", async () => {
@@ -848,10 +923,11 @@ describe("POST /api/progress/lessons/:id/step", () => {
 /** The progress row a child has by the time the reward step mounts; completion refuses a lesson without one. */
 function playThrough(lessonId = LESSON_ID) {
   const rows = store.progressRows as ProgressRow[];
-  // A row the quiz endpoint created sits at the column default `intro`; in the real flow the step report would have moved it on.
+  // A row the quiz endpoint created sits at the column default `intro`, and a finished one at `reward`; in the real flow the step
+  // reports of this run would have moved either to the quiz.
   const existing = rows.find((row) => row.lessonId === lessonId);
   if (existing !== undefined) {
-    if (existing.completedAt === null) existing.currentStep = "quiz";
+    existing.currentStep = "quiz";
     return;
   }
   rows.push({
@@ -943,6 +1019,33 @@ describe("POST /api/progress/lessons/:id/complete", () => {
 
     expect(res.status).toBe(409);
     expect(ledger()).toHaveLength(0);
+  });
+
+  it("refuses a second completion of a finished run, so re-posting it cannot farm the day's coins and streak", async () => {
+    signInAs(childProfile());
+    await complete();
+    const ledgerAfterFirst = ledger().length;
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("LESSON_NOT_PLAYED");
+    expect(ledger()).toHaveLength(ledgerAfterFirst);
+  });
+
+  it("completes a replay once its steps have been reported again", async () => {
+    signInAs(childProfile());
+    await complete();
+    await playThroughQuiz();
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ starsEarned: 0, coinsEarned: 0 });
   });
 
   it("completes once the activity is finished, even if the quiz report was lost", async () => {
@@ -1705,6 +1808,26 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
     expect(store.quizResponses).toHaveLength(0);
   });
 
+  it("answers 429 RATE_LIMITED, and stores nothing, once the minute's answers are spent", async () => {
+    signInAs(childProfile());
+    for (let index = 0; index < 30; index += 1) {
+      store.quizResponses.push({
+        childId: CHILD_ID,
+        questionId: QUESTION_IDS[index % QUESTION_IDS.length],
+        answer: "apple",
+        isCorrect: true,
+        attempts: 1,
+        answeredAt: new Date(),
+      });
+    }
+
+    const res = await submit(answers());
+
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe("RATE_LIMITED");
+    expect(store.quizResponses).toHaveLength(30);
+  });
+
   it("returns 403 FORBIDDEN when the session has no active child profile", async () => {
     signInAs(null);
 
@@ -1994,7 +2117,31 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
 });
 
 describe("POST /api/progress/stories/:id/complete", () => {
+  /** The `story_start` the reader posts on opening; completion is paid against it. */
+  function openStory(storyId = STORY_ID, minutesAgo = 1, childId = CHILD_ID) {
+    store.events.push({
+      id: `event_${store.events.length + 1}`,
+      childId,
+      type: "story_start",
+      occurredAt: new Date(Date.now() - minutesAgo * 60_000),
+      payload: { refId: storyId },
+    });
+  }
+
   function finish(storyId = STORY_ID) {
+    if (
+      !events().some(
+        (row) =>
+          row.type === "story_start" &&
+          (row.payload as { refId: string }).refId === storyId,
+      )
+    ) {
+      openStory(storyId);
+    }
+    return finishUnopened(storyId);
+  }
+
+  function finishUnopened(storyId = STORY_ID) {
     return request(app).post(`/api/progress/stories/${storyId}/complete`);
   }
 
@@ -2030,6 +2177,75 @@ describe("POST /api/progress/stories/:id/complete", () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
     expect(db.storyFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("answers 409 STORY_NOT_STARTED, and grants nothing, for a story never opened", async () => {
+    signInAs(childProfile());
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STORY_NOT_STARTED");
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("does not accept another story's start as evidence", async () => {
+    signInAs(childProfile());
+    openStory(MISSING_ID);
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(409);
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("does not accept a start older than three hours", async () => {
+    signInAs(childProfile());
+    openStory(STORY_ID, 4 * 60);
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(409);
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("asks the store for this child's start of this story only", async () => {
+    signInAs(childProfile());
+
+    await finish();
+
+    // Rule 2: the stub filters on these keys, so the clause itself is the assertion that matters.
+    expect(db.sessionEventFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          childId: CHILD_ID,
+          type: "story_start",
+          payload: { path: ["refId"], equals: STORY_ID },
+        }),
+      }),
+    );
+  });
+
+  it("finishes a reading under way even when the screen-time gate has shut", async () => {
+    signInAs(childProfile());
+    openStory(STORY_ID, 10);
+    gate.isShut = true;
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(200);
+  });
+
+  it("answers 423 for a start older than the resume grace while the gate is shut", async () => {
+    signInAs(childProfile());
+    openStory(STORY_ID, 60);
+    gate.isShut = true;
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(423);
+    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
+    expect(ledger()).toHaveLength(0);
   });
 
   it("grants 1 star and 5 coins the first time a story is finished (FR-STORY-07)", async () => {
@@ -2092,6 +2308,7 @@ describe("POST /api/progress/stories/:id/complete", () => {
     await finish();
 
     signInAs(childProfile({ id: "child_2" }));
+    openStory(STORY_ID, 1, "child_2");
     const res = await finish();
 
     expect(res.body.data.granted).toEqual({ stars: 1, coins: 5 });
