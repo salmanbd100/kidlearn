@@ -63,7 +63,7 @@ function WorldContent({
   const hasLessons = topics.some((topic) => topic.lessons.length > 0);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
       {/* Back at top-left, opposite the parent lock, so the two exits can't be mis-tapped. */}
       <div className="pr-14">
         <BigButton

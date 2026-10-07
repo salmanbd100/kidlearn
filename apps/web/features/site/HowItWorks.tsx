@@ -34,12 +34,16 @@ export function HowItWorks() {
   const isMotionReduced = useIsMotionReduced();
 
   return (
-    <ol className="grid gap-10 sm:grid-cols-3 sm:gap-6">
+    <ol className="grid gap-8 sm:grid-cols-3 sm:gap-6">
       {STEPS.map(({ key, tint, Picture }, index) => (
-        <li key={key} className="flex flex-col gap-4">
+        // Picture beside the words on a phone: three full-width tiles were a screen and a half of scrolling.
+        <li
+          key={key}
+          className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-4 sm:flex sm:flex-col sm:items-stretch"
+        >
           <div
             className={cn(
-              "flex aspect-[4/3] items-center justify-center rounded-(--radius) p-6",
+              "flex aspect-square items-center justify-center rounded-(--radius) p-3 sm:aspect-[4/3] sm:p-6",
               tint,
             )}
           >

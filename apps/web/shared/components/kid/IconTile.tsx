@@ -24,6 +24,17 @@ const iconTileVariants = cva(
   },
 );
 
+// A large tile sits in a grid of titles that may wrap; two reserved lines keep every icon at the same height.
+const iconTileLabelVariants = cva(
+  "text-center font-display text-lg leading-tight",
+  {
+    variants: {
+      size: { md: "", lg: "min-h-[2lh]" },
+    },
+    defaultVariants: { size: "md" },
+  },
+);
+
 export interface IconTileProps extends VariantProps<typeof iconTileVariants> {
   label: string;
   icon?: ReactNode;
@@ -75,9 +86,7 @@ export function IconTile({
         )}
       </span>
       {/* text-lg is the 20px floor for anything a child reads (design.md §3.2). */}
-      <span className="text-center font-display text-lg leading-tight">
-        {label}
-      </span>
+      <span className={cn(iconTileLabelVariants({ size }))}>{label}</span>
     </motion.button>
   );
 }

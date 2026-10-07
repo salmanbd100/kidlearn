@@ -5,7 +5,7 @@ import type {
   RewardSummaryResponse,
   WorldSummaryResponse,
 } from "@kidlearn/types";
-import { BookOpen, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,11 +14,11 @@ import { listWorlds } from "@/features/content/content-api";
 import { WorldCard } from "@/features/content/WorldCard";
 import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
 import { useScreenTimeGate } from "@/features/screen-time/use-screen-time-gate";
+import { StoryTimeCard } from "@/features/stories/StoryTimeCard";
 import { RewardStrip } from "@/features/student/RewardStrip";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { getRewardsSummary } from "@/shared/api/progress-api";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { IconTile } from "@/shared/components/kid/IconTile";
 import { Retryable } from "@/shared/components/kid/Retryable";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
@@ -93,11 +93,11 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
         };
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
       <header className="flex flex-col gap-4">
         {/* Right-padded past the parent-corner lock so a long Bangla name never runs under it. */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 pr-14">
-          <h1 className="font-display text-2xl text-foreground sm:text-3xl">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 pr-14">
+          <h1 className="font-display text-3xl text-foreground sm:text-4xl">
             {t("home.greeting", { name: child.firstName })}
           </h1>
 
@@ -115,17 +115,12 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
 
       {/* Outside every status branch: the story library is not part of any lesson flow, so a failed
           curriculum read must not hide it. */}
-      {/* Wrapped: `IconTile` sizes itself and a bare flex child would stretch to full width and height. */}
-      <div>
-        <IconTile
-          label={t("stories.title")}
-          icon={<BookOpen aria-hidden="true" />}
-          size="lg"
-          onPress={() => {
-            void screenTime.guardStart(() => router.push("/stories"));
-          }}
-        />
-      </div>
+      <StoryTimeCard
+        label={t("stories.title")}
+        onPress={() => {
+          void screenTime.guardStart(() => router.push("/stories"));
+        }}
+      />
 
       {status === "error" ? (
         <StudentStatus tone="alert" onRetry={onRetry}>
@@ -139,7 +134,7 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
         <StudentStatus tone="status">{t("home.empty")}</StudentStatus>
       ) : (
         <>
-          <p className="font-display text-foreground text-xl">
+          <p className="font-display text-2xl text-foreground">
             {t("home.pickWorld")}
           </p>
           {/* Side by side as soon as there is width, including a landscape phone (design.md §6). */}

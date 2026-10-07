@@ -54,9 +54,10 @@ export function HomeScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
           >
+            {/* Height caps it too: on a landscape tablet the full 7rem pushed both actions below the fold. */}
             <h1
               id="home-title"
-              className="font-display text-[clamp(3.5rem,13vw,7rem)] font-semibold leading-[0.95] tracking-[-0.01em]"
+              className="font-display text-[clamp(3.5rem,min(13vw,15dvh),7rem)] font-semibold leading-[0.95] tracking-[-0.01em]"
             >
               {t("brand")}
             </h1>
@@ -133,7 +134,7 @@ export function HomeScreen() {
               <Reveal delay={0.1 * index} className="flex flex-col gap-1">
                 <Link
                   href={href}
-                  className="focus-ring w-fit rounded-sm text-2xl font-bold underline decoration-sunshine decoration-4 underline-offset-8 hover:decoration-foreground"
+                  className="focus-ring inline-flex min-h-11 w-fit items-center rounded-sm text-2xl font-bold underline decoration-sunshine decoration-4 underline-offset-8 hover:decoration-foreground"
                 >
                   {t(`home.guides.${key}.title`)}
                 </Link>
@@ -147,7 +148,7 @@ export function HomeScreen() {
       </HangingSection>
 
       <HangingSection id="different" title={t("home.differentTitle")}>
-        <ul className="grid gap-8 sm:grid-cols-2">
+        <ul className="grid gap-8 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
           {DIFFERENCES.map(({ key, Icon, tint }, index) => (
             <li key={key}>
               <Reveal delay={0.08 * index} className="flex gap-4">
