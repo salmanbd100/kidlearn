@@ -57,8 +57,15 @@ const theme = (value: string) =>
     target: { value },
   });
 
-const world = (value: string) =>
-  fireEvent.change(screen.getByLabelText("World"), { target: { value } });
+const pick = (field: string, option: string) => {
+  fireEvent.keyDown(screen.getByRole("combobox", { name: field }), {
+    key: "Enter",
+  });
+  fireEvent.click(screen.getByRole("option", { name: option }));
+};
+
+const world = (id: string) =>
+  pick("World", WORLDS.find((one) => one.id === id)?.name ?? id);
 
 const submit = () =>
   fireEvent.click(screen.getByRole("button", { name: "Generate draft" }));
@@ -119,9 +126,7 @@ describe("what the dialog sends", () => {
     renderDialog();
     theme("Sharing toys");
     world(WORLD_ID);
-    fireEvent.change(screen.getByLabelText("Pages"), {
-      target: { value: "6" },
-    });
+    pick("Pages", "6 pages");
     submit();
 
     await waitFor(() => expect(generateStory).toHaveBeenCalled());

@@ -6,8 +6,18 @@ import {
   QUIZ_QUESTION_SCHEMAS,
   QUIZ_QUESTION_TYPES,
 } from "@kidlearn/types";
-import { Button, Input, Label, Select, ThemeScope } from "@kidlearn/ui";
+import {
+  Button,
+  Input,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+  ThemeScope,
+} from "@kidlearn/ui";
 import { useMemo, useState } from "react";
+import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { optionValue } from "@/features/admin/select-option";
 import { QuizEngine } from "@/features/quiz/QuizEngine";
@@ -89,7 +99,7 @@ export function QuizQuestionEditor({
   return (
     <div className="flex flex-col gap-5 lg:flex-row">
       <form
-        className="flex min-w-0 flex-1 flex-col gap-4"
+        className="flex min-w-0 flex-1 flex-col gap-5"
         onSubmit={(event) => {
           event.preventDefault();
           if (!parsed.success) return;
@@ -98,26 +108,24 @@ export function QuizQuestionEditor({
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="question-format">Format</Label>
-          <Select
-            id="question-format"
+          <SelectMenu
             value={draft.format}
             disabled={isBusy}
-            onChange={(event) =>
+            onValueChange={(value) =>
               changeFormat(
-                optionValue(
-                  QUIZ_QUESTION_TYPES,
-                  event.target.value,
-                  draft.format,
-                ),
+                optionValue(QUIZ_QUESTION_TYPES, value, draft.format),
               )
             }
           >
-            {QUIZ_QUESTION_TYPES.map((format) => (
-              <option key={format} value={format}>
-                {FORMAT_LABELS[format]}
-              </option>
-            ))}
-          </Select>
+            <SelectMenuTrigger id="question-format" size="sm" />
+            <SelectMenuContent>
+              {QUIZ_QUESTION_TYPES.map((format) => (
+                <SelectMenuItem key={format} value={format}>
+                  {FORMAT_LABELS[format]}
+                </SelectMenuItem>
+              ))}
+            </SelectMenuContent>
+          </SelectMenu>
         </div>
 
         <Fieldset legend="Question prompt" error={issues.under(["prompt"])}>
@@ -214,27 +222,28 @@ export function QuizQuestionEditor({
                   <Label htmlFor={`pair-${option.id}`}>
                     {option.text.en || option.id} matches
                   </Label>
-                  <Select
-                    id={`pair-${option.id}`}
+                  <SelectMenu
                     value={draft.pairing[option.id] ?? ""}
                     disabled={isBusy}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       update({
-                        pairing: withPair(
-                          draft.pairing,
-                          option.id,
-                          event.target.value,
-                        ),
+                        pairing: withPair(draft.pairing, option.id, value),
                       })
                     }
                   >
-                    <option value="">Choose…</option>
-                    {draft.rightColumn.map((right) => (
-                      <option key={right.id} value={right.id}>
-                        {right.text.en || right.id}
-                      </option>
-                    ))}
-                  </Select>
+                    <SelectMenuTrigger
+                      id={`pair-${option.id}`}
+                      size="sm"
+                      placeholder="Choose…"
+                    />
+                    <SelectMenuContent>
+                      {draft.rightColumn.map((right) => (
+                        <SelectMenuItem key={right.id} value={right.id}>
+                          {right.text.en || right.id}
+                        </SelectMenuItem>
+                      ))}
+                    </SelectMenuContent>
+                  </SelectMenu>
                 </div>
               ))}
             </Fieldset>
@@ -252,22 +261,25 @@ export function QuizQuestionEditor({
             />
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="correct-option">Correct answer</Label>
-              <Select
-                id="correct-option"
+              <SelectMenu
                 value={draft.correctOptionId}
                 disabled={isBusy}
-                aria-invalid={issues.at(["correctOptionId"]) !== undefined}
-                onChange={(event) =>
-                  update({ correctOptionId: event.target.value })
-                }
+                onValueChange={(value) => update({ correctOptionId: value })}
               >
-                <option value="">Choose…</option>
-                {draft.options.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.text.en || option.id}
-                  </option>
-                ))}
-              </Select>
+                <SelectMenuTrigger
+                  id="correct-option"
+                  size="sm"
+                  placeholder="Choose…"
+                  aria-invalid={issues.at(["correctOptionId"]) !== undefined}
+                />
+                <SelectMenuContent>
+                  {draft.options.map((option) => (
+                    <SelectMenuItem key={option.id} value={option.id}>
+                      {option.text.en || option.id}
+                    </SelectMenuItem>
+                  ))}
+                </SelectMenuContent>
+              </SelectMenu>
               {issues.at(["correctOptionId"]) ? (
                 <p role="alert" className="text-destructive text-xs">
                   {issues.at(["correctOptionId"])}
@@ -294,8 +306,8 @@ export function QuizQuestionEditor({
           </p>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
+        <div className="flex items-center justify-end gap-2 border-border border-t pt-4">
+          <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
           <Button type="submit" disabled={isBusy || !parsed.success}>
@@ -315,16 +327,13 @@ export function QuizQuestionEditor({
           <h3 className="font-semibold text-foreground text-sm">Preview</h3>
           <div className="flex gap-1.5">
             {LOCALES.map((locale) => (
-              <Button
+              <AdminFilterChip
                 key={locale}
-                type="button"
-                size="sm"
-                aria-pressed={previewLocale === locale}
-                variant={previewLocale === locale ? "default" : "outline"}
+                isSelected={previewLocale === locale}
                 onClick={() => setPreviewLocale(locale)}
               >
                 {LOCALE_LABELS[locale]}
-              </Button>
+              </AdminFilterChip>
             ))}
           </div>
         </div>
@@ -414,6 +423,7 @@ function Field({
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
+        size="sm"
         value={value}
         disabled={isDisabled}
         aria-invalid={error !== undefined}

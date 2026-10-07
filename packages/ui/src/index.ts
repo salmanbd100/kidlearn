@@ -42,6 +42,15 @@ export { Input, type InputProps, inputVariants } from "./primitives/input";
 export { Label, type LabelProps, labelVariants } from "./primitives/label";
 export { Select, type SelectProps, selectVariants } from "./primitives/select";
 export {
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuSeparator,
+  SelectMenuTrigger,
+  type SelectMenuTriggerProps,
+  selectMenuTriggerVariants,
+} from "./primitives/select-menu";
+export {
   Textarea,
   type TextareaProps,
   textareaVariants,

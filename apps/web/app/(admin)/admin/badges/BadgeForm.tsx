@@ -2,7 +2,17 @@
 
 import type { AdminBadge, BadgeRuleType } from "@kidlearn/types";
 import { BADGE_RULE_PARAMETERS, BADGE_RULE_TYPES } from "@kidlearn/types";
-import { Button, Input, Label, Select, Textarea } from "@kidlearn/ui";
+import {
+  Button,
+  DialogFooter,
+  Input,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+  Textarea,
+} from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
 import type { ContentDraft } from "@/features/admin/content-api";
 import { MediaPicker } from "@/features/admin/MediaPicker";
@@ -70,10 +80,11 @@ export function BadgeForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="badge-slug">Slug</Label>
         <Input
+          size="sm"
           id="badge-slug"
           value={slug}
           required={!isEditing}
@@ -92,6 +103,7 @@ export function BadgeForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="badge-name">Name</Label>
         <Input
+          size="sm"
           id="badge-name"
           value={name}
           required
@@ -103,6 +115,7 @@ export function BadgeForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="badge-description">Description</Label>
         <Textarea
+          size="sm"
           id="badge-description"
           value={description}
           rows={2}
@@ -124,28 +137,28 @@ export function BadgeForm({
       />
 
       <fieldset className="flex flex-col gap-3 rounded-(--radius) border border-border p-3">
-        <legend className="px-1 font-semibold text-foreground text-sm">
+        <legend className="px-1 font-medium text-foreground text-sm">
           Rule
         </legend>
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="badge-rule-type">When is it earned?</Label>
-          <Select
-            id="badge-rule-type"
+          <SelectMenu
             value={ruleType}
             disabled={isBusy}
-            onChange={(event) =>
-              setRuleType(
-                optionValue(BADGE_RULE_TYPES, event.target.value, ruleType),
-              )
+            onValueChange={(value) =>
+              setRuleType(optionValue(BADGE_RULE_TYPES, value, ruleType))
             }
           >
-            {BADGE_RULE_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {RULE_LABELS[type]}
-              </option>
-            ))}
-          </Select>
+            <SelectMenuTrigger id="badge-rule-type" size="sm" />
+            <SelectMenuContent>
+              {BADGE_RULE_TYPES.map((type) => (
+                <SelectMenuItem key={type} value={type}>
+                  {RULE_LABELS[type]}
+                </SelectMenuItem>
+              ))}
+            </SelectMenuContent>
+          </SelectMenu>
         </div>
 
         {parameters.map((parameter) => (
@@ -154,6 +167,7 @@ export function BadgeForm({
               {PARAMETER_LABELS[parameter]}
             </Label>
             <Input
+              size="sm"
               id={`badge-rule-${parameter}`}
               value={rule[parameter]}
               required
@@ -192,14 +206,14 @@ export function BadgeForm({
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <DialogFooter className="border-border border-t pt-4">
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" disabled={isBusy}>
           {isEditing ? "Save" : "Create draft"}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 }

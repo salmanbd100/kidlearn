@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 /** 44px on a parent-theme surface (design.md §7). */
 const adminFilterChipVariants = cva(
   cn(
-    "inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-colors",
+    "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50",
     "focus-ring",
   ),
   {
@@ -22,10 +22,12 @@ const adminFilterChipVariants = cva(
 
 export function AdminFilterChip({
   isSelected,
+  isDisabled,
   onClick,
   children,
 }: {
   isSelected: boolean;
+  isDisabled?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -34,6 +36,7 @@ export function AdminFilterChip({
       type="button"
       // `aria-pressed`: meaning is never carried by colour alone.
       aria-pressed={isSelected}
+      disabled={isDisabled}
       onClick={onClick}
       className={adminFilterChipVariants({ isSelected })}
     >

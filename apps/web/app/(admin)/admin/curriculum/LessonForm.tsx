@@ -7,7 +7,17 @@ import type {
   Locale,
 } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
-import { Button, Input, Label, Select, Textarea } from "@kidlearn/ui";
+import {
+  Button,
+  DialogFooter,
+  Input,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+  Textarea,
+} from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
 import type { ContentDraft } from "@/features/admin/content-api";
@@ -109,11 +119,12 @@ export function LessonForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-slug">Slug</Label>
           <Input
+            size="sm"
             id="lesson-slug"
             value={slug}
             required={!isEditing}
@@ -126,6 +137,7 @@ export function LessonForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-title">Internal title</Label>
           <Input
+            size="sm"
             id="lesson-title"
             value={title}
             required
@@ -137,21 +149,26 @@ export function LessonForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="lesson-world">World</Label>
-        <Select
-          id="lesson-world"
+        <SelectMenu
           value={worldId}
           required
           disabled={isBusy || worlds.length === 0}
-          aria-describedby="lesson-world-hint"
-          onChange={(event) => setWorldId(event.target.value)}
+          onValueChange={setWorldId}
         >
-          {worlds.length === 0 ? <option value="">No worlds yet</option> : null}
-          {worlds.map((world) => (
-            <option key={world.id} value={world.id}>
-              {world.name}
-            </option>
-          ))}
-        </Select>
+          <SelectMenuTrigger
+            id="lesson-world"
+            size="sm"
+            placeholder="No worlds yet"
+            aria-describedby="lesson-world-hint"
+          />
+          <SelectMenuContent>
+            {worlds.map((world) => (
+              <SelectMenuItem key={world.id} value={world.id}>
+                {world.name}
+              </SelectMenuItem>
+            ))}
+          </SelectMenuContent>
+        </SelectMenu>
         <p id="lesson-world-hint" className="text-muted-foreground text-xs">
           A lesson in an unpublished world stays invisible to children even once
           published — the world carries its own status.
@@ -174,6 +191,7 @@ export function LessonForm({
                 Title a child sees ({LOCALE_LABELS[locale]})
               </Label>
               <Input
+                size="sm"
                 id={`lesson-title-${locale}`}
                 value={locales[locale].title}
                 disabled={isBusy}
@@ -192,6 +210,7 @@ export function LessonForm({
                 Intro script ({LOCALE_LABELS[locale]})
               </Label>
               <Textarea
+                size="sm"
                 id={`lesson-script-${locale}`}
                 value={locales[locale].introScript}
                 rows={3}
@@ -220,6 +239,7 @@ export function LessonForm({
                 Video asset id ({LOCALE_LABELS[locale]})
               </Label>
               <Input
+                size="sm"
                 id={`lesson-video-${locale}`}
                 value={locales[locale].videoAssetId}
                 disabled={isBusy}
@@ -239,6 +259,7 @@ export function LessonForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-activity">Activity id</Label>
           <Input
+            size="sm"
             id="lesson-activity"
             value={activityId}
             disabled={isBusy}
@@ -250,6 +271,7 @@ export function LessonForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-quiz">Quiz id</Label>
           <Input
+            size="sm"
             id="lesson-quiz"
             value={quizId}
             disabled={isBusy}
@@ -262,6 +284,7 @@ export function LessonForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="lesson-concepts">Concepts introduced</Label>
         <Input
+          size="sm"
           id="lesson-concepts"
           value={concepts}
           disabled={isBusy}
@@ -282,8 +305,8 @@ export function LessonForm({
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <DialogFooter className="border-border border-t pt-4">
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
@@ -292,7 +315,7 @@ export function LessonForm({
         >
           {isEditing ? "Save" : "Create draft"}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 }

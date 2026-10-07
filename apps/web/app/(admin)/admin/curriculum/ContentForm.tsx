@@ -8,7 +8,7 @@ import type {
   Locale,
 } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
-import { Button, Input, Label } from "@kidlearn/ui";
+import { Button, DialogFooter, Input, Label } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
 import type { ContentDraft } from "@/features/admin/content-api";
@@ -94,10 +94,11 @@ export function ContentForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="content-slug">Slug</Label>
         <Input
+          size="sm"
           id="content-slug"
           value={slug}
           disabled={isEditing || isBusy}
@@ -116,6 +117,7 @@ export function ContentForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="content-name">Internal name</Label>
         <Input
+          size="sm"
           id="content-name"
           value={name}
           required
@@ -138,6 +140,7 @@ export function ContentForm({
               Name a child sees ({LOCALE_LABELS[locale]})
             </Label>
             <Input
+              size="sm"
               id={`content-name-${locale}`}
               value={translations[locale]}
               disabled={isBusy}
@@ -169,8 +172,8 @@ export function ContentForm({
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <DialogFooter className="border-border border-t pt-4">
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
@@ -181,7 +184,7 @@ export function ContentForm({
         >
           {isEditing ? "Save" : "Create draft"}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 }
