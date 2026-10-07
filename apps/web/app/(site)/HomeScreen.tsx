@@ -14,6 +14,7 @@ import { Doodle } from "@/features/site/Doodle";
 import { GuideFacts } from "@/features/site/GuideProse";
 import { HangingSection, toNumeral } from "@/features/site/HangingSection";
 import { SITE_ROUTES } from "@/features/site/site-routes";
+import { useSignedInRole } from "@/features/site/use-signed-in-role";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 
 const GUIDES = [
@@ -44,6 +45,7 @@ const DIFFERENCES = [
 export function HomeScreen() {
   const { t } = useTranslation(SITE_NAMESPACE);
   const isMotionReduced = useIsMotionReduced();
+  const role = useSignedInRole();
 
   return (
     <div className="flex flex-col gap-16 md:gap-24">
@@ -79,20 +81,35 @@ export function HomeScreen() {
                   {t("home.startLearning")}
                 </Link>
               </Button>
-              <Button asChild size="kid" variant="outline">
-                <Link href={PARENT_ROUTES.login} scroll={false}>
-                  {t("home.parentSignIn")}
-                </Link>
-              </Button>
+              {role === "parent" ? (
+                <Button asChild size="kid" variant="outline">
+                  <Link href={PARENT_ROUTES.dashboard}>
+                    {t("home.parentDashboard")}
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild size="kid" variant="outline">
+                  <Link href={PARENT_ROUTES.login} scroll={false}>
+                    {t("home.parentSignIn")}
+                  </Link>
+                </Button>
+              )}
             </div>
-            {/* Deliberately quiet: the two actions above are the front door, this one is staff-only. */}
-            <Link
-              href={ADMIN_ROUTES.login}
-              scroll={false}
-              className="focus-ring inline-flex min-h-11 w-fit items-center rounded-sm text-lg text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              {t("home.adminSignIn")}
-            </Link>
+            {/* Deliberately quiet: the two actions above are the front door, this one is staff-only.
+                A signed-in parent has no use for it; a signed-in admin gets it as the way back in. */}
+            {role === "parent" ? null : (
+              <Link
+                href={
+                  role === "admin" ? ADMIN_ROUTES.analytics : ADMIN_ROUTES.login
+                }
+                scroll={false}
+                className="focus-ring inline-flex min-h-11 w-fit items-center rounded-sm text-lg text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              >
+                {role === "admin"
+                  ? t("home.adminDashboard")
+                  : t("home.adminSignIn")}
+              </Link>
+            )}
           </div>
         </div>
       </section>

@@ -22,6 +22,8 @@
     "startLearning": "শেখা শুরু করো",
     "parentSignIn": "অভিভাবক সাইন-ইন",
     "adminSignIn": "অ্যাডমিন সাইন-ইন",
+    "parentDashboard": "অভিভাবক ড্যাশবোর্ড",
+    "adminDashboard": "অ্যাডমিন ড্যাশবোর্ড",
     "guidesTitle": "গাইডগুলো পড়ুন",
     "guides": {
       "parents": {

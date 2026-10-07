@@ -22,6 +22,8 @@
     "startLearning": "Start learning",
     "parentSignIn": "Parent sign-in",
     "adminSignIn": "Admin sign-in",
+    "parentDashboard": "Parent dashboard",
+    "adminDashboard": "Admin dashboard",
     "guidesTitle": "Read the guides",
     "guides": {
       "parents": {

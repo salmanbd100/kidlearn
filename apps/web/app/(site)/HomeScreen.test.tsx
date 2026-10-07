@@ -7,11 +7,17 @@ import type { Locale } from "@/shared/lib/locale";
 
 const navigation = vi.hoisted(() => ({ search: "" }));
 const router = vi.hoisted(() => ({ replace: vi.fn() }));
+const session = vi.hoisted(() => ({
+  role: "signedOut" as "unknown" | "signedOut" | "parent" | "admin",
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
   usePathname: () => "/",
   useSearchParams: () => new URLSearchParams(navigation.search),
+}));
+vi.mock("@/features/site/use-signed-in-role", () => ({
+  useSignedInRole: () => session.role,
 }));
 
 const { HomeScreen } = await import("./HomeScreen");
@@ -28,6 +34,7 @@ describe("HomeScreen", () => {
   beforeEach(() => {
     resetI18nForTests();
     navigation.search = "";
+    session.role = "signedOut";
     router.replace.mockReset();
   });
 
@@ -73,6 +80,39 @@ describe("HomeScreen", () => {
       "href",
       "/?signin=admin",
     );
+  });
+
+  it("offers a signed-in parent their dashboard instead of sign-in, and hides the admin link", () => {
+    session.role = "parent";
+    renderHome();
+
+    expect(
+      screen.getByRole("link", { name: "Parent dashboard" }),
+    ).toHaveAttribute("href", "/parent");
+    expect(screen.queryByRole("link", { name: "Parent sign-in" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /^Admin/ })).toBeNull();
+  });
+
+  it("offers a signed-in admin the CMS instead of the admin sign-in", () => {
+    session.role = "admin";
+    renderHome();
+
+    expect(
+      screen.getByRole("link", { name: "Admin dashboard" }),
+    ).toHaveAttribute("href", "/admin/analytics");
+    expect(screen.queryByRole("link", { name: "Admin sign-in" })).toBeNull();
+  });
+
+  it("keeps the sign-in actions while the session is still unknown", () => {
+    session.role = "unknown";
+    renderHome();
+
+    expect(
+      screen.getByRole("link", { name: "Parent sign-in" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Admin sign-in" }),
+    ).toBeInTheDocument();
   });
 
   it("puts Start learning first, so it is the first action a child reaches", () => {
