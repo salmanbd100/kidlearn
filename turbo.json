@@ -10,7 +10,8 @@
         "NEXT_PUBLIC_API_URL",
         "NEXT_PUBLIC_SITE_URL",
         "MEDIA_ASSET_HOSTS",
-        "SITE_NOINDEX"
+        "SITE_NOINDEX",
+        "VERCEL"
       ]
     },
     "@kidlearn/ui#build": { "dependsOn": ["^build"], "outputs": [] },

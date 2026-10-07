@@ -21,7 +21,8 @@ type AdminSessionValue = {
   admin: AdminIdentity | undefined;
   /** Re-reads `/api/admin/me`; the login screen calls it because this provider resolved `signedOut` on mount. */
   refresh: () => Promise<void>;
-  signOut: () => Promise<void>;
+  /** `false` when the cookie could not be revoked; the session is kept, as it is still live. */
+  signOut: () => Promise<boolean>;
 };
 
 const AdminSessionContext = createContext<AdminSessionValue | undefined>(
@@ -79,9 +80,10 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    await adminSignOut();
+    if (!(await adminSignOut())) return false;
     setAdmin(undefined);
     setStatus("signedOut");
+    return true;
   }, []);
 
   const value = useMemo<AdminSessionValue>(

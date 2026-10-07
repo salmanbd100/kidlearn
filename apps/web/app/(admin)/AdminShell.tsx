@@ -14,6 +14,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { admin, signOut } = useAdminSession();
   const [awaitingReview, setAwaitingReview] = useState(0);
+  const [hasSignOutFailed, setHasSignOutFailed] = useState(false);
 
   const isPublic = isPublicAdminPath(pathname);
 
@@ -39,7 +40,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
   if (isPublic) return <>{children}</>;
 
   async function handleSignOut() {
-    await signOut();
+    setHasSignOutFailed(false);
+    // The cookie is still live on failure, so the login screen would bounce straight back in.
+    if (!(await signOut())) {
+      setHasSignOutFailed(true);
+      return;
+    }
     router.replace(ADMIN_ROUTES.login);
   }
 
@@ -50,21 +56,28 @@ export function AdminShell({ children }: { children: ReactNode }) {
         pathname={pathname}
         badges={{ [ADMIN_ROUTES.aiQueue]: awaitingReview }}
         footer={
-          <div className="flex items-center justify-between gap-2">
-            <span
-              className="min-w-0 truncate text-muted-foreground text-xs"
-              title={admin?.email}
-            >
-              {admin?.name ?? "—"}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-            >
-              Sign out
-            </Button>
+          <div className="flex flex-col gap-2">
+            {hasSignOutFailed ? (
+              <p role="alert" className="text-destructive text-xs">
+                Could not sign out. Check your connection and try again.
+              </p>
+            ) : null}
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className="min-w-0 truncate text-muted-foreground text-xs"
+                title={admin?.email}
+              >
+                {admin?.name ?? "—"}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+              >
+                Sign out
+              </Button>
+            </div>
           </div>
         }
       />

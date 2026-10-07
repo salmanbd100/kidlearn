@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { apiFetch } from "@/shared/api/api-client";
@@ -204,5 +204,30 @@ describe("AdminCmsLayout", () => {
       expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
     );
     vi.unstubAllGlobals();
+  });
+  it("signs the admin out and goes to login when the cookie is revoked", async () => {
+    api.adminSignOut.mockResolvedValue(true);
+    renderLayout();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
+    );
+  });
+
+  it("keeps the session and says so when sign-out fails", async () => {
+    // The cookie is still live, so going to login would bounce straight back into the CMS.
+    api.adminSignOut.mockResolvedValue(false);
+    renderLayout();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /could not sign out/i,
+    );
+    expect(screen.getByText("curriculum tree")).toBeInTheDocument();
+    expect(screen.getByText(ADMIN.name)).toBeInTheDocument();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  apiBaseUrl,
   apiFetch,
   DEFAULT_TIMEOUT_MS,
+  onConsentRequired,
   onUnauthorized,
   RETRY_BACKOFF_MS,
   signOut,
@@ -361,6 +363,60 @@ describe("signOut", () => {
     stubFetch(new TypeError("Failed to fetch"));
 
     await expect(signOut()).resolves.toBe(false);
+  });
+});
+
+describe("onConsentRequired", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("notifies subscribers on a 403 CONSENT_REQUIRED and not on a plain FORBIDDEN", async () => {
+    stubFetch(
+      jsonResponse(403, { error: { code: "FORBIDDEN", message: "no" } }),
+      jsonResponse(403, {
+        error: { code: "CONSENT_REQUIRED", message: "renew" },
+      }),
+    );
+    const listener = vi.fn();
+    const unsubscribe = onConsentRequired(listener);
+
+    await apiFetch("/api/progress/steps", { method: "POST" });
+    expect(listener).not.toHaveBeenCalled();
+
+    await apiFetch("/api/progress/steps", { method: "POST" });
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("stops notifying once unsubscribed", async () => {
+    stubFetch(
+      jsonResponse(403, {
+        error: { code: "CONSENT_REQUIRED", message: "renew" },
+      }),
+    );
+    const listener = vi.fn();
+    onConsentRequired(listener)();
+
+    await apiFetch("/api/events", { method: "POST" });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("apiBaseUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("falls back to the local API when the variable is empty, not only when unset", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+    expect(apiBaseUrl()).toBe("http://localhost:4000");
+  });
+
+  it("drops a trailing slash so paths never double it", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.com/");
+    expect(apiBaseUrl()).toBe("https://api.example.com");
   });
 });
 

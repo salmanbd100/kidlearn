@@ -23,7 +23,11 @@ import {
   listAvatars,
   listChildren,
 } from "@/features/parent/parent-api";
-import { type ApiResult, onUnauthorized } from "@/shared/api/api-client";
+import {
+  type ApiResult,
+  onConsentRequired,
+  onUnauthorized,
+} from "@/shared/api/api-client";
 import { readLocaleCookie } from "@/shared/lib/locale";
 
 export type ActiveChildStatus = "loading" | "ready" | "signedOut" | "error";
@@ -137,6 +141,19 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
         }
       }),
     [load],
+  );
+
+  // The 403 is the server's verdict, so no re-read: marking the parent is enough for the guards to send them to consent.
+  useEffect(
+    () =>
+      onConsentRequired(() => {
+        setParent((current) =>
+          current === undefined
+            ? current
+            : { ...current, hasCurrentConsent: false },
+        );
+      }),
+    [],
   );
 
   const activate = useCallback(async (childId: string) => {

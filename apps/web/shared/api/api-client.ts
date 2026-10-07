@@ -47,8 +47,25 @@ export function onUnauthorized(listener: UnauthorizedListener): () => void {
   };
 }
 
+type ConsentRequiredListener = () => void;
+const consentRequiredListeners = new Set<ConsentRequiredListener>();
+
+/** Fires on `403 CONSENT_REQUIRED`, so a consent-version bump mid-session reroutes the parent instead of failing one write. */
+export function onConsentRequired(
+  listener: ConsentRequiredListener,
+): () => void {
+  consentRequiredListeners.add(listener);
+  return () => {
+    consentRequiredListeners.delete(listener);
+  };
+}
+
 export function apiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
+  // `||`, not `??`: an empty `NEXT_PUBLIC_API_URL=` would otherwise yield relative URLs against the web origin.
+  return (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).replace(
+    /\/+$/,
+    "",
+  );
 }
 
 export async function apiFetch<T>(
@@ -89,6 +106,12 @@ export async function apiFetch<T>(
     if (outcome.kind === "settled") {
       if (!outcome.result.ok && outcome.result.error.status === 401) {
         for (const listener of unauthorizedListeners) listener();
+      }
+      if (
+        !outcome.result.ok &&
+        outcome.result.error.code === "CONSENT_REQUIRED"
+      ) {
+        for (const listener of consentRequiredListeners) listener();
       }
       return outcome.result;
     }

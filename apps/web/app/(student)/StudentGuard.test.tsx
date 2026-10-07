@@ -67,6 +67,41 @@ describe("StudentGuard", () => {
     expect(screen.queryByText("student screen")).not.toBeInTheDocument();
   });
 
+  it("sends a parent whose consent is outdated back to consent, ahead of the profile picker", () => {
+    renderGuard({
+      status: "ready",
+      parent: { hasCurrentConsent: false },
+      child: undefined,
+    });
+
+    expect(router.replace).toHaveBeenCalledWith("/parent/onboarding/consent");
+    expect(screen.queryByText("student screen")).not.toBeInTheDocument();
+  });
+
+  it("pulls a child out of a screen once consent is found to be outdated", () => {
+    const { rerender } = renderGuard({
+      status: "ready",
+      parent: { hasCurrentConsent: true },
+      child,
+    });
+    expect(screen.getByText("student screen")).toBeInTheDocument();
+
+    activeChild.value = {
+      ...activeChild.value,
+      parent: { hasCurrentConsent: false },
+    };
+    rerender(
+      <Providers locale="en">
+        <StudentGuard>
+          <p>student screen</p>
+        </StudentGuard>
+      </Providers>,
+    );
+
+    expect(router.replace).toHaveBeenCalledWith("/parent/onboarding/consent");
+    expect(screen.queryByText("student screen")).not.toBeInTheDocument();
+  });
+
   it("never renders the screen when the session could not be read", () => {
     renderGuard({ status: "error", child });
 

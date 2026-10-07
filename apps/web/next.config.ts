@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 
 type RemotePatterns = NonNullable<
   NonNullable<NextConfig["images"]>["remotePatterns"]
@@ -75,4 +76,26 @@ const nextConfig: NextConfig = {
   headers: siteHeaders,
 };
 
-export default nextConfig;
+/**
+ * An unset `NEXT_PUBLIC_API_URL` inlines `http://localhost:4000` into the client bundle, so every visitor's browser
+ * calls itself. Fatal on Vercel, which sets `VERCEL=1` for every deployment build; only a warning elsewhere, because
+ * CI's `pnpm build` and a local build run without it on purpose.
+ */
+function checkApiUrl(): void {
+  if (process.env.NEXT_PUBLIC_API_URL?.trim()) return;
+  const message =
+    "NEXT_PUBLIC_API_URL is unset: the client bundle will call http://localhost:4000.";
+  if (process.env.VERCEL === "1") {
+    throw new Error(
+      `${message} Set it in the Vercel project settings and redeploy.`,
+    );
+  }
+  console.warn(
+    `\nWARNING: ${message} Fine for CI or a local check; never deploy this build.\n`,
+  );
+}
+
+export default function config(phase: string): NextConfig {
+  if (phase === PHASE_PRODUCTION_BUILD) checkApiUrl();
+  return nextConfig;
+}

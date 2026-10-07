@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/features/parent/parent-api", () => api);
 
 const { ActiveChildProvider, useActiveChild } = await import("./active-child");
+const { apiFetch } = await import("@/shared/api/api-client");
 
 function child(
   overrides: Partial<ChildProfileResponse> = {},
@@ -41,13 +42,20 @@ const RUBI = child({
 });
 
 function Probe() {
-  const { status, child: active, profiles, activate } = useActiveChild();
+  const {
+    status,
+    parent,
+    child: active,
+    profiles,
+    activate,
+  } = useActiveChild();
   const { i18n } = useTranslation();
 
   return (
     <div>
       <p>status: {status}</p>
       <p>active: {active?.firstName ?? "none"}</p>
+      <p>consent: {String(parent?.hasCurrentConsent)}</p>
       <p>language: {i18n.resolvedLanguage}</p>
       {profiles.map((profile) => (
         <button
@@ -101,7 +109,11 @@ describe("ActiveChildProvider", () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: true,
       data: {
-        parent: { id: "parent_1", email: "p@example.com" },
+        parent: {
+          id: "parent_1",
+          email: "p@example.com",
+          hasCurrentConsent: true,
+        },
         activeChildProfileId: null,
       },
     });
@@ -208,6 +220,29 @@ describe("ActiveChildProvider", () => {
 
     await waitFor(() => expect(api.activateChild).toHaveBeenCalled());
     expect(screen.getByText("active: none")).toBeInTheDocument();
+  });
+
+  it("marks consent outdated when any later request answers CONSENT_REQUIRED", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: { code: "CONSENT_REQUIRED", message: "renew" },
+            }),
+            { status: 403, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      ),
+    );
+    renderProvider();
+    await screen.findByText("consent: true");
+
+    await apiFetch("/api/progress/steps", { method: "POST" });
+
+    await screen.findByText("consent: false");
+    vi.unstubAllGlobals();
   });
 
   it("reports a signed-out visitor rather than an error", async () => {

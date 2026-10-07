@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/features/children/active-child";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { ProfileCard } from "@/features/student/ProfileCard";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
@@ -12,16 +13,23 @@ import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
 export function SelectProfileScreen() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
-  const { status, profiles, avatars, isWakingUp, activate, refresh } =
+  const { status, parent, profiles, avatars, isWakingUp, activate, refresh } =
     useActiveChild();
   const [pendingId, setPendingId] = useState<string | undefined>();
   const [hasFailed, setHasFailed] = useState(false);
 
   useScreenNarration("selectProfile");
 
+  const redirectTo =
+    status === "signedOut"
+      ? PARENT_ROUTES.login
+      : status === "ready" && parent?.hasCurrentConsent === false
+        ? PARENT_ROUTES.consent
+        : undefined;
+
   useEffect(() => {
-    if (status === "signedOut") router.replace("/parent/login");
-  }, [status, router]);
+    if (redirectTo !== undefined) router.replace(redirectTo);
+  }, [redirectTo, router]);
 
   const handleSelect = async (childId: string) => {
     if (pendingId !== undefined) return;
@@ -53,7 +61,7 @@ export function SelectProfileScreen() {
     );
   }
 
-  if (status !== "ready") {
+  if (status !== "ready" || redirectTo !== undefined) {
     return (
       <StudentStatus tone="status">
         {isWakingUp ? t("status.waking") : t("selectProfile.loading")}

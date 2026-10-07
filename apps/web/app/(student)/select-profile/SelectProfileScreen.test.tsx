@@ -65,7 +65,11 @@ describe("SelectProfileScreen", () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: true,
       data: {
-        parent: { id: "parent_1", email: "p@example.com" },
+        parent: {
+          id: "parent_1",
+          email: "p@example.com",
+          hasCurrentConsent: true,
+        },
         activeChildProfileId: null,
       },
     });
@@ -139,6 +143,28 @@ describe("SelectProfileScreen", () => {
     await waitFor(() =>
       expect(router.replace).toHaveBeenCalledWith("/parent/login"),
     );
+  });
+
+  it("sends a parent whose consent is outdated to consent instead of offering profiles", async () => {
+    api.fetchAuthMe.mockResolvedValue({
+      ok: true,
+      data: {
+        parent: {
+          id: "parent_1",
+          email: "p@example.com",
+          hasCurrentConsent: false,
+        },
+        activeChildProfileId: null,
+      },
+    });
+    renderScreen();
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith("/parent/onboarding/consent"),
+    );
+    expect(
+      screen.queryByRole("button", { name: /Ayaan/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("stays put and says so when activation fails", async () => {
