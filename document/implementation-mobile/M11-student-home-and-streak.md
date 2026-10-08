@@ -12,18 +12,18 @@ Build the child's home screen: a full-bleed, world-themed launchpad with large i
 ## Context & Current State
 
 - `GET /api/content/worlds` (behind `requireParent` + `requireActiveChild`) returns `{ worlds: WorldSummaryResponse[] }` (`WorldListResponseSchema`): `id`, `slug`, `name`, `palette` (a flat `Record<string, string>` of token → CSS colour) and `mascot` (`{ id, url, kind } | null`). `name` is **already localised** by the server to the active child's `preferredLanguage`; there is no cover image, ordering field or grade/lock flag on a world ("Worlds carry no grade tagging of their own" — `content.service.ts`). Worlds are **data** — the web app's `apps/web/features/content/worlds.ts` deliberately reads the accent from `palette` rather than keying a `jungle | ocean | space` map, precisely so adding a world is a database row and not a code change. Mobile must keep that property.
-- `GET /api/me/rewards/summary` returns `RewardSummaryResponse` — a flat `{ stars, coins, currentStreak }` (`RewardSummarySchema` in `packages/types/src/api/rewards.ts`). This is the display source for FR-GAM-06; the client computes nothing. The richer `CompletionStreakSchema` (milestone etc.) arrives on lesson/story completion responses — that is M21.
-- List endpoints are never screen-time gated (see the comment in `apps/server/src/modules/screen-time/enforce-screen-time.middleware.ts`): "a blocked child browsing worlds sees a friendly screen from the status read, not a wall of errors — and the tile they tap is where the refusal belongs". So the home screen renders normally even for a locked-out child; M25 adds the friendly lock at the point of starting content.
-- M10 gives `useActiveChild()` with `status === "ready"` guaranteeing a real active child. M05 gives `Screen`, `IconTile`, `Spinner`, `EmptyState`, `KidRetry`. M04 gives `useApi`, `ColdStartNotice`, `OfflineNotice`.
+- `GET /api/me/rewards/summary` (`requireParent → requireActiveChild`, not consent-gated) returns `RewardSummaryResponse` — a flat `{ stars, coins, badgeCount, currentStreak }` (`RewardSummarySchema` in `packages/types/src/api/rewards.ts`, served from `apps/server/src/modules/me/me.routes.ts`; there is no separate rewards router). This is the display source for FR-GAM-06; the client computes nothing. Web calls it `getRewardsSummary` in `apps/web/shared/api/progress-api.ts`, and a failed summary read leaves the counters hidden rather than failing the screen. The richer `CompletionStreakSchema` (`{ current, milestone: 3 | 7 | null }`) arrives on lesson/story completion responses — that is M21.
+- List endpoints are never screen-time gated: `enforceScreenTime` (`apps/server/src/modules/screen-time/enforce-screen-time.middleware.ts`) is mounted on content-detail reads only (`GET /api/content/lessons/:id`, `GET /api/content/stories/:id`). On web, `HomeScreen` reads `GET /api/screen-time/status` through `useScreenTimeGate` and swaps itself for `ScreenTimeLock` when blocked, and `guardStart` re-checks before each start. On mobile that read and the lock arrive in M25; until then the home screen renders normally for a locked-out child and the refusal surfaces as a 423 at content start (M04's `onScreenTimeLocked`).
+- M10 gives `useActiveChild()` and the `StudentGuard`, so this screen only mounts with a real active `child`, and the `ParentCorner` (an anonymous lock here). M05 gives `Screen`, `IconTile`, `Spinner`, `EmptyState`, `KidRetry`. M04 gives `useApi`, `ColdStartNotice`, `OfflineNotice`.
 - design.md §6: mobile-first, full-bleed and immersive, waypoints in the thumb zone (lower/centre) rather than top corners, both orientations supported — stack in portrait, side-by-side in landscape — `min-h-dvh` equivalent via safe areas, no horizontal scroll except intentional carousels.
 - design.md §7 and §10: ≥64px targets, ≥20px text, meaning never carried by colour alone, kid copy 1–4 words paired with an icon.
-- `apps/web/app/(student)/home/HomeScreen.tsx`, `apps/web/features/content/WorldCard.tsx` and `apps/web/features/student/RewardStrip.tsx` / `ParentCorner.tsx` are the web counterparts; read them for the data flow and the world-card composition before writing the native version.
+- `apps/web/app/(student)/home/HomeScreen.tsx`, `apps/web/features/content/WorldCard.tsx`, `apps/web/features/student/RewardStrip.tsx` and `apps/web/features/stories/StoryTimeCard.tsx` are the web counterparts; read them for the data flow and the world-card composition before writing the native version.
 
 ## Detailed Requirements
 
-1. **`lib/content-api.ts`** — start the module that M12, M13, M22 all extend: `listWorlds()`, plus `getRewardSummary()` in `lib/rewards-api.ts`. Types from `packages/types` (`WorldSummaryResponse`, `RewardSummaryResponse`); both responses are enveloped (`{ data: { worlds } }`, `{ data: {...} }`).
-2. **Home screen** (`app/(student)/home.tsx`) — one `useApi` call per resource (worlds, reward summary), rendered as: a greeting band with the child's avatar and first name plus the streak and star/coin counters; a set of world waypoints filling the lower two-thirds; and the small top-corner parent door — the anonymous lock here, not the named chip (that is the picker only; `user-journey-manual.md §4.2`).
-3. **World theming from data.** `lib/world-theme.ts` — the native counterpart of `apps/web/features/content/worlds.ts`: read `palette.primary` and `palette.secondary` defensively (a world saved with only `primary` must still render; an unusable palette falls back to the theme's own card surface, never a broken gradient). Gradients need `expo-linear-gradient`; a solid `primary` fill is an acceptable fallback and must be what renders when the palette is unusable.
+1. **`lib/content-api.ts`** — start the module that M12, M13, M22 all extend: `listWorlds()`, plus `getRewardSummary()` (`GET /api/me/rewards/summary`) in `lib/rewards-api.ts`. Types from `packages/types` (`WorldSummaryResponse`, `RewardSummaryResponse`); both responses are enveloped (`{ data: { worlds } }`, `{ data: { stars, coins, badgeCount, currentStreak } }`).
+2. **Home screen** (`app/(student)/home.tsx`) — one `useApi` call per resource (worlds, reward summary), rendered as: a greeting band with the child's avatar and first name plus the streak and star/coin counters; a set of world waypoints filling the lower two-thirds; and the small top-corner parent door — M10's `ParentCorner` in its anonymous-lock form (the named chip is the picker only; `user-journey-manual.md §4.2`). No PIN behind it.
+3. **World theming from data — split, then lift (D6).** `apps/web/features/content/worlds.ts` returns a `CSSProperties`, so it cannot be shared as is. Split it: a pure `worldGradientColours(palette): [string, string] | undefined` in `packages/types/src/domain/` (no React, no CSS), which web's `worldGradientStyle` wraps into its `linear-gradient` and mobile's `lib/world-theme.ts` feeds to `expo-linear-gradient`. Rules, unchanged from web: read `palette.primary` and `palette.secondary` defensively (a world saved with only `primary` must still render; an unusable palette falls back to the theme's own card surface, never a broken gradient). Gradients need `expo-linear-gradient`; an unusable palette renders the card surface, never a guessed colour.
 4. **Waypoint tiles.** Each world is a large tile (≥120px, image-led, name at ≥20px) with its world colour and the `mascot` image via `expo-image` (no mascot → colour and name only). All published worlds are enterable; the API has no locked state, so none is invented. Name sits on its own plate, as on web — palette is content data and cannot be trusted to contrast with text over it. Tapping a world routes to `/(student)/world/[worldId]` (M12).
 5. **Layout in both orientations.** Portrait: a two-column grid of waypoints, greeting band above. Landscape: greeting band left, waypoints right in a horizontal row. Implement with `useWindowDimensions()` and a single `isLandscape` branch in the screen, not per-component media queries.
 6. **Streak display (FR-GAM-06).** Current streak as a number plus an icon plus a localised label — three encodings, so it reads for a pre-reader and for a screen reader. Zero streak is a warm invitation ("Start today!"), never a scolding or an empty space. All values come from `RewardSummaryResponse`; nothing is derived on the client.
@@ -48,25 +48,23 @@ apps/mobile/components/student/CounterPill.tsx  # stars / coins
 apps/mobile/components/student/GreetingBand.tsx
 ```
 
-The palette reader — same defensive shape as the web helper, returning colours rather than a CSS string:
+The lifted palette reader — web's rules, returning colours rather than a CSS string. Note web treats any string `secondary` (even empty) as usable; keep that behaviour in the lift or change it in both apps with a test, not silently in one:
 
 ```ts
-// apps/mobile/lib/world-theme.ts
-import type { WorldSummaryResponse } from "@kidlearn/types";
+// packages/types/src/domain/world-palette.ts
+import type { WorldSummaryResponse } from "../api/content.js";
 
 /**
  * `palette` is free-form JSONB, so both keys are read defensively: a world saved
  * with only `primary` still renders, and an unusable palette returns undefined so
  * the caller keeps the theme's own card surface instead of a broken gradient.
  */
-export function worldGradient(
+export function worldGradientColours(
   palette: WorldSummaryResponse["palette"],
 ): [string, string] | undefined {
   const from = palette.primary;
   if (typeof from !== "string" || from.length === 0) return undefined;
-  const to = typeof palette.secondary === "string" && palette.secondary.length > 0
-    ? palette.secondary
-    : from;
+  const to = typeof palette.secondary === "string" ? palette.secondary : from;
   return [from, to];
 }
 ```
@@ -75,7 +73,7 @@ The waypoint — the name on its own plate, the mascot as the image:
 
 ```tsx
 export function WorldWaypoint({ world, onPress }: WorldWaypointProps) {
-  const gradient = worldGradient(world.palette);
+  const gradient = worldGradientColours(world.palette);
 
   return (
     <Pressable
@@ -114,7 +112,7 @@ Keep the greeting band's data (`avatar`, `firstName`) from `useActiveChild()` an
 
 ## Step-by-Step Plan
 
-1. Write `lib/localized-label.ts` (mirroring the web helper) and `lib/world-theme.ts` with its test (full palette, primary-only, empty, non-string). (~25 min)
+1. Write `lib/localized-label.ts` (wrapping `pickLocale`, as the web helper does). Lift `worldGradientColours` into `packages/types` with its test (full palette, primary-only, empty, non-string), re-point web's `worldGradientStyle` at it, and add `lib/world-theme.ts`. (~35 min)
 2. Write `lib/content-api.ts` (`listWorlds`) and `lib/rewards-api.ts` (`getRewardSummary`); check both against the dev server with a seeded child. (~25 min)
 3. Build `CounterPill` and `StreakBadge` (number + icon + label, zero-state invitation) with a test for the zero case. (~30 min)
 4. Build `WorldWaypoint`; test target size and the empty-palette fallback. (~30 min)
@@ -123,11 +121,11 @@ Keep the greeting band's data (`avatar`, `firstName`) from `useActiveChild()` an
 7. Add the switch-learner and anonymous parent-lock affordances with correct sizing and placement. (~15 min)
 8. Add mascot-image prefetch on mount. (~10 min)
 9. Device pass: TalkBack reads the greeting, counters, streak and every waypoint; no text below 20px; no target below 64px. (~25 min)
-10. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
+10. `pnpm lint && pnpm build && pnpm typecheck && pnpm test`; open the PR and confirm `gates` with `gh pr checks`; update the tracker. (~15 min)
 
 ## Acceptance Criteria
 
-- [ ] The home screen renders one waypoint per published world, themed from `palette` data — adding a world in the database requires no mobile code change.
+- [ ] The home screen renders one waypoint per published world, themed from `palette` data through the shared `worldGradientColours` — adding a world in the database requires no mobile code change, and web and mobile read a palette identically.
 - [ ] A world with a missing or malformed `palette` renders the theme's card surface, never a broken or invisible tile.
 - [ ] Stars, coins and streak come from `GET /api/me/rewards/summary`; nothing is computed on the client, and a zero streak reads as an invitation.
 - [ ] Portrait and landscape both work on a phone and a tablet, with no horizontal scroll except a deliberate waypoint carousel.
@@ -135,13 +133,13 @@ Keep the greeting band's data (`avatar`, `firstName`) from `useActiveChild()` an
 - [ ] All kid text is ≥20px and every target ≥64px, verified on a 360px-wide device.
 - [ ] Cold-start, offline, error-retry and no-content states all render kid-appropriately in EN and BN.
 - [ ] TalkBack announces the greeting, both counters, the streak and every waypoint.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm --filter mobile test` pass.
+- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, and `gates` is green.
 
 ## Out of Scope
 
 - The world detail and lesson list — M12.
 - Voice-over narration — M14 (keys are in place).
-- Screen-time lockout UI — M25. The home screen deliberately renders for a blocked child; the refusal belongs at content start.
+- Screen-time lockout UI and the `GET /api/screen-time/status` read — M25 (web's `useScreenTimeGate` + `ScreenTimeLock` are the reference).
 - Badges and character collections — M21.
 - Story library entry point — M22 adds it to this screen once it exists.
 - Animated world art or parallax. M21 owns delight; a home screen that animates on every visit gets tiresome and costs frame budget on low-end Android.

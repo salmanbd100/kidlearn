@@ -16,6 +16,7 @@ Verify the finished app against the accessibility and device rules the whole pla
 - Kid text is never below **20px** (design.md §3.3 / §6). Body text contrast ≥**4.5:1**, large text ≥**3:1** (§2.3). Meaning is never colour-alone.
 - design.md §6: mobile-first; phones and tablets are the **primary** devices; both orientations on every kid screen; the parent dashboard fully manageable on a phone; no horizontal scroll except intentional carousels.
 - NFR-PERF-01..03 target real devices, and the plan names a **low-end Android phone** as the realistic target — the highest-risk surfaces are M16–M18 (gestures), M21 (celebration) and M22 (long lists).
+- **In-app accessibility preferences are web-only at MVP.** Web's high-contrast, dyslexia-font and reduced-motion toggles (NFR-A11Y-03..05) live in `packages/ui/src/lib/a11y-prefs.ts`, stored in the browser's `localStorage` (`kidlearn_a11y`) — per device, never synced through the API, and `@kidlearn/ui` is web-only. Mobile relies on **OS settings** (M05 reads `AccessibilityInfo` for reduced motion), which leaves `document/mobile-app-plan.md` §17 open question 2 as it stands. This pass checks the OS equivalents and records the gaps; it does not build toggles.
 - Mobile-specific a11y mechanics with no web equivalent: OS **font scaling** (a parent may run 130% text and the app must not clip), the difference between `accessibilityLabel` / `accessibilityHint` / `accessibilityRole` / `accessibilityState`, `accessible` grouping so a card is one swipe rather than six, `accessibilityViewIsModal` for sheets, and the fact that a screen reader changes the *interaction model* for gestures (M16's and M18's tap fallbacks).
 
 ## Detailed Requirements
@@ -29,12 +30,13 @@ Verify the finished app against the accessibility and device rules the whole pla
    - the drag-drop and puzzle tap fallbacks (M16/M18) are reachable and complete a lesson end to end;
    - tracing (M17) announces its skip.
    Fix every failure; where a screen genuinely cannot be made screen-reader-operable, provide a way past it and record why.
-3. **Touch-target audit.** Measure, do not eyeball: add a temporary dev overlay (or use the OS layout-bounds tool on Android) that outlines every pressable and flags any under the threshold. Kid surfaces ≥64px, parent ≥44px, including the small "grown-ups" affordance, speaker buttons, page-turn controls, quiz options and every icon-only control.
+3. **Touch-target audit.** Measure, do not eyeball: add a temporary dev overlay (or use the OS layout-bounds tool on Android) that outlines every pressable and flags any under the threshold. Kid surfaces ≥64px, parent ≥44px, including the `ParentCorner` lock counterpart (the student→parent door; no PIN, D10), speaker buttons, page-turn controls, quiz options and every icon-only control.
 4. **Font scaling.** Set the OS text size to its largest supported value and walk the app. Kid screens must not clip or truncate their ≤4-word copy; parent screens may wrap but must not lose controls off-screen. Decide per component whether to allow scaling or cap it with `maxFontSizeMultiplier` — **cap rather than clip**, and never disable scaling outright on the parent surface, where an older reader may need it most.
 5. **Contrast audit.** Check every real composed pairing (not just the token table) against §2.3 with a contrast tool, including: kid text on world gradients, disabled states, chips on cards, the lock screen, and both themes. Fix by changing the composition, never by adding an off-token colour.
 6. **Colour-independence audit.** Screenshot every state-carrying screen in greyscale and confirm meaning survives: quiz correct/incorrect, matched pairs, locked worlds, read stories, progress states, dashboard chips.
 7. **Orientation and layout audit.** Every kid screen works in both orientations; no horizontal page scroll anywhere; safe areas clear notches and home indicators in both orientations; the keyboard does not cover the field being typed into on the child-name and sign-in screens; a 360px-wide phone shows the maximum-size activity, quiz and match layouts with targets intact.
 8. **Reduced motion audit.** Turn the OS setting on and walk every animated surface: activity feedback, quiz feedback, the reward celebration (M21's static summary), the world map auto-scroll, sheets, page turns. Every one must still convey what happened.
+8a. **NFR-A11Y-03..06 against OS settings.** With iOS *Increase Contrast* / Android *High contrast text* on, kid and parent screens stay legible (the app does not have to restyle, but nothing may become unreadable). Record NFR-A11Y-04 (dyslexia font) as an **accepted MVP gap** — no OS setting supplies it — and NFR-A11Y-06 (keyboard-only) as checked with a hardware keyboard on the tablet and iOS Full Keyboard Access / Android Switch Access on one parent flow. If the gaps are not acceptable for launch, that is the trigger to answer plan §17 question 2, not a fix inside this file.
 9. **Performance pass on the low-end Android device.** Measure rather than judge: run the profiler on the drag-drop activity, the tracing stroke, the reward celebration and a 60-story library scroll. Record frame drops and fix the worst offender in each. Note the numbers in the notes file so M29 has a baseline.
 10. **Cross-checks against the web app.** Spot-check that the two clients agree where they must: minute formatting, quiz retry limits, reward amounts for the same lesson, and grading of the same activity fixture. A divergence found here is a bug in one of the clients, and it is cheaper to find now than in a store review.
 11. **Deliverable: a written record.** `document/implementation-mobile/notes/a11y-device-pass.md` — the checklist with pass/fail per item per device, the fixes made, the measured performance numbers, and anything deliberately accepted with its reason. Store review (M30) and any future accessibility question both draw on this.
@@ -93,7 +95,7 @@ Use React Native's own performance monitor plus the profiler in Expo's dev tools
 5. Font-scaling pass at the largest OS setting; add `lib/font-scale.ts` and apply the policy where text clips. (~35 min)
 6. Contrast and greyscale audits with the OS filters; fix compositions. (~35 min)
 7. Orientation, safe-area and keyboard audit on all three devices. (~30 min)
-8. Reduced-motion pass across every animated surface. (~25 min)
+8. Reduced-motion pass across every animated surface, then the OS high-contrast and keyboard checks with their gaps recorded. (~35 min)
 9. Performance measurements on the low-end Android device for the four hot surfaces; fix the worst offender in each and record before/after numbers. (~45 min)
 10. Cross-check the four web/mobile agreement points. (~25 min)
 11. Write up the notes file, add regression tests for every fix, run `pnpm lint && pnpm typecheck && pnpm --filter mobile test`, commit, update the tracker. (~30 min)
@@ -109,6 +111,7 @@ Use React Native's own performance monitor plus the profiler in Expo's dev tools
 - [ ] In greyscale, every state-carrying screen remains unambiguous.
 - [ ] Every kid screen works in both orientations with safe areas clear; no horizontal page scroll exists anywhere; the keyboard never covers an active field.
 - [ ] With reduced motion on, every animated surface still communicates what happened.
+- [ ] The notes file records how each of NFR-A11Y-03..06 is met on mobile through OS settings, and names the dyslexia-font gap as an accepted MVP exception (no in-app toggles; web's `a11y-prefs.ts` is `localStorage` and web-only).
 - [ ] Frame-drop measurements exist for drag-drop, tracing, the reward celebration and a 60-item list on a **low-end Android device**, with the worst offender in each fixed and the numbers recorded.
 - [ ] Minute formatting, quiz retry limits, reward amounts and activity grading agree between the mobile and web clients.
 - [ ] `document/implementation-mobile/notes/a11y-device-pass.md` records every check per device, every fix, and every accepted exception with its reason.
@@ -121,4 +124,5 @@ Use React Native's own performance monitor plus the profiler in Expo's dev tools
 - Bundle size, caching, crash reporting and error boundaries — M29.
 - Store assets and policy declarations — M30.
 - A formal third-party accessibility certification. Out of scope for MVP; the notes file is the evidence trail if one is ever commissioned.
+- Porting web's in-app accessibility toggles — an open product question (plan §17), not an audit fix.
 - Automated a11y linting in CI. Worth doing later; this file is a human pass, and the regression tests it leaves are the durable part.

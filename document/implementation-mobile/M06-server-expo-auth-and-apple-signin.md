@@ -2,167 +2,184 @@
 
 > **Estimated effort:** 3–4 hours
 > **Depends on:** M04
-> **Requirement IDs:** FR-AUTH-02, FR-AUTH-06, App Store Review Guideline 4.8, NFR-SAFE-02
+> **Requirement IDs:** FR-AUTH-02, FR-AUTH-06, FR-AUTH-07, App Store Review Guideline 4.8, NFR-SAFE-02
 > **Status tracking:** update `M00-progress-tracker.md` when starting/finishing
 
 ## Goal
 
-Make `apps/server` able to authenticate a native client without forking the session model: register better-auth's `expo` plugin, trust the `kidlearn://` scheme, replace the hardcoded web callback in `GET /api/auth/google` with a **server-side whitelist** of per-client destinations, and add Sign in with Apple — which App Store Review Guideline 4.8 makes mandatory, not optional, because Google is currently the only sign-in method. This is the **only** file in the mobile plan that changes `apps/server`.
+Make `apps/server` able to authenticate a native client without forking the session model or weakening
+anything the web relies on: register better-auth's `expo` plugin, trust the `kidlearn://` scheme, and add
+Sign in with Apple — which App Store Review Guideline 4.8 makes mandatory because Google is otherwise the only
+parent sign-in. This is the **only** file in the mobile plan that changes `apps/server`.
+
+What this file deliberately does **not** do: add a `?client=` parameter or a callback whitelist to
+`GET /api/auth/google`, enable account linking, or touch admin sign-in. The reasons are below.
 
 ## Context & Current State
 
-- `apps/server/src/config/auth.ts` is the single better-auth instance. Today: `prismaAdapter`, `baseURL: env.BETTER_AUTH_URL`, `trustedOrigins: [env.WEB_ORIGIN]`, `socialProviders: { google }`, `emailAndPassword: { enabled: true, disableSignUp: true }` (the admin CMS credential surface only — no parent uses a password), a 30-day session with `updateAge` of one day, and one `additionalFields` entry on the session — `activeChildProfileId`, `input: false` so only `POST /api/children/:id/activate` can write it. **No `expo()` plugin, no Apple provider and no mobile callback exist yet — all of this file is still to do.**
-- `advanced.defaultCookieAttributes` pins `httpOnly`, `sameSite: "lax"`, `secure` in production.
-- `apps/server/src/modules/auth/auth.routes.ts` mounts before `express.json()` and before better-auth's wildcard handler (order is load-bearing and documented in that file). It owns two routes:
-  - `GET /api/auth/google` — a GET wrapper over better-auth's POST-only `signInSocial`, existing so the web sign-in button can be a plain anchor. It **hardcodes** `callbackURL: ${env.WEB_ORIGIN}${env.PARENT_POST_LOGIN_PATH}` and forwards better-auth's OAuth `state` cookie before redirecting.
-  - `GET /api/auth/me` — `requireParent`, returns `{ parent, activeChildProfileId }` (`AuthMeSchema` in `packages/types/src/api/auth.ts`; `parent.consentGivenAt` is how a client learns whether consent is recorded). Also the endpoint that lazily provisions the `Parent` row on a new parent's first request.
-- `apps/server/src/app.ts` sits behind a Caddy reverse proxy in production (`trust proxy` = 1), allows exactly one CORS origin with credentials (`env.WEB_ORIGIN`). Native requests carry no browser `Origin`, so CORS needs no change — do not widen it.
-- `document/database-design.md` §5: better-auth owns `User`/`Session`/`Account`/`Verification`; kidlearn owns `Parent` (linked by `Parent.userId → User.id`), provisioned lazily by `requireParent`.
-- `apps/server/src/openapi/paths/auth.ts` registers `/api/auth/google`, `/api/auth/me`, `/api/auth/callback/google`, `/api/auth/sign-in/social`, `/api/auth/sign-in/email` (admin), `/api/auth/get-session` and `/api/auth/sign-out`. `src/openapi/coverage.test.ts` walks the live routers and fails if a route is unregistered — so any route added here must be registered in the same change (`standards/backend.md §7`).
-- **Why Apple sign-in is in scope:** guideline 4.8 requires Sign in with Apple wherever a third-party or social login is the only option. KidLearn is a consumer app with no education/enterprise account system, so no exemption applies. Discovering this at review costs a full submission cycle.
+- `apps/server/src/config/auth.ts` is the single better-auth instance (`better-auth` `^1.7.7`). Today:
+  `prismaAdapter`, `baseURL: env.BETTER_AUTH_URL`, `trustedOrigins: [env.WEB_ORIGIN]`, `socialProviders: { google }`,
+  **no `plugins` array**, and `emailAndPassword: { enabled: true, disableSignUp: true }` with a 12-character minimum —
+  the admin CMS credential surface only.
+  - Parent sessions: 30 days, sliding (`updateAge` one day). **Admin sessions** are capped at 12 hours from creation
+    by `databaseHooks.session.create/update` (`ADMIN_SESSION_MAX_AGE_MS`), applied to users with a `credential` account.
+  - `account.accountLinking.enabled: false` — **deliberately**, so a Google sign-in on the seeded admin's address cannot
+    inherit the admin user (commit `f8a8bdf`). This file keeps it off.
+  - `session.additionalFields.activeChildProfileId` is `input: false`; only `POST /api/children/:id/activate` writes it.
+  - `advanced.defaultCookieAttributes`: `httpOnly`, `sameSite: "lax"`, `secure` in production.
+- `apps/server/src/modules/auth/auth.routes.ts` mounts before `express.json()` and before better-auth's wildcard
+  handler (order is load-bearing). Its `GET /api/auth/google` is a **web convenience** — a GET wrapper so the
+  homepage sign-in dialog can be a plain anchor — and hardcodes `callbackURL: WEB_ORIGIN + PARENT_POST_LOGIN_PATH`.
+  `GET /api/auth/me` (`requireParent`) returns `{ parent, activeChildProfileId }` (`AuthMeResponseSchema`,
+  `packages/types/src/api/auth.ts`) and lazily provisions the `Parent` row.
+- `requireParent` (`apps/server/src/modules/parent/require-parent.middleware.ts`) calls `findOrCreateParentForUser`
+  (`parent.service.ts`), which — only when no `Parent` row exists yet — refuses an admin user (`403` "Admin accounts
+  cannot access the parent dashboard") and any user without a `google` account (`403` "This account did not sign in with
+  Google…"). **Adding Apple makes the Google-only check wrong** — it must accept a `google` or `apple` account.
+- `apps/server/src/shared/middleware/security.ts` — `rejectCrossOriginWrites([WEB_ORIGIN, BETTER_AUTH_URL])` exempts
+  `/api/auth/*` (better-auth's own `trustedOrigins` check governs it) and passes requests with **no** `Origin`, which is
+  what React Native's `fetch` sends. CORS allows exactly `WEB_ORIGIN`; native requests are not browser CORS requests,
+  so it needs no change — do not widen it.
+- **How native sign-in actually works** (better-auth Expo integration): the app's `expoClient` calls
+  `POST /api/auth/sign-in/social` directly with a relative `callbackURL` (e.g. `/parent`), which the client turns into
+  `kidlearn://parent`. The server `expo()` plugin (1) copies the `expo-origin` header into `origin` so the scheme passes
+  `trustedOrigins`, (2) injects the session cookie into the custom-scheme redirect after `/callback/*`, and
+  (3) adds `GET /api/auth/expo-authorization-proxy`. In `NODE_ENV=development` it also trusts `exp://` automatically.
+  So the native client never uses the GET wrapper, and the server never has to choose a callback per client.
+- `apps/server/src/openapi/paths/auth.ts` registers the auth surface; `src/openapi/coverage.test.ts` fails on any
+  unregistered route walked from the live routers (`standards/backend.md §7`).
+- **Why Apple sign-in is in scope:** guideline 4.8 requires an Apple option wherever a third-party login is the only one.
+  KidLearn is a consumer app, so no exemption applies; finding this at review costs a full submission cycle.
 
 ## Detailed Requirements
 
-1. **Expo plugin.** `apps/server/src/config/auth.ts` adds `plugins: [expo()]` from `@better-auth/expo`, and `trustedOrigins` becomes `[env.WEB_ORIGIN, MOBILE_SCHEME]` where `MOBILE_SCHEME` is `"kidlearn://"`. Keep the scheme in `config/env.ts` as `MOBILE_APP_SCHEME` with a default, so a rename is one edit and the value is visible in the env matrix.
-2. **Whitelisted post-login destinations.** `GET /api/auth/google` accepts an optional `client` query parameter validated by a Zod enum (`"web" | "mobile"`, default `"web"`). The route maps it to a callback URL from a server-side record — never from the request:
-   - `web` → `${env.WEB_ORIGIN}${env.PARENT_POST_LOGIN_PATH}` (unchanged behaviour)
-   - `mobile` → `${env.MOBILE_APP_SCHEME}${env.MOBILE_POST_LOGIN_PATH}` (e.g. `kidlearn://parent`)
-   An unknown `client` value is a `400 VALIDATION_FAILED`, not a fallback. **Never accept a raw `callbackURL` from a client** — that is an open redirect, and on an OAuth callback it is a session-handoff vulnerability.
-3. **Apple provider.** `socialProviders.apple` configured with `clientId` (the Services ID), `clientSecret` (the generated JWT) and `appBundleIdentifier` for native verification, all from new required-in-production env vars. A matching `GET /api/auth/apple` wrapper mirrors the Google one, including forwarding better-auth's `state` cookie headers before the redirect.
-4. **Identity linking decision, written down.** When the same person signs in with Google on web and Apple on mobile, they must land on **one** `Parent`. Enable better-auth's account linking for trusted providers so a verified-email match links the new `Account` to the existing `User`. Apple's private-relay addresses are a distinct verified email and will **not** match — so document the outcome plainly in a comment in `config/auth.ts`: a parent who chooses "Hide My Email" gets a separate account, and the recovery path is signing in with the original provider. Do not attempt name-based matching.
-5. **Env additions.** `config/env.ts` gains `MOBILE_APP_SCHEME` (default `kidlearn://`), `MOBILE_POST_LOGIN_PATH` (default `parent`), `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER`. Follow the existing pattern: Zod-parsed, the server refuses to boot on an incomplete configuration, and the Apple vars are required only when `NODE_ENV === "production"` so local development is not blocked on Apple credentials.
-6. **Cookie attributes stay as they are.** The Expo plugin handles the native cookie exchange; `httpOnly`/`sameSite: "lax"`/`secure` remain pinned for the browser. Do not loosen anything for mobile's benefit.
-7. **Consent and active-child semantics unchanged.** `requireParent`, `requireConsent`, `requireActiveChild` and `loadOwnedChild` are untouched. The mobile client is a new front door to the same house.
-8. **OpenAPI in the same change.** Register `GET /api/auth/apple` and the `client` parameter on `GET /api/auth/google` in `src/openapi/paths/auth.ts`, plus `/api/auth/callback/apple`. `pnpm --filter server test` must pass, which includes `coverage.test.ts`.
-9. **Tests** (`src/modules/auth/auth.routes.test.ts`, extending the existing file):
-   - `GET /api/auth/google` with no `client` redirects to Google with the **web** callback (regression guard on existing behaviour).
-   - `GET /api/auth/google?client=mobile` produces the `kidlearn://` callback.
-   - `GET /api/auth/google?client=evil` → 400 with `VALIDATION_FAILED`.
-   - A request supplying its own `callbackURL` query parameter has it **ignored** (assert the outgoing callback is still the whitelisted one).
-   - `GET /api/auth/apple` forwards the `state` cookie and redirects (mock `auth.api.signInSocial` as the Google test does).
-   - `trustedOrigins` contains the mobile scheme (a direct assertion on the config, cheap and it catches a rename).
-10. **Provider setup, documented.** A short note in the file's own commit message and in `document/deployment-walkthrough.md` (the provider-console checklist) recording: the Google OAuth console needs no new redirect URI for mobile (the callback still lands on the server origin, then redirects to the scheme), and Apple needs a Services ID, a private key, a domain association and the bundle ID `net.kidlearn.app`. Web file 38 (deployment) is not provisioned yet; whoever runs it needs both lists.
+1. **Expo plugin.** `config/auth.ts` gains `plugins: [expo()]` from `@better-auth/expo`, and `trustedOrigins`
+   becomes `[env.WEB_ORIGIN, env.MOBILE_APP_SCHEME]`. `MOBILE_APP_SCHEME` lives in `config/env.ts` with the default
+   `kidlearn://`, so a rename is one edit and the value appears in the env matrix.
+2. **The web wrapper is untouched.** `GET /api/auth/google` keeps its hardcoded web callback and reads no query
+   parameters. A regression test asserts that a caller-supplied `callbackURL` or `client` query parameter is ignored —
+   the wrapper must never become an open redirect for a freshly minted session.
+3. **Apple provider.** `socialProviders.apple` with `clientId` (the Services ID), `clientSecret` (the generated JWT)
+   and `appBundleIdentifier` (`net.kidlearn.app`) so iOS native `idToken` sign-in verifies. The Apple values are
+   optional in development and required in production — the provider is registered only when they are present, and
+   the server refuses to boot in production without them. No web Apple button is added in this file.
+4. **Account linking stays off.** Write the consequence in a comment in `config/auth.ts` next to the existing linking
+   comment: a parent who signed in with Google and later chooses Apple with the **same** email is refused with
+   better-auth's `account_not_linked` error (M07 turns it into "use the provider you signed up with"); an Apple
+   "Hide My Email" relay address is a different email and yields a separate parent. Guarded linking is an open question
+   in `mobile-app-plan.md` §17, not this file.
+5. **`findOrCreateParentForUser` recognises Apple.** The provisioning check accepts a user with a `google` **or** `apple` account and
+   still refuses an admin user. Tests: an Apple-only user is provisioned as a `Parent`; an admin user is still refused
+   with the same 403; a `credential`-only user is refused.
+6. **Admin stays web-only.** Nothing here makes password sign-in reachable from the app: the native client never calls
+   `/api/auth/sign-in/email`, and no mobile-specific admin route exists. The 12-hour admin cap and session revocation on
+   rotation are untouched.
+7. **Cookies, consent and active child unchanged.** `httpOnly`/`sameSite: "lax"`/`secure` stay pinned; `requireConsent`,
+   `requireActiveChild`, `loadOwnedChild` and `activeChildProfileId`'s `input: false` are untouched. Sign-out
+   (`POST /api/auth/sign-out`) still revokes the session row, which ends the active child (FR-AUTH-07).
+8. **OpenAPI in the same change.** Register `GET /api/auth/expo-authorization-proxy` and `/api/auth/callback/apple` in
+   `src/openapi/paths/auth.ts`, and document `apple` as an accepted `provider` on `/api/auth/sign-in/social`.
+   `pnpm --filter server test` must pass, including `coverage.test.ts` and `document.test.ts`.
+9. **Tests** (`auth.routes.test.ts`, `require-parent.middleware.test.ts`, and a config assertion):
+   - `GET /api/auth/google` still redirects with the web callback; `?callbackURL=https://evil.example` and
+     `?client=mobile` are ignored (asserted on the outgoing callback).
+   - `trustedOrigins` contains `WEB_ORIGIN` and `MOBILE_APP_SCHEME` and nothing else in production.
+   - `account.accountLinking.enabled` is `false` (a regression guard on the admin-inheritance fix).
+   - The provisioning cases in requirement 5 (`parent.service` / `require-parent.middleware.test.ts`).
+   - A Supertest request with **no** `Origin` header to a state-changing parent route (e.g. `POST /api/children/:id/activate`)
+     is not refused by `rejectCrossOriginWrites` — the guarantee every native write depends on.
+10. **Provider setup, documented.** Add to `document/deployment-walkthrough.md` (the provider-console checklist used by
+    web file 38 · provisioning): the Google OAuth client needs **no** new redirect URI for mobile (the callback still lands
+    on `https://api.kidlearn.net/api/auth/callback/google`); Apple needs a Services ID, a signing key, the return URL
+    `https://api.kidlearn.net/api/auth/callback/apple`, domain verification and the bundle ID `net.kidlearn.app`; and the
+    new SSM parameters `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER` for both environments.
+    Note that Apple's client secret JWT expires (at most six months) — add its rotation to `document/runbook.md`.
 
 ## Technical Approach & Suggestions
 
 **Files:**
 
 ```
-apps/server/src/config/auth.ts                # + expo() plugin, apple provider, trustedOrigins, linking comment
-apps/server/src/config/env.ts                 # + MOBILE_APP_SCHEME, MOBILE_POST_LOGIN_PATH, APPLE_*
-apps/server/src/modules/auth/auth.routes.ts             # client whitelist + /apple wrapper
-apps/server/src/modules/auth/auth.routes.test.ts        # the six cases above
-apps/server/src/openapi/paths/auth.ts      # /api/auth/apple, /api/auth/callback/apple, client param
+apps/server/src/config/auth.ts                               # + expo() plugin, apple provider, trustedOrigins, linking comment
+apps/server/src/config/env.ts                                # + MOBILE_APP_SCHEME, APPLE_* (production-required)
+apps/server/src/modules/parent/parent.service.ts             # google OR apple account counts as a parent
+apps/server/src/modules/auth/auth.routes.test.ts             # wrapper-ignores-query regression
+apps/server/src/openapi/paths/auth.ts                        # expo-authorization-proxy, callback/apple, provider enum
+document/deployment-walkthrough.md, document/runbook.md      # provider checklist, Apple secret rotation
 ```
 
-The whitelist — the security-relevant part of this file, kept in one place:
-
 ```ts
-// apps/server/src/modules/auth/auth.routes.ts
-const SignInQuerySchema = z.object({
-  client: z.enum(["web", "mobile"]).default("web"),
-});
-
-/**
- * Post-login destinations are chosen here, never supplied by the caller. A
- * client-supplied `callbackURL` on an OAuth start is an open redirect, and the
- * thing being redirected is a freshly minted session.
- */
-function callbackFor(client: "web" | "mobile"): string {
-  return client === "mobile"
-    ? `${env.MOBILE_APP_SCHEME}${env.MOBILE_POST_LOGIN_PATH}`
-    : `${env.WEB_ORIGIN}${env.PARENT_POST_LOGIN_PATH}`;
-}
-
-function socialStart(provider: "google" | "apple") {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { client } = validatedQuery<z.infer<typeof SignInQuerySchema>>(res);
-
-      const { headers, response } = await auth.api.signInSocial({
-        body: { provider, callbackURL: callbackFor(client) },
-        returnHeaders: true,
-      });
-
-      // better-auth sets an OAuth `state` cookie here and verifies it on the
-      // callback; dropping it fails every sign-in on the state check.
-      for (const cookie of headers.getSetCookie()) res.append("set-cookie", cookie);
-
-      if (!response?.url) throw new Error(`better-auth returned no ${provider} authorization URL`);
-      res.redirect(302, response.url);
-    } catch (error) {
-      next(error);
-    }
-  };
-}
-
-authRouter.get("/google", validate({ query: SignInQuerySchema }), socialStart("google"));
-authRouter.get("/apple", validate({ query: SignInQuerySchema }), socialStart("apple"));
-```
-
-Prefer `validate({ query: SignInQuerySchema })` from `src/shared/middleware/validate.ts` (read the result with `validatedQuery<z.infer<typeof SignInQuerySchema>>(res)`) over a hand-rolled `safeParse` — it already produces the 400 envelope with `VALIDATION_FAILED`.
-
-**auth.ts additions:**
-
-```ts
+// apps/server/src/config/auth.ts (shape only — keep the existing options)
 import { expo } from "@better-auth/expo";
 
+const apple =
+  env.APPLE_CLIENT_ID && env.APPLE_CLIENT_SECRET && env.APPLE_APP_BUNDLE_IDENTIFIER
+    ? {
+        clientId: env.APPLE_CLIENT_ID,
+        clientSecret: env.APPLE_CLIENT_SECRET,
+        appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
+      }
+    : undefined;
+
 export const auth = betterAuth({
-  // …unchanged config…
+  // …unchanged…
   plugins: [expo()],
   trustedOrigins: [env.WEB_ORIGIN, env.MOBILE_APP_SCHEME],
   socialProviders: {
     google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET },
-    // Required by App Store Review Guideline 4.8: Google is otherwise the only
-    // sign-in method, and no 4.8 exemption applies to a consumer app.
-    apple: {
-      clientId: env.APPLE_CLIENT_ID,
-      clientSecret: env.APPLE_CLIENT_SECRET,
-      appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
-    },
+    // App Store Review Guideline 4.8: Google is otherwise the only parent sign-in.
+    ...(apple && { apple }),
   },
   account: {
-    accountLinking: {
-      enabled: true,
-      // Verified-email match only. A parent using Apple's private relay gets a
-      // separate Parent row — their recovery path is the original provider.
-      trustedProviders: ["google", "apple"],
-    },
+    // Off so a social sign-in on the admin's address cannot inherit the admin user. With Apple added,
+    // the same email arriving through a second provider is refused (account_not_linked), and a
+    // Hide-My-Email relay address becomes a separate parent.
+    accountLinking: { enabled: false },
   },
 });
 ```
 
-Note the interaction with `apps/server/src/app.ts`: `authRouter` is mounted **before** `express.json()`, and neither new route reads a body, so nothing about the middleware order changes. Keep it that way — moving `authRouter` after the JSON parser breaks better-auth's raw-stream handler.
+`env.ts`: the Apple trio is optional in the base schema; the existing production `superRefine` (the one that refuses
+localhost origins) gains a check that names any missing Apple variable, so production fails at boot rather than at
+the first Apple sign-in.
+
+`authRouter` is mounted before `express.json()` and nothing here reads a body, so mount order does not change. The
+plugin's routes live inside better-auth's wildcard handler, after `authRouter`.
 
 ## Step-by-Step Plan
 
-1. Install `@better-auth/expo` in `apps/server`; add the five env vars to `config/env.ts` with the production-only conditions (a Zod schema with a production `superRefine`), and update any env template that lists the server's variables. (~25 min)
-2. Write the failing tests first: default-web callback, `client=mobile`, `client=evil` → 400, ignored caller-supplied `callbackURL`, and the `trustedOrigins` assertion. (~40 min)
-3. Refactor `GET /api/auth/google` into the shared `socialStart` factory with `callbackFor`; make the tests green with no change to existing web behaviour. (~30 min)
-4. Add `plugins: [expo()]` and the mobile scheme to `trustedOrigins`; run the full server suite to confirm the plugin has not altered any existing response. (~20 min)
-5. Add the Apple provider, the `GET /api/auth/apple` route and its test; add the account-linking block with the private-relay comment. (~35 min)
-6. Register `/api/auth/apple`, `/api/auth/callback/apple` and the `client` parameter in `src/openapi/paths/auth.ts`; run `pnpm --filter server test` until `coverage.test.ts` passes. (~30 min)
-7. Manual check with the dev server running: `curl -i "http://localhost:4000/api/auth/google?client=mobile"` and confirm the `Location` header's `redirect_uri`/state round-trip, and that the eventual callback target is the `kidlearn://` URL. (~15 min)
-8. Write the provider-setup note (Google console: nothing new; Apple: Services ID, key, bundle ID) into `document/deployment-walkthrough.md`. (~15 min)
-9. `pnpm lint && pnpm typecheck && pnpm --filter server test`; commit; update the tracker. (~15 min)
+1. Install `@better-auth/expo` in `apps/server` at the version matching `better-auth`; add `MOBILE_APP_SCHEME` and
+   the Apple trio to `config/env.ts`, plus `.env.example`. (~25 min)
+2. Failing tests first: wrapper ignores `callbackURL`/`client`, `trustedOrigins` contents, linking off, the no-`Origin`
+   write, and the three provisioning cases. (~40 min)
+3. Add `plugins: [expo()]` and the scheme; run the full server suite to prove the plugin changes no existing response. (~20 min)
+4. Add the Apple provider and the provisioning change; green the tests. (~35 min)
+5. Register the new paths in `src/openapi/paths/auth.ts`; run `pnpm --filter server test` until `coverage.test.ts` and
+   `document.test.ts` pass. (~30 min)
+6. Manual check against the dev server: sign in on the web homepage dialog end to end (unchanged), then
+   `curl -i -X POST http://localhost:4000/api/auth/sign-in/social -H 'content-type: application/json' -H 'expo-origin: kidlearn://' -d '{"provider":"google","callbackURL":"/parent"}'`
+   and confirm a Google authorisation URL comes back rather than an untrusted-origin error. (~15 min)
+7. Provider checklist and the Apple secret rotation note in the deployment docs. (~15 min)
+8. `pnpm lint && pnpm typecheck && pnpm --filter server test`; open the PR; `gates` green (`gh pr checks`); update the tracker. (~15 min)
 
 ## Acceptance Criteria
 
-- [ ] `GET /api/auth/google` with no query parameter behaves exactly as before — the web sign-in flow is unchanged end to end (verified in the browser, not only in tests).
-- [ ] `GET /api/auth/google?client=mobile` and `GET /api/auth/apple?client=mobile` produce the `kidlearn://` callback; `client=evil` returns 400 `VALIDATION_FAILED`.
-- [ ] A caller-supplied `callbackURL` query parameter is ignored — asserted in a test.
-- [ ] `trustedOrigins` includes both `WEB_ORIGIN` and `MOBILE_APP_SCHEME`; CORS still allows exactly one browser origin.
-- [ ] Session cookie attributes (`httpOnly`, `sameSite: "lax"`, `secure` in production) are unchanged.
-- [ ] `activeChildProfileId` remains `input: false` and writable only by `POST /api/children/:id/activate`.
-- [ ] Account linking is enabled for verified-email matches, and the private-relay consequence is documented in a comment in `config/auth.ts`.
-- [ ] Every new route is registered in `src/openapi/paths/auth.ts`; `pnpm --filter server test` passes including `coverage.test.ts`.
-- [ ] The server still refuses to boot on incomplete configuration, and Apple vars are required only in production.
-- [ ] `pnpm lint` and `pnpm typecheck` pass at the repo root.
+- [ ] The web sign-in flow is unchanged end to end, verified in a browser, not only in tests.
+- [ ] `GET /api/auth/google` ignores every query parameter — asserted in a test.
+- [ ] `POST /api/auth/sign-in/social` accepts `expo-origin: kidlearn://` and rejects an unlisted scheme.
+- [ ] `trustedOrigins` is exactly `WEB_ORIGIN` + `MOBILE_APP_SCHEME` in production; CORS still allows one browser origin.
+- [ ] `accountLinking.enabled` is `false`, with the Apple consequence written beside it.
+- [ ] `findOrCreateParentForUser` provisions an Apple-only user as a parent and still refuses an admin user.
+- [ ] A state-changing parent request with no `Origin` header passes `rejectCrossOriginWrites`.
+- [ ] Session cookie attributes, the admin 12-hour cap and `activeChildProfileId`'s `input: false` are unchanged.
+- [ ] Every new route is in the OpenAPI document; `pnpm --filter server test` passes.
+- [ ] The server boots in development without Apple credentials and refuses to boot in production without them.
+- [ ] `pnpm lint` and `pnpm typecheck` pass, and `gates` is green on the PR.
 
 ## Out of Scope
 
-- Any mobile-side code — M07 consumes what this file exposes.
-- Email/password sign-in for parents. `emailAndPassword` is enabled only for the admin CMS (`disableSignUp: true`); a parent never uses it.
-- Apple credential *creation* (Services ID, key, domain association). That needs the paid Apple account and belongs to M30/M31; this file only reads the values from env, and local development works without them.
-- Widening CORS or adding a mobile-specific API surface. There is one API.
-- Migrating the session model to JWTs. The cookie session is the source of truth for the active child; a parallel token system would create a second one.
+- Any mobile code — M07 consumes this.
+- A web "Sign in with Apple" button. Guideline 4.8 is about the iOS app; adding it to web is a separate product decision.
+- Account linking across providers — open question (§17 of the plan), because it reopens the admin-inheritance hole.
+- Apple credential *creation* — needs the paid Apple account; done during web 38 · provisioning / M31.
+- Widening CORS, a bearer/JWT session, or any mobile-only API surface. There is one API and one session model.

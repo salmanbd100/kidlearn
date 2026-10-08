@@ -7,157 +7,103 @@
 
 ## Goal
 
-Port letter and number tracing to native: the glyph outline and guide dots rendered with `react-native-svg`, the child's finger tracked by a pan gesture, progress judged against the same SVG path maths the web app uses — because `svg-path-properties` is pure JavaScript and crosses to React Native unchanged. Only the rendering and the touch capture are new.
+Port letter and number tracing to native: the glyph outline, direction arrows and the child's ink rendered with `react-native-svg`, the child's finger tracked by a pan gesture, progress judged by the same coverage maths the web app uses — because it is pure JavaScript (`svg-path-properties` plus two small modules) and crosses to React Native unchanged. Only the rendering and the touch capture are new.
 
 ## Context & Current State
 
-- `TraceActivitySchema` (`packages/types/src/activity/schemas.ts`) carries: `schemaVersion: 1`, `type: "trace"`, `instructionAudio`, `glyph` (the character being traced — "A", "৩", …), `pathData` (the SVG path the finger follows) and `guideDots` (waypoints the renderer snaps to, **in trace order**).
-- `apps/web/features/activities/TraceActivity.tsx` and `apps/web/features/activities/trace/` are the reference. `svg-path-properties` is already a dependency of `apps/web` and is **platform-free** — the same package computes point-at-length and total length on native. Read the web implementation's tolerance and progress rules and reuse them; a letter that is easy to trace in the browser and hard on a phone is a bug, not a platform difference.
-- M16 gives the renderer contract (`{ definition, onFinished, onWrongAttempt }`), the engine that speaks the instruction and celebrates, the pure grader module, and the registry this file adds an entry to.
-- `react-native-svg` is needed for the glyph outline, the guide dots and the child's drawn stroke. It must be added to the M01 `transformIgnorePatterns` list if it is not already covered.
-- design.md §7: ≥64px targets. A tracing surface is not a button, but the **guide dots** are effectively targets and must be generously sized (≥48px hit area even if drawn smaller), and the glyph must be large — a full-width canvas on a phone.
-- Reduced motion (M05) applies to the completion animation, not to the stroke following the finger, which is direct manipulation rather than decoration.
+- `TraceActivitySchema` (`packages/types/src/activity/schemas.ts`) carries: `schemaVersion: 1`, `type: "trace"`, `instructionAudio`, `glyph` (the character being traced — "A", "৩", …), `pathData` (the SVG path; one subpath per `M`), `guideDots` (≥2 waypoints, in trace order), and two optional fields: **`strokeOrder`** (the order the subpaths are traced; ignored unless it is a permutation of the subpath indices) and **`tolerance`** (max finger stray, in a **reference 0–100 glyph space** the renderer scales; `≤ 50`).
+- `apps/web/features/activities/TraceActivity.tsx` and `apps/web/features/activities/trace/` are the reference. The rules to carry over exactly:
+  - `trace/geometry.ts`: `splitStrokes(pathData, strokeOrder)` → one path per stroke; `samplePath(d, n)` via `svg-path-properties` (`SAMPLES_PER_STROKE = 40` in `use-trace-state.ts`); `glyphFrameOf(points)` derives the `viewBox` from the sampled points (`REFERENCE_EXTENT = 100`, padded) and a `unit`; `toPathUnits(length, frame)` converts reference units into path units; `arrowsAlong` places the direction arrows.
+  - `trace/coverage.ts`: per-stroke coverage over the sampled points, matching only a window around the frontier (`JITTER_BEHIND = 2` behind, `LOOK_AHEAD = 5` ahead) so a finger cannot jump to the end; `DEFAULT_TOLERANCE = 12` reference units; a stroke is complete at `COMPLETE_RATIO = 0.9` of its points covered. Strokes are traced in order; finishing one calls `feedback.success` and starts the next.
+  - **Forgiveness:** coverage survives a lift, so the child resumes where they were. The only "try again" is a lift with **nothing** covered on the current stroke → `feedback.retry()` once. Leaving the path is never an error.
+  - **Keyboard path:** the board is a `role="application"` surface; Space, Enter or → (`traceAhead`) advance the frontier by `KEYBOARD_STEP = 4` points, so a screen-reader or switch user can complete it. A path that yields no strokes renders `ActivityUnavailable` and is logged.
+  - The web renderer does **not** read `guideDots`: it shows a start dot plus `ARROW_COUNT = 3` arrows along the current stroke. Mobile matches web.
+- `coverage.ts` has no dependencies and `geometry.ts` depends only on `svg-path-properties` — both platform-free. Per D6, **lift them** rather than copy: `packages/types/src/activity/trace/` (adding `svg-path-properties` as a `@kidlearn/types` dependency, no React), with web re-pointed. If adding a runtime dependency to `@kidlearn/types` is unwelcome, lift `coverage.ts` only and record why `geometry.ts` was ported.
+- M16 gives the renderer contract (`{ definition, locale, feedback: { success, retry }, onActivityComplete }`), the engine that speaks the instruction and celebrates, the lifted grader, and the registry this file adds a `case` to.
+- `react-native-svg` is needed for the outline, the arrows and the child's ink. It must be added to the M01 `transformIgnorePatterns` list if it is not already covered.
+- design.md §7: the glyph must be large — a full-width canvas on a phone; the start dot is drawn at least `MIN_START_DOT_RADIUS` and never smaller than the tolerance.
+- Reduced motion (M05) applies to the completion animation, not to the ink following the finger, which is direct manipulation rather than decoration.
 
 ## Detailed Requirements
 
-1. **Renderer** `components/activities/TraceActivity.tsx`, registered in M16's registry under `trace`. Implements the game only: the engine still owns instruction audio, feedback sounds and the celebration.
-2. **Canvas layout.** A square-ish `Svg` sized to the available width (with safe-area and shell padding accounted for), with an internal `viewBox` matching the coordinate space `pathData` was authored in. Scale the path by transforming the SVG's `viewBox`, **never** by rewriting the path string — the maths depends on the original coordinates.
-3. **Three layers, drawn in order:** the glyph outline (a wide, pale stroke of `pathData` — the "road"), the guide dots (numbered/ordered waypoints), and the child's stroke (the line their finger leaves). Add a subtle start marker on the first guide dot so a pre-reader knows where to begin.
-4. **Progress model.** Use `svg-path-properties` to precompute the path's total length and a sampled list of points. The child's finger position is matched to the **next expected** point within a tolerance; matching advances progress. Because `guideDots` are ordered, progress is strictly forward: a child who jumps to the end has not traced the letter.
-5. **Tolerance, chosen for fingers.** The web app's tolerance was set for a mouse and a large screen. On a phone, a fingertip covers a much larger area, so the tolerance must be expressed in **screen** units (dp) and converted into path coordinates using the current scale, not hardcoded in path units. Start from the web value converted at the phone scale, then confirm on a real device with a real child-sized touch — this is a tuning step, and the file is not done until it feels right on hardware.
-6. **Forgiveness, not failure.** Leaving the path does not fail the attempt: the stroke stops extending, `onWrongAttempt` is called (rate-limited so it cannot fire dozens of times per second), and the child can return to where they were. There is no "wrong" ending to a trace, only "not finished yet" — which is why this activity has no incorrect-completion state.
-7. **Completion.** When progress reaches the configured threshold (the web app's rule — do not invent a different one) `onFinished()` is called. Show the completed glyph filled in solidly for a beat before the engine's celebration takes over.
-8. **Restart.** A ≥64px "try again" control clears the child's stroke and resets progress without leaving the step. Tracing is a motor-skill exercise; repeating it is the point.
-9. **Multi-stroke glyphs.** A single `pathData` may describe a letter needing more than one stroke (e.g. a crossed "t" or several Bangla glyphs) via subpaths. If the path has multiple subpaths, treat each as a segment completed in order, with the finger lifting between them allowed and expected. A finger lift **within** a subpath pauses rather than resets.
-10. **Both orientations and tablets.** The canvas grows with the screen but keeps its aspect ratio; on a tablet in landscape it is centred rather than stretched. Re-derive the scale on layout change and re-run the tolerance conversion — a rotation mid-trace must not break the hit-testing (preserve progress, do not reset).
-11. **Accessibility.** Tracing is a fine-motor exercise and has no meaningful screen-reader equivalent. With a screen reader active, announce what the glyph is, describe the exercise, and offer a **skip** so the lesson is not blocked — the honest accommodation here is a way past it, not a fake alternative. Document that choice in a comment.
-12. **Tests** (`components/activities/TraceActivity.test.tsx`, `lib/trace-progress.test.ts`): the progress helper advances only for points near the next expected point and never for a jump to the end; leaving the path rate-limits `onWrongAttempt`; reaching the threshold calls `onFinished` exactly once; restart clears progress; a multi-subpath definition requires all segments; a layout change recomputes scale without losing progress; with a screen reader on, the skip control is present.
+1. **Renderer** `components/activities/TraceActivity.tsx`, registered in M16's registry under `trace`. Implements the game only: the engine still owns instruction audio and the celebration.
+2. **Canvas layout.** An `Svg` sized to the available width (safe area and shell padding accounted for) with `viewBox = glyphFrameOf(...)`'s value. Scale by the `viewBox`, **never** by rewriting the path string — the maths runs in path coordinates. Convert touches into path coordinates with the inverse of the current scale and offset.
+3. **Layers, drawn in order:** the current stroke's outline (wide, pale — the "road"), finished strokes as solid ink, the direction arrows and start dot on the current stroke, and the child's covered portion. Stroke widths come from web's constants in reference units (`OUTLINE_WIDTH`, `INK_WIDTH`, …) converted with `toPathUnits`.
+4. **Progress model.** The lifted `updateCoverage` / `isStrokeComplete` over `samplePath` points, one stroke at a time in `splitStrokes` order. No second implementation of the matching rule.
+5. **Tolerance.** `toPathUnits(definition.tolerance ?? DEFAULT_TOLERANCE, frame)` — the payload's value in reference glyph units, exactly as web. Because it is relative to the glyph, it already scales with the canvas; a fingertip on a 360px phone may still need more. If device tuning says so, add a **floor** expressed in dp (converted through the current canvas scale) and take the larger of the two — never replace the payload's value, which an author set on purpose. This is a tuning step, and the file is not done until it feels right on hardware.
+6. **Forgiveness, not failure.** As web: coverage survives a lift; a lift with nothing covered on the current stroke calls `feedback.retry()` once; there is no wrong ending to a trace, only "not finished yet".
+7. **Completion.** Each finished stroke calls `feedback.success(anchor)`; after the last, `onActivityComplete()`. Show the completed glyph as solid ink for a beat before the engine's celebration takes over.
+8. **Restart.** A ≥64px "try again" control clears coverage and ink and returns to the first stroke without leaving the step. Tracing is a motor-skill exercise; repeating it is the point.
+9. **Multi-stroke glyphs.** Handled by `splitStrokes` + `strokeOrder`: each subpath is its own stroke, completed in order, with a finger lift between them allowed and expected.
+10. **Both orientations and tablets.** The canvas grows with the screen but keeps its aspect ratio; on a tablet in landscape it is centred rather than stretched. Re-derive the screen→path transform on layout change — a rotation mid-trace keeps coverage (it lives in path coordinates).
+11. **Accessibility.** Mirror web's keyboard path: the canvas is an adjustable element (`accessibilityRole="adjustable"`, `accessibilityActions` `increment`) whose increment advances the frontier by `KEYBOARD_STEP` points; it announces the glyph and "stroke n of m", and "done" at the end. No fake gesture, no skip — the step is completable without one.
+12. **Tests** (`components/activities/TraceActivity.test.tsx`; the lifted modules keep web's tests): coverage advances only near the frontier and never for a jump to the end; a lift with nothing covered calls `retry` once and a lift after progress does not; each stroke completion calls `success`, the last calls `onActivityComplete` exactly once; restart clears progress; `strokeOrder` reorders strokes; a payload `tolerance` is honoured; a layout change keeps coverage; the accessibility increment completes the glyph; a path with no strokes renders `ActivityUnavailable`.
 
 ## Technical Approach & Suggestions
 
 ```
+packages/types/src/activity/trace/coverage.ts     # lifted from apps/web/features/activities/trace (+ test)
+packages/types/src/activity/trace/geometry.ts     # lifted (+ test); needs svg-path-properties
 apps/mobile/components/activities/TraceActivity.tsx
 apps/mobile/components/activities/TraceActivity.test.tsx
-apps/mobile/components/activities/trace/GlyphCanvas.tsx     # Svg: outline + dots + child stroke
-apps/mobile/components/activities/trace/GuideDots.tsx
-apps/mobile/lib/trace-progress.ts                            # pure: sampling, matching, thresholds
-apps/mobile/lib/trace-progress.test.ts
-apps/mobile/components/activities/registry.tsx               # + trace entry
+apps/mobile/components/activities/trace/GlyphCanvas.tsx     # Svg: outline + ink + arrows + start dot
+apps/mobile/components/activities/trace/use-trace-state.ts  # port of web's hook: strokes, frame, tolerance, coverage
+apps/mobile/components/activities/registry.tsx              # + trace case
 ```
 
-Keep all the maths in a pure module — it is the part worth testing and the part shared in spirit with the web app:
+The state set-up is web's `useTraceState`, with only the pointer→path conversion swapped:
 
 ```ts
-// apps/mobile/lib/trace-progress.ts
-import { svgPathProperties } from "svg-path-properties";
-
-export type TraceModel = {
-  totalLength: number;
-  /** Sampled points in trace order, in path coordinates. */
-  points: { x: number; y: number; at: number }[];
-};
-
-export function buildTraceModel(pathData: string, sampleCount = 200): TraceModel {
-  const props = new svgPathProperties(pathData);
-  const totalLength = props.getTotalLength();
-  const points = Array.from({ length: sampleCount }, (_, i) => {
-    const at = (i / (sampleCount - 1)) * totalLength;
-    const { x, y } = props.getPointAtLength(at);
-    return { x, y, at };
-  });
-  return { totalLength, points };
-}
-
-/**
- * Strictly forward matching: `guideDots` are ordered, so a finger that appears
- * near the end without having travelled has not traced the glyph.
- */
-export function advanceProgress(
-  model: TraceModel,
-  reachedIndex: number,
-  finger: { x: number; y: number },
-  tolerance: number,
-): number {
-  for (let i = reachedIndex + 1; i < model.points.length; i += 1) {
-    const p = model.points[i];
-    if (Math.hypot(p.x - finger.x, p.y - finger.y) > tolerance) break;
-    reachedIndex = i;
-  }
-  return reachedIndex;
-}
+const strokes = useMemo(
+  () => splitStrokes(definition.pathData, definition.strokeOrder)
+    .map((d, order) => ({ id: `stroke-${order}`, d, points: samplePath(d, SAMPLES_PER_STROKE) }))
+    .filter((stroke) => stroke.points.length > 0),
+  [definition],
+);
+const frame = useMemo(() => glyphFrameOf(strokes.flatMap((s) => s.points)), [strokes]);
+const tolerance = useMemo(
+  () => Math.max(
+    toPathUnits(definition.tolerance ?? DEFAULT_TOLERANCE, frame),
+    MIN_TOLERANCE_DP / scale,          // optional floor, only if device tuning needs it
+  ),
+  [definition.tolerance, frame, scale],
+);
 ```
 
-Tolerance conversion — the single most important line for how this feels on a phone:
+Coverage updates come from the pan gesture's `onUpdate`. Run the hit-testing on the JS side at most once per frame (web batches through `requestAnimationFrame` and compares identity before touching state), and only set React state when `updateCoverage` returns a new object.
 
-```ts
-// A fingertip is ~9mm. Express the allowance in dp, then convert into the path's
-// coordinate space using the current canvas scale, or the same activity is
-// forgiving on a tablet and impossible on a small phone.
-const TOLERANCE_DP = 28;
-const tolerance = TOLERANCE_DP / scale;   // scale = canvasWidth / viewBoxWidth
-```
-
-Rendering the child's stroke as a progressively revealed copy of the guide path (rather than a freehand polyline of finger points) is both cheaper and prettier — it snaps the drawing to the letter, which is what a tracing exercise wants:
-
-```tsx
-<Path d={pathData} stroke={tokens.muted} strokeWidth={36} strokeLinecap="round" fill="none" />
-<Path
-  d={pathData}
-  stroke={tokens.primary}
-  strokeWidth={24}
-  strokeLinecap="round"
-  fill="none"
-  strokeDasharray={[model.totalLength, model.totalLength]}
-  strokeDashoffset={model.totalLength - reachedLength}
-/>
-```
-
-Drive `strokeDashoffset` from a Reanimated shared value so the reveal happens on the UI thread; the JS side only updates `reachedIndex`, and only when it changes.
-
-Rate-limit the off-path signal so the engine's "try again" sound cannot machine-gun:
-
-```ts
-const lastWrongAt = useRef(0);
-function signalOffPath() {
-  const now = performance.now();
-  if (now - lastWrongAt.current < 1200) return;
-  lastWrongAt.current = now;
-  onWrongAttempt();
-}
-```
+Render the covered portion as a polyline through the covered sample points (web's `coveredPoints`), not a freehand trail — it snaps the ink to the letter, which is what a tracing exercise wants.
 
 ## Step-by-Step Plan
 
-1. Read `apps/web/features/activities/TraceActivity.tsx` and `trace/` in full; note the tolerance and completion-threshold values to carry over. (~20 min)
-2. Write `lib/trace-progress.ts` with tests first: sampling, forward-only advance, jump-to-end rejected, threshold. (~45 min)
-3. Install `react-native-svg` (and add it to `transformIgnorePatterns` if needed); build `GlyphCanvas` with the three layers and confirm a seeded glyph renders at full width on device. (~35 min)
-4. Add the pan gesture, the dp→path tolerance conversion, and the Reanimated `strokeDashoffset` reveal. (~40 min)
-5. Add `GuideDots` with the start marker and ordered waypoints. (~25 min)
-6. Add off-path handling with rate limiting, the restart control, and completion with the solid-fill beat. Test each. (~35 min)
-7. Add multi-subpath segment handling and its test. (~30 min)
-8. Add the screen-reader announcement plus skip, with the comment explaining why a real alternative is not offered. (~20 min)
-9. Device tuning pass — **the important one**: trace on a physical small Android phone, a large phone and a tablet, in both orientations, and adjust `TOLERANCE_DP` until a 4-year-old's finger can complete a letter without frustration and without it completing itself. Rotate mid-trace and confirm progress survives. (~40 min)
-10. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
+1. Lift `trace/coverage.ts` and `trace/geometry.ts` with their tests into `packages/types/src/activity/trace/`, re-point web, run both suites. (~35 min)
+2. Install `react-native-svg` (and add it to `transformIgnorePatterns` if needed); build `GlyphCanvas` and confirm a seeded glyph renders at full width on device. (~35 min)
+3. Port `use-trace-state.ts`: strokes, frame, tolerance, coverage, the lift rule, stroke completion. (~45 min)
+4. Add the pan gesture and the screen→path transform. (~30 min)
+5. Add arrows, start dot, restart and the solid-ink completion beat. Test each. (~30 min)
+6. Add the accessibility increment action and its announcements. (~20 min)
+7. Device tuning pass — **the important one**: trace on a physical small Android phone, a large phone and a tablet, in both orientations, with the payload's default tolerance; add the dp floor only if a 4-year-old's finger cannot complete a letter. Rotate mid-trace and confirm progress survives. (~40 min)
+8. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
 
 ## Acceptance Criteria
 
-- [ ] The trace activity renders from `TraceActivitySchema` data alone — glyph, path and guide dots all come from the payload.
-- [ ] `svg-path-properties` is reused unchanged; no second implementation of path maths exists.
+- [ ] The trace activity renders from `TraceActivitySchema` data alone, honouring `strokeOrder` and `tolerance` when present.
+- [ ] Coverage and geometry are the lifted web modules; no second implementation of the path maths or the matching rule exists.
 - [ ] Progress advances strictly forward: a finger placed near the end without tracing does not complete the glyph.
-- [ ] Tolerance is expressed in dp and converted through the current canvas scale, and tracing feels achievable on a 360px phone **and** controlled on a tablet — confirmed on hardware.
-- [ ] Leaving the path never fails the attempt; the try-again signal is rate-limited to at most one per ~1.2s.
-- [ ] Completion fires once at the threshold, shows the filled glyph, then hands over to the engine's celebration.
-- [ ] A restart control (≥64px) clears the stroke without leaving the step.
-- [ ] A multi-subpath glyph requires every segment, allows a finger lift between segments, and pauses rather than resets on a lift within a segment.
-- [ ] Rotating the device mid-trace recomputes the scale and keeps progress.
-- [ ] With a screen reader active, the exercise is announced and a skip is available.
-- [ ] The stroke reveal runs on the UI thread and stays smooth on a low-end Android device.
+- [ ] Tracing feels achievable on a 360px phone **and** controlled on a tablet — confirmed on hardware; any dp floor is documented with the device it was tuned on.
+- [ ] Leaving the path never fails the attempt; `retry` fires only for a lift with nothing covered.
+- [ ] Each stroke completion calls `success`; the last hands over to the engine via `onActivityComplete` exactly once.
+- [ ] A restart control (≥64px) clears the ink without leaving the step.
+- [ ] Rotating the device mid-trace keeps progress.
+- [ ] With a screen reader active, the glyph is completable through the adjustable increment action.
+- [ ] Rendering stays smooth on a low-end Android device.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm --filter mobile test` pass.
 
 ## Out of Scope
 
 - Handwriting recognition or scoring stroke quality. The spec asks for tracing, not assessment.
-- Freehand drawing that preserves the child's actual line shape. The snapped reveal is deliberate: it teaches the letter's form.
-- Authoring `pathData` or `guideDots` — the admin CMS (`apps/web/features/admin/`).
+- Freehand drawing that preserves the child's actual line shape. The snapped ink is deliberate: it teaches the letter's form.
+- Rendering `guideDots` — web does not use them either; adding them is a design change for both clients.
+- Authoring `pathData`, `strokeOrder` or `tolerance` — the admin CMS (`apps/web/features/admin/`), web-only.
 - Match and puzzle activities — M18.
-- Haptic feedback on reaching each guide dot: appealing, not in the spec, and it needs its own setting.
+- Haptic feedback per stroke: appealing, not in the spec, and it needs its own setting.

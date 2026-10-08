@@ -13,8 +13,10 @@ Show the parent a week at a time: the newest weekly report as a report card (act
 
 The contract is shipped (`packages/types/src/api/reports.ts`, live in `/docs`):
 
-- `GET /api/children/:id/reports` — parent session + ownership. Returns `{ reports: WeeklyReport[] }` (`WeeklyReportListResponseSchema`), newest first (`reports[0]` is the card, the rest are history), and **lazily generates** the most recent completed week if it is missing (one week only, and never a week that ended before the child existed — a child created mid-week has no report until a full week completes). That means the first load after a week ends may be slower than usual — on a free-tier server, plan for it in the loading state.
+- **Reports are produced by the weekly job**: `deploy/weekly-reports.sh`, cron on the production box at 02:00 Monday `Asia/Dhaka`, calling the bearer-secret `POST /api/admin/jobs/weekly-reports` (production only; dev runs no scheduled jobs — trigger by hand). The app never triggers generation.
+- `GET /api/children/:id/reports` — parent session + ownership; not consent-gated. Returns `{ reports: WeeklyReport[] }` (`WeeklyReportListResponseSchema`), newest first (`reports[0]` is the card, the rest history), at most `WEEKLY_REPORT_HISTORY_LIMIT` (52). As a backstop it also generates the most recent completed week **if the job has not** (`getWeeklyReports` in `apps/server/src/modules/children/weekly-report.service.ts`; one week only, never a week that ended before the child existed — a child created mid-week has no report until a full week completes). Normally the job has run and the read is cheap; only a missed job makes the first Monday load slower. Rows whose stored `metrics` fail the schema are dropped server-side, not sent.
 - A `WeeklyReport` is `{ weekStart, weekEnd (the Sunday, inclusive), metrics, note | null, createdAt }`, with dates as ISO strings. `metrics` carries: `activeDays` (0–7), `learningMinutes`, `newLetters` / `newWords` / `newNumbers` (distinct prefixed tokens — `"letter:A"`, `"word:apple"`, `"number:7"`), `lessonsCompleted`, `storiesCompleted`, `quizAccuracy` (whole percent, **`null` when there were no responses — never `NaN` or a defaulted 0**), `quizFirstAttempts` / `quizFirstAttemptsCorrect` (the counts behind it), and `badgesEarned` as `[{ slug, name }]`.
+- **Every schema is `.strict()` and `noteKey` is a `z.enum`.** A binary parsing the whole list with `WeeklyReportListResponseSchema` fails the entire screen the day the server adds a note key or a metric — and a store binary lags the server by weeks. Parse the envelope loosely and each report with `WeeklyReportSchema.safeParse`, dropping (not erroring on) the ones that fail, as the server's `toWeeklyReport` does.
 - The encouraging note is a **deterministic template**, stored as `{ noteKey, noteParams }` inside `metrics`, with the rendered English in the `note` column. The client renders `t('reports.notes.' + noteKey, noteParams)` so the note localises to EN/BN. The keys (`REPORT_NOTE_KEYS`) are `quietWeek`, `perfectWeek`, `quizStar`, `strongWeek`, `bookworm`, `steadyProgress`, `storyTime`, `gentleNudge`, and the templates live in `packages/i18n/locales/{en,bn}/parent.json` under `reports.notes.*` (some are plural-keyed, so pass `count` from `noteParams`), shared with this app through `@kidlearn/i18n`; `noteParams` is a string/number record.
 - A week is **Monday 00:00 in `APP_TIMEZONE`**. The server validates that; the client only displays week ranges and must format them in the parent's locale without re-deriving the boundary.
 - Unknown token prefixes are ignored by the aggregator, "never fatal" — the client must be equally tolerant: an unrecognised prefix renders as a plain token or is skipped, not as an error.
@@ -24,9 +26,9 @@ Also in place: M26's `ChildSwitcher` and the signed-in parent area, M03's `lib/f
 
 ## Detailed Requirements
 
-1. **Use the shared contract.** Parse with `WeeklyReportListResponseSchema` from `@kidlearn/types`; do not declare a local type in `apps/mobile`. The web references are `apps/web/features/reports/` (`ReportCard`, `ReportHistoryList`, `reports-api.ts`, `week-range.ts`).
-2. **`lib/reports-api.ts`** — `listReports(childId)` returning `ApiResult<…>` parsed with the shared schema. Give this call a longer timeout than the M04 default: the lazy-generation path does real aggregation work on a cold or busy server.
-3. **Reports screen** (`app/(parent)/reports/index.tsx`) — reusing M26's `ChildSwitcher` with the same router-param selection so switching children behaves identically on both screens.
+1. **Use the shared contract.** Types and per-report parsing from `@kidlearn/types` (`WeeklyReportSchema`, `WeeklyReportList`); do not declare a local type in `apps/mobile`. The web references are `apps/web/features/reports/` (`ReportCard`, `ReportHistoryList`, `reports-api.ts`, `week-range.ts`) and `apps/web/app/(parent)/parent/reports/ReportsScreen.tsx` (selection in `?child=` and `?week=`; web does not parse the response).
+2. **`lib/reports-api.ts`** — `listReports(childId)` returning `ApiResult<WeeklyReportList>`, each report parsed per requirement 1 (a report that fails is dropped). Give this call a longer timeout than the M04 default: the backstop generation path does real aggregation work if the weekly job missed.
+3. **Reports screen** (`app/(parent)/reports/index.tsx`) — the Reports section of M26's parent navigation, reusing M26's `ChildSwitcher` with the same router-param selection so switching children behaves identically on both screens, and accepting the child param M26's "Open report" passes.
 4. **Report card** (`components/parent/ReportCard.tsx`) — for the newest report:
    - a week-range header formatted in the parent's locale ("12–18 Aug", not an ISO date);
    - a stat grid: active days (out of 7, as a shape row **and** a number), learning minutes via `formatMinutes`, lessons completed, stories completed, first-attempt quiz accuracy;
@@ -36,10 +38,10 @@ Also in place: M26's `ChildSwitcher` and the signed-in parent area, M03's `lib/f
    - the encouraging note in a highlighted mascot speech bubble, rendered through `t('reports.notes.' + noteKey, noteParams)` (namespace `parent`) with a fallback to the stored English `note` if the key is missing from the bundle (a note added server-side before the app's copy catches up must not render a raw key).
 5. **Past weeks list** (`components/parent/PastWeeksList.tsx`) — one row per earlier report: week range, minutes, lessons completed. Tapping opens the same `ReportCard` for that week, either on a detail route (`app/(parent)/reports/[weekStart].tsx`) or by swapping the card in place. Prefer the detail route so the back gesture works as a parent expects.
 6. **Empty states.** A child with no completed weeks → a warm explanation of when the first report will appear ("Rina's first weekly report arrives next Monday"), computed from the locale-formatted next Monday for display only. A brand-new child mid-first-week is the common case at launch, so this state matters more than the populated one on day one.
-7. **Slow first load.** While the lazy generation runs, show a "putting this week together" state rather than a bare spinner, and let M04's cold-start notice handle any server wake-up. Do not add a client-side timeout shorter than the generation takes.
+7. **Slow first load.** If the backstop generation runs, show a "putting this week together" state rather than a bare spinner. Do not add a client-side timeout shorter than the generation takes.
 8. **Accessibility.** Every stat has a text label as well as an icon; the active-days row is announced as "5 of 7 days"; the accuracy figure announces its null state in words. Parent surface, so ≥44px targets and Inter.
-9. **Entry point.** A ≥44px "Weekly reports" entry on the dashboard (M26) and in the parent settings list.
-10. **Tests** (`components/parent/ReportCard.test.tsx`, `PastWeeksList.test.tsx`, `app/(parent)/reports/index.test.tsx`): the card renders every metric from a fixture; `quizAccuracy: null` renders the "not enough answers" copy and never "0%"; an unknown token prefix does not break the token list; a missing `noteKey` falls back to the stored English note; the past-weeks list orders newest first and navigates to the right week; the empty state renders for a child with no reports; switching children refetches.
+9. **Entry point.** The Reports section of M26's navigation and M26's "Open report" action on the dashboard (which carries the child). No separate settings entry — web has none.
+10. **Tests** (`components/parent/ReportCard.test.tsx`, `PastWeeksList.test.tsx`, `app/(parent)/reports/index.test.tsx`): the card renders every metric from a fixture; `quizAccuracy: null` renders the "not enough answers" copy and never "0%"; an unknown token prefix does not break the token list; a report with an unknown `noteKey` or extra metric is dropped without failing the list; a note key missing from the bundle falls back to the stored English note; the past-weeks list orders newest first and navigates to the right week; the empty state renders for a child with no reports; switching children refetches.
 
 ## Technical Approach & Suggestions
 
@@ -104,19 +106,19 @@ export function formatWeekRange(weekStart: string, locale: Locale): string {
 ## Step-by-Step Plan
 
 1. Read `packages/types/src/api/reports.ts` and the web `features/reports/` files. (~15 min)
-2. Write `lib/reports-api.ts` with the shared schema and a longer timeout; call it against the dev server for a child with and without reports. (~25 min)
+2. Write `lib/reports-api.ts` with per-report parsing and a longer timeout; call it against the dev server for a child with and without reports. (~25 min)
 3. Add `formatWeekRange` to `lib/format.ts` with its test, including the polyfill fallback if M03 took that path. (~25 min)
 4. Build `ConceptTokens` with the unknown-prefix tolerance and its test. (~20 min)
 5. Build `ReportCard` with the full stat grid, the null-accuracy branch, badge chips and the note bubble with its fallback; test each. (~50 min)
 6. Build `PastWeeksList` and the `[weekStart]` detail route. (~30 min)
 7. Assemble the reports screen with the child switcher, the "putting this week together" state, cold-start handling and the empty state. (~35 min)
-8. Add the entry points on the dashboard and in settings. (~15 min)
-9. Device pass: a child with several weeks of seeded data and a brand-new child, EN and BN (check Bengali numerals and the week range), phone and tablet, TalkBack across the stat grid, and one deliberate cold-start load to see the slow-generation state. (~35 min)
+8. Wire the entry points from M26's navigation and "Open report". (~10 min)
+9. Device pass: a child with several weeks of seeded data and a brand-new child, EN and BN (check Bengali numerals and the week range), phone and tablet, TalkBack across the stat grid, and one load for a week the job has not yet generated (dev runs no scheduled job, so that is the default there) to see the generation state. (~35 min)
 10. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
 
 ## Acceptance Criteria
 
-- [ ] The screen reads `GET /api/children/:id/reports` using the response schema from `packages/types` — no locally declared report shape.
+- [ ] The screen reads `GET /api/children/:id/reports` using the schemas from `packages/types` — no locally declared report shape — and one unparseable report never blanks the screen.
 - [ ] `quizAccuracy === null` renders explanatory copy, never "0%".
 - [ ] New letters, words and numbers show counts **and** the actual tokens; an unrecognised prefix is skipped without breaking the list.
 - [ ] The encouraging note renders localised from `noteKey`/`noteParams`, falling back to the server's English `note` when the key is missing from the bundle.
@@ -124,13 +126,13 @@ export function formatWeekRange(weekStart: string, locale: Locale): string {
 - [ ] Active days render as a shape row **and** a number ("5 of 7"), announced correctly by a screen reader.
 - [ ] Past weeks list newest first and each opens that week's card with a working back gesture.
 - [ ] A child with no completed weeks sees a warm explanation of when their first report arrives.
-- [ ] The slow first load after a week ends shows the generation state rather than appearing broken, and no client timeout cuts it short.
+- [ ] A load that triggers the server's backstop generation shows the generation state rather than appearing broken, and no client timeout cuts it short.
 - [ ] Switching children reuses M26's switcher and refetches.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm --filter mobile test` pass.
 
 ## Out of Scope
 
-- Generating reports, or calling the cron endpoint. Server-side, bearer-secret protected, and deliberately not reachable from the app.
+- Generating reports, or calling `/api/admin/jobs/weekly-reports`. The weekly job's, bearer-secret protected, and an `/api/admin/*` path mobile never calls (D1).
 - LLM-written notes. The server keeps the note deterministic behind a `selectNote` interface; if that producer is ever swapped, this client needs no change.
 - PDF export, email or sharing a report. Sharing a child's data needs a privacy decision first.
 - Charts. Same reasoning as M26 — the web plan defers them to Phase 2.
