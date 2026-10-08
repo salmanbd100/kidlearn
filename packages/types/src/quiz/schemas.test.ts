@@ -296,11 +296,12 @@ describe("PictureSelectQuestionSchema", () => {
 });
 
 describe("parseQuizQuestion", () => {
-  it.each(
-    VALID_QUIZ_FIXTURES,
-  )("parses a valid %s question through the union", (_type, fixture) => {
-    expect(parseQuizQuestion(fixture)).toEqual(fixture);
-  });
+  it.each(VALID_QUIZ_FIXTURES)(
+    "parses a valid %s question through the union",
+    (_type, fixture) => {
+      expect(parseQuizQuestion(fixture)).toEqual(fixture);
+    },
+  );
 
   it("lists every type the union accepts in QUIZ_QUESTION_TYPES", () => {
     const acceptedTypes = VALID_QUIZ_FIXTURES.map(

@@ -389,31 +389,31 @@ describe("the admin guard covers every content path", () => {
     { method: "patch" as const, path: `${BASE}/topics/reorder` },
   ];
 
-  it.each(PROBES)("401 unauthenticated: $method $path", async ({
-    method,
-    path,
-  }) => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+  it.each(PROBES)(
+    "401 unauthenticated: $method $path",
+    async ({ method, path }) => {
+      vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
 
-    const res = await request(app)[method](path).send({});
+      const res = await request(app)[method](path).send({});
 
-    expect(res.status).toBe(401);
-    expect(res.body.error.code).toBe("UNAUTHORIZED");
-  });
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe("UNAUTHORIZED");
+    },
+  );
 
-  it.each(PROBES)("403 for a signed-in parent: $method $path", async ({
-    method,
-    path,
-  }) => {
-    // A Google sign-in never writes an AdminUser row; that absence is the authorisation check, so the handler never runs.
-    mockSession(PARENT_USER_ID);
+  it.each(PROBES)(
+    "403 for a signed-in parent: $method $path",
+    async ({ method, path }) => {
+      // A Google sign-in never writes an AdminUser row; that absence is the authorisation check, so the handler never runs.
+      mockSession(PARENT_USER_ID);
 
-    const res = await request(app)[method](path).send({});
+      const res = await request(app)[method](path).send({});
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("FORBIDDEN");
-    expect(store.subjects).toEqual([]);
-  });
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("FORBIDDEN");
+      expect(store.subjects).toEqual([]);
+    },
+  );
 });
 
 describe("POST /api/admin/content/subjects", () => {
@@ -638,25 +638,25 @@ describe("a published row refuses an edit", () => {
     });
   }
 
-  it.each([
-    "in_review",
-    "approved",
-  ])("refuses to rewrite a lesson at %s, so a decision cannot be followed by an unreviewed publish", async (status) => {
-    seedLesson(status);
+  it.each(["in_review", "approved"])(
+    "refuses to rewrite a lesson at %s, so a decision cannot be followed by an unreviewed publish",
+    async (status) => {
+      seedLesson(status);
 
-    const res = await request(app)
-      .patch(`${BASE}/lessons/${LESSON_ID}`)
-      .send({
-        title: "Letter A, rewritten",
-        translations: lessonTranslations("Letter A, rewritten"),
+      const res = await request(app)
+        .patch(`${BASE}/lessons/${LESSON_ID}`)
+        .send({
+          title: "Letter A, rewritten",
+          translations: lessonTranslations("Letter A, rewritten"),
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toMatchObject({
+        code: "EDIT_REQUIRES_UNPUBLISH",
+        status,
       });
-
-    expect(res.status).toBe(409);
-    expect(res.body.error.details).toMatchObject({
-      code: "EDIT_REQUIRES_UNPUBLISH",
-      status,
-    });
-  });
+    },
+  );
 
   it("returns 409 EDIT_REQUIRES_UNPUBLISH and leaves the content untouched", async () => {
     seedLesson("published");
@@ -716,20 +716,19 @@ describe("a published row refuses an edit", () => {
     }
   });
 
-  it.each([
-    "draft",
-    "rejected",
-    "archived",
-  ])("allows the edit at %s", async (status) => {
-    seedLesson(status);
+  it.each(["draft", "rejected", "archived"])(
+    "allows the edit at %s",
+    async (status) => {
+      seedLesson(status);
 
-    const res = await request(app)
-      .patch(`${BASE}/lessons/${LESSON_ID}`)
-      .send({ title: "Letter A revised" });
+      const res = await request(app)
+        .patch(`${BASE}/lessons/${LESSON_ID}`)
+        .send({ title: "Letter A revised" });
 
-    expect(res.status).toBe(200);
-    expect(store.lessons[0].title).toBe("Letter A revised");
-  });
+      expect(res.status).toBe(200);
+      expect(store.lessons[0].title).toBe("Letter A revised");
+    },
+  );
 
   it("lets the edit through once the row is withdrawn to draft", async () => {
     seedLesson("published");

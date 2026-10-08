@@ -73,12 +73,15 @@ export async function seedAdmin({
     // A rotation is usually a response to a leaked password; a session signed in with the old one must not outlive it.
     await revokeAllSessions(authUserId);
   } else {
-    const created = await ctx.internalAdapter.createUser({
-      email: normalisedEmail,
-      name,
-      // No verification email is sent to an internal account, and a future `requireEmailVerification` could refuse it.
-      emailVerified: true,
-    });
+    const created = await ctx.internalAdapter.createUser(
+      {
+        email: normalisedEmail,
+        name,
+        // No verification email is sent to an internal account, and a future `requireEmailVerification` could refuse it.
+        emailVerified: true,
+      },
+      { method: "admin" },
+    );
     authUserId = created.id;
     await ctx.internalAdapter.linkAccount({
       userId: authUserId,

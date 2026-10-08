@@ -158,11 +158,10 @@ describe("the admin session cap on the row itself", () => {
 
   it("leaves a parent's 30-day session alone", async () => {
     const ctx = await auth.$context;
-    const parent = await ctx.internalAdapter.createUser({
-      email: "parent@kidlearn.test",
-      name: "Parent",
-      emailVerified: true,
-    });
+    const parent = await ctx.internalAdapter.createUser(
+      { email: "parent@kidlearn.test", name: "Parent", emailVerified: true },
+      { method: "oauth", oauth: { providerId: "google" } },
+    );
     await ctx.internalAdapter.linkAccount({
       userId: parent.id,
       providerId: "google",

@@ -35,17 +35,16 @@ describe("stepAssetFallback", () => {
     expect(flagged).toEqual(["video"]);
   });
 
-  it.each([
-    "activity",
-    "quiz",
-    "reward",
-  ] as const)("says nothing at all for %s rather than saying 'no fallback'", (step) => {
-    // Those steps carry their own localized payloads, so there is no server-resolved url to have
-    // fallen back from.
-    expect(
-      stepAssetFallback(step, { ...NONE, videoUrl: true }),
-    ).toBeUndefined();
-  });
+  it.each(["activity", "quiz", "reward"] as const)(
+    "says nothing at all for %s rather than saying 'no fallback'",
+    (step) => {
+      // Those steps carry their own localized payloads, so there is no server-resolved url to have
+      // fallen back from.
+      expect(
+        stepAssetFallback(step, { ...NONE, videoUrl: true }),
+      ).toBeUndefined();
+    },
+  );
 
   it("covers every step in the flow", () => {
     for (const step of LESSON_STEPS) {

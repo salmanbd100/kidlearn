@@ -178,6 +178,7 @@ describe("seedAdmin", () => {
 
     expect(context.internalAdapter.createUser).toHaveBeenCalledWith(
       expect.objectContaining({ emailVerified: true }),
+      { method: "admin" },
     );
   });
 

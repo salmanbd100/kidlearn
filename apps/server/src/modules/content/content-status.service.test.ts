@@ -159,29 +159,28 @@ describe("assertTransition", () => {
 });
 
 describe("assertEditable", () => {
-  it.each([
-    "draft",
-    "rejected",
-    "archived",
-  ] as const)("allows an edit at %s", (status) => {
-    expect(() => assertEditable(status)).not.toThrow();
-  });
+  it.each(["draft", "rejected", "archived"] as const)(
+    "allows an edit at %s",
+    (status) => {
+      expect(() => assertEditable(status)).not.toThrow();
+    },
+  );
 
   // An edit does not move the status, so `approved → published` would otherwise ship words the reviewer never saw.
-  it.each([
-    "in_review",
-    "approved",
-  ] as const)("refuses an edit at %s, where a review decision rides on the content", (status) => {
-    expect(() => assertEditable(status)).toThrow(
-      expect.objectContaining({
-        statusCode: 409,
-        details: expect.objectContaining({
-          code: "EDIT_REQUIRES_UNPUBLISH",
-          status,
+  it.each(["in_review", "approved"] as const)(
+    "refuses an edit at %s, where a review decision rides on the content",
+    (status) => {
+      expect(() => assertEditable(status)).toThrow(
+        expect.objectContaining({
+          statusCode: 409,
+          details: expect.objectContaining({
+            code: "EDIT_REQUIRES_UNPUBLISH",
+            status,
+          }),
         }),
-      }),
-    );
-  });
+      );
+    },
+  );
 
   it("refuses an edit to a published row with a 409 that names the way out", () => {
     // The matrix never sees an edit, so a `PATCH` on a live lesson would reach a child without re-review.

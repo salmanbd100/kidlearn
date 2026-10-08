@@ -72,18 +72,19 @@ describe("LessonStepReportSchema", () => {
     ).toBe(true);
   });
 
-  it.each([
-    "intro",
-    "video",
-    "activity",
-    "quiz",
-  ] as const)("rejects completed: true on %s — only the last step finishes a lesson", (step) => {
-    const result = LessonStepReportSchema.safeParse({ step, completed: true });
+  it.each(["intro", "video", "activity", "quiz"] as const)(
+    "rejects completed: true on %s — only the last step finishes a lesson",
+    (step) => {
+      const result = LessonStepReportSchema.safeParse({
+        step,
+        completed: true,
+      });
 
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error.issues[0].path).toEqual(["completed"]);
-  });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      expect(result.error.issues[0].path).toEqual(["completed"]);
+    },
+  );
 
   it("rejects a step outside the five", () => {
     expect(
@@ -131,15 +132,14 @@ describe("SessionEventReportSchema", () => {
     ).toBe(true);
   });
 
-  it.each([
-    "heartbeat",
-    "session_start",
-    "story_complete",
-  ] as const)("rejects %s — a client may not forge the events time limits are built from", (type) => {
-    expect(
-      SessionEventReportSchema.safeParse({ ...validEvent, type }).success,
-    ).toBe(false);
-  });
+  it.each(["heartbeat", "session_start", "story_complete"] as const)(
+    "rejects %s — a client may not forge the events time limits are built from",
+    (type) => {
+      expect(
+        SessionEventReportSchema.safeParse({ ...validEvent, type }).success,
+      ).toBe(false);
+    },
+  );
 
   it("rejects a non-uuid lessonId", () => {
     expect(

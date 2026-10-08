@@ -928,45 +928,47 @@ describe("GET /api/content/lessons/:id", () => {
 describe("related rows carry their own status gate (backend.md §4)", () => {
   const UNPUBLISHED = ["draft", "in_review", "approved", "rejected"] as const;
 
-  it.each(
-    UNPUBLISHED,
-  )("omits an activity in %s from a published lesson rather than serving it", async (status) => {
-    signInAs(childProfile());
-    db.lessonFindFirst.mockResolvedValue(
-      lessonRow({
-        activity: {
-          id: "activity_1",
-          type: "drag_drop",
-          schemaVersion: 1,
-          status,
-          definition: validDragDrop,
-        },
-      }),
-    );
+  it.each(UNPUBLISHED)(
+    "omits an activity in %s from a published lesson rather than serving it",
+    async (status) => {
+      signInAs(childProfile());
+      db.lessonFindFirst.mockResolvedValue(
+        lessonRow({
+          activity: {
+            id: "activity_1",
+            type: "drag_drop",
+            schemaVersion: 1,
+            status,
+            definition: validDragDrop,
+          },
+        }),
+      );
 
-    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+      const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(200);
-    expect(res.body.data.lesson.activity).toBeNull();
-    expect(res.text).not.toContain("drag_drop");
-  });
+      expect(res.status).toBe(200);
+      expect(res.body.data.lesson.activity).toBeNull();
+      expect(res.text).not.toContain("drag_drop");
+    },
+  );
 
-  it.each(
-    UNPUBLISHED,
-  )("omits a quiz in %s from a published lesson rather than serving it", async (status) => {
-    signInAs(childProfile());
-    const row = lessonRow();
-    db.lessonFindFirst.mockResolvedValue({
-      ...row,
-      quiz: { ...row.quiz, status },
-    });
+  it.each(UNPUBLISHED)(
+    "omits a quiz in %s from a published lesson rather than serving it",
+    async (status) => {
+      signInAs(childProfile());
+      const row = lessonRow();
+      db.lessonFindFirst.mockResolvedValue({
+        ...row,
+        quiz: { ...row.quiz, status },
+      });
 
-    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+      const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(200);
-    expect(res.body.data.lesson.quiz).toBeNull();
-    expect(res.text).not.toContain("picture_select");
-  });
+      expect(res.status).toBe(200);
+      expect(res.body.data.lesson.quiz).toBeNull();
+      expect(res.text).not.toContain("picture_select");
+    },
+  );
 
   it("still serves a published activity and quiz", async () => {
     signInAs(childProfile());

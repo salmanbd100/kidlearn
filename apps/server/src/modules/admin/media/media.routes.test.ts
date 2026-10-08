@@ -140,32 +140,32 @@ describe("the admin guard covers every media path", () => {
     { method: "get" as const, path: BASE },
   ];
 
-  it.each(PROBES)("401 unauthenticated: $method $path", async ({
-    method,
-    path,
-  }) => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+  it.each(PROBES)(
+    "401 unauthenticated: $method $path",
+    async ({ method, path }) => {
+      vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
 
-    const res = await request(app)[method](path).send({});
+      const res = await request(app)[method](path).send({});
 
-    expect(res.status).toBe(401);
-    expect(res.body.error.code).toBe("UNAUTHORIZED");
-    expect(store.assets).toEqual([]);
-  });
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe("UNAUTHORIZED");
+      expect(store.assets).toEqual([]);
+    },
+  );
 
-  it.each(PROBES)("403 for a signed-in parent: $method $path", async ({
-    method,
-    path,
-  }) => {
-    // A Google sign-in never writes an AdminUser row; that absence is the authorisation check.
-    mockSession(PARENT_USER_ID);
+  it.each(PROBES)(
+    "403 for a signed-in parent: $method $path",
+    async ({ method, path }) => {
+      // A Google sign-in never writes an AdminUser row; that absence is the authorisation check.
+      mockSession(PARENT_USER_ID);
 
-    const res = await request(app)[method](path).send({});
+      const res = await request(app)[method](path).send({});
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("FORBIDDEN");
-    expect(store.assets).toEqual([]);
-  });
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("FORBIDDEN");
+      expect(store.assets).toEqual([]);
+    },
+  );
 });
 
 describe("POST /api/admin/media/sign", () => {

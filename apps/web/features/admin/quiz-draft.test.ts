@@ -156,14 +156,17 @@ describe("draftFromDefinition", () => {
     ["picture_select", validPictureSelect],
     ["match_pair", validMatchPair],
     ["drag_answer", validDragAnswer],
-  ] as const)("round-trips a stored %s without losing anything", (_name, definition) => {
-    // Load, change nothing, save: the payload that comes out has to be the one that
-    // went in, or every edit of an untouched field would silently rewrite it.
-    const recompiled = compileQuestion(draftFromDefinition(definition));
-    const parsed = safeParseQuizQuestion(recompiled);
+  ] as const)(
+    "round-trips a stored %s without losing anything",
+    (_name, definition) => {
+      // Load, change nothing, save: the payload that comes out has to be the one that
+      // went in, or every edit of an untouched field would silently rewrite it.
+      const recompiled = compileQuestion(draftFromDefinition(definition));
+      const parsed = safeParseQuizQuestion(recompiled);
 
-    expect(parsed.success).toBe(true);
-    if (!parsed.success) return;
-    expect(parsed.data).toEqual(definition);
-  });
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+      expect(parsed.data).toEqual(definition);
+    },
+  );
 });

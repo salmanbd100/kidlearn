@@ -20,15 +20,18 @@ describe("compileActivity", () => {
     ["trace", validTrace],
     ["match", validMatch],
     ["puzzle", validPuzzle],
-  ] as const)("round-trips a stored %s without losing anything", (_name, definition) => {
-    const parsed = safeParseActivityDefinition(
-      compileActivity(draftFromActivity(definition)),
-    );
+  ] as const)(
+    "round-trips a stored %s without losing anything",
+    (_name, definition) => {
+      const parsed = safeParseActivityDefinition(
+        compileActivity(draftFromActivity(definition)),
+      );
 
-    expect(parsed.success).toBe(true);
-    if (!parsed.success) return;
-    expect(parsed.data).toEqual(definition);
-  });
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+      expect(parsed.data).toEqual(definition);
+    },
+  );
 
   it("names the missing drop-zone picture rather than failing silently", () => {
     // `drag_drop` targets need an image (pre-readers cannot rely on labels); the empty key lands the issue on the visible picker.

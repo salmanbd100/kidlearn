@@ -10,7 +10,7 @@ WORKDIR /repo
 # Same reasoning as apps/server/Dockerfile: a server-only change no longer
 # invalidates the install layer. Keep the version in step with pnpm-lock.yaml.
 FROM base AS prune
-RUN npm install -g turbo@2.9.18
+RUN npm install -g turbo@2.11.7
 COPY . .
 RUN turbo prune web --docker
 
