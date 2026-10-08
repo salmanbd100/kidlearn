@@ -315,10 +315,9 @@ Checked by `pnpm typecheck` (blocks CI):
 - `pnpm typecheck` passes across all packages
 - `pnpm lint` passes (Biome clean)
 
-Two caveats, stated rather than glossed:
+The repository ruleset "Protect Main Branch" (17802318) covers `main` and `dev`. On both it forbids deletion and force-pushes, requires changes to arrive as a pull request (no approval count — a solo maintainer approving their own PR is theatre), and requires `gates` to pass. It is not strict: a PR need not be rebased onto the branch tip before merging.
 
-1. **`gates` does not block a merge yet.** The pipeline runs and reports on both branches; the repository ruleset "Protect Main Branch" widens to cover `dev` and gains its `required_status_checks` rule once `apps/server`'s Supertest listener lifecycle is fixed — see **Open follow-up fixes** in `document/implementation/00-progress-tracker.md`. That suite fails intermittently under load for reasons unrelated to the code under test, and a check that fails that often would only teach everyone to bypass it. Until the rule lands, `[CI]` is *reported on every PR and expected to be green* — weaker than the tier's name, and the honest description of it.
-2. **When it does land, the ruleset keeps the repository-admin bypass**, which is the account doing the work. `[CI]` will then mean *blocks merge unless someone deliberately overrides it* — a solo maintainer locked out of their own `main` mid-incident is the worse failure. That is still categorically stronger than `[REVIEW]`, where nothing has to be overridden because nothing is checked.
+One caveat, stated rather than glossed: **the ruleset keeps the repository-admin bypass**, which is the account doing the work. `[CI]` therefore means *blocks merge unless someone deliberately overrides it* — a speed bump, not a wall. A solo maintainer locked out of their own `main` mid-incident is the worse failure. That is still categorically stronger than `[REVIEW]`, where nothing has to be overridden because nothing is checked. The same bypass is what lets an admin push straight to `dev`; use it for the rare docs-only fix, not as the default.
 
 ### Human review gate `[REVIEW]`
 

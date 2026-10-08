@@ -8,7 +8,7 @@
 >
 > **Re-verified 2026-09-10.** Of the two dependencies, **38's repository half is implemented**
 > (`apps/server/Dockerfile`, `deploy/`) but no AWS resources exist yet, so nothing here can be
-> exercised — and **39 has landed except for its ruleset amendment**. Two things changed under this
+> exercised — and **39 has landed, ruleset amendment included (2026-10-08)**. Two things changed under this
 > file since it was written, and both narrow its scope:
 >
 > - **`dev` exists** (created 2026-09-06) and is already the integration branch. Step 1's "create
