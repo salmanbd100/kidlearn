@@ -22,7 +22,7 @@ Every design decision traces back to two real users: my daughters.
 |---|---|
 | **Visual-first, voice-guided** | Children who cannot yet read can navigate and learn independently — every instruction is spoken aloud |
 | **Chunked learning flow** | Each lesson follows the same five-step structure: Introduction → Video → Activity → Quiz → Reward, so children always know what comes next |
-| **Dual portal** | A distraction-free **Student Portal** (no ads, no external links, no social features) and a **Parent Dashboard** for progress reports and screen-time controls |
+| **Dual portal** | A distraction-free **Student Portal** (no ads, no external links, no social features) and a **Parent Dashboard** for progress reports and screen-time controls, with an **Admin CMS** behind them and a public **homepage and guides** in front |
 | **AI content pipeline** | Lessons, stories, quizzes, narration audio, and illustrations are AI-generated at scale — but every piece goes through a mandatory human admin review before any child sees it |
 | **Multilingual from day one** | English and Bangla at launch; the i18n architecture is data-driven, so Arabic, Hindi, and Spanish roll out as asset sets, not code changes |
 | **Gamification** | Stars, coins, badges, character unlocks, and daily learning streaks — all earned through learning, never purchased |
@@ -38,7 +38,7 @@ Every design decision traces back to two real users: my daughters.
 | Backend | Express 5 + TypeScript (ESM) |
 | Database | PostgreSQL — Supabase in deployment, a local Docker container for development. Relational data + `JSONB` for quiz/activity schemas |
 | ORM | Prisma (`packages/db`) |
-| API docs | OpenAPI 3.0 generated from Zod schemas → Swagger UI at [`/docs`](http://localhost:4000/docs) |
+| API docs | OpenAPI 3.0 generated from Zod schemas → Scalar API reference at [`/docs`](http://localhost:4000/docs) |
 | Validation | Zod — one schema per contract, shared between the API and the web app (`packages/types`) |
 | Testing | Vitest — Supertest for API routes, React Testing Library for components |
 | i18n | i18next on frontend + per-language asset refs in DB |
@@ -46,14 +46,16 @@ Every design decision traces back to two real users: my daughters.
 | AI — audio | Google Cloud Text-to-Speech (Standard voices, one per language) |
 | AI — images | Gemini image models (free tier) |
 | AI — video | Google Veo / Runway Gen-3 |
+| Auth | better-auth — Google sign-in for parents, password for seeded admins |
 | Linting & formatting | Biome (repo-wide, replaces ESLint + Prettier) |
+| Hosting | Vercel (web) + one AWS EC2 box running the API in Docker behind Caddy |
 
 ### Repo layout
 
 ```
 kidlearn/
 ├── apps/
-│   ├── web/        # Next.js — student portal, parent dashboard, admin CMS
+│   ├── web/        # Next.js — public homepage + guides, student portal, parent dashboard, admin CMS
 │   └── server/     # Express API — progress, quiz responses, AI pipeline
 │       └── src/openapi/   # OpenAPI document served at /docs
 ├── packages/
@@ -63,8 +65,9 @@ kidlearn/
 │   ├── i18n/       # en/bn UI strings — one copy for web and mobile
 │   ├── tokens/     # Design-token values — tokens.css is generated from them
 │   └── config/     # Shared TS configs
+├── deploy/         # Production scripts (deploy, bootstrap, backup, weekly reports) + Caddy edge
 ├── docker/         # Local Postgres init scripts
-└── document/       # Full requirements spec, design decisions, DB design
+└── document/       # Requirements, design, standards, implementation specs, deploy guides
 ```
 
 ---
@@ -80,7 +83,7 @@ kidlearn/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/kidlearn.git
+git clone https://github.com/salmanbd100/kidlearn.git
 cd kidlearn
 pnpm install
 ```
@@ -119,7 +122,7 @@ DATABASE_URL="postgresql://postgres:password@localhost:5432/kidlearn"
 DIRECT_URL="postgresql://postgres:password@localhost:5432/kidlearn"
 ```
 
-**`apps/server/.env`** — the API runs as its own process and needs the connection string in its own environment. Every variable here is validated by `src/lib/env.ts` at boot; a missing or malformed value stops the process and names the offending field.
+**`apps/server/.env`** — the API runs as its own process and needs the connection string in its own environment. Every variable here is validated by `src/config/env.ts` at boot; a missing or malformed value stops the process and names the offending field.
 
 ```
 DATABASE_URL="postgresql://postgres:password@localhost:5432/kidlearn"
@@ -151,6 +154,15 @@ pnpm --filter @kidlearn/db db:seed     # dev parent, child profile, sample curri
 
 The seed upserts on fixed ids, so re-running it is safe.
 
+To use the admin CMS, create an admin — there is no sign-up page, so this script is the only way one exists ([`admin-account-guide.md`](document/admin-account-guide.md)):
+
+```bash
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='a-long-local-password' ADMIN_NAME='Your Name' \
+  pnpm --filter server seed:admin
+```
+
+Then sign in from the homepage (**Admin sign-in**, or `http://localhost:3000/?signin=admin`). Admin sessions last 12 hours and do not extend with activity.
+
 ### 5. Run everything
 
 ```bash
@@ -161,13 +173,14 @@ Turborepo starts all apps in parallel:
 
 | App | URL |
 |---|---|
-| Web (Next.js) | http://localhost:3000 |
+| Web (Next.js) — homepage | http://localhost:3000 |
+| Guides (parents / admins / engineering) | http://localhost:3000/guide/parents |
 | API (Express) | http://localhost:4000 |
-| **API docs (Swagger UI)** | **http://localhost:4000/docs** |
+| **API docs (Scalar)** | **http://localhost:4000/docs** |
 | OpenAPI spec (raw JSON) | http://localhost:4000/docs.json |
 | Health check | http://localhost:4000/health |
 
-**Start at [`/docs`](http://localhost:4000/docs) before writing any client code against the API.** It documents every endpoint — request and response schemas, every status code, and which of the session / consent / active-child gates each route sits behind. Because the reference is served from the same origin the session cookie belongs to, signing in once at [`/api/auth/google`](http://localhost:4000/api/auth/google) makes **Try it out** work on every authenticated endpoint, with no token to copy around.
+**Start at [`/docs`](http://localhost:4000/docs) before writing any client code against the API.** It documents every endpoint — request and response schemas, every status code, and which of the session / consent / active-child gates each route sits behind. Because the reference is served from the same origin the session cookie belongs to, signing in once at [`/api/auth/google`](http://localhost:4000/api/auth/google) makes **Send** work on every authenticated endpoint, with no token to copy around.
 
 The page is generated from the code at boot, not maintained by hand: request schemas are the same Zod objects the routes validate with, and response schemas are shared with the web app via `packages/types/src/api/`. A test fails if an endpoint is missing from it. It is always available outside production; in production it requires `ENABLE_API_DOCS=true`.
 
@@ -229,6 +242,10 @@ cd apps/web && pnpm build && pnpm start
 cd apps/server && pnpm build && pnpm start   # compiles to dist/, runs node dist/index.js
 ```
 
+### Deployment
+
+The web app deploys to Vercel; the API, the weekly-report job and backups run on one AWS EC2 box in Docker behind Caddy (`deploy/`, `apps/*/Dockerfile`). Start with [`go-live-guide.md`](document/go-live-guide.md) for a first deploy, [`deployment-walkthrough.md`](document/deployment-walkthrough.md) for the detail, and [`runbook.md`](document/runbook.md) for day-two operations.
+
 ---
 
 ## MVP Scope
@@ -266,6 +283,12 @@ Detailed specs live in `document/`:
   - [`standards/frontend.md`](document/standards/frontend.md) — `packages/ui`, `apps/web`, React/Next.js
   - [`standards/backend.md`](document/standards/backend.md) — `apps/server`, Prisma, `packages/db`, API design, and the OpenAPI rules every new endpoint follows (§7)
 - [`user-journey-manual.md`](document/user-journey-manual.md) — end-to-end user flows
+- [`admin-account-guide.md`](document/admin-account-guide.md) — creating and using an admin account
+- [`go-live-guide.md`](document/go-live-guide.md), [`deployment-walkthrough.md`](document/deployment-walkthrough.md), [`runbook.md`](document/runbook.md) — deploying and operating production
+- [`mobile-app-plan.md`](document/mobile-app-plan.md) — what is shared between web and the planned mobile app
+- [`implementation/`](document/implementation/) — one spec per piece of work, tracked in `00-progress-tracker.md`
+
+The running app also carries short, translated guides for parents, admins and engineers at `/guide/parents`, `/guide/admins` and `/guide/engineering`.
 
 ---
 

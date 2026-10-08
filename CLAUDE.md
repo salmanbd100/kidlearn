@@ -25,6 +25,14 @@ Database (delegates to `packages/db`):
 pnpm db:generate      # prisma generate
 pnpm db:migrate       # prisma migrate dev (needs DIRECT_URL)
 pnpm db:studio        # prisma studio
+pnpm --filter @kidlearn/db db:seed   # dev parent, child, sample curriculum (idempotent)
+```
+
+Admin accounts have no sign-up page — the seed script is the only way one is created
+(`document/admin-account-guide.md`):
+
+```bash
+ADMIN_EMAIL=… ADMIN_PASSWORD='…' ADMIN_NAME='…' pnpm --filter server seed:admin
 ```
 
 API docs (server must be running — see `/docs` at http://localhost:4000/docs):
@@ -73,6 +81,7 @@ CI needs no secrets. `apps/server/vitest.setup.ts` supplies everything `config/e
 
 ## Where decisions live
 
+- **Deployment** — web on Vercel, API + jobs on one AWS EC2 box behind Caddy (`deploy/`). `document/go-live-guide.md` is the first-time walkthrough, `document/runbook.md` the day-two operations.
 - **`document/mobile-app-plan.md`** is the architecture of record for what is and is not shared between web and mobile. `packages/ui` is web-only by design (§4.2) — do not hoist `apps/web` components into it without a second consumer.
 
 ## Layout & current state
@@ -95,10 +104,12 @@ packages/
   config/     @kidlearn/config — shared tsconfig bases, no source
   i18n/       @kidlearn/i18n — en/bn UI strings, namespaces, locale helpers (shared with mobile)
   tokens/     @kidlearn/tokens — design-token values as TypeScript (shared with mobile)
-document/     design.md, project-requirement-details.md, key-description.md
+deploy/       production scripts (deploy, bootstrap, backup, weekly-reports) + Caddy edge config
+docker/       local Postgres init scripts
+document/     requirements, design, standards, implementation specs, deploy guides
 ```
 
-- **`apps/web`** — Next.js 16 App Router. `app/` is routing only; everything else lives in `features/<domain>/` (named after the server module) or `shared/{api,components,hooks,lib}/`. Path alias `@/*` maps to the app root; there are no barrel files, so imports name the file (`@/features/quiz/QuizEngine`). Tailwind v4 via `postcss.config.mjs` (no `tailwind.config`). Imports `@kidlearn/ui`. Read `apps/web/AGENTS.md` before writing Next.js code — v16 has breaking changes from prior versions.
+- **`apps/web`** — Next.js 16 App Router. `app/` is routing only, split into four route groups: `(site)`, `(student)`, `(parent)`, `(admin)` (see Architecture). Everything else lives in `features/<domain>/` (named after the server module — `features/site/` is the one web-only exception) or `shared/{api,components,hooks,lib}/`. Path alias `@/*` maps to the app root; there are no barrel files, so imports name the file (`@/features/quiz/QuizEngine`). Tailwind v4 via `postcss.config.mjs` (no `tailwind.config`). Imports `@kidlearn/ui`. Read `apps/web/AGENTS.md` before writing Next.js code — v16 has breaking changes from prior versions.
 - **`apps/server`** — Express 5 ESM, port 4000. Imports `@kidlearn/db`. Copy `packages/db/.env.example` → `packages/db/.env` (Supabase connection strings) before running.
 - **`packages/db`** — Prisma 6 against Supabase PostgreSQL. Entry: `src/index.ts` exports `prisma` singleton + all Prisma types. Schema: `Parent` ↔ `Child[]`. Runtime uses the pooled `DATABASE_URL` (port 6543, `?pgbouncer=true`); migrations use `DIRECT_URL` (port 5432).
 - **`packages/ui`** — shadcn/ui "new-york" style. `src/primitives/` holds copied shadcn components (own the code — no upstream dependency). `src/styles/tokens.css` is the token contract; its `@generated` regions come from `@kidlearn/tokens` — change a value in `packages/tokens/src/index.ts`, run `pnpm --filter @kidlearn/ui tokens:generate`, never edit a region by hand (a test fails if the two disagree, and another if `design.md`'s tables disagree with the TypeScript). `src/lib/` is `cn()` plus the a11y preference store; `src/hooks/` is `useIsMotionReduced`. No build step — exports raw TypeScript via `exports` map.
@@ -107,9 +118,13 @@ document/     design.md, project-requirement-details.md, key-description.md
 
 ### Dual-portal & theming
 
-The app has two distinct surfaces sharing one component library:
-- **Student Portal** — ages 3–5, visual-first, large touch targets (≥64px), no text below 20px, gamified. Wrap the layout boundary in `<ThemeScope theme="kid">` from `@kidlearn/ui`.
-- **Parent Dashboard** — dense, professional, reached from the signed-in Google session. `<ThemeScope theme="parent">`. A bare `data-theme` div is not enough: Radix dialogs and menus portal into `<body>`, outside it, and only `ThemeScope` carries the theme to them.
+The app has three product surfaces and one public site, sharing one component library:
+- **Public site** `(site)` — the homepage at `/` and the parent, admin and engineering guides at `/guide/*` (FR-SITE-01..03). Unauthenticated, `<ThemeScope theme="kid">`, every string in the `site` i18n namespace. It is **not** part of the Student Portal: it links out to GitHub, which NFR-SAFE-07 forbids on the child's surface, so no `(student)` screen may link to a `(site)` route — `app/(student)/no-external-links.test.tsx` fails if one does.
+- **Student Portal** `(student)` — ages 3–5, visual-first, large touch targets (≥64px), no text below 20px, gamified. Wrap the layout boundary in `<ThemeScope theme="kid">` from `@kidlearn/ui`.
+- **Parent Dashboard** `(parent)` — dense, professional, reached from the signed-in Google session. `<ThemeScope theme="parent">`. A bare `data-theme` div is not enough: Radix dialogs and menus portal into `<body>`, outside it, and only `ThemeScope` carries the theme to them.
+- **Admin CMS** `(admin)` — curriculum, media, stories, badges, the AI review queue and analytics, behind a grouped sidebar. Shared CMS pieces (`AdminPageHeader`, `AdminEmptyState`, `AdminFilterChip`, `StatusChip`, …) live in `features/admin/`.
+
+Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either — a signed-out student session goes to `/parent/login` (`PARENT_ROUTES.signInPage`), the same sign-in on a bare page with no site chrome. Full rules: `document/standards/frontend.md §3` "Route organisation".
 
 Token values swap at runtime via CSS variables (`--primary`, `--background`, etc.) — components never branch on theme in JS.
 
@@ -119,7 +134,11 @@ Activities (drag-drop, trace, match, puzzle) and quizzes are stored as versioned
 
 ### Progress is server-authoritative
 
-Rewards, streaks, screen time, and lesson completion are computed server-side. The client reports events; the server records and validates them.
+Rewards, streaks, screen time, and lesson completion are computed server-side. The client reports events; the server records and validates them — it enforces step order, requires evidence before paying a lesson completion, rate-limits client events, and refuses progress and event writes without current parental consent.
+
+### Auth and sessions
+
+better-auth, configured in `apps/server/src/config/auth.ts`. Parents sign in with Google only, via `GET /api/auth/google` (better-auth's own `/sign-in/social` is `POST`-only). Admins sign in with a password; their sessions are capped at 12 hours from creation and do not slide, unlike a parent's 30-day session. Account linking is off so a Google sign-in on the admin's address cannot inherit the admin user. `rejectCrossOriginWrites` (`shared/middleware/security.ts`) refuses state-changing requests whose `Origin` is not `WEB_ORIGIN` or `BETTER_AUTH_URL` — the same single `WEB_ORIGIN` that CORS and better-auth's `trustedOrigins` allow, so the web app has exactly one origin per environment.
 
 ### API documentation
 
@@ -143,7 +162,7 @@ All content has a `status` field (`draft → in_review → approved/rejected →
 - Build components with **`cva`** (class-variance-authority) + `cn()` from `@kidlearn/ui/lib/cn`.
 - Animation via **Motion** (`motion` package). Always check `prefers-reduced-motion`. Animate only `transform` and `opacity`.
 - Fonts: `--font-display` (Fredoka) for kid headings, `--font-body` (Nunito) for body, `--font-ui` (Inter) for parent UI. Load via `next/font`.
-- All strings go through `i18next` — no hard-coded user-facing text. The JSON lives in `packages/i18n/locales/{en,bn}/`; a key in one locale and not the other fails `@kidlearn/i18n`'s parity test.
+- All strings go through `i18next` — no hard-coded user-facing text. The JSON lives in `packages/i18n/locales/{en,bn}/`, one file per namespace (`common`, `student`, `parent`, `lesson`, `site`); a key in one locale and not the other fails `@kidlearn/i18n`'s parity test.
 
 ## Workspace wiring
 
