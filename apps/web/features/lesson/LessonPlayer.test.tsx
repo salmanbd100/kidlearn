@@ -371,12 +371,15 @@ describe("resuming (FR-LSN-06)", () => {
     ["video", "activity"],
     ["activity", "quiz"],
     ["quiz", "reward"],
-  ] as const)("a lesson interrupted after %s reopens at %s", async (saved, expected) => {
-    withSavedProgress(saved);
-    renderPlayer();
+  ] as const)(
+    "a lesson interrupted after %s reopens at %s",
+    async (saved, expected) => {
+      withSavedProgress(saved);
+      renderPlayer();
 
-    await waitFor(() => expect(currentStep()).toBe(expected));
-  });
+      await waitFor(() => expect(currentStep()).toBe(expected));
+    },
+  );
 
   it("does not report the step it resumed past as freshly completed", async () => {
     withSavedProgress("video");

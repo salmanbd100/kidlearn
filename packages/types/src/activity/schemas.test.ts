@@ -409,11 +409,12 @@ describe("PuzzleActivitySchema", () => {
 });
 
 describe("parseActivityDefinition", () => {
-  it.each(
-    VALID_ACTIVITY_FIXTURES,
-  )("parses a valid %s payload through the union", (_type, fixture) => {
-    expect(parseActivityDefinition(fixture)).toEqual(fixture);
-  });
+  it.each(VALID_ACTIVITY_FIXTURES)(
+    "parses a valid %s payload through the union",
+    (_type, fixture) => {
+      expect(parseActivityDefinition(fixture)).toEqual(fixture);
+    },
+  );
 
   it("lists every type the union accepts in ACTIVITY_TYPES", () => {
     const acceptedTypes = VALID_ACTIVITY_FIXTURES.map(

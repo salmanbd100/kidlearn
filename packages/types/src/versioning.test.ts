@@ -37,22 +37,24 @@ const readers = [
 ] as const;
 
 describe.each(readers)("reading a stored $name", (reader) => {
-  it.each(
-    byPrefix(reader.fixtures, "valid"),
-  )("reads %s exactly as the strict parse does", (_name, payload) => {
-    const strict = reader.strict(payload);
-    const read = reader.read(payload);
+  it.each(byPrefix(reader.fixtures, "valid"))(
+    "reads %s exactly as the strict parse does",
+    (_name, payload) => {
+      const strict = reader.strict(payload);
+      const read = reader.read(payload);
 
-    expect(strict.success).toBe(true);
-    expect(read.success).toBe(true);
-    expect(read.data).toEqual(strict.data);
-  });
+      expect(strict.success).toBe(true);
+      expect(read.success).toBe(true);
+      expect(read.data).toEqual(strict.data);
+    },
+  );
 
-  it.each(
-    byPrefix(reader.fixtures, "invalid"),
-  )("still rejects %s — only unknown keys are forgiven", (_name, payload) => {
-    expect(reader.read(payload).success).toBe(false);
-  });
+  it.each(byPrefix(reader.fixtures, "invalid"))(
+    "still rejects %s — only unknown keys are forgiven",
+    (_name, payload) => {
+      expect(reader.read(payload).success).toBe(false);
+    },
+  );
 
   it("has a migration from every version below the current one", () => {
     // Bumping SCHEMA_VERSION without a step from the previous version would
@@ -176,14 +178,12 @@ describe("migratePayload", () => {
     expect(migratePayload(payload, toCurrent)).toBe(payload);
   });
 
-  it.each([
-    null,
-    "text",
-    [],
-    42,
-  ])("passes a non-object (%j) straight through", (payload) => {
-    expect(migratePayload(payload, toCurrent)).toBe(payload);
-  });
+  it.each([null, "text", [], 42])(
+    "passes a non-object (%j) straight through",
+    (payload) => {
+      expect(migratePayload(payload, toCurrent)).toBe(payload);
+    },
+  );
 
   it("gives up on a step that does not advance the version", () => {
     const payload = { schemaVersion: 0 };

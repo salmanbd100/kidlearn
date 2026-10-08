@@ -24,24 +24,24 @@ describe("VideoControls", () => {
     resetI18nForTests();
   });
 
-  it.each([
-    "ready",
-    "paused",
-  ] as const)("offers play while the video is %s", (state) => {
-    renderControls(state);
+  it.each(["ready", "paused"] as const)(
+    "offers play while the video is %s",
+    (state) => {
+      renderControls(state);
 
-    expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
-  });
+      expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+    },
+  );
 
-  it.each([
-    "playing",
-    "buffering",
-  ] as const)("offers pause while the video is %s", (state) => {
-    renderControls(state);
+  it.each(["playing", "buffering"] as const)(
+    "offers pause while the video is %s",
+    (state) => {
+      renderControls(state);
 
-    // Buffering counts as playing for the toggle: a pause icon mid-stall says the wrong thing.
-    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
-  });
+      // Buffering counts as playing for the toggle: a pause icon mid-stall says the wrong thing.
+      expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+    },
+  );
 
   it("toggles through the callback rather than touching the element itself", () => {
     const { onPlayPause } = renderControls("playing");
@@ -51,15 +51,14 @@ describe("VideoControls", () => {
     expect(onPlayPause).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    "loading",
-    "ended",
-    "error",
-  ] as const)("offers no play/pause while the video is %s", (state) => {
-    renderControls(state);
+  it.each(["loading", "ended", "error"] as const)(
+    "offers no play/pause while the video is %s",
+    (state) => {
+      renderControls(state);
 
-    expect(screen.queryByTestId("video-play-pause")).not.toBeInTheDocument();
-  });
+      expect(screen.queryByTestId("video-play-pause")).not.toBeInTheDocument();
+    },
+  );
 
   it("offers replay once the video has ended", () => {
     const { onReplay } = renderControls("ended");
@@ -69,17 +68,14 @@ describe("VideoControls", () => {
     expect(onReplay).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    "loading",
-    "ready",
-    "playing",
-    "paused",
-    "buffering",
-  ] as const)("hides replay while the video is %s — there is nothing to start over", (state) => {
-    renderControls(state);
+  it.each(["loading", "ready", "playing", "paused", "buffering"] as const)(
+    "hides replay while the video is %s — there is nothing to start over",
+    (state) => {
+      renderControls(state);
 
-    expect(screen.queryByTestId("video-replay")).not.toBeInTheDocument();
-  });
+      expect(screen.queryByTestId("video-replay")).not.toBeInTheDocument();
+    },
+  );
 
   it("never renders a seek bar or a volume slider (FR-LSN-02)", () => {
     renderControls("playing");

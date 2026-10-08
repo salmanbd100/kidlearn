@@ -72,12 +72,13 @@ describe("migration locking convention", () => {
     (name) => name.slice(0, 14) > CONVENTION_STARTS_AFTER,
   );
 
-  it.each(
-    governed.length > 0 ? governed : ["(none yet)"],
-  )("%s takes no long lock on a table with rows", (name) => {
-    if (name === "(none yet)") return;
-    expect(lockingViolations(migrationSql(name))).toEqual([]);
-  });
+  it.each(governed.length > 0 ? governed : ["(none yet)"])(
+    "%s takes no long lock on a table with rows",
+    (name) => {
+      if (name === "(none yet)") return;
+      expect(lockingViolations(migrationSql(name))).toEqual([]);
+    },
+  );
 });
 
 describe("lockingViolations", () => {
