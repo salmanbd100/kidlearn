@@ -62,8 +62,8 @@ describe("QuizScoreScreen", () => {
   it("gives the rest a sparkle, never an empty slot", () => {
     renderScreen(TWO_OF_THREE);
 
-    // An unfilled outline is a mark against a four-year-old whichever shape it
-    // is drawn in — the questions they needed a second go at still shine.
+    // An unfilled outline is a mark against a four-year-old: questions needing a second go still
+    // shine.
     expect(screen.getAllByTestId("quiz-score-sparkle")).toHaveLength(1);
   });
 

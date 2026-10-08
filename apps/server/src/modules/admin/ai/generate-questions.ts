@@ -6,18 +6,8 @@ import {
 import { generateStructured } from "./gemini-text.js";
 import type { GenerationStopReason, TokenUsage } from "./types.js";
 
-/**
- * Quiz questions, one model call each (FR-AI-01, FR-AI-03).
- *
- * The format is chosen here rather than by the model because the format *is* the
- * call's response schema. Asking for the four-format union in one call is a
- * `400 INVALID_ARGUMENT`: `responseJsonSchema` rejects a schema this large, and
- * the union of all four questions is 12KB and fifteen levels deep before the
- * lesson's own fields are added. A single format is a quarter of that and is
- * accepted.
- */
-
-/** Which format each question takes, rotating so a quiz is a mix, not four of a kind. */
+// The format is chosen here, not by the model: it is the call's response schema, and the four-format union
+// (12KB, 15 levels deep) is rejected by responseJsonSchema with a 400 INVALID_ARGUMENT.
 export function planQuestionFormats(count: number): QuizQuestionType[] {
   return Array.from(
     { length: count },
@@ -30,12 +20,10 @@ export interface GenerateQuestionsOptions {
   formats: readonly QuizQuestionType[];
   /** `position` is 1-based: it is what the prompt calls the question. */
   buildPrompt: (format: QuizQuestionType, position: number) => string;
-  /** Appended to every call, as `runGenerationJob` retries the whole set. */
   retryFeedback?: string;
 }
 
 export interface GenerateQuestionsResult {
-  /** Exactly as the model wrote them. Validated by the caller's schema, not here. */
   questions: unknown[];
   usage: TokenUsage;
   stopReason: GenerationStopReason | null;
@@ -65,9 +53,8 @@ export async function generateQuestions(
     usage.inputTokens += generated.usage.inputTokens;
     usage.outputTokens += generated.usage.outputTokens;
 
-    // A refusal or a cut-off answer ends the set rather than merely joining it.
-    // `runGenerationJob` fails the job on either without a retry, so the calls
-    // still to come would be paid for and then thrown away.
+    // A refusal or cut-off ends the set: runGenerationJob fails the job on either without a retry,
+    // so further calls would be paid for and thrown away.
     if (
       generated.stopReason === "refusal" ||
       generated.stopReason === "max_tokens"

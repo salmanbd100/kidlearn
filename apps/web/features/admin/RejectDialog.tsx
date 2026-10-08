@@ -13,18 +13,12 @@ import {
 } from "@kidlearn/ui";
 import { type FormEvent, useEffect, useState } from "react";
 
-/**
- * Refusing a generation, with the reason the server insists on (file 37,
- * FR-AI-08).
- */
-
 /** The server's `z.string().trim().min(10)`, mirrored so the button can wait. */
 const MIN_REASON_LENGTH = 10;
 
 export interface RejectDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  /** What is being refused, named in the copy — "The letter A". */
   subject: string;
   isBusy: boolean;
   error?: string;
@@ -70,11 +64,12 @@ export function RejectDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="reject-reason">What was wrong with it?</Label>
             <Textarea
               id="reject-reason"
+              size="sm"
               rows={4}
               value={reason}
               autoFocus
@@ -83,8 +78,7 @@ export function RejectDialog({
             />
             <p
               className="text-muted-foreground text-xs"
-              // Announced as it changes, so the reason a disabled button is
-              // disabled reaches a screen-reader user too (design.md §2.3).
+              // Announced so the disabled reason reaches screen-reader users.
               aria-live="polite"
             >
               {remaining > 0
@@ -99,7 +93,7 @@ export function RejectDialog({
             </p>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="border-border border-t pt-4">
             <Button
               type="button"
               variant="ghost"

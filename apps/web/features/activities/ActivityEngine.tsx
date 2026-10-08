@@ -1,9 +1,10 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import {
   type ActivityDefinition,
   type Locale,
-  safeParseActivityDefinition,
+  readActivityDefinition,
 } from "@kidlearn/types";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import { Volume2 } from "lucide-react";
@@ -11,22 +12,16 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { oopsAudioUrl } from "@/shared/components/kid/feedback-audio";
+import { IconControl } from "@/shared/components/kid/IconControl";
 import { ActivityUnavailable } from "./ActivityUnavailable";
 import { FeedbackLayer } from "./FeedbackLayer";
 import { renderActivity } from "./registry";
-import { oopsAudioUrl, useActivityFeedback } from "./use-activity-feedback";
+import { useActivityFeedback } from "./use-activity-feedback";
 
-/**
- * The practice step of every lesson, whatever the practice happens to be
- * (FR-ACT-01, FR-ACT-05, FR-ACT-06, NFR-SCALE-02).
- */
-
-/** How long the celebration holds before the step advances. Tappable-through. */
 export const CELEBRATION_MS = 1500;
 
 export interface ActivityEngineProps {
-  /** Raw `Activity.definition` JSONB, straight from the lesson API. */
   definition: unknown;
   locale: Locale;
   onComplete: () => void;
@@ -39,15 +34,15 @@ export function ActivityEngine({
 }: ActivityEngineProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const parsed = useMemo(
-    () => safeParseActivityDefinition(definition),
+    () => readActivityDefinition(definition),
     [definition],
   );
 
   useEffect(() => {
     if (parsed.success) return;
-    // Unconditional, not dev-gated: a payload that reaches a child and fails to
-    // render is a content incident, and this line is the only trace of it. The
-    // issue list rather than the error object — Zod's `message` is a JSON blob.
+    // Unconditional, not dev-gated: a payload that fails to render is a content incident and this
+    // is its only trace.
+    // Log the issue list; Zod's `message` is a JSON blob.
     console.error(
       "[kidlearn] activity payload failed validation",
       parsed.error.issues,
@@ -73,10 +68,7 @@ export function ActivityEngine({
   );
 }
 
-/**
- * Split from the parse so the hooks below are unconditional — the oops screen is
- * a different component with different needs, not a branch inside this one.
- */
+/** Split from the parse so the hooks stay unconditional. */
 function PlayableActivity({
   definition,
   locale,
@@ -99,8 +91,7 @@ function PlayableActivity({
 
   useEffect(speakInstruction, [speakInstruction]);
 
-  // The celebration can end two ways — the timer, or a child who taps through it
-  // — and the step must only be reported once however they race.
+  // The timer and a tap-through can race; report the step once.
   const hasCompleted = useRef(false);
   const finish = useCallback(() => {
     if (hasCompleted.current) return;
@@ -119,23 +110,14 @@ function PlayableActivity({
   return (
     <div
       data-testid="activity-engine"
-      // The replay control sits above the board in portrait and beside it in
-      // landscape. A phone held sideways has around 240px of usable height —
-      // enough for the board or for a 64px control stacked on top of it, not
-      // both — and the board is the part the child came for (design.md §6).
+      // Replay control sits above the board in portrait, beside it in landscape: a sideways phone
+      // has ~240px, room for the board or a 64px control, not both (design.md §6).
       className="relative flex flex-1 flex-col gap-4 landscape:flex-row landscape:items-center"
     >
       <div className="flex justify-center">
-        <button
-          type="button"
-          // 64px square, the same control the intro step offers, in the same
-          // place: a child who learned it there does not learn it twice.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          aria-label={t("activity.replay")}
-          onClick={speakInstruction}
-        >
+        <IconControl label={t("activity.replay")} onPress={speakInstruction}>
           <Volume2 aria-hidden="true" className="size-8" />
-        </button>
+        </IconControl>
       </div>
 
       {renderActivity({
@@ -152,7 +134,6 @@ function PlayableActivity({
   );
 }
 
-/** The beat between finishing and moving on. */
 function Celebration({ onSkip }: { onSkip: () => void }) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const isMotionReduced = useIsMotionReduced();
@@ -161,7 +142,7 @@ function Celebration({ onSkip }: { onSkip: () => void }) {
     <motion.button
       type="button"
       data-testid="activity-celebration"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 [touch-action:manipulation]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 touch-manipulation"
       initial={isMotionReduced ? false : { scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 400, damping: 15 }}

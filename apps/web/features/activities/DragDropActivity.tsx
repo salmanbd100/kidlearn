@@ -6,6 +6,7 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ActivityItem,
   DragDropActivity as DragDropDefinition,
@@ -18,32 +19,35 @@ import { cva } from "class-variance-authority";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { StatusMark } from "@/shared/components/kid/StatusMark";
+import { useActivitySensors } from "@/shared/hooks/use-activity-sensors";
+import {
+  centreOfElement,
+  useTapToPlace,
+} from "@/shared/hooks/use-tap-to-place";
+import { isWiggling, type WiggleRequest } from "@/shared/hooks/use-wiggle";
 import { evaluateDrop, groupItemsByTarget } from "./evaluate";
 import type { ActivityRendererProps } from "./registry";
-import { useActivitySensors } from "./use-activity-sensors";
 import { usePlacementState } from "./use-placement-state";
-import { isWiggling, type WiggleRequest } from "./use-wiggle";
-
-// Put each thing where it belongs (FR-ACT-01).
 
 const itemCardVariants = cva(
-  // `touch-action: manipulation` and not `none`: the touch sensor activates on a
-  // 100ms hold, so the browser can keep owning scroll gestures that start here.
-  "flex size-24 shrink-0 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-2 bg-card p-2 text-card-foreground [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  // `touch-action: manipulation`, not `none`: the touch sensor activates on a 100ms hold, so scroll
+  // gestures stay with the browser.
+  "relative flex size-24 shrink-0 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-2 bg-card p-2 text-card-foreground touch-manipulation focus-ring",
   {
     variants: {
-      isDragging: {
-        true: "z-30 cursor-grabbing border-primary shadow-pop",
-        false: "border-border shadow-md",
+      state: {
+        dragging: "z-30 cursor-grabbing border-primary shadow-pop",
+        selected: "border-primary shadow-pop motion-safe:scale-105",
+        idle: "border-border shadow-md",
       },
     },
-    defaultVariants: { isDragging: false },
+    defaultVariants: { state: "idle" },
   },
 );
 
 const dropTargetVariants = cva(
-  "flex min-h-28 min-w-28 flex-col items-center justify-center gap-2 rounded-xl border-4 p-3 text-center transition-colors",
+  "flex min-h-28 min-w-28 flex-col items-center justify-center gap-2 rounded-xl border-4 p-3 text-center transition-colors touch-manipulation focus-ring",
   {
     variants: {
       state: {
@@ -58,7 +62,6 @@ const dropTargetVariants = cva(
 
 const IMAGE_PX = 96;
 
-/** Shared so an empty target is not handed a fresh array on every render. */
 const EMPTY_ITEMS: readonly ActivityItem[] = [];
 
 export function DragDropActivity({
@@ -68,11 +71,12 @@ export function DragDropActivity({
   onActivityComplete,
 }: ActivityRendererProps<DragDropDefinition>) {
   const { t } = useTranslation(LESSON_NAMESPACE);
-  const { placed, wiggle, handleDragEnd } = usePlacementState(
+  const { placed, wiggle, handleDragEnd, place } = usePlacementState(
     definition,
     feedback,
     onActivityComplete,
   );
+  const { selectedId, toggle, placeOn, dragHandlers } = useTapToPlace(place);
 
   const sensors = useActivitySensors();
 
@@ -123,13 +127,20 @@ export function DragDropActivity({
   }, [t, locale, definition, itemById, targetById]);
 
   const trayItems = definition.items.filter((item) => !(item.id in placed));
+  const selectedLabel =
+    selectedId === undefined
+      ? undefined
+      : itemById.get(selectedId)?.label[locale];
 
   return (
     <DndContext
       sensors={sensors}
-      onDragEnd={handleDragEnd}
-      // dnd-kit's own live-region copy is English; every string a child's device
-      // reads out has to come through i18next like any other (FR-I18N-01).
+      onDragStart={dragHandlers.onDragStart}
+      onDragEnd={(event) => {
+        dragHandlers.onDragEnd();
+        handleDragEnd(event);
+      }}
+      // dnd-kit's live-region copy is English; route it through i18next (FR-I18N-01).
       accessibility={{
         announcements,
         screenReaderInstructions: { draggable: t("activity.dnd.instructions") },
@@ -137,16 +148,17 @@ export function DragDropActivity({
     >
       <div
         data-testid="activity-drag-drop"
-        // Portrait stacks — targets above, tray under the thumb. Landscape puts
-        // them side by side, where vertical space is the scarce thing (design.md §6).
+        // Portrait stacks targets above the tray; landscape goes side by side to save vertical
+        // space (design.md §6).
         className="flex flex-1 flex-col items-center justify-center gap-6 landscape:flex-row landscape:items-center"
       >
-        {/*
-          Two labelled lists rather than two labelled `div`s. It is what the
-          board actually is — a set of places and a set of things left to move —
-          and it is what tells a screen-reader user how many of each there are,
-          which is the sighted child's "three cards left" made audible.
-        */}
+        <span role="status" className="sr-only">
+          {selectedLabel === undefined
+            ? ""
+            : t("activity.dnd.picked", { item: selectedLabel })}
+        </span>
+
+        {/* Labelled lists so screen readers announce how many of each remain. */}
         <ul
           aria-label={t("activity.targets")}
           className="flex flex-wrap items-center justify-center gap-4 landscape:flex-1"
@@ -157,16 +169,15 @@ export function DragDropActivity({
                 target={target}
                 locale={locale}
                 placedItems={itemsByTargetId.get(target.id) ?? EMPTY_ITEMS}
+                isInviting={selectedId !== undefined}
+                onTap={(anchor) => placeOn(target.id, anchor)}
               />
             </li>
           ))}
         </ul>
 
         {/*
-          Capped at two cards wide in landscape rather than forced into a single
-          column: six items down one side is taller than a phone held sideways,
-          and a wrapping block beside the targets is the same shape at two items
-          as at six.
+          Two cards wide in landscape: six items in one column is taller than a sideways phone.
         */}
         <ul
           aria-label={t("activity.tray")}
@@ -179,6 +190,8 @@ export function DragDropActivity({
                 locale={locale}
                 roleDescription={t("activity.dnd.roleDescription")}
                 wiggle={isWiggling(wiggle, item.id) ? wiggle : undefined}
+                isSelected={selectedId === item.id}
+                onTap={() => toggle(item.id)}
               />
             </li>
           ))}
@@ -193,24 +206,29 @@ function DraggableItem({
   locale,
   roleDescription,
   wiggle,
+  isSelected,
+  onTap,
 }: {
   item: ActivityItem;
   locale: Locale;
   roleDescription: string;
   wiggle: WiggleRequest | undefined;
+  isSelected: boolean;
+  onTap: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: item.id, attributes: { roleDescription } });
+  const state = isDragging ? "dragging" : isSelected ? "selected" : "idle";
 
   return (
     <button
       ref={setNodeRef}
       type="button"
       data-testid={`activity-item-${item.id}`}
-      className={cn(itemCardVariants({ isDragging }))}
-      // Written out rather than pulled from `@dnd-kit/utilities`: a translate is
-      // the only transform this component ever applies, and `transform` is the
-      // one property a drag may animate (design.md §5.2).
+      data-state={state}
+      className={cn(itemCardVariants({ state }))}
+      // Hand-written translate: the only transform used, and the one property a drag may animate
+      // (design.md §5.2).
       style={{
         transform:
           transform === null
@@ -219,13 +237,13 @@ function DraggableItem({
       }}
       {...listeners}
       {...attributes}
+      // After the spread: dnd-kit's attributes set `aria-pressed` and would clear the tap
+      // selection's.
+      aria-pressed={isSelected || isDragging}
+      onClick={onTap}
     >
       {/*
-        Keyed on the wiggle count, not on whether one is running: re-applying an
-        animation class that is already applied restarts nothing, and the second
-        wrong drop of the same card is the attempt that most needs the answer.
-        Remounting a plain span is free — the draggable node above is untouched,
-        so dnd-kit never sees it happen.
+        Keyed on the wiggle count: re-applying an already-applied animation class restarts nothing.
       */}
       <span
         key={wiggle?.count ?? 0}
@@ -239,6 +257,7 @@ function DraggableItem({
           {item.label[locale]}
         </span>
       </span>
+      {wiggle === undefined ? null : <StatusMark tone="retry" />}
     </button>
   );
 }
@@ -247,21 +266,27 @@ function DropZone({
   target,
   locale,
   placedItems,
+  isInviting,
+  onTap,
 }: {
   target: DropTargetDefinition;
   locale: Locale;
-  /** Every item that belongs here, not just the most recent one. */
   placedItems: readonly ActivityItem[];
+  isInviting: boolean;
+  onTap: (anchor: { x: number; y: number }) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: target.id });
-  const state = placedItems.length > 0 ? "filled" : isOver ? "over" : "empty";
+  const state =
+    placedItems.length > 0 ? "filled" : isOver || isInviting ? "over" : "empty";
 
   return (
-    <div
+    <button
       ref={setNodeRef}
+      type="button"
       data-testid={`activity-target-${target.id}`}
       data-state={state}
       className={cn(dropTargetVariants({ state }))}
+      onClick={(event) => onTap(centreOfElement(event.currentTarget))}
     >
       <ItemArt image={target.image} locale={locale} className="size-12" />
       <span className="font-display text-lg leading-tight text-foreground">
@@ -269,11 +294,8 @@ function DropZone({
       </span>
 
       {placedItems.length === 0 ? null : (
-        // The answers, locked in. Not buttons and not draggable: the child got
-        // them right, and taking one back out again is not a move this activity
-        // has. Wrapping, because a target may hold several — a home the child is
-        // filling up, which is the whole point of a sorting payload.
-        <div className="flex flex-wrap items-center justify-center gap-1">
+        // Locked-in answers: not buttons, not draggable. Wraps because a target may hold several.
+        <span className="flex flex-wrap items-center justify-center gap-1">
           {placedItems.map((placedItem) => (
             <span
               key={placedItem.id}
@@ -290,18 +312,13 @@ function DropZone({
               </span>
             </span>
           ))}
-        </div>
+        </span>
       )}
-    </div>
+    </button>
   );
 }
 
-/**
- * `alt=""` throughout: every card shows its label as text as well, so the picture
- * repeats what is already announced rather than adding to it (design.md §7).
- * `locale` is still read, because a payload authored without art is normal and
- * the alt text is what the CMS reviewer sees when one is missing.
- */
+/** `alt=""`: the label is shown as text too, so the picture would only repeat it (design.md §7). */
 function ItemArt({
   image,
   locale,

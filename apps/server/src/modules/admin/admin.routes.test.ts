@@ -2,9 +2,9 @@ import {
   AdminIdentityResponseSchema,
   PlatformOverviewResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const ME_PATH = "/api/admin/me";
 const OVERVIEW_PATH = "/api/admin/analytics/overview";
@@ -15,6 +15,8 @@ const NOW = new Date("2026-08-19T06:00:00.000Z");
 const WEEK_FROM = new Date("2026-08-16T18:00:00.000Z");
 /** Local 19 August 00:00 Dhaka — the start of `NOW`'s day. */
 const DAY_FROM = new Date("2026-08-18T18:00:00.000Z");
+
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 
 const ADMIN_USER_ID = "user_admin_1";
 const PARENT_USER_ID = "user_parent_1";
@@ -46,18 +48,16 @@ const db = vi.hoisted(() => ({
   childCount: vi.fn(),
   progressCount: vi.fn(),
   eventGroupBy: vi.fn(),
-  // Present so a stray parent-provisioning read fails loudly rather than
-  // returning undefined: no admin route may create a Parent row.
+  // A stray parent-provisioning read fails loudly: no admin route may create a Parent row.
   parentFindUnique: vi.fn(),
   parentUpsert: vi.fn(),
   accountFindFirst: vi.fn(),
+  sessionDeleteMany: vi.fn(),
 }));
 
 vi.mock("../../config/prisma.js", () => ({
   prisma: {
-    // better-auth wraps its sign-up handler in a transaction before it consults
-    // `disableSignUp`, so the stub has to offer one for the rejection test below
-    // to reach the guard at all.
+    // better-auth opens a transaction before consulting disableSignUp; the stub needs one for the rejection test to reach the guard.
     $transaction: async (fn: unknown) =>
       typeof fn === "function" ? fn({}) : undefined,
     adminUser: { findUnique: db.adminFindUnique },
@@ -70,19 +70,18 @@ vi.mock("../../config/prisma.js", () => ({
     lessonProgress: { count: db.progressCount },
     sessionEvent: { groupBy: db.eventGroupBy },
     account: { findFirst: db.accountFindFirst },
+    session: { deleteMany: db.sessionDeleteMany },
   },
 }));
 
 const { app } = await import("../../app.js");
 const { auth } = await import("../../config/auth.js");
 
-/** Makes `auth.api.getSession` resolve to a session for `userId`. */
-function mockSession(userId: string) {
-  // `getSession` returns a deep better-auth type; only the fields the guards read
-  // are supplied, so the shape is narrowed at this boundary.
+function mockSession(userId: string, createdAt: Date | null = new Date()) {
+  // Only the fields the guards read are supplied; the deep better-auth return type is narrowed here.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
-    session: { id: `session_${userId}`, userId },
+    session: { id: `session_${userId}`, userId, createdAt },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
@@ -98,7 +97,7 @@ beforeEach(() => {
   store.events = [];
   for (const fn of Object.values(db)) fn.mockReset();
 
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
 
   db.adminFindUnique.mockImplementation(
@@ -124,8 +123,7 @@ beforeEach(() => {
       ).length,
   );
 
-  // Models what SQL `GROUP BY childId` returns: one row per distinct child in the
-  // window, and only the grouped column.
+  // Models SQL GROUP BY childId: one row per distinct child, grouped column only.
   db.eventGroupBy.mockImplementation(
     async ({
       by,
@@ -160,14 +158,12 @@ describe("requireAdmin", () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHORIZED");
-    // No identity to look up, so nothing should have been queried.
     expect(db.adminFindUnique).not.toHaveBeenCalled();
   });
 
   it("returns 403 FORBIDDEN for a signed-in parent, whose session is perfectly valid", async () => {
     mockSession(PARENT_USER_ID);
-    // A Google sign-in never writes an AdminUser row — that absence *is* the
-    // authorisation check (spec §4.3).
+    // A Google sign-in never writes an AdminUser row; that absence is the authorisation check.
 
     const res = await request(app).get(ME_PATH);
 
@@ -190,8 +186,7 @@ describe("requireAdmin", () => {
 
     const res = await request(app).get(ME_PATH);
 
-    // An admin exists only because the seed script created one. A missing row is
-    // a mistake, not a new account.
+    // Admins exist only via the seed script; a missing row is a mistake, not a new account.
     expect(res.status).toBe(403);
     expect(db.parentUpsert).not.toHaveBeenCalled();
   });
@@ -206,14 +201,55 @@ describe("requireAdmin", () => {
   });
 
   it("refuses an AdminUser row whose identity link was cleared", async () => {
-    // `ON DELETE SET NULL` leaves the row when the identity goes, so the history
-    // survives — but the account must no longer be able to sign in.
+    // ON DELETE SET NULL keeps the history row, but the account must no longer be able to sign in.
     store.admins = [{ ...ADMIN_ROW, authUserId: null }];
     mockSession(ADMIN_USER_ID);
 
     const res = await request(app).get(ME_PATH);
 
     expect(res.status).toBe(403);
+  });
+
+  it("passes an admin session just inside the 12-hour limit", async () => {
+    store.admins = [ADMIN_ROW];
+    mockSession(ADMIN_USER_ID, new Date(NOW.getTime() - TWELVE_HOURS_MS));
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(200);
+    expect(db.sessionDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses and revokes an admin session signed in more than 12 hours ago", async () => {
+    store.admins = [ADMIN_ROW];
+    // Activity would slide better-auth's expiry forward; the limit counts from sign-in, so it must not matter.
+    mockSession(ADMIN_USER_ID, new Date(NOW.getTime() - TWELVE_HOURS_MS - 1));
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+    expect(db.sessionDeleteMany).toHaveBeenCalledWith({
+      where: { id: `session_${ADMIN_USER_ID}` },
+    });
+  });
+
+  it("treats an admin session with no createdAt as expired", async () => {
+    store.admins = [ADMIN_ROW];
+    mockSession(ADMIN_USER_ID, null);
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("leaves an old parent session to requireParent — the limit is for admins", async () => {
+    mockSession(PARENT_USER_ID, new Date("2026-07-01T00:00:00.000Z"));
+
+    const res = await request(app).get(ME_PATH);
+
+    expect(res.status).toBe(403);
+    expect(db.sessionDeleteMany).not.toHaveBeenCalled();
   });
 });
 
@@ -241,9 +277,7 @@ describe("GET /api/admin/me", () => {
 
     const res = await request(app).get(ME_PATH);
 
-    // The response schema is `.strict()`, so `assertContract` above would already
-    // fail — this states the two fields explicitly because both are the kind that
-    // gets added back by accident.
+    // Both fields are the kind that gets added back by accident, so they are stated explicitly.
     expect(res.body.data).not.toHaveProperty("role");
     expect(res.body.data).not.toHaveProperty("authUserId");
   });
@@ -254,13 +288,11 @@ describe("principal separation (§4.3)", () => {
     store.admins = [ADMIN_ROW];
     mockSession(ADMIN_USER_ID);
     db.parentFindUnique.mockResolvedValue(null);
-    // An admin authenticated with a password has no Google `account` row.
     db.accountFindFirst.mockResolvedValue(null);
 
     const res = await request(app).get("/api/auth/me");
 
-    // The other half of the same rule: neither guard can be satisfied by the
-    // other's session, so the two surfaces stay disjoint in both directions.
+    // Neither guard accepts the other's session: the two surfaces stay disjoint both ways.
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("FORBIDDEN");
     expect(db.parentUpsert).not.toHaveBeenCalled();
@@ -276,7 +308,6 @@ describe("principal separation (§4.3)", () => {
 
     expect(me.status).toBe(403);
     expect(overview.status).toBe(403);
-    // The guard is on the router, so the handler never ran.
     expect(db.parentCount).not.toHaveBeenCalled();
   });
 });
@@ -289,9 +320,7 @@ describe("no self-service admin signup", () => {
       name: "Someone",
     });
 
-    // `emailAndPassword.disableSignUp` in `config/auth.ts`. This is what keeps the
-    // shared better-auth `user` table safe: nobody can mint an administrator
-    // identity over HTTP, so the seed script is the only door (spec §4.3).
+    // disableSignUp keeps the shared better-auth user table safe: nobody can mint an admin over HTTP, so the seed script is the only door.
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("EMAIL_PASSWORD_SIGN_UP_DISABLED");
   });
@@ -309,7 +338,6 @@ describe("GET /api/admin/analytics/overview", () => {
     store.parentCount = 2;
     store.childCount = 3;
     store.completions = [
-      // Two inside the current local week.
       { childId: "child_1", completedAt: new Date("2026-08-17T04:00:00.000Z") },
       { childId: "child_2", completedAt: new Date("2026-08-19T05:00:00.000Z") },
       // One in the week before, which must not be counted.
@@ -318,7 +346,6 @@ describe("GET /api/admin/analytics/overview", () => {
       { childId: "child_3", completedAt: null },
     ];
     store.events = [
-      // Two distinct children today, three events between them.
       { childId: "child_1", occurredAt: new Date("2026-08-19T03:00:00.000Z") },
       { childId: "child_1", occurredAt: new Date("2026-08-19T05:30:00.000Z") },
       { childId: "child_2", occurredAt: new Date("2026-08-18T19:00:00.000Z") },
@@ -343,9 +370,7 @@ describe("GET /api/admin/analytics/overview", () => {
   it("windows both counts on APP_TIMEZONE, not on UTC", async () => {
     await request(app).get(OVERVIEW_PATH);
 
-    // Rule 2 of the stub exception: the window is the whole of the correctness
-    // here, so it is asserted rather than inferred from a count. Dhaka is UTC+6,
-    // so a local Monday and a local midnight both begin at 18:00 the day before.
+    // Rule 2 of the stub exception: assert the window itself. Dhaka is UTC+6, so a local Monday and midnight both begin at 18:00 the day before.
     expect(db.progressCount).toHaveBeenCalledWith({
       where: { completedAt: { gte: WEEK_FROM, lt: expect.any(Date) } },
     });
@@ -358,9 +383,7 @@ describe("GET /api/admin/analytics/overview", () => {
   it("reads nothing that could identify a household", async () => {
     await request(app).get(OVERVIEW_PATH);
 
-    // The page is shown to internal reviewers with no relationship to any family
-    // (NFR-SAFE-02), so the only per-child column read anywhere is the id the
-    // grouping needs — and `groupBy` cannot return a column it did not group on.
+    // NFR-SAFE-02: reviewers have no relationship to any family, so the only per-child column read is the id groupBy needs.
     expect(db.eventGroupBy.mock.calls[0][0]).toEqual({
       by: ["childId"],
       where: { occurredAt: { gte: DAY_FROM, lt: expect.any(Date) } },

@@ -13,14 +13,16 @@ Create `apps/mobile` as a real workspace of this pnpm + Turborepo monorepo: an E
 
 - The repo is pnpm 9 + Turborepo. `pnpm-workspace.yaml` declares `apps/*` and `packages/*`, so a new folder under `apps/` becomes a workspace as soon as it has a `package.json` with a `name`.
 - `turbo.json` runs `dev`, `build`, `typecheck` and `test` per package; `typecheck` depends on `^build`. Biome runs repo-wide from the root — apps have **no** per-package `lint` script.
+- Dependencies shared by more than one workspace live in the `catalog:` block of `pnpm-workspace.yaml` (`typescript`, `@types/react`, `@types/node`, `zod`, `vitest`, …). `apps/mobile` names those as `catalog:` rather than pinning its own version. `react` / `react-native` stay exact in the manifest — Expo's SDK dictates them, as `apps/web` does for `react`.
+- `.github/workflows/ci.yml` runs one `gates` job on every PR (`pnpm lint`, `pnpm build`, `pnpm typecheck`, `pnpm test:coverage`). `apps/mobile` joins it through its `typecheck` and `test` scripts; add a `test:coverage` script (`jest --coverage`) so the coverage step does not skip it, and no `build` script (EAS builds, not Turbo).
 - `apps/web` is the naming precedent: package name `web`, path alias `@/*` → app root, `test` script running Vitest.
-- `packages/types` ships **raw TypeScript** through its `exports` map (no build step). Metro must therefore transpile source from outside `apps/mobile`, which is what the monorepo Metro config below enables.
+- `packages/types`, `packages/tokens` and `packages/i18n` ship **raw TypeScript** (and, for i18n, JSON) through their `exports` maps (no build step). Metro must therefore transpile source from outside `apps/mobile`, which is what the monorepo Metro config below enables.
 - `packages/db` is Prisma and server-only. `apps/mobile` must never depend on it.
 - No mobile code exists yet. No Expo account, no EAS project.
 
 ## Detailed Requirements
 
-1. **Workspace package.** `apps/mobile/package.json` named `mobile`, `private: true`, with scripts: `dev` (`expo start --dev-client`), `android` (`expo run:android`), `ios` (`expo run:ios`), `typecheck` (`tsc --noEmit`), `test` (`jest`). No `lint` script — Biome runs from the root.
+1. **Workspace package.** `apps/mobile/package.json` named `mobile`, `private: true`, with scripts: `dev` (`expo start --dev-client`), `android` (`expo run:android`), `ios` (`expo run:ios`), `typecheck` (`tsc --noEmit`), `test` (`jest`), `test:coverage` (`jest --coverage`). No `lint` script — Biome runs from the root.
 2. **Expo app with expo-router.** Scaffold with the latest Expo SDK, then delete the template's example screens. `app/_layout.tsx` is the root `Stack`; `app/index.tsx` is a placeholder screen showing the app name and the resolved API base URL, so the device build visibly proves configuration reaches it.
 3. **Monorepo Metro.** `apps/mobile/metro.config.js` must watch the repo root and resolve from both the app's and the root's `node_modules`. Without this, importing `@kidlearn/types` fails with "Unable to resolve module".
 4. **TypeScript.** Extends `expo/tsconfig.base`, `strict: true`, path alias `@/*` → `apps/mobile/*`. `@kidlearn/types` added as a workspace dependency and imported once in the placeholder screen to prove resolution works end to end.

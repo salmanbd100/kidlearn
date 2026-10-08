@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch, RETRY_BACKOFF_MS, signOut } from "./api-client";
+import {
+  apiBaseUrl,
+  apiFetch,
+  DEFAULT_TIMEOUT_MS,
+  onConsentRequired,
+  onUnauthorized,
+  RETRY_BACKOFF_MS,
+  signOut,
+} from "./api-client";
 
-/**
- * `fetch` is the only thing stubbed here — the envelope handling, the retry
- * schedule and the cold-start signal are the behaviour under test, so nothing
- * about them is mocked.
- */
 function stubFetch(...responses: Array<Response | Error>) {
   const fetchMock = vi.fn((_url: string, _init?: RequestInit) => {
     const next = responses.shift();
@@ -149,6 +152,101 @@ describe("apiFetch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  describe("timeout", () => {
+    function stubStalledFetch() {
+      const fetchMock = vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError")),
+            );
+          }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    it("gives up on a request that never answers instead of hanging", async () => {
+      stubStalledFetch();
+
+      const pending = apiFetch("/api/health", { retries: 0 });
+      await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+      const result = await pending;
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected a failure");
+      expect(result.error.code).toBe("NETWORK_ERROR");
+      expect(result.error.message).toMatch(/timed out/i);
+    });
+
+    it("retries a stalled read, so a dead connection gets another go", async () => {
+      const fetchMock = stubStalledFetch();
+
+      const pending = apiFetch("/api/health", { retries: 1 });
+      await vi.advanceTimersByTimeAsync(
+        DEFAULT_TIMEOUT_MS + RETRY_BACKOFF_MS[0] + DEFAULT_TIMEOUT_MS,
+      );
+      await pending;
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("honours a timeoutMs override", async () => {
+      stubStalledFetch();
+
+      const pending = apiFetch("/api/health", { retries: 0, timeoutMs: 500 });
+      await vi.advanceTimersByTimeAsync(500);
+
+      await expect(pending).resolves.toMatchObject({ ok: false });
+    });
+
+    it("passes a caller's abort through to the request", async () => {
+      stubStalledFetch();
+      const caller = new AbortController();
+
+      const pending = apiFetch("/api/health", {
+        retries: 0,
+        signal: caller.signal,
+      });
+      caller.abort();
+
+      await expect(pending).resolves.toMatchObject({
+        ok: false,
+        error: { code: "NETWORK_ERROR" },
+      });
+    });
+
+    it("does not time out a request that answers in time", async () => {
+      stubFetch(jsonResponse(200, { data: { ok: true } }));
+
+      const result = await apiFetch("/api/health");
+      await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+
+      expect(result).toEqual({ ok: true, data: { ok: true } });
+    });
+  });
+
+  it("maps a non-envelope error body to a code from its status", async () => {
+    const html = (status: number) =>
+      new Response("<html>gateway</html>", { status });
+    const results = await Promise.all(
+      [400, 401, 403, 404, 409].map((status) => {
+        stubFetch(html(status));
+        return apiFetch("/api/health", { retries: 0 });
+      }),
+    );
+
+    expect(
+      results.map((result) => (result.ok ? "ok" : result.error.code)),
+    ).toEqual([
+      "VALIDATION_FAILED",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "NOT_FOUND",
+      "CONFLICT",
+    ]);
+  });
+
   it("honours a retries override of 0", async () => {
     const fetchMock = stubFetch(new TypeError("Failed to fetch"));
 
@@ -159,11 +257,8 @@ describe("apiFetch", () => {
   });
 
   it("never retries a POST — the write may already have landed", async () => {
-    // The regression this pins. Every method used to retry a dropped connection
-    // and a 5xx, so `POST /api/children` that committed before the response was
-    // lost was sent again and made a second child profile. A dropped response is
-    // indistinguishable from a dropped request here, so the safe reading is that
-    // the write happened.
+    // Regression: a `POST /api/children` that committed before the response was lost was retried and made
+    // a second profile. A dropped response looks like a dropped request, so assume the write happened.
     const fetchMock = stubFetch(new TypeError("Failed to fetch"));
 
     const result = await apiFetch("/api/children", {
@@ -259,9 +354,8 @@ describe("signOut", () => {
   it("reports failure on a server error, because the cookie is still live", async () => {
     stubFetch(jsonResponse(500, {}));
 
-    // The caller must not navigate on this: `resolveParentRedirect` sends a
-    // still-signed-in parent from the login page straight back to the dashboard,
-    // so a silent `true` here would look like a sign-out that did nothing.
+    // The caller must not navigate: `resolveParentRedirect` would send a still-signed-in parent straight
+    // back to the dashboard, so a silent `true` would look like a sign-out that did nothing.
     await expect(signOut()).resolves.toBe(false);
   });
 
@@ -269,5 +363,105 @@ describe("signOut", () => {
     stubFetch(new TypeError("Failed to fetch"));
 
     await expect(signOut()).resolves.toBe(false);
+  });
+});
+
+describe("onConsentRequired", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("notifies subscribers on a 403 CONSENT_REQUIRED and not on a plain FORBIDDEN", async () => {
+    stubFetch(
+      jsonResponse(403, { error: { code: "FORBIDDEN", message: "no" } }),
+      jsonResponse(403, {
+        error: { code: "CONSENT_REQUIRED", message: "renew" },
+      }),
+    );
+    const listener = vi.fn();
+    const unsubscribe = onConsentRequired(listener);
+
+    await apiFetch("/api/progress/steps", { method: "POST" });
+    expect(listener).not.toHaveBeenCalled();
+
+    await apiFetch("/api/progress/steps", { method: "POST" });
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("stops notifying once unsubscribed", async () => {
+    stubFetch(
+      jsonResponse(403, {
+        error: { code: "CONSENT_REQUIRED", message: "renew" },
+      }),
+    );
+    const listener = vi.fn();
+    onConsentRequired(listener)();
+
+    await apiFetch("/api/events", { method: "POST" });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("apiBaseUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("falls back to the local API when the variable is empty, not only when unset", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+    expect(apiBaseUrl()).toBe("http://localhost:4000");
+  });
+
+  it("drops a trailing slash so paths never double it", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.com/");
+    expect(apiBaseUrl()).toBe("https://api.example.com");
+  });
+});
+
+describe("onUnauthorized", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("notifies subscribers when a request settles as a 401", async () => {
+    stubFetch(
+      jsonResponse(401, { error: { code: "UNAUTHORIZED", message: "no" } }),
+    );
+    const listener = vi.fn();
+    const unsubscribe = onUnauthorized(listener);
+
+    await apiFetch("/api/children");
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("stays quiet for every other failure and for a success", async () => {
+    stubFetch(
+      jsonResponse(403, { error: { code: "FORBIDDEN", message: "no" } }),
+      jsonResponse(200, { data: {} }),
+    );
+    const listener = vi.fn();
+    const unsubscribe = onUnauthorized(listener);
+
+    await apiFetch("/api/a");
+    await apiFetch("/api/b");
+
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it("stops notifying once unsubscribed", async () => {
+    stubFetch(
+      jsonResponse(401, { error: { code: "UNAUTHORIZED", message: "no" } }),
+    );
+    const listener = vi.fn();
+    onUnauthorized(listener)();
+
+    await apiFetch("/api/children");
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });

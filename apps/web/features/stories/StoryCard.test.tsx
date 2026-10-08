@@ -5,12 +5,7 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { StoryCard } from "./StoryCard";
 
-/**
- * The two properties that matter on a cover: it themes itself from the world row
- * the API sent (FR-STORY-04) rather than from a branch on a slug, and a story the
- * child has finished says so in a shape on the cover and in words in the button's
- * label, rather than in colour alone.
- */
+// A cover themes itself from the world row, not a slug branch, and a finished story says so by shape and in the button label, not colour alone.
 
 const SHARING_MONKEY: StorySummaryResponse = {
   id: "story_1",
@@ -46,8 +41,7 @@ describe("StoryCard", () => {
   it("accents the cover with the world's own palette", () => {
     renderCard();
 
-    // Jungle is green because the row said so, not because this file knows what
-    // a jungle is — adding a fourth world stays a database insert (FR-WORLD-05).
+    // Jungle is green because the row said so; a fourth world stays a database insert.
     expect(
       screen
         .getByRole("button", { name: "Read The Sharing Monkey" })

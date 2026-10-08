@@ -28,22 +28,42 @@ jobs:
     runs-on: ubuntu-latest
     # The four gates measure under a minute cold. This is a hang detector.
     timeout-minutes: 20
+    # For `test:db` only — every other step still needs no database. The name
+    # must end in `_test`: the harness refuses anything else.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: kidlearn_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kidlearn_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # Every action is pinned to a commit SHA, with its release in the trailing
+    # comment: a tag can be moved to new code by whoever controls the repo, and
+    # once file 38a gives a workflow AWS credentials that is a supply-chain
+    # path into production. Dependabot (.github/dependabot.yml) bumps both.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # Must precede setup-node: its pnpm cache resolves `pnpm store path`.
       # No `version` input — the action reads `packageManager` from package.json,
       # so the pinned pnpm version keeps exactly one home.
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          # File 46 replaces this with `node-version-file: .nvmrc`.
-          node-version: 22
+          # The same file a developer's nvm reads, beside `engines.node` in the
+          # root package.json — one Node major in three places that agree.
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Restore Turbo cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -53,7 +73,7 @@ jobs:
 
       # Four separate steps, not one chained command: a failed step names itself
       # in the checks UI, which is the difference between "CI is red" and "types
-      # are broken". No `env:` block and no secrets — verified unnecessary in
+      # are broken". No secrets — verified unnecessary in
       # document/implementation/39-ci-pipeline-and-branch-protection.md.
       - run: pnpm lint
 
@@ -72,13 +92,47 @@ jobs:
         env:
           TURBO_CONCURRENCY: 1
 
+      # The real-database suites (`*.db.test.ts`): `prisma migrate deploy` into
+      # the service above, then every table truncated before each test.
+      - name: Database tests
+        run: pnpm --filter server test:db
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:password@localhost:5432/kidlearn_test
+
+      # An escape hatch that has never been built is not an escape hatch — file 38
+      # req 5. The frontend deploys to Vercel and nothing ever runs this image; no
+      # ECR repository holds it and no Compose file references it. This step exists
+      # only to stop apps/web/Dockerfile rotting against the two conditions that
+      # would end the Vercel arrangement at short notice.
+      #
+      # Never pushed, and x86 on purpose: the claim being checked is that the file
+      # still describes a buildable image, not that CI produces a deployable arm64
+      # artefact. Build args are placeholders for the same reason.
+      - name: Build the web escape-hatch image
+        run: |
+          docker build -f apps/web/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000 \
+            --build-arg NEXT_PUBLIC_SITE_URL=http://localhost:3000 \
+            --build-arg MEDIA_ASSET_HOSTS=https://res.cloudinary.com \
+            .
+
+      # The images that actually deploy (file 38). They are built by hand on a
+      # laptop today, so without this a broken `pnpm deploy --prod` step or Prisma
+      # generate path in apps/server/Dockerfile is found at deploy time, not in the
+      # PR that broke it. Never pushed, and x86 for the same reason as the web image.
+      - name: Build the server runner image
+        run: docker build -f apps/server/Dockerfile --target runner .
+
+      - name: Build the server migrate image
+        run: docker build -f apps/server/Dockerfile --target migrate .
+
       - name: Coverage summary
         if: always()
         run: node .github/scripts/coverage-summary.mjs
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage
           path: |

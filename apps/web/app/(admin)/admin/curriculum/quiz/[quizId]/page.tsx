@@ -1,6 +1,5 @@
 import { QuizEditorScreen } from "./QuizEditorScreen";
 
-/** `/admin/curriculum/quiz/[quizId]` — the quiz question editor (FR-CMS-03). */
 export default async function AdminQuizPage({
   params,
   searchParams,

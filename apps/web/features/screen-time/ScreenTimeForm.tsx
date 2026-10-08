@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ScreenTimeSettingResponse,
   ScreenTimeUpdate,
@@ -14,12 +15,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { screenTimeErrorKey } from "@/features/parent/parent-errors";
 import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { SegmentedField } from "../../shared/components/SegmentedField";
-
-/**
- * The parent's screen-time controls for one child (FR-TIME-01, FR-TIME-04..05).
- */
+import { SegmentedField } from "@/shared/components/SegmentedField";
 
 /** The `null` limit as a radio value — a radio group's value is a string. */
 const LIMIT_OFF = "off";
@@ -33,7 +29,6 @@ export interface ScreenTimeFormProps {
   onSubmit: (
     values: ScreenTimeUpdate,
   ) => Promise<ApiResult<ScreenTimeSettingResponse>>;
-  /** Runs after `onSubmit` succeeds — the screen shows its confirmation. */
   onSaved: (setting: ScreenTimeSettingResponse) => void;
   cancelHref?: string;
 }
@@ -75,10 +70,7 @@ export function ScreenTimeForm({
       windowEnd: isWindowOn ? windowEnd : null,
     });
     if (!parsed.success) {
-      // The controls cannot express an invalid combination — the limit comes from
-      // a closed set and the toggle sets both window ends together — so a failure
-      // here is a browser handing back a time input's empty value, and the generic
-      // message is the honest one.
+      // The controls cannot express an invalid combination, so a failure here is a browser returning a time input's empty value; the generic message is honest.
       setFormError({ code: "VALIDATION_FAILED", message: "Invalid settings" });
       return;
     }
@@ -119,8 +111,7 @@ export function ScreenTimeForm({
           {t("screenTime.window")}
         </legend>
 
-        {/* A plain checkbox, sized to the 44px parent-surface target: it is one
-            binary choice and the native control announces its own state. */}
+        {/* Plain checkbox at the 44px parent-surface target: one binary choice, and the native control announces its state. */}
         <label className="flex min-h-11 cursor-pointer items-center gap-3">
           <input
             type="checkbox"
@@ -161,8 +152,7 @@ export function ScreenTimeForm({
                 />
               </div>
             </div>
-            {/* The server treats an equal pair as "no window" rather than locking
-                the child out all day, so the parent is told before they save. */}
+            {/* The server treats an equal pair as "no window", not an all-day lockout, so the parent is told before saving. */}
             {windowStart === windowEnd ? (
               <p role="alert" className="text-muted-foreground text-sm">
                 {t("screenTime.windowSame")}

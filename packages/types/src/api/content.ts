@@ -16,10 +16,8 @@ export const MediaSummarySchema = z
   .strict();
 
 /**
- * Data-driven theming (FR-WORLD-05): a flat map of token name → CSS colour, e.g.
- * `{ primary: "#2E7D32", secondary: "#A5D6A7", background: "#F1F8E9" }`. Stored
- * as JSONB, so the flatness is a contract this schema asserts rather than
- * something the database enforces.
+ * Data-driven theming (FR-WORLD-05): a flat map of token name → CSS colour. Stored as JSONB, so
+ * the flatness is a contract this schema asserts, not one the database enforces.
  */
 export const PaletteSchema = z.record(z.string());
 
@@ -39,10 +37,7 @@ export const SubjectSummarySchema = z
     slug: z.string(),
     name: z.string(),
     sortOrder: z.number().int(),
-    /**
-     * Reserved contract field, always `null`: the settled schema has no
-     * `Subject.iconAsset` column. Present so adding one is not a breaking change.
-     */
+    /** Reserved, always `null`: no `Subject.iconAsset` column yet; present so adding one is not breaking. */
     iconAsset: MediaSummarySchema.nullable(),
   })
   .strict();
@@ -68,18 +63,13 @@ export const LessonListItemSchema = z
     /** Reserved, always `null` — as above. */
     durationEstimateSec: z.number().int().nullable(),
     /**
-     * Reserved, always `null`: the child's-locale voice-over of `title`, which a
-     * pre-reader needs to know what a tile says (NFR-A11Y-01). There is no
-     * `LessonTranslation.nameAudioAsset` column yet — the voice pipeline in file
-     * 36 adds one. Present now so the tile that speaks it is already wired.
+     * Reserved, always `null`: the child's-locale voice-over of `title` (NFR-A11Y-01). No column
+     * until the voice pipeline adds one; present so the tile that speaks it is already wired.
      */
     nameAudioUrl: z.string().nullable(),
     /**
-     * Reserved, always `null`. File 16 was expected to join `LessonProgress` here
-     * and did not: it shipped `GET /api/progress/lessons/{id}` instead, so that a
-     * tile's progress and the player's resume point cannot disagree by being read
-     * from two places. The field stays for a future list-level badge — filling it
-     * means a join per lesson, which the world screen does not need yet.
+     * Reserved, always `null`: progress is read from `GET /api/progress/lessons/{id}` so a tile
+     * and the player's resume point cannot disagree by being read from two places.
      */
     progress: z.null(),
   })
@@ -90,7 +80,7 @@ export const LessonActivitySchema = z
     id: z.string(),
     type: z.string(),
     schemaVersion: z.number().int(),
-    /** Validated against `ActivityDefinitionSchema` before it is served. */
+    /** Served as `readActivityDefinition` returns it: current version, no unknown keys. */
     definition: ActivityDefinitionSchema,
   })
   .strict();
@@ -114,10 +104,7 @@ export const LessonQuizSchema = z
   })
   .strict();
 
-/**
- * Which of the lesson's media the child is hearing or watching in English
- * because their own locale has none (FR-I18N-01).
- */
+/** Lesson media the child hears or sees in English because their locale has none (FR-I18N-01). */
 export const LessonAssetFallbacksSchema = z
   .object({
     introAudioUrl: z.boolean(),
@@ -139,31 +126,25 @@ export const LessonDetailSchema = z
     introScript: z.string().nullable(),
     introAudioUrl: z.string().nullable(),
     videoUrl: z.string().nullable(),
-    /** The still frame painted while the video loads. `null` until file 33 uploads one. */
+    /** The still frame painted while the video loads. */
     videoPosterUrl: z.string().nullable(),
     assetFallbacks: LessonAssetFallbacksSchema,
     /**
-     * `null` when the lesson has no activity, **or** when it points at one that
-     * is not yet published — a published lesson referencing an in-review
-     * activity is a normal state of the authoring workflow, so it is omitted and
-     * logged rather than failing the request.
+     * `null` when the lesson has no activity or points at an unpublished one (a normal authoring
+     * state), which is omitted and logged rather than failing the request.
      */
     activity: LessonActivitySchema.nullable(),
     /** `null` under the same two conditions as `activity`. */
     quiz: LessonQuizSchema.nullable(),
     /**
-     * Reserved, always `null`. The player reads its resume point from
-     * `GET /api/progress/lessons/{id}` (file 16) rather than from here — one owner
-     * for progress, so a lesson payload cached in the client cannot go stale about
-     * where the child actually is.
+     * Reserved, always `null`: the resume point comes from `GET /api/progress/lessons/{id}`, so a
+     * cached lesson payload cannot go stale about where the child is.
      */
     progress: z.null(),
   })
   .strict();
 
-/**
- * One topic heading and the lessons of the requested world that sit under it.
- */
+/** One topic heading and the lessons of the requested world under it. */
 export const WorldTopicLessonsSchema = TopicSummarySchema.extend({
   lessons: z.array(LessonListItemSchema),
 }).strict();
@@ -187,7 +168,6 @@ export const LessonDetailResponseSchema = ok(
   z.object({ lesson: LessonDetailSchema }).strict(),
 );
 
-/** Payload types for the client. */
 export type WorldSummaryResponse = z.infer<typeof WorldSummarySchema>;
 export type TopicSummaryResponse = z.infer<typeof TopicSummarySchema>;
 export type LessonListItemResponse = z.infer<typeof LessonListItemSchema>;

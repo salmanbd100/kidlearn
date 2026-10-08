@@ -4,11 +4,6 @@ import { useIsMotionReduced } from "@kidlearn/ui";
 import { Star } from "lucide-react";
 import { motion } from "motion/react";
 
-/**
- * The stars a lesson just earned, popping in one at a time (FR-GAM-01,
- * FR-LSN-05).
- */
-
 /** Long enough that each star is its own event, per `design.md §5.1`. */
 export const STAR_STAGGER_MS = 400;
 
@@ -33,10 +28,13 @@ export function StarBurst({ count }: { count: number }) {
           // stylesheet can neutralise (design.md §5.2).
           initial={isMotionReduced ? false : { scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
+          // A duration-bound spring rather than stiffness and damping: those
+          // settle in about a second, and each star's pop is capped at
+          // `--dur-slow` (design.md §5.2). The stagger between them is not.
           transition={{
             type: "spring",
-            stiffness: 320,
-            damping: 14,
+            duration: 0.4,
+            bounce: 0.45,
             delay: isMotionReduced ? 0 : (index * STAR_STAGGER_MS) / 1000,
           }}
         >

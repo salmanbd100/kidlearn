@@ -9,24 +9,20 @@ import type {
 } from "@kidlearn/types";
 import { AI_JOB_TYPES, GRADE_LEVELS, LOCALES } from "@kidlearn/types";
 import { Button, cn } from "@kidlearn/ui";
-import { cva } from "class-variance-authority";
+import { ChevronRight, Inbox, SearchX, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Chip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { type AiJobFilters, fetchAiJobs } from "@/features/admin/admin-api";
+import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
+import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
+import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { FOCUS_RING } from "@/features/admin/focus-ring";
+import { type AiJobFilters, fetchAiJobs } from "@/features/admin/ai-api";
+import { Chip } from "@/features/admin/StatusChip";
 import { AI_JOB_TYPE_LABELS, formatRelativeAge } from "./job-labels";
-
-/**
- * `/admin/ai-queue` — everything a model wrote and nobody has read yet
- * (file 37, FR-CMS-05).
- */
 
 const PAGE_SIZE = 25;
 
-/** The queue proper, then the two archives worth reading back. */
 const STATUS_TABS: Array<{ value: AiJobStatus; label: string }> = [
   { value: "awaiting_review", label: "Awaiting review" },
   { value: "rejected", label: "Rejected" },
@@ -44,13 +40,7 @@ export function AiQueueScreen() {
   const [language, setLanguage] = useState<Locale>();
   const [gradeLevel, setGradeLevel] = useState<GradeLevelValue>();
 
-  /**
-   * `isCurrent` is what stops a slow response for the filters an admin has since
-   * moved off from overwriting a fast one for the filters they are looking at —
-   * chips reading "Awaiting review" above a list of rejected jobs, which never
-   * self-corrects. Every caller passes its own flag; the effect clears it on
-   * cleanup, and the manual retry button owns one for the length of its call.
-   */
+  /** Stops a slow response for stale filters overwriting a fast one for the current filters. */
   const load = useCallback(
     async (isCurrent: () => boolean) => {
       setState("loading");
@@ -92,99 +82,102 @@ export function AiQueueScreen() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-0.5">
-        <h1 className="font-semibold text-foreground text-xl">AI Queue</h1>
-        <p className="text-muted-foreground text-xs">
-          Generated content, oldest first. Nothing here is visible to a child
-          until it is approved.
-        </p>
-      </header>
+      <AdminPageHeader
+        title="AI Queue"
+        description="Generated content, oldest first. Nothing here is visible to a child until it is approved."
+      />
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5 rounded-(--radius) border border-border bg-card p-4">
         <FilterRow label="Status">
           {STATUS_TABS.map((tab) => (
-            <FilterChip
+            <AdminFilterChip
               key={tab.value}
               isSelected={status === tab.value}
               onClick={() => setStatus(tab.value)}
             >
               {tab.label}
-            </FilterChip>
+            </AdminFilterChip>
           ))}
         </FilterRow>
 
         <FilterRow label="Type">
-          <FilterChip
+          <AdminFilterChip
             isSelected={type === undefined}
             onClick={() => setType(undefined)}
           >
             Any
-          </FilterChip>
+          </AdminFilterChip>
           {AI_JOB_TYPES.map((one) => (
-            <FilterChip
+            <AdminFilterChip
               key={one}
               isSelected={type === one}
               onClick={() => setType(one)}
             >
               {AI_JOB_TYPE_LABELS[one]}
-            </FilterChip>
+            </AdminFilterChip>
           ))}
         </FilterRow>
 
         <FilterRow label="Language">
-          <FilterChip
+          <AdminFilterChip
             isSelected={language === undefined}
             onClick={() => setLanguage(undefined)}
           >
             Any
-          </FilterChip>
+          </AdminFilterChip>
           {LOCALES.map((one) => (
-            <FilterChip
+            <AdminFilterChip
               key={one}
               isSelected={language === one}
               onClick={() => setLanguage(one)}
             >
               {LOCALE_LABELS[one]}
-            </FilterChip>
+            </AdminFilterChip>
           ))}
         </FilterRow>
 
         <FilterRow label="Grade">
-          <FilterChip
+          <AdminFilterChip
             isSelected={gradeLevel === undefined}
             onClick={() => setGradeLevel(undefined)}
           >
             Any
-          </FilterChip>
+          </AdminFilterChip>
           {GRADE_LEVELS.map((one) => (
-            <FilterChip
+            <AdminFilterChip
               key={one}
               isSelected={gradeLevel === one}
               onClick={() => setGradeLevel(one)}
             >
               {GRADE_LABELS[one]}
-            </FilterChip>
+            </AdminFilterChip>
           ))}
         </FilterRow>
       </div>
 
       {state === "loading" ? (
-        <p className="text-muted-foreground text-sm">
-          {isWaking ? "Waking the API up…" : "Loading…"}
-        </p>
-      ) : state === "error" ? (
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-muted-foreground text-sm">
-            The queue could not be loaded.
+        <div className="flex flex-col gap-2">
+          <p role="status" className="text-muted-foreground text-sm">
+            {isWaking ? "Waking the API up…" : "Loading…"}
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void load(() => true)}
-          >
-            Try again
-          </Button>
+          <RowSkeleton />
         </div>
+      ) : state === "error" ? (
+        <AdminEmptyState
+          tone="error"
+          icon={TriangleAlert}
+          title="The queue could not be loaded."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void load(() => true)}
+            >
+              Try again
+            </Button>
+          }
+        />
       ) : jobs.length === 0 ? (
         <EmptyState
           status={status}
@@ -220,17 +213,13 @@ function FilterRow({
   children: React.ReactNode;
 }) {
   return (
-    // A `fieldset` rather than a `div` with `role="group"`: these are controls,
-    // and the native element carries the grouping without an ARIA attribute.
-    // Its default border and padding are removed — the grouping is semantic here,
-    // not visual.
+    // Native `fieldset` carries the grouping without ARIA; border and padding are reset.
     <fieldset className="flex flex-wrap items-center gap-1.5 border-0 p-0">
-      {/* The visible label is `aria-hidden` because the legend already names the
-          group; without that a screen reader announces the axis twice. */}
+      {/* `aria-hidden`: the legend already names the group. */}
       <legend className="sr-only">{label}</legend>
       <span
         aria-hidden="true"
-        className="w-16 shrink-0 text-muted-foreground text-xs"
+        className="w-20 shrink-0 font-medium text-muted-foreground text-xs"
       >
         {label}
       </span>
@@ -239,51 +228,13 @@ function FilterRow({
   );
 }
 
-/** 44px on a parent-theme surface (design.md §7). */
-const filterChipVariants = cva(
-  cn("min-h-11 rounded-full border px-3 text-sm transition-colors", FOCUS_RING),
-  {
-    variants: {
-      isSelected: {
-        true: "border-primary bg-primary/10 font-medium text-primary",
-        false:
-          "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-      },
-    },
-    defaultVariants: { isSelected: false },
-  },
-);
-
-function FilterChip({
-  isSelected,
-  onClick,
-  children,
-}: {
-  isSelected: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      // `aria-pressed` rather than colour alone — meaning is never carried by
-      // colour on its own (design.md §2.3).
-      aria-pressed={isSelected}
-      onClick={onClick}
-      className={filterChipVariants({ isSelected })}
-    >
-      {children}
-    </button>
-  );
-}
-
 function JobRow({ job }: { job: AiJobSummary }) {
   return (
     <Link
       href={`${ADMIN_ROUTES.aiQueue}/${job.id}`}
       className={cn(
-        "flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius)] border border-border bg-card p-3 transition-colors hover:bg-accent",
-        FOCUS_RING,
+        "group flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 rounded-(--radius) border border-border bg-card px-4 py-3 transition-colors hover:border-primary/40 hover:bg-accent",
+        "focus-ring",
       )}
     >
       <Chip>{AI_JOB_TYPE_LABELS[job.type]}</Chip>
@@ -304,14 +255,18 @@ function JobRow({ job }: { job: AiJobSummary }) {
         </span>
       )}
 
-      <span className="text-muted-foreground text-xs">
+      <span className="text-muted-foreground text-xs tabular-nums">
         {formatRelativeAge(job.createdAt)}
       </span>
+
+      <ChevronRight
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+      />
     </Link>
   );
 }
 
-/** The empty states differ, and the difference matters. */
 function EmptyState({
   status,
   isFiltered,
@@ -321,19 +276,35 @@ function EmptyState({
 }) {
   if (isFiltered) {
     return (
-      <p className="text-muted-foreground text-sm">
-        No jobs match these filters. Grade and language are read from what each
-        generation was asked for, so a grade filter shows only lessons, stories
-        and quizzes — audio and illustration jobs carry neither.
-      </p>
+      <AdminEmptyState
+        icon={SearchX}
+        title="No jobs match these filters."
+        description="Grade and language are read from what each generation was asked for, so a grade filter shows only lessons, stories and quizzes — audio and illustration jobs carry neither."
+      />
     );
   }
 
   return (
-    <p className="text-muted-foreground text-sm">
-      {status === "awaiting_review"
-        ? "Nothing is waiting for review."
-        : `No ${status.replace("_", " ")} jobs.`}
-    </p>
+    <AdminEmptyState
+      icon={Inbox}
+      title={
+        status === "awaiting_review"
+          ? "Nothing is waiting for review."
+          : `No ${status.replace("_", " ")} jobs.`
+      }
+    />
+  );
+}
+
+function RowSkeleton() {
+  return (
+    <ul aria-hidden="true" className="flex flex-col gap-2">
+      {[0, 1, 2].map((row) => (
+        <li
+          key={row}
+          className="h-14 rounded-(--radius) border border-border bg-card motion-safe:animate-pulse"
+        />
+      ))}
+    </ul>
   );
 }

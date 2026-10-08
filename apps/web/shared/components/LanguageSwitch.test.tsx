@@ -23,7 +23,7 @@ function renderSwitch() {
 describe("LanguageSwitch", () => {
   beforeEach(() => {
     resetI18nForTests();
-    // biome-ignore lint/suspicious/noDocumentCookie: jsdom implements document.cookie, not the Cookie Store API — and this is the same interface i18next's detector writes through.
+    // biome-ignore lint/suspicious/noDocumentCookie: jsdom implements document.cookie, not the Cookie Store API — and this is the same interface `writeLocaleCookie` writes through.
     document.cookie = `${LOCALE_COOKIE_NAME}=; Max-Age=0; path=/`;
     document.documentElement.lang = "en";
   });
@@ -36,8 +36,7 @@ describe("LanguageSwitch", () => {
     fireEvent.click(screen.getByRole("button"));
 
     await waitFor(() => expect(greeting).toHaveTextContent("চলো শুরু করি!"));
-    // Same DOM node throughout: the strings were swapped in place, nothing
-    // navigated or remounted (FR-I18N-03).
+    // Same DOM node throughout: strings swapped in place, no navigation or remount (FR-I18N-03).
     expect(screen.getByTestId("greeting")).toBe(greeting);
   });
 

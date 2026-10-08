@@ -7,8 +7,6 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The screen's two message channels.
-
 const api = vi.hoisted(() => ({
   fetchWorlds: vi.fn(),
   fetchSubjects: vi.fn(),
@@ -20,7 +18,7 @@ const api = vi.hoisted(() => ({
   reorderContent: vi.fn(),
 }));
 
-vi.mock("@/features/admin/admin-api", () => api);
+vi.mock("@/features/admin/content-api", () => api);
 
 const { CurriculumScreen } = await import("./CurriculumScreen");
 
@@ -56,14 +54,12 @@ async function renderScreen() {
   await screen.findByRole("button", { name: /^Letters/ });
 }
 
-/** The screen's own status banner. */
 function banner(): HTMLElement | undefined {
   return screen
     .queryAllByRole("status")
     .find((element) => (element.textContent ?? "").trim() !== "");
 }
 
-/** The "New" button belonging to a named column. */
 function newIn(column: string) {
   const heading = screen.getByRole("heading", { name: column });
   const section = heading.closest("section");
@@ -88,13 +84,8 @@ function fillSubjectForm() {
   fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
 }
 
-describe("editing a published row", () => {
-  /**
-   * The button has to agree with the server, which refuses a `PATCH` on a
-   * published row with a `409`. Offering an edit that cannot succeed is the
-   * failure mode the shared matrix exists to prevent, and `isContentEditable` is
-   * the same predicate both sides read.
-   */
+describe("editing a row with a review decision on it", () => {
+  /** The button must agree with the server, which 409s a `PATCH` on a published row. */
   async function renderWithStatus(status: string) {
     api.fetchSubjects.mockResolvedValue(ok([{ ...SUBJECT, status }]));
     await renderScreen();
@@ -105,24 +96,24 @@ describe("editing a published row", () => {
     await renderWithStatus("published");
 
     expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
-    expect(
-      screen.getByText(/Published content cannot be edited/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/cannot be edited/)).toBeInTheDocument();
   });
 
-  it("leaves Edit enabled at every other status", async () => {
-    await renderWithStatus("approved");
+  it.each(["in_review", "approved"])("disables Edit at %s", async (status) => {
+    await renderWithStatus(status);
+
+    expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
+  });
+
+  it("leaves Edit enabled at draft", async () => {
+    await renderWithStatus("draft");
 
     expect(screen.getByRole("button", { name: "Edit" })).toBeEnabled();
-    expect(
-      screen.queryByText(/Published content cannot be edited/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/cannot be edited/)).not.toBeInTheDocument();
   });
 
   it("offers Withdraw to draft, so the refusal has a way out on screen", async () => {
-    // The hint tells an admin to withdraw; the button that does it comes from
-    // the shared matrix. If `published → draft` ever left the matrix, the hint
-    // would describe an action the screen does not offer.
+    // The hint tells an admin to withdraw; if `published → draft` left the matrix it would describe a missing action.
     await renderWithStatus("published");
 
     expect(screen.getByRole("button", { name: /draft/i })).toBeInTheDocument();
@@ -153,7 +144,6 @@ describe("CurriculumScreen messages", () => {
 
     fireEvent.click(newIn("Subjects"));
 
-    // The freshly opened form is untouched: no alert, and the banner is gone.
     expect(screen.queryByRole("alert")).toBeNull();
     expect(banner()).toBeUndefined();
   });

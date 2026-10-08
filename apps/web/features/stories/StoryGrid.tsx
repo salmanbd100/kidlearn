@@ -5,8 +5,6 @@ import { useState } from "react";
 import { StoryCard } from "@/features/stories/StoryCard";
 import { useAudio } from "@/shared/components/AudioProvider";
 
-// The cover grid, and the two-tap rule that opens a story.
-
 export interface StoryGridProps {
   stories: StorySummaryResponse[];
   onOpen: (storyId: string) => void;

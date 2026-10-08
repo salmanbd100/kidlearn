@@ -30,8 +30,8 @@ describe("stepAssetFallback", () => {
       (step) => stepAssetFallback(step, fallbacks) === true,
     );
 
-    // One missing Bangla video is one gap. Reporting it five times would point
-    // a content report at four steps that were never affected.
+    // One missing Bangla video is one gap; reporting it five times would blame four unaffected
+    // steps.
     expect(flagged).toEqual(["video"]);
   });
 
@@ -40,9 +40,8 @@ describe("stepAssetFallback", () => {
     "quiz",
     "reward",
   ] as const)("says nothing at all for %s rather than saying 'no fallback'", (step) => {
-    // Those steps carry their own localized payloads, resolved by the engines
-    // in files 18–23 — there is no server-resolved url here to have fallen
-    // back from, and `undefined` keeps the key off the event entirely.
+    // Those steps carry their own localized payloads, so there is no server-resolved url to have
+    // fallen back from.
     expect(
       stepAssetFallback(step, { ...NONE, videoUrl: true }),
     ).toBeUndefined();

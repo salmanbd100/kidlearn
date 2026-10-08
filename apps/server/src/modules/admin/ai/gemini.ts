@@ -1,21 +1,13 @@
 import type { CharacterSheet } from "@kidlearn/db";
 import { env } from "../../../config/env.js";
-import { getClient } from "./google-genai-client.js";
+import { CHILD_SAFETY_SETTINGS, getClient } from "./google-genai-client.js";
 
-/**
- * Gemini image generation — story and lesson illustrations (file 36, FR-AI-05),
- * and the mechanism that keeps recurring characters recognisable (FR-AI-09).
- */
-
-/** The platform look, in the model's own vocabulary. */
 const STYLE_PREFIX =
   "Children's book illustration, soft rounded cartoon style, bright cheerful colors, " +
   "thick outlines, no text in image, friendly expressions, suitable for ages 3-6.";
 
-/** What the prompt builder needs from a sheet. */
 export type CharacterSheetRef = Pick<CharacterSheet, "name" | "description">;
 
-/** `STYLE_PREFIX`, then the characters, then the scene. */
 export function buildIllustrationPrompt(
   prompt: string,
   sheets: readonly CharacterSheetRef[] = [],
@@ -30,7 +22,6 @@ export function buildIllustrationPrompt(
   return `${STYLE_PREFIX}\n${characterBlock}Scene: ${prompt}`;
 }
 
-/** Draws one illustration and returns the image bytes. */
 export async function generateIllustration(
   prompt: string,
   sheets: readonly CharacterSheetRef[] = [],
@@ -39,6 +30,7 @@ export async function generateIllustration(
   const response = await client.models.generateContent({
     model: env.GEMINI_IMAGE_MODEL,
     contents: buildIllustrationPrompt(prompt, sheets),
+    config: { safetySettings: CHILD_SAFETY_SETTINGS },
   });
 
   const parts = response.candidates?.[0]?.content?.parts ?? [];

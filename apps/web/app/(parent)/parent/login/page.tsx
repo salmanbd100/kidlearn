@@ -1,5 +1,5 @@
-import { LoginScreen } from "./LoginScreen";
+import { SignInScreen } from "./SignInScreen";
 
-export default function ParentLoginPage() {
-  return <LoginScreen />;
+export default function ParentSignInPage() {
+  return <SignInScreen />;
 }

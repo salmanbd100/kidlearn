@@ -1,7 +1,3 @@
-/**
- * The story reader's flow, as a pure reducer (FR-STORY-02, FR-STORY-06..07).
- */
-
 export interface ReaderState {
   pageIndex: number;
   pageCount: number;
@@ -15,15 +11,11 @@ export type ReaderEvent =
   /** A tapped or swiped page turn. On the last page, ends the story. */
   | { type: "NEXT" }
   | { type: "BACK" }
-  /**
-   * This page's narration reached its end (after the component's hold). Turns
-   * the page only while auto-advance is on, and never ends the story — the
-   * ending is the child's to reach.
-   */
+  /** This page's narration ended (after the component's hold). Turns the page only while auto-advance is on; never ends the story. */
   | { type: "NARRATION_ENDED" }
   | { type: "TOGGLE_AUTO_ADVANCE" }
   | { type: "FINISH" }
-  /** Back to page one, free and unlimited (FR-STORY-06). */
+  /** Back to page one, free and unlimited. */
   | { type: "READ_AGAIN" };
 
 export function initialReaderState(pageCount: number): ReaderState {
@@ -73,7 +65,7 @@ export function readerReducer(
 
     case "READ_AGAIN": {
       if (state.phase === "reading") return state;
-      // `completionRequested` is carried, not reset — see the file header.
+      // `completionRequested` is carried, not reset: it stops a replaying child firing the completion call per reading.
       return { ...state, phase: "reading", pageIndex: 0 };
     }
   }

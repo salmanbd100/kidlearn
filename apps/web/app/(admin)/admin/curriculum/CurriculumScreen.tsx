@@ -18,12 +18,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@kidlearn/ui";
+import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   type ContentDraft,
   createContent,
-  createQuiz,
   fetchLessons,
   fetchSubjects,
   fetchTopics,
@@ -31,21 +34,16 @@ import {
   reorderContent,
   transitionContent,
   updateContent,
-} from "@/features/admin/admin-api";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+} from "@/features/admin/content-api";
+import { createQuiz } from "@/features/admin/editors-api";
 import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 import { type ColumnItem, ContentColumn } from "./ContentColumn";
 import { ContentForm } from "./ContentForm";
 import { GenerateLessonDialog } from "./GenerateLessonDialog";
 import { GenerateQuizButton } from "./GenerateQuizButton";
 import { LessonForm } from "./LessonForm";
-import { StatusChip } from "./StatusChip";
-import { TransitionButtons } from "./TransitionButtons";
-
-/**
- * `/admin/curriculum` — the curriculum tree (file 32, FR-CURR-04, FR-CMS-01,
- * FR-CMS-06).
- */
 
 type DialogState =
   | { kind: "closed" }
@@ -68,20 +66,14 @@ export function CurriculumScreen() {
     "loading" | "waking" | "ready" | "error"
   >("loading");
   const [isBusy, setIsBusy] = useState(false);
-  // Two channels, not one. They render differently — a success is a `role=status`
-  // banner, a failure is a `role=alert` inside the open form — and sharing a
-  // variable meant the last success was still in it when the next dialog opened,
-  // announcing "Created as a draft." as an error on an untouched form.
+  // Two channels: a success is a `role=status` banner, a failure a `role=alert` in the open form;
+  // sharing one announced a stale success as an error on the next dialog.
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
   const [dialog, setDialog] = useState<DialogState>({ kind: "closed" });
-  // Its own flag rather than a `DialogState` variant: the generator is not a form
-  // over a resource — it has no row to edit, its own submit path, and its own
-  // dialog — so folding it into that union would mean guarding every branch that
-  // reads `dialog.resource`.
+  // Not a `DialogState` variant: the generator has no row to edit, so folding it in would guard every `dialog.resource` read.
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
 
-  /** Both channels are stale the moment a new intent starts. */
   function clearMessages() {
     setNotice(undefined);
     setError(undefined);
@@ -151,7 +143,6 @@ export function CurriculumScreen() {
     selectedLessonId,
   });
 
-  /** Runs a write, reports its failure in the admin's words, then re-reads. */
   async function run(
     action: () => Promise<{ ok: boolean; error?: { message: string } }>,
     successNotice: string,
@@ -172,7 +163,6 @@ export function CurriculumScreen() {
     return true;
   }
 
-  /** Applies each hop in order and stops at the first refusal. */
   async function handleTransition(
     resource: ContentResourceName,
     id: string,
@@ -196,7 +186,6 @@ export function CurriculumScreen() {
     setIsBusy(false);
   }
 
-  /** Reorders optimistically, then lets the server's answer stand. */
   async function handleReorder(
     resource: OrderableContentResourceName,
     orderedIds: string[],
@@ -206,9 +195,7 @@ export function CurriculumScreen() {
     apply(orderedIds);
     clearMessages();
 
-    // `includeArchived` has to match the list that was dragged: the server
-    // validates the payload against the sibling set that flag selects, so a tree
-    // showing archived rows must say so or every drag from that view is a 400.
+    // `includeArchived` must match the dragged list: the server validates against the sibling set it selects.
     const result = await reorderContent(
       resource,
       orderedIds,
@@ -233,43 +220,41 @@ export function CurriculumScreen() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-semibold text-foreground text-xl">Curriculum</h1>
-          <p className="text-muted-foreground text-xs">
-            Publishing a row makes it visible to children immediately.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={includeArchived ? "default" : "outline"}
-            aria-pressed={includeArchived}
-            onClick={() => setIncludeArchived((current) => !current)}
-          >
-            {includeArchived ? "Hide archived" : "Show archived"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={status === "loading" || status === "waking"}
-            onClick={() => void load()}
-          >
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            disabled={isBusy}
-            onClick={() => {
-              clearMessages();
-              setIsGenerateOpen(true);
-            }}
-          >
-            Generate lesson
-          </Button>
-        </div>
-      </header>
+      <AdminPageHeader
+        title="Curriculum"
+        description="Publishing a row makes it visible to children immediately."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant={includeArchived ? "default" : "outline"}
+              aria-pressed={includeArchived}
+              onClick={() => setIncludeArchived((current) => !current)}
+            >
+              {includeArchived ? "Hide archived" : "Show archived"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={status === "loading" || status === "waking"}
+              onClick={() => void load()}
+            >
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              disabled={isBusy}
+              onClick={() => {
+                clearMessages();
+                setIsGenerateOpen(true);
+              }}
+            >
+              <Sparkles aria-hidden="true" className="size-4!" />
+              Generate lesson
+            </Button>
+          </>
+        }
+      />
 
       {status === "waking" ? (
         <p className="text-muted-foreground text-xs">Waking the API up…</p>
@@ -278,18 +263,17 @@ export function CurriculumScreen() {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
       ) : null}
 
-      {/* A failure from a transition or a reorder has no form to render itself
-          in — only a submit does. */}
+      {/* A transition or reorder failure has no form to render in. */}
       {error && dialog.kind === "closed" ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -374,13 +358,12 @@ export function CurriculumScreen() {
             setSelectedLessonId(undefined);
           }}
           onCreate={() => openDialog({ kind: "create", resource: "worlds" })}
-          // No `onReorder`: `World` carries no `sortOrder`. Worlds are chosen on
-          // a map, not read in sequence.
+          // No `onReorder`: `World` has no `sortOrder`.
         />
       </div>
 
       {selected ? (
-        <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-card-foreground text-sm">
@@ -391,9 +374,7 @@ export function CurriculumScreen() {
             <Button
               type="button"
               variant="outline"
-              // A published row refuses an edit server-side, so the button that
-              // would earn the 409 is disabled rather than left to produce one.
-              // `isContentEditable` is the same predicate the server applies.
+              // In-review/approved/published rows refuse edits server-side (`isContentEditable`); disable rather than earn the 409.
               disabled={!isContentEditable(selected.row.status)}
               onClick={() =>
                 openDialog({ kind: "edit", resource: selected.resource })
@@ -405,9 +386,9 @@ export function CurriculumScreen() {
 
           {isContentEditable(selected.row.status) ? null : (
             <p className="text-muted-foreground text-xs">
-              Published content cannot be edited. Withdraw it to draft first —
-              that removes it from students immediately, and the rewrite comes
-              back through review.
+              Content that is in review, approved or published cannot be edited.
+              Move it back to draft first — a published row leaves students
+              immediately, and the rewrite comes back through review.
             </p>
           )}
 
@@ -507,13 +488,10 @@ export function CurriculumScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* File 34 — the AI Lesson Generator (FR-AI-01). Everything it creates is a
-          draft in the review queue, which is why success here is a notice and a
-          reload rather than a jump into an editor. */}
+      {/* Generated content is a draft in the review queue, hence a notice and reload
+          rather than a jump to an editor. */}
       <GenerateLessonDialog
-        // Keyed on the selection so the dialog opens on whatever is in view.
-        // Its subject and topic are initial state, and an unkeyed instance would
-        // keep the first pair it was mounted with for the rest of the session.
+        // Keyed on the selection: subject and topic are initial state.
         key={`${selectedSubjectId ?? ""}:${selectedTopicId ?? ""}`}
         isOpen={isGenerateOpen}
         onOpenChange={setIsGenerateOpen}
@@ -530,7 +508,6 @@ export function CurriculumScreen() {
     </div>
   );
 
-  /** Creates an empty quiz and points the lesson at it, in that order. */
   async function createQuizFor(lesson: AdminLesson) {
     setIsBusy(true);
     clearMessages();
@@ -546,9 +523,7 @@ export function CurriculumScreen() {
       quizId: created.data.id,
     });
     if (!linked.ok) {
-      // The quiz exists and is reachable from the quizzes list; only the pointer
-      // failed. Saying so is more useful than "that did not work", because the
-      // recovery is to paste the id rather than to start again.
+      // Only the pointer failed; the quiz exists in the quizzes list, so the recovery is pasting the id.
       setError(
         `The quiz was created but could not be linked: ${linked.error.message}`,
       );
@@ -593,7 +568,6 @@ type SelectedRow = {
   };
 };
 
-/** Which single row the detail panel is about. */
 function useSelection(input: {
   worlds: AdminWorld[];
   subjects: AdminSubject[];
@@ -627,10 +601,6 @@ function useSelection(input: {
   }, [input]);
 }
 
-/**
- * The three things an admin does with a selected lesson that are not edits to the
- * lesson row: preview it, and open the quiz and activity it points at.
- */
 function LessonPartLinks({
   lesson,
   isBusy,
@@ -673,8 +643,7 @@ function LessonPartLinks({
         </Button>
       )}
 
-      {/* File 35 — the AI Quiz Generator (FR-AI-03). It creates the quiz itself
-          when the lesson has none, so it does not wait on "Create quiz". */}
+      {/* Creates the quiz itself when the lesson has none. */}
       <GenerateQuizButton
         lessonId={lesson.id}
         isBusy={isBusy}
@@ -682,9 +651,7 @@ function LessonPartLinks({
         onError={onQuizError}
       />
 
-      {/* File 36 — narration for the lesson's intro scripts (FR-AI-04). Beside
-          the quiz generator rather than in the lesson form, for the same reason:
-          there is no id to narrate against until the lesson has been saved. */}
+      {/* Beside the quiz generator: no id to narrate against until the lesson is saved. */}
       <GenerateNarrationButton
         entity="lesson"
         id={lesson.id}
@@ -720,7 +687,6 @@ function toColumnItem(row: {
   return { id: row.id, label: row.name, status: row.status };
 }
 
-/** Reorders a flat list to match `orderedIds`, for the optimistic update. */
 function reorderLocally<TRow extends { id: string }>(
   rows: TRow[],
   orderedIds: string[],
@@ -731,10 +697,7 @@ function reorderLocally<TRow extends { id: string }>(
     .filter((row): row is TRow => row !== undefined);
 }
 
-/**
- * The same, for a list holding several parents' children: only the rows named in
- * `orderedIds` move, and they take the positions those rows already occupied.
- */
+/** As above, for a list spanning several parents: named rows take the positions those rows already held. */
 function reorderWithinParent<TRow extends { id: string }>(
   rows: TRow[],
   orderedIds: string[],
@@ -769,14 +732,18 @@ function singular(resource: ContentResourceName): string {
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-3">
-      <h1 className="font-semibold text-foreground text-xl">Curriculum</h1>
-      <p className="text-muted-foreground text-sm">
-        The curriculum could not be loaded.
-      </p>
-      <Button type="button" variant="outline" onClick={onRetry}>
-        Try again
-      </Button>
+    <div className="flex flex-col gap-6">
+      <AdminPageHeader title="Curriculum" />
+      <AdminEmptyState
+        tone="error"
+        icon={TriangleAlert}
+        title="The curriculum could not be loaded."
+        action={
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+        }
+      />
     </div>
   );
 }

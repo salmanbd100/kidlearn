@@ -1,27 +1,35 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/features/children/active-child";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { ProfileCard } from "@/features/student/ProfileCard";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 import { useScreenNarration } from "@/shared/hooks/use-screen-narration";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-import { StudentStatus } from "../StudentGuard";
 
-/** "Who's learning today?" — the child's front door (FR-AUTH-06). */
 export function SelectProfileScreen() {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
-  const { status, profiles, avatars, isWakingUp, activate } = useActiveChild();
+  const { status, parent, profiles, avatars, isWakingUp, activate, refresh } =
+    useActiveChild();
   const [pendingId, setPendingId] = useState<string | undefined>();
   const [hasFailed, setHasFailed] = useState(false);
 
   useScreenNarration("selectProfile");
 
+  const redirectTo =
+    status === "signedOut"
+      ? PARENT_ROUTES.signInPage
+      : status === "ready" && parent?.hasCurrentConsent === false
+        ? PARENT_ROUTES.consent
+        : undefined;
+
   useEffect(() => {
-    if (status === "signedOut") router.replace("/parent/login");
-  }, [status, router]);
+    if (redirectTo !== undefined) router.replace(redirectTo);
+  }, [redirectTo, router]);
 
   const handleSelect = async (childId: string) => {
     if (pendingId !== undefined) return;
@@ -30,8 +38,7 @@ export function SelectProfileScreen() {
 
     const result = await activate(childId);
     if (result.ok) {
-      // Not `replace`: coming back here is how a child switches profiles, and
-      // the back button is the most discoverable way they will find to do it.
+      // Not `replace`: coming back here is how a child switches profiles.
       router.push("/home");
       return;
     }
@@ -41,10 +48,20 @@ export function SelectProfileScreen() {
   };
 
   if (status === "error" || hasFailed) {
-    return <StudentStatus tone="alert">{t("status.error")}</StudentStatus>;
+    return (
+      <StudentStatus
+        tone="alert"
+        onRetry={() => {
+          setHasFailed(false);
+          void refresh();
+        }}
+      >
+        {t("status.error")}
+      </StudentStatus>
+    );
   }
 
-  if (status !== "ready") {
+  if (status !== "ready" || redirectTo !== undefined) {
     return (
       <StudentStatus tone="status">
         {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
@@ -59,8 +76,7 @@ export function SelectProfileScreen() {
       </h1>
 
       {profiles.length === 0 ? (
-        // Written at the child, not the grown-up, because the child is who is
-        // holding the tablet — it tells them what to do about it (design.md §10).
+        // Written at the child, who is holding the tablet (design.md §10).
         <div className="flex flex-col items-center gap-3">
           <span aria-hidden="true" className="text-7xl">
             🦉
@@ -73,13 +89,8 @@ export function SelectProfileScreen() {
           </p>
         </div>
       ) : (
-        // Wrapping flex rather than a grid: a grid's unused columns keep their
-        // width, so two children on a three-column grid sat hard against the
-        // left edge while the title above them stayed centred. A short row of
-        // flex items centres itself. The widths below are the column widths a
-        // grid would have given — two up on the smallest phone, three from `sm`,
-        // in portrait and landscape alike, because the count decides, not the
-        // orientation.
+        // Wrapping flex, not a grid: a grid's unused columns keep their width and left two children off-centre.
+        // Widths match the column counts: two up on the smallest phone, three from `sm`, whatever the orientation.
         <ul className="flex w-full max-w-3xl flex-wrap justify-center gap-6">
           {profiles.map((child) => (
             <li

@@ -2,26 +2,17 @@
 
 import type { Locale } from "@kidlearn/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAudio } from "@/shared/components/AudioProvider";
 import {
   randomCheerAudioUrl,
   randomRetryAudioUrl,
-} from "@/features/activities/use-activity-feedback";
-import { useAudio } from "@/shared/components/AudioProvider";
+} from "@/shared/components/kid/feedback-audio";
 
-/**
- * What the quiz says back to a child, and the pause it says it in (FR-QUIZ-05,
- * §5.7).
- */
-
-/** The beat between the right answer and the next question. */
 export const CORRECT_HOLD_MS = 1200;
-/** Long enough for the encouragement to be heard, short enough to retry into. */
 export const RETRY_HOLD_MS = 600;
 
 export interface QuestionFeedback {
-  /** Question components ignore taps while this is true. */
   isLocked: boolean;
-  /** Cheer, hold, then `onResolved` — where the engine commits and advances. */
   correct: (onResolved: () => void) => void;
   retry: () => void;
 }
@@ -37,8 +28,8 @@ export function useQuestionFeedback(locale: Locale): QuestionFeedback {
     timerRef.current = undefined;
   }, []);
 
-  // The timer outlives the question it was started on — the commit it fires is
-  // what unmounts that question — so it has to be dropped when the engine goes.
+  // The timer outlives its question (the commit it fires unmounts it), so it must be dropped when
+  // the engine goes.
   useEffect(() => clearHold, [clearHold]);
 
   const hold = useCallback(

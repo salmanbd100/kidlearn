@@ -49,6 +49,10 @@ These are settled. Revisit only with a deliberate ADR-style note appended to thi
 
 ## 2. Color
 
+Every value in §2–§5 is also `packages/tokens/src/index.ts` — the machine-readable copy the
+web's `tokens.css` is generated from and the mobile app reads directly. A test fails when a
+value this document states exactly differs from it, so change both together.
+
 Colors are defined as CSS variables and consumed through the shadcn semantic contract
 (`--primary`, `--background`, …) plus a kidlearn brand palette. **Both themes implement
 the same variable names**, so any component built against the contract works in both.
@@ -81,16 +85,16 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 | `--card-foreground` | ink | slate-900 | Text on cards |
 | `--popover` / `--popover-foreground` | white / ink | white / slate-900 | Menus, tooltips |
 | `--primary` | sky `#36B3F5` | indigo-600 `#4F46E5` | Primary actions |
-| `--primary-foreground` | white | white | Text on primary |
+| `--primary-foreground` | ink | white | Text on primary (kid: white on sky is 2.35:1, so ink) |
 | `--secondary` | grape `#8B5CF6` | slate-100 | Secondary actions |
 | `--secondary-foreground` | white | slate-900 | Text on secondary |
 | `--accent` | sunshine `#FFC93C` | slate-100 | Highlights / hover |
 | `--accent-foreground` | ink | slate-900 | Text on accent |
 | `--muted` | sky-50 | slate-100 | Subdued surfaces |
-| `--muted-foreground` | slate-500 | slate-500 | Captions, hints |
-| `--success` | mint `#34D399` | emerald-600 | Correct / done |
+| `--muted-foreground` | slate-600 | slate-600 | Captions, hints (slate-500 is 4.3:1 on `--muted`) |
+| `--success` | mint `#34D399` (ink text) | emerald-700 | Correct / done |
 | `--warning` | sunshine `#FFC93C` | amber-500 | Caution |
-| `--destructive` | coral `#FF6B6B` | red-600 | Errors, delete |
+| `--destructive` | coral `#FF6B6B` (ink text) | red-600 | Errors, delete |
 | `--border` | sky-100 | slate-200 | Hairlines |
 | `--input` | sky-100 | slate-200 | Field borders |
 | `--ring` | sky `#36B3F5` | indigo-500 | Focus ring |
@@ -105,6 +109,14 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 - Body text vs. background ≥ **4.5:1**; large text (≥24px or 18.66px bold) ≥ **3:1**.
 - Never encode meaning in color alone — pair with icon, shape, label, or motion
   (color-blind safety; matters for "correct/incorrect" quiz feedback).
+- Shapes that carry meaning on their own (status marks, progress dots, focus rings) need
+  **3:1** against what they sit on. Kid `--success`, `--accent` and `--primary` fall below
+  that on cream or white, so a kid "done" or "have another go" mark is an ink glyph on a
+  filled disc (`StatusMark`), and a progress dot is ringed in ink or `--muted-foreground`.
+  `tokens.test.ts` asserts the pairs these depend on.
+- Feedback must survive reduced motion. A wrong attempt's shake is `motion-safe:` only, so
+  every shake is paired with a static have-another-go mark that outlives it (1.2s) — never
+  a ✗ (FR-ACT-05).
 - Dark mode: **parent theme only** for MVP. The kid theme stays light (predictable,
   print-bright). Keep the dark token block scaffolded but ship parent-only.
 
@@ -208,6 +220,10 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   (crisp, professional).
 - Reward/celebration animations cap at `--dur-slow` and must be skippable (a tap dismisses).
 - Never animate `width`/`height`/`top`/`left` — animate `transform` and `opacity` only.
+- **Public homepage exception (2026-10-07):** its decorative SVG pictures may play a one-time
+  entrance when scrolled into view and react to a tap, to show how the app works. They still never
+  loop, and render settled under reduced motion. The tracing picture may also animate an SVG stroke's
+  `pathLength`, a one-off draw-in on a small path. See `implementation/40-public-homepage-and-guides.md §8`.
 
 ---
 
@@ -227,14 +243,23 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   locking. If a game truly needs landscape, show a friendly animated "rotate" prompt, never a dead end.
 - **Real device chrome.** Use `min-h-dvh` (not `100vh`) and `env(safe-area-inset-*)` padding so
   controls clear notches and home indicators. Set the viewport meta with `viewport-fit=cover`.
+  Apply them **once**, at the route-group layout: a screen inside it fills the space with
+  `flex-1`, because repeating them doubles the insets and overflows the viewport by their
+  height. `app/(student)/viewport-chrome.test.ts` enforces this for the Student Portal.
 - **Fluid sizing.** Prefer `clamp()` for display type and large spacing so they scale smoothly
   across phone→tablet. Kid text stays **≥20px** and touch targets **≥64px** at every width.
+  **Engineering-guide diagram exception (2026-10-07):** labels inside the three SVG diagrams on
+  `/guide/engineering` scale with the figure and fall to about 11–13px on a phone. The page is for an
+  adult reader; each diagram has a 20px caption and an accessible name and sits in a section whose
+  text explains it; and a three-column diagram cannot carry 20px labels at 360px. Covers
+  `features/site/diagrams/` only.
 - Kid screens are **full-bleed and immersive** — no traditional nav chrome; navigation is
   large illustrated waypoints, placed in the thumb zone (lower/center), not top corners. The one
   standing exception is the **parent corner**: a small adult-only control pinned to a top corner,
   deliberately outside the thumb zone. It is an anonymous lock icon everywhere except
   `/select-profile`, where it is a named chip carrying the parent's photo — see
-  `user-journey-manual.md §4.2` for the reasoning.
+  `user-journey-manual.md §4.2` for the reasoning. It is absent from the lesson player and the
+  story reader, whose own exit control occupies that corner.
 - Parent dashboard uses a **persistent top bar**: wordmark, section links, language switch, and an
   account menu (identity, back to kid mode, sign out). Section links wrap to a second full-width
   row below `sm` and sit inline from `sm` up. Data tables collapse to stacked cards on small screens.
@@ -256,44 +281,59 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 
 - **Touch targets:** kid ≥ **64×64px**; parent ≥ **44×44px** (WCAG 2.5.5).
 - Visible focus ring (`--ring`, 2px offset) on every interactive element. Never remove outlines.
+  The exception is a non-interactive `tabIndex={-1}` landing spot (a quiz prompt, a story
+  page) — it is where focus goes, not something to press.
 - Full keyboard operability on parent/admin surfaces; logical tab order; trapped focus in modals.
+- **Every drag has a tap path.** Tap a card, then tap where it goes — every drop target is a
+  button. That is also the keyboard and VoiceOver path, so kid activities mount no dnd-kit
+  `KeyboardSensor` (`useTapToPlace`, `useActivitySensors`).
+- **Focus is never dropped.** When a transition removes the focused control, focus moves to
+  the new step's heading, question or page (`useFocusWhenDropped`) — never back to `<body>`.
 - Semantic HTML + ARIA only where semantics fall short. Radix (via shadcn) gives correct roles —
   don't override them.
 - Decorative images `alt=""`; meaningful images get real localized alt text.
 - Respect `prefers-reduced-motion` and `prefers-color-scheme` (parent theme).
+
+> **Recorded exception — lesson videos have no captions.** *Recorded 2026-10-05 (improvement
+> plan R-32).* WCAG 1.2.2 (Captions, prerecorded) is Level A, so the AA target in §1 requires
+> them, and `VideoStep` ships none — file 17 put captions out of scope and the master spec does
+> not ask for them. The decision is to defer, not to drop: the audience is three to five and
+> mostly cannot read a caption, but a deaf or hard-of-hearing child still gets no way into the
+> video's words, and a parent watching along gets none either. What it takes: a
+> `captionsAssetId` per `LessonTranslation` (a WebVTT `MediaAsset`), a `<track kind="captions">`
+> in `VideoStep`, and captions in the AI review flow. **Exit condition:** that work lands, or
+> the product owner rules the AA claim in §1 does not cover video — either way, this note and the
+> `biome-ignore` in `VideoStep.tsx` change with it.
 
 ---
 
 ## 8. Component architecture
 
 ```
-packages/ui/                 # shared, theme-agnostic component library (shadcn lives here)
-├── src/
-│   ├── primitives/          # shadcn/ui components (button, dialog, input, …) — you own these
-│   ├── kid/                 # kid-surface components & game widgets (balloon-pop, tracing, …)
-│   ├── parent/              # dashboard components (stat-card, data-table, …)
-│   ├── lib/                 # cn() + shared helpers
-│   └── styles/              # tokens.css (the variables in this doc), themes
-└── package.json             # name: "@kidlearn/ui"
+packages/ui/src/             # @kidlearn/ui — theme-agnostic, app-agnostic
+├── primitives/              # shadcn/ui components (button, dialog, input, …) — you own these
+├── hooks/                   # useIsMotionReduced
+├── lib/                     # cn(), the a11y preference store
+└── styles/                  # tokens.css (the variables in this doc), themes
+
+apps/web/
+├── features/<domain>/       # surface components one feature renders (game widgets, stat cards, …)
+└── shared/components/
+    ├── kid/                 # kid-surface components two or more features render
+    └── …                    # the same, elsewhere
 ```
 
 - **`primitives/`** — unstyled-but-tokenized shadcn components. Both themes, no surface
   assumptions. This is the foundation; everything composes from here.
-- **`kid/`** and **`parent/`** — compose primitives into surface-specific components.
-- Theme is applied by setting `data-theme="kid"` / `data-theme="parent"` (or a class) on a
-  layout boundary; token values cascade. Components never branch on theme in JS — they read tokens.
-- `apps/web` consumes `@kidlearn/ui`; quiz/game renderers map JSON payloads (see brief §B) to
-  `kid/` components.
-
-> **Status, 2026-09-10:** `@kidlearn/ui` is an active workspace holding `primitives/`
-> (button, dialog, dropdown-menu, input, label, select, textarea), `lib/` (`cn`, the a11y
-> preference store) and `hooks/` (`useIsMotionReduced`), plus `styles/tokens.css`. There is still
-> no `kid/` or `parent/` directory: surface-specific components live in the app that renders
-> them, under `apps/web/features/<domain>/`, with the kid-surface layer at
-> `apps/web/shared/components/kid/`. The tree above is the shape this document originally
-> specified, not the shape on disk — `improvement-plan.md §3 P1-4` explains why the split never
-> earned its keep with one consumer. A component is promoted only when a second consumer needs it
-> *and* it depends on nothing app-owned. Do not move files to match the diagram otherwise.
+- **Surface components live in the app that renders them** and compose primitives. One is
+  promoted into `packages/ui` only when a second surface needs it *and* it depends on nothing
+  app-owned. There is no `kid/` or `parent/` layer in `packages/ui`, by decision —
+  `standards/frontend.md §1` records why and has the full placement table.
+- Theme is applied by `<ThemeScope theme="kid" | "parent">` on a layout boundary, which sets
+  `data-theme` and makes dialogs and menus portal inside it rather than into `<body>`; token
+  values cascade. Components never branch on theme in JS — they read tokens.
+- Quiz and activity engines in `apps/web/features/` map JSON payloads (see brief §B) to
+  components.
 
 ### Variants & styling
 

@@ -7,12 +7,8 @@ import {
   localDayStartUtc,
 } from "../../../shared/utils/local-date.js";
 
-// The daily ceiling on generation jobs (file 36).
-
-/** What a job costs, roughly. One ceiling per bucket rather than one overall. */
 export type CostBucket = "text" | "audio" | "image";
 
-/** Which ceiling each job type is billed against. */
 const BUCKET_BY_TYPE = {
   lesson: "text",
   story: "text",
@@ -27,9 +23,7 @@ const TYPES_BY_BUCKET: Record<CostBucket, AIJobType[]> = {
   image: [],
 };
 for (const [type, bucket] of Object.entries(BUCKET_BY_TYPE)) {
-  // `Object.entries` widens the key to `string`; the object above is exhaustive
-  // over `AIJobType` by the `satisfies` clause, so this is a lost narrowing
-  // rather than an unchecked claim.
+  // Object.entries widens the key to string; BUCKET_BY_TYPE is exhaustive over AIJobType via `satisfies`.
   TYPES_BY_BUCKET[bucket].push(type as AIJobType);
 }
 
@@ -49,7 +43,6 @@ export function bucketFor(type: AIJobType): CostBucket {
   return BUCKET_BY_TYPE[type];
 }
 
-/** The instant the current `APP_TIMEZONE` day began, as UTC. */
 export function startOfTodayInAppTz(now: Date = new Date()): Date {
   return localDayStartUtc(env.APP_TIMEZONE, localDateIn(env.APP_TIMEZONE, now));
 }
@@ -61,22 +54,21 @@ export interface DailyBudget {
   remaining: number;
 }
 
+type BudgetReader = Pick<typeof prisma, "aIGenerationJob">;
+
 export async function readDailyBudget(
   type: AIJobType,
   now?: Date,
+  client: BudgetReader = prisma,
 ): Promise<DailyBudget> {
   const bucket = bucketFor(type);
   const cap = capFor(bucket);
-  const used = await prisma.aIGenerationJob.count({
+  const used = await client.aIGenerationJob.count({
     where: {
       type: { in: TYPES_BY_BUCKET[bucket] },
       createdAt: { gte: startOfTodayInAppTz(now) },
-      // A job that failed before its first call spent nothing: no request was
-      // made, no tokens were billed, no provider quota moved. Counting those
-      // lets an outage — an unreachable model, a bad key — burn the whole day's
-      // budget without a single request, and lock the admin out of retrying once
-      // it is fixed. Everything else counts, including a job that failed *after*
-      // calling: those calls were billed.
+      // A job that failed before its first call spent nothing; counting it would let an outage
+      // burn the day's budget and lock the admin out of retrying. Failures after a call were billed.
       NOT: {
         status: "failed",
         rawOutput: { path: ["usage", "attempts"], equals: 0 },
@@ -87,12 +79,12 @@ export async function readDailyBudget(
   return { bucket, cap, used, remaining: Math.max(cap - used, 0) };
 }
 
-/** Refuses the whole request when it would take the bucket past its ceiling. */
 export async function assertWithinDailyCap(
   type: AIJobType,
   pending = 1,
+  client: BudgetReader = prisma,
 ): Promise<void> {
-  const budget = await readDailyBudget(type);
+  const budget = await readDailyBudget(type, undefined, client);
 
   if (budget.used + pending > budget.cap) {
     throw new ApiError(

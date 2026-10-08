@@ -1,20 +1,14 @@
-/**
- * Activity payload schemas (FR-ACT-06) — the single source of truth for the
- * JSONB stored in `Activity.definition`.
- */
+/** Activity payload schemas (FR-ACT-06) — source of truth for the `Activity.definition` JSONB. */
 import { z } from "zod";
 import {
   ImageAssetRefSchema,
   LocalizedAudioSchema,
   LocalizedTextSchema,
+  SCHEMA_VERSION,
 } from "../primitives.js";
 import { addDuplicateIdIssues, addPairingIssues } from "../refinements.js";
 
-/**
- * The `satisfies` clause is the drift guard: an entry here that no union member
- * declares is a compile error. The reverse direction — a union member missing
- * from this list — is covered by the coverage test in `./schemas.test.ts`.
- */
+/** `satisfies` makes an entry no union member declares a compile error; the reverse is covered in `./schemas.test.ts`. */
 export const ACTIVITY_TYPES = [
   "drag_drop",
   "trace",
@@ -60,7 +54,7 @@ function addUnknownMappingIdIssue(
 
 export const DragDropActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("drag_drop"),
     instructionAudio: LocalizedAudioSchema,
     items: z.array(ActivityItemSchema).min(2).max(6),
@@ -114,7 +108,7 @@ export type DragDropActivity = z.infer<typeof DragDropActivitySchema>;
 
 export const TraceActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("trace"),
     instructionAudio: LocalizedAudioSchema,
     /** The glyph being traced — a letter, Bangla character, or digit, e.g. "A" or "৩". */
@@ -126,20 +120,13 @@ export const TraceActivitySchema = z
       .array(z.object({ x: z.number(), y: z.number() }).strict())
       .min(2),
     /**
-     * Order in which the glyph's subpaths are traced, one entry per `M` command
-     * in `pathData` — omit it for a single-stroke glyph. Nothing cross-validates
-     * the count against `pathData`: parsing SVG path syntax belongs in the
-     * renderer (file 19), not in a schema.
+     * Order the glyph's subpaths are traced, one per `M` in `pathData`; omit for single-stroke.
+     * Not cross-validated: parsing SVG path syntax belongs in the renderer.
      */
     strokeOrder: z.array(z.number().int().nonnegative()).min(1).optional(),
     /**
-     * How far a finger may stray from the guide and still count, expressed in a
-     * reference 0–100 glyph space; the renderer scales it to whatever coordinate
-     * range `pathData` actually uses. Optional, and defaulted by the renderer
-     * rather than here, so that every trace payload written before this field
-     * existed keeps parsing (NFR-SCALE-02) — an optional field the schema
-     * declares is not the "extra key on a v1 payload" the versioning rule in
-     * `../primitives` forbids.
+     * Max finger stray from the guide, in a reference 0–100 glyph space the renderer scales.
+     * Optional and defaulted by the renderer so older payloads keep parsing (NFR-SCALE-02).
      */
     tolerance: z.number().positive().max(50).optional(),
   })
@@ -157,7 +144,7 @@ export type TraceActivity = z.infer<typeof TraceActivitySchema>;
 
 export const MatchActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("match"),
     instructionAudio: LocalizedAudioSchema,
     leftSet: z.array(ActivityItemSchema).min(2).max(6),
@@ -190,7 +177,7 @@ export type PuzzleSlot = z.infer<typeof PuzzleSlotSchema>;
 
 export const PuzzleActivitySchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("puzzle"),
     instructionAudio: LocalizedAudioSchema,
     image: ImageAssetRefSchema,
@@ -202,11 +189,8 @@ export const PuzzleActivitySchema = z
       .strict(),
     slots: z.array(PuzzleSlotSchema),
     /**
-     * Slot indexes that start already filled and locked, so a Nursery puzzle can
-     * hand the child two pieces of a 3×3 rather than nine. Optional, and absent
-     * from every payload authored before it existed — an additive field the
-     * schema declares, not the "extra key on a v1 payload" the versioning rule
-     * in `../primitives` forbids (NFR-SCALE-02).
+     * Slot indexes that start filled and locked (e.g. two pieces of a 3×3 for Nursery).
+     * Optional so older payloads keep parsing (NFR-SCALE-02).
      */
     prePlaced: z.array(z.number().int().nonnegative()).optional(),
   })
@@ -302,11 +286,7 @@ export const ActivityDefinitionSchema = z.union([
 ]);
 export type ActivityDefinition = z.infer<typeof ActivityDefinitionSchema>;
 
-/**
- * The union, indexed by the `type` literal each member carries. See
- * `QUIZ_QUESTION_SCHEMAS` in `../quiz/schemas` for why anything that already knows
- * the type must parse with the member rather than the union.
- */
+/** The union, indexed by `type`. See `QUIZ_QUESTION_SCHEMAS` in `../quiz/schemas` for why callers that know the type parse with the member. */
 export const ACTIVITY_SCHEMAS = {
   drag_drop: DragDropActivitySchema,
   trace: TraceActivitySchema,

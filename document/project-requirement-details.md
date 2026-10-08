@@ -28,6 +28,7 @@
    - [5.12 Screen Time & Parental Controls](#512-screen-time--parental-controls-fr-time)
    - [5.13 AI Content Generation Pipeline](#513-ai-content-generation-pipeline-fr-ai)
    - [5.14 Admin Content Management](#514-admin-content-management-fr-cms)
+   - [5.15 Public Site](#515-public-site-fr-site)
 6. [Non-Functional Requirements](#6-non-functional-requirements)
 7. [Technical Architecture](#7-technical-architecture)
 8. [Data Model Overview](#8-data-model-overview)
@@ -295,6 +296,14 @@ AI generates content at scale; humans gate everything before publication.
 | FR-CMS-06 | Approved content is published immediately and becomes available to students; rejected content is logged but never shown to students.                                                                       | [MVP]                                     |
 | FR-CMS-07 | Admins can view platform-wide usage and analytics.                                                                                                                                                         | [MVP — basic; detailed analytics Phase 2] |
 
+### 5.15 Public Site (FR-SITE)
+
+| ID         | Requirement                                                                                                                                                                  | Scope |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| FR-SITE-01 | A public homepage at `/` says what KidLearn is and offers one-tap entry to the Student Portal (profile picker) and to parent sign-in. It is not part of the Student Portal. | [MVP] |
+| FR-SITE-02 | Public guides for parents and for admins explain, in plain language, how to use their portal, and link to the full manuals.                                                  | [MVP] |
+| FR-SITE-03 | A public engineering guide explains the architecture and system design for developers and recruiters, and links to the full design documents.                                | [MVP] |
+
 ---
 
 ## 6. Non-Functional Requirements
@@ -449,6 +458,10 @@ Vercel Hobby carries two conditions that are tracked rather than assumed away: i
 Data between the environments is fully isolated — separate databases and separate Vercel projects, with no shared credential or network path. API runtime is not: one kernel, one disk, one Docker daemon, with memory limits on the dev stack so contention resolves in production's favour. Buying hard isolation means a second instance and nothing else in the design changes.
 
 Per-app configuration follows each app's own template file; deployed values live in SSM or Vercel project settings and never in the repository. The architecture must allow upgrading any single layer — a managed database, a second instance behind a load balancer, a CDN in front — without touching the others.
+
+**`document/runbook.md` is the operational companion to this section.** It holds the full per-environment variable inventory, both deploy and rollback procedures, the DNS records, the backup and restore steps, and the escape-hatch procedure — everything this section states as a decision, it states as a command.
+
+**`document/deployment-walkthrough.md` is the one-time provisioning guide** — the same work in order, written for a first AWS deployment, with every command spelled out. The runbook is for when something is wrong; the walkthrough is for when nothing exists yet.
 
 ---
 

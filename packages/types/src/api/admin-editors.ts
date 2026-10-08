@@ -8,14 +8,9 @@ import { QuizQuestionSchema, QuizQuestionTypeSchema } from "../quiz/schemas.js";
 import { ContentStatusSchema } from "./admin-content.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/admin/content/{quizzes,activities,badges}` — the guided editors
- * (file 33, FR-CMS-03, FR-GAM-04).
- */
+/** `/api/admin/content/{quizzes,activities,badges}` — the guided editors (FR-CMS-03, FR-GAM-04). */
 
-/**
- * The three resources the editors manage, spelled as they appear in the path.
- */
+/** The three resources the editors manage, spelled as in the path. */
 export const EDITOR_CONTENT_RESOURCES = [
   "quizzes",
   "activities",
@@ -46,10 +41,8 @@ export const AdminQuizQuestionSchema = z
     id: z.string(),
     quizId: z.string(),
     /**
-     * The enum column. It repeats `definition.type`, and the write path rejects a
-     * pair that disagrees — two sources of truth for one decision, which is why
-     * the server refuses to store them out of step (see `contentService`'s
-     * `assertDiscriminatorAgrees` for what the student API does about it).
+     * The enum column; repeats `definition.type` and the write path rejects a disagreeing pair
+     * (see `contentService.assertDiscriminatorAgrees` for the student API side).
      */
     format: QuizQuestionTypeSchema,
     schemaVersion: z.number().int(),
@@ -109,10 +102,7 @@ export const AdminActivityListResponseSchema = ok(z.array(AdminActivitySchema));
 export const AdminBadgeResponseSchema = ok(AdminBadgeSchema);
 export const AdminBadgeListResponseSchema = ok(z.array(AdminBadgeSchema));
 
-/**
- * What a delete answers with — the id that is gone, and the remaining questions
- * in their re-numbered order.
- */
+/** What a delete answers with: the id that is gone and the remaining questions, re-numbered. */
 export const QuestionDeletedSchema = z
   .object({
     id: z.string(),

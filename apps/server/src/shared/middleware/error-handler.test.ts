@@ -1,11 +1,12 @@
 import express, { type Express } from "express";
-import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../errors/errors.js";
+import request from "../testing/request.js";
 import { errorHandler, notFoundHandler } from "./error-handler.js";
 
 function buildTestApp(): Express {
   const app = express();
+  app.use(express.json());
 
   app.get("/not-found", () => {
     throw ApiError.notFound("Lesson not found");
@@ -27,6 +28,14 @@ function buildTestApp(): Express {
   app.get("/async-boom", async () => {
     await Promise.resolve();
     throw new Error("boom");
+  });
+
+  app.post("/echo", (req, res) => {
+    res.json({ data: req.body });
+  });
+  app.get("/after-headers", (_req, res, next) => {
+    res.write("partial");
+    next(new Error("late failure"));
   });
 
   app.use(notFoundHandler);
@@ -76,6 +85,39 @@ describe("errorHandler with an ApiError", () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error.details).toEqual({ attemptsLeft: 2 });
+  });
+});
+
+describe("errorHandler with a body the parser rejected", () => {
+  it("answers 400 VALIDATION_FAILED for malformed JSON, not a 500", async () => {
+    const res = await request(app)
+      .post("/echo")
+      .set("Content-Type", "application/json")
+      .send("{bad");
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+  });
+
+  it("answers 413 for a body over the limit, not a 500", async () => {
+    const res = await request(app)
+      .post("/echo")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify({ filler: "x".repeat(200_000) }));
+
+    expect(res.status).toBe(413);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+  });
+});
+
+describe("errorHandler once the response has started", () => {
+  it("hands over to Express rather than throwing a second error", async () => {
+    // `res.json` after `res.write` would throw ERR_HTTP_HEADERS_SENT; the request ends without an envelope.
+    const res = await request(app)
+      .get("/after-headers")
+      .catch((error: unknown) => error);
+
+    expect(JSON.stringify(res)).not.toContain("INTERNAL");
   });
 });
 

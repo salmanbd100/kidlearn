@@ -2,11 +2,14 @@
   "name": "kidlearn",
   "private": true,
   "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "biome check .",
-    "format": "biome check --write .",
+    "lint": "biome check . && pnpm --filter @kidlearn/db schema:check",
+    "format": "biome check --write . && pnpm --filter @kidlearn/db schema:format",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",

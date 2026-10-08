@@ -3,8 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LessonForm } from "./LessonForm";
 
-// The lesson editor's submit path.
-
 const WORLDS: AdminWorld[] = [
   {
     id: "aaaaaaaa-0000-4000-8000-000000000001",

@@ -1,15 +1,13 @@
-/**
- * Account deletion (FR-AUTH-05, NFR-SAFE-05/06) — the right-to-erasure path.
- */
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Parent } from "@kidlearn/db";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
 
-/** How long a deletion confirmation token stays usable. */
 const DELETE_TOKEN_TTL_MS = 15 * 60_000;
 
-/** Bytes of entropy in the confirmation token (hex-encoded, so 64 chars). */
+/** Generous: the cascade is the point of the transaction, not a cost to trim. */
+const ERASURE_TRANSACTION_TIMEOUT_MS = 120_000;
+
 const DELETE_TOKEN_BYTES = 32;
 
 export type DeletionRequest = {
@@ -17,10 +15,7 @@ export type DeletionRequest = {
   expiresAt: Date;
 };
 
-/**
- * Step one: mint a single-use confirmation token. Issuing a new one silently
- * invalidates the previous token — there is only ever one live request.
- */
+/** Issuing a new token silently invalidates the previous one: only one request is ever live. */
 export async function requestAccountDeletion(
   parentId: string,
 ): Promise<DeletionRequest> {
@@ -35,25 +30,35 @@ export async function requestAccountDeletion(
   return { confirmationToken, expiresAt };
 }
 
-/** Step two: verify the token, then erase everything. */
 export async function confirmAccountDeletion(
   parent: Parent,
   confirmationToken: string,
 ): Promise<void> {
   assertConfirmationTokenValid(parent, confirmationToken);
 
-  await prisma.$transaction(async (tx) => {
-    // Each child row cascades to LessonProgress, QuizResponse, RewardLedger,
-    // ChildCharacter, Streak, ScreenTimeSetting, SessionEvent and WeeklyReport
-    // (see `onDelete: Cascade` in schema.prisma). Deleting the children first
-    // rather than relying solely on the Parent cascade keeps the intent legible
-    // and the count assertable.
-    await tx.childProfile.deleteMany({ where: { parentId: parent.id } });
-    await tx.parent.delete({ where: { id: parent.id } });
-    // The better-auth identity last: it cascades Session and Account, which is
-    // what makes the caller's own cookie invalid the moment this commits.
-    await tx.user.delete({ where: { id: parent.userId } });
-  });
+  await prisma.$transaction(
+    async (tx) => {
+      // Concurrent confirmations both pass the earlier token check; spending it here, inside the erasure's transaction,
+      // lets exactly one through, and the other gets the wrong-token 403 rather than a P2025.
+      const claimed = await tx.parent.updateMany({
+        where: { id: parent.id, deleteToken: parent.deleteToken },
+        data: { deleteToken: null, deleteTokenExpiresAt: null },
+      });
+      if (claimed.count !== 1) {
+        throw ApiError.forbidden(
+          "Invalid or expired deletion confirmation token",
+        );
+      }
+
+      // Deleting children explicitly rather than relying on the Parent cascade keeps the intent legible and the count assertable.
+      await tx.childProfile.deleteMany({ where: { parentId: parent.id } });
+      await tx.parent.delete({ where: { id: parent.id } });
+      // Identity last: it cascades Session and Account, invalidating the caller's cookie on commit.
+      await tx.user.delete({ where: { id: parent.userId } });
+    },
+    // Prisma's 5 s default is too short for the cascade over up to five children; a rolled-back erasure could never succeed.
+    { timeout: ERASURE_TRANSACTION_TIMEOUT_MS },
+  );
 }
 
 function assertConfirmationTokenValid(

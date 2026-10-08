@@ -1,30 +1,23 @@
 import type { ChildProfile, MediaAsset, Prisma } from "@kidlearn/db";
-import type {
-  NarrationTimings,
-  StoryDetailResponse,
-  StorySummaryResponse,
+import {
+  type Locale,
+  type NarrationTimings,
+  NarrationTimingsSchema,
+  pickLocale,
+  type StoryDetailResponse,
+  type StorySummaryResponse,
+  toLocaleMap,
 } from "@kidlearn/types";
-import { NarrationTimingsSchema } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
-import {
-  type Lang,
-  pickLocale,
-  toLocaleMap,
-} from "../../shared/utils/locale.js";
 import {
   publishedForChild,
   publishedRelation,
 } from "../../shared/utils/published-for-child.js";
 import type { GrantSource } from "../rewards/reward.service.js";
 
-// The Story Library's read side (FR-STORY-01, 04, 05, 08).
-
-/**
- * Read, not written, here — the grant itself is file 26's. Pinned to
- * `GrantSource` so the string this file filters on and the string that file writes
- * cannot drift apart into a flag that is silently always `false`.
- */
+// Read here, written by the reward grant; pinned to `GrantSource` so the two
+// strings cannot drift into a flag that is silently always `false`.
 const STORY_COMPLETION: GrantSource = "story_completion";
 
 type StoryWorld = {
@@ -33,21 +26,18 @@ type StoryWorld = {
   name: string;
   palette: Prisma.JsonValue;
   mascotAsset: MediaAsset | null;
-  translations?: { language: Lang; name: string }[];
+  translations?: { language: Locale; name: string }[];
 };
 
 type StoryTranslationRow = {
-  language: Lang;
+  language: Locale;
   title: string;
   moral: string | null;
   titleAudioAsset?: { url: string } | null;
   moralAudioAsset?: { url: string } | null;
 };
 
-/**
- * The columns the mappers below read. `Story.theme` is deliberately absent: it is
- * the authoring label for the moral and nothing here may serve it to a child.
- */
+// `Story.theme` is deliberately absent: it is the authoring label for the moral and must not be served to a child.
 type StoryRow = {
   id: string;
   slug: string;
@@ -57,13 +47,9 @@ type StoryRow = {
   translations: StoryTranslationRow[];
 };
 
-/**
- * `World.palette` is free-form JSONB; the response contract publishes a flat
- * `Record<string, string>`. Narrowed by conversion rather than by an `as` cast so
- * the contract is *made* true instead of asserted: a palette an admin saved with a
- * nested object or a number drops that entry, and the card falls back to the
- * theme's own surface rather than emitting `linear-gradient(undefined, …)`.
- */
+// Narrowed by conversion, not an `as` cast, because `World.palette` is free-form
+// JSONB: a non-string entry is dropped and the card falls back to the theme's
+// surface instead of emitting `linear-gradient(undefined, …)`.
 function toPalette(value: Prisma.JsonValue): Record<string, string> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -75,12 +61,9 @@ function toPalette(value: Prisma.JsonValue): Record<string, string> {
   return palette;
 }
 
-/**
- * `StoryPageTranslation.narrationTimings` narrowed by validation rather than by an
- * `as` cast, exactly as `toPalette` narrows a palette: the column is free-form
- * JSONB written by the voice pipeline (file 36), and a malformed blob must render
- * as an unhighlighted page rather than as a reader that throws mid-story.
- */
+// Narrowed by validation, not an `as` cast: `narrationTimings` is free-form JSONB
+// from the voice pipeline, and a malformed blob must render an unhighlighted
+// page, not a reader that throws mid-story.
 function toNarrationTimings(value: Prisma.JsonValue): NarrationTimings | null {
   if (value === null || value === undefined) return null;
   const parsed = NarrationTimingsSchema.safeParse(value);
@@ -88,12 +71,9 @@ function toNarrationTimings(value: Prisma.JsonValue): NarrationTimings | null {
   return parsed.data;
 }
 
-/**
- * A story's world, in the shape the home screen already receives for a world tile.
- */
 function toWorldSummary(
   world: StoryWorld,
-  language: Lang,
+  language: Locale,
 ): StorySummaryResponse["world"] {
   return {
     id: world.id,
@@ -114,8 +94,7 @@ function toWorldSummary(
   };
 }
 
-/** The child-facing title and which locale supplied it. */
-function pickTitle(story: StoryRow, language: Lang) {
+function pickTitle(story: StoryRow, language: Locale) {
   const picked = pickLocale(
     toLocaleMap(story.translations, (row) => row.title),
     language,
@@ -125,7 +104,7 @@ function pickTitle(story: StoryRow, language: Lang) {
 
 function toSummary(
   story: StoryRow & { _count: { pages: number } },
-  language: Lang,
+  language: Locale,
   isCompleted: boolean,
 ): StorySummaryResponse {
   const title = pickTitle(story, language);
@@ -146,16 +125,17 @@ function toSummary(
   };
 }
 
-/**
- * FR-STORY-08 read side — every published story tagged for this child's grade.
- */
 export async function listStoriesForChild(
   child: ChildProfile,
 ): Promise<StorySummaryResponse[]> {
   const [stories, completions] = await Promise.all([
     prisma.story.findMany({
       where: { ...publishedForChild(child), world: publishedRelation },
-      orderBy: [{ world: { slug: "asc" } }, { createdAt: "asc" }],
+      orderBy: [
+        { world: { slug: "asc" } },
+        { createdAt: "asc" },
+        { id: "asc" },
+      ],
       include: {
         coverAsset: true,
         world: { include: { mascotAsset: true, translations: true } },
@@ -176,9 +156,6 @@ export async function listStoriesForChild(
   );
 }
 
-/**
- * Resolves a story the child is actually allowed to be reading, or throws 404.
- */
 export async function requireVisibleStoryId(
   child: ChildProfile,
   storyId: string,
@@ -197,15 +174,13 @@ export async function requireVisibleStoryId(
   return story.id;
 }
 
-/** One story and all of its pages, for the reader (file 26). */
 export async function getStoryForChild(
   child: ChildProfile,
   storyId: string,
 ): Promise<StoryDetailResponse> {
   const language = child.preferredLanguage;
 
-  // The completion read keys off the requested id rather than the fetched row, so
-  // it can run alongside the story read instead of after it. A 404 discards it.
+  // Keyed off the requested id, not the fetched row, so it runs alongside the story read; a 404 discards it.
   const [story, completion] = await Promise.all([
     prisma.story.findFirst({
       where: {
@@ -220,7 +195,7 @@ export async function getStoryForChild(
           include: { titleAudioAsset: true, moralAudioAsset: true },
         },
         pages: {
-          orderBy: { sortOrder: "asc" },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
           include: {
             illustrationAsset: true,
             translations: { include: { narrationAudioAsset: true } },
@@ -247,15 +222,13 @@ export async function getStoryForChild(
     id: story.id,
     slug: story.slug,
     title: title.value,
-    // No fall-through to `Story.theme`: that column is the authoring label for the
-    // moral, and an admin note is not a sentence to read to a child.
+    // No fall-through to `Story.theme`: an admin note is not a sentence to read to a child.
     moral: pickLocale(
       toLocaleMap(story.translations, (row) => row.moral),
       language,
     ).value,
-    // Falls back on its own, as the cover's title narration does: a moral
-    // translated into Bangla but recorded only in English is still better spoken
-    // than silent (FR-STORY-03).
+    // Falls back on its own like the cover's title narration: a moral translated
+    // but recorded only in English beats silence (FR-STORY-03).
     moralAudioUrl: pickLocale(
       toLocaleMap(story.translations, (row) => row.moralAudioAsset?.url),
       language,
@@ -263,12 +236,10 @@ export async function getStoryForChild(
     world: toWorldSummary(story.world, language),
     coverImageUrl: story.coverAsset?.url ?? null,
     locale: title.locale,
-    // `sortOrder` is the stored ordering; `pageNumber` is 1-based and contiguous,
-    // so a gap left by a deleted page cannot become a page the reader skips.
+    // `sortOrder` is the stored ordering; `pageNumber` is 1-based and contiguous, so a deleted page leaves no gap the reader skips.
     pages: story.pages.map((page, index) => {
-      // The clip and its timings are picked as one value, not as two independent
-      // fallbacks: a span is a character offset into one locale's text, so
-      // English spans laid over Bangla narration would highlight nonsense.
+      // Clip and timings are picked as one value: spans are character offsets into
+      // one locale's text, so English spans over Bangla narration would highlight nonsense.
       const narration = pickLocale(
         toLocaleMap(page.translations, (row) =>
           row.narrationAudioAsset === null

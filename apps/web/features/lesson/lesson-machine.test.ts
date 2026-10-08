@@ -7,7 +7,6 @@ import {
   lessonReducer,
 } from "./lesson-machine";
 
-/** Applies a sequence of events, so a test reads as the walk a child takes. */
 function walk(
   from: LessonPlayerState,
   ...events: LessonPlayerEvent[]
@@ -67,7 +66,6 @@ describe("STEP_COMPLETE", () => {
   });
 
   it("clears a pending exit confirm as it advances", () => {
-    // A step that completes underneath an open dialog leaves no stale one behind.
     expect(
       lessonReducer(playing("video", true), { type: "STEP_COMPLETE" }),
     ).toEqual(playing("activity"));
@@ -88,8 +86,7 @@ describe("RESUME", () => {
   });
 
   it("is ignored once the child has moved past the intro", () => {
-    // Progress loading late must not yank a child backwards out of the step they
-    // are already in.
+    // Progress loading late must not yank a child backwards out of their step.
     const inVideo = playing("video");
 
     expect(lessonReducer(inVideo, { type: "RESUME", step: "quiz" })).toBe(
@@ -140,8 +137,8 @@ describe("exit confirm", () => {
   });
 
   it("EXIT_CONFIRM leaves the state alone — navigation is the caller's", () => {
-    // The reducer is pure; the player navigates. Modelling the departure as a
-    // state would mean rendering a screen nobody is meant to see.
+    // The reducer is pure; the player navigates. A departure state would render a screen nobody
+    // should see.
     const confirming = playing("quiz", true);
 
     expect(lessonReducer(confirming, { type: "EXIT_CONFIRM" })).toBe(
@@ -187,15 +184,14 @@ describe("immunity to mashed taps", () => {
       { type: "EXIT" },
     ];
 
-    // A three-year-old taps everything at once. Every invalid event has to be a
-    // no-op, never a throw — a crash mid-lesson loses the child's place.
+    // Every invalid event must be a no-op, never a throw: a crash mid-lesson loses the child's
+    // place.
     expect(() => walk(initialLessonState, ...storm)).not.toThrow();
     expect(walk(initialLessonState, ...storm)).toEqual({ status: "finished" });
   });
 
   it("returns the same object identity when an event does not apply", () => {
-    // Referential equality matters: `useReducer` skips the re-render, so a mashed
-    // tap costs nothing.
+    // Referential equality: `useReducer` skips the re-render, so a mashed tap costs nothing.
     const state = playing("video");
 
     expect(lessonReducer(state, { type: "RESUME", step: "quiz" })).toBe(state);

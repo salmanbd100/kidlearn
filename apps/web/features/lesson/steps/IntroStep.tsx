@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import { Volume2 } from "lucide-react";
 import { motion } from "motion/react";
@@ -8,13 +9,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { IconControl } from "@/shared/components/kid/IconControl";
 import type { LessonStepProps } from "./lesson-step-props";
-
-/**
- * The lesson's opening beat — the mascot greets the child and says what the
- * lesson is about (FR-LSN-01, NFR-A11Y-01).
- */
 
 const MASCOT_PX = 320;
 
@@ -29,8 +25,8 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
       lesson.assetFallbacks.introAudioUrl &&
       process.env.NODE_ENV !== "production"
     ) {
-      // Loud in dev, silent in production: the child hears English either way,
-      // and the gap is reported through the `step_complete` event instead.
+      // Loud in dev, silent in production: the child hears English either way and the gap is
+      // reported via `step_complete`.
       console.warn(
         `[kidlearn] lesson ${lesson.id}: speaking the English narration — no recording for the child's locale`,
       );
@@ -39,8 +35,8 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
 
   useEffect(() => {
     if (introAudioUrl === null) {
-      // No recording yet for this lesson. The advance cue appears immediately
-      // rather than never — silence must not read as "still loading".
+      // No recording yet: the advance cue appears immediately, as silence must not read as "still
+      // loading".
       setHasNarrationFinished(true);
       return;
     }
@@ -74,15 +70,9 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
 
       <div className="flex w-full items-center justify-center gap-4">
         {introAudioUrl === null ? null : (
-          <button
-            type="button"
-            // 64px square: a child's control, sized like the exit (design.md §7).
-            className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill bg-secondary text-secondary-foreground transition-colors [touch-action:manipulation] hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={t("intro.replay")}
-            onClick={replay}
-          >
+          <IconControl label={t("intro.replay")} onPress={replay}>
             <Volume2 aria-hidden="true" className="size-8" />
-          </button>
+          </IconControl>
         )}
 
         <BigButton
@@ -97,7 +87,6 @@ export function IntroStep({ lesson, onComplete }: LessonStepProps) {
   );
 }
 
-/** The mascot, breathing. */
 function MascotGreeting({ url, name }: { url?: string; name: string }) {
   const isMotionReduced = useIsMotionReduced();
 
@@ -121,7 +110,7 @@ function MascotGreeting({ url, name }: { url?: string; name: string }) {
         width={MASCOT_PX}
         height={MASCOT_PX}
         priority
-        className="h-auto max-h-[40vh] w-auto max-w-full"
+        className="h-auto max-h-[40dvh] w-auto max-w-full"
       />
     </motion.div>
   );

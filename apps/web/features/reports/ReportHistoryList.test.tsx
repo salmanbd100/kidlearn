@@ -5,12 +5,7 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { ReportHistoryList } from "./ReportHistoryList";
 
-/**
- * Which week is showing is a URL, so the assertions are about hrefs — the same
- * behaviour `ChildSwitcher.test.tsx` pins, and worth pinning for the same reason: a
- * list built from buttons and `router.replace` would lose the parent's place on the
- * reload causes, and no week could be bookmarked.
- */
+// Week selection is a URL, so assertions are about hrefs (buttons plus `router.replace` would lose the parent's place and bookmarks).
 
 function report(
   weekStart: string,
@@ -120,9 +115,6 @@ describe("ReportHistoryList", () => {
       name: /^Show the week of Aug 10/,
     });
 
-    // The label replaces the row's contents rather than being appended to them:
-    // with it on the chevron the name ran "Aug 10 – 16 1h 35m · 4 lessons Show the
-    // week of Aug 10 – 16".
     expect(link).not.toHaveAccessibleName(/lesson/);
   });
 

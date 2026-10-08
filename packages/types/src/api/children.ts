@@ -8,15 +8,8 @@ export const GradeLevelSchema = z.enum(GRADE_LEVELS);
 export type GradeLevelValue = z.infer<typeof GradeLevelSchema>;
 
 /**
- * What this child has earned (FR-PROF-04, FR-GAM-06).
- *
- * These began as placeholder zeros so the profile card could render in its final
- * shape before there was a reward ledger to read. Files 23–24 built the ledger
- * and nobody came back for them, so four published fields stayed permanently
- * untrue — and the student home screen's reward strip flashed "0 stars" before
- * the separate `/api/me/rewards/summary` read replaced it. They are summed from
- * the ledger now, by the same rules `getRewardSummary` uses, so the two
- * endpoints cannot disagree.
+ * What this child has earned (FR-PROF-04, FR-GAM-06), summed from the ledger by the same rules
+ * as `getRewardSummary` so the two endpoints cannot disagree.
  */
 export const ChildStatsSchema = z
   .object({
@@ -28,9 +21,8 @@ export const ChildStatsSchema = z
   .strict();
 
 /**
- * The subset of a child profile that goes over HTTP. `parentId` is absent by
- * design (NFR-SAFE-02) and any column added to the model later stays invisible
- * until it is listed here deliberately.
+ * The subset of a child profile that goes over HTTP. `parentId` is absent by design (NFR-SAFE-02);
+ * new model columns stay hidden until listed here.
  */
 export const ChildProfileSchema = z
   .object({
@@ -51,10 +43,7 @@ export const ActiveChildSchema = z
   .object({ activeChildProfileId: z.string() })
   .strict();
 
-/**
- * An avatar a brand-new profile is allowed to wear, as listed by
- * `GET /api/characters`.
- */
+/** An avatar a brand-new profile may wear, as listed by `GET /api/characters`. */
 export const AvatarCharacterSchema = z
   .object({
     id: z.string(),
@@ -74,8 +63,6 @@ export const CharacterUnlockSchema = AvatarCharacterSchema.extend({
 
 export type CharacterUnlockResponse = z.infer<typeof CharacterUnlockSchema>;
 
-// The child-profile write contracts.
-
 /** Youngest and oldest learner the platform is designed for (spec §2). */
 export const MIN_CHILD_AGE = 3;
 export const MAX_CHILD_AGE = 6;
@@ -87,10 +74,8 @@ export const ChildProfileCreateSchema = z
     age: z.number().int().min(MIN_CHILD_AGE).max(MAX_CHILD_AGE),
     gradeLevel: GradeLevelSchema,
     preferredLanguage: LocaleSchema,
-    // `ChildProfile.avatarCharacterId` is nullable in the database so the column
-    // can survive a character being retired, but the API requires it: every
-    // child picks an avatar during creation (FR-PROF-02), and a profile with no
-    // avatar has no valid rendering on the student home screen.
+    // Nullable in the database so the column survives a character being retired, but required
+    // here: a profile with no avatar has no valid rendering on the student home screen (FR-PROF-02).
     avatarCharacterId: z.string().min(1),
   })
   // `.strict()` rather than Zod's default key-stripping: silently discarding

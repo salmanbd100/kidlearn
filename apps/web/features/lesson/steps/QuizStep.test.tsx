@@ -7,10 +7,8 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
 /**
- * The one thing this file owns that the engine does not: what happens after the
- * last question. The submission is stubbed at the module boundary, which is
- * where it is a network call — everything below is about the child never
- * waiting on it.
+ * Owns what happens after the last question; the submission is stubbed at the network boundary, and
+ * the child must never wait on it.
  */
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
@@ -86,14 +84,17 @@ function renderStep(quiz: LessonDetailResponse["quiz"] = ONE_QUESTION) {
 
   render(
     <Providers locale="en">
-      <QuizStep lesson={lessonWithQuiz(quiz)} onComplete={onComplete} />
+      <QuizStep
+        lesson={lessonWithQuiz(quiz)}
+        onComplete={onComplete}
+        locale="en"
+      />
     </Providers>,
   );
 
   return { onComplete };
 }
 
-/** Answers the single question correctly and waits out the cheer. */
 function answerTheQuiz() {
   fireEvent.click(screen.getByTestId("quiz-option-apple"));
   act(() => vi.advanceTimersByTime(CORRECT_HOLD_MS));
@@ -125,10 +126,8 @@ describe("QuizStep", () => {
 
     answerTheQuiz();
 
-    // `isFirstAttemptCorrect` is deliberately absent from the wire shape: the
-    // server grades `answer` against the stored payload and reads first-time
-    // success off `attempts` (`backend.md §8`). The engine still tracks it
-    // locally, for the stars on the score screen.
+    // `isFirstAttemptCorrect` is absent from the wire shape: the server grades `answer` and reads
+    // first-time success off `attempts` (`backend.md §8`).
     expect(progress.submitQuizResponses).toHaveBeenCalledWith(QUIZ_ID, [
       { questionId: "q_1", answer: "apple", attempts: 1 },
     ]);
@@ -136,7 +135,6 @@ describe("QuizStep", () => {
 
   it("shows the score screen without waiting for the server (FR-QUIZ-06)", () => {
     vi.useFakeTimers();
-    // A promise that never settles is the network that never answers.
     progress.submitQuizResponses.mockReturnValue(new Promise(() => {}));
     renderStep();
 
@@ -157,13 +155,11 @@ describe("QuizStep", () => {
     answerTheQuiz();
     expect(screen.getByTestId("quiz-score")).toBeInTheDocument();
 
-    // The rejection is a microtask, and fake timers do not flush those.
     await act(async () => {});
 
     fireEvent.click(screen.getByRole("button", { name: "Yay!" }));
 
-    // A lost row is a gap in a report an adult reads later. A child stranded on
-    // a spinner is the lesson over.
+    // A lost row is a gap in a later report; a child stranded on a spinner is the lesson over.
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("quiz responses not recorded"),
@@ -199,7 +195,6 @@ describe("QuizStep", () => {
       questions: [],
     });
 
-    // Congratulating a child for a quiz they never saw is worse than moving on.
     expect(screen.queryByTestId("quiz-score")).not.toBeInTheDocument();
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(progress.submitQuizResponses).not.toHaveBeenCalled();

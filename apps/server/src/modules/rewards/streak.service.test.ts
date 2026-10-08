@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { previousLocalDate } from "../../shared/utils/local-date.js";
-import { computeStreakUpdate, type StreakState } from "./streak.service.js";
+import {
+  computeStreakUpdate,
+  liveStreakLength,
+  type StreakState,
+} from "./streak.service.js";
 
-/**
- * The day-boundary rule, tested where it is pure (`general.md §5`). The Prisma
- * half — reading the `@db.Date` column and upserting the row — is exercised
- * through `modules/progress/progress.routes.test.ts`, where a seeded streak is what makes the
- * badge integration meaningful.
- */
+/** The day-boundary rule, tested where pure; the Prisma half runs through `progress.routes.test.ts`. */
 
 const TODAY = "2026-08-17";
 const YESTERDAY = previousLocalDate(TODAY);
@@ -120,5 +119,60 @@ describe("previousLocalDate", () => {
 
   it("knows about leap days", () => {
     expect(previousLocalDate("2028-03-01")).toBe("2028-02-29");
+  });
+});
+
+describe("liveStreakLength", () => {
+  const NOW = new Date("2026-08-19T06:00:00.000Z");
+  const dateOnly = (day: string) => new Date(`${day}T00:00:00.000Z`);
+
+  it("keeps the streak when the child was active today", () => {
+    expect(
+      liveStreakLength(
+        { current: 5, lastActivityDate: dateOnly("2026-08-19") },
+        "UTC",
+        NOW,
+      ),
+    ).toBe(5);
+  });
+
+  it("keeps the streak when the child was last active yesterday, since today is still open", () => {
+    expect(
+      liveStreakLength(
+        { current: 5, lastActivityDate: dateOnly("2026-08-18") },
+        "UTC",
+        NOW,
+      ),
+    ).toBe(5);
+  });
+
+  it("reports zero once a whole day has been missed", () => {
+    expect(
+      liveStreakLength(
+        { current: 5, lastActivityDate: dateOnly("2026-08-17") },
+        "UTC",
+        NOW,
+      ),
+    ).toBe(0);
+  });
+
+  it("reports zero for a child with no streak row or no activity", () => {
+    expect(liveStreakLength(null, "UTC", NOW)).toBe(0);
+    expect(
+      liveStreakLength({ current: 0, lastActivityDate: null }, "UTC", NOW),
+    ).toBe(0);
+  });
+
+  it("measures today in the deployment's timezone, not UTC", () => {
+    // 20:00 UTC on the 18th is already the 19th in Dhaka (UTC+6), so a streak
+    // last extended on the 17th has missed the 18th there and is lapsed.
+    const evening = new Date("2026-08-18T20:00:00.000Z");
+    expect(
+      liveStreakLength(
+        { current: 3, lastActivityDate: dateOnly("2026-08-17") },
+        "Asia/Dhaka",
+        evening,
+      ),
+    ).toBe(0);
   });
 });

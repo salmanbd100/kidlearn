@@ -3,18 +3,10 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { QuizAnswerRecord, QuizAnswerValue } from "./types";
 
-/**
- * Where the child is in the quiz, and what they have answered so far
- * (FR-QUIZ-07).
- */
-
 export interface QuizSessionState {
-  /** Fixed for the session's lifetime — the count the engine started with. */
   questionCount: number;
   currentIndex: number;
-  /** Taps on the question currently on screen. */
   attempts: number;
-  /** Latched on the first attempt and left alone after it. */
   isFirstAttemptCorrect: boolean;
   records: readonly QuizAnswerRecord[];
 }
@@ -33,7 +25,6 @@ export function initialQuizSession(questionCount: number): QuizSessionState {
   };
 }
 
-/** A quiz with no playable questions is finished before it starts. */
 export function isQuizSessionFinished(state: QuizSessionState): boolean {
   return state.currentIndex >= state.questionCount;
 }
@@ -64,12 +55,9 @@ export function quizSessionReducer(
           {
             questionId: event.questionId,
             answer: event.answer,
-            // Local only — the server grades `answer` and `attempts` itself.
             isFirstAttemptCorrect: state.isFirstAttemptCorrect,
-            // A commit is always preceded by the attempt that produced it, so
-            // this floor never binds in the app. It is here because `attempts:
-            // 0` on a question a child answered is a number file 22 would put
-            // in a parent's report.
+            // A commit always follows its attempt, so this floor never binds in the app; it stops
+            // `attempts: 0` reaching a parent's report.
             attempts: Math.max(state.attempts, 1),
           },
         ],
@@ -87,10 +75,8 @@ export interface QuizSession {
 }
 
 /**
- * `questionCount` is read once, at mount. The engine parses its payloads into a
- * memoised list before rendering this, so the count cannot change under a
- * session that is already running — and a quiz that grew mid-answer would
- * renumber the fruit strip under the child's finger.
+ * `questionCount` is read once at mount: a quiz that grew mid-answer would renumber the fruit strip
+ * under the child's finger.
  */
 export function useQuizSession(
   questionCount: number,
@@ -115,8 +101,7 @@ export function useQuizSession(
 
   const isFinished = isQuizSessionFinished(state);
 
-  // Once, whatever re-renders follow — the step this reports to navigates away,
-  // and reporting twice would advance the lesson two steps.
+  // Once only: reporting twice would advance the lesson two steps.
   const hasFinished = useRef(false);
   useEffect(() => {
     if (!isFinished || hasFinished.current) return;

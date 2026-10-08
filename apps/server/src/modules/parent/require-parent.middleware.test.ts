@@ -1,32 +1,24 @@
 /**
- * `general.md §5` forbids mocking `@kidlearn/db` — service tests belong against a
- * real test database. There is no test database wired up yet (no Vitest DB
- * harness, `document/project-requirement-details.md §12` assumption 8), so these
- * tests stub `config/prisma.js` under the recorded exception in `general.md §5`
- * ("apps/server stubs lib/prisma.js until the test database lands"). Read the
- * four rules there before adding a stubbed suite — they exist because two
- * defects have already shipped through this gap.
- *
- * When the test-database harness lands, rewrite the provisioning assertions
- * against real rows: the behaviour under test (exactly one `Parent` per `User`)
- * is precisely the kind of thing a stub can agree with while a migration is
- * broken.
+ * Stubs `config/prisma.js` under the stub exception in `general.md §5`; read its four rules before adding a stubbed suite.
+ * "Exactly one `Parent` per `User`" is the kind of thing a stub can agree with while a migration is broken.
  */
 import type { Parent } from "@kidlearn/db";
 import express, { type Express } from "express";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import request from "../../shared/testing/request.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
   parentUpsert: vi.fn(),
   accountFindFirst: vi.fn(),
+  adminFindUnique: vi.fn(),
 }));
 
 vi.mock("../../config/prisma.js", () => ({
   prisma: {
     parent: { findUnique: db.parentFindUnique, upsert: db.parentUpsert },
     account: { findFirst: db.accountFindFirst },
+    adminUser: { findUnique: db.adminFindUnique },
   },
 }));
 
@@ -45,7 +37,6 @@ const SESSION_USER = {
   image: "https://example.com/avatar.png",
 };
 
-/** A minimal but complete `Parent` row, as Prisma would return it. */
 function parentRow(overrides: Partial<Parent> = {}): Parent {
   return {
     id: "parent_1",
@@ -64,10 +55,8 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
   };
 }
 
-/** Makes `auth.api.getSession` resolve to a session, or to null when omitted. */
 function mockSession(activeChildProfileId: string | null = null) {
-  // `getSession` returns a deep better-auth type; the test only supplies the
-  // fields `requireParent` reads, so the shape is narrowed at this boundary.
+  // Narrowed: `getSession` returns a deep better-auth type; only the fields `requireParent` reads are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: { id: "session_1", userId: SESSION_USER.id, activeChildProfileId },
@@ -78,7 +67,6 @@ function mockNoSession() {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
 }
 
-/** A throwaway app that exposes whatever `requireParent` attached. */
 function buildProbeApp(): Express {
   const app = express();
   app.get("/probe", requireParent, (req, res) => {
@@ -97,6 +85,8 @@ describe("requireParent", () => {
     db.parentFindUnique.mockReset();
     db.parentUpsert.mockReset();
     db.accountFindFirst.mockReset();
+    db.adminFindUnique.mockReset();
+    db.adminFindUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -156,8 +146,23 @@ describe("requireParent", () => {
   it("refuses to provision a Parent for a user who did not sign in with Google", async () => {
     mockSession();
     db.parentFindUnique.mockResolvedValue(null);
-    // An admin signing in with credentials (file 31) has no google account row.
+    // An admin signing in with credentials has no google account row.
     db.accountFindFirst.mockResolvedValue(null);
+
+    const res = await request(buildProbeApp()).get("/probe");
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(db.parentUpsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to provision a Parent for a user who is already an admin", async () => {
+    mockSession();
+    db.parentFindUnique.mockResolvedValue(null);
+    // The admin's email can sign in with Google, so the account check alone
+    // would let one session pass both `requireParent` and `requireAdmin`.
+    db.adminFindUnique.mockResolvedValue({ id: "admin_1" });
+    db.accountFindFirst.mockResolvedValue({ accountId: "google_profile_1" });
 
     const res = await request(buildProbeApp()).get("/probe");
 

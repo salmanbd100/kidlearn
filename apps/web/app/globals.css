@@ -3,14 +3,16 @@
 @import "tailwindcss";
 @import "@kidlearn/ui/styles/tokens.css";
 
-/* Tailwind v4 does not scan node_modules, so the workspace UI package's class
-   names would be purged. Explicitly register its source for class detection. */
+/* Tailwind v4 does not scan node_modules; register the workspace UI package's source explicitly. */
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
-/* Activity feedback (FR-ACT-05) — the "not quite, try again" shake.
-   CSS rather than a Motion transform because the element already carries
-   dnd-kit's own translate, which a second JS-written transform would fight.
-   Applied as `motion-safe:animate-wiggle` (design.md §5.2). */
+/* The visible focus ring design.md §7 requires on every interactive element, defined once. */
+@utility focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
+/* Activity feedback shake. CSS, not Motion: the element already carries dnd-kit's translate,
+   which a second JS-written transform would fight (design.md §5.2). */
 @theme {
   --animate-wiggle: wiggle 400ms var(--ease-standard) 1;
 
@@ -28,10 +30,8 @@
   }
 }
 
-/* Matched-pair palette (FR-ACT-03) — six hues, the largest number of pairs a
-   match payload may carry. Brand hues used directly, which design.md §2.2
-   permits for decorative game art; the connecting line and the tick are what
-   say "matched", so no meaning rests on colour alone (design.md §2.3). */
+/* Matched-pair palette: six hues, the most pairs a match payload may carry. Brand hues are fine for
+   decorative game art (design.md §2.2); the line and tick say "matched", not colour (§2.3). */
 @theme {
   --color-pair-1: var(--color-grape);
   --color-pair-2: var(--color-mint);
@@ -41,9 +41,8 @@
   --color-pair-6: var(--color-sunshine);
 }
 
-/* Puzzle completion shine (FR-ACT-04). Transform and opacity only, capped at
-   `--dur-slow` and dismissable by tap — design.md §5.2 holds a celebration to
-   400ms. Neutralised by the reduced-motion blocks below. */
+/* Puzzle completion shine: transform and opacity only, capped at `--dur-slow` (design.md §5.2).
+   Neutralised by the reduced-motion blocks below. */
 @theme {
   --animate-shine: shine var(--dur-slow) var(--ease-standard) 1;
 
@@ -62,10 +61,8 @@
   }
 }
 
-/* Bangla typography (FR-I18N-01) — Fredoka, Nunito and Inter have no Bengali
-   glyphs. Deliberately not a bare `:lang(bn)`: that would match every
-   descendant of a Bangla page, and a direct declaration always beats an
-   inherited one, so it would outrank the `.dyslexia-font` block below. */
+/* Bangla typography: Fredoka, Nunito and Inter have no Bengali glyphs. Not a bare `:lang(bn)`, which
+   would match every descendant and outrank the `.dyslexia-font` block below. */
 :root:lang(bn),
 [lang="bn"] {
   --family-display: var(--font-noto-bengali), var(--font-fredoka);
@@ -73,10 +70,8 @@
   --family-ui: var(--font-noto-bengali), var(--font-inter);
 }
 
-/* Accessibility preferences (NFR-A11Y-03..05) — classes on <html>, written by
-   `lib/a11y-prefs.ts`. The colour overrides need the extra `[data-theme]`
-   selector because each route group re-declares those tokens on its own
-   wrapper; the font overrides inherit from `:root` and do not. */
+/* Accessibility preference classes on <html>, written by `lib/a11y-prefs.ts`. Colour overrides need
+   `[data-theme]` because each route group re-declares those tokens on its own wrapper. */
 
 /* High contrast — every pair below is ≥7:1 (WCAG AAA). */
 .high-contrast,
@@ -106,8 +101,7 @@
   --ring: #000000;
 }
 
-/* Drop the file in `public/fonts/` to activate; until then the chain below
-   falls through to the next family and the setting still changes the type. */
+/* Drop the file in `public/fonts/` to activate; until then the chain falls through to the next family. */
 @font-face {
   font-family: "OpenDyslexic";
   src: url("/fonts/OpenDyslexic-Regular.woff2") format("woff2");
@@ -124,9 +118,8 @@
   font-display: swap;
 }
 
-/* Noto Bengali stays in the chain: OpenDyslexic has no Bengali glyphs.
-   `:root.dyslexia-font` matches the specificity of `:root:lang(bn)` above and
-   is declared after it, so the accessibility setting wins the tie. */
+/* Noto Bengali stays in the chain: OpenDyslexic has no Bengali glyphs. `:root.dyslexia-font` ties
+   `:root:lang(bn)` on specificity and is declared after it, so the setting wins. */
 :root.dyslexia-font {
   --family-display:
     "OpenDyslexic", "Comic Sans MS", var(--font-noto-bengali),
@@ -138,12 +131,8 @@
     "OpenDyslexic", "Comic Sans MS", var(--font-noto-bengali), var(--font-inter);
 }
 
-/* Reduced motion.
-
-   The OS-level query comes first so specificity ascends down the file; the
-   `.reduced-motion` class below is the in-app opt-in for a user whose device
-   setting is off. Neither reaches a transform Motion writes as an inline style
-   — components that animate in JS read `hooks/use-reduced-motion.ts`. */
+/* Reduced motion. The OS query comes first so specificity ascends; `.reduced-motion` is the in-app
+   opt-in. Neither reaches Motion's inline transforms, which read `hooks/use-reduced-motion.ts`. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

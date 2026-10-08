@@ -48,15 +48,9 @@ import {
   updateQuiz,
 } from "./content-editors.service.js";
 
-/**
- * `/api/admin/content/{quizzes,activities,badges}` — the guided editors
- * (file 33, FR-CMS-03, FR-GAM-04).
- */
 export const adminContentEditorsRouter = Router();
 
-/**
- * Reads a uuid path parameter on a route guarded by the matching params schema.
- */
+// Cast: the matching params schema has already validated this uuid.
 function param(req: Request, name: "id" | "quizId"): string {
   return req.params[name] as string;
 }
@@ -320,7 +314,6 @@ adminContentEditorsRouter.patch(
   },
 );
 
-/** The three resources share one transition handler, registered per segment. */
 for (const [resource, idName] of [
   ["quizzes", "quizId"],
   ["activities", "id"],

@@ -13,8 +13,8 @@ Give the app a voice. One audio layer owning three jobs: **narration** (the loca
 
 - design.md §10 is unambiguous: kid copy is 1–4 words and **always pairs with a voice-over and an icon**. Narration is not an enhancement here — it is how a 3-year-old is expected to operate the product.
 - FR-I18N-05: audio is per-language. `packages/types` already models it: `LocalizedAudioSchema` (audio URL keyed by locale), `AudioAssetRefSchema`, `NarrationTimingsSchema` / `NarrationSpanSchema` (for the story reader's word-level sync in M23) and `LessonAssetFallbacksSchema`.
-- `apps/web/lib/use-screen-narration.ts` is the web precedent — read it for the play-once-per-screen semantics and the interaction-required rules; the browser needs a user gesture before audio, native does not, which simplifies the native version.
-- `apps/web/public/audio/ui/` and `audio/feedback/` hold the short interaction sounds. Those files are the same assets mobile bundles locally — short sounds must **not** be streamed from Cloudinary on every tap.
+- `apps/web/shared/hooks/use-screen-narration.ts` is the web precedent — read it for the play-once-per-screen semantics and the interaction-required rules; the browser needs a user gesture before audio, native does not, which simplifies the native version.
+- `apps/web/public/audio/feedback/` holds the real short feedback sounds (`cheer-*`, `coin-1`, `unlock-1`, and per-locale `celebration`, `oops`, `locked`, `streak`, `retry-*` as `.mp3`). `audio/ui/` holds per-screen prompts named `{key}.{locale}.mp3` (`selectProfile`, `home`, `world`) that are currently **one second of silence** placeholders awaiting real recordings (see its README). Those files are the same assets mobile bundles locally — short sounds must **not** be streamed from Cloudinary on every tap.
 - Narration for lesson and story content comes from the content payload (Cloudinary URLs, per locale). UI and feedback sounds ship **in the app bundle** so they are instant and work offline.
 - `expo-av` is deprecated; `expo-audio` is the current API. Do not start on `expo-av`.
 - M03 gives the active locale; M13 gives the step shell that will request narration per step.
@@ -24,7 +24,7 @@ Give the app a voice. One audio layer owning three jobs: **narration** (the loca
 
 1. **`lib/audio.ts` — one owner.** Exports `playNarration(source)`, `stopNarration()`, `playSfx(name)`, `setMuted(muted)`, `isMuted()`. No component creates its own player. This matters on native: two `expo-audio` players fighting over the same output produce overlapping voices, and a child cannot tell which one to follow.
 2. **Two players, deliberately.** One long-form player for narration (interruptible, one at a time — a new narration stops the previous), and one short-sound player pool for SFX (overlap is fine and desirable: a tap sound must not cut off "well done"). Keep the split inside `lib/audio.ts`.
-3. **Bundled SFX.** `assets/audio/ui/*.m4a` and `assets/audio/feedback/*.m4a`, ported from `apps/web/public/audio/`, addressed by a typed name (`"tap" | "pageTurn" | "correct" | "tryAgain" | "celebrate"`), preloaded once at app start. A typo in a sound name must be a type error, not silence.
+3. **Bundled SFX.** `assets/audio/ui/*` and `assets/audio/feedback/*`, ported from `apps/web/public/audio/` (transcode the `.mp3` files only if size or latency demands it; otherwise bundle them as they are), addressed by a typed name derived from the web filenames (feedback: `cheer`, `coin`, `unlock`, plus the per-locale `celebration`, `oops`, `locked`, `streak`, `retry`; there is no web `tap` or `pageTurn` asset, so add those as new files if wanted), preloaded once at app start. A typo in a sound name must be a type error, not silence.
 4. **Localised narration resolution.** `lib/narration.ts` exporting `resolveNarration(audio: LocalizedAudio, locale: Locale): string | undefined` — the current locale's URL, falling back to `en`, and `undefined` when neither exists. A missing narration must degrade to "no voice-over", never to a crash or a wrong-language voice.
 5. **`useScreenNarration(key | source)`** — plays a screen's narration once when it mounts and the screen is focused, stops on blur or unmount. Uses `useFocusEffect` from expo-router, because a screen pushed on top must silence the one beneath it. Respects mute. Never replays on re-render — the web hook's semantics, ported.
 6. **Mute control.** Persisted in AsyncStorage (a preference, not a secret) under `kidlearn.muted`, exposed through a small provider so both the student surface's mute button and the parent settings screen read the same value. Muting silences narration and SFX but must **not** mute lesson video (that has its own control) — a parent muting the room's noise is different from turning off a video.
@@ -45,8 +45,8 @@ apps/mobile/lib/use-screen-narration.ts
 apps/mobile/lib/use-screen-narration.test.tsx
 apps/mobile/lib/mute.tsx                       # provider + persisted preference
 apps/mobile/components/student/SpeakerButton.tsx
-apps/mobile/assets/audio/ui/*.m4a              # ported from apps/web/public/audio/ui
-apps/mobile/assets/audio/feedback/*.m4a        # ported from apps/web/public/audio/feedback
+apps/mobile/assets/audio/ui/*                  # ported from apps/web/public/audio/ui
+apps/mobile/assets/audio/feedback/*            # ported from apps/web/public/audio/feedback
 ```
 
 Locale resolution, defensive because content is authored by a pipeline:
@@ -76,11 +76,9 @@ The single-owner shape, with the two-player split visible:
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 
 const SFX = {
-  tap: require("../assets/audio/ui/tap.m4a"),
-  pageTurn: require("../assets/audio/ui/page-turn.m4a"),
-  correct: require("../assets/audio/feedback/correct.m4a"),
-  tryAgain: require("../assets/audio/feedback/try-again.m4a"),
-  celebrate: require("../assets/audio/feedback/celebrate.m4a"),
+  cheer: require("../assets/audio/feedback/cheer-1.mp3"),
+  coin: require("../assets/audio/feedback/coin-1.mp3"),
+  unlock: require("../assets/audio/feedback/unlock-1.mp3"),
 } as const;
 
 export type SfxName = keyof typeof SFX;
@@ -157,6 +155,6 @@ Convert the web's audio assets rather than re-sourcing them: they are already tu
 
 - Word-level narration highlighting for the story reader — M23 (it consumes `NarrationTimingsSchema`; this file only plays the audio).
 - Lesson video playback and its own audio track — M15.
-- Text-to-speech generation. Narration is pre-generated content (web files 36 and 37a, Google Cloud TTS); the client only plays URLs.
+- Text-to-speech generation. Narration is pre-generated content (the AI pipeline under `apps/server/src/modules/admin`, Google Cloud TTS); the client only plays URLs.
 - Downloading narration for offline use — out of scope for the plan (§3.2).
 - Background audio playback. A learning app that keeps talking with the screen off is a support ticket, not a feature.

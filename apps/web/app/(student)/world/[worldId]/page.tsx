@@ -1,7 +1,6 @@
-import { StudentGuard } from "../../StudentGuard";
+import { StudentGuard } from "@/app/(student)/StudentGuard";
 import { WorldScreen } from "./WorldScreen";
 
-/** Lesson browsing inside one world (FR-PROF-03). */
 export default async function WorldPage({
   params,
 }: {

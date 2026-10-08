@@ -15,11 +15,7 @@ import {
 } from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/progress/progress.routes.ts` — mounted behind `requireParent` **and**
- * `requireActiveChild` in `modules/index.ts`, so every present and future
- * `/api/progress/*` path is covered by construction.
- */
+/** Mounted behind `requireParent` and `requireActiveChild` in `modules/index.ts`. */
 type _LessonStepsCoverPrisma = PrismaLessonStep extends LessonStep
   ? true
   : never;
@@ -32,25 +28,18 @@ const _lessonStepMirrorIsExhaustive: [
 ] = [true, true];
 void _lessonStepMirrorIsExhaustive;
 
-const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
-  "No active child profile on this session. Call `POST /api/children/{id}/activate` first — progress belongs to a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.",
-  ["FORBIDDEN"],
+const FORBIDDEN_RESPONSE = errorResponse(
+  "`FORBIDDEN` — no active child profile on this session. Call `POST /api/children/{id}/activate` first — progress belongs to a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.\n\n`CONSENT_REQUIRED` — the parent has never accepted the consent text, or accepted only an older version (FR-AUTH-03). Nothing is recorded until they accept it again through `POST /api/parent/consent`.",
+  ["FORBIDDEN", "CONSENT_REQUIRED"],
 );
 
-/**
- * Identical in cause and reasoning to the content API's `404`, and deliberately
- * so: the two endpoints must agree about which lessons exist for a child.
- */
+/** Same as the content API's `404`: both endpoints must agree about which lessons exist for a child. */
 const LESSON_NOT_FOUND_RESPONSE = errorResponse(
   "No such lesson, **or** any one of its four gates is shut: the lesson's own `status` and grade tags, its world's `status`, its topic's `status` and grade tags, or that topic's subject's. All of them are the same `404`, matching `GET /api/content/lessons/{id}` exactly: a `403` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4). The agreement matters — a lesson the content API will not serve must not be one this API will record progress against, or pay out for.",
   ["NOT_FOUND"],
 );
 
-/**
- * A quiz carries a status but no grade tags, so it is visible exactly when a
- * lesson the child can see points at it — which is why every clause of the lesson
- * `404` above applies here too, plus the quiz's own status.
- */
+/** A quiz has no grade tags, so it is visible exactly when a visible lesson points at it, plus its own status. */
 const QUIZ_NOT_FOUND_RESPONSE = errorResponse(
   "No such quiz, **or** it is not published, **or** no lesson this child can see points at it — the lesson, its world, its topic or that topic's subject is unpublished, or the lesson, topic or subject is not tagged for this child's grade. All of them are the same `404`, for the reason the lesson `404` gives: a `403` would confirm the row exists (spec §7.3.4). A quiz is reached *through* its lesson because it has no grade tags of its own; resolving it by id alone would let a child post answers into another grade's content.",
   ["NOT_FOUND"],
@@ -68,7 +57,6 @@ const STORY_ID_PARAM = pathParam(
   { type: "string", format: "uuid" },
 );
 
-/** The story equivalent of the lesson `404`, and identical in reasoning. */
 const STORY_NOT_FOUND_RESPONSE = errorResponse(
   "No such story, **or** it is not published, **or** its world is not published, **or** it is not tagged for this child's grade. All four are the same `404`, matching `GET /api/content/stories/{id}` exactly — a `403` would confirm the row exists (spec §7.3.4). The agreement is load-bearing here: a story the content API will not open must not be one a child can be paid for finishing.",
   ["NOT_FOUND"],
@@ -80,7 +68,6 @@ const QUIZ_ID_PARAM = pathParam(
   { type: "string", format: "uuid" },
 );
 
-/** The shared preamble: what "server-authoritative" means for a caller here. */
 const AUTHORITATIVE = [
   "The client reports **that a step finished**; what the stored `currentStep` then becomes, whether the lesson counts as complete, and when any of it happened are the server's decisions (spec §7, FR-TIME-06).",
   "",
@@ -113,7 +100,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -147,7 +134,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -165,13 +152,17 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "",
         "**There is no request body, and that is the contract.** Nothing a client could send would be believed: how many answers were right is read from the child's stored `QuizResponse` rows, and every amount is a constant in `services/rewardService.ts`. No endpoint in this API accepts a reward type, a reward amount or a source — rewards are earned, and there is no purchase path anywhere (FR-GAM-08).",
         "",
-        "**Replaying a finished lesson grants nothing.** The second call answers `starsEarned: 0`, `coinsEarned: 0` and unchanged `totals`, and writes no ledger row. The guard is a unique index on `(childId, rewardType, sourceType, sourceId)` rather than a check in application code, so it holds under two taps racing each other and for any code path added later. A client must not read two zeros as a failure: it means *already done*, and the celebration is owed either way.",
+        "**The lesson has to have been played.** Completion is refused with `409` (`details.code: \"LESSON_NOT_PLAYED\"`) unless the child's progress row has reported the `activity` step finished *in this run*. The bar is `activity` rather than `quiz` on purpose: the quiz step's report is sent as the reward step opens, and a child must not lose the celebration because that one request was dropped. A client should send the step reports it owes before this call.",
+        "",
+        "**A replay has to be played too.** Once a completion is recorded the row sits at `reward`, and a further completion is refused with the same `409` until the child replays: an `intro` report against a finished row starts the run over, and the steps are then reported in order again. Without that, re-posting this call each day would collect the day's coins and the streak for a lesson played once. A retried completion whose first attempt landed is refused the same way — the grants were written by that first attempt.",
+        "",
+        "**Replaying a finished lesson grants nothing for the lesson itself.** A completed replay answers `starsEarned: 0`, `coinsEarned: 0` and unchanged `totals`, and writes no ledger row. The guard is a unique index on `(childId, rewardType, sourceType, sourceId)` rather than a check in application code, so it holds under two taps racing each other and for any code path added later. A client must not read two zeros as a failure: it means *already done*, and the celebration is owed either way.",
         "",
         "What is granted on a first completion: **2 stars** for the lesson, **1 star** if its quiz was attempted at all (attempted, not passed — a quiz here has no fail state), **2 coins per correct answer**, and **5 coins** for the first lesson finished today. Correctness is counted from the *latest* response to each question, so a replay cannot inflate it.",
         "",
         '"Today" is a calendar day in the deployment\'s `APP_TIMEZONE`, not UTC — the daily grant is keyed on that local date, so a child playing before dawn is not handed a second one.',
         "",
-        'This call **replaces** `POST /api/progress/lessons/{id}/step` with `{ step: "reward", completed: true }`; it performs that same step report itself, with the same write-once `completedAt`. Sending both is harmless but redundant.',
+        'This call **replaces** `POST /api/progress/lessons/{id}/step` with `{ step: "reward", completed: true }`; it performs that same step report itself, with the same write-once `completedAt`. Do not send both: a step report that completes the row finishes the run, and this call then refuses it.',
         "",
         '**`newBadges` and `newCharacters` are what *this* call unlocked**, on the same footing as `starsEarned` — a replay sends two empty arrays rather than re-announcing a badge the child was given last week. A badge is granted through the same ledger, as a row with `rewardType: "badge"`, `sourceType: "badge_unlock"` and `sourceId` set to the badge slug, so the unique index makes the grant idempotent exactly as it does for stars (FR-GAM-04). Characters are a `ChildCharacter` row, guarded by its own unique pair (FR-GAM-05).',
         "",
@@ -192,8 +183,12 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
+        "409": errorResponse(
+          "This run has not reached the `activity` step — the lesson was never played through, or it was finished and has not been replayed since. `details.code` is `LESSON_NOT_PLAYED`. Nothing is granted.",
+          ["CONFLICT"],
+        ),
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -214,6 +209,8 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         "",
         "**There is no request body.** The amounts are constants in `services/rewardService.ts`; no endpoint in this API accepts a reward type, amount or source (FR-GAM-08).",
         "",
+        '**The story has to have been opened.** The `story_start` event the reader posts to `POST /api/events/activity` is the evidence this call is paid against: without one for this child and this story in the past three hours it answers `409` with `details.code: "STORY_NOT_STARTED"`. A `story_start` from the past 30 minutes is a reading under way and is exempt from the screen-time gate, as a lesson in progress is; an older one is a new sitting, and a shut gate answers `423`.',
+        "",
         '**Smaller than a lesson completion in stars, identical in everything else.** It runs the same three steps a lesson does — streak, then badges, then characters — in the same order, so `newBadges`, `newCharacters` and `streak` are on this response too. Reading is a learning activity: FR-GAM-06 counts days with at least one, and FR-GAM-04 names "Reading Star (10 stories)" as a launch badge, which a child who only ever reads could not otherwise earn. This used to defer both to the child\'s next *lesson*, and a reading-only child therefore earned neither.',
         "",
         "**`alreadyCompleted` governs `granted` alone.** A re-read pays no stars and still counts as turning up, so it can extend a streak, and — because the badge evaluation runs on every call — it can be the reading that crosses a milestone. The streak *write* is skipped on a day already counted, exactly as a second lesson on one day is.",
@@ -228,8 +225,16 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
         ),
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": STORY_NOT_FOUND_RESPONSE,
+        "409": errorResponse(
+          "No `story_start` for this child and this story in the past three hours — the story was never opened. `details.code` is `STORY_NOT_STARTED`. Nothing is granted.",
+          ["CONFLICT"],
+        ),
+        "423": errorResponse(
+          "The parental screen-time gate is shut and the story's `story_start` is more than 30 minutes old, so this is a new sitting rather than a reading under way (FR-TIME-02..04). `error.details` carries `minutesToday`, `dailyLimitMinutes`, `windowStart` and `windowEnd`, as on `GET /api/content/stories/{id}`.",
+          ["TIME_LIMIT_REACHED", "OUTSIDE_WINDOW"],
+        ),
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -265,7 +270,7 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": LESSON_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
@@ -306,8 +311,12 @@ export const PROGRESS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": QUIZ_NOT_FOUND_RESPONSE,
+        "429": errorResponse(
+          "This child has stored 30 or more quiz answers in the past minute. A quiz holds at most ten and takes a child well over a minute, so only a scripted client meets this. Nothing is stored.",
+          ["RATE_LIMITED"],
+        ),
         "500": INTERNAL_RESPONSE,
       },
     },

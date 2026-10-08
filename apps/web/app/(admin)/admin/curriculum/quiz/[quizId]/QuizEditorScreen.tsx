@@ -12,16 +12,14 @@ import {
 } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   createQuestion,
   deleteQuestion,
   fetchQuiz,
   replaceQuestion,
   transitionEditorContent,
-} from "@/features/admin/admin-api";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+} from "@/features/admin/editors-api";
 import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
 import { QuizQuestionEditor } from "@/features/admin/QuizQuestionEditor";
 import {
@@ -29,10 +27,8 @@ import {
   emptyQuestionDraft,
   type QuestionDraft,
 } from "@/features/admin/quiz-draft";
-
-/**
- * `/admin/curriculum/quiz/[quizId]` — one quiz's ordered questions (FR-CMS-03).
- */
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 
 type DialogState =
   | { kind: "closed" }
@@ -41,7 +37,6 @@ type DialogState =
 
 export interface QuizEditorScreenProps {
   quizId: string;
-  /** The `AIGenerationJob` this edit belongs to, when opened from the queue. */
   jobId?: string;
 }
 
@@ -130,10 +125,8 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
             <Link href={ADMIN_ROUTES.curriculum}>Back</Link>
           </Button>
 
-          {/* File 36 — prompt narration per question per locale (FR-AI-04,
-              FR-QUIZ-05). Offered whatever the quiz's status: recording a clip
-              changes nothing a child can reach, since the audio is attached on
-              approval and not here. */}
+          {/* Offered whatever the quiz status: audio is attached on approval, so recording
+              changes nothing a child can reach. */}
           <GenerateNarrationButton
             entity="quiz"
             id={quizId}
@@ -164,8 +157,8 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
 
       {isEditable ? null : (
         <p className="text-muted-foreground text-xs">
-          This quiz is published, so its questions cannot be changed. Withdraw
-          it to draft first — that removes it from students immediately.
+          This quiz is in review, approved or published, so its questions cannot
+          be changed. Move it back to draft first.
         </p>
       )}
 
@@ -178,7 +171,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -187,7 +180,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
       {error && dialog.kind === "closed" ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -200,7 +193,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
           {quiz.questions.map((question, index) => (
             <li
               key={question.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border bg-card p-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-(--radius) border border-border bg-card p-3"
             >
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate font-medium text-card-foreground text-sm">
@@ -269,8 +262,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
               </DialogHeader>
 
               <QuizQuestionEditor
-                // Keyed so opening a different question remounts the form rather
-                // than feeding new initial state into a mounted one.
+                // Keyed so a different question remounts the form.
                 key={dialog.kind === "edit" ? dialog.question.id : "new"}
                 initial={dialog.draft}
                 isBusy={isBusy}
@@ -303,11 +295,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
     if (succeeded) setDialog({ kind: "closed" });
   }
 
-  /**
-   * Applies each hop in order and stops at the first refusal — sequential rather
-   * than concurrent because the second hop is only legal from the status the first
-   * one wrote. Same reasoning as the curriculum tree.
-   */
+  /** Sequential: the second hop is only legal from the status the first wrote. */
   async function runHops(hops: AdminQuizDetail["status"][]) {
     setIsBusy(true);
     setNotice(undefined);

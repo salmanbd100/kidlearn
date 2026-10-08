@@ -1,15 +1,14 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { DashboardSubjectProgress } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { pickLabel } from "@/shared/lib/localized-label";
+import { pickLabel } from "@/features/children/localized-label";
 
-/** Per-subject completion as labelled bars (FR-DASH-03). */
 const barVariants = cva("h-full rounded-full", {
   variants: {
     tone: {
@@ -37,7 +36,7 @@ export function SubjectProgressCard({
   const { t, i18n } = useTranslation(PARENT_NAMESPACE);
 
   return (
-    <section className="flex flex-col gap-4 rounded-[var(--radius)] border border-border bg-card p-4 sm:p-5">
+    <section className="flex flex-col gap-4 rounded-(--radius) border border-border bg-card p-4 sm:p-5">
       <h2 className="font-semibold text-card-foreground text-lg">
         {t("dashboard.subjectsTitle")}
       </h2>
@@ -106,9 +105,8 @@ export function SubjectProgressCard({
   );
 }
 
-/** The highlight chips. */
 const chipVariants = cva(
-  "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border bg-muted px-1.5 py-0.5 font-medium text-foreground text-xs",
+  "inline-flex items-center gap-1 rounded-(--radius-sm) border bg-muted px-1.5 py-0.5 font-medium text-foreground text-xs",
   {
     variants: {
       tone: {

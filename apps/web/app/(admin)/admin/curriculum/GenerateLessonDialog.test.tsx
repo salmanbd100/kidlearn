@@ -3,11 +3,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateLessonDialog } from "./GenerateLessonDialog";
 
-// The AI Lesson Generator's form (file 34, FR-AI-01).
-
 const generateLesson = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/admin/admin-api", () => ({ generateLesson }));
+vi.mock("@/features/admin/ai-api", () => ({ generateLesson }));
 
 const TIMESTAMPS = {
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -126,9 +124,10 @@ describe("what the dialog sends", () => {
   it("sends the world when one is chosen", async () => {
     renderDialog();
     focus("The letter A");
-    fireEvent.change(screen.getByLabelText("World"), {
-      target: { value: WORLD_ID },
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "World" }), {
+      key: "Enter",
     });
+    fireEvent.click(screen.getByRole("option", { name: WORLDS[0].name }));
     submit();
 
     await waitFor(() => expect(generateLesson).toHaveBeenCalled());
@@ -154,6 +153,20 @@ describe("what the dialog sends", () => {
 
     await waitFor(() => expect(generateLesson).toHaveBeenCalled());
     expect(generateLesson.mock.calls[0][0].languages).toEqual(["en"]);
+  });
+});
+
+describe("the dropdowns", () => {
+  it("closes an open dropdown on Escape and leaves the dialog open", () => {
+    // Two copies of Radix's dismissable layer once made one Escape close both.
+    const { onOpenChange } = renderDialog();
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "World" }), {
+      key: "Enter",
+    });
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 });
 
@@ -196,8 +209,7 @@ describe("what the dialog does with the answer", () => {
   });
 
   it("reports a failed job as a failure, naming it so it can be found", async () => {
-    // The HTTP call succeeded — a generation that could not produce valid output
-    // still has a job row holding both attempts (FR-AI-08).
+    // The HTTP call succeeded; invalid output still leaves a job row with both attempts (FR-AI-08).
     generateLesson.mockResolvedValue({
       ok: true,
       data: { jobId: "job-7", status: "failed" },

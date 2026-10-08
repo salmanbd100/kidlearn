@@ -2,8 +2,6 @@ import type { GradeLevel } from "@kidlearn/db";
 import type { Locale } from "@kidlearn/types";
 import { GRADE_LABELS, LOCALE_LABELS } from "./labels.js";
 
-// The prompt behind the AI Story Generator (FR-AI-02).
-
 export interface StoryPromptInput {
   gradeLevels: readonly GradeLevel[];
   theme: string;

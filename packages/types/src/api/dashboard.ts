@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/children/{id}/dashboard` — everything the parent dashboard renders, in
- * one response (FR-DASH-01..04).
- */
+/** `/api/children/{id}/dashboard` — everything the parent dashboard renders, in one response (FR-DASH-01..04). */
 
 /** A display string in both locales, rather than one already resolved. */
 export const LocalizedLabelSchema = z
@@ -16,9 +13,7 @@ export const LocalizedLabelSchema = z
 
 export type LocalizedLabel = z.infer<typeof LocalizedLabelSchema>;
 
-/**
- * Minutes learned in the three windows the dashboard shows at once (FR-DASH-02).
- */
+/** Minutes learned in the three windows the dashboard shows at once (FR-DASH-02). */
 export const DashboardLearningMinutesSchema = z
   .object({
     today: z.number().int().min(0),

@@ -10,10 +10,9 @@ import { enforceScreenTime } from "../screen-time/enforce-screen-time.middleware
 import { ContentIdParamsSchema } from "./content.schema.js";
 import { getStoryForChild, listStoriesForChild } from "./story.service.js";
 
-/** The Story Library read API (FR-STORY-01, 04, 05, 08). */
 export const storiesRouter = Router();
 
-/** See the identical helper in `content.routes.ts` for why this cast is safe here. */
+// `as`: same reasoning as in `content.routes.ts`.
 function idParam(req: Request): string {
   return req.params.id as string;
 }
@@ -33,9 +32,8 @@ storiesRouter.get("/", async (req, res, next) => {
 storiesRouter.get(
   "/:id",
   validate({ params: ContentIdParamsSchema }),
-  // The story-start gate (FR-TIME-02, FR-TIME-04). No in-progress exemption, and
-  // none is needed: the reader holds every page once it has them, so a story
-  // already open is never interrupted by this gate.
+  // The story-start gate (FR-TIME-02, FR-TIME-04). No in-progress exemption is
+  // needed: the reader holds every page once loaded.
   enforceScreenTime("story"),
   async (req, res, next) => {
     try {

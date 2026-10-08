@@ -1,5 +1,3 @@
-// The contract the story generator holds the model to (file 35, FR-AI-02).
-
 import { describe, expect, it } from "vitest";
 import { buildStoryGenerationOutputSchema } from "./story.js";
 
@@ -70,9 +68,7 @@ describe("locales", () => {
   });
 
   it("rejects a locale nobody asked for", () => {
-    // Strictly, for the reason `./lesson.ts` gives: Bangla page text generated
-    // for an English-only story is content no translation row will ever hold, and
-    // dropping it silently would bill for words that vanish.
+    // Strictly, as in `./lesson.ts`: unplaceable Bangla text would be billed for and vanish.
     const englishOnly = buildStoryGenerationOutputSchema({
       languages: ["en"],
       pageCount: 6,
@@ -91,8 +87,7 @@ describe("locales", () => {
   });
 
   it("requires the moral in every requested locale", () => {
-    // `StoryTranslation.moral` is read aloud on the finish screen (file 26), so
-    // an English-only moral would be untranslated child-facing text.
+    // `StoryTranslation.moral` is read aloud on the finish screen, so English-only would be untranslated child-facing text.
     const result = SEVEN_PAGES_BOTH.safeParse(
       output({ moral: { en: "Sharing makes play better." } }),
     );
@@ -112,8 +107,7 @@ describe("page numbering", () => {
   });
 
   it("rejects a repeated page number", () => {
-    // `sortOrder` comes from this field and is unique per story, so a repeat
-    // would fail the insert and lose the whole generation.
+    // `sortOrder` is unique per story; a repeat would fail the insert and lose the generation.
     const result = SEVEN_PAGES_BOTH.safeParse(
       output({ pages: [1, 2, 3, 3, 4, 5, 6].map((one) => page(one)) }),
     );
@@ -167,8 +161,7 @@ describe("illustration prompts", () => {
   });
 
   it("does not count a name that is only part of another word", () => {
-    // "Bina" inside "binary" is not a character appearing on the page, and a
-    // substring match would let an unusable prompt through.
+    // "Bina" inside "binary" is not a character on the page.
     const pages = [1, 2, 3, 4, 5, 6, 7].map((one) =>
       one === 2
         ? page(one, {
@@ -226,9 +219,7 @@ describe("characters", () => {
 
 describe("strictness", () => {
   it("rejects a field the schema does not declare", () => {
-    // `.strict()` everywhere, for the reason `packages/types/src/primitives.ts`
-    // sets out: a misspelled or invented key must be an issue a reviewer sees,
-    // not a value that vanishes.
+    // `.strict()` everywhere (see `packages/types/src/primitives.ts`): an invented key must be a visible issue.
     expect(
       SEVEN_PAGES_BOTH.safeParse(output({ coverPrompt: "A rabbit on a hill" }))
         .success,

@@ -14,7 +14,7 @@ Complete the four activity types: **match** (pair objects with their partners �
 - `MatchActivitySchema` and `PuzzleActivitySchema` (`packages/types/src/activity/schemas.ts`), both `schemaVersion: 1` with `instructionAudio`, and both refined so a valid payload is always completable — the same guarantee `DragDropActivitySchema` carries ("every draggable must have somewhere correct to go, or the child can never finish"). Read the two schemas and their `superRefine` blocks before writing either renderer; the invariants they guarantee are invariants the renderer may rely on and must not re-check.
 - `PuzzleSlot` and the puzzle piece types are exported from `packages/types`, as are `MatchActivity` / `PuzzleActivity`.
 - M16 gives: the renderer contract (`{ definition, onFinished, onWrongAttempt }`), the registry, `use-drop-targets.ts` (measured layout + worklet hit-testing), `lib/activity-evaluate.ts` (pure grading), `FeedbackLayer`, and the engine that owns instruction audio and celebration.
-- `apps/web/components/activities/MatchActivity.tsx`, `PuzzleActivity.tsx`, `use-pairing.ts`, `use-puzzle-state.ts`, `pair-colours.ts` and `use-wiggle.ts` are the references. `use-pairing.ts` and `use-puzzle-state.ts` are close to platform-free state machines — port their logic rather than re-deriving it.
+- `apps/web/features/activities/MatchActivity.tsx`, `PuzzleActivity.tsx`, `use-pairing.ts`, `use-puzzle-state.ts`, `pair-colours.ts` and `use-wiggle.ts` are the references. `use-pairing.ts` and `use-puzzle-state.ts` are close to platform-free state machines — port their logic rather than re-deriving it.
 - design.md §2.3: never encode meaning in colour alone. `pair-colours.ts` on the web assigns a colour per matched pair; on mobile the same information must also carry a shape or icon, because a colour-blind child matching by colour is being tested on something else.
 - design.md §7: ≥64px targets. A 4×4 puzzle on a 360px phone leaves ~80px per piece — workable, but it means the maximum grid size the schema allows must be checked against the smallest supported screen during the device pass.
 
@@ -23,7 +23,7 @@ Complete the four activity types: **match** (pair objects with their partners �
 ### Match activity
 
 1. **Renderer** `components/activities/MatchActivity.tsx`, registered under `match`. **Tap-to-select, tap-to-pair** — deliberately not a drag. Two taps are easier than a drag for a 3-year-old, it is naturally accessible, and it matches the web app's interaction.
-2. **Selection state.** First tap selects (visible lift/outline plus an icon marker); second tap on a partner either pairs (correct sound, both lock, a shared pair marker) or rejects (try-again sound, wiggle both, clear the selection). A second tap on the *same* item deselects. Port the state machine from `apps/web/components/activities/use-pairing.ts`.
+2. **Selection state.** First tap selects (visible lift/outline plus an icon marker); second tap on a partner either pairs (correct sound, both lock, a shared pair marker) or rejects (try-again sound, wiggle both, clear the selection). A second tap on the *same* item deselects. Port the state machine from `apps/web/features/activities/use-pairing.ts`.
 3. **Pair marking without colour alone.** Each matched pair gets a colour **and** a distinct shape/icon badge, both drawn from a fixed ordered list so the same pair index always looks the same. Port `pair-colours.ts` and extend it with the shape dimension.
 4. **Completion** when every pair is matched → `onFinished()`.
 5. **Layout.** Two columns on a phone in portrait (items left, partners right) with generous row spacing; a single flowing grid in landscape if the schema's item count allows. No scroll inside the play area if it can be avoided; if it cannot, a vertical scroll is acceptable here because there is no pan gesture competing with it.
@@ -31,7 +31,7 @@ Complete the four activity types: **match** (pair objects with their partners �
 ### Puzzle activity
 
 6. **Renderer** `components/activities/PuzzleActivity.tsx`, registered under `puzzle`. Drag pieces into slots, reusing M16's `use-drop-targets` and gesture pattern — this is the payoff for having built that machinery generically.
-7. **Piece tray and board.** Pieces start in a tray (a wrapped row, not a scroll), the board shows the slot outlines with a faint image ghost. A piece dropped on its correct slot snaps, locks and plays the correct sound; a wrong drop springs back with try-again. Port the state machine from `apps/web/components/activities/use-puzzle-state.ts`.
+7. **Piece tray and board.** Pieces start in a tray (a wrapped row, not a scroll), the board shows the slot outlines with a faint image ghost. A piece dropped on its correct slot snaps, locks and plays the correct sound; a wrong drop springs back with try-again. Port the state machine from `apps/web/features/activities/use-puzzle-state.ts`.
 8. **Snapping tolerance.** A drop counts if the piece's centre is within the slot's bounds **or** within a small margin around them — a finger-sized allowance, expressed in dp like M17's tolerance. Pieces should feel magnetic, not fussy.
 9. **Completion** when every slot is filled correctly → reveal the completed picture briefly, then `onFinished()`.
 10. **Image handling.** Pieces are images (Cloudinary URLs) rendered with `expo-image`; prefetch all of them before the activity becomes interactive so a piece cannot appear blank mid-drag. Show the engine's loading state until they are ready.
@@ -167,5 +167,5 @@ if (!imagesReady) return <ActivityLoading />;
 - The quiz's match-pair and drag-answer formats — M20. Similar interactions, different schemas and graders; sharing the renderers would couple two contracts that are versioned separately.
 - New activity types beyond the four in `ActivityDefinitionSchema`.
 - Puzzle piece rotation, jigsaw-shaped edges, or difficulty scaling. Not in the schema.
-- Authoring puzzle images or slot geometry — the CMS (web file 33).
+- Authoring puzzle images or slot geometry — the admin CMS (`apps/web/features/admin/`).
 - Haptics on snap. Same reasoning as M16 and M17.

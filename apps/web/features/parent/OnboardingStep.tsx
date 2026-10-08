@@ -1,11 +1,9 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { cn } from "@kidlearn/ui";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-
-// Chrome shared by the two first-run steps (FR-AUTH-03, FR-PROF-01).
 
 export const ONBOARDING_STEP_COUNT = 2;
 

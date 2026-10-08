@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { DashboardData } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { CalendarRange } from "lucide-react";
@@ -11,9 +12,7 @@ import { ChildSwitcher } from "@/features/children/ChildSwitcher";
 import { DashboardSummary } from "@/features/children/DashboardSummary";
 import { getDashboard } from "@/features/children/dashboard-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
-/** `/parent` — the dashboard a parent lands on (FR-DASH-01..04). */
 export function DashboardScreen({
   selectedChildId,
 }: {
@@ -22,7 +21,6 @@ export function DashboardScreen({
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles } = useParentSession();
 
-  /** The payload and the instant it arrived, as one value. */
   const [loaded, setLoaded] = useState<
     { data: DashboardData; at: Date } | undefined
   >();
@@ -40,13 +38,11 @@ export function DashboardScreen({
 
     let isCurrent = true;
     setStatus("loading");
-    // Cleared, not kept: without this, switching tabs shows the previous child's
-    // figures under the new child's name until the request lands.
+    // Cleared so switching tabs doesn't show the previous child's figures under the new name.
     setLoaded(undefined);
 
     void getDashboard(childId, {
-      // The API sleeps on its free tier; the first request after idle takes
-      // seconds. Saying so beats a spinner that looks broken (NFR-PERF-04).
+      // The API sleeps on its free tier; say so rather than show a spinner that looks broken.
       onColdStart: () => {
         if (isCurrent) setStatus("waking");
       },
@@ -65,9 +61,7 @@ export function DashboardScreen({
     };
   }, [childId]);
 
-  // `ParentGuard` does not render this screen until the profiles have loaded and
-  // there is at least one, but a parent who just deleted their last profile sees
-  // this state briefly before the redirect lands.
+  // The guard ensures a profile exists; this shows briefly after deleting the last one, before the redirect.
   if (profiles === undefined || child === undefined) {
     return (
       <p role="status" className="text-muted-foreground text-sm">
@@ -105,9 +99,7 @@ export function DashboardScreen({
         />
       )}
 
-      {/* Not the same link as the nav bar's Reports: this one carries the child
-          across, so the report opens for whoever the parent is looking at rather
-          than resetting to the first profile. */}
+      {/* Carries the child across so the report opens for whoever is on screen, not the first profile. */}
       <Button asChild variant="outline" className="self-start">
         <Link
           href={`${PARENT_ROUTES.reports}?child=${encodeURIComponent(child.id)}`}

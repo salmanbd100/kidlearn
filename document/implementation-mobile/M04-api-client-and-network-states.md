@@ -7,28 +7,29 @@
 
 ## Goal
 
-Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwraps the `{ data } | { error }` envelope into a discriminated `ApiResult`, retries the free-tier cold start with backoff and signals it to the UI, distinguishes "no internet" from "server waking up", and types every response from `@kidlearn/types` rather than a hand-written interface. This is the file every later screen depends on, so it ships with tests and a real device check against a running server — not a mock.
+Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwraps the `{ data } | { error }` envelope into a discriminated `ApiResult`, retries a cold or flaky backend with backoff and signals it to the UI, distinguishes "no internet" from "server waking up", and types every response from `@kidlearn/types` rather than a hand-written interface. This is the file every later screen depends on, so it ships with tests and a real device check against a running server — not a mock.
 
 ## Context & Current State
 
-- `apps/web/lib/api-client.ts` is the reference implementation and should be read in full before starting. Its shape is deliberate and is being reproduced, not redesigned:
+- `apps/web/shared/api/api-client.ts` is the reference implementation and should be read in full before starting. Its shape is deliberate and is being reproduced, not redesigned:
   - `ApiResult<T>` = `{ ok: true; data: T } | { ok: false; error: ApiFailure }`.
   - `ApiFailure` = `{ code: ApiErrorCode; message: string; status?: number; details?: unknown }`.
   - `CLIENT_ERROR_CODES = ["NETWORK_ERROR", "MALFORMED_RESPONSE"]`, kept disjoint from the server's `ErrorCode` so "the API said no" is never confused with "the API did not answer".
-  - `RETRY_BACKOFF_MS = [1500, 4000]`, two retries by default; **5xx and connection failures retry, 4xx settles immediately** (a 4xx is a decision, not a hiccup).
+  - `RETRY_BACKOFF_MS = [1500, 4000]`, two retries by default; **5xx and connection failures retry, 4xx settles immediately** (a 4xx is a decision, not a hiccup). Non-idempotent methods (`POST`) do not retry unless the caller passes `isIdempotent: true` — `POST /api/children` creates a row, `POST /api/progress/lessons/:id/step` does not.
+  - A per-attempt timeout already exists (`DEFAULT_TIMEOUT_MS = 20_000`, `timeoutMs` per call).
   - `204` short-circuits to `{ ok: true, data: undefined }` — there is no envelope to unwrap.
   - `onColdStart` fires once, before the first retry, so the UI can show the "mascot waking up" state (NFR-PERF-04).
-- Every server route answers that envelope (`apps/server/src/lib/errors.ts`); response shapes live in `packages/types/src/api/` and are asserted in the route tests with `assertContract`. The mobile client therefore does not need runtime validation of every field — but see requirement 6 for where it does.
-- Error codes are the contract, messages are developer hints. `apps/web/lib/api-client.ts` says it plainly: behind a single 403 sit `CONSENT_REQUIRED`, `PIN_REQUIRED` and `PIN_VERIFICATION_REQUIRED`, which are three different screens.
+- Every server route answers that envelope (`apps/server/src/shared/errors/errors.ts`); response shapes live in `packages/types/src/api/` and are asserted in the route tests with `assertContract`. The mobile client therefore does not need runtime validation of every field — but see requirement 6 for where it does.
+- Error codes are the contract, messages are developer hints. `ERROR_CODES` in `packages/types/src/api/errors.ts` is the vocabulary: `VALIDATION_FAILED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INTERNAL`, `CONSENT_REQUIRED`, `TIME_LIMIT_REACHED` (423), `OUTSIDE_WINDOW` (423) and `RATE_LIMITED` (429). Branch on the code, never the status.
 - **The one real difference from web:** `credentials: "include"` does nothing on React Native. The session cookie lives in SecureStore and is attached by the better-auth Expo client (M07). This file is written so that M07 can inject that behaviour without any screen changing.
 - `lib/env.ts` (M01) exports `API_BASE_URL`.
 
 ## Detailed Requirements
 
-1. **`lib/api-client.ts`** exporting `apiFetch<T>(path, init?)`, `ApiResult`, `ApiFailure`, `ApiErrorCode`, `CLIENT_ERROR_CODES`, `RETRY_BACKOFF_MS` and `apiBaseUrl()`. Names match the web app's deliberately: a developer moving between the two clients should not have to relearn the vocabulary.
-2. **Behavioural parity with web.** Same envelope unwrapping, same retry policy (5xx and connection errors retry; 4xx settles), same `204` handling, same `onColdStart` semantics, same "never branch on `error.message`" rule stated in the file header.
+1. **`lib/api-client.ts`** exporting `apiFetch<T>(path, init?)`, `ApiResult`, `ApiFailure`, `ApiErrorCode`, `CLIENT_ERROR_CODES`, `RETRY_BACKOFF_MS`, `DEFAULT_TIMEOUT_MS` and `apiBaseUrl()`. Names match the web app's deliberately: a developer moving between the two clients should not have to relearn the vocabulary.
+2. **Behavioural parity with web.** Same envelope unwrapping, same retry policy (5xx and connection errors retry; 4xx settles), same `204` handling, same `onColdStart` semantics, the same `onUnauthorized(listener)` hook (any 401 notifies subscribers, which M07's `AuthProvider` uses to flip to `signedOut`), same "never branch on `error.message`" rule stated in the file header.
 3. **Pluggable auth header.** A module-level `setAuthHeaderProvider(fn: () => Promise<Record<string, string>>)` that `apiFetch` awaits on every request and merges into headers. M07 registers the better-auth cookie provider here. Default is a provider returning `{}` so this file is testable and usable before auth exists.
-4. **Timeouts.** Every request gets an `AbortController` timeout (default 15s, overridable per call). A phone on a bad mobile network will otherwise hang a screen indefinitely — the web app gets away without this because browsers impose their own.
+4. **Timeouts.** Ported from web as-is (`DEFAULT_TIMEOUT_MS`, per-call `timeoutMs`, per attempt). Use `AbortController` + `setTimeout`, not `AbortSignal.timeout`/`any` (web's file explains the gap; Hermes has the same one). A phone on a bad network must never hang a screen indefinitely.
 5. **Offline detection.** `lib/network.ts` wrapping `@react-native-community/netinfo` and exporting `useIsOnline()` plus `isOnline()`. `apiFetch` does **not** refuse to send when offline (the check can be stale, and a queued request may still succeed) — but it maps a connection failure while `isOnline()` is false to a `NETWORK_ERROR` whose message the UI shows as "no internet" rather than "server waking up".
 6. **Response parsing where it earns its keep.** Do not Zod-parse every response — the contract is already tested server-side. Parse with `@kidlearn/types` schemas at exactly two boundaries: **content payloads** (`ActivityDefinitionSchema`, `QuizQuestionSchema` and their containers), because those are versioned JSONB authored by the AI pipeline and a malformed payload must fail as a friendly "this activity is unavailable" rather than a crash mid-lesson; and **anything used for a gate decision**. Expose a `parseWith` helper so a caller opts in:
    `apiFetch<LessonDetailResponse>("/api/content/lessons/x", { parseWith: LessonDetailSchema })`.
@@ -40,7 +41,7 @@ Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwr
 ## Technical Approach & Suggestions
 
 ```
-apps/mobile/lib/api-client.ts         # apiFetch + types (port of apps/web/lib/api-client.ts)
+apps/mobile/lib/api-client.ts         # apiFetch + types (port of apps/web/shared/api/api-client.ts)
 apps/mobile/lib/api-client.test.ts
 apps/mobile/lib/network.ts            # NetInfo wrapper: isOnline(), useIsOnline()
 apps/mobile/lib/use-api.ts            # useApi<T>() — loading / error / cold-start / refetch
@@ -48,7 +49,7 @@ apps/mobile/lib/use-api.test.tsx
 apps/mobile/components/NetworkStates.tsx
 ```
 
-Start by copying `apps/web/lib/api-client.ts` verbatim, then make exactly these four changes — the diff being small is the point:
+Start by copying `apps/web/shared/api/api-client.ts` verbatim, then make exactly these three changes — the diff being small is the point:
 
 ```ts
 // 1. Base URL comes from Expo's env, not Next's.
@@ -65,14 +66,10 @@ export function setAuthHeaderProvider(provider: AuthHeaderProvider): void {
   authHeaderProvider = provider;
 }
 
-// 3. Requests get an explicit deadline.
-const DEFAULT_TIMEOUT_MS = 15_000;
-
-// 4. Optional schema parsing at the content boundary.
+// 3. Optional schema parsing at the content boundary.
 export interface ApiFetchInit extends RequestInit {
   retries?: number;
   onColdStart?: () => void;
-  timeoutMs?: number;
   parseWith?: { safeParse: (value: unknown) => { success: boolean } };
 }
 ```
@@ -129,20 +126,20 @@ Test the retry timing with Jest's fake timers rather than real 1.5s/4s waits, or
 
 ## Step-by-Step Plan
 
-1. Read `apps/web/lib/api-client.ts` end to end. Copy it into `apps/mobile/lib/api-client.ts` and get `pnpm --filter mobile typecheck` green with no behaviour changes. (~25 min)
+1. Read `apps/web/shared/api/api-client.ts` end to end. Copy it into `apps/mobile/lib/api-client.ts` and get `pnpm --filter mobile typecheck` green with no behaviour changes. (~25 min)
 2. Write the failing tests for the ported behaviour (success, 4xx no-retry, 5xx retry + single `onColdStart`, `204`, malformed body) and make them pass. (~40 min)
 3. Add `setAuthHeaderProvider` and the header merge; test that provided headers are sent and that the default provider changes nothing. (~20 min)
-4. Add the abort-controller timeout; test that a never-resolving fetch produces `NETWORK_ERROR` under fake timers. (~20 min)
+4. Confirm the ported timeout works on Hermes (no `AbortSignal.timeout`/`any`); test that a never-resolving fetch produces `NETWORK_ERROR` under fake timers. (~15 min)
 5. Add `lib/network.ts` (NetInfo) and make the offline message branch; test both messages. (~25 min)
 6. Add `parseWith` and test that a payload failing `ActivityDefinitionSchema` yields `MALFORMED_RESPONSE` rather than resolving. (~25 min)
 7. Write `lib/use-api.ts` + its test (loading → data, `isColdStart` propagation, `refetch`). (~30 min)
 8. Build `components/NetworkStates.tsx` with localised copy in both namespaces; render both states on the placeholder screen with the server stopped, and on a device with wifi off. (~30 min)
-9. Device check against the real server: start `pnpm --filter server dev`, point `EXPO_PUBLIC_API_URL` at the LAN IP, and confirm `GET /health` succeeds from the phone. Then stop the server mid-request and confirm the cold-start notice appears. (~20 min)
+9. Device check against the real server: start `pnpm --filter server dev`, point `EXPO_PUBLIC_API_URL` at the LAN IP, and confirm `GET /health` (root-mounted, not under `/api`) succeeds from the phone. Then stop the server mid-request and confirm the cold-start notice appears. (~20 min)
 10. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
 
 ## Acceptance Criteria
 
-- [ ] `apiFetch` returns the same `ApiResult` shape and the same `ApiFailure` codes as `apps/web/lib/api-client.ts` for equivalent inputs — including `NETWORK_ERROR` and `MALFORMED_RESPONSE` as client-only codes.
+- [ ] `apiFetch` returns the same `ApiResult` shape and the same `ApiFailure` codes as `apps/web/shared/api/api-client.ts` for equivalent inputs — including `NETWORK_ERROR` and `MALFORMED_RESPONSE` as client-only codes.
 - [ ] 5xx and connection failures retry with `[1500, 4000]` backoff and fire `onColdStart` exactly once; 4xx never retries.
 - [ ] A `204` response yields `{ ok: true, data: undefined }`; a non-envelope body yields `MALFORMED_RESPONSE`.
 - [ ] A request that never answers aborts at the timeout and surfaces `NETWORK_ERROR` — no screen can hang indefinitely.
@@ -156,7 +153,7 @@ Test the retry timing with Jest's fake timers rather than real 1.5s/4s waits, or
 ## Out of Scope
 
 - Attaching the actual session cookie — M07 registers the provider this file defines.
-- Per-resource API modules (`children-api`, `content-api`, …). Each arrives with the screen that needs it, mirroring how `apps/web/lib/*-api.ts` grew.
+- Per-resource API modules (`children-api`, `content-api`, …). Each arrives with the screen that needs it, mirroring how the per-feature `*-api.ts` files under `apps/web/features/` grew.
 - Request caching, deduplication or a data-fetching library (React Query / SWR). `useApi` plus the server's own caching is enough at MVP; adding a cache layer before there is a measured problem buys complexity, not speed.
 - Offline queueing of writes. Out of scope for the whole project per `document/mobile-app-plan.md` §3.2.
 - Crash/error reporting — M29.

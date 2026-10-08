@@ -15,11 +15,7 @@ import {
 import type { ContentStatusValue } from "@kidlearn/types";
 import { Button, cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
-import { StatusChip } from "./StatusChip";
-
-/**
- * One pane of the curriculum tree: a reorderable list of siblings (file 32).
- */
+import { StatusChip } from "@/features/admin/StatusChip";
 
 export interface ColumnItem {
   id: string;
@@ -34,14 +30,13 @@ export interface ContentColumnProps {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onReorder?: (orderedIds: string[]) => void;
-  /** Disabled with a reason, e.g. a lesson column with no topic chosen yet. */
   emptyHint: string;
   isDisabled?: boolean;
 }
 
 const contentRowVariants = cva(
   // 44px, the parent-surface minimum target (design.md §7).
-  "flex min-h-11 w-full items-center gap-2 rounded-[var(--radius)] border px-2 py-1.5 transition-colors",
+  "flex min-h-11 w-full items-center gap-2 rounded-(--radius) border px-2 py-1.5 transition-colors",
   {
     variants: {
       isSelected: {
@@ -69,10 +64,8 @@ export function ContentColumn({
   isDisabled = false,
 }: ContentColumnProps) {
   const sensors = useSensors(
-    // Tighter than the kid surface's: this is a desktop CMS driven by a mouse,
-    // and a hold-to-drag delay on a list an admin reorders repeatedly reads as
-    // lag. The keyboard sensor is not optional — reordering must be reachable
-    // without a pointer (NFR-A11Y-06).
+    // Tighter than the kid surface: a hold-to-drag delay reads as lag with a mouse. The keyboard
+    // sensor stays so reordering works without a pointer (NFR-A11Y-06).
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 150, tolerance: 8 },
@@ -95,7 +88,7 @@ export function ContentColumn({
   }
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
       <header className="flex items-center justify-between gap-2">
         <h2 className="font-semibold text-card-foreground text-sm">{title}</h2>
         <Button
@@ -176,7 +169,7 @@ function ContentRow({
           type="button"
           onClick={() => onSelect(item.id)}
           aria-current={isSelected ? "true" : undefined}
-          className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 rounded-[var(--radius)] px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 rounded-(--radius) px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           <span className="min-w-0 truncate text-foreground text-sm">
             {item.label}
@@ -184,15 +177,14 @@ function ContentRow({
           <StatusChip status={item.status} />
         </button>
 
-        {/* Rendered only when the column reorders — dnd-kit's `attributes`
-            always carry `aria-disabled`, so spreading them on a non-draggable
-            row announced every world as dimmed while it stayed clickable. */}
+        {/* Only when the column reorders: dnd-kit's `attributes` always carry `aria-disabled`,
+            which announced every world as dimmed. */}
         {isDraggable ? (
           <button
             type="button"
             ref={draggable.setActivatorNodeRef}
             aria-label={`Reorder ${item.label}`}
-            className="flex size-11 shrink-0 cursor-grab items-center justify-center rounded-[var(--radius)] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="flex size-11 shrink-0 cursor-grab items-center justify-center rounded-(--radius) text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             {...draggable.attributes}
             {...draggable.listeners}
           >
@@ -204,7 +196,6 @@ function ContentRow({
   );
 }
 
-/** Six dots — the conventional drag affordance. Decorative; the button names it. */
 function GripIcon() {
   return (
     <svg

@@ -6,8 +6,6 @@ import { cva, type VariantProps } from "class-variance-authority";
 import Image from "next/image";
 import { useState } from "react";
 
-// The grown-up's face, wherever a surface needs to show whose device this is.
-
 const parentAvatarVariants = cva(
   "relative flex shrink-0 items-center justify-center overflow-hidden rounded-pill bg-muted font-semibold text-muted-foreground",
   {
@@ -21,7 +19,6 @@ const parentAvatarVariants = cva(
   },
 );
 
-/** Pixel width requested of `next/image`, per `size`. Doubled for retina. */
 const RENDERED_PX = { sm: 64, default: 80 } as const;
 
 export interface ParentAvatarProps
@@ -30,10 +27,7 @@ export interface ParentAvatarProps
   className?: string;
 }
 
-/**
- * Initials for a parent Google gave no photo. Falls back to the email, which is
- * the one field that is never null.
- */
+/** Falls back to the email, the one field never null. */
 export function parentInitials(parent: ParentSummaryResponse): string {
   const words = parent.name?.trim().split(/\s+/).filter(Boolean) ?? [];
 
@@ -44,8 +38,7 @@ export function parentInitials(parent: ParentSummaryResponse): string {
 }
 
 export function ParentAvatar({ parent, size, className }: ParentAvatarProps) {
-  // Google's CDN 404s a photo the account has since removed, and a broken image
-  // icon next to a name reads as an error rather than as "no photo set".
+  // A photo the account has since removed 404s; a broken-image icon reads as an error, not "no photo set".
   const [hasImageFailed, setHasImageFailed] = useState(false);
 
   const src = hasImageFailed || !parent.avatarUrl ? null : parent.avatarUrl;

@@ -1,16 +1,14 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePreloadNextStep } from "@/features/lesson/use-preload-next-step";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 import type { LessonStepProps } from "./lesson-step-props";
 import { VideoControls, type VideoState } from "./VideoControls";
-
-// The teaching video (FR-LSN-02, NFR-PERF-02).
 
 export function VideoStep({ lesson, onComplete }: LessonStepProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
@@ -22,15 +20,8 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
 
   usePreloadNextStep(lesson, state === "playing");
 
-  // A locale fallback used to be logged here as well. It is not a diagnostic this
-  // component needs to emit: `LessonPlayer` already puts `fallback` on the
-  // `step_complete` event, which is the durable record the content-gap report is
-  // built from (FR-I18N-01). A console line was a second, lossier copy of it.
-
-  // Autoplay, and a graceful landing if the browser says no. The intro's
-  // narration usually unlocked the gesture chain already, but "usually" is not a
-  // guarantee on iOS — so a rejection lands on the poster with the play button
-  // showing, which is exactly the paused state, never a dead screen.
+  // Autoplay with a graceful landing: iOS does not guarantee the gesture chain, so a rejection
+  // lands on the poster with play showing.
   useEffect(() => {
     const element = videoRef.current;
     if (element === null || videoUrl === null) return;
@@ -60,14 +51,14 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
     const element = videoRef.current;
     if (element === null) return;
     setState("loading");
-    // `load()` and not a re-render: the src has not changed, and only an explicit
-    // reload makes the element try the network again after a decode failure.
+    // `load()`, not a re-render: only an explicit reload makes the element retry the network after
+    // a decode failure.
     element.load();
     void element.play().catch(() => setState("paused"));
   }, []);
 
-  // A lesson with no video is a hole in the content, not a broken screen. The
-  // child gets the same friendly nudge onward that the last frame gives them.
+  // A lesson with no video is a content hole, not a broken screen: the same nudge onward as the
+  // last frame.
   if (videoUrl === null) {
     return (
       <StepShell>
@@ -89,7 +80,7 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
   return (
     <StepShell>
       <div className="relative w-full max-w-3xl overflow-hidden rounded-lg bg-muted">
-        {/* biome-ignore lint/a11y/useMediaCaption: captions are post-MVP and not in the master spec — file 17 "Out of Scope". */}
+        {/* biome-ignore lint/a11y/useMediaCaption: deferred, not dropped — the recorded exception in design.md §7. */}
         <video
           ref={videoRef}
           src={videoUrl}
@@ -149,9 +140,8 @@ export function VideoStep({ lesson, onComplete }: LessonStepProps) {
         )}
 
         {/*
-          How much is left, and nothing more. Deliberately not a slider and not
-          focusable: the moment a bar can be dragged it is a seek control, which
-          is the one thing FR-LSN-02 rules out.
+          Not a slider and not focusable: a draggable bar is a seek control, which FR-LSN-02 rules
+          out.
         */}
         {state === "error" ? null : (
           <div

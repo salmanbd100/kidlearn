@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE, toLocale } from "@kidlearn/i18n";
 import type { AvatarCharacterResponse } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { Lock } from "lucide-react";
@@ -8,10 +9,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { avatarArtFor } from "@/features/children/avatars";
 import { useAudio } from "@/shared/components/AudioProvider";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { toLocale } from "@/shared/lib/locale";
 
-/** Pick the character a child wears (FR-PROF-02, FR-GAM-05). */
 export interface AvatarPickerOption extends AvatarCharacterResponse {
   /** Absent means unlocked; only the per-child lists send `false`. */
   isUnlocked?: boolean;
@@ -22,12 +20,10 @@ export interface AvatarPickerProps {
   /** The selected character's id, or `""` when nothing is chosen yet. */
   value: string;
   onChange: (avatarCharacterId: string) => void;
-  /** Wired to the group's `aria-describedby` by the form. */
   describedById?: string;
   isInvalid?: boolean;
 }
 
-/** Shared by both tiles, so a lock cannot drift out of the grid's rhythm. */
 const TILE_CLASS =
   "flex size-16 items-center justify-center rounded-lg border-2 border-transparent text-3xl";
 
@@ -118,11 +114,9 @@ export function AvatarPicker({
   );
 }
 
-/** The glyph or the illustration, whichever the character has. */
 function AvatarArtwork({ option }: { option: AvatarPickerOption }) {
   if (option.imageUrl === null) {
-    // Placeholder art until the character sheet ships — decorative, because the
-    // name below is what identifies the character.
+    // Placeholder art until the character sheet ships; decorative, the name identifies it.
     return <span aria-hidden="true">{avatarArtFor(option.slug).glyph}</span>;
   }
 
@@ -137,7 +131,6 @@ function AvatarArtwork({ option }: { option: AvatarPickerOption }) {
   );
 }
 
-/** A character still to be earned. */
 function LockedAvatar({ option }: { option: AvatarPickerOption }) {
   const { t, i18n } = useTranslation(PARENT_NAMESPACE);
   const { play } = useAudio();

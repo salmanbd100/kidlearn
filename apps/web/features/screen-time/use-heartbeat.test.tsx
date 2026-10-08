@@ -8,12 +8,7 @@ vi.mock("../../shared/api/api-client", () => ({
   apiFetch: heartbeat.apiFetch,
 }));
 
-/**
- * jsdom's `document.visibilityState` is a getter with no setter, so a test that
- * needs a hidden tab has to redefine it. Returning the current value from a
- * mutable variable keeps the two halves — the property and the event — in the
- * order a real browser fires them.
- */
+/** jsdom's `document.visibilityState` has no setter, so it is redefined from a mutable variable to keep the property and the event in real-browser order. */
 let visibility: DocumentVisibilityState = "visible";
 
 function setVisibility(next: DocumentVisibilityState) {
@@ -67,11 +62,7 @@ describe("useHeartbeat", () => {
     expect(init.body).toBeUndefined();
   });
 
-  /**
-   * The lock screen case. `/api/events/heartbeat` is deliberately never screen-time
-   * gated, so a caller that keeps beating through a state where no lesson is on
-   * screen would bill a child for sitting on "time's up".
-   */
+  /** `/api/events/heartbeat` is never screen-time gated, so a caller beating through a lock screen would bill a child for sitting on "time's up". */
   it("does not beat while disabled", async () => {
     renderHook(() => useHeartbeat({ enabled: false }));
 
@@ -175,9 +166,7 @@ describe("useHeartbeat", () => {
       vi.advanceTimersByTime(120_000);
     });
 
-    // A background tab has no child in front of it. Without this, a lesson left
-    // open in another window would bill a whole afternoon (and file 28 would lock
-    // a child out of a device they were not using).
+    // A background tab has no child in front of it; without this a lesson left open would bill a whole afternoon.
     expect(heartbeatCalls()).toHaveLength(1);
   });
 

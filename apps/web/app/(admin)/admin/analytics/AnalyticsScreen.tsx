@@ -2,23 +2,42 @@
 
 import type { PlatformOverview } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
+import {
+  Activity,
+  Baby,
+  BookCheck,
+  type LucideIcon,
+  RefreshCw,
+  Sparkles,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
 import { AdminStatCard } from "@/features/admin/AdminStatCard";
 import { fetchPlatformOverview } from "@/features/admin/admin-api";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { fetchAiJobCount } from "@/features/admin/ai-api";
 
-/** `/admin/analytics` — the four platform counters (FR-CMS-07, basic tier). */
 const CARDS: ReadonlyArray<{
   key: keyof Omit<PlatformOverview, "generatedAt">;
   label: string;
+  icon: LucideIcon;
 }> = [
-  { key: "totalParents", label: "Parents" },
-  { key: "totalChildren", label: "Child profiles" },
-  { key: "lessonsCompletedThisWeek", label: "Lessons done this week" },
-  { key: "dauToday", label: "Children active today" },
+  { key: "totalParents", label: "Parents", icon: Users },
+  { key: "totalChildren", label: "Child profiles", icon: Baby },
+  {
+    key: "lessonsCompletedThisWeek",
+    label: "Lessons done this week",
+    icon: BookCheck,
+  },
+  { key: "dauToday", label: "Children active today", icon: Activity },
 ];
 
 export function AnalyticsScreen() {
   const [overview, setOverview] = useState<PlatformOverview | undefined>();
+  const [awaitingReview, setAwaitingReview] = useState<number>();
   const [status, setStatus] = useState<
     "loading" | "waking" | "ready" | "error"
   >("loading");
@@ -26,11 +45,16 @@ export function AnalyticsScreen() {
   const load = useCallback(async () => {
     setStatus("loading");
 
-    const result = await fetchPlatformOverview({
-      // The API sleeps on its free tier, so the first request after idle is slow.
-      // Saying so beats a spinner that looks broken (NFR-PERF-04).
-      onColdStart: () => setStatus("waking"),
-    });
+    const [result, count] = await Promise.all([
+      fetchPlatformOverview({
+        // The API sleeps on its free tier; say so rather than show a spinner that looks broken.
+        onColdStart: () => setStatus("waking"),
+      }),
+      fetchAiJobCount(),
+    ]);
+
+    // The queue card is a convenience; its failure leaves the platform counters standing.
+    setAwaitingReview(count.ok ? count.data.awaitingReview : undefined);
 
     if (result.ok) {
       setOverview(result.data);
@@ -44,27 +68,30 @@ export function AnalyticsScreen() {
     void load();
   }, [load]);
 
+  const isLoading = status === "loading" || status === "waking";
+
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-semibold text-foreground text-xl">Analytics</h1>
-          <p className="text-muted-foreground text-xs">
-            {overview === undefined
-              ? "Platform totals."
-              : `Platform totals, read at ${formatReadAt(overview.generatedAt)}.`}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void load()}
-          disabled={status === "loading" || status === "waking"}
-        >
-          Refresh
-        </Button>
-      </header>
+    <div className="flex flex-col gap-6">
+      <AdminPageHeader
+        title="Analytics"
+        description={
+          overview === undefined
+            ? "Platform totals."
+            : `Platform totals, read at ${formatReadAt(overview.generatedAt)}.`
+        }
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void load()}
+            disabled={isLoading}
+          >
+            <RefreshCw aria-hidden="true" className="size-4!" />
+            Refresh
+          </Button>
+        }
+      />
 
       {status === "waking" ? (
         <p role="status" className="text-muted-foreground text-sm">
@@ -73,31 +100,78 @@ export function AnalyticsScreen() {
       ) : null}
 
       {status === "error" ? (
-        <p role="alert" className="text-destructive text-sm">
-          Could not load the platform counters.
-        </p>
+        <AdminEmptyState
+          tone="error"
+          icon={TriangleAlert}
+          title="Could not load the platform counters."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void load()}
+            >
+              Try again
+            </Button>
+          }
+        />
       ) : null}
 
-      {overview === undefined ? null : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {CARDS.map(({ key, label }) => (
+      {overview === undefined ? (
+        isLoading ? (
+          <StatSkeleton />
+        ) : null
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {CARDS.map(({ key, label, icon }) => (
             <AdminStatCard
               key={key}
               label={label}
+              icon={icon}
               value={String(overview[key])}
             />
           ))}
         </div>
       )}
+
+      {awaitingReview === undefined ? null : (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-semibold text-foreground text-sm">
+            Needs your attention
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <AdminStatCard
+              label="Awaiting review"
+              icon={Sparkles}
+              value={String(awaitingReview)}
+              tone={awaitingReview > 0 ? "attention" : "default"}
+              href={ADMIN_ROUTES.aiQueue}
+              linkLabel="Open the AI Queue"
+            />
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-/**
- * Time only, not the date: the counters are read on the spot, so the day is always
- * today and printing it adds noise. `en-GB` to match the locale the rest of the
- * product formats in.
- */
+function StatSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+    >
+      {CARDS.map(({ key }) => (
+        <div
+          key={key}
+          className="h-31 rounded-(--radius) border border-border bg-card motion-safe:animate-pulse"
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Time only (counters are read live); `en-GB` matches the product's locale. */
 function formatReadAt(isoDateTime: string): string {
   return new Date(isoDateTime).toLocaleTimeString("en-GB", {
     hour: "2-digit",

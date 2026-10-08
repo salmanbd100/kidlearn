@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { Button } from "@kidlearn/ui";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +9,6 @@ import { OnboardingStep } from "@/features/parent/OnboardingStep";
 import { submitConsent } from "@/features/parent/parent-api";
 import { generalErrorKey } from "@/features/parent/parent-errors";
 import type { ApiFailure } from "@/shared/api/api-client";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
 /** COPPA consent (FR-AUTH-03). */
 export function ConsentScreen() {
@@ -29,15 +29,9 @@ export function ConsentScreen() {
     const result = await submitConsent();
 
     if (result.ok) {
-      // Re-reads `consentGivenAt`, which is what moves the guard on to the
-      // first-profile step.
-      // Deliberately not a local "done" flag: the server's record is the only
-      // thing that decides whether consent exists.
+      // Re-reads `hasCurrentConsent`, which moves the guard on; not a local flag, as the server record decides.
       await refresh();
-      // Normally unreachable — the guard has navigated away by now. It is not
-      // unreachable if `refresh()` came back without the record (a failed reload,
-      // a rolled-back write), and leaving the button disabled there would strand
-      // a parent on a mandatory step with nothing to press.
+      // Normally unreachable, but if `refresh()` came back without the record a disabled button would strand the parent.
       setIsSubmitting(false);
       return;
     }
@@ -60,7 +54,7 @@ export function ConsentScreen() {
       description={t("consent.intro")}
     >
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-4">
           <h2 className="font-semibold text-card-foreground text-sm">
             {t("consent.collectTitle")}
           </h2>
@@ -71,7 +65,7 @@ export function ConsentScreen() {
           </ul>
         </section>
 
-        <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-4">
           <h2 className="font-semibold text-card-foreground text-sm">
             {t("consent.neverTitle")}
           </h2>
@@ -84,9 +78,7 @@ export function ConsentScreen() {
 
         <p className="text-muted-foreground text-sm">{t("consent.rights")}</p>
 
-        {/* A native checkbox: it is already accessible, already keyboard-operable,
-            and needs no Radix wrapper. The 44px padded label is the touch target
-            (design.md §7), not the 16px box. */}
+        {/* A native checkbox is already accessible; the 44px padded label is the touch target (design.md §7). */}
         <label
           htmlFor={checkboxId}
           className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-foreground text-sm"
@@ -96,7 +88,7 @@ export function ConsentScreen() {
             type="checkbox"
             checked={isAccepted}
             onChange={(event) => setIsAccepted(event.target.checked)}
-            className="mt-0.5 size-5 shrink-0 accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="mt-0.5 size-5 shrink-0 accent-(--primary) focus-ring"
           />
           <span>{t("consent.checkbox")}</span>
         </label>

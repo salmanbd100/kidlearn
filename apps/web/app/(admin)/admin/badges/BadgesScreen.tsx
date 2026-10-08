@@ -10,19 +10,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@kidlearn/ui";
+import { Award, Plus, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
+import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
+import type { ContentDraft } from "@/features/admin/content-api";
 import {
-  type ContentDraft,
   createBadge,
   fetchBadges,
   transitionEditorContent,
   updateBadge,
-} from "@/features/admin/admin-api";
+} from "@/features/admin/editors-api";
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 import { BadgeForm } from "./BadgeForm";
-
-// `/admin/badges` — the badge manager (FR-GAM-04).
 
 type DialogState =
   | { kind: "closed" }
@@ -110,54 +111,61 @@ export function BadgesScreen() {
 
   if (status === "error") {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <h1 className="font-semibold text-foreground text-xl">Badges</h1>
-        <p className="text-muted-foreground text-sm">
-          The badges could not be loaded.
-        </p>
-        <Button type="button" variant="outline" onClick={() => void load()}>
-          Try again
-        </Button>
+      <div className="flex flex-col gap-6">
+        <AdminPageHeader title="Badges" />
+        <AdminEmptyState
+          tone="error"
+          icon={TriangleAlert}
+          title="The badges could not be loaded."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void load()}
+            >
+              Try again
+            </Button>
+          }
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-semibold text-foreground text-xl">Badges</h1>
-          <p className="text-muted-foreground text-xs">
-            A badge is earnable only once it is published.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={includeArchived ? "default" : "outline"}
-            aria-pressed={includeArchived}
-            onClick={() => setIncludeArchived((current) => !current)}
-          >
-            {includeArchived ? "Hide archived" : "Show archived"}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setNotice(undefined);
-              setError(undefined);
-              setDialog({ kind: "create" });
-            }}
-          >
-            New badge
-          </Button>
-        </div>
-      </header>
+    <div className="flex flex-col gap-6">
+      <AdminPageHeader
+        title="Badges"
+        description="A badge is earnable only once it is published."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant={includeArchived ? "default" : "outline"}
+              aria-pressed={includeArchived}
+              onClick={() => setIncludeArchived((current) => !current)}
+            >
+              {includeArchived ? "Hide archived" : "Show archived"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setNotice(undefined);
+                setError(undefined);
+                setDialog({ kind: "create" });
+              }}
+            >
+              <Plus aria-hidden="true" className="size-4!" />
+              New badge
+            </Button>
+          </>
+        }
+      />
 
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -166,7 +174,7 @@ export function BadgesScreen() {
       {error && dialog.kind === "closed" ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -175,7 +183,11 @@ export function BadgesScreen() {
       {status === "loading" ? (
         <p className="text-muted-foreground text-sm">Loading…</p>
       ) : badges.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No badges yet.</p>
+        <AdminEmptyState
+          icon={Award}
+          title="No badges yet."
+          description="Create one, then publish it to make it earnable."
+        />
       ) : (
         <ul className="flex flex-col gap-2">
           {badges.map((badge) => (
@@ -184,7 +196,7 @@ export function BadgesScreen() {
                 type="button"
                 aria-pressed={badge.id === selectedId}
                 onClick={() => setSelectedId(badge.id)}
-                className="flex w-full flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border bg-card p-3 text-left aria-[pressed=true]:border-ring"
+                className="flex min-h-14 w-full flex-wrap items-center justify-between gap-3 rounded-(--radius) border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary/5 focus-ring"
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate font-medium text-card-foreground text-sm">
@@ -202,7 +214,7 @@ export function BadgesScreen() {
       )}
 
       {selected ? (
-        <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+        <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-card-foreground text-sm">
@@ -226,9 +238,9 @@ export function BadgesScreen() {
 
           {isContentEditable(selected.status) ? null : (
             <p className="text-muted-foreground text-xs">
-              Published badges cannot be edited — changing a live rule would
-              change what a child had to do to earn it. Withdraw it to draft
-              first.
+              Badges that are in review, approved or published cannot be edited
+              — changing a rule after a decision would change what a child has
+              to do to earn it without review. Move it back to draft first.
             </p>
           )}
 
@@ -274,7 +286,6 @@ export function BadgesScreen() {
   );
 }
 
-/** The rule as a sentence, so a list is readable without opening each row. */
 function describeRule(badge: AdminBadge): string {
   const rule = badge.rule;
   if ("days" in rule) return `${rule.days}-day learning streak`;

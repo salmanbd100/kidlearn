@@ -18,10 +18,8 @@ import {
   type UploadSignature,
 } from "./media.service.js";
 
-/** `/api/admin/media` — the media library (file 33, FR-CMS-02). */
 export const adminMediaRouter = Router();
 
-/** The upload credential (FR-CMS-02). */
 adminMediaRouter.post(
   "/sign",
   validate({ body: SignUploadSchema }),

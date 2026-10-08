@@ -6,14 +6,16 @@ export const ParentSummarySchema = z
   .object({
     id: z.string(),
     email: z.string().email(),
-    /**
-     * Display name and photo as Google gave them at sign-in. Both nullable: a
-     * Google account may carry neither, so every surface needs a fallback.
-     */
+    /** Name and photo as Google gave them; both nullable, so every surface needs a fallback. */
     name: z.string().nullable(),
     avatarUrl: z.string().url().nullable(),
     /** `null` until the parent accepts COPPA consent (FR-AUTH-03). */
     consentGivenAt: IsoDateTimeSchema.nullable(),
+    /**
+     * Whether the consent on record is to the current text. `false` once `CONSENT_VERSION` moves on, even with
+     * `consentGivenAt` set — the parent must accept again before a child's data is recorded.
+     */
+    hasCurrentConsent: z.boolean(),
   })
   .strict();
 
@@ -23,12 +25,13 @@ export const AuthMeSchema = z
   .object({
     parent: ParentSummarySchema,
     /**
-     * Which child the session is currently acting as (FR-AUTH-06). `null` until
-     * `POST /api/children/{id}/activate` sets it, and the content API answers
-     * 403 for the whole of that time.
+     * The child the session acts as (FR-AUTH-06); `null` until `POST /api/children/{id}/activate`,
+     * and the content API answers 403 until then.
      */
     activeChildProfileId: z.string().nullable(),
   })
   .strict();
+
+export type AuthMeResponse = z.infer<typeof AuthMeSchema>;
 
 export const AuthMeResponseSchema = ok(AuthMeSchema);

@@ -56,7 +56,6 @@ function created(): ApiResult<ChildProfileResponse> {
   return { ok: true, data: child() };
 }
 
-/** What the form is handed as `onSubmit`, recording the payload it was given. */
 type SubmitSpy = Mock<
   (values: unknown) => Promise<ApiResult<ChildProfileResponse>>
 >;
@@ -74,8 +73,7 @@ async function renderForm({
     <Providers locale="en">
       <ChildProfileForm
         initial={initial}
-        // The prop is typed to the schema's output; the test's stub is looser so
-        // it can record whatever was passed.
+        // The prop is typed to the schema's output; the stub is looser so it can record anything.
         onSubmit={onSubmit as never}
         onSaved={onSaved}
         submitLabel="Create profile"
@@ -111,8 +109,7 @@ describe("ChildProfileForm", () => {
     resetI18nForTests();
     api.listAvatars.mockReset();
     api.listAvatars.mockResolvedValue({ ok: true, data: AVATARS });
-    // The edit form reads the per-child list instead, because only that one
-    // knows which earned characters this child may now wear (FR-GAM-05).
+    // The edit form reads the per-child list, the only one that knows which earned characters may be worn.
     api.listChildCharacters.mockReset();
     api.listChildCharacters.mockResolvedValue({
       ok: true,
@@ -187,8 +184,7 @@ describe("ChildProfileForm", () => {
     fireEvent.click(older);
     fireEvent.click(older);
     expect(screen.getByText("6 years old")).toBeInTheDocument();
-    // And nowhere up: a control that cannot express an illegal value beats one
-    // that validates afterwards.
+    // And nowhere up: a control that cannot express an illegal value beats validating afterwards.
     expect(older).toBeDisabled();
   });
 
@@ -245,11 +241,7 @@ describe("ChildProfileForm", () => {
     ).toBeChecked();
   });
 
-  /**
-   * The avatar picker's two sources (FR-GAM-05). A new profile has nothing
-   * unlocked to show, so creation reads the starter set; an existing one reads
-   * its own list, which is the only one that knows what has been earned.
-   */
+  /** Creation reads the starter set; an existing profile reads its own list, the only one that knows what is earned. */
   describe("where the avatars come from", () => {
     it("reads the starter set when creating a profile", async () => {
       await renderForm();

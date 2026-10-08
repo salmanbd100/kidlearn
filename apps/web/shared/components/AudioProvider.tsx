@@ -11,22 +11,18 @@ import {
   useState,
 } from "react";
 
-// One narration channel for the whole app (NFR-A11Y-01 groundwork).
-
 const MUTE_STORAGE_KEY = "kidlearn_audio_muted";
+
+/** `ended`: heard in full. `unplayed`: failed to load, autoplay-blocked, or refused (muted or channel busy). */
+export type PlayOutcome = "ended" | "unplayed";
 
 export interface PlayOptions {
   interrupt?: boolean;
-  /**
-   * Called once when this clip is no longer going to be heard — it reached its
-   * end, failed to load, was blocked by autoplay policy, or was refused because
-   * the channel is muted or already busy.
-   */
-  onFinished?: () => void;
+  /** Called once when the clip will no longer be heard; not on `stop()` or replacement, whose caller has moved on. */
+  onFinished?: (outcome: PlayOutcome) => void;
 }
 
 export interface AudioChannel {
-  /** Resolves once playback has started (or was skipped). Never rejects. */
   play: (url: string, opts?: PlayOptions) => Promise<void>;
   stop: () => void;
   isPlaying: boolean;
@@ -40,12 +36,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const currentRef = useRef<HTMLAudioElement | undefined>(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const [muted, setMutedState] = useState(false);
-
-  // Read after mount, not during render: the server has no localStorage, so
-  // seeding state from it directly would break hydration.
-  useEffect(() => {
-    setMutedState(window.localStorage.getItem(MUTE_STORAGE_KEY) === "true");
-  }, []);
+  // `play` reads this, not `muted`: with `muted` as a dependency, toggling mute re-ran every effect keyed on `play`.
+  const mutedRef = useRef(false);
 
   const stop = useCallback(() => {
     const current = currentRef.current;
@@ -57,8 +49,23 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setIsPlaying(false);
   }, []);
 
+  // Read after mount: the server has no localStorage and seeding from it would break hydration. Child
+  // effects run first, so narration may already be playing; silence it.
+  useEffect(() => {
+    let isStoredMuted = false;
+    try {
+      isStoredMuted = window.localStorage.getItem(MUTE_STORAGE_KEY) === "true";
+    } catch {
+      // Blocked storage (WebViews, kiosk profiles) must not take the root layout down; default to unmuted.
+    }
+    mutedRef.current = isStoredMuted;
+    setMutedState(isStoredMuted);
+    if (isStoredMuted) stop();
+  }, [stop]);
+
   const setMuted = useCallback(
     (nextMuted: boolean) => {
+      mutedRef.current = nextMuted;
       setMutedState(nextMuted);
       try {
         window.localStorage.setItem(MUTE_STORAGE_KEY, String(nextMuted));
@@ -72,14 +79,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback(
     async (url: string, opts?: PlayOptions) => {
-      if (muted) {
-        opts?.onFinished?.();
+      if (mutedRef.current) {
+        opts?.onFinished?.("unplayed");
         return;
       }
 
       const shouldInterrupt = opts?.interrupt ?? true;
       if (!shouldInterrupt && currentRef.current !== undefined) {
-        opts?.onFinished?.();
+        opts?.onFinished?.("unplayed");
         return;
       }
 
@@ -89,8 +96,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       currentRef.current = element;
 
       let hasFinished = false;
-      const handleEnded = () => {
-        if (currentRef.current === element) {
+      const finish = (outcome: PlayOutcome) => {
+        // `stop()` or a newer clip took the channel: `pause()` rejects a pending `play()` with `AbortError`; don't report it.
+        const isSuperseded = currentRef.current !== element;
+        if (!isSuperseded) {
           currentRef.current = undefined;
           setIsPlaying(false);
         }
@@ -98,10 +107,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         // after starting can fire the second while the first has already run.
         if (hasFinished) return;
         hasFinished = true;
-        opts?.onFinished?.();
+        if (!isSuperseded) opts?.onFinished?.(outcome);
       };
-      element.addEventListener("ended", handleEnded, { once: true });
-      element.addEventListener("error", handleEnded, { once: true });
+      element.addEventListener("ended", () => finish("ended"), { once: true });
+      element.addEventListener("error", () => finish("unplayed"), {
+        once: true,
+      });
 
       try {
         await element.play();
@@ -110,15 +121,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       } catch {
         // Autoplay policies reject before any user gesture. A missing voice-over
         // must never break the screen — every prompt also has text and an icon.
-        handleEnded();
+        finish("unplayed");
       }
     },
-    [muted, stop],
+    [stop],
   );
 
-  // Stop on unmount. An `HTMLAudioElement` is not part of the React tree, so a
-  // clip left playing would follow the child into the next screen and talk over
-  // whatever it says.
+  // An `HTMLAudioElement` is outside the React tree; a clip left playing would talk over the next screen.
   useEffect(() => stop, [stop]);
 
   const channel = useMemo<AudioChannel>(

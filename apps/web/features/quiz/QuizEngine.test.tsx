@@ -58,7 +58,6 @@ function tap(optionId: string) {
   fireEvent.click(screen.getByTestId(`quiz-option-${optionId}`));
 }
 
-/** The feedback hold between the right answer and the next question. */
 function settle() {
   act(() => vi.advanceTimersByTime(CORRECT_HOLD_MS));
 }
@@ -90,6 +89,20 @@ describe("QuizEngine", () => {
       expect(screen.queryByTestId("quiz-mcq")).not.toBeInTheDocument();
     });
 
+    it("moves focus to the next question's prompt, not back to the top of the page", () => {
+      vi.useFakeTimers();
+      renderEngine(twoQuestions);
+
+      const apple = screen.getByTestId("quiz-option-apple");
+      apple.focus();
+      tap("apple");
+      settle();
+
+      expect(
+        screen.getByText(validPictureSelect.prompt.en, { selector: "p" }),
+      ).toHaveFocus();
+    });
+
     it("skips a malformed question rather than trapping the child", () => {
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       renderEngine([
@@ -103,6 +116,18 @@ describe("QuizEngine", () => {
       );
       expect(error).toHaveBeenCalled();
       error.mockRestore();
+    });
+
+    it("asks a question carrying a field this bundle does not know", () => {
+      // Content from a newer deploy reaching an older bundle.
+      renderEngine([
+        { id: "q1", definition: { ...validMcq, difficulty: "easy" } },
+      ]);
+
+      expect(screen.getByTestId("quiz-mcq")).toBeInTheDocument();
+      expect(screen.getByTestId("quiz-progress-fruit").children).toHaveLength(
+        1,
+      );
     });
 
     it.each([

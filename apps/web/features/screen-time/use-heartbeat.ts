@@ -7,17 +7,10 @@ import type {
   HeartbeatResponse,
 } from "@kidlearn/types";
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../shared/api/api-client";
+import { apiFetch } from "@/shared/api/api-client";
 
-// The client half of server-derived learning time (FR-TIME-06).
-
-/** The cadence the server's 30s tail credit is calibrated against. */
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
-/**
- * Posts a heartbeat every 30 seconds while the tab is visible, and reports back
- * how many minutes the child has learned today.
- */
 export function useHeartbeat({ enabled = true }: { enabled?: boolean } = {}): {
   minutesToday: number | null;
 } {
@@ -74,16 +67,13 @@ export function useHeartbeat({ enabled = true }: { enabled?: boolean } = {}): {
   return { minutesToday };
 }
 
-/** Records one discrete milestone — a lesson or story started or finished. */
 export function trackEvent(type: ActivityEventType, refId: string): void {
   const body: ActivityEventReport = { type, refId };
 
   void apiFetch<{ event: ActivityEventResponse }>("/api/events/activity", {
     method: "POST",
     body: JSON.stringify(body),
-    // No retries, for the reason `useHeartbeat` gives and one of its own: by the
-    // time a retry landed the child would be somewhere else, and a duplicate that
-    // succeeded would put a second milestone in the log for one crossing.
+    // No retries, as `useHeartbeat`, and a late retry would land elsewhere or log a duplicate milestone for one crossing.
     retries: 0,
   }).then((result) => {
     if (!result.ok) {

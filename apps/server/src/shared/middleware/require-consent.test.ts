@@ -1,11 +1,9 @@
-/**
- * See the note at the top of `require-parent.test.ts` about stubbing
- * `config/prisma.js` in the absence of a test database.
- */
+/** Stubs `config/prisma.js` without a test database; see the note at the top of `require-parent.test.ts`. */
 import type { Parent } from "@kidlearn/db";
+import { CONSENT_VERSION } from "@kidlearn/types";
 import express, { type Express } from "express";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import request from "../testing/request.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -53,14 +51,13 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
 }
 
 function mockSession() {
-  // Narrowed at this boundary — only the fields the guards read are supplied.
+  // Only the fields the guards read are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: { id: "session_1", userId: SESSION_USER.id },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
-/** Simulates file 11's `POST /api/children`. */
 function buildChildCreateApp(): Express {
   const app = express();
   app.post("/children", requireParent, requireConsent, (_req, res) => {
@@ -89,11 +86,25 @@ describe("requireConsent", () => {
     expect(res.body.error.code).toBe("CONSENT_REQUIRED");
   });
 
+  it("blocks a parent whose consent predates the current version", async () => {
+    db.parentFindUnique.mockResolvedValue(
+      parentRow({
+        consentGivenAt: new Date("2025-01-01T00:00:00.000Z"),
+        consentVersion: "2025-01-v0",
+      }),
+    );
+
+    const res = await request(buildChildCreateApp()).post("/children");
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("CONSENT_REQUIRED");
+  });
+
   it("allows child-profile creation once consent exists", async () => {
     db.parentFindUnique.mockResolvedValue(
       parentRow({
         consentGivenAt: new Date("2026-07-01T00:00:00.000Z"),
-        consentVersion: "2026-06-v1",
+        consentVersion: CONSENT_VERSION,
       }),
     );
 

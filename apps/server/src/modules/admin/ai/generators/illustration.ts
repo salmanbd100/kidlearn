@@ -18,8 +18,7 @@ import {
   type GenerationJobResult,
   runGenerationJob,
 } from "../run-generation-job.js";
-
-// Batch illustration (file 36, FR-AI-05, FR-AI-09, FR-CMS-05).
+import { failStaleJobs } from "../stale-jobs.js";
 
 export interface GenerateIllustrationsInput {
   storyId: string;
@@ -28,7 +27,6 @@ export interface GenerateIllustrationsInput {
 const IllustrationUploadSchema = z.object({ url: z.string().url() }).strict();
 type IllustrationUpload = z.infer<typeof IllustrationUploadSchema>;
 
-/** Same reasoning as `narration.ts`: no usable picture means the page is missing one. */
 const LIVE_JOB_STATUSES = [
   "pending",
   "generating",
@@ -56,14 +54,15 @@ export async function generateIllustrationBatch(
   });
   if (!story) throw ApiError.notFound("No such story");
 
-  // Pages with no brief are not candidates at all rather than skipped ones: a
-  // hand-authored page has nothing to draw from, so counting it as "already had a
-  // picture" would tell the admin something untrue.
+  // Briefless pages are not candidates, not skips: counting a hand-authored page as "already had a picture" would be untrue.
   const candidates = story.pages.flatMap((page) =>
     page.illustrationPrompt === null || page.illustrationPrompt.trim() === ""
       ? []
       : [{ ...page, illustrationPrompt: page.illustrationPrompt.trim() }],
   );
+
+  // Before the in-flight read, so a page whose job a crash stranded can be drawn again.
+  await failStaleJobs();
 
   const inFlight = await readInFlightPages(input.storyId);
   const missing = candidates.filter(
@@ -77,9 +76,7 @@ export async function generateIllustrationBatch(
   const jobIds: string[] = [];
   let failed = 0;
   for (const page of missing) {
-    // Same reasoning as `narration.ts`: the job records its own failure and
-    // resolves rather than throwing, so a batch that reported only ids would call
-    // a wholly failed run a success.
+    // Jobs record their own failure and resolve; without counting, a wholly failed batch would read as success.
     const { jobId, status } = await runIllustrationJob({
       storyId: input.storyId,
       pageId: page.id,
@@ -94,7 +91,6 @@ export async function generateIllustrationBatch(
   return { jobIds, skipped: candidates.length - missing.length, failed };
 }
 
-/** The sheets that apply to a story: its world's, then the world-less ones. */
 async function readCharacterSheets(
   worldId: string,
 ): Promise<CharacterSheetRef[]> {
@@ -116,10 +112,7 @@ function runIllustrationJob(args: {
 
   return runGenerationJob<IllustrationUpload>({
     type: "image",
-    // The resolved prompt verbatim, not the page's brief plus a note that sheets
-    // were applied. A reviewer looking at a rabbit that came back wrong needs the
-    // words the model actually saw, and the sheet may have been edited since
-    // (FR-AI-08, FR-AI-09).
+    // The resolved prompt verbatim: the sheet may be edited later, and a reviewer needs the words the model saw.
     input: {
       entity: "story",
       entityId: args.storyId,
@@ -138,9 +131,7 @@ function runIllustrationJob(args: {
         resourceType: resourceTypeFor("image"),
       });
 
-      // Zeroed for the reason `narration.ts` gives: this provider does not bill
-      // in tokens, and reporting anything else as tokens would corrupt the one
-      // figure the audit trail sums across attempts.
+      // Zeroed: this provider does not bill in tokens, and the audit trail sums this figure across attempts.
       return { raw: { url }, usage: { inputTokens: 0, outputTokens: 0 } };
     },
     persist: async (parsed, jobId, tx) => {
@@ -148,9 +139,7 @@ function runIllustrationJob(args: {
         {
           url: parsed.url,
           kind: "image",
-          // Null, and not an oversight: a picture has no language. Stamping one
-          // would hide the illustration from the other locale's media filter
-          // (FR-I18N-05 is about *narration* being per-language).
+          // Null on purpose: a picture has no language, and stamping one would hide it from the other locale's media filter.
           language: null,
           aiJobId: jobId,
         },
@@ -181,8 +170,7 @@ async function readInFlightPages(storyId: string): Promise<Set<string>> {
   const pages = new Set<string>();
   for (const job of jobs) {
     if (typeof job.input !== "object" || job.input === null) continue;
-    // The JSONB column boundary. The shape was written by `runIllustrationJob`
-    // above and the field is re-checked before use.
+    // JSONB boundary: shape written by runIllustrationJob, re-checked before use.
     const targetId = (job.input as Record<string, unknown>).targetId;
     if (typeof targetId === "string") pages.add(targetId);
   }

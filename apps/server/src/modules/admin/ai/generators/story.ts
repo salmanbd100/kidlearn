@@ -12,9 +12,6 @@ import {
   type StoryGenerationOutput,
 } from "../schemas/story.js";
 
-// The AI Story Generator (FR-AI-02).
-
-/** The spec's default: seven pages, the middle of the 6–8 range. */
 export const DEFAULT_PAGE_COUNT = 7;
 
 export interface GenerateStoryInput {
@@ -55,9 +52,7 @@ export async function generateStory(
 
   return runGenerationJob<StoryGenerationOutput>({
     type: "story",
-    // The admin's parameters *and* the resolved prompt. A reviewer reading a
-    // generation months later needs the words the model actually saw, and the
-    // prompt builder will have changed by then (FR-AI-08).
+    // Params and resolved prompt: the prompt builder will have changed by the time a reviewer reads this.
     input: {
       gradeLevels: input.gradeLevels,
       theme: input.theme,
@@ -72,8 +67,7 @@ export async function generateStory(
     generate: (retryFeedback) =>
       generateStructured({
         system: KIDLEARN_SYSTEM_PROMPT,
-        // A second *user* turn rather than replaying the rejected attempt as an
-        // assistant turn — see `generators/lesson.ts` for why.
+        // Second user turn, not a replayed assistant turn (see generators/lesson.ts).
         messages:
           retryFeedback === undefined
             ? [{ role: "user", content: userPrompt }]
@@ -108,8 +102,7 @@ async function persistStory({
     data: {
       slug,
       title: internalTitle,
-      // The admin's own words, kept as the authoring label for the moral — the
-      // sentence a child hears is the per-locale one below.
+      // The admin's own words, kept as the authoring label; the child hears the per-locale sentence below.
       theme: input.theme.trim(),
       worldId,
       gradeLevels: input.gradeLevels,
@@ -117,8 +110,7 @@ async function persistStory({
       translations: {
         create: input.languages.map((language) => ({
           language,
-          // The schema requires every requested locale, so these fall back only
-          // if that contract is ever loosened.
+          // The schema requires every requested locale; these fall back only if that is loosened.
           title: parsed.title[language] ?? internalTitle,
           moral: parsed.moral[language] ?? null,
         })),
@@ -132,9 +124,7 @@ async function persistStory({
     const row = await tx.storyPage.create({
       data: {
         storyId: story.id,
-        // The schema has already refined these to exactly 1..pages.length, which
-        // is what makes it safe to use the model's numbering as the unique
-        // `sortOrder` rather than the array index.
+        // Refined to exactly 1..pages.length, so the model's numbering is safe as the unique sortOrder.
         sortOrder: page.pageNumber,
         illustrationPrompt: page.illustrationPrompt,
         translations: {
@@ -152,7 +142,6 @@ async function persistStory({
   return { storyId: story.id, pageIds };
 }
 
-/** Slugified title, suffixed until it is free. */
 async function uniqueSlug(
   tx: Prisma.TransactionClient,
   title: string,

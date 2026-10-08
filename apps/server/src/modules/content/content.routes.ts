@@ -20,21 +20,14 @@ import {
 } from "./content.service.js";
 import { storiesRouter } from "./stories.routes.js";
 
-/** The student-facing curriculum read API. */
 export const contentRouter = Router();
 
-// The Story Library (file 25). Nested here rather than mounted on `apiRouter` so
-// stories inherit this surface's guards instead of repeating them — the reason
-// `modules/index.ts` puts them on the mount in the first place. Its routes are
-// declared in `openapi/paths/stories.ts` and listed separately in the coverage
-// test's `MOUNTS`, which walks a router's own registrations and cannot see through
-// a nested mount.
+// Nested so stories inherit this surface's guards. Its routes are listed
+// separately in the coverage test's `MOUNTS`, which cannot see through a nested mount.
 contentRouter.use("/stories", storiesRouter);
 
-/**
- * Reads the `:id` path parameter on routes guarded by
- * `validate({ params: ContentIdParamsSchema })`.
- */
+// `as`: `validate({ params: ContentIdParamsSchema })` guarantees a string;
+// Express 5 types params as `string | string[]`.
 function idParam(req: Request): string {
   return req.params.id as string;
 }
@@ -116,10 +109,9 @@ contentRouter.get(
 contentRouter.get(
   "/lessons/:id",
   validate({ params: ContentIdParamsSchema }),
-  // The lesson-start gate (FR-TIME-02..04). After `validate` so the id is a
-  // narrowed string by the time the exemption looks for progress against it, and
-  // on this route rather than the world/topic lists: a blocked child should meet
-  // the mascot when they tap a lesson, not a wall of errors while browsing.
+  // The lesson-start gate (FR-TIME-02..04). After `validate` so the id is narrowed;
+  // on this route, not the world/topic lists, so a blocked child meets the mascot
+  // when tapping a lesson rather than errors while browsing.
   enforceScreenTime("lesson"),
   async (req, res, next) => {
     try {

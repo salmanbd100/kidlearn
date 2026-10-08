@@ -14,8 +14,6 @@ import {
   puzzleSlots,
 } from "./activity-draft";
 
-// What the activity editor's form state compiles to (FR-ACT-06).
-
 describe("compileActivity", () => {
   it.each([
     ["drag_drop", validDragDrop],
@@ -33,9 +31,7 @@ describe("compileActivity", () => {
   });
 
   it("names the missing drop-zone picture rather than failing silently", () => {
-    // `drag_drop` targets require an image because a pre-reader cannot rely on the
-    // label to know where a thing goes. The key is emitted empty so the issue lands
-    // on the picker the author can see.
+    // `drag_drop` targets need an image (pre-readers cannot rely on labels); the empty key lands the issue on the visible picker.
     const draft = emptyActivityDraft("drag_drop");
 
     const parsed = ACTIVITY_SCHEMAS.drag_drop.safeParse(compileActivity(draft));

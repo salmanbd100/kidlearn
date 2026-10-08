@@ -1,15 +1,12 @@
 /**
- * See the note at the top of `shared/middleware/require-parent.test.ts` about stubbing
- * `config/prisma.js` in the absence of a test database. No test here drives the real
- * Google round-trip: `auth.api.getSession` is stubbed, and the one test that does
- * exercise better-auth for real (`/api/auth/google`) only makes it build an
- * authorization URL — no network call, no database read.
+ * Stubs `config/prisma.js` per the stub exception in `document/standards/general.md §5`.
+ * `auth.api.getSession` is stubbed; only `/api/auth/google` runs better-auth for real, building an authorization URL with no network or DB access.
  */
 import type { Parent } from "@kidlearn/db";
 import { AuthMeResponseSchema } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -26,11 +23,8 @@ vi.mock("../../config/prisma.js", () => ({
     account: { findFirst: db.accountFindFirst },
     // Present so the email/password test can assert nothing was written.
     user: { create: db.userCreate, findFirst: db.userFindFirst },
-    // better-auth defaults to `storeStateStrategy: "database"` whenever a
-    // database adapter is configured: it persists the OAuth state as a
-    // `verification` row and cross-checks it against a signed cookie on the
-    // callback. That is why the migration must create this table even though
-    // kidlearn never reads it directly.
+    // better-auth persists OAuth state as a `verification` row, so the migration must create
+    // that table even though kidlearn never reads it.
     verification: { create: db.verificationCreate },
   },
 }));
@@ -64,8 +58,7 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
 }
 
 function mockSession(activeChildProfileId: string | null = null) {
-  // Narrowed at this boundary: `getSession` returns a deep better-auth type and
-  // the route only reads the fields set here.
+  // Narrowed: `getSession` returns a deep better-auth type; the route reads only these fields.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: { id: "session_1", userId: SESSION_USER.id, activeChildProfileId },
@@ -110,6 +103,7 @@ describe("GET /api/auth/me", () => {
           name: SESSION_USER.name,
           avatarUrl: null,
           consentGivenAt: null,
+          hasCurrentConsent: false,
         },
         activeChildProfileId: null,
       },
@@ -127,8 +121,7 @@ describe("GET /api/auth/me", () => {
 
     const res = await request(app).get("/api/auth/me");
 
-    // The only test here passing a real URL, so the only one that can catch a
-    // regression in the schema's `.url()` constraint.
+    // Only test passing a real URL, so it alone catches a regression in the schema's `.url()` constraint.
     assertContract(AuthMeResponseSchema, res.body, "GET /api/auth/me");
     expect(res.body.data.parent.name).toBe("Salman");
     expect(res.body.data.parent.avatarUrl).toBe(
@@ -149,13 +142,7 @@ describe("GET /api/auth/me", () => {
     expect(res.body.data.parent.avatarUrl).toBeNull();
   });
 
-  /**
-   * `toParentSummary` copies named fields rather than spreading the row, so a
-   * column added to `Parent` is invisible to HTTP until someone opts it in. This
-   * used to be asserted through `pinHash`; the PIN is gone, so it is asserted
-   * through an arbitrary extra column instead — the property is the allow-list,
-   * not the particular secret.
-   */
+  /** The summary copies named fields (an allow-list), so a new `Parent` column stays invisible to HTTP. */
   it("never echoes a column the summary does not name", async () => {
     mockSession();
     db.parentFindUnique.mockResolvedValue({
@@ -175,6 +162,7 @@ describe("GET /api/auth/me", () => {
       "avatarUrl",
       "consentGivenAt",
       "email",
+      "hasCurrentConsent",
       "id",
       "name",
     ]);

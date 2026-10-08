@@ -6,9 +6,6 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/admin/admin.routes.ts` — the administrator surface (spec §4.3, FR-CMS-01/07).
- */
 export const ADMIN_ROUTES: RouteDoc[] = [
   {
     method: "get",
@@ -21,6 +18,8 @@ export const ADMIN_ROUTES: RouteDoc[] = [
         "Returns the signed-in administrator. What the CMS shell calls to decide between the dashboard and the login screen, and what names the admin in the sidebar footer.",
         "",
         "**A separate principal from a parent, not a parent with extra rights** (spec §4.3). Admins and parents share one better-auth instance and one `user` table — one session store, one cookie, one CORS configuration — so what separates them is a domain row: an `AdminUser` exists for an admin's identity and never for a Google sign-in. That is why a perfectly valid parent session gets a `403` here, and why an admin session gets a `403` from `GET /api/auth/me` in return.",
+        "",
+        "**Admin sessions last 12 hours from sign-in** — every `/api/admin/*` path, not only this one. The limit counts from the session's creation, so activity does not extend it; past it the session is revoked and the call answers `401`, which is the CMS's cue to show the login screen.",
         "",
         "**Never provisions anything.** Unlike `GET /api/auth/me`, which creates the `Parent` row on a first request, an admin exists only because `pnpm --filter server seed:admin` created one. A session with no matching row is a mistake, not a new account.",
         "",

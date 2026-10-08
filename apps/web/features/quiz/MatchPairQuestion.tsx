@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ImageAssetRef,
   Locale,
@@ -8,30 +9,26 @@ import type {
 } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
-import { Check } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { pairCardClass } from "@/features/activities/pair-colours";
-import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback";
-import { type PairSide, usePairing } from "@/features/activities/use-pairing";
-import { isWiggling, useWiggle } from "@/features/activities/use-wiggle";
 import { useAudio } from "@/shared/components/AudioProvider";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { randomCheerAudioUrl } from "@/shared/components/kid/feedback-audio";
+import { pairCardClass } from "@/shared/components/kid/pair-colours";
+import { StatusMark } from "@/shared/components/kid/StatusMark";
+import { type PairSide, usePairing } from "@/shared/hooks/use-pairing";
+import { isWiggling, useWiggle } from "@/shared/hooks/use-wiggle";
 import type { QuestionProps, QuizAnswerValue } from "./types";
 
-// Match each one to its partner (FR-QUIZ-02).
-
 const matchCardVariants = cva(
-  // 96px square before its contents — the same floor the match activity sets,
-  // half again the 64px kid minimum, because two are tapped in sequence.
-  "flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  // 96px square, as in the match activity: half again the 64px kid minimum, as two are tapped in
+  // sequence.
+  "relative flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-4 p-2 text-card-foreground transition-transform touch-manipulation focus-ring",
   {
     variants: {
       state: {
         idle: "border-border bg-card shadow-md",
         selected: "border-primary bg-card shadow-pop motion-safe:scale-105",
-        // The pair hue arrives as a second class from `pairCardClass`.
         matched: "shadow-sm",
       },
     },
@@ -62,12 +59,8 @@ export function MatchPairQuestion({
   );
 
   /**
-   * Every pair matched is a correct pair, and `usePairing` only reports all-done
-   * once there are as many of them as the payload declares — so the finished
-   * board *is* `correctPairs`. Reading it from there rather than from the hook's
-   * map avoids the one stale value in this file: `onAllMatched` fires from
-   * inside the same tap that adds the last pair, before the state carrying it
-   * has been committed.
+   * The finished board is `correctPairs`; read from there, not the hook's map, which is stale:
+   * `onAllMatched` fires before the last pair's state commits.
    */
   const finalAnswer = useMemo<QuizAnswerValue>(
     () => ({
@@ -87,9 +80,8 @@ export function MatchPairQuestion({
     (leftId: string, rightId: string) => {
       feedback.retry();
       requestWiggle([leftId, rightId]);
-      // The pair just tried, not the pairs already matched: the engine reads
-      // only the flag, and this is both the truthful thing to name and the one
-      // that is never an empty set.
+      // The pair just tried, not those already matched: the engine reads only the flag, and this
+      // set is never empty.
       onAttempt({ pairs: [{ leftId, rightId }] }, false);
     },
     [feedback, requestWiggle, onAttempt],
@@ -121,13 +113,11 @@ export function MatchPairQuestion({
 
   const handleTap = useCallback(
     (side: PairSide, option: QuizOption) => {
-      // Locked means the last pair's feedback is still playing. Ignoring taps
-      // here is what makes a drumming child harmless — a tap landing during the
-      // closing cheer would otherwise answer the next question.
+      // Locked while the last pair's feedback plays: a tap during the closing cheer would answer
+      // the next question.
       if (feedback.isLocked) return;
 
-      // The card's own voice, where the payload gives it one: matching a word to
-      // a sound is the whole exercise when the right-hand column is sounds.
+      // Matching a word to a sound is the whole exercise when the right column is sounds.
       const clip = option.audio?.[locale].url;
       if (clip !== undefined) void play(clip, { interrupt: true });
       tap(side, option.id);
@@ -163,10 +153,8 @@ export function MatchPairQuestion({
       className="flex min-h-0 flex-1 items-center justify-center overflow-auto"
     >
       {/*
-        One line of narration rather than a live region on the board: what
-        changed is either "you have picked this card" or "that is another pair
-        done", and re-reading every card label after each tap says neither
-        (FR-I18N-01).
+        One line of narration rather than a live region: re-reading every card label after each tap
+        helps no one (FR-I18N-01).
       */}
       <span role="status" className="sr-only">
         {matched.size === definition.correctPairs.length
@@ -184,8 +172,8 @@ export function MatchPairQuestion({
       </span>
 
       {/*
-        Two columns with a phone held upright, two rows with it held sideways, so
-        a pair is always adjacent across the short axis (design.md §6).
+        Two columns upright, two rows sideways, so a pair is always adjacent across the short axis
+        (design.md §6).
       */}
       <div className="flex gap-8 p-2 landscape:flex-col landscape:gap-6">
         {columns.map((column) => (
@@ -238,7 +226,6 @@ function MatchCard({
   isMatched: boolean;
   pairIndex: number | undefined;
   matchedLabel: string;
-  /** Names a wordless card the payload never described — see `alt` below. */
   fallbackLabel: string;
   isShaking: boolean;
   shakeKey: number;
@@ -252,9 +239,7 @@ function MatchCard({
       type="button"
       data-testid={`quiz-pair-card-${option.id}`}
       data-state={state}
-      // `aria-disabled` rather than `disabled`: a matched card is still part of
-      // the board a screen-reader user is reading back, and a disabled button
-      // drops out of the tab order mid-question.
+      // `aria-disabled`, not `disabled`: a disabled button drops out of the tab order mid-question.
       aria-disabled={isMatched}
       aria-pressed={isSelected}
       className={cn(
@@ -264,9 +249,7 @@ function MatchCard({
       onClick={onTap}
     >
       {/*
-        Keyed on the shake count, not on whether one is running: re-applying an
-        animation class that is already applied restarts nothing, and the second
-        wrong guess of the same pair is the attempt that most needs the answer.
+        Keyed on the shake count: re-applying an already-applied animation class restarts nothing.
       */}
       <span
         key={shakeKey}
@@ -287,26 +270,23 @@ function MatchCard({
       </span>
 
       {/*
-        Shape as well as colour: the tick is what tells a colour-blind child that
-        this card is finished, without having to tell one pastel from another
-        (design.md §2.3).
+        Shape as well as colour: the tick tells a colour-blind child the card is finished (design.md
+        §2.3).
       */}
       {isMatched ? (
         <>
-          <Check aria-hidden="true" className="size-4 text-success" />
+          <StatusMark tone="done" />
           <span className="sr-only">{matchedLabel}</span>
         </>
       ) : null}
+      {isShaking && !isMatched ? <StatusMark tone="retry" /> : null}
     </button>
   );
 }
 
 /**
- * `alt=""` where the card also carries words, because the picture then repeats
- * what is already announced. A wordless card is the opposite case: `alt` is
- * optional on the schema, so an author may publish one with nothing describing
- * it, and an empty `alt` there would leave the button with no accessible name at
- * all — unreadable to a screen reader and unreachable by voice (design.md §7).
+ * `alt=""` where words are also shown. A wordless card needs a real `alt` (optional on the schema),
+ * or it is unreadable to screen readers and voice control (design.md §7).
  */
 function CardArt({
   image,

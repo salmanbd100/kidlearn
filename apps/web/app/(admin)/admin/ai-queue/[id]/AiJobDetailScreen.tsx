@@ -5,28 +5,18 @@ import { Button, cn } from "@kidlearn/ui";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Chip, StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import {
-  approveAiJob,
-  fetchAiJob,
-  rejectAiJob,
-} from "@/features/admin/admin-api";
-import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { FOCUS_RING } from "@/features/admin/focus-ring";
-import { JsonInspector } from "@/features/admin/JsonInspector";
-import { RejectDialog } from "@/features/admin/RejectDialog";
 import {
   AI_JOB_STATUS_LABELS,
   AI_JOB_TYPE_LABELS,
   decisionLabel,
   formatRelativeAge,
-} from "../job-labels";
-
-/**
- * `/admin/ai-queue/[id]` — read it, then decide (file 37, FR-CMS-05..06,
- * FR-AI-07..08).
- */
+} from "@/app/(admin)/admin/ai-queue/job-labels";
+import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { approveAiJob, fetchAiJob, rejectAiJob } from "@/features/admin/ai-api";
+import { JsonInspector } from "@/features/admin/JsonInspector";
+import { RejectDialog } from "@/features/admin/RejectDialog";
+import { Chip, StatusChip } from "@/features/admin/StatusChip";
 
 export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   const [job, setJob] = useState<AiJobDetail>();
@@ -35,7 +25,6 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
-  /** The rejection's own failure, kept apart from the page's. */
   const [rejectError, setRejectError] = useState<string>();
 
   const load = useCallback(
@@ -134,8 +123,8 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
         <Link
           href={ADMIN_ROUTES.aiQueue}
           className={cn(
-            "inline-flex min-h-11 items-center rounded-[var(--radius)] text-muted-foreground text-sm hover:text-foreground",
-            FOCUS_RING,
+            "inline-flex min-h-11 items-center rounded-(--radius) text-muted-foreground text-sm hover:text-foreground",
+            "focus-ring",
           )}
         >
           ← Back to the queue
@@ -167,7 +156,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
         )}
 
         {job.reviewNote === null ? null : (
-          <p className="rounded-[var(--radius)] bg-muted p-3 text-muted-foreground text-sm">
+          <p className="rounded-(--radius) bg-muted p-3 text-muted-foreground text-sm">
             <span className="font-medium text-foreground">
               Reason for rejection:{" "}
             </span>
@@ -215,7 +204,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
 
       {isBlocked ? (
         <section
-          className="flex flex-col gap-1 rounded-[var(--radius)] border border-warning/40 bg-warning/10 p-3"
+          className="flex flex-col gap-1 rounded-(--radius) border border-warning/40 bg-warning/10 p-3"
           role="alert"
         >
           <h2 className="font-medium text-foreground text-sm">
@@ -284,7 +273,6 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   );
 }
 
-/** One content row, with the way into the editor that owns it. */
 function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
   const editHref =
     entity.resource === "quizzes"
@@ -292,7 +280,7 @@ function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
       : undefined;
 
   return (
-    <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius)] border border-border bg-card p-3">
+    <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-(--radius) border border-border bg-card p-3">
       <span className="text-muted-foreground text-xs capitalize">
         {entity.resource.replace(/s$/, "")}
       </span>
@@ -309,10 +297,9 @@ function EntityRow({ entity, jobId }: { entity: AiJobEntity; jobId: string }) {
   );
 }
 
-/** The clip or the picture, playable and viewable before it is approved. */
 function AssetPreview({ asset }: { asset: AiJobAsset }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3">
+    <div className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-3">
       <AssetMedia asset={asset} />
 
       {asset.sourceText === null ? null : (
@@ -348,7 +335,7 @@ function AssetMedia({ asset }: { asset: AiJobAsset }) {
     return (
       // biome-ignore lint/a11y/useMediaCaption: no generator produces video; this branch exists so the union is exhaustive rather than to be reached.
       <video
-        className="max-h-96 w-full rounded-[var(--radius)] bg-muted"
+        className="max-h-96 w-full rounded-(--radius) bg-muted"
         controls
         preload="none"
         src={asset.url}
@@ -357,15 +344,13 @@ function AssetMedia({ asset }: { asset: AiJobAsset }) {
   }
   return (
     <Image
-      // The scene brief is what the picture was drawn from, so it is the closest
-      // thing to real alternative text this screen has; a reviewer reading it aloud
-      // is checking exactly that correspondence.
+      // The scene brief is what the picture was drawn from, so it is the closest thing to alt text.
       alt={asset.sourceText ?? "Generated illustration"}
       src={asset.url}
       width={640}
       height={384}
       unoptimized
-      className="max-h-96 w-full rounded-[var(--radius)] border border-border object-contain"
+      className="max-h-96 w-full rounded-(--radius) border border-border object-contain"
     />
   );
 }

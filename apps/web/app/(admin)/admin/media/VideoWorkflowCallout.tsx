@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 
-/** How a lesson video gets made (FR-AI-06). */
 export function VideoWorkflowCallout() {
   return (
-    <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border border-dashed bg-muted/40 p-4">
+    <section className="flex flex-col gap-2 rounded-(--radius) border border-border border-dashed bg-muted/40 p-4">
       <h2 className="font-medium text-foreground text-sm">Video workflow</h2>
       <p className="text-muted-foreground text-sm">
         Lesson videos are made outside this CMS. Narration and illustrations are

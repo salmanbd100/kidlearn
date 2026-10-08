@@ -1,13 +1,11 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type { StreakMilestone } from "@kidlearn/types";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import { Flame } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
-
-// The three- and seven-day streak party (FR-GAM-06).
 
 /** Enough to read as a burst, few enough to animate on a cheap tablet. */
 const FLAME_COUNT = 8;
@@ -40,7 +38,8 @@ export function StreakCelebration({ milestone }: StreakCelebrationProps) {
                 : { scale: [0.2, 1.15, 1], opacity: 1 }
             }
             transition={{
-              duration: 0.6,
+              // `--dur-slow`, the cap on a celebration (design.md §5.2).
+              duration: 0.4,
               delay: isMotionReduced ? 0 : index * 0.08,
               ease: "easeOut",
             }}

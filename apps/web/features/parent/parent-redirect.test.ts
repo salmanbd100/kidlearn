@@ -6,11 +6,6 @@ import {
   resolveParentRedirect,
 } from "./parent-redirect";
 
-/**
- * The first-run gating rule, asserted as a function rather than by clicking
- * through the app.
- */
-
 function parent(
   overrides: Partial<ParentSummaryResponse> = {},
 ): ParentSummaryResponse {
@@ -20,12 +15,12 @@ function parent(
     name: "Parent One",
     avatarUrl: null,
     consentGivenAt: "2026-06-01T00:00:00.000Z",
+    hasCurrentConsent: true,
     ...overrides,
   };
 }
 
 const ALL_PATHS = [
-  PARENT_ROUTES.login,
   PARENT_ROUTES.consent,
   PARENT_ROUTES.firstChild,
   PARENT_ROUTES.dashboard,
@@ -37,22 +32,22 @@ const ALL_PATHS = [
 describe("resolveParentRedirect — signed out", () => {
   const signedOut = { parent: undefined, childCount: undefined };
 
-  it("lets the login screen render", () => {
+  it("lets the bare sign-in page render", () => {
     expect(
-      resolveParentRedirect(signedOut, PARENT_ROUTES.login),
+      resolveParentRedirect(signedOut, PARENT_ROUTES.signInPage),
     ).toBeUndefined();
   });
 
-  it("sends every other path to login, including the onboarding steps", () => {
-    for (const path of ALL_PATHS.filter((p) => p !== PARENT_ROUTES.login)) {
-      expect(resolveParentRedirect(signedOut, path)).toBe(PARENT_ROUTES.login);
+  it("sends every other parent path to the homepage sign-in dialog, including the onboarding steps", () => {
+    for (const path of ALL_PATHS) {
+      expect(resolveParentRedirect(signedOut, path)).toBe("/?signin=parent");
     }
   });
 });
 
 describe("resolveParentRedirect — consent missing", () => {
   const noConsent = {
-    parent: parent({ consentGivenAt: null }),
+    parent: parent({ consentGivenAt: null, hasCurrentConsent: false }),
     childCount: 0,
   };
 
@@ -74,12 +69,32 @@ describe("resolveParentRedirect — consent missing", () => {
     // A parent with neither goes to consent, not to the profile form: creating a
     // child profile on an account nobody has agreed to open is the wrong order.
     const neither = {
-      parent: parent({ consentGivenAt: null }),
+      parent: parent({ consentGivenAt: null, hasCurrentConsent: false }),
       childCount: 0,
     };
     expect(resolveParentRedirect(neither, PARENT_ROUTES.firstChild)).toBe(
       PARENT_ROUTES.consent,
     );
+  });
+});
+
+describe("resolveParentRedirect — consent to an older text", () => {
+  const outdated = {
+    parent: parent({ hasCurrentConsent: false }),
+    childCount: 2,
+  };
+
+  it("sends a fully onboarded parent back to consent once the version moves on", () => {
+    // `consentGivenAt` still holds the old acceptance, so a null check alone would let them through.
+    for (const path of ALL_PATHS.filter((p) => p !== PARENT_ROUTES.consent)) {
+      expect(resolveParentRedirect(outdated, path)).toBe(PARENT_ROUTES.consent);
+    }
+  });
+
+  it("lets the consent screen render so the new text can be accepted", () => {
+    expect(
+      resolveParentRedirect(outdated, PARENT_ROUTES.consent),
+    ).toBeUndefined();
   });
 });
 
@@ -119,12 +134,11 @@ describe("resolveParentRedirect — fully onboarded", () => {
 
   it("sends a finished step forward instead of showing it again", () => {
     for (const path of [
-      PARENT_ROUTES.login,
+      PARENT_ROUTES.signInPage,
       PARENT_ROUTES.consent,
       PARENT_ROUTES.firstChild,
     ]) {
-      // The dashboard, not the profile list: a parent signing back in wants to
-      // see how their child is doing (file 29).
+      // The dashboard, not the profile list: a returning parent wants to see how their child is doing.
       expect(resolveParentRedirect(onboarded, path)).toBe(
         PARENT_ROUTES.dashboard,
       );

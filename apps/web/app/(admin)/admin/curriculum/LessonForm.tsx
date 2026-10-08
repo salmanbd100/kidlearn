@@ -7,17 +7,22 @@ import type {
   Locale,
 } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
-import { Button, Input, Label, Select, Textarea } from "@kidlearn/ui";
+import {
+  Button,
+  DialogFooter,
+  Input,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+  Textarea,
+} from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
-import type { ContentDraft } from "@/features/admin/admin-api";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
+import type { ContentDraft } from "@/features/admin/content-api";
 import { GradeLevelPicker } from "./GradeLevelPicker";
 import { LocaleTabs } from "./LocaleTabs";
-
-/**
- * The lesson editor (FR-CMS-01) — title and intro script per locale, a world, one
- * or more grade levels, and the ordered step config.
- */
 
 type LocaleFields = {
   title: string;
@@ -31,7 +36,6 @@ const EMPTY_LOCALE: LocaleFields = {
   videoAssetId: "",
 };
 
-/** What a child must be able to read or hear before a lesson can be saved. */
 const REQUIRED_LOCALE_FIELDS = [
   { key: "title", label: "title" },
   { key: "introScript", label: "intro script" },
@@ -39,7 +43,6 @@ const REQUIRED_LOCALE_FIELDS = [
 
 export interface LessonFormProps {
   existing?: AdminLesson;
-  /** Required when creating — the topic the lesson belongs to. */
   topicId?: string;
   worlds: AdminWorld[];
   isBusy: boolean;
@@ -97,8 +100,7 @@ export function LessonForm({
       title,
       worldId,
       gradeLevels,
-      // Trimmed and emptied out, so a trailing comma does not become a token no
-      // weekly report will ever match (file 30).
+      // Trimmed and emptied so a trailing comma doesn't become a token no weekly report matches.
       conceptsIntroduced: concepts
         .split(",")
         .map((one) => one.trim())
@@ -117,11 +119,12 @@ export function LessonForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-slug">Slug</Label>
           <Input
+            size="sm"
             id="lesson-slug"
             value={slug}
             required={!isEditing}
@@ -134,6 +137,7 @@ export function LessonForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-title">Internal title</Label>
           <Input
+            size="sm"
             id="lesson-title"
             value={title}
             required
@@ -145,21 +149,26 @@ export function LessonForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="lesson-world">World</Label>
-        <Select
-          id="lesson-world"
+        <SelectMenu
           value={worldId}
           required
           disabled={isBusy || worlds.length === 0}
-          aria-describedby="lesson-world-hint"
-          onChange={(event) => setWorldId(event.target.value)}
+          onValueChange={setWorldId}
         >
-          {worlds.length === 0 ? <option value="">No worlds yet</option> : null}
-          {worlds.map((world) => (
-            <option key={world.id} value={world.id}>
-              {world.name}
-            </option>
-          ))}
-        </Select>
+          <SelectMenuTrigger
+            id="lesson-world"
+            size="sm"
+            placeholder="No worlds yet"
+            aria-describedby="lesson-world-hint"
+          />
+          <SelectMenuContent>
+            {worlds.map((world) => (
+              <SelectMenuItem key={world.id} value={world.id}>
+                {world.name}
+              </SelectMenuItem>
+            ))}
+          </SelectMenuContent>
+        </SelectMenu>
         <p id="lesson-world-hint" className="text-muted-foreground text-xs">
           A lesson in an unpublished world stays invisible to children even once
           published — the world carries its own status.
@@ -182,6 +191,7 @@ export function LessonForm({
                 Title a child sees ({LOCALE_LABELS[locale]})
               </Label>
               <Input
+                size="sm"
                 id={`lesson-title-${locale}`}
                 value={locales[locale].title}
                 disabled={isBusy}
@@ -200,6 +210,7 @@ export function LessonForm({
                 Intro script ({LOCALE_LABELS[locale]})
               </Label>
               <Textarea
+                size="sm"
                 id={`lesson-script-${locale}`}
                 value={locales[locale].introScript}
                 rows={3}
@@ -228,6 +239,7 @@ export function LessonForm({
                 Video asset id ({LOCALE_LABELS[locale]})
               </Label>
               <Input
+                size="sm"
                 id={`lesson-video-${locale}`}
                 value={locales[locale].videoAssetId}
                 disabled={isBusy}
@@ -247,6 +259,7 @@ export function LessonForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-activity">Activity id</Label>
           <Input
+            size="sm"
             id="lesson-activity"
             value={activityId}
             disabled={isBusy}
@@ -258,6 +271,7 @@ export function LessonForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lesson-quiz">Quiz id</Label>
           <Input
+            size="sm"
             id="lesson-quiz"
             value={quizId}
             disabled={isBusy}
@@ -270,6 +284,7 @@ export function LessonForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="lesson-concepts">Concepts introduced</Label>
         <Input
+          size="sm"
           id="lesson-concepts"
           value={concepts}
           disabled={isBusy}
@@ -290,8 +305,8 @@ export function LessonForm({
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <DialogFooter className="border-border border-t pt-4">
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
@@ -300,12 +315,11 @@ export function LessonForm({
         >
           {isEditing ? "Save" : "Create draft"}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 }
 
-/** The first locale missing a field a child needs, in tab order. */
 function findMissingLocaleField(
   locales: Record<Locale, LocaleFields>,
 ): { locale: Locale; label: string } | undefined {
@@ -341,7 +355,6 @@ function toPayload(fields: LocaleFields) {
   };
 }
 
-/** Curried so each `onChange` stays a one-liner rather than a nested spread. */
 function setField(locale: Locale, field: keyof LocaleFields, value: string) {
   return (current: Record<Locale, LocaleFields>) => ({
     ...current,

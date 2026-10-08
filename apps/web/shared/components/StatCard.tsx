@@ -2,14 +2,12 @@ import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ReactNode } from "react";
 
-/** One figure on the dashboard, with its label (FR-DASH-02). */
 const statCardVariants = cva(
-  "flex flex-1 flex-col gap-1 rounded-[var(--radius)] border p-4",
+  "flex flex-1 flex-col gap-1 rounded-(--radius) border p-4",
   {
     variants: {
       tone: {
         default: "border-border bg-card",
-        /** The window a parent checks first, lifted out of the row. */
         featured: "border-primary/30 bg-primary/5",
       },
     },

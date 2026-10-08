@@ -8,10 +8,6 @@ import { activeChild } from "../../shared/middleware/require-active-child.js";
 import { listCharactersForChild } from "../rewards/achievement.service.js";
 import { getRewardSummary } from "../rewards/reward.service.js";
 
-/**
- * `/api/me` — what the *signed-in child* has, as opposed to what the curriculum
- * holds or what a parent administers.
- */
 export const meRouter = Router();
 
 meRouter.get("/rewards/summary", async (req, res, next) => {
@@ -24,9 +20,7 @@ meRouter.get("/rewards/summary", async (req, res, next) => {
   }
 });
 
-/**
- * FR-GAM-05 — every published character, flagged with whether this child has it.
- */
+/** FR-GAM-05 — every published character, flagged with whether this child has it. */
 meRouter.get("/characters", async (req, res, next) => {
   try {
     const characters = await listCharactersForChild(activeChild(req).id);

@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { ChildProfileResponse } from "@kidlearn/types";
 import {
   Button,
@@ -16,15 +17,12 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { childWriteErrorKey } from "@/features/parent/parent-errors";
 import type { ApiResult } from "@/shared/api/api-client";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
-/** Confirm deleting a profile (FR-PROF-06). */
 export interface DeleteChildDialogProps {
   child: ChildProfileResponse;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onConfirm: (id: string) => Promise<ApiResult<{ deleted: true }>>;
-  /** Runs after the deletion succeeds. */
   onDeleted: () => void;
 }
 

@@ -1,10 +1,9 @@
 "use client";
 
 import { LOCALES, type Locale } from "@kidlearn/types";
-import { Button } from "@kidlearn/ui";
+import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
 
-/** The English / Bangla switch every content form carries (FR-I18N-01). */
 export function LocaleTabs({
   active,
   onActiveChange,
@@ -16,17 +15,15 @@ export function LocaleTabs({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         {LOCALES.map((locale) => (
-          <Button
+          <AdminFilterChip
             key={locale}
-            type="button"
-            aria-pressed={locale === active}
-            variant={locale === active ? "default" : "outline"}
+            isSelected={locale === active}
             onClick={() => onActiveChange(locale)}
           >
             {LOCALE_LABELS[locale]}
-          </Button>
+          </AdminFilterChip>
         ))}
       </div>
 

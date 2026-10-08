@@ -32,11 +32,7 @@ export function addDuplicateIdIssues(
   });
 }
 
-/**
- * Validates a two-column pairing (match activity, match_pair question):
- * every referenced id exists, no id on either side is used twice, and every
- * left-column entry has somewhere correct to go.
- */
+/** Validates a two-column pairing: ids exist, none is used twice per side, every left entry has a correct target. */
 export function addPairingIssues(
   ctx: z.RefinementCtx,
   left: readonly Identified[],
@@ -92,11 +88,7 @@ export function addPairingIssues(
   }
 }
 
-/**
- * Validates a single-answer option list (mcq, drag_answer, picture_select):
- * unique ids, the correct answer resolves, and every option renders as
- * something a pre-reader can perceive.
- */
+/** Validates a single-answer option list: unique ids, the correct answer resolves, every option is perceivable by a pre-reader. */
 export function addAnswerOptionIssues(
   ctx: z.RefinementCtx,
   options: readonly Renderable[],
@@ -115,10 +107,7 @@ export function addAnswerOptionIssues(
   });
 }
 
-/**
- * Every child-facing locale of a fill-in-the-blank sentence must carry exactly
- * one `{blank}` token — zero leaves nothing to drop into, two is ambiguous.
- */
+/** Every child-facing locale of a fill-in-the-blank sentence needs exactly one `{blank}` — zero leaves nothing to drop into, two is ambiguous. */
 export function addSingleBlankTokenIssues(
   ctx: z.RefinementCtx,
   sentence: Record<string, string>,

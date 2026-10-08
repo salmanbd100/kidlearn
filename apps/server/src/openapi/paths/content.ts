@@ -1,3 +1,4 @@
+import { LOCALES } from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -12,22 +13,14 @@ import {
 } from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/content/content.routes.ts` — mounted behind `requireParent` **and**
- * `requireActiveChild` in `modules/index.ts` rather than inside the route file, so
- * that every present and future `/api/content/*` path is covered by construction.
- */
+/** Mounted behind `requireParent` and `requireActiveChild` in `modules/index.ts`, covering every `/api/content/*` path by construction. */
 
 const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
   "No active child profile on this session. Call `POST /api/children/{id}/activate` first — there is no grade or language to filter by until then. Also returned when the session's active profile belongs to another parent, or has since been deleted.",
   ["FORBIDDEN"],
 );
 
-/**
- * The shared preamble on every operation in this tag. Repeated per operation
- * rather than stated once at the tag level because a reader who deep-links to
- * one endpoint never sees the tag description.
- */
+/** Repeated per operation because a deep-linked reader never sees the tag description. */
 const FILTERED = [
   "Filtered to `status = published` and the active child's `gradeLevel`, with text resolved to their `preferredLanguage` (falling back to English).",
   "",
@@ -40,7 +33,6 @@ const CONTENT_ID_PARAM = (subject: string) =>
     format: "uuid",
   });
 
-/** Unpublished and wrong-grade both answer 404, and for the same reason. */
 const contentNotFound = (what: string) =>
   errorResponse(
     `No such ${what}, **or** it is not published, **or** it is not tagged for this child's grade. All three are the same \`404\`: a \`403\` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4).`,
@@ -100,8 +92,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "400": VALIDATION_RESPONSE,
         "401": UNAUTHORIZED_RESPONSE,
         "403": NO_ACTIVE_CHILD_RESPONSE,
-        // Not `contentNotFound`: worlds carry no grade tagging, so only two of
-        // its three causes can apply here.
+        // Not `contentNotFound`: worlds carry no grade tagging, so only two of its three causes apply.
         "404": errorResponse(
           "No such world, **or** it is not published. Both are the same `404`, for the same reason as everywhere else in this tag: a `403` would confirm the row exists. A *published* world holding nothing for this child's grade is not a 404 — it answers `200` with an empty `topics` array.",
           ["NOT_FOUND"],
@@ -227,7 +218,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
           required: false,
           description:
             "Which locale to render an administrator preview in. Ignored outside preview, where the locale comes from the child's profile. An unrecognised value previews in English rather than failing.",
-          schema: { type: "string", enum: ["en", "bn"] },
+          schema: { type: "string", enum: [...LOCALES] },
         },
       ],
       responses: {

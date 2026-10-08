@@ -1,11 +1,11 @@
 import type { ChildProfileResponse } from "@kidlearn/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
-
-// The provider every student screen reads from.
+import { LOCALE_COOKIE_NAME } from "@/shared/lib/locale";
 
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/features/parent/parent-api", () => api);
 
 const { ActiveChildProvider, useActiveChild } = await import("./active-child");
+const { apiFetch } = await import("@/shared/api/api-client");
 
 function child(
   overrides: Partial<ChildProfileResponse> = {},
@@ -40,15 +41,21 @@ const RUBI = child({
   preferredLanguage: "bn",
 });
 
-/** Surfaces the pieces of the context each assertion below is about. */
 function Probe() {
-  const { status, child: active, profiles, activate } = useActiveChild();
+  const {
+    status,
+    parent,
+    child: active,
+    profiles,
+    activate,
+  } = useActiveChild();
   const { i18n } = useTranslation();
 
   return (
     <div>
       <p>status: {status}</p>
       <p>active: {active?.firstName ?? "none"}</p>
+      <p>consent: {String(parent?.hasCurrentConsent)}</p>
       <p>language: {i18n.resolvedLanguage}</p>
       {profiles.map((profile) => (
         <button
@@ -65,6 +72,23 @@ function Probe() {
   );
 }
 
+function PortalExit() {
+  const [inPortal, setInPortal] = useState(true);
+  const { i18n } = useTranslation();
+
+  if (!inPortal) return <p>device language: {i18n.resolvedLanguage}</p>;
+  return (
+    <>
+      <button type="button" onClick={() => setInPortal(false)}>
+        leave
+      </button>
+      <ActiveChildProvider>
+        <Probe />
+      </ActiveChildProvider>
+    </>
+  );
+}
+
 function renderProvider() {
   return render(
     <Providers locale="en">
@@ -78,12 +102,18 @@ function renderProvider() {
 describe("ActiveChildProvider", () => {
   beforeEach(() => {
     resetI18nForTests();
+    // biome-ignore lint/suspicious/noDocumentCookie: jsdom implements document.cookie, not the Cookie Store API.
+    document.cookie = `${LOCALE_COOKIE_NAME}=en; path=/`;
     for (const fn of Object.values(api)) fn.mockReset();
 
     api.fetchAuthMe.mockResolvedValue({
       ok: true,
       data: {
-        parent: { id: "parent_1", email: "p@example.com" },
+        parent: {
+          id: "parent_1",
+          email: "p@example.com",
+          hasCurrentConsent: true,
+        },
         activeChildProfileId: null,
       },
     });
@@ -124,6 +154,44 @@ describe("ActiveChildProvider", () => {
     await screen.findByText("language: bn");
   });
 
+  it("leaves the device's language cookie alone (R-11)", async () => {
+    api.activateChild.mockResolvedValue({
+      ok: true,
+      data: { activeChildProfileId: RUBI.id },
+    });
+    renderProvider();
+
+    await screen.findByText("language: en");
+    fireEvent.click(screen.getByRole("button", { name: "pick Rubi" }));
+    await screen.findByText("language: bn");
+
+    // The cookie is the parent's choice: it decides the dashboard, the login
+    // page and `<html lang>` on the next load.
+    expect(document.cookie).not.toContain(`${LOCALE_COOKIE_NAME}=bn`);
+  });
+
+  it("hands the interface back to the device's language on leaving the portal", async () => {
+    api.activateChild.mockResolvedValue({
+      ok: true,
+      data: { activeChildProfileId: RUBI.id },
+    });
+    // The root layout's `Providers` survives a client navigation; only the
+    // student layout, and the provider in it, unmounts.
+    render(
+      <Providers locale="en">
+        <PortalExit />
+      </Providers>,
+    );
+
+    await screen.findByText("language: en");
+    fireEvent.click(screen.getByRole("button", { name: "pick Rubi" }));
+    await screen.findByText("language: bn");
+
+    fireEvent.click(screen.getByRole("button", { name: "leave" }));
+
+    await screen.findByText("device language: en");
+  });
+
   it("restores the child the session already remembers, without a second pick", async () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: true,
@@ -152,6 +220,29 @@ describe("ActiveChildProvider", () => {
 
     await waitFor(() => expect(api.activateChild).toHaveBeenCalled());
     expect(screen.getByText("active: none")).toBeInTheDocument();
+  });
+
+  it("marks consent outdated when any later request answers CONSENT_REQUIRED", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: { code: "CONSENT_REQUIRED", message: "renew" },
+            }),
+            { status: 403, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      ),
+    );
+    renderProvider();
+    await screen.findByText("consent: true");
+
+    await apiFetch("/api/progress/steps", { method: "POST" });
+
+    await screen.findByText("consent: false");
+    vi.unstubAllGlobals();
   });
 
   it("reports a signed-out visitor rather than an error", async () => {

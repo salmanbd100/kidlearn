@@ -5,8 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import type * as React from "react";
 import { cn } from "../lib/cn";
-
-// Dialog — the shadcn/Radix primitive, tokenized for both themes.
+import { usePortalContainer } from "./theme-scope";
 
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root {...props} />;
@@ -30,10 +29,8 @@ function DialogOverlay({
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
-      // Deliberately unanimated. `tailwindcss-animate` is not a dependency here,
-      // and design.md §1.4 asks that motion answer "what just happened?" — a
-      // scrim fade does not, and a hand-rolled keyframe would be the one piece of
-      // motion in the system that no reduced-motion query covers.
+      // Unanimated on purpose: `tailwindcss-animate` is not a dependency, and a hand-rolled
+      // keyframe would be motion no reduced-motion query covers.
       className={cn("fixed inset-0 z-50 bg-foreground/50", className)}
       {...props}
     />
@@ -41,11 +38,8 @@ function DialogOverlay({
 }
 
 const dialogContentVariants = cva(
-  // `var(--radius)`, not `rounded-xl`: the `--radius-*` scale `tokens.css`
-  // declares in `@theme` is static, so `rounded-xl` would pin every dialog to the
-  // 28px kid-panel radius on both surfaces. Only `--radius` is redefined per
-  // theme (design.md §4.2), so this is what actually follows `[data-theme]` —
-  // 20px on the kid surface, 12px on the parent one.
+  // `var(--radius)`, not `rounded-xl`: the `@theme` `--radius-*` scale is static, so `rounded-xl`
+  // would pin both surfaces to 28px. Only `--radius` is redefined per theme (design.md §4.2).
   "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-[var(--radius)] bg-card p-6 text-card-foreground shadow-lg",
   {
     variants: {
@@ -59,16 +53,51 @@ const dialogContentVariants = cva(
   },
 );
 
-export interface DialogContentProps
-  extends React.ComponentProps<typeof DialogPrimitive.Content>,
-    VariantProps<typeof dialogContentVariants> {
-  /**
-   * When false the dialog has no close button and ignores Escape and outside
-   * clicks — for a dialog that is itself a gate. Defaults to true.
-   */
-  isDismissable?: boolean;
-  /** Accessible name for the close button. Required whenever one is rendered. */
-  closeLabel?: string;
+const dialogCloseVariants = cva(
+  "absolute right-3 top-3 inline-flex items-center justify-center text-muted-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+  {
+    variants: {
+      closeSize: {
+        // 44px, so the parent surface's minimum target holds (design.md §7).
+        default: "size-11 rounded-sm [&_svg]:size-5",
+        // 64px — the kid floor — for a dialog a child answers.
+        kid: "size-16 rounded-pill [&_svg]:size-8",
+      },
+    },
+    defaultVariants: { closeSize: "default" },
+  },
+);
+
+type DialogContentBaseProps = Omit<
+  React.ComponentProps<typeof DialogPrimitive.Content>,
+  "children"
+> &
+  VariantProps<typeof dialogContentVariants> & { children?: React.ReactNode };
+
+export type DialogContentProps = DialogContentBaseProps &
+  (
+    | {
+        isDismissable?: true;
+        closeLabel: string;
+        closeSize?: VariantProps<typeof dialogCloseVariants>["closeSize"];
+      }
+    | {
+        /** When false: no close button, and Escape and outside clicks are ignored — for a gate. */
+        isDismissable: false;
+        closeLabel?: never;
+        closeSize?: never;
+      }
+  );
+
+/** A caller's own handler still runs but cannot undo the gate (spreading `props` after these used to disable `isDismissable={false}`). */
+function gated<TEvent extends Event>(
+  isDismissable: boolean,
+  handler: ((event: TEvent) => void) | undefined,
+) {
+  return (event: TEvent) => {
+    handler?.(event);
+    if (!isDismissable) event.preventDefault();
+  };
 }
 
 function DialogContent({
@@ -77,32 +106,30 @@ function DialogContent({
   children,
   isDismissable = true,
   closeLabel,
+  closeSize,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onInteractOutside,
   ...props
 }: DialogContentProps) {
+  const container = usePortalContainer();
   return (
-    <DialogPrimitive.Portal>
+    <DialogPrimitive.Portal container={container}>
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(dialogContentVariants({ size }), className)}
-        onEscapeKeyDown={(event) => {
-          if (!isDismissable) event.preventDefault();
-        }}
-        onPointerDownOutside={(event) => {
-          if (!isDismissable) event.preventDefault();
-        }}
-        onInteractOutside={(event) => {
-          if (!isDismissable) event.preventDefault();
-        }}
         {...props}
+        onEscapeKeyDown={gated(isDismissable, onEscapeKeyDown)}
+        onPointerDownOutside={gated(isDismissable, onPointerDownOutside)}
+        onInteractOutside={gated(isDismissable, onInteractOutside)}
       >
         {children}
         {isDismissable ? (
           <DialogPrimitive.Close
-            // 44px, so the parent surface's minimum target holds (design.md §7).
-            className="absolute right-3 top-3 inline-flex size-11 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className={cn(dialogCloseVariants({ closeSize }))}
             aria-label={closeLabel}
           >
-            <X aria-hidden="true" className="size-5" />
+            <X aria-hidden="true" />
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Content>
@@ -110,15 +137,13 @@ function DialogContent({
   );
 }
 
-/**
- * `inset` reserves room for the close button so a long title cannot run under it.
- * `flush` is for a dialog rendered with `isDismissable={false}`, where there is no
- * button to clear and the reserved gutter would be dead space.
- */
+/** `inset` reserves room for the close button; `flush` is for `isDismissable={false}`, which has none. */
 const dialogHeaderVariants = cva("flex flex-col gap-1.5", {
   variants: {
     gutter: {
       inset: "pr-11",
+      // Clears the `kid` close button.
+      kidInset: "pr-16",
       flush: "",
     },
   },

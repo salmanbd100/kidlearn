@@ -5,11 +5,7 @@ import {
   REWARD_RULES,
 } from "./reward.service.js";
 
-/**
- * The grant table, tested where it is pure (`general.md §5` — no database
- * needed, so none is stubbed). Everything that touches the ledger is covered in
- * `modules/progress/progress.routes.test.ts`, where the idempotency guard is what is interesting.
- */
+/** The grant table, tested where it is pure (no database, so none is stubbed); ledger behaviour is in `progress.routes.test.ts`. */
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 const LOCAL_DATE = "2026-08-15";
@@ -40,8 +36,7 @@ describe("computeLessonGrants", () => {
   it("adds a star for a quiz that was attempted at all", () => {
     const specs = computeLessonGrants(input({ quizAttempted: true }));
 
-    // Attempted, not passed — a quiz here has no fail state, so this star is
-    // for turning up and must not depend on how it went.
+    // Attempted, not passed: with no quiz fail state this star is for turning up.
     expect(specs).toContainEqual({
       rewardType: "star",
       amount: REWARD_RULES.quizCompletionStars,

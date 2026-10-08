@@ -5,23 +5,20 @@ import { isContentEditable } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { StatusChip } from "@/app/(admin)/admin/curriculum/StatusChip";
-import { TransitionButtons } from "@/app/(admin)/admin/curriculum/TransitionButtons";
 import { ActivityEditor } from "@/features/admin/ActivityEditor";
 import {
   type ActivityDraft,
   draftFromActivity,
 } from "@/features/admin/activity-draft";
+import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   fetchActivity,
   transitionEditorContent,
   updateActivity,
-} from "@/features/admin/admin-api";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+} from "@/features/admin/editors-api";
+import { StatusChip } from "@/features/admin/StatusChip";
+import { TransitionButtons } from "@/features/admin/TransitionButtons";
 
-/**
- * `/admin/curriculum/activity/[activityId]` — one activity's payload (FR-ACT-06).
- */
 export function ActivityEditorScreen({ activityId }: { activityId: string }) {
   const [activity, setActivity] = useState<AdminActivity>();
   const [draft, setDraft] = useState<ActivityDraft>();
@@ -139,15 +136,14 @@ export function ActivityEditorScreen({ activityId }: { activityId: string }) {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
       ) : null}
 
       <ActivityEditor
-        // Remounts on a reload so the form starts from what the server stored,
-        // rather than from state that predates the save.
+        // Remounts on reload so the form starts from what the server stored.
         key={activity.updatedAt}
         initial={draft}
         isBusy={isBusy || !isEditable}

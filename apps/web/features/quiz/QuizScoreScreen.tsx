@@ -1,19 +1,16 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { useIsMotionReduced } from "@kidlearn/ui";
 import { Sparkles, Star } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { randomCheerAudioUrl } from "@/features/activities/use-activity-feedback";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { randomCheerAudioUrl } from "@/shared/components/kid/feedback-audio";
 import type { QuizAnswerRecord } from "./types";
 
-// How the quiz ends (FR-QUIZ-06).
-
-/** Kept under `--dur-slow` in total, however many questions the quiz had. */
 const STAR_STAGGER_S = 0.08;
 const STAR_STAGGER_CAP_S = 0.4;
 
@@ -38,9 +35,8 @@ export function QuizScoreScreen({
       className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 text-center"
     >
       {/*
-        What the stars say, in words — and deliberately not a count of them. A
-        screen reader reading "three of four" would put back the number the whole
-        screen is built to leave out (FR-I18N-01).
+        Words, deliberately not a count: "three of four" would put back the number this screen
+        leaves out (FR-I18N-01).
       */}
       <span role="status" className="sr-only">
         {t("quiz.score.announce")}
@@ -64,8 +60,7 @@ export function QuizScoreScreen({
                 : "quiz-score-sparkle"
             }
             className="flex"
-            // Reduced motion gets the finished screen, not a slower version of
-            // the animation: Motion writes transforms as inline styles that no
+            // Reduced motion gets the finished screen: Motion writes inline transforms no
             // stylesheet can neutralise (design.md §5.2).
             initial={isMotionReduced ? false : { scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

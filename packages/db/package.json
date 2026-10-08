@@ -5,6 +5,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "prisma"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -16,10 +20,13 @@
     "dev": "tsc --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.seed.json",
     "db:generate": "prisma generate",
+    "schema:check": "prisma format --check",
+    "schema:format": "prisma format",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "db:seed:reference": "prisma db seed -- --reference-only",
     "seed:stories": "tsx prisma/seed-stories.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -33,12 +40,11 @@
   "devDependencies": {
     "@kidlearn/config": "workspace:*",
     "@kidlearn/types": "workspace:*",
-    "@types/node": "^20",
-    "@vitest/coverage-v8": "^4.1.11",
-    "dotenv": "^17.4.2",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "prisma": "^6",
-    "tsx": "^4",
-    "typescript": "^5",
-    "vitest": "^4.1.11"
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

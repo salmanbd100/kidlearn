@@ -1,6 +1,5 @@
-import { DEFAULT_LOCALE, isLocale } from "./locale";
+import { DEFAULT_LOCALE, isLocale } from "@kidlearn/i18n";
 
-/** "3 minutes ago", "yesterday", "12 days ago" — the activity feed's dates. */
 export function formatRelative(date: Date, locale: string, now: Date): string {
   const language = isLocale(locale) ? locale : DEFAULT_LOCALE;
   const relative = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
@@ -19,7 +18,6 @@ export function formatRelative(date: Date, locale: string, now: Date): string {
   return relative.format(calendarDaysBetween(now, date), "day");
 }
 
-/** The full date, for the `title` a relative date hangs off. */
 export function formatAbsolute(date: Date, locale: string): string {
   const language = isLocale(locale) ? locale : DEFAULT_LOCALE;
   return new Intl.DateTimeFormat(language, {

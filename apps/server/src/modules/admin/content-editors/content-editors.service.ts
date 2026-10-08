@@ -23,9 +23,12 @@ import { ApiError } from "../../../shared/errors/errors.js";
 import { withSerializationRetry } from "../../../shared/utils/serializable-retry.js";
 import {
   assertAiPublishable,
+  assertAssetsRegistered,
   assertEditable,
   assertTransition,
-  readQuizAiJobIds,
+  type ContentsGuard,
+  readActivityGuard,
+  readQuizGuard,
 } from "../../content/content-status.service.js";
 import type {
   ActivityUpsertBody,
@@ -36,12 +39,7 @@ import type {
   QuizUpdateBody,
 } from "./content-editors.schema.js";
 
-// The guided editors' data layer (file 33, FR-CMS-03, FR-GAM-04).
-
-/**
- * The payload unions and the Prisma enums must name the same formats, or a row
- * could carry a `format` no schema can parse.
- */
+// The payload unions and Prisma enums must name the same formats, or a row could carry a `format` no schema parses.
 type _FormatsAgree = QuizQuestionFormat extends QuizQuestionType
   ? QuizQuestionType extends QuizQuestionFormat
     ? true
@@ -58,10 +56,6 @@ const _editorEnumMirrorsAreExhaustive: [_FormatsAgree, _ActivityTypesAgree] = [
 ];
 void _editorEnumMirrorsAreExhaustive;
 
-/**
- * Parses a payload against the one schema its sibling enum column names, or throws
- * the `400` the route's own validator would have thrown.
- */
 function parsePayload<TSchema extends z.ZodTypeAny>(
   schema: TSchema,
   value: unknown,
@@ -82,12 +76,7 @@ function parsePayload<TSchema extends z.ZodTypeAny>(
   );
 }
 
-/**
- * Prisma types a JSONB column as `JsonValue`, which nothing can narrow
- * statically. Every row read here was written through `parsePayload`, and a row
- * that somehow broke that would fail the route test's `assertContract` — the
- * response schemas carry the real payload unions, not `unknown`.
- */
+// Casts: Prisma types JSONB as `JsonValue`; rows are written through `parsePayload`, and `assertContract` in route tests catches drift.
 function asQuestionDefinition(value: Prisma.JsonValue): QuizQuestionDefinition {
   return value as unknown as QuizQuestionDefinition;
 }
@@ -100,7 +89,6 @@ function asBadgeRule(value: Prisma.JsonValue): BadgeRule {
   return value as unknown as BadgeRule;
 }
 
-/** Archived rows are hidden from admin lists by default, matching file 32. */
 const ARCHIVED: ContentStatus = "archived";
 const NOT_ARCHIVED = { status: { not: ARCHIVED } };
 
@@ -196,7 +184,6 @@ export function listQuizzes(options: {
     .then((rows) => rows.map(toAdminQuiz));
 }
 
-/** One quiz with its questions in the order the player will ask them. */
 export async function getQuiz(quizId: string): Promise<AdminQuizDetailDto> {
   const row = await prisma.quiz.findUnique({
     where: { id: quizId },
@@ -211,7 +198,6 @@ export async function getQuiz(quizId: string): Promise<AdminQuizDetailDto> {
   return { ...toAdminQuiz(row), questions };
 }
 
-/** The quiz alone, without its questions — what a transition answers with. */
 export async function getQuizSummary(quizId: string): Promise<AdminQuizDto> {
   const row = await prisma.quiz.findUnique({
     where: { id: quizId },
@@ -221,7 +207,6 @@ export async function getQuizSummary(quizId: string): Promise<AdminQuizDto> {
   return toAdminQuiz(row);
 }
 
-/** Renames a quiz (FR-CMS-03). */
 export async function updateQuiz(
   quizId: string,
   input: QuizUpdateBody,
@@ -244,7 +229,6 @@ export async function updateQuiz(
   return toAdminQuiz(row);
 }
 
-/** Appends a question (FR-CMS-03). */
 export async function createQuestion(
   quizId: string,
   input: QuestionUpsertBody,
@@ -286,10 +270,6 @@ export async function createQuestion(
   return toAdminQuestion(row);
 }
 
-/**
- * Replaces a question's payload whole — there is no partial edit, for the reason
- * `QuestionUpsertSchema` gives.
- */
 export async function replaceQuestion(
   quizId: string,
   questionId: string,
@@ -324,7 +304,6 @@ export async function replaceQuestion(
   return toAdminQuestion(row);
 }
 
-/** Removes a question and closes the gap it left. */
 export async function deleteQuestion(
   quizId: string,
   questionId: string,
@@ -333,6 +312,15 @@ export async function deleteQuestion(
     prisma.$transaction(
       async (tx) => {
         await assertQuestionEditable(tx, quizId, questionId);
+
+        const answers = await tx.quizResponse.count({ where: { questionId } });
+        if (answers > 0) {
+          throw ApiError.conflict(
+            "Children have answered this question, so deleting it would erase their answer history",
+            { code: "QUESTION_HAS_RESPONSES", answers },
+          );
+        }
+
         await tx.quizQuestion.delete({ where: { id: questionId } });
 
         const survivors = await tx.quizQuestion.findMany({
@@ -359,16 +347,11 @@ export async function deleteQuestion(
   );
 }
 
-/** The slice of the client a transaction callback and the plain client share. */
 type EditorWriter = Pick<
   typeof prisma,
-  "quiz" | "quizQuestion" | "activity" | "badge"
+  "quiz" | "quizQuestion" | "quizResponse" | "activity" | "badge" | "mediaAsset"
 >;
 
-/**
- * `404` unless the question exists **and belongs to the quiz in the path**, then
- * the quiz's own editability.
- */
 async function assertQuestionEditable(
   tx: EditorWriter,
   quizId: string,
@@ -521,14 +504,7 @@ const badgeSelect = {
 
 type BadgeRow = Prisma.BadgeGetPayload<{ select: typeof badgeSelect }>;
 
-/**
- * `Badge.ruleType` is a plain `String` column — the engine looks a rule up by it
- * and warns on an unknown one (`shared/utils/badge-rules.ts`), so the database
- * deliberately does not constrain it. Every row this API writes went through
- * `BadgeRuleTypeSchema`, and the cast asserts that rather than narrowing unknown
- * data; a legacy row naming something else would fail the route test's
- * `assertContract`.
- */
+// Cast: `Badge.ruleType` is a plain `String` column (the engine tolerates unknown rules), but every row written here passed `BadgeRuleTypeSchema`.
 function toAdminBadge(row: BadgeRow): AdminBadgeDto {
   return {
     id: row.id,
@@ -543,7 +519,6 @@ function toAdminBadge(row: BadgeRow): AdminBadgeDto {
   };
 }
 
-/** Validates a rule payload against the schema its `ruleType` names. */
 function parseBadgeRule(ruleType: BadgeRuleType, rule: unknown): BadgeRule {
   return parsePayload(BADGE_RULE_SCHEMAS[ruleType], rule, "rule", ruleType);
 }
@@ -594,8 +569,7 @@ export async function updateBadge(
   id: string,
   input: BadgeUpdateBody,
 ): Promise<AdminBadgeDto> {
-  // The schema guarantees the pair travels together, so validating on `ruleType`
-  // alone covers both.
+  // The schema guarantees the pair travels together, so validating on `ruleType` covers both.
   const rule =
     input.ruleType === undefined
       ? undefined
@@ -632,12 +606,7 @@ export async function updateBadge(
   return toAdminBadge(row);
 }
 
-/**
- * `Badge.slug` is unique, and an admin retyping one that exists is ordinary
- * rather than exceptional — it should read as "that slug is taken", not as a
- * server error. Same reasoning and same `details.code` as file 32's
- * `asSlugConflict`.
- */
+// An admin retyping an existing `Badge.slug` should read as "slug taken", not a server error (same `details.code` as `asSlugConflict`).
 async function asSlugConflict<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run();
@@ -654,7 +623,6 @@ async function asSlugConflict<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-/** The three resources this module publishes, spelled as a path segment. */
 export { EDITOR_CONTENT_RESOURCES as EDITOR_RESOURCES };
 export type EditorResource = EditorContentResourceName;
 
@@ -669,9 +637,6 @@ const READ_BY_RESOURCE: Record<
 
 export type AdminEditorDto = AdminQuizDto | AdminActivityDto | AdminBadgeDto;
 
-/**
- * Moves a quiz, activity or badge through the publishing workflow (FR-CMS-06).
- */
 export async function transitionEditorContent(
   resource: EditorResource,
   id: string,
@@ -682,7 +647,14 @@ export async function transitionEditorContent(
       async (tx) => {
         const current = await readEditorGuardFields(tx, resource, id);
         assertTransition(current.status, to);
-        if (to === "published") await assertAiPublishable(current.aiJobIds, tx);
+        if (to === "published") {
+          const contents = await readContentsGuard(tx, resource, id);
+          assertAssetsRegistered(contents.unregisteredUrls);
+          await assertAiPublishable(
+            [...current.aiJobIds, ...contents.aiJobIds],
+            tx,
+          );
+        }
         await writeEditorStatus(tx, resource, id, to);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -692,29 +664,44 @@ export async function transitionEditorContent(
   return READ_BY_RESOURCE[resource](id);
 }
 
-/**
- * The status a transition is judged against, and every job answerable for the
- * row's contents.
- */
 async function readEditorGuardFields(
   tx: EditorWriter,
   resource: EditorResource,
   id: string,
 ): Promise<{ status: ContentStatus; aiJobIds: string[] }> {
   const select = { status: true, aiJobId: true } as const;
+  // A badge has no job, but its icon may be a generated image still awaiting review.
   const row = await (resource === "quizzes"
     ? tx.quiz.findUnique({ where: { id }, select })
     : resource === "activities"
       ? tx.activity.findUnique({ where: { id }, select })
-      : tx.badge.findUnique({ where: { id }, select: { status: true } }));
+      : tx.badge
+          .findUnique({
+            where: { id },
+            select: { status: true, iconAsset: { select: { aiJobId: true } } },
+          })
+          .then(
+            (badge) =>
+              badge && {
+                status: badge.status,
+                aiJobId: badge.iconAsset?.aiJobId ?? null,
+              },
+          ));
 
   if (!row) throw ApiError.notFound(`No such ${SINGULAR[resource]}`);
 
-  const own = "aiJobId" in row && row.aiJobId !== null ? [row.aiJobId] : [];
-  const fromQuestions =
-    resource === "quizzes" ? await readQuizAiJobIds(id, tx) : [];
+  return { status: row.status, aiJobIds: row.aiJobId ? [row.aiJobId] : [] };
+}
 
-  return { status: row.status, aiJobIds: [...own, ...fromQuestions] };
+// Needed only by the publish hop: a quiz's questions and an activity's payload answer for their own jobs and linked assets.
+function readContentsGuard(
+  tx: EditorWriter,
+  resource: EditorResource,
+  id: string,
+): Promise<ContentsGuard> {
+  if (resource === "quizzes") return readQuizGuard(id, tx);
+  if (resource === "activities") return readActivityGuard(id, tx);
+  return Promise.resolve({ aiJobIds: [], unregisteredUrls: [] });
 }
 
 async function readEditorStatus(
@@ -725,7 +712,7 @@ async function readEditorStatus(
   return (await readEditorGuardFields(tx, resource, id)).status;
 }
 
-/** `"quizzes".slice(0, -1)` is `"quizze"` — the names are spelled out instead. */
+// `"quizzes".slice(0, -1)` is `"quizze"`, so the names are spelled out.
 const SINGULAR: Record<EditorResource, string> = {
   quizzes: "quiz",
   activities: "activity",

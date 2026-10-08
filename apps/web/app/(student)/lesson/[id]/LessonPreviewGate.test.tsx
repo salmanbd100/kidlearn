@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-// Who `?preview=1` actually gets the preview (file 33, FR-CMS-04).
-
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 
 const admin = vi.hoisted(() => ({ fetchAdminMe: vi.fn() }));
@@ -58,14 +56,13 @@ describe("LessonPreviewGate", () => {
     expect(player.render).toHaveBeenCalledWith(
       expect.objectContaining({ isPreview: true, previewLanguage: "en" }),
     );
-    // An admin has no child profile, so the guard would bounce them to
-    // `/select-profile` before the player mounted.
+    // An admin has no child profile, so the guard would bounce them before the player mounts.
     expect(guard.render).not.toHaveBeenCalled();
   });
 
   it("gives a parent the ordinary recorded player, not the preview", async () => {
-    // `/api/admin/me` answers 403 for a signed-in parent — the case that made
-    // `?preview=1` a parental-controls bypass when the flag came from the URL.
+    // `/api/admin/me` answers 403 for a signed-in parent: `?preview=1` was a parental-controls
+    // bypass when the flag came from the URL.
     admin.fetchAdminMe.mockResolvedValue({
       ok: false,
       error: { code: "FORBIDDEN", message: "Not an admin" },
@@ -95,8 +92,7 @@ describe("LessonPreviewGate", () => {
   });
 
   it("renders no player at all until the answer lands", () => {
-    // Starting in either mode and switching would record a step the preview
-    // should not have, or drop one the child is owed.
+    // Starting in either mode and switching would record a step the preview shouldn't have or drop one the child is owed.
     admin.fetchAdminMe.mockReturnValue(new Promise(() => {}));
 
     renderGate();

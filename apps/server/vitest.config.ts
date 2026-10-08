@@ -5,6 +5,7 @@ export default defineConfig({
     environment: "node",
     env: { TZ: "UTC" },
     include: ["src/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "src/**/*.db.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
     coverage: {
       provider: "v8",

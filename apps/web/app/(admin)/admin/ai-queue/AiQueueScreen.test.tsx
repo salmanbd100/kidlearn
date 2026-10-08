@@ -3,11 +3,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiQueueScreen } from "./AiQueueScreen";
 
-// The review queue's list (file 37, FR-CMS-05).
-
 const fetchAiJobs = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/admin/admin-api", () => ({ fetchAiJobs }));
+vi.mock("@/features/admin/ai-api", () => ({ fetchAiJobs }));
 
 const JOB: AiJobSummary = {
   id: "aaaaaaaa-0000-4000-8000-000000000001",
@@ -26,7 +24,6 @@ beforeEach(() => {
   fetchAiJobs.mockResolvedValue({ ok: true, data: { jobs: [JOB], total: 1 } });
 });
 
-/** The filter arguments of the most recent request. */
 function lastQuery(): Record<string, unknown> {
   return fetchAiJobs.mock.calls[fetchAiJobs.mock.calls.length - 1][0];
 }
@@ -41,9 +38,7 @@ describe("AiQueueScreen", () => {
   });
 
   it("ignores a response for filters the admin has already moved off", async () => {
-    // Two requests in flight, the first resolving last. Without an in-flight
-    // guard it wins, and the chips read "Awaiting review" above a list of
-    // rejected jobs — a disagreement that never self-corrects.
+    // Without an in-flight guard the stale first response wins and the chips disagree with the list.
     const rejectedJob: AiJobSummary = {
       ...JOB,
       id: "aaaaaaaa-0000-4000-8000-000000000002",
@@ -65,7 +60,6 @@ describe("AiQueueScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Rejected" }));
     await waitFor(() => expect(resolvers).toHaveLength(2));
 
-    // The second (rejected) response lands first, then the stale first one.
     resolvers[1]({ ok: true, data: { jobs: [rejectedJob], total: 1 } });
     resolvers[0]({ ok: true, data: { jobs: [JOB], total: 1 } });
 
@@ -80,8 +74,7 @@ describe("AiQueueScreen", () => {
   });
 
   it("renders a job with its label, grade and languages", async () => {
-    // Scoped to the row: "KG-1" is also a filter chip, and a document-wide query
-    // would pass on the chip alone.
+    // Scoped to the row: "KG-1" is also a filter chip.
     render(<AiQueueScreen />);
     const row = await screen.findByRole("link", { name: /The letter A/ });
 
@@ -99,8 +92,7 @@ describe("AiQueueScreen", () => {
   });
 
   it("sends the type filter to the server rather than filtering in the browser", async () => {
-    // Filtering client-side would only ever narrow the current page, which is a
-    // different question from "what is in the queue".
+    // Client-side filtering would only narrow the current page.
     render(<AiQueueScreen />);
     await screen.findByText("The letter A");
 
@@ -159,9 +151,7 @@ describe("AiQueueScreen", () => {
   });
 
   it("explains an empty filtered list rather than calling the queue finished", async () => {
-    // A grade filter excludes every narration and illustration job by
-    // construction — an admin who does not know that reads an empty list as
-    // "nothing to do".
+    // A grade filter excludes every narration and illustration job by construction.
     render(<AiQueueScreen />);
     await screen.findByText("The letter A");
 

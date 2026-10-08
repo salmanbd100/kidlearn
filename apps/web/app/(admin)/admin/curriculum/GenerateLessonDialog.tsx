@@ -14,20 +14,25 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   Input,
   Label,
-  Select,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuSeparator,
+  SelectMenuTrigger,
 } from "@kidlearn/ui";
+import { Check, Sparkles } from "lucide-react";
 import { type FormEvent, useState } from "react";
-import { generateLesson } from "@/features/admin/admin-api";
+import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
+import { generateLesson } from "@/features/admin/ai-api";
 
-/**
- * "Write this lesson for me" — the admin end of the AI Lesson Generator
- * (file 34, FR-AI-01).
- */
+/** Radix reserves `""` for "no value", so the inherited world needs a value of its own. */
+const INHERIT_WORLD = "inherit";
 
 export interface GenerateLessonDialogProps {
   isOpen: boolean;
@@ -35,10 +40,8 @@ export interface GenerateLessonDialogProps {
   subjects: AdminSubject[];
   topics: AdminTopic[];
   worlds: AdminWorld[];
-  /** Preselected from the tree, so the dialog opens on what is already in view. */
   subjectId?: string;
   topicId?: string;
-  /** Reloads the tree and shows the "sent to review" notice. */
   onGenerated: (message: string) => void;
 }
 
@@ -72,8 +75,7 @@ export function GenerateLessonDialog({
     setLanguages((current) =>
       current.includes(locale)
         ? current.filter((one) => one !== locale)
-        : // Kept in `LOCALES` order rather than click order, so the request is
-          // the same whichever way an admin got to the same pair.
+        : // Kept in `LOCALES` order, not click order, so equal pairs give equal requests.
           LOCALES.filter((one) => one === locale || current.includes(one)),
     );
   }
@@ -102,8 +104,7 @@ export function GenerateLessonDialog({
     }
 
     if (result.data.status === "failed") {
-      // Not an error response — the job exists and holds both attempts. Saying
-      // which job it was is what makes it findable in the queue.
+      // Not an error response: the job exists with both attempts; naming it makes it findable.
       setError(
         `The model could not produce a usable lesson. Job ${result.data.jobId} kept what it tried, so it can be read in the AI Queue.`,
       );
@@ -129,69 +130,83 @@ export function GenerateLessonDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="generate-subject">Subject</Label>
-              <Select
-                id="generate-subject"
+              <SelectMenu
                 value={subject}
                 required
                 disabled={isBusy}
-                onChange={(event) => {
-                  setSubject(event.target.value);
+                onValueChange={(value) => {
+                  setSubject(value);
                   setTopic("");
                 }}
               >
-                <option value="">Pick a subject</option>
-                {subjects.map((one) => (
-                  <option key={one.id} value={one.id}>
-                    {one.name}
-                  </option>
-                ))}
-              </Select>
+                <SelectMenuTrigger
+                  id="generate-subject"
+                  size="sm"
+                  placeholder="Pick a subject"
+                />
+                <SelectMenuContent>
+                  {subjects.map((one) => (
+                    <SelectMenuItem key={one.id} value={one.id}>
+                      {one.name}
+                    </SelectMenuItem>
+                  ))}
+                </SelectMenuContent>
+              </SelectMenu>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="generate-topic">Topic</Label>
-              <Select
-                id="generate-topic"
+              <SelectMenu
                 value={topic}
                 required
                 disabled={isBusy || subject === ""}
-                onChange={(event) => setTopic(event.target.value)}
+                onValueChange={setTopic}
               >
-                <option value="">
-                  {subject === "" ? "Pick a subject first" : "Pick a topic"}
-                </option>
-                {availableTopics.map((one) => (
-                  <option key={one.id} value={one.id}>
-                    {one.name}
-                  </option>
-                ))}
-              </Select>
+                <SelectMenuTrigger
+                  id="generate-topic"
+                  size="sm"
+                  placeholder={
+                    subject === "" ? "Pick a subject first" : "Pick a topic"
+                  }
+                />
+                <SelectMenuContent>
+                  {availableTopics.map((one) => (
+                    <SelectMenuItem key={one.id} value={one.id}>
+                      {one.name}
+                    </SelectMenuItem>
+                  ))}
+                </SelectMenuContent>
+              </SelectMenu>
             </div>
           </div>
 
-          <fieldset className="flex flex-col gap-1.5">
-            <legend className="font-medium text-foreground text-sm">
+          <fieldset
+            className="flex flex-col gap-2"
+            aria-describedby="generate-grade-hint"
+          >
+            <legend className="mb-2 font-medium text-foreground text-sm">
               Grade level
             </legend>
             <div className="flex flex-wrap gap-2">
               {GRADE_LEVELS.map((grade) => (
-                <Button
+                <AdminFilterChip
                   key={grade}
-                  type="button"
-                  variant={gradeLevel === grade ? "default" : "outline"}
-                  aria-pressed={gradeLevel === grade}
-                  disabled={isBusy}
+                  isSelected={gradeLevel === grade}
+                  isDisabled={isBusy}
                   onClick={() => setGradeLevel(grade)}
                 >
                   {GRADE_LABELS[grade]}
-                </Button>
+                </AdminFilterChip>
               ))}
             </div>
-            <p className="text-muted-foreground text-xs">
+            <p
+              id="generate-grade-hint"
+              className="text-muted-foreground text-xs"
+            >
               One grade — the writing is pitched at a reading age, so two grades
               means two lessons.
             </p>
@@ -203,6 +218,7 @@ export function GenerateLessonDialog({
             </Label>
             <Input
               id="generate-focus"
+              size="sm"
               value={lessonFocus}
               required
               minLength={3}
@@ -221,92 +237,110 @@ export function GenerateLessonDialog({
             </p>
           </div>
 
-          <fieldset
-            className="flex flex-col gap-1.5"
-            aria-describedby="generate-languages-hint"
-          >
-            <legend className="font-medium text-foreground text-sm">
-              Languages
-            </legend>
-            <div className="flex flex-wrap gap-2">
-              {LOCALES.map((locale) => {
-                const isOn = languages.includes(locale);
-                return (
-                  <Button
-                    key={locale}
-                    type="button"
-                    variant={isOn ? "default" : "outline"}
-                    aria-pressed={isOn}
-                    disabled={isBusy}
-                    onClick={() => toggleLanguage(locale)}
-                  >
-                    {LOCALE_LABELS[locale]}
-                  </Button>
-                );
-              })}
-            </div>
-            <p
-              id="generate-languages-hint"
-              className={cn(
-                "text-xs",
-                languages.length === 0
-                  ? "text-destructive"
-                  : "text-muted-foreground",
-              )}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <fieldset
+              className="flex flex-col gap-2"
+              aria-describedby="generate-languages-hint"
             >
-              {languages.length === 0
-                ? "Pick at least one — a lesson in no language is a lesson nobody can read."
-                : "A script is written per language. Quiz prompts always come in both."}
-            </p>
-          </fieldset>
+              <legend className="mb-2 font-medium text-foreground text-sm">
+                Languages
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                {LOCALES.map((locale) => {
+                  const isOn = languages.includes(locale);
+                  return (
+                    <AdminFilterChip
+                      key={locale}
+                      isSelected={isOn}
+                      isDisabled={isBusy}
+                      onClick={() => toggleLanguage(locale)}
+                    >
+                      {isOn ? (
+                        <Check
+                          aria-hidden="true"
+                          className="-ml-0.5 size-3.5"
+                        />
+                      ) : null}
+                      {LOCALE_LABELS[locale]}
+                    </AdminFilterChip>
+                  );
+                })}
+              </div>
+              <p
+                id="generate-languages-hint"
+                className={cn(
+                  "text-xs",
+                  languages.length === 0
+                    ? "text-destructive"
+                    : "text-muted-foreground",
+                )}
+              >
+                {languages.length === 0
+                  ? "Pick at least one — a lesson in no language is a lesson nobody can read."
+                  : "A script is written per language. Quiz prompts always come in both."}
+              </p>
+            </fieldset>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="generate-world">World</Label>
-            <Select
-              id="generate-world"
-              value={world}
-              disabled={isBusy}
-              aria-describedby="generate-world-hint"
-              onChange={(event) => setWorld(event.target.value)}
-            >
-              <option value="">Inherit from this topic&rsquo;s lessons</option>
-              {worlds.map((one) => (
-                <option key={one.id} value={one.id}>
-                  {one.name}
-                </option>
-              ))}
-            </Select>
-            <p
-              id="generate-world-hint"
-              className="text-muted-foreground text-xs"
-            >
-              Leave it inherited unless this topic has no lessons yet — then a
-              world has to be chosen, because there is nothing to inherit from.
-            </p>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="generate-world">World</Label>
+              <SelectMenu
+                value={world === "" ? INHERIT_WORLD : world}
+                disabled={isBusy}
+                onValueChange={(value) =>
+                  setWorld(value === INHERIT_WORLD ? "" : value)
+                }
+              >
+                <SelectMenuTrigger
+                  id="generate-world"
+                  size="sm"
+                  aria-describedby="generate-world-hint"
+                />
+                <SelectMenuContent>
+                  <SelectMenuItem value={INHERIT_WORLD}>
+                    Inherit from this topic&rsquo;s lessons
+                  </SelectMenuItem>
+                  {worlds.length === 0 ? null : <SelectMenuSeparator />}
+                  {worlds.map((one) => (
+                    <SelectMenuItem key={one.id} value={one.id}>
+                      {one.name}
+                    </SelectMenuItem>
+                  ))}
+                </SelectMenuContent>
+              </SelectMenu>
+              <p
+                id="generate-world-hint"
+                className="text-muted-foreground text-xs"
+              >
+                Leave it inherited unless this topic has no lessons yet — then a
+                world has to be chosen, because there is nothing to inherit
+                from.
+              </p>
+            </div>
           </div>
 
           {error ? (
             <p
               role="alert"
-              className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+              className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
             >
               {error}
             </p>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2">
+          <DialogFooter className="border-border border-t pt-4">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               disabled={isBusy}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={isBusy || !canSubmit}>
+              <Sparkles aria-hidden="true" className="size-4!" />
               {isBusy ? "Writing — this takes a moment…" : "Generate draft"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

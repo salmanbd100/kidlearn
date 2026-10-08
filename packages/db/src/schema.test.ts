@@ -2,27 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * Schema invariants, asserted against `schema.prisma` itself.
- *
- * ## Why this file exists at all
- *
- * `general.md §5` wants `packages/db` covered by tests against a real test
- * database — schema constraints, cascade deletes, index correctness. There is no
- * such harness yet (see the recorded exception in that section), and until there is
- * the package had **no test script**, which meant `turbo run test` skipped it in
- * silence. A package that cannot fail is not the same as a package that passes.
- *
- * ## What these tests are, and are not
- *
- * They read the schema as text and assert the *declarations* that the stubbed
- * `apps/server` suites explicitly say they cannot prove. That is a real guard —
- * every defect here is a one-line deletion someone could make while refactoring,
- * and no other test in the monorepo would notice — but it is not a substitute for
- * exercising Postgres. When the test-database harness lands, these become
- * behavioural tests and this note goes away.
- *
- * Deliberately text-based rather than reading the generated Prisma client: the
- * client cannot report referential actions, which is most of what matters below.
+ * Asserts the declarations the stubbed `apps/server` suites say they cannot prove, by reading `schema.prisma` as text
+ * (the generated client cannot report referential actions). Not a substitute for Postgres; these become behavioural
+ * tests when the test-database harness lands.
  */
 
 const schema = readFileSync(
@@ -30,7 +12,6 @@ const schema = readFileSync(
   "utf8",
 );
 
-/** The lines of one `model X { … }` block. */
 function modelBlock(name: string): string[] {
   const lines = schema.split("\n");
   const start = lines.findIndex((line) =>
@@ -50,19 +31,12 @@ function field(model: string, name: string): string {
 }
 
 describe("right-to-erasure cascades (NFR-SAFE-05/06)", () => {
-  /**
-   * `deleteChildProfile` deletes one row and trusts Postgres for the rest. The
-   * same claim is asserted from the server suite; it is repeated here because this
-   * is the package that owns the declaration, and the server's copy would not
-   * survive that suite being ported to a real database.
-   */
+  /** `deleteChildProfile` trusts Postgres for the cascade; asserted here because this package owns the declaration. */
   it("cascades every child-owned relation from ChildProfile", () => {
     const relations = schema
       .split("\n")
       .filter((line) => /^\s*child\s+ChildProfile\b/.test(line));
 
-    // LessonProgress, QuizResponse, RewardLedger, ChildCharacter, Streak,
-    // ScreenTimeSetting, SessionEvent, WeeklyReport.
     expect(relations).toHaveLength(8);
     for (const relation of relations) {
       expect(relation).toContain("onDelete: Cascade");
@@ -70,22 +44,19 @@ describe("right-to-erasure cascades (NFR-SAFE-05/06)", () => {
   });
 
   it("cascades ChildProfile from Parent, and Parent from the auth identity", () => {
-    // The chain `User → Parent → ChildProfile → everything` is what makes
-    // `confirmAccountDeletion` a synchronous, total erasure rather than a sweep.
+    // `User → Parent → ChildProfile → everything` makes `confirmAccountDeletion` a total erasure rather than a sweep.
     expect(field("ChildProfile", "parent")).toContain("onDelete: Cascade");
     expect(field("Parent", "user")).toContain("onDelete: Cascade");
   });
 
   it("cascades sessions and accounts from the auth identity", () => {
-    // Deleting the account has to invalidate the cookie the caller still holds.
+    // Deleting the account must invalidate the cookie the caller still holds.
     expect(field("Session", "user")).toContain("onDelete: Cascade");
     expect(field("Account", "user")).toContain("onDelete: Cascade");
   });
 
   it("does not cascade content away when a child is deleted", () => {
-    // The reverse direction would be catastrophic: a child's deletion must never
-    // reach the curriculum. `Lesson.world` and `Lesson.activity` carry no
-    // referential action, so Postgres restricts by default.
+    // A child's deletion must never reach the curriculum; `Lesson.world`/`activity` have no referential action, so Postgres restricts.
     expect(field("Lesson", "world")).not.toContain("onDelete: Cascade");
     expect(field("Lesson", "activity")).not.toContain("onDelete: Cascade");
     expect(field("Lesson", "quiz")).not.toContain("onDelete: Cascade");
@@ -103,8 +74,7 @@ describe("content translations cascade with their parent row", () => {
     ["StoryTranslation", "story"],
     ["StoryPageTranslation", "storyPage"],
   ])("cascades %s from its owner", (model, relation) => {
-    // An orphaned translation is unreachable content that still counts against
-    // storage and still appears in a locale-coverage report.
+    // An orphaned translation is unreachable yet still counts toward storage and locale-coverage reports.
     expect(field(model, relation)).toContain("onDelete: Cascade");
   });
 
@@ -118,19 +88,22 @@ describe("content translations cascade with their parent row", () => {
     ["StoryTranslation", "storyId, language"],
     ["StoryPageTranslation", "storyPageId, language"],
   ])("holds one %s row per language", (model, key) => {
-    // Two `en` rows for one lesson makes `pickLocale` non-deterministic — the
-    // child's narration would change between requests.
+    // Two `en` rows for one lesson make `pickLocale` non-deterministic.
     expect(modelBlock(model).join("\n")).toContain(`@@unique([${key}])`);
   });
 });
 
 describe("per-child uniqueness", () => {
   it("holds one progress row per child per lesson", () => {
-    // `reportLessonStep` upserts on this key; without it a replay creates a second
-    // row and the resume point becomes whichever one is read first.
+    // `reportLessonStep` upserts on this key; without it a replay creates a second row.
     expect(modelBlock("LessonProgress").join("\n")).toContain(
       "@@unique([childId, lessonId])",
     );
+  });
+
+  it("requires a ledger row's sourceId, so its idempotency key cannot hold a NULL", () => {
+    // Postgres treats NULLs as distinct in a unique index: a NULL `sourceId` would escape the once-only grant.
+    expect(field("RewardLedger", "sourceId")).not.toContain("String?");
   });
 
   it("holds one streak and one screen-time setting per child", () => {
@@ -152,12 +125,7 @@ describe("per-child uniqueness", () => {
 });
 
 describe("child-facing curriculum names are translatable (FR-I18N-01)", () => {
-  /**
-   * The read API's response contract promises one string already resolved to the
-   * child's language. It could only keep that promise for narration until these
-   * tables existed — every name around it came from the untranslated column, so a
-   * Bangla learner met English tiles inside a Bangla lesson.
-   */
+  /** Read responses promise one string already resolved to the child's language; before these tables only narration kept that promise. */
   it.each([
     ["WorldTranslation", "name"],
     ["SubjectTranslation", "name"],
@@ -167,14 +135,12 @@ describe("child-facing curriculum names are translatable (FR-I18N-01)", () => {
   ])("declares %s.%s as required text", (model, column) => {
     const line = field(model, column);
     expect(line).toMatch(/\bString\b/);
-    // Not nullable: a translation row that exists but names nothing is a row the
-    // resolver would have to treat as absent, which is what omitting it means.
+    // Not nullable: a translation naming nothing would have to be treated as absent anyway.
     expect(line).not.toContain("String?");
   });
 
   it("keeps the admin label on the row itself", () => {
-    // Both, not one. The column is what a CMS list and a slug are built from; a
-    // localised admin list is its own bug.
+    // Both: the column feeds the CMS list and slug; a localised admin list is its own bug.
     expect(field("World", "name")).toMatch(/\bString\b/);
     expect(field("Subject", "name")).toMatch(/\bString\b/);
     expect(field("Topic", "name")).toMatch(/\bString\b/);
@@ -183,21 +149,14 @@ describe("child-facing curriculum names are translatable (FR-I18N-01)", () => {
   });
 
   it("keeps a story's moral translatable and its authoring label required", () => {
-    // `Story.theme` is the authoring label for the moral (FR-STORY-03) and is
-    // always present; the translated one is optional because a story is
-    // publishable before every locale has been written.
+    // `Story.theme` is the always-present authoring label; the translated one is optional because a story is publishable before every locale exists.
     expect(field("Story", "theme")).not.toContain("String?");
     expect(field("StoryTranslation", "moral")).toContain("String?");
   });
 });
 
 describe("the parental PIN is gone (was FR-AUTH-04)", () => {
-  /**
-   * Asserted as an absence, because a re-added column is how this change would
-   * quietly come back: `prisma db pull` against a database whose migration was
-   * never applied rewrites the schema from the *database*, and would restore
-   * every one of these.
-   */
+  /** Asserted as absences because `prisma db pull` against an unmigrated database would restore every removed column. */
   it.each([
     ["Parent", "pinHash"],
     ["Parent", "pinFailedCount"],
@@ -226,18 +185,22 @@ describe("indexes on the columns the read paths filter by", () => {
     ["SessionEvent", "@@index([childId, occurredAt])"],
     ["RewardLedger", "@@index([childId, createdAt])"],
     ["QuizResponse", "@@index([childId, answeredAt])"],
+    // Publish guards match payload asset URLs with `url IN (...)`.
+    ["MediaAsset", "@@index([url])"],
+    // The AI review gate finds rows by the job that wrote them.
+    ["MediaAsset", "@@index([aiJobId])"],
+    ["Lesson", "@@index([aiJobId])"],
+    ["Activity", "@@index([aiJobId])"],
+    ["Quiz", "@@index([aiJobId])"],
+    ["QuizQuestion", "@@index([aiJobId])"],
+    ["Story", "@@index([aiJobId])"],
   ])("indexes %s on %s", (model, index) => {
     expect(modelBlock(model).join("\n")).toContain(index);
   });
 });
 
 describe("student-facing content carries a status column", () => {
-  /**
-   * `backend.md §4` — every student-facing query filters `status: "published"`.
-   * That rule is only expressible if the column exists on every model a student
-   * can reach, so a new content model without one is a content-safety bug at the
-   * schema level, before any query is written.
-   */
+  /** `backend.md §4`: student queries filter `status: "published"`, so every student-reachable model needs the column. */
   it.each([
     "World",
     "Subject",
@@ -251,16 +214,14 @@ describe("student-facing content carries a status column", () => {
   ])("declares %s.status defaulting to draft", (model) => {
     const line = field(model, "status");
     expect(line).toContain("ContentStatus");
-    // Defaulting to `draft` is what makes an unfinished row invisible by
-    // omission rather than by remembering to set it.
+    // Defaulting to `draft` makes an unfinished row invisible by omission.
     expect(line).toContain("@default(draft)");
   });
 });
 
 describe("runtime and migration connections stay separate", () => {
   it("uses the pooled url at runtime and the direct one for migrations", () => {
-    // Runtime goes through the Supabase pooler; `prisma migrate` cannot, because
-    // pgbouncer in transaction mode does not support the advisory locks it takes.
+    // Runtime uses the pooler; `prisma migrate` cannot, as pgbouncer transaction mode lacks the advisory locks it takes.
     expect(schema).toContain('url       = env("DATABASE_URL")');
     expect(schema).toContain('directUrl = env("DIRECT_URL")');
   });

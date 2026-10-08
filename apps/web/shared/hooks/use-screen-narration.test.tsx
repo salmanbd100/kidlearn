@@ -4,12 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-/**
- * The audio channel is stubbed rather than driven: jsdom has no media pipeline,
- * so `HTMLMediaElement.play` is unimplemented and every assertion would be about
- * the stub anyway. `AudioProvider` is stubbed alongside `useAudio` because
- * `Providers` mounts it.
- */
 const audio = vi.hoisted(() => ({
   play: vi.fn(async (_url: string, _options?: { interrupt?: boolean }) => {}),
 }));
@@ -34,9 +28,7 @@ describe("useScreenNarration", () => {
     audio.play.mockClear();
   });
 
-  // `interrupt: true` on every call is the single-channel guarantee: it stops two
-  // voice-overs overlapping when a three-year-old taps through screens faster
-  // than a clip plays.
+  // `interrupt: true` on every call is the single-channel guarantee when a child taps faster than a clip plays.
   it("speaks the screen's prompt once on arrival", () => {
     render(
       <Providers locale="en">

@@ -11,22 +11,19 @@ import {
 } from "./coverage";
 import type { Point } from "./geometry";
 
-/** A horizontal stroke of 21 points ten units apart — (0,0) through (200,0). */
 const POINTS: Point[] = Array.from({ length: 21 }, (_, index) => ({
   x: index * 10,
   y: 0,
 }));
 
 /**
- * Half the spacing between points, so a pointer sitting on one point reaches no
- * other. Tests about *ordering* need that: at the default tolerance a single
- * position covers its neighbours too, which hides which rule did the covering.
+ * Half the point spacing, so a pointer on one point reaches no other: the default tolerance would
+ * hide which rule did the covering.
  */
 const TIGHT = 5;
 
 const at = (index: number): Point => POINTS[index] ?? { x: 0, y: 0 };
 
-/** Walk the pointer along the first `upTo` points, the way a careful child would. */
 function walk(upTo: number, tolerance = DEFAULT_TOLERANCE) {
   let state = createCoverage(POINTS.length);
   for (let index = 0; index < upTo; index += 1) {
@@ -69,7 +66,6 @@ describe("updateCoverage", () => {
   });
 
   it("covers nothing when the pointer jumps straight to the end of the stroke", () => {
-    // Scribbling over the far end of the guide must never finish the stroke.
     const state = updateCoverage(
       POINTS,
       createCoverage(POINTS.length),
@@ -131,7 +127,7 @@ describe("updateCoverage", () => {
   });
 
   it("returns the same state object when the pointer covers nothing new", () => {
-    // The rAF loop leans on this — an unchanged reference means no re-render.
+    // The rAF loop relies on this: an unchanged reference means no re-render.
     const state = walk(4);
     expect(
       updateCoverage(POINTS, state, { x: 0, y: 500 }, DEFAULT_TOLERANCE),

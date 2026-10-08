@@ -6,11 +6,7 @@ import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { WorldCard } from "./WorldCard";
 
-/**
- * FR-WORLD-05 is the whole point of this component: a world looks the way it does
- * because of the row that describes it, so these assertions are about the styling
- * tracing back to `world.palette` and never to a branch on `world.slug`.
- */
+// Styling must trace back to `world.palette`, never a branch on `world.slug`.
 
 const JUNGLE: WorldSummaryResponse = {
   id: "world_jungle",

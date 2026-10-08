@@ -19,9 +19,6 @@ import {
   type QuizGenerationOutput,
 } from "../schemas/quiz.js";
 
-// The AI Quiz Generator (FR-AI-03).
-
-/** The spec's default: four questions, the middle of the 3–5 range. */
 export const DEFAULT_QUESTION_COUNT = 4;
 
 const PUBLISHED_QUIZ_MESSAGE =
@@ -76,11 +73,8 @@ export async function generateQuiz(
       total: count,
     });
 
-  // Set by `persist` when the re-read below finds the quiz published, and read
-  // after the job has landed. A flag rather than a thrown `ApiError`, because
-  // `runGenerationJob` turns any `persist` failure into a failed job by design —
-  // the audit record is the point — so the reason has to be carried out of the
-  // closure rather than through it.
+  // Set by persist when the re-read finds the quiz published. A flag, not a throw: runGenerationJob turns any
+  // persist failure into a failed job, so the reason must be carried out of the closure.
   let publishedMidGeneration = false;
 
   const result = await runGenerationJob<QuizGenerationOutput>({
@@ -96,9 +90,7 @@ export async function generateQuiz(
       userPrompts: formats.map(buildPrompt),
     },
     schema,
-    // One call per question. The retry feedback rides along on each of them as a
-    // second *user* turn rather than replaying the rejected attempt as an
-    // assistant turn — see `generators/lesson.ts` for why.
+    // One call per question; retry feedback rides along as a second user turn (see generators/lesson.ts).
     generate: async (retryFeedback) => {
       const quiz = await generateQuestions({
         system: KIDLEARN_SYSTEM_PROMPT,
@@ -142,9 +134,7 @@ export async function generateQuiz(
   return result;
 }
 
-/**
- * The quiz's status as of *this transaction*, not as of the pre-flight check.
- */
+// The quiz's status as of this transaction, not the pre-flight check.
 async function isPublished(
   tx: Prisma.TransactionClient,
   quizId: string | undefined,
@@ -158,7 +148,6 @@ async function isPublished(
   return quiz?.status === "published";
 }
 
-/** What the lesson taught, in the model's own words where they exist. */
 async function buildLessonContext(lesson: {
   aiJobId: string | null;
   title: string;
@@ -206,7 +195,6 @@ async function readGeneratedContext(
   return sections.length === 0 ? undefined : sections.join("\n\n");
 }
 
-/** The two fields this generator reads out of a lesson job's audit record. */
 function readParsedLesson(rawOutput: unknown):
   | {
       learningObjectives: string[];
@@ -255,9 +243,7 @@ async function persistQuestions({
   lessonTitle: string;
   existingQuizId?: string;
 }): Promise<Prisma.JsonObject> {
-  // A lesson without a quiz gets one, wired to it in the same transaction. The
-  // alternative — refusing until an admin creates an empty quiz by hand — is a
-  // scavenger hunt, and the new quiz is a draft like everything else here.
+  // A lesson without a quiz gets one, wired in the same transaction; it is a draft like everything else here.
   const quizId =
     existingQuizId ??
     (
@@ -265,15 +251,13 @@ async function persistQuestions({
         data: {
           title: lessonTitle,
           aiJobId: jobId,
-          lessons: { connect: { id: lessonId } },
+          lesson: { connect: { id: lessonId } },
         },
         select: { id: true },
       })
     ).id;
 
-  // Appended after whatever is already there rather than numbered from one:
-  // `@@unique([quizId, sortOrder])` would refuse a collision, and an admin who
-  // wrote two questions by hand keeps them in front of the generated ones.
+  // Appended, not numbered from one: @@unique([quizId, sortOrder]) would refuse a collision with hand-written questions.
   const last = await tx.quizQuestion.findFirst({
     where: { quizId },
     orderBy: { sortOrder: "desc" },

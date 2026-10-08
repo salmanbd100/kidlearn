@@ -9,15 +9,13 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiJobDetailScreen } from "./AiJobDetailScreen";
 
-// The review screen's three decisions (file 37, FR-AI-07, FR-CMS-05..06).
-
 const api = vi.hoisted(() => ({
   fetchAiJob: vi.fn(),
   approveAiJob: vi.fn(),
   rejectAiJob: vi.fn(),
 }));
 
-vi.mock("@/features/admin/admin-api", () => api);
+vi.mock("@/features/admin/ai-api", () => api);
 
 const JOB_ID = "aaaaaaaa-0000-4000-8000-000000000001";
 const QUIZ_ID = "bbbbbbbb-0000-4000-8000-000000000001";
@@ -75,8 +73,7 @@ describe("AiJobDetailScreen", () => {
   });
 
   it("puts the audit record on the page, collapsed", async () => {
-    // FR-AI-08 visibility: what the model was asked and what it said, without
-    // pushing the content a reviewer came to read off the screen.
+    // FR-AI-08: show the prompt and response without pushing the content off screen.
     render(<AiJobDetailScreen jobId={JOB_ID} />);
 
     expect(await screen.findByText("Request (input)")).toBeInTheDocument();
@@ -86,8 +83,7 @@ describe("AiJobDetailScreen", () => {
   });
 
   it("carries ?jobId on the Edit deep-link", async () => {
-    // What makes edit-then-approve a recorded fact rather than an intention: the
-    // editor's save records the decision on this job in the same request.
+    // The editor's save records the decision on this job in the same request.
     render(<AiJobDetailScreen jobId={JOB_ID} />);
 
     expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute(
@@ -119,8 +115,7 @@ describe("AiJobDetailScreen", () => {
   });
 
   it("disables approve on the server's blockers and says what they are", async () => {
-    // Same computation the endpoint refuses on, so the button and the 409 cannot
-    // disagree about why.
+    // Same computation the endpoint refuses on, so the button and the 409 agree.
     api.fetchAiJob.mockResolvedValue({
       ok: true,
       data: withJob({
@@ -165,8 +160,7 @@ describe("AiJobDetailScreen", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Reject" }));
 
-    // Scoped to the dialog: Radix hides the page behind it from the
-    // accessibility tree, so the page's own Reject button is no longer there.
+    // Scoped to the dialog: Radix hides the page behind it from the accessibility tree.
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.change(dialog.getByLabelText("What was wrong with it?"), {
       target: { value: "The Bangla reads as a translation." },
@@ -182,8 +176,7 @@ describe("AiJobDetailScreen", () => {
   });
 
   it("does not carry a failed approve's error into the reject dialog", async () => {
-    // One shared error slot meant the dialog opened showing the *approve*
-    // failure, as though the rejection had already been refused.
+    // A shared error slot opened the dialog showing the approve failure.
     api.approveAiJob.mockResolvedValue({
       ok: false,
       error: { message: "This job cannot be approved yet" },
@@ -227,9 +220,7 @@ describe("AiJobDetailScreen", () => {
   });
 
   it("does not claim an edited job was approved before anybody approved it", async () => {
-    // The editors write `edit_then_approve` the moment a reviewer saves, which is
-    // before any approval. "…then approved" here would tell a second admin the
-    // job was finished.
+    // Editors write `edit_then_approve` on save, before any approval; "…then approved" would mislead.
     api.fetchAiJob.mockResolvedValue({
       ok: true,
       data: withJob({
@@ -306,9 +297,7 @@ describe("AiJobDetailScreen", () => {
   });
 
   it("plays an unattached clip and says where approving will put it", async () => {
-    // The only place a generated clip can be heard: nothing points at it yet, so
-    // no lesson or story screen can play it, and approving on a filename is the
-    // failure the queue exists to prevent.
+    // The only place a generated clip can be heard before approval.
     api.fetchAiJob.mockResolvedValue({
       ok: true,
       data: withJob({

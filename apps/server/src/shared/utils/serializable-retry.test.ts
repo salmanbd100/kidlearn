@@ -26,9 +26,7 @@ describe("withSerializationRetry", () => {
       .mockRejectedValueOnce(serializationFailure())
       .mockResolvedValue("granted");
 
-    // The loser of a Serializable race wrote nothing, so the retry re-reads
-    // under the winner's rows and either succeeds honestly or reports the
-    // conflict — what it must never do is surface a 500 to a four-year-old.
+    // The loser of a Serializable race wrote nothing, so the retry succeeds honestly or reports the conflict, never a 500.
     await expect(withSerializationRetry(run)).resolves.toBe("granted");
     expect(run).toHaveBeenCalledTimes(2);
   });
@@ -41,9 +39,7 @@ describe("withSerializationRetry", () => {
   });
 
   it("succeeds on a later retry, not only the first", async () => {
-    // One immediate retry re-enters the same contention window that caused the
-    // abort — two writers finishing a lesson at once could both lose. The extra
-    // attempts, spaced with jitter, are what make that recoverable.
+    // An immediate retry re-enters the same contention window; jittered attempts make two simultaneous writers recoverable.
     const run = vi
       .fn()
       .mockRejectedValueOnce(serializationFailure())
@@ -52,6 +48,31 @@ describe("withSerializationRetry", () => {
 
     await expect(withSerializationRetry(run)).resolves.toBe("granted");
     expect(run).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries when the pool had no connection free to start the transaction", async () => {
+    const startTimeout = new Prisma.PrismaClientKnownRequestError(
+      "Transaction API error: Unable to start a transaction in the given time.",
+      { code: "P2028", clientVersion: "6.19.3" },
+    );
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(startTimeout)
+      .mockResolvedValue("granted");
+
+    await expect(withSerializationRetry(run)).resolves.toBe("granted");
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a transaction that ran past its timeout", async () => {
+    const expired = new Prisma.PrismaClientKnownRequestError(
+      "Transaction API error: Transaction already closed: A query cannot be executed on an expired transaction.",
+      { code: "P2028", clientVersion: "6.19.3" },
+    );
+    const run = vi.fn().mockRejectedValue(expired);
+
+    await expect(withSerializationRetry(run)).rejects.toBe(expired);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it("rethrows any other Prisma error without retrying", async () => {

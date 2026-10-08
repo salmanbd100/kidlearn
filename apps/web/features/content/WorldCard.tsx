@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type { WorldSummaryResponse } from "@kidlearn/types";
 import { cn, useIsMotionReduced } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
@@ -7,14 +8,9 @@ import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { worldGradientStyle } from "@/features/content/worlds";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-
-/**
- * A themed world, drawn entirely from the row that describes it (FR-WORLD-05).
- */
 
 const worldCardVariants = cva(
-  "group relative flex min-h-56 flex-col items-center justify-end gap-4 overflow-hidden rounded-xl border-2 border-border p-6 shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "group relative flex min-h-56 flex-col items-center justify-end gap-4 overflow-hidden rounded-xl border-2 border-border p-6 shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring",
 );
 
 const MASCOT_PX = 160;

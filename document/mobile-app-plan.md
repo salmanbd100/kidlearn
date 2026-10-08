@@ -111,15 +111,13 @@ NFR-PERF adapted to native devices.
 ### 3.3 Parity dependencies on unfinished web work
 
 Mobile cannot be "the same as the web app" for features the web app does not yet have.
-As of this plan, `document/implementation/00-progress-tracker.md` shows files 30–38a not
-started:
+Web/server files 01–37a have shipped and their specs were retired (see git history; the code and the
+live `/docs` API reference are the contract), so the reports API, screen-time, stories, rewards, admin
+CMS and AI pipeline all exist. One web dependency remains:
 
 | Web file | Feature | Effect on this plan |
 | --- | --- | --- |
-| 30 | Weekly reports (FR-DASH-05..06) | Mobile phase M8 depends on the report API existing. Build web file 30 first, or ship the mobile dashboard without the reports tab and add it later. |
-| 31–33 | Admin CMS | Not ported. But without it there is no way to author content except seeds/SQL — which limits what you can demo on a device. |
-| 34–37 | AI pipeline | Same: content volume. A device demo with one seeded lesson is thin. |
-| **38 / 38a** | **Deployment** | **Hard blocker for store submission.** A store build cannot point at `localhost`. The API must be publicly reachable over HTTPS with a stable hostname before you can submit. Web file 38 delivers exactly that — `https://api.kidlearn.net` on a permanent host — so do it before mobile phase M9. File 38a only automates the deploy and is not a blocker. |
+| **38 / 38a** | **Deployment — not yet provisioned** | **Hard blocker for store submission.** A store build cannot point at `localhost`. The API must be publicly reachable over HTTPS with a stable hostname before you can submit. Web file 38 delivers exactly that — `https://api.kidlearn.net` on a permanent host — so do it before mobile phase M9. File 38a only automates the deploy and is not a blocker. |
 
 ---
 
@@ -145,8 +143,8 @@ apps/
     tailwind.config.js   NativeWind — consumes @kidlearn/tokens
 packages/
   types/                 SHARED — Zod contracts (activities, quizzes, every API response)
-  tokens/                NEW  — design.md §2.2 token values as plain TypeScript
-  i18n/                  NEW  — the EN/BN locale JSON, moved out of apps/web/locales
+  tokens/                SHIPPED — design.md token values as TypeScript (web's tokens.css is generated from it)
+  i18n/                  SHIPPED — the EN/BN locale JSON + namespaces, consumed by apps/web today
   ui/                    WEB ONLY — Radix + Tailwind + DOM. Not consumed by mobile.
   db/                    SERVER ONLY
 ```
@@ -157,10 +155,10 @@ packages/
 | --- | --- | --- |
 | API response/request contracts (`packages/types/src/api/`) | **Yes** | The single most valuable share. Mobile parses responses with the same Zod schemas the OpenAPI document is generated from, so a server change surfaces as a mobile type error. |
 | Activity & quiz payload schemas (`packages/types/src/activity`, `/quiz`) | **Yes** | The content-as-data contract. The mobile renderers are new; the schemas they render are not. |
-| Design tokens | **Yes**, via new `packages/tokens` | Values only. Web keeps `tokens.css`; mobile builds a TS theme from the same numbers. |
-| Locale strings | **Yes**, via new `packages/i18n` | Requires moving `apps/web/locales/*` and updating `apps/web/shared/lib/i18n.ts`. Small, real change to the web app. |
+| Design tokens | **Yes**, via `packages/tokens` (shipped) | Values only. Web's `tokens.css` is generated from the package; mobile builds a TS theme from the same numbers and adds native-only scales (spacing, elevation props, phone/tablet font sizes) to the package in M02. |
+| Locale strings | **Yes**, via `packages/i18n` (shipped) | `apps/web/shared/lib/i18n.ts` already imports `resources` and the namespace constants from it; a parity test fails a key present in one locale only. Mobile adds the i18next instance and `expo-localization` detection (M03). |
 | Pure logic worth lifting | **Case by case** | `evaluate.ts` (activity grading), `evaluate-answer.ts` (quiz grading), `duration.ts`, `worlds.ts`, `avatars.ts` are platform-free. Lift into a shared package **only when the mobile file would otherwise be a copy-paste** — do not pre-emptively extract. |
-| React components (`packages/ui`, `apps/web/components`) | **No** | Radix primitives are DOM-bound, Tailwind v4's `@theme` CSS variables do not exist in React Native, and every gesture-driven kid widget needs a native reimplementation regardless. Sharing here means rewriting the web app, not saving mobile work. |
+| React components (`packages/ui`, `apps/web/shared/components`) | **No** | Radix primitives are DOM-bound, Tailwind v4's `@theme` CSS variables do not exist in React Native, and every gesture-driven kid widget needs a native reimplementation regardless. Sharing here means rewriting the web app, not saving mobile work. |
 | Fetch helpers (`apps/web/shared/api/*` and each feature's `*-api.ts`) | **No, at first** | Mobile needs its own client because auth headers differ (§7.2). Extracting a shared `packages/api-client` later is a fair refactor once both sides have settled. |
 
 ### 4.3 Request flow
@@ -194,7 +192,7 @@ Every web dependency that cannot cross to native, and its replacement:
 | `canvas-confetti` | `lottie-react-native` or a Reanimated particle burst | Lottie also covers badge reveals. |
 | `<audio>` / `Audio()` | `expo-audio` | `expo-av` is deprecated — do not start on it. Narration, UI sounds, feedback sounds. |
 | `<video>` | `expo-video` | Lesson video step; needs an explicit fullscreen/orientation policy. |
-| `i18next-browser-languagedetector` | `expo-localization` | Detect device locale, then the same i18next instance and the same JSON. |
+| The `kidlearn_locale` cookie (read server-side, written by `LanguageSwitch`) | `expo-localization` | Detect device locale, then the same i18next instance and the same JSON. |
 | `localStorage` / cookies | `expo-secure-store` (session) + `@react-native-async-storage/async-storage` (preferences) | Never put the session in AsyncStorage. |
 | `document.visibilitychange` | `AppState` | Load-bearing for learning-time heartbeats and screen-time enforcement. §9. |
 | `window.matchMedia('prefers-reduced-motion')` | `AccessibilityInfo.isReduceMotionEnabled` + change listener | design.md §5.2 still applies. |
@@ -209,9 +207,10 @@ Every web dependency that cannot cross to native, and its replacement:
 `document/design.md` remains the single source of truth. What changes is only the
 mechanism:
 
-- **Tokens.** New `packages/tokens` exports the §2.2 table as TypeScript:
-  `tokens.kid.primary`, `tokens.parent.background`, plus spacing, radius, elevation and
-  motion scales. `tailwind.config.js` builds its colour palette from that object, so
+- **Tokens.** `packages/tokens` already exports the §2.2 table as TypeScript
+  (`themes.kid.colors.primary`, `themes.parent.colors.background`, plus `radius`, `motion`,
+  `brand`), held to design.md by a test. M02 adds the native-only scales (spacing, elevation
+  props, phone/tablet font sizes). `tailwind.config.js` builds its colour palette from that object, so
   `bg-primary` and `text-muted-foreground` keep working in class names.
 - **Theming.** There is no `data-theme` attribute and no CSS cascade in React Native.
   A `ThemeProvider` context supplies the active theme and NativeWind's `dark:`/variant
@@ -234,13 +233,14 @@ mechanism:
 
 ## 7. Authentication & session on native
 
-The existing model — better-auth, httpOnly cookie session, Google-only for parents
-grant and `activeChildProfileId` stored *on the session* — survives intact. Three
-concrete changes are needed.
+The existing model — better-auth, httpOnly cookie session, Google-only for parents,
+and `activeChildProfileId` stored *on the session* — survives intact. Three
+concrete changes are needed, none of which exists in the server yet (`apps/server/src/config/auth.ts`
+has no `expo()` plugin, no Apple provider and no mobile callback).
 
 ### 7.1 Server: register the Expo plugin
 
-`apps/server/src/lib/auth.ts` gains `plugins: [expo()]` and adds the app scheme
+`apps/server/src/config/auth.ts` gains `plugins: [expo()]` and adds the app scheme
 (`kidlearn://`) to `trustedOrigins` alongside `WEB_ORIGIN`. Without this, better-auth
 refuses the native redirect as an untrusted origin. CORS is unaffected — native requests
 carry no browser `Origin`.
@@ -275,19 +275,17 @@ requests. Consequences for `lib/api-client.ts`:
 - `authClient.getCookie()` is **async** in current better-auth — any helper reading it
   must be `async`.
 - Sign-out must clear SecureStore, not just call the endpoint. It must also clear the client's
-  cached session **before** navigating to the login screen — web hit this exactly: the parent
-  redirect resolver sends a fully-onboarded parent away from `/parent/login`, so navigating first
-  bounced straight back to the dashboard. The same ordering trap exists on native.
+  cached session **before** navigating to the login screen — web hit this exactly while sign-in was
+  the `/parent/login` page: the parent redirect resolver sent a fully-onboarded parent away from it,
+  so navigating first bounced straight back to the dashboard. The same ordering trap exists on
+  native. (Web sign-in is now a dialog on the homepage, outside the parent route group, so web
+  navigates without clearing first.)
 
 ### 7.5 What does *not* change
 
-> **Superseded 2026-09-09.** This section described the parental PIN gate carrying over to
-> native. The PIN was removed and FR-AUTH-04 retired; there is no grant to render a keypad for.
-> See §12.2 — the Apple Kids Category parental-gate requirement is now an **open item**, not a
-> solved one.
-
-`activeChildProfileId` continues to be set only by `POST /api/children/:id/activate`, and stays
-the one gate the server enforces on content reads.
+The parent area is reached from the signed-in Google/Apple session alone. The only server-enforced gates are `requireConsent`
+(on `POST /api/children`), `requireActiveChild` (on content reads) and, for starting content,
+screen time. `activeChildProfileId` continues to be set only by `POST /api/children/:id/activate`.
 
 ---
 
@@ -309,12 +307,12 @@ Web route → mobile route, with the porting note that matters:
 | `/stories` | `(student)/stories` | Library grid. |
 | `/stories/[id]` | `(student)/stories/[id]` | Page-turn gesture instead of buttons-only; keep the narration sync and completion reward. |
 | `/parent/login` | `(parent)/login` | Google + Apple buttons (§7.3), `expo-web-browser` session. |
-| `/parent/onboarding/{consent,child}` | `(parent)/onboarding/*` | Consent text must be legible on a phone. Two steps, not three — the PIN step was removed on 2026-09-09. |
+| `/parent/onboarding/{consent,child}` | `(parent)/onboarding/*` | Consent text must be legible on a phone. Two steps: consent, then first child. |
 | `/parent/children`, `/new`, `/[id]/edit` | `(parent)/children/*` | Max-5 rule is server-enforced; surface the error, do not re-implement. |
 | `/parent` (dashboard) | `(parent)/index` | One `GET /api/children/:id/dashboard` call, as on web. Pure-CSS bars become `<View>` widths. Child switcher becomes a native segmented control; the `?child=` URL param becomes a router param. |
 | parent top bar (all `(parent)` pages) | `(parent)/_layout` header | Web's persistent bar — section links, language switch, account menu with sign out (FR-AUTH-07) and *back to kid mode*. On native this is a `Stack.Screen` header plus a bottom tab or segmented control for the three sections; the account menu is an ActionSheet, not a dropdown. Hidden during onboarding, as on web. Sign-out must also clear SecureStore (§7.4). |
 | `/parent/children/[id]/screen-time` | `(parent)/children/[id]/screen-time` | Time pickers must be native, not text inputs. |
-| weekly reports (web file 30) | `(parent)/reports` | Gated on web file 30 existing. §3.3. |
+| `/parent/reports` | `(parent)/reports` | `GET /api/children/:id/reports`; the API is shipped. |
 | Admin CMS | — | Not ported. |
 
 ---
@@ -335,7 +333,7 @@ Things with no web counterpart, each of which is a real requirement rather than 
   screen that genuinely needs landscape — never a dead end.
 - **Hardware back / swipe-back.** Android's back button and iOS's edge swipe must not
   drop a child out of a lesson silently. Explicit interception on kid screens.
-- **Slow networks and offline.** The API is always on (web file 38), so there is no cold
+- **Slow networks and offline.** Once deployed (web file 38) the API is always on, so there is no cold
   start to absorb — but a slow or flaky mobile connection in Dhaka produces the same felt
   experience. Reuse the web's "mascot waking up" idea with retry/backoff, plus a distinct
   offline state driven by `@react-native-community/netinfo` — "no internet" and "this is
@@ -344,7 +342,7 @@ Things with no web counterpart, each of which is a real requirement rather than 
   marketing needs them later.
 - **Kid-safety in a native shell.** No outbound links from student screens, no ads, no
   third-party analytics SDK on kid surfaces (§12), external links on parent screens open
-  in a browser sheet. **They no longer open behind a parental gate — see §12.2.**
+  in a browser sheet. The adult-verification requirement that applies once any external link ships is §12.2.
 - **Splash, icon, notch, keyboard.** `expo-splash-screen` held until fonts and session
   resolve; adaptive Android icon; `KeyboardAvoidingView` on the profile forms.
 
@@ -402,20 +400,16 @@ calendar lead time that code cannot compress.
   external link or purchase, privacy policy URL. Your "no ads" position satisfies most of
   it — provided nobody adds an analytics SDK to a kid screen.
 
-  ⚠️ **The parental-gate requirement is an open item.** The PIN gate used to satisfy it and was
-  removed on 2026-09-09. Today nothing is *strictly* out of compliance, because no student screen
-  has an outbound link at all (`apps/web/app/(student)/no-external-links.test.tsx` enforces that)
-  — the requirement is met by absence, not by a gate. **The moment any external link, purchase or
-  parent-facing browser sheet ships, a gate has to exist.** Apple accepts a simple
-  adult-verification challenge (e.g. typing a spelled-out number), which is far cheaper than the
-  PIN that was removed — so this is a small build, but it must be built before M30, not
-  discovered during review.
+  Parental gate: required before any external link, purchase or parent-facing browser sheet. No
+  student screen has an outbound link (`apps/web/app/(student)/no-external-links.test.tsx` enforces
+  the web equivalent), so the requirement is met by absence today. Once one ships, M30 adds a simple
+  adult-verification challenge (e.g. typing a spelled-out number).
 - **Google Play Families / Designed for Families**: declare the target age group,
   complete the **Data Safety** form honestly (child first name and age *are* personal
   data), complete the IARC content-rating questionnaire, and meet the ads policy (none).
-- **Account deletion**: both stores require in-app deletion plus a web URL. Web file 10
-  already implements the endpoint — surface it in the mobile parent settings and publish
-  the URL.
+- **Account deletion**: both stores require in-app deletion plus a web URL. The endpoints exist
+  (`POST /api/parent/account/delete-request`, `DELETE /api/parent/account`) but web has no deletion
+  screen — M08 builds the in-app path, and the public URL is a new web requirement to add before M30.
 - **Guideline 4.8** — Sign in with Apple. Covered in §7.3 because it is engineering work,
   not paperwork.
 - **COPPA/GDPR-K posture** is unchanged: the parent holds the account, children have
@@ -458,17 +452,17 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | # | Feature | Requirement IDs | Depends on | Est. |
 | --- | --- | --- | --- | --- |
 | M01 | `apps/mobile` Expo scaffold: expo-router, TypeScript, Metro for pnpm workspaces, Biome + typecheck in Turbo, dev-client build running on a device | §7.1, NFR-SCALE-03 | — | 3–4h |
-| M02 | `packages/tokens` + NativeWind v4 + ThemeProvider (kid/parent) + `expo-font` (Fredoka/Nunito/Inter) + type scale | design.md §2–4 | M01 | 3–4h |
-| M03 | `packages/i18n`: move `apps/web/locales` out, wire i18next + `expo-localization` on mobile and keep web working; **verify `Intl` for `bn` on Android Hermes**, polyfill if needed | FR-I18N-01..03 | M01 | 3–4h |
+| M02 | Native scales added to `packages/tokens`; NativeWind v4 + ThemeProvider (kid/parent) + `expo-font` (Fredoka/Nunito/Inter) + type scale | design.md §2–4 | M01 | 3–4h |
+| M03 | Wire i18next + `expo-localization` over the existing `packages/i18n`; **verify `Intl` for `bn` on Android Hermes**, polyfill if needed; `lib/format.ts` | FR-I18N-01..03 | M01 | 2–3h |
 | M04 | `lib/api-client.ts`: typed client over `packages/types`, `{ data } \| { error }` envelope, retry/backoff, cold-start + offline states, NetInfo | §7.3, NFR-PERF-04 | M01 | 3–4h |
-| M05 | Native primitives: BigButton, IconTile, Card, Sheet, keypad, safe-area layout, reduced-motion hook, a11y label conventions | NFR-A11Y-01..06 | M02 | 3–4h |
+| M05 | Native primitives: BigButton, IconTile, Card, Sheet, safe-area layout, reduced-motion hook, a11y label conventions | NFR-A11Y-01..06 | M02 | 2–3h |
 | M06 | **Server**: `expo()` plugin, `kidlearn://` trusted origin, whitelisted mobile OAuth callback, Sign in with Apple provider (+ OpenAPI update) | FR-AUTH-02, guideline 4.8 | M04 | 3–4h |
 | M07 | Mobile auth client: `expoClient` + SecureStore, Google + Apple sign-in, session bootstrap behind the splash, sign-out, `/me` | FR-AUTH-02, FR-AUTH-06 | M06 | 3–4h |
 | M08 | Consent screen, account deletion entry point | FR-AUTH-03, FR-AUTH-05, NFR-SAFE-05..06 | M07 | 2–3h |
 | M09 | Child profile CRUD (max 5), avatar picker, activate-child | FR-PROF-01..07 | M08 | 3–4h |
 | M10 | Profile picker + active-child context, incl. the named parent chip | FR-AUTH-06, FR-PROF-03 | M09 | 3–4h |
 | M11 | World-themed home: waypoints in the thumb zone, streak display, `expo-image` art, both orientations | FR-WORLD-01..03, FR-GAM-06 | M10 | 3–4h |
-| M12 | World/lesson browsing screens, published+grade filtering via the content API | FR-CURR-02, FR-WORLD-04..05 | M11 | 3–4h |
+| M12 | World/lesson browsing screens over the content API, lesson start with the 423 branch | FR-CURR-02, FR-WORLD-04..05 | M11 | 2–3h |
 | M13 | Lesson player shell: five-step machine, resume, progress saving, back-button/exit guard | FR-LSN-01..07 | M12 | 3–4h |
 | M14 | Audio layer (`expo-audio`): narration, UI and feedback sounds, mute, ducking, screen narration hook | FR-LSN-02, FR-I18N-05 | M13 | 3–4h |
 | M15 | Intro step + video step (`expo-video`), orientation/fullscreen policy, next-step preload | FR-LSN-01..02, NFR-PERF-02 | M14 | 3–4h |
@@ -476,21 +470,21 @@ definition of done). Estimates are the same 3–4 hour chunks used for web.
 | M17 | Tracing activity: `react-native-svg` + gestures, reusing the `svg-path-properties` maths | FR-ACT-02, FR-ACT-05 | M16 | 3–4h |
 | M18 | Match + puzzle activities | FR-ACT-03..05 | M16 | 3–4h |
 | M19 | Quiz engine + MCQ + picture-select, progress indicator | FR-QUIZ-01, FR-QUIZ-04..05, 07 | M13 | 3–4h |
-| M20 | Match-pair + drag-answer formats, scoring, response recording, score screen | FR-QUIZ-02..03, 06, 08 | M19 | 3–4h |
+| M20 | Match-pair + drag-answer formats, scoring, response recording, score screen | FR-QUIZ-02..03, 06, 08 | M19, M18 | 3–4h |
 | M21 | Reward step: star burst, coin count-up, badge reveal, streak celebration (Lottie/Reanimated), reduced-motion variants | FR-LSN-05, FR-GAM-01..08 | M15, M20 | 3–4h |
 | M22 | Story library | FR-STORY-01, 04..05, 08 | M12 | 3–4h |
 | M23 | Story reader: page-turn gestures, narration sync, completion reward | FR-STORY-02..03, 06..07 | M21, M22 | 3–4h |
 | M24 | Learning-time heartbeats driven by `AppState` | FR-TIME-06, FR-LSN-07 | M13 | 3–4h |
 | M25 | Screen-time limits, access windows, friendly lockout, foreground re-check | FR-TIME-01..05 | M24 | 3–4h |
 | M26 | Parent dashboard: child switcher, minute cards, subject bars, activity timeline, empty states; the `(parent)` navigation header + account menu (sign out, back to kid mode) | FR-DASH-01..04, FR-AUTH-07 | M09, M24 | 3–4h |
-| M27 | Weekly reports screen (**blocked on web file 30**) | FR-DASH-05..06 | M26 | 3–4h |
+| M27 | Weekly reports screen | FR-DASH-05..06 | M26 | 3–4h |
 | M28 | Accessibility & device pass: TalkBack/VoiceOver, target sizes, contrast, reduced motion, tablet + low-end Android, both orientations | NFR-A11Y-*, NFR-PERF-01..03 | M21, M26 | 3–4h |
 | M29 | Performance & stability: bundle/asset budget, image and audio caching, cold-start UX, crash reporting, error boundaries | NFR-PERF-* | M28 | 3–4h |
-| M30 | App identity & store assets: icon, splash, adaptive icon, bundle IDs, screenshots (EN/BN), listings, privacy policy, Data Safety, IARC, Kids Category answers | §12 | M28 | 4–5h |
-| M31 | EAS production builds + TestFlight + Play internal testing; **requires web file 38 deployed** | §11, §12 | M29, M30 | 3–4h |
+| M30 | App identity & store assets: icon, splash, adaptive icon, bundle IDs, screenshots (EN/BN), listings, privacy policy, Data Safety, IARC, Kids Category answers, adult-verification challenge (§12.2) once any external link ships | §12 | M28 | 4–5h |
+| M31 | EAS production builds + TestFlight + Play internal testing; **requires web file 38 deployed (not yet provisioned)** | §11, §12 | M29, M30, web 38 | 3–4h |
 | M32 | Closed testing (12 testers / 14 days), review responses, production release, EAS Update channel and rollback runbook | §12 | M31 | 3–4h |
 
-Roughly **32 files ≈ 100–120 hours** of build time, plus store lead time that runs in
+Roughly **32 files ≈ 95–115 hours** of build time, plus store lead time that runs in
 parallel. The critical path to something installable on your own phone is M01 → M04 →
 M07 → M13 → M16 — about a third of the work.
 
@@ -520,10 +514,10 @@ bundle and readable by anyone who downloads it.
 | Google Play Console | $25 one-off |
 | Apple Developer Program | $99/year — the only recurring cost this plan adds |
 | EAS Build | Free tier is workable (queued builds, monthly limits). `eas build --local` on your Mac is the escape hatch for both platforms. |
-| Backend / DB / media | Unchanged — web file 38's AWS stack (~$23/month for both environments) serves the mobile app too, at no extra cost for a second client |
+| Backend / DB / media | Unchanged — web file 38's AWS stack (~$13.73/month for both environments) serves the mobile app too, at no extra cost for a second client |
 
-The backend is no longer zero-cost: web file 38 moved it to a single EC2 box running both a
-production and a development environment, for roughly $23/month. Mobile adds Apple's $99/year and
+The backend is no longer zero-cost: web file 38 plans a single EC2 box running both a
+production and a development environment, for roughly $13.73/month (not yet provisioned). Mobile adds Apple's $99/year and
 Google's one-off $25 on top of that, and nothing else recurring.
 
 ---
@@ -533,7 +527,7 @@ Google's one-off $25 on top of that, and nothing else recurring.
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
 | **Sign in with Apple missed until review** | Rejection, a lost submission cycle | Built in phase M06, before any UI depends on the sign-in shape. |
-| **Kids Category rejection** (analytics/ads/parental gate) | Weeks of delay | No third-party SDK on kid surfaces. **No parental gate exists any more** (§12.2) — build an adult-verification challenge before shipping any external link or purchase; read guideline 1.3 and 5.1.4 before M30. |
+| **Kids Category rejection** (analytics/ads/parental gate) | Weeks of delay | No third-party SDK on kid surfaces; no outbound links. If any external link or purchase ships, M30 adds the adult-verification challenge (§12.2); read guideline 1.3 and 5.1.4 before M30. |
 | **New Play account 12-tester / 14-day rule** | Two extra weeks before production | Recruit testers during phase M8; start the closed test as soon as M31 produces a build. |
 | **Gesture-driven activities feel worse than the web versions** | Core experience regression | Build M16 early on a real low-end Android; treat it as a spike whose result can change library choices. |
 | **NativeWind version churn** | Rework | Pin v4.x. v5 is pre-release, Tailwind-v4-only and yarn-only — do not adopt on this project. |
@@ -541,7 +535,7 @@ Google's one-off $25 on top of that, and nothing else recurring.
 | **pnpm + Metro resolution issues** | Confusing early-days breakage | Solved once in M01 with a monorepo Metro config; never worked around per-file. |
 | **API not publicly deployed** | Cannot submit at all | Web file 38 is a stated prerequisite of M31. |
 | **Cookie-session on native is subtly different from web** | Silent 401s | All requests go through one wrapper (M04); `getCookie()` is awaited; sign-out clears SecureStore. |
-| **Content thinness on a device demo** | Looks unfinished | Independent of mobile: needs web files 31–37 or expanded seeds. |
+| **Content thinness on a device demo** | Looks unfinished | Independent of mobile: the admin CMS and AI pipeline (shipped) must have published enough content. |
 | **Solo maintenance of three clients** | Sustained cost | The shared contract package is the lever — keep response types in `packages/types`, never redeclared per client. |
 
 ---
@@ -551,8 +545,9 @@ Google's one-off $25 on top of that, and nothing else recurring.
 1. **Sign in with Apple identity linking** — when a parent signs in with Google on web
    and Apple on mobile, do they get one `Parent` or two? Decide in M06; email matching is
    the usual answer, and Apple's private relay is the edge case to write down.
-2. **Reports before or after launch** — ship the mobile dashboard without weekly reports
-   (M27 deferred) or block on web file 30?
+2. **In-app accessibility preferences** — web has high-contrast, dyslexia-font and reduced-motion
+   toggles (`packages/ui/src/lib/a11y-prefs.ts`, NFR-A11Y-03..05). Port them at MVP, or rely on OS
+   settings only (M05 does the latter)?
 3. **Android minimum version** — API 24 or 26? Affects device reach and some libraries.
 4. **Tablet layout ambition at MVP** — "works" versus "designed for".
 5. **Push notifications** — post-launch feature or never? It changes the store

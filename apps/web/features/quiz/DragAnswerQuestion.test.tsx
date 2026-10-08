@@ -1,6 +1,12 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { validDragAnswer } from "@kidlearn/types";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
@@ -18,10 +24,8 @@ import {
 } from "./use-question-feedback";
 
 /**
- * jsdom cannot perform a drag — there is no layout, so no collision detection
- * and no sensor run. The answer rules are therefore driven through
- * `useDragAnswer` directly, which is the reason that hook exists; the render
- * tests below cover only what the markup is, not what dragging does to it.
+ * jsdom cannot drag (no layout), so answer rules are driven through `useDragAnswer`; render tests
+ * cover markup only.
  */
 
 const audio = vi.hoisted(() => ({
@@ -40,10 +44,7 @@ vi.mock("@/shared/components/AudioProvider", async () => {
 });
 
 function dragEnd(optionId: string, overId: string | null): DragEndEvent {
-  // A real `DragEndEvent` carries the whole sensor run — collisions, deltas, the
-  // activator event, both measured rects. `handleDragEnd` reads two fields of
-  // it, so the fixture supplies those; the cast is what stands in for a drag the
-  // environment cannot produce, and narrowing is impossible by construction.
+  // The cast stands in for a drag jsdom cannot produce; `handleDragEnd` reads only two fields.
   return {
     active: {
       id: optionId,
@@ -63,9 +64,8 @@ function dragEnd(optionId: string, overId: string | null): DragEndEvent {
 }
 
 /**
- * The hook under test, wired to the *real* feedback channel: the lock that
- * ignores a drop during the cheer lives inside it, and a stubbed channel would
- * prove only that the hook calls a function.
+ * Wired to the real feedback channel: its lock ignores a drop during the cheer, which a stub would
+ * not prove.
  */
 function renderDragAnswer() {
   const onAttempt =
@@ -93,8 +93,8 @@ describe("splitAtBlank", () => {
   });
 
   it("degrades to the whole sentence when a payload carries no token", () => {
-    // The schema guarantees one token, but a payload is JSONB validated in a
-    // different process — rendering `undefined` at a child is the worse failure.
+    // The schema guarantees one token, but the JSONB is validated in another process; rendering
+    // `undefined` at a child is worse.
     expect(splitAtBlank("The sky is blue.")).toEqual({
       before: "The sky is blue.",
       after: "",
@@ -174,8 +174,7 @@ describe("useDragAnswer", () => {
 
     act(() => result.current.handleDragEnd(dragEnd("blue", null)));
 
-    // The child has not answered yet, so there is nothing to encourage them
-    // about — silence, not a retry.
+    // The child has not answered yet: silence, not a retry.
     expect(result.current.lockedId).toBeUndefined();
     expect(onAttempt).not.toHaveBeenCalled();
     expect(onCommit).not.toHaveBeenCalled();
@@ -272,5 +271,45 @@ describe("DragAnswerQuestion", () => {
     expect(screen.getByTestId("quiz-drag-answer").textContent).not.toMatch(
       /wrong|try again/i,
     );
+  });
+
+  describe("tap to place — the path that needs no drag", () => {
+    function renderWithSpies() {
+      const onAttempt =
+        vi.fn<(answer: QuizAnswerValue, isCorrect: boolean) => void>();
+      render(
+        <Providers locale="en">
+          <DragAnswerQuestion
+            definition={validDragAnswer}
+            locale="en"
+            feedback={{ isLocked: false, correct: vi.fn(), retry: vi.fn() }}
+            onAttempt={onAttempt}
+            onCommit={vi.fn()}
+          />
+        </Providers>,
+      );
+      return { onAttempt };
+    }
+
+    it("answers with the word in hand when the gap is tapped", () => {
+      const { onAttempt } = renderWithSpies();
+
+      fireEvent.click(screen.getByTestId("quiz-drag-option-blue"));
+      fireEvent.click(screen.getByTestId("quiz-drag-blank"));
+
+      expect(onAttempt).toHaveBeenCalledWith("blue", true);
+    });
+
+    it("does not pick up a word that has already been tried", () => {
+      const { onAttempt } = renderWithSpies();
+
+      fireEvent.click(screen.getByTestId("quiz-drag-option-green"));
+      fireEvent.click(screen.getByTestId("quiz-drag-blank"));
+      fireEvent.click(screen.getByTestId("quiz-drag-option-green"));
+      fireEvent.click(screen.getByTestId("quiz-drag-blank"));
+
+      expect(onAttempt).toHaveBeenCalledTimes(1);
+      expect(onAttempt).toHaveBeenCalledWith("green", false);
+    });
   });
 });

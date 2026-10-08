@@ -11,7 +11,7 @@ Turn the app into signed store builds pointing at the **deployed** API, get them
 
 ## Blocking dependency
 
-**Web file 38 (deployment) must be ✅ Done.** A store build cannot point at `localhost` or a LAN IP: it needs a public HTTPS API with a stable hostname. File 38 also sets `WEB_ORIGIN`, the production Google OAuth redirect URI, `BETTER_AUTH_URL` and the Supabase production database — every one of which the mobile sign-in flow depends on. File 38 deploys straight onto `api.kidlearn.net`, so the hostname the app is built against is permanent — there is no platform-assigned URL that could change and force an OAuth reconfiguration and a rebuild. Web file 38a (deploy automation) is not required for this file.
+**Web file 38 (deployment) must be ✅ Done** — as of the last tracker update it is in progress: the Dockerfiles, proxy settings and CI escape hatch are done, but no AWS, Vercel, Cloudflare or Supabase resource is provisioned. A store build cannot point at `localhost` or a LAN IP: it needs a public HTTPS API with a stable hostname. File 38 also sets `WEB_ORIGIN`, the production Google OAuth redirect URI, `BETTER_AUTH_URL` and the Supabase production database — every one of which the mobile sign-in flow depends on. File 38 deploys straight onto `api.kidlearn.net`, so the hostname the app is built against is permanent — there is no platform-assigned URL that could change and force an OAuth reconfiguration and a rebuild. Web file 38a (deploy automation) is not required for this file.
 
 Additionally, M06's server changes must be **deployed**, not merely merged: `expo()` plugin, `kidlearn://` in `trustedOrigins`, the whitelisted mobile callback and the Apple provider all have to be live for a store build to authenticate.
 
@@ -34,7 +34,7 @@ Additionally, M06's server changes must be **deployed**, not merely merged: `exp
 5. **Submission.** `eas submit --platform android` to Play **internal testing**, `eas submit --platform ios` to **TestFlight**. Internal testing and TestFlight are the two tracks that need no review wait, which is what makes them the right place to find the "it works on my Mac" bugs.
 6. **The production smoke test — the real deliverable.** On a **physical Android device** and a **physical iPhone**, installed from the store tracks (not sideloaded), against production infrastructure:
    - sign in with Google; sign in with Apple (iOS);
-   - record consent, set a PIN, pass the gate;
+   - record consent;
    - add a child, activate the profile;
    - complete a full lesson through all five steps and see the reward;
    - read a story to the end;
@@ -43,7 +43,7 @@ Additionally, M06's server changes must be **deployed**, not merely merged: `exp
    - sign out and back in;
    - delete a throwaway account and confirm it is gone.
    Anything that fails here is a release blocker, not a note for later.
-7. **Cold-start behaviour against the real free tier.** Measure the actual wake time of the sleeping server from a cold app launch and tune M29's escalation copy thresholds to what it really is. This is the first time the number is knowable.
+7. **Slow-start behaviour against the deployed API.** Measure first-request latency from a cold app launch on a throttled mobile connection, and tune M29's escalation copy thresholds to what it really is. This is the first time the number is knowable.
 8. **OTA channel configuration.** Configure `expo-updates`: a `production` channel bound to the production build profile, an explicit `runtimeVersion` policy (fingerprint or appVersion) so a JS update can never land on an incompatible native binary, and a documented rule — **JS-only fixes ship OTA; anything touching native code, permissions, SDK versions or `app.config.ts` needs a new build**. Test one OTA update end to end on the internal-testing build before relying on it.
 9. **Version and build numbering.** Confirm `1.0.0` with EAS-managed build numbers, and write down the bump policy (patch for OTA-able fixes shipped as builds, minor for features) so the next release does not have to invent one.
 10. **Recruit the testers M32 needs.** Google's 12-tester/14-day closed test starts in M32 but the people have to exist. Create the closed-testing track, prepare the tester list and the opt-in link, and start recruiting now — this is the calendar-critical item in the whole plan.
@@ -122,7 +122,7 @@ Record the smoke test as a table with device model, OS version, pass/fail per st
 5. Submit to Play internal testing and install on a physical Android device from the track. (~25 min)
 6. Run the iOS production build with EAS-managed credentials; submit to TestFlight; install on a physical iPhone. (~45 min including queue and processing)
 7. Run the full production smoke test on both devices, recording results per step. Fix any blocker and rebuild. (~60 min)
-8. Measure the real cold-start wake time and tune M29's escalation thresholds. (~20 min)
+8. Measure real first-request latency and tune M29's escalation thresholds. (~20 min)
 9. Test one OTA update end to end on the internal build (change a string, `eas update --branch production`, confirm it lands and that a native-change attempt is correctly refused by the runtime policy). (~30 min)
 10. Create the Play closed-testing track and start recruiting the 12 testers M32 needs. (~25 min)
 11. Update `notes/store-submission.md`, start `notes/release-runbook.md`, commit, update the tracker. (~25 min)
@@ -133,8 +133,8 @@ Record the smoke test as a table with device model, OS version, pass/fail per st
 - [ ] The pre-build prerequisite checklist passed against the live API: health, mobile OAuth redirect, Google redirect URI, Apple credentials, `trustedOrigins`.
 - [ ] An Android AAB is in Play **internal testing** and installs on a physical device; Play App Signing is enabled and the upload keystore's location is recorded.
 - [ ] An iOS build is in **TestFlight** and installs on a physical iPhone, with Sign in with Apple working.
-- [ ] The full production smoke test passes on both platforms — sign-in (both providers on iOS), consent, PIN, child creation, a complete lesson with reward, a story, dashboard minutes, a screen-time lock, sign-out/in, and account deletion — with results recorded per device.
-- [ ] The real free-tier cold-start wake time is measured and M29's escalation copy matches it.
+- [ ] The full production smoke test passes on both platforms — sign-in (both providers on iOS), consent, child creation, a complete lesson with reward, a story, dashboard minutes, a screen-time lock, sign-out/in, and account deletion — with results recorded per device.
+- [ ] Real first-request latency against the deployed API is measured and M29's escalation copy matches it.
 - [ ] `expo-updates` is configured with a `production` channel and an explicit `runtimeVersion` policy, and one OTA update has been shipped and verified on the internal build.
 - [ ] The OTA rule ("JS-only OTA; native, permission, SDK or config changes need a build") is written down.
 - [ ] Version `1.0.0` with EAS-managed build numbers, and a written bump policy.

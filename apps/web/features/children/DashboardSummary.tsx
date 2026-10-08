@@ -1,15 +1,14 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { DashboardData } from "@kidlearn/types";
 import { CalendarDays, CalendarRange, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatMinutes } from "@/features/screen-time/duration";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { StatCard } from "../../shared/components/StatCard";
+import { StatCard } from "@/shared/components/StatCard";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { SubjectProgressCard } from "./SubjectProgressCard";
 
-/** The whole dashboard for one child, from one payload (FR-DASH-01..04). */
 export interface DashboardSummaryProps {
   data: DashboardData;
   childName: string;
@@ -24,14 +23,13 @@ export function DashboardSummary({
   const { t } = useTranslation(PARENT_NAMESPACE);
 
   const { today, week, month } = data.learningMinutes;
-  // Per window rather than "has this child ever learned": a parent looking at
-  // Monday morning has a real month and an empty day, and one blanket note would
-  // be wrong about both.
+  // Per window, not "ever learned": Monday morning has a real month and an empty day.
   const nothingYet = t("dashboard.noTimeYet");
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row">
+      {/* Today across the top and the two longer windows beneath it on a phone: three stacked cards push the subjects below the fold. */}
+      <div className="grid grid-cols-2 gap-3 *:first:col-span-2 sm:grid-cols-3 sm:*:first:col-span-1">
         <StatCard
           tone="featured"
           icon={<Clock aria-hidden className="size-3.5" />}

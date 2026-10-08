@@ -1,9 +1,4 @@
-/**
- * One call per quiz question (FR-AI-01, FR-AI-03).
- *
- * The Gemini client is mocked, which `general.md §5` permits explicitly: external
- * network boundaries are the one allowed mock.
- */
+// The Gemini client is mocked: external network boundaries are the one allowed mock (general.md §5).
 
 import { QUIZ_QUESTION_SCHEMAS, validMcq } from "@kidlearn/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";

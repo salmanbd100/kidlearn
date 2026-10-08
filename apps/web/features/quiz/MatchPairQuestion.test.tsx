@@ -10,10 +10,8 @@ import type { QuizAnswerValue } from "./types";
 import { CORRECT_HOLD_MS, RETRY_HOLD_MS } from "./use-question-feedback";
 
 /**
- * Driven through the real feedback channel rather than a spy, like the MCQ
- * suite: the lock that ignores a tap during the closing cheer lives inside
- * `useQuestionFeedback`, and a stubbed channel would prove only that the
- * component calls a function.
+ * Real feedback channel, not a spy: the lock that ignores a tap during the closing cheer lives in
+ * `useQuestionFeedback`.
  */
 
 const audio = vi.hoisted(() => ({
@@ -70,7 +68,6 @@ function tap(id: string) {
   fireEvent.click(card(id));
 }
 
-/** Matches both pairs cleanly, in the order a child would. */
 function matchEverything() {
   tap("dog");
   tap("woof");
@@ -161,8 +158,8 @@ describe("MatchPairQuestion", () => {
       matchEverything();
       act(() => vi.advanceTimersByTime(CORRECT_HOLD_MS));
 
-      // One wrong pair then a finish: two attempts, the first of which was not
-      // correct — which is what makes this record score as "did not know it".
+      // One wrong pair then a finish: two attempts, the first incorrect, so the record scores as
+      // "did not know it".
       expect(onAttempt).toHaveBeenCalledTimes(2);
       expect(onAttempt).toHaveBeenNthCalledWith(2, BOTH_PAIRS, true);
       expect(onCommit).toHaveBeenCalledWith(BOTH_PAIRS);
@@ -193,8 +190,8 @@ describe("MatchPairQuestion", () => {
 
       expect(card("dog")).toHaveAttribute("data-state", "matched");
       expect(card("woof")).toHaveAttribute("data-state", "matched");
-      // A pair matched mid-question is working, not an attempt: counting it
-      // would make a four-pair question cost four attempts to answer perfectly.
+      // A pair matched mid-question is working, not an attempt: counting it would make a perfect
+      // four-pair answer cost four attempts.
       expect(onAttempt).not.toHaveBeenCalled();
       expect(onCommit).not.toHaveBeenCalled();
     });
@@ -210,7 +207,6 @@ describe("MatchPairQuestion", () => {
         expect.objectContaining({ interrupt: true }),
       );
 
-      // No hold between pairs — the next pair is answerable immediately.
       tap("cat");
       tap("meow");
       expect(onAttempt).toHaveBeenCalledWith(BOTH_PAIRS, true);

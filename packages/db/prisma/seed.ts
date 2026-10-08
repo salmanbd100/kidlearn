@@ -6,21 +6,16 @@ import { seedStories } from "./seed-stories.js";
 const prisma = new PrismaClient();
 
 const DEV_PARENT_EMAIL = "dev-parent@kidlearn.local";
-/** Fixed id so re-seeding is idempotent; better-auth uses opaque string ids. */
 const DEV_PARENT_USER_ID = "dev-user-parent";
 
 /**
- * `@kidlearn/types` fixtures are typed as the interfaces Zod infers, which do
- * not carry the index signature Prisma's `InputJsonValue` requires. Round-
- * tripping through `JSON.stringify` produces the same value with a type the
- * driver accepts — a real conversion at a verified boundary, not a cast that
- * asserts something untrue.
+ * Fixtures are typed as Zod-inferred interfaces, which lack the index signature Prisma's `InputJsonValue` requires;
+ * a `JSON.stringify` round-trip yields the same value in an accepted type, a real conversion rather than a cast.
  */
 function asJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
-/** Child-facing display names, in both locales. */
 async function seedNames(
   rows: {
     world?: string;
@@ -58,48 +53,8 @@ async function seedNames(
   }
 }
 
-async function main() {
-  // File 09 — every Parent hangs off a better-auth `user` row. This fixture has
-  // no `account` row on purpose, so it cannot sign in: real parents get their
-  // identity from the Google callback. It exists only to satisfy the FK for
-  // local development and to give the child-profile fixtures an owner.
-  const devUser = await prisma.user.upsert({
-    where: { id: DEV_PARENT_USER_ID },
-    update: {},
-    create: {
-      id: DEV_PARENT_USER_ID,
-      email: DEV_PARENT_EMAIL,
-      name: "Dev Parent",
-      emailVerified: true,
-    },
-  });
-
-  const parent = await prisma.parent.upsert({
-    where: { email: DEV_PARENT_EMAIL },
-    update: {},
-    create: {
-      userId: devUser.id,
-      googleId: "dev-google-id",
-      email: DEV_PARENT_EMAIL,
-      name: "Dev Parent",
-      consentGivenAt: new Date(),
-      consentVersion: "dev-1",
-    },
-  });
-
-  await prisma.childProfile.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000001" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000001",
-      firstName: "Ava",
-      age: 4,
-      gradeLevel: "NURSERY",
-      preferredLanguage: "en",
-      parentId: parent.id,
-    },
-  });
-
+/** Structure a production database needs before the admin CMS can add lessons: worlds, subjects, characters, badges. */
+async function seedReference() {
   const jungle = await prisma.world.upsert({
     where: { slug: "jungle" },
     update: {},
@@ -193,172 +148,6 @@ async function main() {
     { topic: alphabet.id, en: "Alphabet", bn: "বর্ণমালা" },
   ]);
 
-  /**
-   * `conceptsIntroduced` is owned on **update** as well as create, for the reason
-   * `title` is below: the `weekly_report_concepts` migration backfills every
-   * existing row with an empty array, so with `update: {}` a re-seed would leave
-   * the demo lessons teaching nothing and every weekly report counting zero new
-   * letters. The tokens are the honest content of each lesson, not filler — an
-   * unrecognised prefix is ignored by the aggregator, a wrong one is a lie in a
-   * parent's report.
-   */
-  const lessonA = await prisma.lesson.upsert({
-    where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a" } },
-    update: { conceptsIntroduced: ["letter:A", "word:apple", "word:ant"] },
-    create: {
-      slug: "letter-a",
-      title: "Letter A",
-      sortOrder: 1,
-      gradeLevels: ["NURSERY", "KG1"],
-      status: "draft",
-      topicId: alphabet.id,
-      worldId: jungle.id,
-      conceptsIntroduced: ["letter:A", "word:apple", "word:ant"],
-    },
-  });
-
-  /**
-   * `title` is the one field this seed asserts on **update** as well as create.
-   */
-  await prisma.lessonTranslation.upsert({
-    where: { lessonId_language: { lessonId: lessonA.id, language: "en" } },
-    update: { title: "Letter A" },
-    create: {
-      lessonId: lessonA.id,
-      language: "en",
-      title: "Letter A",
-      introScript: "Hello! Today we are going to learn about the letter A!",
-    },
-  });
-
-  await prisma.lessonTranslation.upsert({
-    where: { lessonId_language: { lessonId: lessonA.id, language: "bn" } },
-    update: { title: "অক্ষর A" },
-    create: {
-      lessonId: lessonA.id,
-      language: "bn",
-      title: "অক্ষর A",
-      introScript: "হ্যালো! আজ আমরা A অক্ষর সম্পর্কে শিখব!",
-    },
-  });
-
-  // File 05 — Activity, Quiz & Story seed data
-
-  // 1. One drag-drop Activity with the exact-shaped definition
-  const letterAActivity = await prisma.activity.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000101" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000101",
-      type: "drag_drop",
-      status: "published",
-      definition: {
-        version: 1,
-        prompt: "Match the letter!",
-        items: [
-          {
-            id: "apple",
-            imageUrl: "https://placehold.co/200x200?text=Apple",
-            target: "A",
-          },
-        ],
-        targets: [{ id: "A", label: "A" }],
-      },
-    },
-  });
-
-  // 2. One Quiz with 3 mcq/picture_select questions, sortOrder 1–3.
-  const letterAQuiz = await prisma.quiz.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000201" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000201",
-      title: "Letter A Quiz",
-      status: "published",
-    },
-  });
-
-  // Question 1 — mcq: which letter is this?
-  await prisma.quizQuestion.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000202" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000202",
-      quizId: letterAQuiz.id,
-      format: "mcq",
-      sortOrder: 1,
-      definition: {
-        version: 1,
-        prompt: "Which letter is this?",
-        options: [
-          { id: "a", label: "A" },
-          { id: "b", label: "B" },
-        ],
-        correctOptionId: "a",
-      },
-    },
-  });
-
-  // Question 2 — picture_select: pick the picture starting with A
-  await prisma.quizQuestion.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000203" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000203",
-      quizId: letterAQuiz.id,
-      format: "picture_select",
-      sortOrder: 2,
-      definition: {
-        version: 1,
-        prompt: "Select the picture that starts with A",
-        options: [
-          { id: "apple", imageUrl: "https://placehold.co/200x200?text=Apple" },
-          { id: "ball", imageUrl: "https://placehold.co/200x200?text=Ball" },
-        ],
-        correctOptionId: "apple",
-      },
-    },
-  });
-
-  // Question 3 — mcq: what sound does the letter 'A' make?
-  await prisma.quizQuestion.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000204" },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000204",
-      quizId: letterAQuiz.id,
-      format: "mcq",
-      sortOrder: 3,
-      definition: {
-        version: 1,
-        prompt: "What sound does the letter 'A' make?",
-        options: [
-          { id: "apple", label: "Apple" },
-          { id: "cat", label: "cat" },
-        ],
-        correctOptionId: "apple",
-      },
-    },
-  });
-
-  // 3. Write the Activity + Quiz onto the existing seeded letter-a lesson via update.
-  await prisma.lesson.update({
-    where: { id: lessonA.id },
-    data: {
-      activityId: letterAActivity.id,
-      quizId: letterAQuiz.id,
-    },
-  });
-
-  // The dev story library is `stories.ts` + `seedStories()`, not this file.
-  // An inline `the-sharing-monkey` used to live here with two pages on fixed
-  // ids; `seedStory` deletes and recreates a story's pages on every run, so on
-  // the second seed those ids were gone and recreating sortOrder 1 collided
-  // with the page `seedStories` had just written — `db:seed` was not
-  // idempotent. One owner for the story removes the collision entirely.
-
-  //------------part-6-----------
-  // ---------- Default Character ----------
   const characterLion = await prisma.character.upsert({
     where: { slug: "leo-the-lion" },
     update: {},
@@ -371,10 +160,7 @@ async function main() {
     },
   });
 
-  // ---------- Starter avatar set (file 14) ----------
-  // The child-profile form offers every published `isDefault` character, so one
-  // seeded character meant a picker with a single option and no real choice
-  // (FR-PROF-02). These five join Leo to make the six-avatar starter set.
+  // The picker offers every published `isDefault` character; Leo alone gave no choice (FR-PROF-02).
   const STARTER_CHARACTERS = [
     { slug: "ellie-the-elephant", name: "Ellie the Elephant" },
     { slug: "tara-the-turtle", name: "Tara the Turtle" },
@@ -397,10 +183,7 @@ async function main() {
     });
   }
 
-  // ---------- Earned characters (file 24, FR-GAM-05) ----------
-  // `isDefault: false` and a real `unlockRule`, which is what separates these
-  // from the starter set above: they appear in the picker as locked silhouettes
-  // and become selectable when the child's ledger totals meet the criteria.
+  // `isDefault: false` with a real `unlockRule`: shown as locked silhouettes until the child's ledger meets the criteria.
   const UNLOCKABLE_CHARACTERS = [
     {
       slug: "mia-the-monkey",
@@ -422,24 +205,19 @@ async function main() {
   for (const { slug, name, unlockRule } of UNLOCKABLE_CHARACTERS) {
     await prisma.character.upsert({
       where: { slug },
-      // The rule is owned on update, for the reason the badge block below gives.
       update: { unlockRule, isDefault: false },
       create: { slug, name, isDefault: false, status: "published", unlockRule },
     });
   }
 
-  /**
-   * `ruleType` and `rule` are owned on **update**, unlike almost every other
-   * upsert in this file.
-   */
+  /** `ruleType` and `rule` are owned on update, unlike most upserts here. */
   const MVP_BADGES = [
     {
       slug: "alphabet-hero",
       name: "Alphabet Hero",
       description: "Complete all letters in the Alphabet topic",
       ruleType: "lessons_completed_in_topic",
-      // `"all"`, not 26: publishing a twenty-seventh letter lesson must move the
-      // goalposts without anyone re-authoring this row.
+      // `"all"`, not 26: a twenty-seventh letter lesson must move the goalposts without re-authoring this row.
       rule: { topicSlug: "alphabet", count: "all" },
     },
     {
@@ -459,7 +237,7 @@ async function main() {
     {
       slug: "animal-expert",
       name: "Animal Expert",
-      // Honestly measured: 20 *questions* answered right, not 20 lessons opened.
+      // 20 questions answered right, not 20 lessons opened.
       description: "Identify 20 animals correctly",
       ruleType: "quiz_correct_in_topic",
       rule: { topicSlug: "animals", count: 20 },
@@ -488,6 +266,194 @@ async function main() {
     });
   }
 
+  return { jungle, alphabet, characterLion };
+}
+
+/** Dev parent, sample lessons and stories. Their media lives in the gitignored `apps/web/public/dev` and on placeholder hosts, so none of it may reach a deployed database. */
+async function seedDevFixtures({
+  jungle,
+  alphabet,
+  characterLion,
+}: Awaited<ReturnType<typeof seedReference>>) {
+  // No `account` row on purpose, so this parent cannot sign in; it only satisfies the FK for local fixtures.
+  const devUser = await prisma.user.upsert({
+    where: { id: DEV_PARENT_USER_ID },
+    update: {},
+    create: {
+      id: DEV_PARENT_USER_ID,
+      email: DEV_PARENT_EMAIL,
+      name: "Dev Parent",
+      emailVerified: true,
+    },
+  });
+
+  const parent = await prisma.parent.upsert({
+    where: { email: DEV_PARENT_EMAIL },
+    update: {},
+    create: {
+      userId: devUser.id,
+      googleId: "dev-google-id",
+      email: DEV_PARENT_EMAIL,
+      name: "Dev Parent",
+      consentGivenAt: new Date(),
+      consentVersion: "dev-1",
+    },
+  });
+
+  await prisma.childProfile.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000001" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000001",
+      firstName: "Ava",
+      age: 4,
+      gradeLevel: "NURSERY",
+      preferredLanguage: "en",
+      parentId: parent.id,
+    },
+  });
+
+  /** Owned on update too: the `weekly_report_concepts` backfill leaves an empty array, so `update: {}` would leave demo lessons teaching nothing. */
+  const lessonA = await prisma.lesson.upsert({
+    where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a" } },
+    update: { conceptsIntroduced: ["letter:A", "word:apple", "word:ant"] },
+    create: {
+      slug: "letter-a",
+      title: "Letter A",
+      sortOrder: 1,
+      gradeLevels: ["NURSERY", "KG1"],
+      status: "draft",
+      topicId: alphabet.id,
+      worldId: jungle.id,
+      conceptsIntroduced: ["letter:A", "word:apple", "word:ant"],
+    },
+  });
+
+  /** The one field this seed asserts on update as well as create. */
+  await prisma.lessonTranslation.upsert({
+    where: { lessonId_language: { lessonId: lessonA.id, language: "en" } },
+    update: { title: "Letter A" },
+    create: {
+      lessonId: lessonA.id,
+      language: "en",
+      title: "Letter A",
+      introScript: "Hello! Today we are going to learn about the letter A!",
+    },
+  });
+
+  await prisma.lessonTranslation.upsert({
+    where: { lessonId_language: { lessonId: lessonA.id, language: "bn" } },
+    update: { title: "অক্ষর A" },
+    create: {
+      lessonId: lessonA.id,
+      language: "bn",
+      title: "অক্ষর A",
+      introScript: "হ্যালো! আজ আমরা A অক্ষর সম্পর্কে শিখব!",
+    },
+  });
+
+  const letterAActivity = await prisma.activity.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000101" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000101",
+      type: "drag_drop",
+      status: "published",
+      definition: {
+        version: 1,
+        prompt: "Match the letter!",
+        items: [
+          {
+            id: "apple",
+            imageUrl: "https://placehold.co/200x200?text=Apple",
+            target: "A",
+          },
+        ],
+        targets: [{ id: "A", label: "A" }],
+      },
+    },
+  });
+
+  const letterAQuiz = await prisma.quiz.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000201" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000201",
+      title: "Letter A Quiz",
+      status: "published",
+    },
+  });
+
+  await prisma.quizQuestion.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000202" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000202",
+      quizId: letterAQuiz.id,
+      format: "mcq",
+      sortOrder: 1,
+      definition: {
+        version: 1,
+        prompt: "Which letter is this?",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+        correctOptionId: "a",
+      },
+    },
+  });
+
+  await prisma.quizQuestion.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000203" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000203",
+      quizId: letterAQuiz.id,
+      format: "picture_select",
+      sortOrder: 2,
+      definition: {
+        version: 1,
+        prompt: "Select the picture that starts with A",
+        options: [
+          { id: "apple", imageUrl: "https://placehold.co/200x200?text=Apple" },
+          { id: "ball", imageUrl: "https://placehold.co/200x200?text=Ball" },
+        ],
+        correctOptionId: "apple",
+      },
+    },
+  });
+
+  await prisma.quizQuestion.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000204" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000204",
+      quizId: letterAQuiz.id,
+      format: "mcq",
+      sortOrder: 3,
+      definition: {
+        version: 1,
+        prompt: "What sound does the letter 'A' make?",
+        options: [
+          { id: "apple", label: "Apple" },
+          { id: "cat", label: "cat" },
+        ],
+        correctOptionId: "apple",
+      },
+    },
+  });
+
+  await prisma.lesson.update({
+    where: { id: lessonA.id },
+    data: {
+      activityId: letterAActivity.id,
+      quizId: letterAQuiz.id,
+    },
+  });
+
+  // The dev story library is `stories.ts` + `seedStories()`; a second inline owner made `db:seed` non-idempotent (page id collision).
+
   const ChildProfileUpdate = await prisma.childProfile.update({
     where: { id: "00000000-0000-0000-0000-000000000001" },
     data: { avatarCharacterId: characterLion.id },
@@ -506,24 +472,10 @@ async function main() {
     },
   });
 
-  //------------part-12 · curriculum content read API fixtures-----------------
-  // Developer scaffolding for `GET /api/content/*` and for the frontend files
-  // 15–22. Everything below is upserted on a stable id or slug, so running the
-  // seed twice changes no row count.
+  // Developer scaffolding for `GET /api/content/*`; upserted on stable ids so re-seeding changes no row count.
 
-  // ---------- Media assets ----------
-  // Local paths, not a CDN host that does not resolve. The lesson player is the
-  // first screen where a broken media url is indistinguishable from a broken
-  // player, so the seeded lesson points at files a developer can actually serve
-  // — `apps/web/public/dev/`, which has a README saying what to drop there. The
-  // real assets arrive by admin upload (file 33) and the AI pipeline (file 36).
-  //
-  // The mascot below is the reason this rule is not only about the player: a
-  // remote host reaching `next/image` throws `Invalid src prop` unless the origin
-  // is listed in `MEDIA_ASSET_HOSTS`, so an unresolvable CDN url took down the
-  // whole home screen rather than showing one broken image. A relative path skips
-  // `remotePatterns` entirely and degrades to a missing image, which is what a
-  // seeded placeholder should do.
+  // Local paths, not an unresolvable CDN: a broken media url is indistinguishable from a broken player, and a remote host
+  // missing from `MEDIA_ASSET_HOSTS` makes `next/image` throw and takes down the whole home screen.
   const jungleMascot = await prisma.mediaAsset.upsert({
     where: { id: "00000000-0000-0000-0000-000000000401" },
     update: { url: "/dev/mascot-jungle-monkey.png" },
@@ -545,9 +497,7 @@ async function main() {
     },
   });
 
-  // Deliberately absent for `bn`: the Bangla lesson below falls back to the
-  // English film, which is the `assetFallbacks.videoUrl` path (FR-I18N-01) and
-  // the only way to exercise it without a second recording.
+  // Absent for `bn` on purpose: exercises the `assetFallbacks.videoUrl` fallback (FR-I18N-01).
   const letterAPosterEn = await prisma.mediaAsset.upsert({
     where: { id: "00000000-0000-0000-0000-000000000404" },
     update: { url: "/dev/letter-a.en.jpg" },
@@ -581,16 +531,12 @@ async function main() {
     },
   });
 
-  // FR-WORLD-05 — the mascot the world screen themes itself with. Written as a
-  // separate update because the `jungle` upsert above passes `update: {}`.
+  // A separate update because the `jungle` upsert above passes `update: {}`.
   await prisma.world.update({
     where: { id: jungle.id },
     data: { mascotAssetId: jungleMascot.id },
   });
 
-  // ---------- Activity + quiz, straight from the @kidlearn/types fixtures ----
-  // Reusing the canonical fixtures is what guarantees the seeded JSONB parses
-  // with the very parsers `GET /api/content/lessons/:id` runs against it.
   const dragTheAnimalHome = await prisma.activity.upsert({
     where: { id: "00000000-0000-0000-0000-000000000110" },
     update: { definition: asJson(validDragDrop) },
@@ -648,8 +594,7 @@ async function main() {
 
   const letterASounds = await prisma.lesson.upsert({
     where: { topicId_slug: { topicId: alphabet.id, slug: "letter-a-sounds" } },
-    // Shares `letter:A` with the draft `letter-a` lesson on purpose: the report's
-    // dedupe is what stops a child who finished both being credited two letters.
+    // Shares `letter:A` with the draft lesson on purpose: the report's dedupe stops a child who finished both being credited twice.
     update: {
       conceptsIntroduced: ["letter:A", "word:apple", "word:alligator"],
     },
@@ -699,19 +644,15 @@ async function main() {
       title: "অক্ষর A",
       introScript: "হ্যালো! আজ আমরা A বর্ণটি শিখব।",
       videoAssetId: letterAVideoBn.id,
-      // No Bangla poster or narration: a `bn` child on this lesson gets the
-      // English poster and the English voice, which is exactly the pair of
-      // `assetFallbacks` flags file 17 reports (FR-I18N-01).
+      // No Bangla poster or narration: exercises both `assetFallbacks` flags (FR-I18N-01).
     },
   });
 
-  // English-only on purpose: exercises the `bn → en` fallback by hand.
   const letterAPractice = await prisma.lesson.upsert({
     where: {
       topicId_slug: { topicId: alphabet.id, slug: "letter-a-practice" },
     },
-    // Practice, not new ground: it revisits `letter:A` and introduces nothing, so
-    // an empty array is the honest value rather than a repeat of the lesson above.
+    // Practice, not new ground: revisits `letter:A`, so an empty array is the honest value.
     update: { conceptsIntroduced: [] },
     create: {
       slug: "letter-a-practice",
@@ -745,7 +686,7 @@ async function main() {
     },
   });
 
-  // Awaiting human review — must never reach a child (§7.3.4).
+  // Awaiting human review; must never reach a child.
   await prisma.lesson.upsert({
     where: { topicId_slug: { topicId: alphabet.id, slug: "letter-c" } },
     update: { conceptsIntroduced: ["letter:C", "word:cat"] },
@@ -761,7 +702,6 @@ async function main() {
     },
   });
 
-  // Published, but for KG2 only: the wrong-grade probe for FR-CURR-02.
   await prisma.lesson.upsert({
     where: {
       topicId_slug: { topicId: alphabet.id, slug: "letter-z-advanced" },
@@ -779,15 +719,19 @@ async function main() {
     },
   });
 
-  // File 25 — the dev story library. Last, because the fixtures resolve their
-  // world by slug and both worlds are created above. Also runnable on its own as
-  // `pnpm --filter @kidlearn/db seed:stories`.
+  // Last: the fixtures resolve their worlds by slug. Also runnable alone via `seed:stories`.
   await seedStories(prisma);
 
-  // File 18–22 — the activity types `letter-a*` does not cover, and the lessons
-  // Ocean World was published without. Last, because it resolves its worlds,
-  // subjects and reused video assets by the ids created above.
+  // Last: resolves worlds, subjects and reused video assets by the ids created above.
   await seedJourney(prisma);
+}
+
+async function main() {
+  const reference = await seedReference();
+  if (process.argv.includes("--reference-only")) {
+    return;
+  }
+  await seedDevFixtures(reference);
 }
 
 main()

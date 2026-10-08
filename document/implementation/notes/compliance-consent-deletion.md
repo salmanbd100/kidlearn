@@ -35,13 +35,13 @@ verified account holder, not an unauthenticated form submission.
 1. `childProfile.deleteMany({ parentId })` — each child row cascades to
    `LessonProgress`, `QuizResponse`, `RewardLedger`, `ChildCharacter`,
    `Streak`, `ScreenTimeSetting`, `SessionEvent` and `WeeklyReport`.
-2. `parent.delete` — PIN hash, consent record, deletion token.
+2. `parent.delete` — consent record, deletion token.
 3. `user.delete` — the better-auth identity, cascading `Session` and `Account`,
    which is what invalidates the caller's cookie.
 
 There is **no soft-delete, no tombstone and no archive** of child PII. Nothing
 is queued for later; when the request returns, the data is gone. Deletion is
-gated by a two-step flow — a PIN-verified `POST /account/delete-request` issues
+gated by a two-step flow — an authenticated `POST /account/delete-request` issues
 a single-use 32-byte token valid for 15 minutes, compared with
 `timingSafeEqual` — so it cannot be triggered by a stray click or a CSRF-style
 request.

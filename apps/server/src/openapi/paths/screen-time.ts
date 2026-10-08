@@ -7,11 +7,6 @@ import {
 import { SCREEN_TIME_STATUS_EXAMPLE } from "../examples.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/screen-time/screen-time.routes.ts` — mounted behind `requireParent` + `requireActiveChild`.
- */
-
-/** The `403` `requireActiveChild` produces on every student-surface route. */
 const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
   "The session has no active child profile, or the one it names belongs to another parent — deliberately the same answer (NFR-SAFE-02). Call `POST /api/children/{id}/activate` first.",
   ["FORBIDDEN"],

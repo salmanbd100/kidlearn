@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluateScreenTime } from "./screen-time.service.js";
 
-// The whole of the screen-time rule, tested without a database or a clock.
-
 /** The permissive case — every test overrides only what it is about. */
 const OPEN = {
   minutesToday: 0,
@@ -118,11 +116,7 @@ describe("evaluateScreenTime", () => {
     });
   });
 
-  /**
-   * The degenerate case, and the reason it is not an error: a parent dragging two
-   * time inputs to the same value has expressed nothing, and the only reading that
-   * cannot lock a child out of the app all day is "no window".
-   */
+  /** Equal times express nothing, and "no window" is the only reading that cannot lock a child out all day. */
   it("treats a zero-length window as no window at all", () => {
     expect(
       evaluateScreenTime({
@@ -145,11 +139,7 @@ describe("evaluateScreenTime", () => {
     ).toEqual({ allowed: true });
   });
 
-  /**
-   * Precedence is not cosmetic: it decides which of two mascot screens a child
-   * sees, and "see you at 8 o'clock" is actionable where "come back tomorrow" is
-   * merely true.
-   */
+  /** Precedence decides which mascot screen a child sees: "see you at 8 o'clock" is actionable, "come back tomorrow" merely true. */
   it("reports the window when both the window and the limit would block", () => {
     expect(
       evaluateScreenTime({

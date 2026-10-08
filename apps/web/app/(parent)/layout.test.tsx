@@ -1,15 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { apiFetch } from "@/shared/api/api-client";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
-
-/**
- * The layout is now more than a theme boundary: it wraps everything in the session
- * provider and the guard, so this suite covers the two things that changed with it —
- * that the theme still applies, and that a page is not rendered to someone the guard
- * has not cleared.
- */
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
@@ -17,7 +11,6 @@ const api = vi.hoisted(() => ({
   listChildren: vi.fn(),
 }));
 
-/** Widened past the literal so a test can point the guard at another route. */
 let pathname: string = PARENT_ROUTES.children;
 
 vi.mock("next/navigation", () => ({
@@ -35,6 +28,7 @@ const PARENT = {
   name: "Parent One",
   avatarUrl: null,
   consentGivenAt: "2026-06-01T00:00:00.000Z",
+  hasCurrentConsent: true,
 };
 
 const CHILD = {
@@ -97,8 +91,7 @@ describe("ParentLayout", () => {
   it("shows a loading status rather than the page while the session loads", () => {
     renderLayout();
 
-    // Rendering first would flash a profile list at someone who turns out to be
-    // signed out.
+    // Rendering first would flash a profile list at someone signed out.
     expect(screen.getByRole("status")).toHaveTextContent("Loading profiles…");
     expect(screen.queryByText("dashboard")).toBeNull();
   });
@@ -121,7 +114,7 @@ describe("ParentLayout", () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: true,
       data: {
-        parent: { ...PARENT, consentGivenAt: null },
+        parent: { ...PARENT, consentGivenAt: null, hasCurrentConsent: false },
         activeChildProfileId: null,
       },
     });
@@ -133,8 +126,8 @@ describe("ParentLayout", () => {
     );
   });
 
-  it("does not gate the login screen", async () => {
-    pathname = PARENT_ROUTES.login;
+  it("does not gate the bare sign-in page", async () => {
+    pathname = PARENT_ROUTES.signInPage;
     api.fetchAuthMe.mockResolvedValue({
       ok: false,
       error: { code: "UNAUTHORIZED", message: "Sign in required", status: 401 },
@@ -145,7 +138,7 @@ describe("ParentLayout", () => {
     await waitFor(() =>
       expect(screen.getByText("dashboard")).toBeInTheDocument(),
     );
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("link", { name: "KidLearn" })).toBeNull();
     expect(router.replace).not.toHaveBeenCalled();
   });
 
@@ -163,5 +156,65 @@ describe("ParentLayout", () => {
       ),
     );
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed profile list instead of rendering a page that waits on it forever", async () => {
+    api.listChildren.mockResolvedValue({
+      ok: false,
+      error: { code: "INTERNAL", message: "boom", status: 500 },
+    });
+
+    renderLayout();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.queryByText("dashboard")).toBeNull();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("retries the load from the error state and then renders the page", async () => {
+    api.listChildren.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "boom", status: 500 },
+    });
+
+    renderLayout();
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("dashboard")).toBeInTheDocument(),
+    );
+  });
+
+  it("signs the parent out when a later request comes back 401", async () => {
+    renderLayout();
+    await waitFor(() =>
+      expect(screen.getByText("dashboard")).toBeInTheDocument(),
+    );
+
+    // The cookie expired mid-visit: the next fetch answers 401 and the session re-reads itself.
+    api.fetchAuthMe.mockResolvedValue({
+      ok: false,
+      error: { code: "UNAUTHORIZED", message: "Sign in required", status: 401 },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: "UNAUTHORIZED", message: "no" } }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+    );
+
+    await apiFetch("/api/anything");
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(PARENT_ROUTES.login),
+    );
+    vi.unstubAllGlobals();
   });
 });

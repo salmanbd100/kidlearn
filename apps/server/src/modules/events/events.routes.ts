@@ -12,12 +12,8 @@ import {
   ActivityEventBodySchema,
 } from "./events.schema.js";
 
-/**
- * `/api/events` — the presence signal learning time is derived from (FR-TIME-06).
- */
 export const eventsRouter = Router();
 
-/** FR-TIME-06 — "I am still here." */
 eventsRouter.post("/heartbeat", async (req, res, next) => {
   try {
     const heartbeat = await recordHeartbeat(activeChild(req));
@@ -28,10 +24,6 @@ eventsRouter.post("/heartbeat", async (req, res, next) => {
   }
 });
 
-/**
- * One discrete thing the child did — the events that keep a sitting alive between
- * heartbeats and mark what it was spent on.
- */
 eventsRouter.post(
   "/activity",
   validate({ body: ActivityEventBodySchema }),

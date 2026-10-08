@@ -2,11 +2,11 @@ import {
   HealthResponseSchema,
   ServiceIdentityResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { assertContract } from "./openapi/assert-contract.js";
+import request from "./shared/testing/request.js";
 
 describe("GET /health", () => {
   it("returns the ok envelope without touching the database", async () => {
@@ -31,9 +31,7 @@ describe("GET /", () => {
 });
 
 describe("API documentation", () => {
-  // NODE_ENV is `test` here, so the docs are mounted (see `isDocsEnabled`). The
-  // production-off branch is covered in `openapi/document.test.ts`, which can
-  // test the predicate directly rather than rebuilding the app.
+  // NODE_ENV is `test`, so docs are mounted; the production-off branch is tested in document.test.ts.
   it("serves the raw spec at /docs.json", async () => {
     const res = await request(app).get("/docs.json");
 
@@ -49,8 +47,7 @@ describe("API documentation", () => {
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/html/);
     expect(res.text).toContain("kidlearn API");
-    // The page fetches the spec rather than inlining it — a ~730 KB document in
-    // the HTML of every page load is the thing this assertion prevents.
+    // Inlining the ~730 KB spec into every page load is what this prevents.
     expect(res.text).toContain("/docs.json");
     expect(res.text.length).toBeLessThan(50_000);
   });
@@ -97,5 +94,206 @@ describe("CORS", () => {
       .set("Access-Control-Request-Method", "GET");
 
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
+
+describe("cross-origin writes", () => {
+  const FOREIGN = "https://evil.kidlearn.net";
+  const API_ORIGIN = new URL(env.BETTER_AUTH_URL).origin;
+
+  it.each([
+    "post",
+    "put",
+    "patch",
+    "delete",
+  ] as const)("refuses a %s from a foreign origin with a 403 envelope", async (method) => {
+    const res = await request(app)
+      [method]("/api/not-a-resource")
+      .set("Origin", FOREIGN);
+
+    // `sameSite=lax` still lets a sibling subdomain ride the session cookie; this is what stops it.
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({
+      error: { code: "FORBIDDEN", message: "Cross-origin request refused" },
+    });
+  });
+
+  it("refuses the opaque `null` origin a sandboxed frame sends", async () => {
+    const res = await request(app)
+      .post("/api/not-a-resource")
+      .set("Origin", "null");
+
+    expect(res.status).toBe(403);
+  });
+
+  it("lets the web origin through", async () => {
+    const res = await request(app)
+      .post("/api/not-a-resource")
+      .set("Origin", env.WEB_ORIGIN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("lets the API's own origin through, which is where Scalar's Send posts from", async () => {
+    const res = await request(app)
+      .post("/api/not-a-resource")
+      .set("Origin", API_ORIGIN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("lets a caller with no Origin through, such as curl or the cron job", async () => {
+    const res = await request(app).post("/api/admin/jobs/weekly-reports");
+
+    // Reaches the secret check: a 401, not the origin 403.
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("does not refuse a read from a foreign origin", async () => {
+    const res = await request(app)
+      .get("/api/not-a-resource")
+      .set("Origin", FOREIGN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("leaves /api/auth to better-auth's own trustedOrigins check", async () => {
+    const res = await request(app)
+      .post("/api/auth/sign-out")
+      .set("Origin", FOREIGN);
+
+    expect(res.body.error?.message).not.toBe("Cross-origin request refused");
+  });
+});
+
+describe("trust proxy", () => {
+  // Caddy terminates TLS; without trust proxy better-auth refuses to set a `Secure` session cookie.
+  async function buildWith(nodeEnv: "production" | "test") {
+    vi.resetModules();
+    vi.doMock("./config/env.js", async () => {
+      const actual =
+        await vi.importActual<typeof import("./config/env.js")>(
+          "./config/env.js",
+        );
+      return { ...actual, env: { ...actual.env, NODE_ENV: nodeEnv } };
+    });
+    const { buildApp } = await import("./app.js");
+    return buildApp();
+  }
+
+  afterEach(() => {
+    vi.doUnmock("./config/env.js");
+    vi.resetModules();
+  });
+
+  it("trusts exactly one proxy hop in production", async () => {
+    const production = await buildWith("production");
+
+    expect(production.get("trust proxy")).toBe(1);
+  });
+
+  it("trusts no proxy outside production, so req.ip cannot be forged", async () => {
+    const outsideProduction = await buildWith("test");
+
+    expect(outsideProduction.get("trust proxy")).toBe(false);
+  });
+});
+
+describe("security headers", () => {
+  it("sends a CSP that allows nothing on an API response", async () => {
+    const res = await request(app).get("/health");
+
+    const csp = res.headers["content-security-policy"];
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(res.headers["x-content-type-options"]).toBe("nosniff");
+    expect(res.headers["cross-origin-resource-policy"]).toBe("same-site");
+  });
+
+  it("lets the Scalar reference load its CDN bundle and call this origin", async () => {
+    const res = await request(app).get("/docs");
+
+    const csp = res.headers["content-security-policy"];
+    expect(csp).toContain(
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    );
+    expect(csp).toContain("connect-src 'self'");
+    expect(csp).not.toContain("default-src 'none'");
+    // The CSP allows this bundle URL; if Scalar moves CDN this fails rather than the page blanking.
+    expect(res.text).toContain('src="https://cdn.jsdelivr.net/');
+  });
+});
+
+describe("JSON body limit", () => {
+  it("answers a body over 100 KB with a 413 envelope", async () => {
+    const res = await request(app)
+      .post("/api/does-not-matter")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify({ blob: "x".repeat(101 * 1024) }));
+
+    expect(res.status).toBe(413);
+    expect(res.body.error.code).toBe("VALIDATION_FAILED");
+  });
+});
+
+describe("/api rate limit", () => {
+  async function buildWithLimit(limit: number) {
+    vi.resetModules();
+    vi.doMock("./config/env.js", async () => {
+      const actual =
+        await vi.importActual<typeof import("./config/env.js")>(
+          "./config/env.js",
+        );
+      return {
+        ...actual,
+        env: { ...actual.env, API_RATE_LIMIT_PER_MINUTE: limit },
+      };
+    });
+    const { buildApp } = await import("./app.js");
+    return buildApp();
+  }
+
+  afterEach(() => {
+    vi.doUnmock("./config/env.js");
+    vi.resetModules();
+  });
+
+  it("answers past the limit with a 429 envelope the web origin can read", async () => {
+    const limited = await buildWithLimit(2);
+
+    await request(limited).get("/api/not-a-resource");
+    await request(limited).get("/api/not-a-resource");
+    const res = await request(limited)
+      .get("/api/not-a-resource")
+      .set("Origin", env.WEB_ORIGIN);
+
+    expect(res.status).toBe(429);
+    expect(res.body).toEqual({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests — try again in a minute",
+      },
+    });
+    expect(res.headers["access-control-allow-origin"]).toBe(env.WEB_ORIGIN);
+    expect(res.headers.ratelimit).toBeDefined();
+  });
+
+  it("covers the better-auth routes too", async () => {
+    const limited = await buildWithLimit(1);
+
+    await request(limited).get("/api/auth/get-session");
+    const res = await request(limited).get("/api/auth/get-session");
+
+    expect(res.status).toBe(429);
+  });
+
+  it("leaves /health alone, so an uptime check cannot be throttled", async () => {
+    const limited = await buildWithLimit(1);
+
+    await request(limited).get("/health");
+    const res = await request(limited).get("/health");
+
+    expect(res.status).toBe(200);
   });
 });

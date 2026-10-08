@@ -4,12 +4,9 @@ import type {
   ScreenTimeUpdate,
 } from "@kidlearn/types";
 import { SCREEN_TIME_BLOCK_CODES } from "@kidlearn/types";
-import type { ApiFailure, ApiResult } from "../../shared/api/api-client";
-import { apiFetch } from "../../shared/api/api-client";
+import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
+import { apiFetch } from "@/shared/api/api-client";
 
-// Typed wrappers over the screen-time API (FR-TIME-01..05).
-
-/** May the active child start something new right now? */
 export function getScreenTimeStatus(
   options: { onColdStart?: () => void } = {},
 ): Promise<ApiResult<ScreenTimeStatusResponse>> {
@@ -18,7 +15,6 @@ export function getScreenTimeStatus(
   });
 }
 
-/** One child's stored policy. */
 export function getScreenTime(
   childId: string,
 ): Promise<ApiResult<ScreenTimeSettingResponse>> {
@@ -27,7 +23,6 @@ export function getScreenTime(
   );
 }
 
-/** Replaces one child's whole policy. */
 export function updateScreenTime(
   childId: string,
   values: ScreenTimeUpdate,
@@ -38,14 +33,12 @@ export function updateScreenTime(
   );
 }
 
-/** Whether a failed call was the screen-time gate rather than a real error. */
 export function isScreenTimeBlock(
   error: ApiFailure,
 ): error is ApiFailure & { code: (typeof SCREEN_TIME_BLOCK_CODES)[number] } {
   return SCREEN_TIME_BLOCK_CODES.some((code) => code === error.code);
 }
 
-/** The window start carried on a `423`, when there is one. */
 export function windowStartFromError(error: ApiFailure): string | undefined {
   const { details } = error;
   if (typeof details !== "object" || details === null) return undefined;

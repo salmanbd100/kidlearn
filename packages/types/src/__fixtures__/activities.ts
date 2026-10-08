@@ -122,11 +122,7 @@ export const invalidDragDropWrongVersion: unknown = {
   schemaVersion: 2,
 };
 
-/**
- * Capital A as three strokes: up-stroke, down-stroke, crossbar. `pathData` has
- * one `M` command per stroke and `strokeOrder` indexes them, so the fixture
- * stays internally consistent for the AI prompt examples that reuse it.
- */
+/** Capital A as three strokes; one `M` per stroke and `strokeOrder` indexes them (reused by AI prompt examples). */
 export const validTrace: TraceActivity = {
   schemaVersion: 1,
   type: "trace",
@@ -174,8 +170,7 @@ export const validMatch: MatchActivity = {
   schemaVersion: 1,
   type: "match",
   instructionAudio: audio("match-the-shadow"),
-  // Per-card audio on one set only, which is the realistic shape: the child taps
-  // a word they cannot read yet and hears it, then taps the picture it belongs to.
+  // Per-card audio on one set only — the realistic shape.
   leftSet: [
     {
       id: "sun",

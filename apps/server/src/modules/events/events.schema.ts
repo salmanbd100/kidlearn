@@ -1,6 +1,3 @@
-/**
- * Request schemas for `/api/events` and the learning-time read (`backend.md §2`).
- */
 import {
   ActivityEventReportSchema,
   LearningTimeRangeSchema,
@@ -9,7 +6,6 @@ import { z } from "zod";
 
 export { ActivityEventReportSchema as ActivityEventBodySchema };
 
-/** `?range=today|week|month`, required. */
 export const LearningTimeQuerySchema = z
   .object({ range: LearningTimeRangeSchema })
   .strict();

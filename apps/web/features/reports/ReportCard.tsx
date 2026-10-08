@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { WeeklyReport } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -15,10 +16,8 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { formatWeekRange } from "@/features/reports/week-range";
 import { formatMinutes } from "@/features/screen-time/duration";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { StatCard } from "../../shared/components/StatCard";
+import { StatCard } from "@/shared/components/StatCard";
 
-/** One week, as the card at the top of `/parent/reports` (FR-DASH-05). */
 export interface ReportCardProps {
   report: WeeklyReport;
 }
@@ -26,9 +25,7 @@ export interface ReportCardProps {
 export function ReportCard({ report }: ReportCardProps) {
   const { t, i18n } = useTranslation(PARENT_NAMESPACE);
   const { metrics } = report;
-  // Generated rather than a literal, so a future comparison view rendering two
-  // cards does not produce two elements with the same id and an
-  // `aria-labelledby` pointing at whichever the browser saw first.
+  // Generated, not literal, so two cards on one page never share an id for `aria-labelledby`.
   const headingId = useId();
 
   const range = formatWeekRange(
@@ -45,16 +42,14 @@ export function ReportCard({ report }: ReportCardProps) {
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-4 rounded-[var(--radius)] border border-border bg-card p-4 sm:p-5"
+      className="flex flex-col gap-4 rounded-(--radius) border border-border bg-card p-4 sm:p-5"
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2
           id={headingId}
           className="font-semibold text-card-foreground text-lg"
         >
-          {/* A `<time>` pair rather than a heading full of prose: the range is the
-              week's identity, and `dateTime` makes it machine-readable for a
-              screen reader that would otherwise read "Aug 17 – 23" as arithmetic. */}
+          {/* `dateTime` makes the range machine-readable for screen readers that would read "Aug 17 – 23" as arithmetic. */}
           <time dateTime={report.weekStart.slice(0, 10)}>{range}</time>
         </h2>
         <p className="text-muted-foreground text-xs uppercase tracking-[0.05em]">
@@ -62,9 +57,9 @@ export function ReportCard({ report }: ReportCardProps) {
         </p>
       </header>
 
-      {/* Two columns on a 360px phone, not one: six single-file cards is a screen
-          a parent has to scroll past rather than read (design.md §6). */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      {/* Two columns on a 360px phone: six single-file cards is a screen to scroll past (design.md §6). */}
+      {/* Five cards: the last spans two columns so neither layout ends on an orphan. */}
+      <div className="grid grid-cols-2 gap-3 *:last:col-span-2 lg:grid-cols-3">
         <StatCard
           tone="featured"
           icon={<CalendarCheck aria-hidden className="size-3.5" />}
@@ -86,9 +81,7 @@ export function ReportCard({ report }: ReportCardProps) {
           label={t("reports.stories")}
           value={t("reports.count", { count: metrics.storiesCompleted })}
         />
-        {/* `quizAccuracy` is null, never 0, for a week with nothing answered — so
-            this renders a different card rather than "0%", which would tell a
-            parent their child got everything wrong. */}
+        {/* `quizAccuracy` is null, never 0, when nothing was answered, so this renders a different card rather than a misleading "0%". */}
         <StatCard
           icon={<Target aria-hidden className="size-3.5" />}
           label={t("reports.accuracy")}
@@ -101,8 +94,7 @@ export function ReportCard({ report }: ReportCardProps) {
             metrics.quizAccuracy === null
               ? t("reports.accuracyNoneHint")
               : t("reports.accuracyHint", {
-                  // The denominator is what makes a percentage actionable: "9 of
-                  // 10" is a fact, where 90% alone hides how much it rests on.
+                  // The denominator makes a percentage actionable: "9 of 10" is a fact.
                   correct: metrics.quizFirstAttemptsCorrect,
                   total: metrics.quizFirstAttempts,
                 })
@@ -152,7 +144,7 @@ export function ReportCard({ report }: ReportCardProps) {
             {metrics.badgesEarned.map((badge) => (
               <li
                 key={badge.slug}
-                className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-accent bg-muted px-2 py-1 font-medium text-foreground text-xs"
+                className="inline-flex items-center gap-1.5 rounded-(--radius-sm) border border-accent bg-muted px-2 py-1 font-medium text-foreground text-xs"
               >
                 <Award aria-hidden="true" className="size-3.5" />
                 {badge.name}
@@ -162,25 +154,17 @@ export function ReportCard({ report }: ReportCardProps) {
         )}
       </div>
 
-      {/*
-        The mascot's speech bubble. `aside`, not a paragraph in the flow: the note
-        is the one thing on this card that is an opinion rather than a figure, and
-        it reads as one only if it is visibly set apart.
-
-        The tail is a rotated square rather than a border trick, so it inherits the
-        bubble's own tokens and stays correct in either theme.
-      */}
+      {/* Mascot speech bubble; `aside` because the note is an opinion, not a figure.
+          The tail is a rotated square so it inherits the bubble's tokens in either theme. */}
       <aside
         aria-label={t("reports.noteLabel")}
-        className="relative mt-1 rounded-[var(--radius)] border border-primary/30 bg-primary/5 p-4 pl-12"
+        className="relative mt-1 rounded-(--radius) border border-primary/30 bg-primary/5 p-4 pl-12"
       >
         <span
           aria-hidden="true"
           className="absolute top-4 left-4 text-xl leading-none"
         >
-          {/* The world mascot art is per-world and this card belongs to no world,
-              so a generic sparkle stands in until file 33 gives the parent surface
-              a mascot of its own (design.md §9). */}
+          {/* Generic sparkle stands in for per-world mascot art, which this card has no world for (design.md §9). */}
           ✨
         </span>
         <p className="text-foreground text-sm">
@@ -191,9 +175,8 @@ export function ReportCard({ report }: ReportCardProps) {
   );
 }
 
-/** One kind of concept, with the tokens themselves listed under the count. */
 const chipVariants = cva(
-  "inline-flex min-h-6 items-center rounded-[var(--radius-sm)] border px-1.5 font-medium text-xs",
+  "inline-flex min-h-6 items-center rounded-(--radius-sm) border px-1.5 font-medium text-xs",
   {
     variants: {
       kind: {
@@ -221,9 +204,7 @@ function ConceptRow({
   return (
     <li className="flex flex-col gap-1">
       <p className="text-muted-foreground text-xs">
-        {/* One interpolated string, separator included: a locale that wants a
-            different separator — or the other order — cannot change a character
-            sitting in the markup. */}
+        {/* One interpolated string, so a locale can change the separator or order. */}
         {t("reports.newRowLabel", { label, count: values.length })}
       </p>
       <ul className="flex flex-wrap gap-1.5">

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatAbsolute, formatRelative } from "./relative-time";
 
-/**
- * `now` is passed in rather than frozen with fake timers: the point of the
- * helper's signature is that a date's rendering is a pure function of two
- * instants, so every rule below is one assertion instead of a controlled clock.
- */
 const NOW = new Date("2026-08-19T12:00:00.000Z");
 
 function ago(ms: number): Date {
@@ -29,8 +24,7 @@ describe("formatRelative", () => {
   });
 
   it("never rounds a figure out of the bucket that selected it", () => {
-    // Both were reachable while the magnitude was `Math.round`ed: the bucket is
-    // picked from the raw delta, so the last half-unit rounded into the next one.
+    // The bucket is picked from the raw delta; `Math.round`ing the magnitude rounded a half-unit into the next bucket.
     expect(formatRelative(ago(59 * MINUTE + 42_000), "en", NOW)).toBe(
       "59 minutes ago",
     );
@@ -40,8 +34,7 @@ describe("formatRelative", () => {
   });
 
   it("uses the calendar day, not a 24-hour block, beyond a day", () => {
-    // 30 hours before midday on the 19th is 06:00 on the 18th — two calendar
-    // days back would be wrong, and "30 hours ago" is not what a parent reads.
+    // 30 hours before midday on the 19th is 06:00 on the 18th; "two days back" would be wrong.
     expect(formatRelative(ago(30 * HOUR), "en", NOW)).toBe("yesterday");
   });
 
@@ -52,8 +45,7 @@ describe("formatRelative", () => {
   it("formats in Bangla when the parent reads Bangla", () => {
     const bangla = formatRelative(ago(3 * MINUTE), "bn", NOW);
 
-    // Asserting the locale took effect, not the exact CLDR wording, which is
-    // ICU data and not this app's to promise.
+    // Asserts the locale took effect, not exact CLDR wording (ICU data).
     expect(bangla).not.toBe("3 minutes ago");
     expect(bangla.length).toBeGreaterThan(0);
   });

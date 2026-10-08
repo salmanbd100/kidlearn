@@ -5,10 +5,7 @@ import {
 } from "../domain/screen-time.js";
 import { ok } from "./envelope.js";
 
-/**
- * `/api/children/{id}/screen-time` and `/api/screen-time/status` — the response
- * half of parental screen-time control (FR-TIME-01..05).
- */
+/** `/api/children/{id}/screen-time` and `/api/screen-time/status` — response half of parental screen-time control (FR-TIME-01..05). */
 
 /** The stored policy, as the parent form reads it back. */
 export const ScreenTimeSettingSchema = z
@@ -23,10 +20,7 @@ export type ScreenTimeSettingResponse = z.infer<typeof ScreenTimeSettingSchema>;
 
 export const ScreenTimeSettingResponseSchema = ok(ScreenTimeSettingSchema);
 
-/**
- * "May this child start something new right now?" — the student surface's own
- * read (FR-TIME-02, FR-TIME-04).
- */
+/** "May this child start something new right now?" — the student surface's own read (FR-TIME-02, FR-TIME-04). */
 export const ScreenTimeStatusSchema = z
   .object({
     allowed: z.boolean(),

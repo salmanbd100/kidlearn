@@ -16,8 +16,6 @@ import {
   type QuestionDraft,
 } from "./quiz-draft";
 
-// What the quiz editor's form state compiles to (FR-CMS-03).
-
 function option(id: string, en: string, bn: string): OptionDraft {
   return {
     id,
@@ -28,7 +26,6 @@ function option(id: string, en: string, bn: string): OptionDraft {
   };
 }
 
-/** A complete MCQ, as an author would have typed it in. */
 function filledMcqDraft(): QuestionDraft {
   const draft = emptyQuestionDraft("mcq");
   return {
@@ -55,10 +52,7 @@ describe("compileQuestion", () => {
   });
 
   it("reports the missing locale when a Bangla prompt is removed", () => {
-    // The case FR-I18N-01 exists for: an untranslated question shipped to a Bangla
-    // learner. The issue has to land on the field, not at the root, or the editor
-    // has nowhere to put the message — which is exactly why the editor parses with
-    // the member schema rather than the union, as here.
+    // An untranslated question must report on the field, not the root, hence the member schema rather than the union.
     const draft = filledMcqDraft();
     draft.prompt.bn = "";
 
@@ -90,9 +84,7 @@ describe("compileQuestion", () => {
   });
 
   it("keeps a required-but-empty image so the message lands on the field", () => {
-    // `picture_select` is picture-first, so the image is not optional. Emitting the
-    // key with an empty URL is what puts the issue at `options.0.image.url` rather
-    // than at `options.0`.
+    // Picture-first: emitting the key with an empty URL puts the issue at `options.0.image.url`.
     const draft = { ...filledMcqDraft(), format: "picture_select" as const };
     const compiled = compileQuestion(draft) as {
       options: Array<{ image?: { url: string } }>;
@@ -112,9 +104,7 @@ describe("compileQuestion", () => {
   });
 
   it("keeps a half-filled audio pair so the schema names the missing locale", () => {
-    // Dropping the pair would discard the clip the author just picked, silently
-    // and with Save still enabled. Emitting the half puts the issue at
-    // `promptAudio.bn`, which `knownQuestionPaths` renders against the field.
+    // Dropping the pair would silently discard the picked clip with Save enabled; the half lands at `promptAudio.bn`.
     const draft = filledMcqDraft();
     draft.promptAudio.bn = "";
 
@@ -127,9 +117,7 @@ describe("compileQuestion", () => {
   });
 
   it("numbers a new right-column option past the left column", () => {
-    // The right column starts where the left one ends, so numbering a new option
-    // by its own length alone reminted an id the column already held — every Add
-    // on that column produced a duplicate-id error the author had to fix by hand.
+    // The right column starts where the left ends; numbering by its own length reminted an existing id.
     const draft = emptyQuestionDraft("match_pair");
 
     const added = nextOption(draft.rightColumn, draft.leftColumn.length);

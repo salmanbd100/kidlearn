@@ -3,13 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 
-/**
- * The corner has two faces. On `/select-profile` it names the grown-up, because
- * no child is playing yet and an adult is looking for the way in. Everywhere
- * else it is a bare lock — a photo of a child's own parent is the most tappable
- * thing that could be on a screen they are using, and FR-AUTH-04 wants that door
- * dull. Both faces open the same gate.
- */
+// Two faces: on `/select-profile` the corner names the grown-up; elsewhere it is a bare lock, since a photo of a child's own parent is
+// the most tappable thing on a screen and the door should stay dull. Both open the same gate.
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const navigation = vi.hoisted(() => ({ pathname: "/home" }));
@@ -119,6 +114,28 @@ describe("ParentCorner", () => {
     await waitFor(() =>
       expect(router.push).toHaveBeenCalledWith("/parent/children"),
     );
+  });
+
+  it.each([
+    "/lesson/33333333-3333-4333-8333-333333333333",
+    "/stories/55555555-5555-4555-8555-555555555555",
+  ])("stays out of the way on the full-screen player at %s", (pathname) => {
+    // These screens put their own exit in the same corner, and the lock sat on top of it.
+    navigation.pathname = pathname;
+    renderCorner();
+
+    expect(
+      screen.queryByRole("button", { name: "For grown-ups" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still shows on the story library", () => {
+    navigation.pathname = "/stories";
+    renderCorner();
+
+    expect(
+      screen.getByRole("button", { name: "For grown-ups" }),
+    ).toBeInTheDocument();
   });
 
   it("opens the parent area from the anonymous lock too", async () => {

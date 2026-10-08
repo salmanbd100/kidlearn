@@ -1,29 +1,11 @@
 /**
- * `/api/admin/content/*` — curriculum CRUD, the publishing workflow and
- * reordering (file 32, FR-CURR-04, FR-CMS-01, FR-CMS-06), plus the character
- * sheets file 36 mounted alongside them (FR-AI-09).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* `store` holds four tables and the stub applies
- *     each route's real `where`, `orderBy`, nested translation writes and
- *     `_max` aggregate to them. "The lesson is `draft`" is therefore a
- *     consequence of what the create wrote, not of a mock told to say so — and
- *     the reorder tests read back rows the reorder itself mutated.
- *  2. *Assert the query, not just the result.* The publish round trip below
- *     applies `publishedForChild` — the exported filter every student query in
- *     file 12 composes — to the row this API just published. A stub cannot run
- *     the student endpoint, but it can prove the row now satisfies the one
- *     condition that endpoint filters on, and stops satisfying it on unpublish.
- *  3. *`where` clauses are not the whole guard.* Not applicable: no response here
- *     is content-gated. This API deliberately returns drafts, and the gate lives
- *     in `modules/content/content.routes.ts`, where `content.routes.test.ts` covers it.
- *  4. *Name what the stub cannot prove.* Two things. The unique indexes behind
- *     the `409 DUPLICATE_SLUG` path are asserted against `schema.prisma` at the
- *     bottom of this file rather than by inserting a duplicate. And the
- *     Serializable isolation that makes two concurrent transitions safe is
- *     asserted as the level passed to `$transaction`, not by racing two writes.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`; the four bounds:
+ *  1. Stub state: `store` holds four tables; the stub applies each route's real `where`, `orderBy`, nested translation
+ *     writes and `_max`, so "the lesson is `draft`" follows from what the create wrote.
+ *  2. The publish round trip applies `publishedForChild`, the filter every student query composes, to the published row.
+ *  3. Not applicable: this API deliberately returns drafts; the gate is covered in `modules/content/content.routes.test.ts`.
+ *  4. The unique indexes behind `409 DUPLICATE_SLUG` are asserted against `schema.prisma` at the bottom;
+ *     Serializable isolation is asserted as the level passed to `$transaction`.
  */
 
 import { readFileSync } from "node:fs";
@@ -42,9 +24,9 @@ import {
   PromotedCharacterSheetsResponseSchema,
   ReorderedIdsResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../../openapi/assert-contract.js";
+import request from "../../../shared/testing/request.js";
 import { publishedForChild } from "../../../shared/utils/published-for-child.js";
 
 const BASE = "/api/admin/content";
@@ -63,7 +45,6 @@ const ADMIN_ROW = {
   updatedAt: new Date("2026-08-01T00:00:00.000Z"),
 };
 
-/** Ids are uuids because every params and body schema demands one. */
 const WORLD_ID = "aaaaaaaa-0000-4000-8000-000000000001";
 const SUBJECT_ID = "bbbbbbbb-0000-4000-8000-000000000001";
 const TOPIC_ID = "cccccccc-0000-4000-8000-000000000001";
@@ -77,19 +58,11 @@ const store = vi.hoisted(() => ({
   subjects: [] as Row[],
   topics: [] as Row[],
   lessons: [] as Row[],
-  // File 36 — character sheets, and the two tables the "save as character sheet"
-  // action reads a generation out of.
   characterSheets: [] as Row[],
-  /**
-   * Makes the next *n* slug lookups miss a row that is really there, which is the
-   * only way to reach the check-then-act window from outside: the service looks a
-   * slug up and then writes it, and a race is the check passing before the write
-   * hits the unique index.
-   */
+  /** Makes the next *n* slug lookups miss an existing row, the only way to reach the check-then-act window. */
   slugCheckMisses: 0,
   stories: [] as Row[],
   jobs: [] as Row[],
-  /** Isolation levels `$transaction` was called with, for bound 4 above. */
   isolationLevels: [] as Array<string | undefined>,
 }));
 
@@ -98,7 +71,6 @@ const db = vi.hoisted(() => ({ adminFindUnique: vi.fn() }));
 vi.mock("../../../config/prisma.js", async () => {
   const { Prisma: PrismaNamespace } = await import("@kidlearn/db");
 
-  /** A minimal Prisma model, backed by one array. */
   function table(rows: () => Row[], slugScope: string[]) {
     const matches = (row: Row, where: Record<string, unknown> = {}): boolean =>
       Object.entries(where).every(([column, condition]) => {
@@ -133,7 +105,6 @@ vi.mock("../../../config/prisma.js", async () => {
       });
     };
 
-    /** Applies a nested `translations: { create | upsert }` write in place. */
     const writeTranslations = (row: Row, nested: unknown): void => {
       if (!nested || typeof nested !== "object") return;
       const existing = (row.translations ?? []) as Array<
@@ -243,12 +214,7 @@ vi.mock("../../../config/prisma.js", async () => {
     subject: table(() => store.subjects, ["slug"]),
     topic: table(() => store.topics, ["subjectId", "slug"]),
     lesson: table(() => store.lessons, ["topicId", "slug"]),
-    /**
-     * Character sheets (file 36). Its own stub rather than `table()`, because the
-     * service looks a sheet up **by slug** — that read is how an import
-     * recognises a character it has already saved, so a stub that only answered
-     * on `id` would make every skip test pass for the wrong reason.
-     */
+    /** Own stub: the service looks sheets up by slug, and an `id`-only stub would make the skip tests pass for the wrong reason. */
     characterSheet: {
       findUnique: async ({
         where,
@@ -281,10 +247,7 @@ vi.mock("../../../config/prisma.js", async () => {
       },
 
       create: async ({ data }: { data: Record<string, unknown> }) => {
-        // `CharacterSheet_slug_key` enforced here, because the service's
-        // `findUnique`-then-`create` is check-then-act: the only way a test can
-        // reach the code that handles a lost race is for the stub to raise the
-        // same P2002 the index would.
+        // `CharacterSheet_slug_key`: the stub raises the same P2002 so the lost-race handling is reachable.
         if (store.characterSheets.some((row) => row.slug === data.slug)) {
           throw new Prisma.PrismaClientKnownRequestError(
             "Unique constraint failed on the fields: (`slug`)",
@@ -325,13 +288,11 @@ vi.mock("../../../config/prisma.js", async () => {
     aIGenerationJob: {
       findUnique: async ({ where }: { where: { id: string } }) =>
         store.jobs.find((row) => row.id === where.id) ?? null,
-      // `assertAiPublishable` reads every job a row answers for in one query.
       findMany: async ({ where }: { where: { id: { in: string[] } } }) =>
         store.jobs.filter((row) => where.id.in.includes(row.id)),
       updateMany: async () => ({ count: 0 }),
     },
-    // Present so a stray parent-provisioning read fails loudly: no admin route
-    // may create a Parent row.
+    // Present so a stray parent-provisioning read fails loudly: no admin route may create a Parent row.
     parent: { findUnique: vi.fn(), upsert: vi.fn() },
     account: { findFirst: vi.fn() },
   };
@@ -343,11 +304,10 @@ const { app } = await import("../../../app.js");
 const { auth } = await import("../../../config/auth.js");
 
 function mockSession(userId: string) {
-  // Only the fields the guards read are supplied, so the deep better-auth return
-  // type is narrowed at this boundary.
+  // Only the fields the guards read, narrowing the deep better-auth return type.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
-    session: { id: `session_${userId}`, userId },
+    session: { id: `session_${userId}`, userId, createdAt: new Date() },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
@@ -358,7 +318,6 @@ const lessonTranslations = (title: string) => ({
   bn: { title: `${title} (bn)`, introScript: `${title} শিখি।` },
 });
 
-/** Seeds a row directly, bypassing the API — a fixture, not an assertion. */
 function seed(table: Row[], row: Partial<Row> & { id: string }): Row {
   const full: Row = {
     status: "draft",
@@ -446,9 +405,7 @@ describe("the admin guard covers every content path", () => {
     method,
     path,
   }) => {
-    // A Google sign-in never writes an AdminUser row, and that absence *is* the
-    // authorisation check (spec §4.3). The guard sits on the router, so the
-    // handler never runs.
+    // A Google sign-in never writes an AdminUser row; that absence is the authorisation check, so the handler never runs.
     mockSession(PARENT_USER_ID);
 
     const res = await request(app)[method](path).send({});
@@ -497,7 +454,6 @@ describe("POST /api/admin/content/subjects", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
-    // Nothing reached the store: validation runs at the route boundary.
     expect(store.subjects).toEqual([]);
   });
 
@@ -590,8 +546,7 @@ describe("POST /api/admin/content/lessons", () => {
       .post(`${BASE}/lessons`)
       .send({ ...body, topicId: "eeeeeeee-0000-4000-8000-000000000009" });
 
-    // Without the explicit check this would surface as Prisma's foreign-key
-    // violation, which the error handler can only report as a 500.
+    // Without the explicit check this would be Prisma's foreign-key violation, reported as a 500.
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
   });
@@ -601,8 +556,7 @@ describe("POST /api/admin/content/lessons", () => {
       .post(`${BASE}/lessons`)
       .send({ ...body, conceptsIntroduced: ["A"] });
 
-    // An unprefixed token matches nothing in the weekly report and produces no
-    // error anyone would ever see (file 30).
+    // An unprefixed token matches nothing in the weekly report and errors nowhere visible.
     expect(res.status).toBe(400);
   });
 });
@@ -624,8 +578,7 @@ describe("PATCH cannot change status", () => {
       .patch(`${BASE}/lessons/${LESSON_ID}`)
       .send({ status: "published" });
 
-    // The whole publishing workflow rests on this: if an edit could set status,
-    // unreviewed content would be one request away from a five-year-old.
+    // If an edit could set status, unreviewed content would be one request from a five-year-old.
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
     expect(store.lessons[0].status).toBe("draft");
@@ -662,14 +615,7 @@ describe("PATCH cannot change status", () => {
 });
 
 describe("a published row refuses an edit", () => {
-  /**
-   * The gap this closes: the transition matrix guards the *act* of publishing,
-   * and an edit does not move the status, so nothing in the matrix ever sees a
-   * `PATCH` on a live row. Without the guard, rewriting a published lesson's
-   * title and intro script puts words in front of a five-year-old that no
-   * reviewer approved — and it is the path file 37's AI-generated edits would
-   * take.
-   */
+  /** The transition matrix guards publishing but never sees a `PATCH` on a live row; without this guard unreviewed edits reach children. */
   beforeEach(() => {
     seed(store.subjects, { id: SUBJECT_ID, slug: "letters", name: "Letters" });
     seed(store.topics, {
@@ -692,6 +638,26 @@ describe("a published row refuses an edit", () => {
     });
   }
 
+  it.each([
+    "in_review",
+    "approved",
+  ])("refuses to rewrite a lesson at %s, so a decision cannot be followed by an unreviewed publish", async (status) => {
+    seedLesson(status);
+
+    const res = await request(app)
+      .patch(`${BASE}/lessons/${LESSON_ID}`)
+      .send({
+        title: "Letter A, rewritten",
+        translations: lessonTranslations("Letter A, rewritten"),
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toMatchObject({
+      code: "EDIT_REQUIRES_UNPUBLISH",
+      status,
+    });
+  });
+
   it("returns 409 EDIT_REQUIRES_UNPUBLISH and leaves the content untouched", async () => {
     seedLesson("published");
 
@@ -709,8 +675,7 @@ describe("a published row refuses an edit", () => {
       allowed: ["draft", "archived"],
     });
 
-    // The refusal has to be a refusal, not a partial write: the row keeps both
-    // its title and its audit stamp.
+    // A refusal is not a partial write: the row keeps its title and audit stamp.
     expect(store.lessons[0]).toMatchObject({
       title: "Letter A",
       status: "published",
@@ -753,8 +718,6 @@ describe("a published row refuses an edit", () => {
 
   it.each([
     "draft",
-    "in_review",
-    "approved",
     "rejected",
     "archived",
   ])("allows the edit at %s", async (status) => {
@@ -769,8 +732,6 @@ describe("a published row refuses an edit", () => {
   });
 
   it("lets the edit through once the row is withdrawn to draft", async () => {
-    // The documented way out, end to end: withdraw, edit, and the content is
-    // back in the review queue rather than live.
     seedLesson("published");
 
     const withdrawn = await request(app)
@@ -790,10 +751,7 @@ describe("a published row refuses an edit", () => {
   });
 
   it("checks the status the row actually holds, inside a Serializable transaction", async () => {
-    // Bound 4 of the stub exception again: a stub cannot race an edit against a
-    // publish, so what is asserted is the isolation level that makes the read
-    // and the write indivisible. A `published` check made before the transaction
-    // could be stale by the time the edit lands.
+    // A stub cannot race an edit against a publish; assert the isolation level making the read and write indivisible.
     seedLesson("draft");
     store.isolationLevels = [];
 
@@ -807,8 +765,7 @@ describe("a published row refuses an edit", () => {
   });
 
   it("still returns 404 for an id that does not exist", async () => {
-    // The guard reads the status to apply itself, and that read is now the
-    // source of the 404 — it must not turn a missing row into a 409.
+    // The status read is now the source of the 404; it must not turn a missing row into a 409.
     const res = await request(app)
       .patch(`${BASE}/lessons/ffffffff-0000-4000-8000-000000000009`)
       .send({ title: "Nothing" });
@@ -849,8 +806,7 @@ describe("PATCH /api/admin/content/topics/:id", () => {
   });
 
   it("refuses to move a topic between subjects", async () => {
-    // Not an oversight: re-parenting is a reordering event on two sibling sets,
-    // and it is out of this file's scope. `.strict()` is what says so.
+    // Re-parenting is a reordering event on two sibling sets, out of scope; `.strict()` says so.
     const res = await request(app)
       .patch(`${BASE}/topics/${TOPIC_ID}`)
       .send({ subjectId: "ffffffff-0000-4000-8000-000000000001" });
@@ -934,9 +890,6 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
     expect(store.lessons[0].status).toBe("draft");
   });
 
-  /**
-   * The FR-AI-07 invariant, reached through the *generic* endpoint (file 37).
-   */
   describe("AI-generated content cannot be published without a review decision", () => {
     function seedAiLesson(job: {
       status: string;
@@ -965,16 +918,36 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
         jobStatus: "awaiting_review",
         decision: null,
       });
-      // Still `approved`, which is not `published` — and `published` is the one
-      // value every student query filters on (asserted against the exported
-      // filter in "publishing is immediate visibility" below).
+      // `approved` is not `published`, the one value every student query filters on.
+      expect(store.lessons[0].status).toBe("approved");
+    });
+
+    it("409s when a hand-written lesson links a clip or picture that is still awaiting review", async () => {
+      // A library asset linked by a plain edit carries its own `aiJobId`; without this the review queue could be skipped.
+      seedLesson("approved");
+      store.lessons[0].translations = [
+        {
+          language: "en",
+          title: "Letter A",
+          videoAsset: { aiJobId: "job-asset" },
+        },
+      ];
+      store.jobs = [
+        { id: "job-asset", status: "awaiting_review", decision: null },
+      ];
+
+      const res = await request(app).post(path).send({ to: "published" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.details).toMatchObject({
+        code: "AI_REVIEW_REQUIRED",
+        jobId: "job-asset",
+      });
       expect(store.lessons[0].status).toBe("approved");
     });
 
     it("409s even when an editor recorded edit_then_approve but nobody approved", async () => {
-      // The decision alone is not the gate. The editors write it the moment a
-      // reviewer saves, which is before any approval — so a decision-only check
-      // would leave exactly this door open.
+      // The decision alone is not the gate: editors write it on save, before any approval.
       seedAiLesson({
         status: "awaiting_review",
         decision: "edit_then_approve",
@@ -1011,8 +984,7 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
     });
 
     it("leaves human-authored content alone", async () => {
-      // A null `aiJobId` short-circuits before any job read, which is the normal
-      // case and must stay free.
+      // A null `aiJobId` short-circuits before any job read; the normal case must stay free.
       seedLesson("approved");
       store.jobs = [];
 
@@ -1028,7 +1000,6 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
 
     const res = await request(app).post(path).send({ to: "live" });
 
-    // `400`, not `409`: the body is malformed rather than the state being wrong.
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
   });
@@ -1046,9 +1017,7 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
 
     await request(app).post(path).send({ to: "approved" });
 
-    // Bound 4 of the stub exception: a stub cannot race two approvals, so what is
-    // asserted is the isolation level the race safety rests on. READ COMMITTED
-    // would let two admins both read `in_review` and both succeed.
+    // A stub cannot race two approvals; assert the isolation level (READ COMMITTED would let both read `in_review` and succeed).
     expect(store.isolationLevels).toEqual([
       Prisma.TransactionIsolationLevel.Serializable,
     ]);
@@ -1077,15 +1046,10 @@ describe("POST /api/admin/content/:resource/:id/transition", () => {
 });
 
 describe("publishing is immediate visibility (FR-CMS-06)", () => {
-  /**
-   * The child every student query is filtered for. Only the two fields
-   * `publishedForChild` reads are supplied.
-   */
   const CHILD = { gradeLevel: "KG1" } as unknown as Parameters<
     typeof publishedForChild
   >[0];
 
-  /** Applies the exported student filter to a stored row, as Prisma would. */
   function isVisibleToChild(row: Row): boolean {
     const where = publishedForChild(CHILD);
     const grades = row.gradeLevels as string[];
@@ -1113,11 +1077,7 @@ describe("publishing is immediate visibility (FR-CMS-06)", () => {
       .post(`${BASE}/lessons/${LESSON_ID}/transition`)
       .send({ to: "published" });
 
-    // Bound 2 of the stub exception. No test database exists to run the student
-    // endpoint against, so this applies `publishedForChild` — the one filter every
-    // query in file 12 composes — to the row this API just wrote. There is no
-    // second flag and no cache between the two: satisfying that filter *is* being
-    // visible.
+    // No test database to run the student endpoint, so apply `publishedForChild` to the row just written: satisfying it is being visible.
     expect(isVisibleToChild(store.lessons[0])).toBe(true);
   });
 
@@ -1130,8 +1090,6 @@ describe("publishing is immediate visibility (FR-CMS-06)", () => {
       .send({ to: "draft" });
 
     expect(isVisibleToChild(store.lessons[0])).toBe(false);
-    // The row survives, and so does anything referencing it — unpublishing is not
-    // deletion.
     expect(store.lessons).toHaveLength(1);
   });
 
@@ -1204,7 +1162,6 @@ describe("PATCH /api/admin/content/:resource/reorder", () => {
     );
   });
 
-  /** The sibling set is whichever list the admin was looking at. */
   describe("and the archived siblings", () => {
     const ARCHIVED_ID = "cccccccc-0000-4000-8000-00000000000d";
 
@@ -1292,7 +1249,6 @@ describe("PATCH /api/admin/content/:resource/reorder", () => {
       unknown: [],
       hasDuplicates: false,
     });
-    // Refused whole: a partial order is worse than none.
     expect(TOPIC_IDS.map(orderOf)).toEqual([0, 1, 2]);
   });
 
@@ -1359,8 +1315,7 @@ describe("PATCH /api/admin/content/:resource/reorder", () => {
       .patch(`${BASE}/topics/reorder`)
       .send({ parentId: SUBJECT_ID, orderedIds: TOPIC_IDS });
 
-    // One transaction, not three writes: a partially applied reorder leaves rows
-    // sharing an index.
+    // One transaction: a partially applied reorder leaves rows sharing an index.
     expect(store.isolationLevels).toEqual([
       Prisma.TransactionIsolationLevel.Serializable,
     ]);
@@ -1371,8 +1326,7 @@ describe("PATCH /api/admin/content/:resource/reorder", () => {
       .patch(`${BASE}/worlds/reorder`)
       .send({ orderedIds: [WORLD_ID] });
 
-    // Falls through to `/worlds/:id`, whose params schema rejects `reorder` as a
-    // uuid. Asserted so nobody reads the absence as an oversight.
+    // Falls through to `/worlds/:id`, whose params schema rejects `reorder` as a uuid; not an oversight.
     expect(res.status).toBe(400);
   });
 });
@@ -1427,8 +1381,7 @@ describe("archived rows are hidden by default", () => {
   });
 
   it("excludes them from a reorder's sibling set", async () => {
-    // Otherwise every reorder performed from the default view would fail, because
-    // the list the admin dragged never contained the archived row.
+    // Otherwise every default-view reorder would fail: the dragged list never held the archived row.
     const res = await request(app)
       .patch(`${BASE}/subjects/reorder`)
       .send({ orderedIds: [SUBJECT_ID] });
@@ -1468,8 +1421,7 @@ describe("lists show every status, unlike the student API", () => {
       res.body,
       "GET /api/admin/content/worlds",
     );
-    // The safety property is not that this endpoint is careful — it is that the
-    // *student* endpoint filters. This one exists to show drafts.
+    // The safety property is that the student endpoint filters; this one exists to show drafts.
     expect(res.body.data.map((row: { status: string }) => row.status)).toEqual([
       "draft",
       "in_review",
@@ -1505,7 +1457,6 @@ describe("lists show every status, unlike the student API", () => {
   });
 });
 
-/** The world item shape, which no other resource shares. */
 describe("the world item contract", () => {
   const body = {
     slug: "forest",
@@ -1593,11 +1544,7 @@ describe("the world item contract", () => {
   });
 });
 
-/**
- * `GET /{resource}/{id}` on the other three. Cheap to skip and easy to break:
- * the read-one handler shares no code path with the list, so a `select` that
- * leaked or dropped a field would show up here and nowhere else.
- */
+/** The read-one handler shares no code path with the list, so a leaking or dropped `select` field shows only here. */
 describe("the read-one contract on every resource", () => {
   it("holds for a subject", async () => {
     seed(store.subjects, { id: SUBJECT_ID, slug: "letters", name: "Letters" });
@@ -1667,10 +1614,7 @@ describe("what the stub cannot prove — asserted against schema.prisma", () => 
   );
 
   it("declares the unique indexes the 409 DUPLICATE_SLUG path rests on", () => {
-    // The stub raises `P2002` because it was told which columns collide. Postgres
-    // raises it because of these declarations, so they are what the behaviour
-    // actually depends on. A real test replaces this once the database harness
-    // exists.
+    // The stub raises `P2002` on request; Postgres raises it because of these declarations. A real test replaces this later.
     expect(schema).toMatch(/model World \{[\s\S]*?slug\s+String\s+@unique/);
     expect(schema).toMatch(/model Subject \{[\s\S]*?slug\s+String\s+@unique/);
     expect(schema).toMatch(/@@unique\(\[subjectId, slug\]\)/);
@@ -1683,7 +1627,6 @@ describe("what the stub cannot prove — asserted against schema.prisma", () => 
   });
 });
 
-/** Character sheets (file 36, FR-AI-09). */
 describe("POST /api/admin/content/character-sheets", () => {
   const SHEET_BASE = `${BASE}/character-sheets`;
 
@@ -1758,10 +1701,7 @@ describe("POST /api/admin/content/character-sheets", () => {
   });
 
   it("409s rather than 500s when the slug is taken between the check and the write", async () => {
-    // `assertSlugFree` is check-then-act, so two admins saving the same slug at
-    // once both pass it and the loser hits the unique index. Unwrapped, Prisma's
-    // P2002 reaches the error handler as an undocumented `500`; this endpoint
-    // documents `409` and that is what a race should read as.
+    // `assertSlugFree` is check-then-act; the race loser hits the unique index and must read as the documented `409`, not an undocumented `500`.
     await request(app)
       .post(SHEET_BASE)
       .send({ ...RABBIT, slug: "nibbles" });
@@ -1777,7 +1717,6 @@ describe("POST /api/admin/content/character-sheets", () => {
   });
 
   it("stores a world-less sheet as null rather than omitting the column", async () => {
-    // A character used across every world is a fact worth recording, not a gap.
     const res = await request(app)
       .post(SHEET_BASE)
       .send({ name: "The Narrator", description: RABBIT.description });
@@ -1787,9 +1726,7 @@ describe("POST /api/admin/content/character-sheets", () => {
   });
 
   it("400s a description too short to draw consistently from", async () => {
-    // "a rabbit" contributes nothing an image model can be consistent about, and
-    // a sheet that adds nothing makes the drift it exists to stop look like the
-    // feature working.
+    // "a rabbit" gives an image model nothing to stay consistent about, so a sheet adding nothing is skipped.
     const res = await request(app)
       .post(SHEET_BASE)
       .send({ ...RABBIT, description: "a rabbit" });
@@ -1800,8 +1737,7 @@ describe("POST /api/admin/content/character-sheets", () => {
   });
 
   it("400s a status the caller tried to smuggle in", async () => {
-    // A sheet has no status at all — it is prompt input, never student-facing —
-    // so `.strict()` rejects the key rather than storing a meaningless column.
+    // A sheet has no status (prompt input, never student-facing), so `.strict()` rejects the key.
     const res = await request(app)
       .post(SHEET_BASE)
       .send({ ...RABBIT, status: "published" });
@@ -1868,9 +1804,7 @@ describe("GET /api/admin/content/character-sheets", () => {
   });
 
   it("narrows ?worldId= to that world plus the world-less sheets", async () => {
-    // The same set the illustration generator applies to a story set there. A
-    // filter answering differently would show an author a cast their pictures do
-    // not use.
+    // Same set the illustration generator applies, so authors are not shown a cast their pictures ignore.
     const res = await request(app).get(`${SHEET_BASE}?worldId=${WORLD_ID}`);
 
     expect(res.status).toBe(200);
@@ -1920,8 +1854,7 @@ describe("PATCH /api/admin/content/character-sheets/{id}", () => {
   });
 
   it("400s a body that names a slug", async () => {
-    // The slug is how an import recognises a saved character, so one that could
-    // change would let the same mascot be imported twice under two names.
+    // A changeable slug would let the same mascot be imported twice under two names.
     const res = await request(app)
       .patch(`${SHEET_BASE}/${SHEET_ID}`)
       .send({ slug: "nibbles-the-rabbit" });
@@ -2001,10 +1934,7 @@ describe("POST /api/admin/content/character-sheets/from-job", () => {
   });
 
   it("counts a slug lost to a concurrent import as skipped, not as a 500", async () => {
-    // The window the `findUnique` above it cannot cover: a second admin (or a
-    // double-click) inserted the same slug between the check and the write. The
-    // import is idempotent by slug, so the loser of that race means the character
-    // is saved — which is a `skipped`, exactly as finding it taken would be.
+    // A second admin inserted the slug between `findUnique` and write; import is idempotent by slug, so the loser is a `skipped`.
     store.jobs.push(
       storyJob([
         {
@@ -2033,9 +1963,7 @@ describe("POST /api/admin/content/character-sheets/from-job", () => {
   });
 
   it("skips a character whose slug already has a sheet, without overwriting it", async () => {
-    // The second story in a world describes the same mascot in slightly
-    // different words; taking the newer wording would change how it is drawn in
-    // every story already using it (FR-AI-09).
+    // Taking the newer wording would change how the mascot is drawn in every story already using it (FR-AI-09).
     store.characterSheets.push({
       id: "sheet-existing",
       slug: "nibbles",
@@ -2081,8 +2009,7 @@ describe("POST /api/admin/content/character-sheets/from-job", () => {
   });
 
   it("409s a job whose output holds no character descriptions", async () => {
-    // A `failed` generation that never produced a valid answer. `409` rather
-    // than `404`: the job exists, and what is wrong is its contents.
+    // A `failed` generation never produced a valid answer: `409` not `404`, as the job exists.
     store.jobs.push({
       id: JOB_ID,
       type: "story",

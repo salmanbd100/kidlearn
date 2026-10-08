@@ -1,22 +1,17 @@
-import type { WeeklyReportJobResult } from "@kidlearn/types";
+import type { WeeklyReportJobAccepted } from "@kidlearn/types";
 import { Router } from "express";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import { requireCronSecret } from "../../shared/middleware/require-cron-secret.js";
-import { generateLastCompletedWeekForAllChildren } from "../children/weekly-report.service.js";
+import { startWeeklyReportsJob } from "./weekly-reports-job.service.js";
 
-/** `/api/admin/jobs` — the endpoints an external scheduler calls (file 30). */
 export const jobsRouter = Router();
 
 jobsRouter.use(requireCronSecret);
 
-/** Generates last week's report for every child (FR-DASH-05). */
-jobsRouter.post("/weekly-reports", async (_req, res, next) => {
-  try {
-    const result = await generateLastCompletedWeekForAllChildren();
-
-    const payload: SuccessEnvelope<WeeklyReportJobResult> = { data: result };
-    res.json(payload);
-  } catch (error) {
-    next(error);
-  }
+// 202 before the work: a run over every child outlasts any scheduler's request timeout.
+jobsRouter.post("/weekly-reports", (_req, res) => {
+  const payload: SuccessEnvelope<WeeklyReportJobAccepted> = {
+    data: startWeeklyReportsJob(),
+  };
+  res.status(202).json(payload);
 });

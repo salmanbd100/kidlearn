@@ -9,34 +9,24 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/events/events.routes.ts` — mounted behind `requireParent` **and**
- * `requireActiveChild` in `modules/index.ts`, so every present and future
- * `/api/events/*` path is covered by construction.
- */
+/** Mounted behind `requireParent` and `requireActiveChild` in `modules/index.ts`. */
 type _ActivityTypesExistInPrisma = ActivityEventType extends SessionEventType
   ? true
   : never;
 const _activityTypesAreRealEvents: _ActivityTypesExistInPrisma = true;
 void _activityTypesAreRealEvents;
 
-const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
-  "No active child profile on this session. Call `POST /api/children/{id}/activate` first — time is recorded against a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.",
-  ["FORBIDDEN"],
+const FORBIDDEN_RESPONSE = errorResponse(
+  "`FORBIDDEN` — no active child profile on this session. Call `POST /api/children/{id}/activate` first — time is recorded against a child, and which child is never taken from the request. Also returned when the session's active profile belongs to another parent, or has since been deleted.\n\n`CONSENT_REQUIRED` — the parent has never accepted the consent text, or accepted only an older version (FR-AUTH-03). Nothing is recorded until they accept it again through `POST /api/parent/consent`.",
+  ["FORBIDDEN", "CONSENT_REQUIRED"],
 );
 
-/**
- * Identical in cause and reasoning to the content API's `404`, and deliberately
- * so: an event must not be recordable against content the child cannot open.
- * A lesson and a story do not carry the same number of gates, so the two halves
- * are stated separately rather than under one sentence.
- */
+/** Same reasoning as the content API's `404`: an event must not be recordable against content the child cannot open. */
 const REF_NOT_FOUND_RESPONSE = errorResponse(
   "`refId` names no lesson (or story) this child can see. A **lesson** fails on any one of its four gates — its own `status` and grade tags, its world's `status`, its topic's `status` and grade tags, or that topic's subject's — matching `GET /api/content/lessons/{id}`, because the two resolve through the same clause. A **story** hangs off a world alone, so it fails on its own `status` or grade tags or its world's `status`, matching `GET /api/content/stories/{id}`. All of them are the same `404` — a `403` would confirm the row exists, and draft content must not be discoverable by probing (spec §7.3.4). Which table is consulted follows from `type`, so a `story_start` naming a lesson id is a `404` rather than a match.",
   ["NOT_FOUND"],
 );
 
-/** Why nothing on this surface can be talked out of a minute. */
 const ANTI_TAMPER = [
   "**The client only ever says “I am here”.** No request on this surface carries a timestamp, a duration or a total. `occurredAt` is the database's `now()`, the cadence is throttled server-side, and minutes are derived from the stored rows — so refreshing the page, closing the tab, clearing storage or editing client state cannot lower a recorded minute (FR-TIME-06). There is nowhere client-side for the figure to live.",
   "",
@@ -72,7 +62,7 @@ export const EVENTS_ROUTES: RouteDoc[] = [
           "HeartbeatResponse",
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -110,7 +100,7 @@ export const EVENTS_ROUTES: RouteDoc[] = [
           ["VALIDATION_FAILED"],
         ),
         "401": UNAUTHORIZED_RESPONSE,
-        "403": NO_ACTIVE_CHILD_RESPONSE,
+        "403": FORBIDDEN_RESPONSE,
         "404": REF_NOT_FOUND_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },

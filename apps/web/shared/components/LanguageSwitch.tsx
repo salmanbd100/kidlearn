@@ -1,10 +1,10 @@
 "use client";
 
+import { toLocale } from "@kidlearn/i18n";
 import { Button, type ButtonProps } from "@kidlearn/ui";
 import { useTranslation } from "react-i18next";
-import { type Locale, toLocale } from "@/shared/lib/locale";
+import { type Locale, writeLocaleCookie } from "@/shared/lib/locale";
 
-/** English ⇄ Bangla, with no page navigation (FR-I18N-02, FR-I18N-03). */
 export function LanguageSwitch({
   size = "kid",
 }: {
@@ -25,6 +25,7 @@ export function LanguageSwitch({
       aria-label={t("language.switchTo", { language: nextLabel })}
       onClick={() => {
         void i18n.changeLanguage(next);
+        writeLocaleCookie(next);
       }}
     >
       {nextLabel}

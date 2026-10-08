@@ -16,7 +16,6 @@ function renderContainer(step: LessonStep, onExit = vi.fn()) {
   return onExit;
 }
 
-/** The five dots, in flow order, as `done` / `current` / `todo`. */
 function dotStates(): string[] {
   return LESSON_STEPS.map(
     (step) =>
@@ -34,8 +33,8 @@ describe("StepContainer", () => {
   it("always shows five dots, whatever step is on screen", () => {
     renderContainer("activity");
 
-    // Five from the first screen: the shape of the lesson is visible before the
-    // child has done any of it.
+    // Five from the first screen: the lesson's shape is visible before the child has done any of
+    // it.
     expect(document.querySelectorAll("[data-state]")).toHaveLength(5);
   });
 
@@ -49,6 +48,26 @@ describe("StepContainer", () => {
     renderContainer(step);
 
     expect(dotStates()).toEqual([...expected]);
+  });
+
+  it("hands focus to the new step's name when the old step took it away", () => {
+    const view = (step: LessonStep) => (
+      <Providers locale="en">
+        <StepContainer step={step} onExit={vi.fn()}>
+          <button key={step} type="button">
+            {step} answer
+          </button>
+        </StepContainer>
+      </Providers>
+    );
+    const { rerender } = render(view("video"));
+    screen.getByRole("button", { name: "video answer" }).focus();
+
+    rerender(view("activity"));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Play" }),
+    ).toHaveFocus();
   });
 
   it("reports its position to assistive tech rather than leaving five bare circles", () => {
@@ -95,8 +114,7 @@ describe("StepContainer", () => {
 
     const mascot = document.querySelector("img");
     expect(mascot).not.toBeNull();
-    // Company for the child, never something to tap — and never announced, since
-    // the label is what carries the meaning.
+    // Company for the child, never tappable and never announced.
     expect(mascot).toHaveAttribute("alt", "");
     expect(mascot).toHaveAttribute("aria-hidden", "true");
     expect(mascot?.className).toContain("pointer-events-none");

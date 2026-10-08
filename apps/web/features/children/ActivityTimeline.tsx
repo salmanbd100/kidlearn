@@ -1,5 +1,6 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   DashboardActivityItem,
   DashboardActivityType,
@@ -9,11 +10,9 @@ import { cva } from "class-variance-authority";
 import { Award, BookOpen, BookText, Sprout } from "lucide-react";
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
-import { pickLabel } from "@/shared/lib/localized-label";
+import { pickLabel } from "@/features/children/localized-label";
 import { formatAbsolute, formatRelative } from "@/shared/lib/relative-time";
 
-/** What this child has finished lately (FR-DASH-04). */
 const ACTIVITY_ICONS: Record<
   DashboardActivityType,
   ComponentType<{ className?: string; "aria-hidden"?: boolean }>
@@ -44,7 +43,6 @@ const iconVariants = cva(
 
 export interface ActivityTimelineProps {
   items: readonly DashboardActivityItem[];
-  /** The child whose feed this is — the empty state says their name. */
   childName: string;
   now: Date;
 }
@@ -57,16 +55,14 @@ export function ActivityTimeline({
   const { t, i18n } = useTranslation(PARENT_NAMESPACE);
 
   return (
-    <section className="flex flex-col gap-4 rounded-[var(--radius)] border border-border bg-card p-4 sm:p-5">
+    <section className="flex flex-col gap-4 rounded-(--radius) border border-border bg-card p-4 sm:p-5">
       <h2 className="font-semibold text-card-foreground text-lg">
         {t("dashboard.activityTitle")}
       </h2>
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
-          {/* Lucide, not an emoji: the three feed icons below are Lucide, and an
-              emoji ignores `currentColor` and redraws itself per OS
-              (design.md §9 — never mix icon families on one surface). */}
+          {/* Lucide, not an emoji: an emoji ignores `currentColor` and redraws per OS (design.md §9). */}
           <span
             aria-hidden="true"
             className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"
@@ -93,10 +89,7 @@ export function ActivityTimeline({
                 </span>
 
                 <div className="flex min-w-0 flex-1 flex-col">
-                  {/* Wrapped to two lines, not truncated: a Bangla title gets
-                      ~180px beside the icon and the date on a 360px phone, and
-                      this is the content the parent came to read
-                      (design.md §1 — never truncate meaning). */}
+                  {/* Wrapped, not truncated: a Bangla title gets ~180px on a 360px phone (design.md §1). */}
                   <p className="line-clamp-2 font-medium text-card-foreground text-sm">
                     {pickLabel(item.title, i18n.language)}
                   </p>

@@ -6,6 +6,7 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type {
   DragAnswerQuestion as DragAnswerDefinition,
   ImageAssetRef,
@@ -17,8 +18,8 @@ import { cva } from "class-variance-authority";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useActivitySensors } from "@/features/activities/use-activity-sensors";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { useActivitySensors } from "@/shared/hooks/use-activity-sensors";
+import { useTapToPlace } from "@/shared/hooks/use-tap-to-place";
 import type { QuestionProps } from "./types";
 import {
   BLANK_DROPPABLE_ID,
@@ -26,19 +27,17 @@ import {
   useDragAnswer,
 } from "./use-drag-answer";
 
-// Drag the missing word into the gap (FR-QUIZ-03).
-
 const optionCardVariants = cva(
-  // `touch-action: manipulation` and not `none`: the touch sensor activates on a
-  // 100ms hold, so the browser can keep owning scroll gestures that start here.
-  "flex min-h-24 min-w-24 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-4 bg-card p-3 text-card-foreground transition-opacity [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  // `touch-action: manipulation`, not `none`: the touch sensor activates on a 100ms hold, so scroll
+  // gestures stay with the browser.
+  "flex min-h-24 min-w-24 cursor-grab flex-col items-center justify-center gap-1 rounded-lg border-4 bg-card p-3 text-card-foreground transition-opacity touch-manipulation focus-ring",
   {
     variants: {
       state: {
         idle: "border-border shadow-md",
         dragging: "z-30 cursor-grabbing border-primary shadow-pop",
-        // Still readable, still there — a card a child can see they have tried
-        // tells them more than one that vanished under their finger.
+        selected: "border-primary shadow-pop motion-safe:scale-105",
+        // Still readable: a tried card a child can see tells them more than one that vanished.
         dimmed: "border-border opacity-40",
       },
     },
@@ -47,10 +46,9 @@ const optionCardVariants = cva(
 );
 
 const blankVariants = cva(
-  // 96px of drop target inside a line of 30px text: the gap is the only thing on
-  // this screen a child has to hit, so it is sized like a button, not like a
-  // word (design.md §7).
-  "mx-2 inline-flex min-h-24 min-w-24 items-center justify-center rounded-2xl border-4 border-dashed p-2 align-middle transition-colors",
+  // 96px drop target in a line of 30px text: the gap is all a child must hit, so it is sized like a
+  // button (design.md §7).
+  "mx-2 inline-flex min-h-24 min-w-24 items-center justify-center rounded-2xl border-4 border-dashed p-2 align-middle transition-colors touch-manipulation focus-ring",
   {
     variants: {
       state: {
@@ -74,16 +72,20 @@ export function DragAnswerQuestion({
 }: QuestionProps<DragAnswerDefinition>) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const sensors = useActivitySensors();
-  const { lockedId, dimmedIds, handleDragEnd } = useDragAnswer({
+  const { lockedId, dimmedIds, handleDragEnd, place } = useDragAnswer({
     definition,
     feedback,
     onAttempt,
     onCommit,
   });
+  const { selectedId, toggle, placeOn, dragHandlers } = useTapToPlace(place);
 
   const { before, after } = splitAtBlank(definition.sentence[locale]);
   const lockedOption = definition.options.find(
     (option) => option.id === lockedId,
+  );
+  const selectedOption = definition.options.find(
+    (option) => option.id === selectedId,
   );
 
   const announcements = useMemo<Announcements>(() => {
@@ -121,9 +123,12 @@ export function DragAnswerQuestion({
   return (
     <DndContext
       sensors={sensors}
-      onDragEnd={handleDragEnd}
-      // dnd-kit's own live-region copy is English; every string a child's device
-      // reads out has to come through i18next like any other (FR-I18N-01).
+      onDragStart={dragHandlers.onDragStart}
+      onDragEnd={(event) => {
+        dragHandlers.onDragEnd();
+        handleDragEnd(event);
+      }}
+      // dnd-kit's live-region copy is English; route it through i18next (FR-I18N-01).
       accessibility={{
         announcements,
         screenReaderInstructions: { draggable: t("quiz.drag.instructions") },
@@ -133,11 +138,17 @@ export function DragAnswerQuestion({
         data-testid="quiz-drag-answer"
         className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-8 overflow-auto"
       >
+        <span role="status" className="sr-only">
+          {selectedOption === undefined
+            ? ""
+            : t("quiz.drag.picked", {
+                item: selectedOption.text?.[locale] ?? selectedOption.id,
+              })}
+        </span>
+
         {/*
-          The sentence is not a heading and not a label — it is the question
-          itself, with a hole in it, so it is one paragraph whose middle happens
-          to be a drop target. `text-3xl` because a child who *is* starting to
-          read is reading this one.
+          The sentence is the question itself with a drop target in it, so one paragraph; `text-3xl`
+          for children starting to read.
         */}
         <p className="max-w-2xl text-center font-display text-3xl leading-relaxed text-foreground">
           {before}
@@ -145,15 +156,13 @@ export function DragAnswerQuestion({
             option={lockedOption}
             locale={locale}
             emptyLabel={t("quiz.drag.blank")}
+            isInviting={selectedId !== undefined}
+            onTap={() => placeOn(BLANK_DROPPABLE_ID)}
           />
           {after}
         </p>
 
-        {/*
-          A labelled list rather than a labelled `div`: it is what the tray
-          actually is, and how many are left in it is the sighted child's "two to
-          try" made audible.
-        */}
+        {/* A labelled list so screen readers announce how many cards are left. */}
         <ul
           aria-label={t("quiz.drag.tray")}
           className="flex flex-wrap items-center justify-center gap-4"
@@ -165,6 +174,12 @@ export function DragAnswerQuestion({
                 locale={locale}
                 isDimmed={dimmedIds.has(option.id)}
                 isPlaced={option.id === lockedId}
+                isSelected={option.id === selectedId}
+                onTap={() => {
+                  if (dimmedIds.has(option.id) || option.id === lockedId)
+                    return;
+                  toggle(option.id);
+                }}
                 roleDescription={t("quiz.drag.roleDescription")}
                 triedLabel={t("quiz.optionTried")}
                 fallbackLabel={t("quiz.optionPicture", { number: index + 1 })}
@@ -181,31 +196,38 @@ function BlankSlot({
   option,
   locale,
   emptyLabel,
+  isInviting,
+  onTap,
 }: {
   option: QuizOption | undefined;
   locale: Locale;
   emptyLabel: string;
+  isInviting: boolean;
+  onTap: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: BLANK_DROPPABLE_ID });
-  const state = option !== undefined ? "filled" : isOver ? "over" : "empty";
+  const state =
+    option !== undefined ? "filled" : isOver || isInviting ? "over" : "empty";
 
   return (
-    <span
+    <button
       ref={setNodeRef}
+      type="button"
       data-testid="quiz-drag-blank"
       data-state={state}
       className={cn(blankVariants({ state }))}
+      onClick={onTap}
     >
       {option === undefined ? (
-        // The gap has to be readable as a gap by a screen reader too, or the
-        // sentence is announced as two fragments with nothing between them.
+        // The gap must read as a gap to a screen reader, or the sentence is announced as two
+        // fragments.
         <span className="sr-only">{emptyLabel}</span>
       ) : (
         <span className="font-display text-3xl leading-none">
           {option.text?.[locale]}
         </span>
       )}
-    </span>
+    </button>
   );
 }
 
@@ -214,6 +236,8 @@ function DraggableOption({
   locale,
   isDimmed,
   isPlaced,
+  isSelected,
+  onTap,
   roleDescription,
   triedLabel,
   fallbackLabel,
@@ -221,8 +245,9 @@ function DraggableOption({
   option: QuizOption;
   locale: Locale;
   isDimmed: boolean;
-  /** Answered correctly and now sitting in the blank — nothing left to drag. */
   isPlaced: boolean;
+  isSelected: boolean;
+  onTap: () => void;
   roleDescription: string;
   triedLabel: string;
   fallbackLabel: string;
@@ -235,7 +260,13 @@ function DraggableOption({
     });
 
   const label = option.text?.[locale];
-  const state = isDragging ? "dragging" : isDimmed ? "dimmed" : "idle";
+  const state = isDragging
+    ? "dragging"
+    : isDimmed
+      ? "dimmed"
+      : isSelected
+        ? "selected"
+        : "idle";
 
   return (
     <button
@@ -243,19 +274,15 @@ function DraggableOption({
       type="button"
       data-testid={`quiz-drag-option-${option.id}`}
       data-state={state}
-      // No `disabled` attribute, and no `aria-disabled` of its own: dnd-kit sets
-      // the latter from the `disabled` it was passed above, and the former would
-      // drop a tried card out of the tab order half-way through answering — it
-      // is still part of the question a screen-reader user is reading back.
+      // No `disabled` or own `aria-disabled`: dnd-kit sets the latter, and `disabled` would drop a
+      // tried card out of the tab order mid-answer.
       className={cn(
         optionCardVariants({ state }),
-        // The answer is in the blank now; leaving a ghost of it in the tray
-        // would give a child two of the same card to choose between.
+        // The answer is in the blank; a ghost in the tray would offer two of the same card.
         isPlaced && "invisible",
       )}
-      // Written out rather than pulled from `@dnd-kit/utilities`: a translate is
-      // the only transform this ever applies, and `transform` is the one
-      // property a drag may animate (design.md §5.2).
+      // Hand-written translate: the only transform used, and the one property a drag may animate
+      // (design.md §5.2).
       style={{
         transform:
           transform === null
@@ -264,6 +291,10 @@ function DraggableOption({
       }}
       {...listeners}
       {...attributes}
+      // After the spread: dnd-kit's attributes set `aria-pressed` and would clear the tap
+      // selection's.
+      aria-pressed={isSelected || isDragging}
+      onClick={onTap}
     >
       <OptionArt
         image={option.image}
@@ -272,15 +303,14 @@ function DraggableOption({
         fallbackLabel={fallbackLabel}
       />
       {label === undefined ? null : (
-        // 20px floor on a kid surface (design.md §3.2); the word on this card is
-        // the answer itself, so it gets the larger end of the scale.
+        // 20px floor on a kid surface (design.md §3.2); the word is the answer, so the larger end
+        // of the scale.
         <span className="font-display text-2xl leading-tight">{label}</span>
       )}
       {isDimmed ? <span className="sr-only">{triedLabel}</span> : null}
       {/*
-        A card with neither words nor a picture has nothing else to be called.
-        The schema does not allow one, but this is a drag target with no
-        accessible name if it ever ships — cheaper to name than to debug.
+        A card with neither words nor a picture would be a drag target with no accessible name; the
+        schema forbids one, but naming is cheaper than debugging.
       */}
       {label === undefined && option.image === undefined ? (
         <span className="sr-only">{fallbackLabel}</span>
@@ -290,11 +320,8 @@ function DraggableOption({
 }
 
 /**
- * `alt=""` where the card also carries words, because the picture then repeats
- * what is already announced. A wordless card is the opposite case: `alt` is
- * optional on the schema, so an author may publish one with nothing describing
- * it, and an empty `alt` there would leave the button with no accessible name at
- * all (design.md §7).
+ * `alt=""` where words are also shown. A wordless card needs a real `alt` (optional on the schema),
+ * or the button has no accessible name (design.md §7).
  */
 function OptionArt({
   image,

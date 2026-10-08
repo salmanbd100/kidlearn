@@ -1,31 +1,39 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/features/children/active-child";
+import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 
-/** What every student screen that needs a child sits behind. */
 export function StudentGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
-  const { status, child, isWakingUp } = useActiveChild();
+  const { status, parent, child, isWakingUp, refresh } = useActiveChild();
 
+  // Consent before the profile picker: the API refuses every progress write until the current text is accepted.
   const redirectTo =
     status === "signedOut"
-      ? "/parent/login"
-      : status === "ready" && child === undefined
-        ? STUDENT_ROUTES.selectProfile
-        : undefined;
+      ? PARENT_ROUTES.signInPage
+      : status === "ready" && parent?.hasCurrentConsent === false
+        ? PARENT_ROUTES.consent
+        : status === "ready" && child === undefined
+          ? STUDENT_ROUTES.selectProfile
+          : undefined;
 
   useEffect(() => {
     if (redirectTo !== undefined) router.replace(redirectTo);
   }, [redirectTo, router]);
 
   if (status === "error") {
-    return <StudentStatus tone="alert">{t("status.error")}</StudentStatus>;
+    return (
+      <StudentStatus tone="alert" onRetry={() => void refresh()}>
+        {t("status.error")}
+      </StudentStatus>
+    );
   }
 
   if (status === "loading" || redirectTo !== undefined) {
@@ -37,30 +45,4 @@ export function StudentGuard({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>;
-}
-
-/**
- * The waiting and failure states, shaped like the screens around them: centred,
- * large, and never below the 20px floor a child reads at (design.md §3.2).
- */
-export function StudentStatus({
-  tone,
-  children,
-}: {
-  tone: "status" | "alert";
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
-      <span aria-hidden="true" className="text-6xl">
-        🦉
-      </span>
-      <p
-        role={tone}
-        className="text-center font-display text-foreground text-xl"
-      >
-        {children}
-      </p>
-    </div>
-  );
 }

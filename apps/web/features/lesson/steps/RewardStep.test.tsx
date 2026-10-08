@@ -4,8 +4,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
-
-// The celebration, driven by a mocked completion response.
+import { createPendingWrites, type PendingWrites } from "../pending-writes";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -13,8 +12,7 @@ const progress = vi.hoisted(() => ({ completeLesson: vi.fn() }));
 vi.mock("@/shared/api/progress-api", () => progress);
 
 const audio = vi.hoisted(() => ({
-  // Typed with its parameter, unlike the other suites' stubs: this one asserts
-  // *which* clips played and in what order, so the calls have to be readable.
+  // Typed with its parameter: this suite asserts which clips played and in what order.
   play: vi.fn(async (_url: string, _options?: unknown) => {}),
   stop: vi.fn(),
   isPlaying: false,
@@ -87,19 +85,21 @@ const MIA = {
   imageUrl: null,
 };
 
-function renderStep() {
+function renderStep(pendingWrites?: PendingWrites) {
   const onComplete = vi.fn();
   render(
     <Providers locale="en">
-      <RewardStep lesson={LESSON} onComplete={onComplete} />
+      <RewardStep
+        lesson={LESSON}
+        onComplete={onComplete}
+        pendingWrites={pendingWrites}
+        locale="en"
+      />
     </Providers>,
   );
   return { onComplete };
 }
 
-/**
- * Flushes the completion promise, then walks the celebration to its last phase.
- */
 async function settle() {
   await act(async () => {});
   for (let phase = 0; phase < 6; phase += 1) {
@@ -107,7 +107,6 @@ async function settle() {
   }
 }
 
-/** Stops after `count` handovers, so a mid-sequence phase can be inspected. */
 async function settleTo(count: number) {
   await act(async () => {});
   for (let phase = 0; phase < count; phase += 1) {
@@ -121,8 +120,8 @@ beforeEach(() => {
   audio.play.mockClear();
   progress.completeLesson.mockReset();
   progress.completeLesson.mockResolvedValue(completion());
-  // Reduced motion, so the coin count lands on its final value without a frame
-  // loop. `CoinCountUp.test.tsx` is where the animation itself is driven.
+  // Reduced motion, so the coin count lands without a frame loop; `CoinCountUp.test.tsx` drives the
+  // animation.
   document.documentElement.classList.add(A11Y_PREF_CLASSES.reducedMotion);
 });
 
@@ -136,9 +135,28 @@ describe("RewardStep", () => {
     renderStep();
     await settle();
 
-    // One argument, and it is the lesson id. There is nothing here a client
-    // could inflate (FR-GAM-08).
+    // One argument, the lesson id: nothing here a client could inflate (FR-GAM-08).
     expect(progress.completeLesson).toHaveBeenCalledTimes(1);
+    expect(progress.completeLesson).toHaveBeenCalledWith(LESSON_ID);
+  });
+
+  it("does not finish the lesson until the quiz submission has landed", async () => {
+    // The server derives the quiz reward from stored responses, so a completion overtaking a slow
+    // quiz upload pays nothing for it.
+    const pendingWrites = createPendingWrites();
+    let landQuiz = () => {};
+    pendingWrites.add(
+      () =>
+        new Promise<void>((resolve) => {
+          landQuiz = resolve;
+        }),
+    );
+    renderStep(pendingWrites);
+
+    await act(async () => {});
+    expect(progress.completeLesson).not.toHaveBeenCalled();
+
+    await act(async () => landQuiz());
     expect(progress.completeLesson).toHaveBeenCalledWith(LESSON_ID);
   });
 
@@ -189,8 +207,7 @@ describe("RewardStep", () => {
     renderStep();
     await settle();
 
-    // Zero is "you already did this one", not a failure — and the totals still
-    // say the child has something.
+    // Zero is "already did this one", not a failure.
     expect(screen.queryAllByTestId("star-burst-star")).toHaveLength(0);
     expect(screen.getByTestId("coin-count")).toHaveTextContent("0");
     expect(screen.getByTestId("reward-totals")).toHaveTextContent("12");
@@ -210,7 +227,6 @@ describe("RewardStep", () => {
     expect(screen.queryByTestId("reward-totals")).not.toBeInTheDocument();
     const text = screen.getByText("You did it!").textContent ?? "";
     expect(text).not.toMatch(/sorry|error|wrong|again/i);
-    // Logged for an adult, invisible to the child.
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("completion not recorded"),
     );
@@ -231,17 +247,16 @@ describe("RewardStep", () => {
 
   it("offers Done from the first frame of the celebration, not only at the end", async () => {
     renderStep();
-    // The response has landed but no phase timer has run: a child who taps
-    // straight through must not be held on a screen with no way out.
+    // The response has landed but no phase timer has run: a child tapping through must not be held
+    // with no way out.
     await act(async () => {});
 
     expect(screen.getByRole("button", { name: "Done!" })).toBeInTheDocument();
   });
 
   /**
-   * Everything drawn on this screen is `aria-hidden` — the stars, the climbing
-   * coins, both totals. This one live region is the entire celebration for a
-   * child who cannot see it, so what it says is not a detail.
+   * Everything drawn is `aria-hidden`; this one live region is the whole celebration for a child
+   * who cannot see it.
    */
   describe("the spoken celebration", () => {
     function announcement(): string {
@@ -272,8 +287,7 @@ describe("RewardStep", () => {
     });
 
     it("names only the coins when no stars were earned", async () => {
-      // A replay on a new day: the lesson has already paid its stars, but the
-      // day's coins are still there to earn.
+      // A replay on a new day: stars already paid, the day's coins still to earn.
       progress.completeLesson.mockResolvedValue(
         completion({ starsEarned: 0, coinsEarned: 5 }),
       );
@@ -300,9 +314,8 @@ describe("RewardStep", () => {
       renderStep();
       await settle();
 
-      // "You got 0 stars and 0 coins" is the failure narration this screen
-      // exists to avoid — zero earned is *already done*, and the only channel
-      // this child has must say so.
+      // "0 stars and 0 coins" is the failure narration this screen avoids: zero earned means
+      // already done.
       expect(announcement()).toBe("You did it! You finished the whole lesson.");
       expect(announcement()).not.toMatch(/\b0\b/);
     });
@@ -318,8 +331,7 @@ describe("RewardStep", () => {
       renderStep();
       await settle();
 
-      // "You unlocked a new badge" tells a child who cannot see the screen
-      // nothing about *which*.
+      // "A new badge" tells a child who cannot see the screen nothing about which.
       expect(announcement()).toBe(
         "You did it! You got 2 stars. You unlocked a new badge: Streak Starter.",
       );
@@ -384,17 +396,14 @@ describe("RewardStep", () => {
       renderStep();
       await settle();
 
-      // The lesson was finished whether or not the network agreed, and a child
-      // who cannot see the screen is owed the same sentence as one who can.
+      // The lesson was finished whether or not the network agreed, and a child who cannot see is
+      // owed the same sentence.
       expect(announcement()).toBe("You did it! You finished the whole lesson.");
       warn.mockRestore();
     });
   });
 
-  /**
-   * The phases file 24 adds. Each is *skipped* when it has nothing to show, so
-   * the ordinary completion — which is most of them — is no longer than it was.
-   */
+  /** Each phase is skipped when it has nothing to show, so the ordinary completion is no longer. */
   describe("badges, characters and streaks", () => {
     it("skips every unlock phase when nothing was unlocked", async () => {
       renderStep();
@@ -419,7 +428,6 @@ describe("RewardStep", () => {
         }),
       );
       renderStep();
-      // stars → coins → badges.
       await settleTo(2);
 
       const cards = screen.getAllByTestId("badge-reveal");
@@ -453,8 +461,8 @@ describe("RewardStep", () => {
     });
 
     it("plays no streak celebration on a day that reached no milestone", async () => {
-      // Day four of a run. The flame is for the moment a streak is *reached*;
-      // one that played every day after would stop meaning anything by day five.
+      // Day four of a run: the flame marks a streak being reached; one that played daily would stop
+      // meaning anything.
       progress.completeLesson.mockResolvedValue(
         completion({ streak: { current: 4, milestone: null } }),
       );
@@ -521,8 +529,7 @@ describe("RewardStep", () => {
       renderStep();
       await settleTo(2);
 
-      // A child who wants out mid-celebration must never be held on a screen
-      // with no way off it.
+      // A child who wants out mid-celebration must never be held on a screen with no way off.
       fireEvent.click(screen.getByRole("button", { name: "Done!" }));
     });
   });

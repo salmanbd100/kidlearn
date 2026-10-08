@@ -3,11 +3,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 
-// The AI Story Generator's form (file 35, FR-AI-02).
-
 const generateStory = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/admin/admin-api", () => ({ generateStory }));
+vi.mock("@/features/admin/ai-api", () => ({ generateStory }));
 
 const WORLD_ID = "cccccccc-0000-4000-8000-000000000001";
 const OTHER_WORLD_ID = "cccccccc-0000-4000-8000-000000000002";
@@ -59,8 +57,15 @@ const theme = (value: string) =>
     target: { value },
   });
 
-const world = (value: string) =>
-  fireEvent.change(screen.getByLabelText("World"), { target: { value } });
+const pick = (field: string, option: string) => {
+  fireEvent.keyDown(screen.getByRole("combobox", { name: field }), {
+    key: "Enter",
+  });
+  fireEvent.click(screen.getByRole("option", { name: option }));
+};
+
+const world = (id: string) =>
+  pick("World", WORLDS.find((one) => one.id === id)?.name ?? id);
 
 const submit = () =>
   fireEvent.click(screen.getByRole("button", { name: "Generate draft" }));
@@ -101,9 +106,7 @@ describe("what the dialog sends", () => {
   });
 
   it("keeps grade levels in a stable order however they were toggled", async () => {
-    // The same set clicked in a different order must be the same request — the
-    // server stores it as `Story.gradeLevels` and an admin comparing two stories
-    // should not see them differ by click order.
+    // Click order must not change the request: it's stored as `Story.gradeLevels`.
     renderDialog();
     theme("Sharing toys");
     world(WORLD_ID);
@@ -123,9 +126,7 @@ describe("what the dialog sends", () => {
     renderDialog();
     theme("Sharing toys");
     world(WORLD_ID);
-    fireEvent.change(screen.getByLabelText("Pages"), {
-      target: { value: "6" },
-    });
+    pick("Pages", "6 pages");
     submit();
 
     await waitFor(() => expect(generateStory).toHaveBeenCalled());
@@ -146,8 +147,7 @@ describe("what the dialog sends", () => {
 
 describe("what the dialog refuses to send", () => {
   it("will not submit without a world to set the story in", () => {
-    // There is nothing to inherit from and no safe default: the world decides
-    // whether the characters are jungle animals or sea creatures.
+    // Nothing to inherit: the world decides whether the characters are jungle animals or sea creatures.
     renderDialog();
     theme("Sharing toys");
 
@@ -212,8 +212,7 @@ describe("what the dialog does with the answer", () => {
   });
 
   it("reports a failed job as a failure, naming it so it can be found", async () => {
-    // The HTTP call succeeded — a generation that could not produce valid output
-    // still has a job row holding both attempts (FR-AI-08).
+    // The HTTP call succeeded; invalid output still leaves a job row with both attempts (FR-AI-08).
     generateStory.mockResolvedValue({
       ok: true,
       data: { jobId: "job-7", status: "failed" },

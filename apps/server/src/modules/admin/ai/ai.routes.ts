@@ -27,18 +27,14 @@ import { generateNarrationBatch } from "./generators/narration.js";
 import { generateQuiz } from "./generators/quiz.js";
 import { generateStory } from "./generators/story.js";
 import { requireGenerationBudget } from "./require-generation-budget.middleware.js";
-import {
-  type AiJobDetailDto,
-  type AiJobListDto,
-  type AiReviewResultDto,
-  approveJob,
-  countAwaitingReview,
-  getJob,
-  listJobs,
-  rejectJob,
-} from "./review.js";
+import { approveJob, rejectJob } from "./review/decide.js";
+import type {
+  AiJobDetailDto,
+  AiJobListDto,
+  AiReviewResultDto,
+} from "./review/job.js";
+import { countAwaitingReview, getJob, listJobs } from "./review/queue.js";
 
-/** `/api/admin/ai` — the generation pipeline (file 34, FR-AI-01, FR-AI-08). */
 export const adminAiRouter = Router();
 
 adminAiRouter.post(
@@ -89,9 +85,6 @@ adminAiRouter.post(
   },
 );
 
-/**
- * Narration for every missing `(target, locale)` pair (FR-AI-04, FR-I18N-05).
- */
 adminAiRouter.post(
   "/generate/narration",
   requireGenerationBudget("audio"),
@@ -108,7 +101,6 @@ adminAiRouter.post(
   },
 );
 
-/** Illustrations for every story page with a brief and no picture (FR-AI-05). */
 adminAiRouter.post(
   "/generate/illustrations",
   requireGenerationBudget("image"),
@@ -125,17 +117,11 @@ adminAiRouter.post(
   },
 );
 
-/**
- * Reads the `:id` path parameter, on routes guarded by
- * `validate({ params: AiJobIdParamsSchema })`.
- */
 function jobIdParam(req: Request): string {
   return req.params.id as string;
 }
 
-/**
- * The human gate. Everything above creates drafts; nothing above can publish one.
- */
+// The human gate: everything above creates drafts; nothing above can publish one.
 adminAiRouter.get(
   "/jobs",
   validate({ query: AiJobListQuerySchema }),
@@ -179,7 +165,6 @@ adminAiRouter.get(
   },
 );
 
-/** Approve, which publishes (FR-CMS-06). */
 adminAiRouter.post(
   "/jobs/:id/approve",
   validate({ params: AiJobIdParamsSchema }),
@@ -197,7 +182,6 @@ adminAiRouter.post(
   },
 );
 
-/** Reject, with a mandatory reason of at least ten characters (FR-AI-08). */
 adminAiRouter.post(
   "/jobs/:id/reject",
   validate({ params: AiJobIdParamsSchema, body: RejectJobSchema }),

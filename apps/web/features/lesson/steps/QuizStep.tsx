@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import type { QuizResponseRecord } from "@kidlearn/types";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,14 +9,16 @@ import { QuizEngine } from "@/features/quiz/QuizEngine";
 import { QuizScoreScreen } from "@/features/quiz/QuizScoreScreen";
 import type { QuizAnswerRecord } from "@/features/quiz/types";
 import { submitQuizResponses } from "@/shared/api/progress-api";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
-import { toLocale } from "@/shared/lib/locale";
 import type { LessonStepProps } from "./lesson-step-props";
 
-/** The quiz (FR-LSN-04, FR-QUIZ-01..08). */
-export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
-  const { t, i18n } = useTranslation(LESSON_NAMESPACE);
-  const locale = toLocale(i18n.resolvedLanguage);
+export function QuizStep({
+  lesson,
+  onComplete,
+  isPreview,
+  pendingWrites,
+  locale,
+}: LessonStepProps) {
+  const { t } = useTranslation(LESSON_NAMESPACE);
   const [finishedRecords, setFinishedRecords] = useState<
     readonly QuizAnswerRecord[] | undefined
   >(undefined);
@@ -24,9 +27,8 @@ export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
 
   const handleFinish = useCallback(
     (records: readonly QuizAnswerRecord[]) => {
-      // Every question was unrenderable, so the engine finished before the child
-      // answered anything. A screen of no stars congratulating them for a quiz
-      // they never saw is worse than moving on quietly.
+      // Every question was unrenderable: congratulating the child for a quiz they never saw is
+      // worse than moving on quietly.
       if (records.length === 0 || quizId === undefined) {
         onComplete();
         return;
@@ -34,16 +36,12 @@ export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
 
       setFinishedRecords(records);
 
-      // An administrator preview scores on screen and records nothing
-      // (file 33, FR-CMS-04). There is no child for a `QuizResponse` row to
-      // belong to, and the endpoint would refuse an admin session anyway.
+      // Admin preview scores on screen and records nothing: no child owns a `QuizResponse`, and the
+      // endpoint refuses an admin session.
       if (isPreview) return;
 
-      // `isFirstAttemptCorrect` is dropped here rather than sent: the server
-      // grades `answer` against the stored payload and reads first-time success
-      // off `attempts` (`backend.md §8`). The screen behind this shows the
-      // client's own stars, which is why the two derivations have to agree —
-      // `evaluateAnswer` is the shared function that makes them.
+      // `isFirstAttemptCorrect` is dropped: the server derives it from `attempts` (`backend.md
+      // §8`). The two derivations must agree, via the shared `evaluateAnswer`.
       const wire: QuizResponseRecord[] = records.map(
         ({ questionId, answer, attempts }) => ({
           questionId,
@@ -52,15 +50,18 @@ export function QuizStep({ lesson, onComplete, isPreview }: LessonStepProps) {
         }),
       );
 
-      void submitQuizResponses(quizId, wire).then((result) => {
-        if (!result.ok) {
-          console.warn(
-            `[kidlearn] quiz responses not recorded: ${result.error.code}`,
-          );
-        }
-      });
+      const submit = () =>
+        submitQuizResponses(quizId, wire).then((result) => {
+          if (!result.ok) {
+            console.warn(
+              `[kidlearn] quiz responses not recorded: ${result.error.code}`,
+            );
+          }
+        });
+      if (pendingWrites === undefined) void submit();
+      else pendingWrites.add(submit);
     },
-    [quizId, onComplete, isPreview],
+    [quizId, onComplete, isPreview, pendingWrites],
   );
 
   return (

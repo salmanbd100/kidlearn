@@ -1,6 +1,3 @@
-/**
- * The pure half of the weekly report: rows → metrics, and metrics → a note key.
- */
 import { describe, expect, it } from "vitest";
 import { localDayStartUtc } from "../../shared/utils/local-date.js";
 import {
@@ -17,10 +14,8 @@ import {
 
 const TZ = "Asia/Dhaka";
 
-/** Monday 17 August 2026, as a `@db.Date` column round-trips it. */
 const WEEK_START = new Date("2026-08-17T00:00:00.000Z");
 
-/** The same week as local instants — 18:00 UTC Sunday to 18:00 UTC the next. */
 const FROM = localDayStartUtc(TZ, "2026-08-17");
 const TO = localDayStartUtc(TZ, "2026-08-24");
 
@@ -40,7 +35,6 @@ function metricsFor(overrides: Partial<Input> = {}) {
   });
 }
 
-/** `n` heartbeats at the client's 30s cadence, starting at `start`. */
 function beatsFrom(start: string, count: number): Date[] {
   const first = new Date(start).getTime();
   return Array.from(
@@ -69,8 +63,7 @@ describe("computeWeeklyMetrics — an empty week", () => {
       newNumbers: [],
       lessonsCompleted: 0,
       storiesCompleted: 0,
-      // `null`, never 0: zero percent is a real and bad score, and a screen that
-      // cannot tell it from "nothing was answered" accuses a child of failing.
+      // `null`, never 0: a screen that cannot tell zero percent from "nothing answered" accuses a child of failing.
       quizAccuracy: null,
       quizFirstAttempts: 0,
       badgesEarned: [],
@@ -80,8 +73,7 @@ describe("computeWeeklyMetrics — an empty week", () => {
 
 describe("computeWeeklyMetrics — activeDays", () => {
   it("counts local calendar days, not UTC ones", () => {
-    // 23:30 and 00:30 *in Dhaka* on consecutive dates. In UTC both fall on 18
-    // August, so a UTC implementation reports one day and this reports two.
+    // 23:30 and 00:30 in Dhaka on consecutive dates; in UTC both are 18 August.
     const metrics = metricsFor({
       eventTimestamps: [
         new Date("2026-08-18T17:30:00.000Z"), // 18 Aug 23:30 local
@@ -101,16 +93,13 @@ describe("computeWeeklyMetrics — activeDays", () => {
   it("ignores events outside the week it was asked about", () => {
     const metrics = metricsFor({
       eventTimestamps: [
-        // The Sunday before this week begins, local time.
         new Date("2026-08-16T12:00:00.000Z"),
         new Date("2026-08-18T04:00:00.000Z"),
-        // The Monday after it ends.
         new Date("2026-08-24T12:00:00.000Z"),
       ],
     });
 
-    // Filtered here as well as in the query, because a `where` clause is a promise
-    // about one caller and this function has more than one.
+    // Filtered here as well as in the query: a `where` clause is a promise about one caller.
     expect(metrics.activeDays).toBe(1);
   });
 
@@ -127,7 +116,6 @@ describe("computeWeeklyMetrics — activeDays", () => {
 
 describe("computeWeeklyMetrics — learning minutes", () => {
   it("uses the same density rule the dashboard and the limit use", () => {
-    // 21 beats at 30s: 10 minutes end to end plus the 30s tail → 11.
     expect(
       metricsFor({ eventTimestamps: beatsFrom("2026-08-18T04:00:00Z", 21) })
         .learningMinutes,
@@ -161,8 +149,7 @@ describe("computeWeeklyMetrics — new concepts", () => {
       ],
     });
 
-    // Two lessons about A is one letter learned, and a report claiming two would
-    // be counting lessons while calling them letters.
+    // Two lessons about A is one letter learned.
     expect(metrics.newLetters).toEqual(["A"]);
     expect(metrics.newWords).toEqual(["alligator", "apple"]);
     expect(metrics.lessonsCompleted).toBe(2);
@@ -181,8 +168,7 @@ describe("computeWeeklyMetrics — new concepts", () => {
       ],
     });
 
-    // `conceptsIntroduced` is admin-authored free text. A typo in a CMS field must
-    // not be able to fail a parent's report, so anything unrecognised is dropped.
+    // `conceptsIntroduced` is admin-authored free text: a CMS typo must not fail a report, so unrecognised tokens are dropped.
     expect(metrics.newLetters).toEqual(["B"]);
     expect(metrics.newWords).toEqual([]);
     expect(metrics.newNumbers).toEqual([]);
@@ -213,8 +199,7 @@ describe("computeWeeklyMetrics — first-attempt quiz accuracy", () => {
         answer("q1", true, "2026-08-18T04:00:00Z"),
         answer("q2", true, "2026-08-18T04:01:00Z"),
         answer("q3", false, "2026-08-18T04:02:00Z"),
-        // The retry that got q3 right. A quiz here has no fail state, so counting
-        // this row too would report 100% for every child who kept tapping.
+        // The retry that got q3 right. A quiz has no fail state, so counting it would report 100% for every child who kept tapping.
         answer("q3", true, "2026-08-18T04:03:00Z"),
       ],
     });
@@ -231,7 +216,7 @@ describe("computeWeeklyMetrics — first-attempt quiz accuracy", () => {
       ],
     });
 
-    // Unsorted input on purpose: a Prisma `orderBy` is a promise about a query.
+    // Unsorted on purpose: `orderBy` only promises something about a query.
     expect(metrics.quizAccuracy).toBe(0);
     expect(metrics.quizFirstAttempts).toBe(1);
   });
@@ -249,7 +234,6 @@ describe("computeWeeklyMetrics — first-attempt quiz accuracy", () => {
       ],
     });
 
-    // 2/7 = 28.57…
     expect(metrics.quizAccuracy).toBe(29);
   });
 
@@ -268,7 +252,6 @@ describe("computeWeeklyMetrics — first-attempt quiz accuracy", () => {
   it("takes the first attempt inside the week, not the child's first ever", () => {
     const metrics = metricsFor({
       quizResponses: [
-        // Last week the child got it wrong. That belongs to last week's report.
         answer("q1", false, "2026-08-12T04:00:00Z"),
         answer("q1", true, "2026-08-18T04:00:00Z"),
       ],
@@ -284,7 +267,6 @@ describe("computeWeeklyMetrics — stories and badges", () => {
       storyCompletions: [
         new Date("2026-08-18T04:00:00Z"),
         new Date("2026-08-19T04:00:00Z"),
-        // Last week's — the caller's window is what decides, not the array.
         new Date("2026-08-10T04:00:00Z"),
       ],
       badges: [
@@ -343,8 +325,7 @@ describe("selectNote — the rule order is the specification", () => {
       }),
     );
 
-    // Turning up all seven days is the harder thing and the one a four-year-old
-    // controls, so it is what the parent is told about.
+    // All seven days is the part a four-year-old controls, so it is what the parent is told about.
     expect(note.noteKey).toBe("perfectWeek");
     expect(note.noteParams).toEqual({ activeDays: 7 });
   });
@@ -373,9 +354,7 @@ describe("selectNote — the rule order is the specification", () => {
       }),
     );
 
-    // 100% of nine questions is a sample, not an assessment. The floor is what
-    // keeps the one note that claims understanding from being handed out for two
-    // lucky taps.
+    // 100% of nine questions is a sample, not an assessment; the floor stops two lucky taps earning the "understanding" note.
     expect(note.noteKey).toBe("strongWeek");
   });
 
@@ -413,8 +392,7 @@ describe("selectNote — the rule order is the specification", () => {
     const note = selectNote(facts({ activeDays: 1, lessonsCompleted: 1 }));
 
     expect(note.noteKey).toBe("steadyProgress");
-    // `count`, not `lessons`: it is the key i18next selects a plural form with, so
-    // a one-lesson week reads "1 lesson finished" rather than "1 lessons".
+    // `count` is the key i18next selects plurals with: "1 lesson", not "1 lessons".
     expect(note.noteParams).toEqual({ count: 1 });
   });
 
@@ -444,8 +422,7 @@ describe("renderEnglishNote", () => {
   });
 
   it("leaves a placeholder alone rather than printing undefined", () => {
-    // Only reachable if a rule and its template disagree about a param name — a
-    // bug, but one that must not put the word "undefined" in a parent's report.
+    // Reachable only if a rule and its template disagree on a param name, and then must not print "undefined".
     expect(
       renderEnglishNote({ noteKey: "bookworm", noteParams: {} }),
     ).toContain("{{stories}}");
@@ -459,8 +436,7 @@ describe("weekBounds", () => {
     // Dhaka is UTC+6, so a local Monday starts at 18:00 UTC the day before.
     expect(from.toISOString()).toBe("2026-08-16T18:00:00.000Z");
     expect(to.toISOString()).toBe("2026-08-23T18:00:00.000Z");
-    // The Sunday, in the same date-only encoding as `weekStart` — the screen
-    // renders "17–23 Aug", so it needs the far edge inclusive.
+    // The Sunday in `weekStart`'s date-only encoding, inclusive: the screen renders "17–23 Aug".
     expect(weekEndInclusive.toISOString()).toBe("2026-08-23T00:00:00.000Z");
   });
 
@@ -482,8 +458,7 @@ describe("assertMondayWeekStart", () => {
   });
 
   it("rejects an instant that is not midnight", () => {
-    // A caller who passed `new Date()` on a Monday would otherwise have it
-    // silently floored, and the unique index would merge two different intents.
+    // A `new Date()` on a Monday would otherwise be silently floored, merging two intents under the unique index.
     expect(() =>
       assertMondayWeekStart(new Date("2026-08-17T09:30:00.000Z")),
     ).toThrowError(expect.objectContaining({ statusCode: 400 }));
@@ -498,7 +473,6 @@ describe("assertMondayWeekStart", () => {
 
 describe("lastCompletedWeekStart", () => {
   it("returns the Monday before the week containing now", () => {
-    // Wednesday 19 August 2026, midday in Dhaka.
     expect(
       lastCompletedWeekStart(new Date("2026-08-19T06:00:00.000Z"), TZ)
         .toISOString()
@@ -507,9 +481,7 @@ describe("lastCompletedWeekStart", () => {
   });
 
   it("does not treat the week in progress as finished", () => {
-    // Monday itself: the week that just began is not reportable, so the answer is
-    // still the one before it. A report for a week being lived through would be
-    // replaced on every read.
+    // The week that just began is not reportable: a report for a week being lived through would be replaced on every read.
     expect(
       lastCompletedWeekStart(new Date("2026-08-17T06:00:00.000Z"), TZ)
         .toISOString()
@@ -526,8 +498,7 @@ describe("lastCompletedWeekStart", () => {
   });
 
   it("reads the local date, so a late-evening UTC instant is already tomorrow", () => {
-    // 23 Aug 19:00 UTC is 24 Aug 01:00 in Dhaka — a new week locally, so the last
-    // completed one has moved on. A UTC implementation answers 10 August here.
+    // 23 Aug 19:00 UTC is 24 Aug in Dhaka, a new week locally; a UTC implementation answers 10 August.
     expect(
       lastCompletedWeekStart(new Date("2026-08-23T19:00:00.000Z"), TZ)
         .toISOString()

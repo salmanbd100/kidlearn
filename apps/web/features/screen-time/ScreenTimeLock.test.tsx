@@ -58,11 +58,7 @@ describe("ScreenTimeLock", () => {
     ).toBeInTheDocument();
   });
 
-  /**
-   * A `423` can arrive without details — from a proxy, or a code path that did not
-   * attach them. The screen still has to say something a child can act on rather
-   * than interpolating "undefined" into a sentence.
-   */
+  /** A `423` can arrive without details (proxy, or a path that attached none); the screen must not interpolate "undefined". */
   it("falls back to a generic line when no window start is available", () => {
     renderLock({ reason: "OUTSIDE_WINDOW", windowStart: null });
 

@@ -7,8 +7,8 @@ import {
   type LessonStepReport,
   type QuizResponsesSubmit,
   type QuizScoreResponse,
+  readQuizQuestion,
   type SessionEventReport,
-  safeParseQuizQuestion,
 } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
@@ -21,22 +21,47 @@ import {
   type CompletionRewards,
   grantLessonCompletion,
 } from "../rewards/reward.service.js";
-
-/**
- * Per-child lesson progress and the lesson player's event log (FR-LSN-06..07).
- */
+import {
+  evaluateStartForChild,
+  screenTimeBlockedError,
+} from "../screen-time/screen-time.service.js";
+import {
+  assertWithinClientEventBudget,
+  recordServerObservedBeat,
+} from "./session-event.service.js";
 
 /** Position in the ordered flow. `-1` for a value outside it, which cannot occur. */
 function stepIndex(step: LessonStep): number {
   return LESSON_STEPS.indexOf(step);
 }
 
-/** The later of two steps in flow order. */
 function laterStep(a: LessonStep, b: LessonStep): LessonStep {
   return stepIndex(a) >= stepIndex(b) ? a : b;
 }
 
-/** Resolves a lesson the child is actually allowed to be in, or throws 404. */
+/**
+ * How far one report may move `currentStep`. `next` is the player's own pace — one step past the last finished, so a client cannot
+ * post `activity` into a fresh row and be paid for a lesson it never played. `completion` is `completeLesson`'s report, which may
+ * cross the quiz: that report is sent as the reward step mounts and may have been dropped.
+ */
+type StepAdvance = "next" | "completion";
+
+function assertReachable(
+  existing: LessonStep | null,
+  reported: LessonStep,
+  advance: StepAdvance,
+): void {
+  if (advance === "completion") return;
+  // A re-post of a passed step is a retry or a replay and stays a no-op, so only a forward jump is refused.
+  const furthest = existing === null ? 0 : stepIndex(existing) + 1;
+  if (stepIndex(reported) > furthest) {
+    throw ApiError.conflict("Lesson steps must be reported in order", {
+      code: "STEP_OUT_OF_ORDER",
+      currentStep: existing,
+    });
+  }
+}
+
 export async function requireVisibleLessonId(
   child: ChildProfile,
   lessonId: string,
@@ -51,7 +76,6 @@ export async function requireVisibleLessonId(
   return lesson.id;
 }
 
-/** FR-LSN-06 — where this child left off, or `null` if they never started. */
 export async function getLessonProgress(
   child: ChildProfile,
   lessonId: string,
@@ -63,23 +87,56 @@ export async function getLessonProgress(
   });
 }
 
-/** FR-LSN-06 — records one finished step. */
-export async function reportLessonStep(
+export function reportLessonStep(
   child: ChildProfile,
   lessonId: string,
   report: LessonStepReport,
 ): Promise<LessonProgress> {
+  return writeLessonStep(child, lessonId, report, "next");
+}
+
+async function writeLessonStep(
+  child: ChildProfile,
+  lessonId: string,
+  report: LessonStepReport,
+  advance: StepAdvance,
+): Promise<LessonProgress> {
   const visibleLessonId = await requireVisibleLessonId(child, lessonId);
 
-  return withSerializationRetry(() =>
-    reportLessonStepOnce(child.id, visibleLessonId, report),
+  await assertMayOpenLesson(child.id, visibleLessonId);
+  await recordServerObservedBeat(
+    child.id,
+    advance === "completion" ? "lesson_complete" : "lesson_step",
   );
+
+  return withSerializationRetry(() =>
+    reportLessonStepOnce(child.id, visibleLessonId, report, advance),
+  );
+}
+
+/**
+ * The first step report creates the progress row, and a row under the resume grace makes the content read allow the lesson even when
+ * the day's limit is spent, so a report that would create the row is held to the same decision; continuing a lesson is not.
+ */
+async function assertMayOpenLesson(
+  childId: string,
+  lessonId: string,
+): Promise<void> {
+  const existing = await prisma.lessonProgress.findUnique({
+    where: { childId_lessonId: { childId, lessonId } },
+    select: { id: true },
+  });
+  if (existing !== null) return;
+
+  const decision = await evaluateStartForChild(childId, undefined);
+  if (!decision.allowed) throw screenTimeBlockedError(decision);
 }
 
 function reportLessonStepOnce(
   childId: string,
   lessonId: string,
   report: LessonStepReport,
+  advance: StepAdvance,
 ): Promise<LessonProgress> {
   return prisma.$transaction(
     async (tx) => {
@@ -87,12 +144,22 @@ function reportLessonStepOnce(
         where: { childId_lessonId: { childId, lessonId } },
       });
 
+      assertReachable(existing?.currentStep ?? null, report.step, advance);
+
+      // A finished run re-posting `intro` is a replay starting over, so the row follows it back and
+      // `assertPlayedThrough` can tell a replay played through from a completion merely re-posted.
+      const isReplayStart =
+        advance === "next" &&
+        existing !== null &&
+        isFinishedRun(existing) &&
+        report.step === LESSON_STEPS[0];
+
       const currentStep =
-        existing === null
+        existing === null || isReplayStart
           ? report.step
           : laterStep(existing.currentStep, report.step);
 
-      // Already-set completion is never rewritten — see the docstring above.
+      // Already-set completion is never rewritten.
       const completedAt =
         existing?.completedAt ?? (report.completed ? new Date() : null);
 
@@ -111,27 +178,65 @@ function reportLessonStepOnce(
   );
 }
 
-/**
- * FR-LSN-05 — the whole of finishing a lesson: mark it done, then pay for it.
- */
 export async function completeLesson(
   child: ChildProfile,
   lessonId: string,
 ): Promise<CompletionRewards> {
-  const progress = await reportLessonStep(child, lessonId, {
-    step: "reward",
-    completed: true,
-  });
+  await assertPlayedThrough(child, lessonId);
 
-  return grantLessonCompletion(child.id, progress.lessonId);
+  const progress = await writeLessonStep(
+    child,
+    lessonId,
+    { step: "reward", completed: true },
+    "completion",
+  );
+
+  return grantLessonCompletion(child, progress.lessonId);
 }
 
-/** FR-LSN-07, FR-TIME-06 — appends one lesson-flow event. */
+/** The last step a completion requires; not `quiz`, whose report is sent as the reward step mounts, and a dropped request should not cost the child the celebration. */
+const STEP_BEFORE_COMPLETION: LessonStep = "activity";
+
+/** A row a completion has already been paid against; only a replay from `intro` moves it on. */
+function isFinishedRun(
+  progress: Pick<LessonProgress, "currentStep" | "completedAt">,
+): boolean {
+  return progress.currentStep === "reward" && progress.completedAt !== null;
+}
+
+/**
+ * Completion pays stars, coins, the day's coins and the streak, so it is refused unless this run reached the activity. A replay counts
+ * once it has been played through again; re-posting the completion of a finished run would otherwise pay the daily grant every day.
+ */
+async function assertPlayedThrough(
+  child: ChildProfile,
+  lessonId: string,
+): Promise<void> {
+  const visibleLessonId = await requireVisibleLessonId(child, lessonId);
+  const progress = await prisma.lessonProgress.findUnique({
+    where: {
+      childId_lessonId: { childId: child.id, lessonId: visibleLessonId },
+    },
+    select: { currentStep: true, completedAt: true },
+  });
+
+  const hasPlayedThrough =
+    progress !== null &&
+    !isFinishedRun(progress) &&
+    stepIndex(progress.currentStep) >= stepIndex(STEP_BEFORE_COMPLETION);
+  if (!hasPlayedThrough) {
+    throw ApiError.conflict("Lesson has not been played through", {
+      code: "LESSON_NOT_PLAYED",
+    });
+  }
+}
+
 export async function recordSessionEvent(
   child: ChildProfile,
   event: SessionEventReport,
 ): Promise<SessionEvent> {
   const lessonId = await requireVisibleLessonId(child, event.lessonId);
+  await assertWithinClientEventBudget(child.id);
 
   const payload: Prisma.InputJsonObject = {
     lessonId,
@@ -144,10 +249,6 @@ export async function recordSessionEvent(
   });
 }
 
-/**
- * FR-QUIZ-08 — stores one `QuizResponse` per answered question and scores the
- * lesson from them.
- */
 export async function recordQuizResponses(
   child: ChildProfile,
   quizId: string,
@@ -167,11 +268,14 @@ export async function recordQuizResponses(
       },
     },
   });
-  // `quiz` is nullable on the row even though the filter above cannot match
-  // without one, so the narrowing is the compiler's, not a second guard.
+  // `quiz` is nullable on the row though the filter cannot match without one; the narrowing is the compiler's, not a second guard.
   if (lesson === null || lesson.quiz === null) {
     throw ApiError.notFound("Quiz not found");
   }
+
+  // Recording responses creates the progress row, so it is held to the same gate as the first step report.
+  await assertMayOpenLesson(child.id, lesson.id);
+  await assertWithinQuizResponseBudget(child.id);
 
   const questions = new Map(
     lesson.quiz.questions.map((question) => [question.id, question]),
@@ -189,8 +293,7 @@ export async function recordQuizResponses(
 
   const graded = submit.responses.map((response) => ({
     ...response,
-    // `questions.has` was just checked for every response, so this is a lost
-    // narrowing rather than an unchecked claim.
+    // `questions.has` was just checked for every response; this is a lost narrowing, not an unchecked claim.
     isCorrect: gradeResponse(
       questions.get(response.questionId)?.definition,
       response,
@@ -210,39 +313,49 @@ export async function recordQuizResponses(
 }
 
 /**
- * The subset of `pino`'s logger this module needs, declared structurally so the
- * service stays callable without an HTTP request (`backend.md §2`). Mirrors
- * `ContentLogger`.
+ * Responses one child may store per rolling minute. A quiz holds at most ten and takes a child well over a minute, so only a scripted
+ * client reaches it. Soft, as `CLIENT_EVENTS_PER_MINUTE` is: the count is not taken under a lock.
  */
+export const QUIZ_RESPONSES_PER_MINUTE = 30;
+
+const QUIZ_RESPONSE_WINDOW_MS = 60_000;
+
+async function assertWithinQuizResponseBudget(childId: string): Promise<void> {
+  const recent = await prisma.quizResponse.count({
+    where: {
+      childId,
+      answeredAt: { gte: new Date(Date.now() - QUIZ_RESPONSE_WINDOW_MS) },
+    },
+  });
+  if (recent >= QUIZ_RESPONSES_PER_MINUTE) {
+    throw new ApiError(
+      429,
+      "RATE_LIMITED",
+      "Too many quiz answers for this child — try again in a minute",
+    );
+  }
+}
+
+/** Structural subset of `pino`'s logger so the service stays callable without HTTP; mirrors `ContentLogger`. */
 export type QuizLogger = {
   error: (context: Record<string, unknown>, message: string) => void;
 };
 
-/** One response, graded against the stored payload rather than reported. */
 type GradedResponse = QuizResponsesSubmit["responses"][number] & {
   isCorrect: boolean;
 };
 
 /**
- * The server's verdict on one answer (FR-QUIZ-08, `backend.md §8`).
- *
- * Two conditions, because `QuizResponse.isCorrect` has always meant *right first
- * time* rather than *right eventually*: a quiz here has no fail state — the child
- * retries until the answer is accepted (spec §5.7) — so the committed answer is
- * correct by construction and "ever answered correctly" would be a constant
- * `true`. `attempts === 1` is what carries the distinction the reward grant, the
- * `quiz_correct_in_topic` badge and the weekly report's accuracy all read.
- *
- * A definition that no longer parses grades as incorrect and is logged: the row
- * is a content bug on a *published* question, and paying out on a payload the
- * server cannot read would be paying out on nothing.
+ * The server's verdict on one answer (FR-QUIZ-08, `backend.md §8`). `isCorrect` means right first time (`attempts === 1`), not right
+ * eventually: a quiz has no fail state, so "ever correct" would be constant `true`, and rewards, badges and the report read the distinction.
+ * A definition that no longer parses grades as incorrect and is logged, so a content bug never pays out.
  */
 function gradeResponse(
   definition: Prisma.JsonValue | undefined,
   response: QuizResponsesSubmit["responses"][number],
   log: QuizLogger,
 ): boolean {
-  const parsed = safeParseQuizQuestion(definition);
+  const parsed = readQuizQuestion(definition);
   if (!parsed.success) {
     log.error(
       { questionId: response.questionId, issues: parsed.error.issues },
@@ -268,9 +381,8 @@ function recordQuizResponsesOnce(
         data: graded.map((response) => ({
           childId,
           questionId: response.questionId,
-          // Zod parsed this into a string or a `{ pairs }` object, both of which
-          // are valid JSON — but `InputJsonValue` is a recursive type Prisma
-          // cannot infer a union into, so the boundary is asserted here.
+          // Zod gives a string or `{ pairs }`, both valid JSON, but `InputJsonValue` is a recursive type
+          // Prisma cannot infer a union into; asserted here.
           answer: response.answer as Prisma.InputJsonValue,
           // `gradeResponse`'s verdict, never the request's.
           isCorrect: response.isCorrect,
@@ -287,9 +399,7 @@ function recordQuizResponsesOnce(
         return;
       }
 
-      // A replay keeps the child's best. Lowering it would make a second, more
-      // tired run erase what they did on the first — and the row is what a
-      // parent's report reads (file 29).
+      // A replay keeps the best: lowering it would let a more tired run erase the first, and a parent's report reads this row.
       if (score > (existing.score ?? -1)) {
         await tx.lessonProgress.update({
           where: { id: existing.id },

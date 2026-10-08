@@ -2,41 +2,22 @@ import type { GenerateContentResponse, ThinkingLevel } from "@google/genai";
 import type { ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { env } from "../../../config/env.js";
-import { getClient } from "./google-genai-client.js";
+import { CHILD_SAFETY_SETTINGS, getClient } from "./google-genai-client.js";
 import type { StructuredGeneration } from "./types.js";
 
-/**
- * Gemini text generation, and the one shape every generator in files 34–36 calls
- * it through (FR-AI-01..03).
- */
-
-/**
- * Generous rather than tuned. The ceiling exists so a runaway generation stops
- * instead of spending the day's free-tier allowance in one call, not to shape the
- * output.
- */
+// Generous ceiling: stops a runaway generation spending the free-tier allowance in one call.
 const MAX_OUTPUT_TOKENS = 16000;
 
-/**
- * The floor of the Gemini 3 thinking scale. Thinking cannot be switched off on
- * these models — `thinkingBudget: 0`, which the 2.x models took, is a `400
- * INVALID_ARGUMENT` here — and its tokens are billed and rate-limited as output,
- * so the lowest level is what keeps the free-tier allowance going furthest.
- */
-// Cast rather than imported as a value: `ThinkingLevel` is a TypeScript enum, and
-// naming a member would pull the SDK's ten seconds of module evaluation onto the
-// boot path that `google-genai-client.ts` exists to keep it off (NFR-PERF-04).
+// Gemini 3 cannot switch thinking off (`thinkingBudget: 0` is a 400 INVALID_ARGUMENT) and bills it as output,
+// so the lowest level keeps the free-tier allowance going furthest.
+// Cast, not imported as a value: ThinkingLevel is a TS enum, and a value import would pull the SDK's ~10s
+// module evaluation onto the boot path that google-genai-client.ts keeps it off.
 const THINKING_LEVEL = "MINIMAL" as ThinkingLevel;
 
 export interface GenerateStructuredOptions {
   system: string;
-  /**
-   * Only user turns, and one part each. The retry feedback is a second user
-   * message rather than a replay of the rejected answer — see
-   * `generators/lesson.ts` for why — so nothing here ever needs a model turn.
-   */
+  /** User turns only, one part each; retry feedback is a second user message (see generators/lesson.ts). */
   messages: { role: "user"; content: string }[];
-  /** The contract. Converted to the response schema. */
   outputSchema: ZodTypeAny;
 }
 
@@ -46,7 +27,6 @@ export async function generateStructured(
   const client = await getClient();
   const response = await client.models.generateContent({
     model: env.GEMINI_TEXT_MODEL,
-    // One turn carrying one part per message, rather than one turn per message.
     contents: [
       {
         role: "user",
@@ -58,6 +38,7 @@ export async function generateStructured(
       responseMimeType: "application/json",
       responseJsonSchema: toResponseJsonSchema(options.outputSchema),
       maxOutputTokens: MAX_OUTPUT_TOKENS,
+      safetySettings: CHILD_SAFETY_SETTINGS,
       thinkingConfig: { thinkingLevel: THINKING_LEVEL },
     },
   });
@@ -68,10 +49,7 @@ export async function generateStructured(
     raw: parseJson(response.text),
     usage: {
       inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
-      // Thinking tokens are counted as output because they are billed and
-      // rate-limited as output. `THINKING_LEVEL` keeps them low rather than at
-      // zero, and an operator who raises it should see what it cost rather than a
-      // total that silently stops adding up (FR-AI-08).
+      // Thinking tokens are billed and rate-limited as output, so they count as output.
       outputTokens:
         (response.usageMetadata?.candidatesTokenCount ?? 0) +
         (response.usageMetadata?.thoughtsTokenCount ?? 0),
@@ -81,10 +59,6 @@ export async function generateStructured(
   };
 }
 
-/**
- * Every keyword `responseJsonSchema` accepts, from the field's own declaration in
- * `@google/genai`.
- */
 const ACCEPTED_KEYWORDS = new Set([
   "$id",
   "$defs",
@@ -127,7 +101,6 @@ function toResponseJsonSchema(schema: ZodTypeAny): unknown {
   );
 }
 
-/** The generated schema, reduced to what the provider reads. */
 function accepted(node: unknown): unknown {
   if (Array.isArray(node)) return node.map(accepted);
   if (node === null || typeof node !== "object") return node;
@@ -141,9 +114,7 @@ function accepted(node: unknown): unknown {
     if (!ACCEPTED_KEYWORDS.has(keyword)) continue;
 
     if (SUBSCHEMA_MAPS.has(keyword)) {
-      // `unknown` here is `zodToJsonSchema`'s own return type, and the keyword
-      // is what says this particular value is a map of field names. No narrowing
-      // can reach that: it is a fact about the JSON Schema spec, not the type.
+      // `unknown` is zodToJsonSchema's return type; the keyword says this value is a field map, which no narrowing reaches.
       out[keyword] = Object.fromEntries(
         Object.entries(value as Record<string, unknown>).map(([field, sub]) => [
           field,
@@ -159,10 +130,7 @@ function accepted(node: unknown): unknown {
   return out;
 }
 
-/**
- * Malformed JSON is a schema failure, not a thrown error — and the distinction is
- * a retry.
- */
+// Malformed JSON is a schema failure, not a throw, so it is retried.
 function parseJson(text: string | undefined): unknown {
   if (text === undefined || text === "") return null;
   try {
@@ -174,17 +142,13 @@ function parseJson(text: string | undefined): unknown {
 
 type StopMapping = Pick<StructuredGeneration, "stopReason" | "refusal">;
 
-/** Gemini's own taxonomy onto the three stops this pipeline acts on. */
 function mapFinishReason(response: GenerateContentResponse): StopMapping {
   const blockReason = response.promptFeedback?.blockReason;
   if (blockReason !== undefined) {
     return { stopReason: "refusal", refusal: `prompt blocked: ${blockReason}` };
   }
 
-  // Widened to `string` deliberately: the SDK types this as its own `FinishReason`
-  // enum, and comparing against the enum's members would mean importing the SDK's
-  // *value* here — the ten seconds of module evaluation `google-genai-client.ts`
-  // exists to keep off the boot path (NFR-PERF-04).
+  // Widened to string: comparing with the SDK's FinishReason enum needs a value import (see THINKING_LEVEL).
   const finishReason: string | undefined =
     response.candidates?.[0]?.finishReason;
 
@@ -193,9 +157,7 @@ function mapFinishReason(response: GenerateContentResponse): StopMapping {
       return { stopReason: "stop" };
     case "MAX_TOKENS":
       return { stopReason: "max_tokens" };
-    // The safety family: every one of them means the model declined this prompt.
-    // The reason is carried verbatim because it is the only diagnosis a reviewer
-    // gets (FR-AI-08).
+    // Safety family: the model declined this prompt; the reason is the reviewer's only diagnosis.
     case "SAFETY":
     case "PROHIBITED_CONTENT":
     case "BLOCKLIST":

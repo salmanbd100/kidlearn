@@ -81,6 +81,14 @@ describe("ActivityEngine", () => {
       expect(screen.getByTestId("activity-puzzle")).toBeInTheDocument();
     });
 
+    it("plays a payload carrying a field this bundle does not know", () => {
+      // An old bundle served newer content: the unknown field is dropped, not the step.
+      renderEngine({ ...validDragDrop, hint: "from a newer deploy" });
+
+      expect(screen.getByTestId("activity-drag-drop")).toBeInTheDocument();
+      expect(screen.queryByTestId("activity-oops")).not.toBeInTheDocument();
+    });
+
     it("shows the oops screen instead of crashing on an unknown type", () => {
       renderEngine(invalidActivityUnknownType);
 
@@ -156,7 +164,6 @@ describe("ActivityEngine", () => {
   });
 
   describe("completion (FR-ACT-05)", () => {
-    /** Both pairs of `validMatch`, tapped the way a child would. */
     function matchEveryPair() {
       for (const id of ["sun", "day", "moon", "night"]) {
         fireEvent.click(screen.getByTestId(`match-card-${id}`));

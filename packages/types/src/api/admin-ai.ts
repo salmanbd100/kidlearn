@@ -4,7 +4,7 @@ import { ContentStatusSchema } from "./admin-content.js";
 import { GradeLevelSchema } from "./children.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/** `/api/admin/ai` — the generation pipeline (file 34, FR-AI-01, FR-AI-08). */
+/** `/api/admin/ai` — the generation pipeline (FR-AI-01, FR-AI-08). */
 export const GenerationJobRefSchema = z
   .object({
     jobId: z.string(),
@@ -16,12 +16,71 @@ export type GenerationJobRef = z.infer<typeof GenerationJobRefSchema>;
 
 export const GenerationJobRefResponseSchema = ok(GenerationJobRefSchema);
 
-/** What a batch narration can be asked for (file 36, FR-AI-04). */
+/** What a batch narration can be asked for (FR-AI-04). */
 export const NARRATION_ENTITIES = ["lesson", "story", "quiz"] as const;
 export const NarrationEntitySchema = z.enum(NARRATION_ENTITIES);
 export type NarrationEntity = z.infer<typeof NarrationEntitySchema>;
 
-/** The answer to a batch generation — narration or illustrations (file 36). */
+/**
+ * What the CMS asks the generators for (FR-AI-01..04). Request schemas live here because
+ * `apps/web` sends them too; the server re-exports them so `validate()` runs the same object.
+ */
+const GenerationLanguagesSchema = z
+  .array(LocaleSchema)
+  .min(1)
+  .refine(
+    (values) => new Set(values).size === values.length,
+    "languages must not repeat",
+  );
+
+export const GenerateLessonSchema = z
+  .object({
+    gradeLevel: GradeLevelSchema,
+    subjectId: z.string().uuid(),
+    topicId: z.string().uuid(),
+    worldId: z.string().uuid().optional(),
+    lessonFocus: z.string().min(3).max(200),
+    languages: GenerationLanguagesSchema,
+  })
+  .strict();
+
+export type GenerateLessonBody = z.infer<typeof GenerateLessonSchema>;
+
+export const GenerateStorySchema = z
+  .object({
+    gradeLevels: z
+      .array(GradeLevelSchema)
+      .min(1)
+      .refine(
+        (values) => new Set(values).size === values.length,
+        "gradeLevels must not repeat",
+      ),
+    theme: z.string().min(3).max(200),
+    worldId: z.string().uuid(),
+    languages: GenerationLanguagesSchema,
+    pageCount: z.number().int().min(6).max(8).optional(),
+  })
+  .strict();
+
+export type GenerateStoryBody = z.infer<typeof GenerateStorySchema>;
+
+export const GenerateQuizSchema = z
+  .object({
+    lessonId: z.string().uuid(),
+    count: z.number().int().min(3).max(5).optional(),
+    languages: GenerationLanguagesSchema,
+  })
+  .strict();
+
+export type GenerateQuizBody = z.infer<typeof GenerateQuizSchema>;
+
+export const GenerateNarrationSchema = z
+  .object({ entity: NarrationEntitySchema, id: z.string().uuid() })
+  .strict();
+
+export type GenerateNarrationBody = z.infer<typeof GenerateNarrationSchema>;
+
+/** The answer to a batch generation — narration or illustrations. */
 export const BatchGenerationRefSchema = z
   .object({
     jobIds: z.array(z.string()),
@@ -34,7 +93,7 @@ export type BatchGenerationRef = z.infer<typeof BatchGenerationRefSchema>;
 
 export const BatchGenerationRefResponseSchema = ok(BatchGenerationRefSchema);
 
-/** The review queue (file 37, FR-AI-07, FR-CMS-05..06). */
+/** The review queue (FR-AI-07, FR-CMS-05..06). */
 export const AI_JOB_TYPES = [
   "lesson",
   "story",
@@ -102,9 +161,7 @@ export const AiJobEntitySchema = z
 
 export type AiJobEntity = z.infer<typeof AiJobEntitySchema>;
 
-/**
- * An unattached media asset a job produced, and where approval will attach it.
- */
+/** An unattached media asset a job produced, and where approval will attach it. */
 export const AiJobAssetSchema = z
   .object({
     id: z.string(),
@@ -131,9 +188,7 @@ export const AiJobDetailSchema = AiJobSummarySchema.extend({
   entities: z.array(AiJobEntitySchema),
   assets: z.array(AiJobAssetSchema),
   /**
-   * Why this job cannot be approved right now, or an empty list when it can.
-   * Computed server-side so the button and the `409` agree — a client deciding
-   * for itself would offer an approval the server refuses.
+   * Why this job cannot be approved now, or empty. Server-computed so the button and the `409` agree.
    */
   blockers: z.array(z.string()),
 }).strict();
@@ -157,9 +212,7 @@ export const AiJobCountSchema = z
 
 export type AiJobCount = z.infer<typeof AiJobCountSchema>;
 
-/**
- * What a decision answers with: the job as it now stands, plus what it moved.
- */
+/** What a decision answers with: the job as it now stands, plus what it moved. */
 export const AiReviewResultSchema = z
   .object({
     job: AiJobDetailSchema,

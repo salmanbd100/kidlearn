@@ -130,8 +130,8 @@ import {
   UploadSignatureSchema,
   ValidationDetailsSchema,
   WeeklyReportBadgeSchema,
-  WeeklyReportJobResponseSchema,
-  WeeklyReportJobResultSchema,
+  WeeklyReportJobAcceptedResponseSchema,
+  WeeklyReportJobAcceptedSchema,
   WeeklyReportListResponseSchema,
   WeeklyReportListSchema,
   WeeklyReportMetricsSchema,
@@ -200,19 +200,7 @@ import {
   schemaRef,
 } from "./to-json-schema.js";
 
-/**
- * Everything under `components` in the document: the named schema registry, the
- * session-cookie security scheme, and the error responses that repeat across
- * operations.
- */
-
-/**
- * Named schemas, request and response alike.
- *
- * Exported so `document.test.ts` can parse every hand-written `example` in the
- * document against the schema its `$ref` names — the conversion to JSON Schema
- * drops refinements, so the Zod object is the stricter check of the two.
- */
+/** Exported so `document.test.ts` can parse each example against its Zod schema, which is stricter than the JSON Schema (refinements are dropped). */
 export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ErrorEnvelope: ErrorEnvelopeSchema,
   ValidationDetails: ValidationDetailsSchema,
@@ -280,9 +268,7 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   QuizScore: QuizScoreSchema,
   QuizResponsesResponse: QuizResponsesResponseSchema,
 
-  // --- Learning time ------------------------------------------------------
-  // No request shape for the heartbeat: it has no body, which is the contract
-  // (FR-TIME-06).
+  // No request shape: the heartbeat has no body.
   Heartbeat: HeartbeatSchema,
   HeartbeatResponse: HeartbeatResponseSchema,
   ActivityEvent: ActivityEventSchema,
@@ -290,9 +276,7 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   LearningTime: LearningTimeSchema,
   LearningTimeReadResponse: LearningTimeReadResponseSchema,
 
-  // --- Dashboard ----------------------------------------------------------
-  // Response shapes only: the endpoint takes a child id and nothing else, so
-  // there is no request body to register.
+  // Response shapes only; the endpoint takes just a child id.
   LocalizedLabel: LocalizedLabelSchema,
   DashboardLearningMinutes: DashboardLearningMinutesSchema,
   DashboardSubjectProgress: DashboardSubjectProgressSchema,
@@ -300,33 +284,23 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   DashboardSummary: DashboardSummarySchema,
   DashboardSummaryResponse: DashboardSummaryResponseSchema,
 
-  // --- Weekly reports -----------------------------------------------------
-  // Response shapes only. Neither endpoint takes a body: the report list is a
-  // read, and the job derives its week from the server clock rather than from a
-  // parameter a mis-configured scheduler could get wrong.
+  // Response shapes only; the job derives its week from the server clock, not a parameter.
   ReportNoteKey: ReportNoteKeySchema,
   WeeklyReportBadge: WeeklyReportBadgeSchema,
   WeeklyReportMetrics: WeeklyReportMetricsSchema,
   WeeklyReport: WeeklyReportSchema,
   WeeklyReportList: WeeklyReportListSchema,
   WeeklyReportListResponse: WeeklyReportListResponseSchema,
-  WeeklyReportJobResult: WeeklyReportJobResultSchema,
-  WeeklyReportJobResponse: WeeklyReportJobResponseSchema,
+  WeeklyReportJobAccepted: WeeklyReportJobAcceptedSchema,
+  WeeklyReportJobAcceptedResponse: WeeklyReportJobAcceptedResponseSchema,
 
-  // --- Admin CMS ----------------------------------------------------------
-  // Response shapes only. Neither endpoint takes a body or a parameter: the
-  // identity call reads the session, and the counters derive both of their
-  // windows from the server clock (FR-CMS-01, FR-CMS-07).
+  // Response shapes only; both read the session or the server clock.
   AdminIdentity: AdminIdentitySchema,
   AdminIdentityResponse: AdminIdentityResponseSchema,
   PlatformOverview: PlatformOverviewSchema,
   PlatformOverviewResponse: PlatformOverviewResponseSchema,
 
-  // --- Admin CMS: the curriculum hierarchy (file 32) -----------------------
-  // Both halves of every contract. The request schemas are the objects
-  // `validate()` runs at the boundary, so a `.strict()` body that rejects
-  // `status` is rejecting it in the published document too — which is the point
-  // (FR-CMS-06).
+  // Request schemas are the objects `validate()` runs, so a `.strict()` body rejecting `status` is rejected in the document too.
   AdminWorldCreateBody: WorldCreateSchema,
   AdminWorldUpdateBody: WorldUpdateSchema,
   AdminSubjectCreateBody: SubjectCreateSchema,
@@ -351,10 +325,7 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AdminLessonListResponse: AdminLessonListResponseSchema,
   ReorderedIdsResponse: ReorderedIdsResponseSchema,
 
-  // --- Admin CMS: character sheets (file 36, FR-AI-09) ---------------------
-  // Prompt input, not content — which is why no schema here carries a `status`.
-  // Nothing student-facing reads the table, so there is nothing for the
-  // publishing workflow to protect. See `paths/admin-content.ts`.
+  // Prompt input, not content, so no schema carries a `status`; nothing student-facing reads the table.
   AdminCharacterSheetCreateBody: CharacterSheetCreateSchema,
   AdminCharacterSheetUpdateBody: CharacterSheetUpdateSchema,
   AdminPromoteJobCharactersBody: PromoteJobCharactersSchema,
@@ -364,11 +335,7 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   PromotedCharacterSheets: PromotedCharacterSheetsSchema,
   PromotedCharacterSheetsResponse: PromotedCharacterSheetsResponseSchema,
 
-  // --- Admin CMS: the media library (file 33, FR-CMS-02) -------------------
-  // The request halves are the objects `validate()` runs, so the `.strict()`
-  // bodies documented here are the ones that reject an unknown key. The
-  // Cloudinary-host rule on `url` is a Zod `.refine()` and is therefore invisible
-  // in the schema — it is written out in the operation's description instead.
+  // The Cloudinary-host rule on `url` is a Zod `.refine()`, invisible in the schema, so the operation description states it.
   MediaSignUploadBody: SignUploadSchema,
   MediaRegisterAssetBody: RegisterAssetSchema,
   MediaAsset: MediaAssetSchema,
@@ -377,12 +344,8 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   UploadSignature: UploadSignatureSchema,
   UploadSignatureResponse: UploadSignatureResponseSchema,
 
-  // --- Admin CMS: the guided editors (file 33, FR-CMS-03, FR-GAM-04) -------
-  // `definition` and `rule` are untyped in the request bodies on purpose — the
-  // server parses each against the one member of the shared union its sibling
-  // enum names, which is what turns a wrong payload into an issue naming the
-  // field rather than one saying "Invalid input". The response schemas carry the
-  // real unions, so a route test's `assertContract` proves the round trip.
+  // `definition` and `rule` are untyped in requests on purpose: the server parses them against the union member their sibling enum names,
+  // so a wrong payload yields an issue naming the field. Response schemas carry the real unions.
   AdminQuizCreateBody: QuizCreateSchema,
   AdminQuizUpdateBody: QuizUpdateSchema,
   AdminQuizQuestionBody: QuestionUpsertSchema,
@@ -405,33 +368,20 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AdminBadgeResponse: AdminBadgeResponseSchema,
   AdminBadgeListResponse: AdminBadgeListResponseSchema,
 
-  // --- Admin AI: the generation pipeline (file 34, FR-AI-01, FR-AI-08) -----
-  // Request and response both. The response is deliberately two fields — see the
-  // operation description for why a generation answers with a job rather than
-  // with the lesson it wrote.
+  // The response is deliberately a job reference, not the lesson written; see the operation description.
   AiGenerateLessonBody: GenerateLessonSchema,
-  // File 35 — the story and quiz generators answer with the same job reference.
-  // One response schema for all three, because a caller's next step is identical
-  // whichever it asked for: look the job up in the review queue.
+  // Story and quiz generators answer with the same job reference.
   AiGenerateStoryBody: GenerateStorySchema,
   AiGenerateQuizBody: GenerateQuizSchema,
   GenerationJobRef: GenerationJobRefSchema,
   GenerationJobRefResponse: GenerationJobRefResponseSchema,
-  // File 36 — the two media generators. A different response schema, because one
-  // click there creates *n* jobs and reports how many pairs it skipped; see the
-  // operation descriptions for why `skipped` is half the answer.
+  // Media generators create n jobs and report how many pairs were skipped, hence a different schema.
   AiGenerateNarrationBody: GenerateNarrationSchema,
   AiGenerateIllustrationsBody: GenerateIllustrationsSchema,
   BatchGenerationRef: BatchGenerationRefSchema,
   BatchGenerationRefResponse: BatchGenerationRefResponseSchema,
 
-  // --- Admin AI: the review queue (file 37, FR-AI-07, FR-CMS-05..06) -------
-  // The human gate. `AiJobDetail.input` and `.rawOutput` are `unknown` on
-  // purpose — they are the FR-AI-08 audit record, whose shape differs per
-  // generator and changes whenever a prompt does; the review screen renders them
-  // in a JSON inspector rather than as typed fields. `AiJobListQuery` and
-  // `JobBreadcrumbQuery` are registered as request shapes so the list filters and
-  // the edit-then-approve breadcrumb are readable from the spec alone.
+  // `AiJobDetail.input` and `.rawOutput` are `unknown` on purpose: the audit record's shape differs per generator and changes with prompts.
   AiJobListQuery: AiJobListQuerySchema,
   AiJobRejectBody: RejectJobSchema,
   JobBreadcrumbQuery: JobBreadcrumbQuerySchema,
@@ -452,9 +402,7 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ScreenTimeStatus: ScreenTimeStatusSchema,
   ScreenTimeStatusResponse: ScreenTimeStatusResponseSchema,
 
-  // --- Rewards ------------------------------------------------------------
-  // Response shapes only, and there is no request shape to register: no
-  // endpoint accepts a reward amount or type (FR-GAM-08).
+  // Response shapes only: no endpoint accepts a reward amount or type.
   RewardTotals: RewardTotalsSchema,
   NewBadge: NewBadgeSchema,
   NewCharacter: NewCharacterSchema,
@@ -466,20 +414,14 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   StoryCompletion: StoryCompletionSchema,
   StoryCompletionResponse: StoryCompletionResponseSchema,
 
-  // --- Versioned content payloads -----------------------------------------
-  // Registered so the activity and quiz JSONB contracts are readable from the
-  // spec alone. This is what files 18–22 build their engines against, and it is
-  // the same union the server validates a published row with before serving it.
+  // Registered so the activity and quiz JSONB contracts are readable from the spec alone.
   ActivityDefinition: ActivityDefinitionSchema,
   QuizQuestion: QuizQuestionSchema,
 };
 
 export const COMPONENT_SCHEMAS = buildComponentSchemas(SCHEMA_DEFINITIONS);
 
-/**
- * better-auth issues an httpOnly session cookie; there is no bearer token
- * anywhere in this API. `apiKey`/`cookie` is how OpenAPI 3.0 spells that.
- */
+/** better-auth issues an httpOnly session cookie, no bearer token; `apiKey`/`cookie` is how OpenAPI 3.0 spells that. */
 export const SECURITY_SCHEMES = {
   sessionCookie: {
     type: "apiKey",
@@ -488,7 +430,6 @@ export const SECURITY_SCHEMES = {
     description:
       "better-auth session cookie, set by the Google OAuth callback and sent automatically by the browser. Because this page is served from the same origin as the API, signing in at `/api/auth/google` is enough to make **Send** work on every authenticated operation below — leave the value box empty, there is no token to paste. Named `__Secure-better-auth.session_token` in production.\n\nThe generated code samples show this as a `Set-Cookie` request header, which is the one thing they get wrong: script cannot set that header, and nothing needs to — the browser attaches the cookie itself on a same-origin request.",
   },
-  /** The shared secret on `/api/admin/jobs/*` (file 30). */
   cronSecret: {
     type: "http",
     scheme: "bearer",
@@ -529,7 +470,7 @@ export const TAGS = [
   {
     name: "Screen Time",
     description:
-      "Parental limits on *starting* new content (FR-TIME-01..05): a daily allowance and an access window, both per child and both owned by the parent. The policy is written on `/api/children/{id}/screen-time`, which only the parent's own session reaches; the student surface reads its own verdict from `/api/screen-time/status`, scoped to the session's active child.\n\n**Enforcement is server-side and happens at the start of content, not during it.** `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` answer `423 Locked` when the gate is shut; step, completion and event endpoints never do, so a lesson already under way can always be finished (FR-TIME-03) and its time keeps being recorded (FR-TIME-06). A lesson with an incomplete `LessonProgress` row written in the past 30 minutes is exempt from its own gate — resuming is not starting — while replaying a finished one is a new start and is gated, as is picking up one abandoned longer ago than that.\n\nThe minutes a limit is compared against are the same server-derived figure the parent dashboard shows, from one shared function, so a limit and a dashboard can never disagree about how long a child has been learning.",
+      "Parental limits on *starting* new content (FR-TIME-01..05): a daily allowance and an access window, both per child and both owned by the parent. The policy is written on `/api/children/{id}/screen-time`, which only the parent's own session reaches; the student surface reads its own verdict from `/api/screen-time/status`, scoped to the session's active child.\n\n**Enforcement is server-side and happens at the start of content, not during it.** `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` answer `423 Locked` when the gate is shut; a lesson's later step reports and its completion never do, so a lesson already under way can always be finished (FR-TIME-03); a story's completion is exempt for 30 minutes after its `story_start` and its time keeps being recorded (FR-TIME-06). A lesson with an incomplete `LessonProgress` row written in the past 30 minutes is exempt from its own gate — resuming is not starting — while replaying a finished one is a new start and is gated, as is picking up one abandoned longer ago than that.\n\nThe minutes a limit is compared against are the same server-derived figure the parent dashboard shows, from one shared function, so a limit and a dashboard can never disagree about how long a child has been learning.",
   },
   {
     name: "Dashboard",
@@ -569,7 +510,7 @@ export const TAGS = [
   {
     name: "Admin",
     description:
-      "The administrator surface (spec §4.3, FR-CMS-01). A **separate principal** from a parent, not a parent with extra rights: an admin has no children and no consent record, and nothing on these paths takes a parent or child id.\n\nAdmins and parents share one better-auth instance and one `user` table — one session store, one cookie, one CORS configuration — so what separates them is a domain row rather than infrastructure: an `AdminUser` exists for an admin's identity and never for a Google sign-in, and `Parent` provisioning requires a Google account. Each side's guard therefore rejects the other's session with a `403`, in both directions.\n\nThere is **no self-service signup**. `POST /api/auth/sign-up/email` is disabled for everybody, so the only way an admin exists is `pnpm --filter server seed:admin`, and re-running that seed is how a forgotten password is recovered — there is no self-service reset flow. A signed-in admin can change their own password through better-auth's `POST /api/auth/change-password`, undocumented here because `apps/web` does not call it. Rate limiting on the login route lands with file 38.\n\nAnalytics here is platform-wide aggregate only (FR-CMS-07, basic tier) — no response names a household, and detailed analytics are Phase 2.",
+      "The administrator surface (spec §4.3, FR-CMS-01). A **separate principal** from a parent, not a parent with extra rights: an admin has no children and no consent record, and nothing on these paths takes a parent or child id.\n\nAdmins and parents share one better-auth instance and one `user` table — one session store, one cookie, one CORS configuration — so what separates them is a domain row rather than infrastructure: an `AdminUser` exists for an admin's identity and never for a Google sign-in, and `Parent` provisioning requires a Google account. Each side's guard therefore rejects the other's session with a `403`, in both directions.\n\nThere is **no self-service signup**. `POST /api/auth/sign-up/email` is disabled for everybody, so the only way an admin exists is `pnpm --filter server seed:admin`, and re-running that seed is how a forgotten password is recovered — there is no self-service reset flow. A signed-in admin can change their own password through better-auth's `POST /api/auth/change-password`, undocumented here because `apps/web` does not call it. better-auth applies its own in-memory rate limit to the login route in production; it is per-process and resets on restart, and a dedicated per-IP limiter is proposed as file 41.\n\nAnalytics here is platform-wide aggregate only (FR-CMS-07, basic tier) — no response names a household, and detailed analytics are Phase 2.",
   },
   {
     name: "Admin CMS: Curriculum",
@@ -579,7 +520,7 @@ export const TAGS = [
   {
     name: "Admin CMS: Editors",
     description:
-      "The guided editors behind quizzes, their questions, activities and badges (file 33, FR-CMS-03, FR-GAM-04). Same publishing workflow as the curriculum, applied to the rows a lesson points at.\n\n**`definition` and `rule` are versioned JSONB, and the request bodies type them as untyped values on purpose.** The server parses each against the one member of the shared union its sibling enum names, so a wrong payload comes back as `definition.prompt.bn: Required` rather than the `Invalid input` a failed union produces. The full unions are the **ActivityDefinition** and **QuizQuestion** schemas, and the response bodies carry them.\n\n**A `published` row refuses an edit** with `409 EDIT_REQUIRES_UNPUBLISH`. The transition matrix guards the act of publishing, not what stays published afterwards — without this a `PATCH` could rewrite a live quiz question and reach a child without passing a reviewer again. Withdraw to `draft`, edit, then come back through the matrix.",
+      "The guided editors behind quizzes, their questions, activities and badges (file 33, FR-CMS-03, FR-GAM-04). Same publishing workflow as the curriculum, applied to the rows a lesson points at.\n\n**`definition` and `rule` are versioned JSONB, and the request bodies type them as untyped values on purpose.** The server parses each against the one member of the shared union its sibling enum names, so a wrong payload comes back as `definition.prompt.bn: Required` rather than the `Invalid input` a failed union produces. The full unions are the **ActivityDefinition** and **QuizQuestion** schemas, and the response bodies carry them.\n\n**An `in_review`, `approved` or `published` row refuses an edit** with `409 EDIT_REQUIRES_UNPUBLISH`. The transition matrix guards the act of moving between states, not what is rewritten while a row sits in one — without this a `PATCH` could change a question after a reviewer approved it, or rewrite a live one, and reach a child without passing a reviewer again. Move the row back to `draft`, edit, then come back through the matrix.",
   },
   {
     name: "Admin CMS: Media",
@@ -603,16 +544,7 @@ export const TAGS = [
   },
 ];
 
-/**
- * `x-tagGroups` — the sidebar's top level. Twenty tags and 109 operations is more
- * than a flat list reads well as, and the five groups here are the five audiences:
- * nobody integrating against the student surface needs the CMS in their way.
- *
- * **Every tag must appear in exactly one group.** A reader that honours this
- * extension builds its navigation from the groups alone and silently drops a tag
- * that no group names — the operations stay in the document and vanish from the
- * page. `document.test.ts` asserts the two lists agree, in both directions.
- */
+/** A reader that honours `x-tagGroups` silently drops any tag no group names; `document.test.ts` asserts every tag is in exactly one group. */
 export const TAG_GROUPS = [
   { name: "Getting started", tags: ["Health", "Auth"] },
   {
@@ -644,14 +576,7 @@ export const TAG_GROUPS = [
   { name: "Automation", tags: ["Jobs"] },
 ];
 
-/**
- * A `4xx`/`5xx` response referencing the shared error envelope.
- *
- * `details` is optional and worth supplying where the failure carries a payload
- * a client acts on. `ErrorEnvelope.details` is `z.unknown()` — deliberately, so
- * nothing depends on it — which renders as an empty schema, so the example is
- * the only place a reader can see the shape at all.
- */
+/** `details` is `z.unknown()` and renders as an empty schema, so the example is the only place its shape is visible. */
 export function errorResponse(
   description: string,
   codes: readonly string[],
@@ -663,11 +588,7 @@ export function errorResponse(
     content: {
       "application/json": {
         schema: schemaRef("ErrorEnvelope"),
-        // Without an explicit example, a reader generates one from the schema
-        // and picks the *first* value of the `code` enum — so every error on
-        // every operation would display `VALIDATION_FAILED`, including 401s and
-        // 500s that can never return it. The description says the right thing
-        // while the sample body contradicts it, and readers trust the sample.
+        // Without an explicit example readers show the first `code` enum value (`VALIDATION_FAILED`) on every error.
         example: {
           error: {
             code: codes[0],
@@ -681,16 +602,7 @@ export function errorResponse(
   };
 }
 
-/**
- * A `2xx` response referencing a registered response schema.
- *
- * `example` is optional and worth supplying on the reads a client is actually
- * built against. Without one a reader generates a sample from the schema, which
- * fills every string with `"string"` and every enum with its first member — fine
- * for a two-field body, useless for a lesson with nested activities, quiz
- * questions and both locales' text. Deliberately not supplied everywhere: an
- * example nobody reads is an example that drifts.
- */
+/** Examples are supplied only for reads clients build against; a generated sample is useless for nested lessons, and unread examples drift. */
 export function jsonResponse(
   description: string,
   schemaName: string,
@@ -707,7 +619,6 @@ export function jsonResponse(
   };
 }
 
-/** A request body referencing a registered request schema. Always required. */
 export function jsonRequestBody(
   schemaName: string,
   description?: string,
@@ -719,21 +630,15 @@ export function jsonRequestBody(
   };
 }
 
-/** The `401` every guarded operation shares. */
 export const UNAUTHORIZED_RESPONSE = errorResponse(
   "No valid session cookie. Sign in at `GET /api/auth/google` first.",
   ["UNAUTHORIZED"],
 );
 
-/** The `400` every operation with a validated body or param shares. */
 export const VALIDATION_RESPONSE = errorResponse(
   "The request body or path parameter failed Zod validation at the route boundary; nothing reached the database. `error.details` carries `ZodError.flatten()` output — see the `ValidationDetails` schema.",
   ["VALIDATION_FAILED"],
-  // The shape a form binds to, and the only place it is visible: `details` is
-  // `unknown` in the envelope schema, so a reader renders it as `{}`. Keys of
-  // `fieldErrors` are the failing field names and every value is an array —
-  // one field can fail several rules at once. `formErrors` holds the errors
-  // that belong to the body as a whole rather than to any one field.
+  // `details` is `unknown` in the envelope, so a reader renders `{}`; this is the shape a form binds to.
   {
     formErrors: [],
     fieldErrors: {
@@ -743,7 +648,6 @@ export const VALIDATION_RESPONSE = errorResponse(
   },
 );
 
-/** The `500` fallback. Every unexpected error is reported as this and no more. */
 export const INTERNAL_RESPONSE = errorResponse(
   "Unexpected server error. The underlying error is logged with the request id; the response never carries any part of it.",
   ["INTERNAL"],

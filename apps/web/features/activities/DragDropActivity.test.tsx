@@ -1,19 +1,24 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { validDragDrop, validDragDropManyToOne } from "@kidlearn/types";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
+import { NOT_QUITE_MS } from "@/shared/hooks/use-wiggle";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { DragDropActivity } from "./DragDropActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { usePlacementState } from "./use-placement-state";
-import { WIGGLE_MS } from "./use-wiggle";
 
 /**
- * jsdom cannot perform a drag — there is no layout, so no collision detection
- * and no sensor run. The placement rules are therefore driven through
- * `usePlacementState` directly, which is the reason that hook exists; the render
- * tests below cover only what the markup is, not what dragging does to it.
+ * jsdom cannot drag (no layout), so placement rules are driven through `usePlacementState`; render
+ * tests cover markup only.
  */
 
 function feedbackSpy() {
@@ -21,8 +26,7 @@ function feedbackSpy() {
     success: vi.fn<(anchor?: { x: number; y: number }) => void>(),
     retry: vi.fn<() => void>(),
   };
-  // `satisfies`, not an annotation: the tests need the mock's own type to read
-  // `.mock.calls`, and this still fails the build if the channel's shape moves.
+  // `satisfies` keeps the mock's own type for `.mock.calls`.
   return spy satisfies ActivityFeedback;
 }
 
@@ -36,10 +40,7 @@ const TARGET_RECT = {
 };
 
 function dragEnd(itemId: string, targetId: string | null): DragEndEvent {
-  // A real `DragEndEvent` carries the whole sensor run — collisions, deltas, the
-  // activator event, both measured rects. `handleDragEnd` reads three fields of
-  // it, so the fixture supplies those; the cast is what stands in for a drag the
-  // environment cannot produce, and narrowing is impossible by construction.
+  // The cast stands in for a drag jsdom cannot produce; `handleDragEnd` reads only three fields.
   return {
     active: { id: itemId, data: { current: undefined }, rect: { current: {} } },
     over:
@@ -120,7 +121,7 @@ describe("usePlacementState", () => {
     expect(result.current.wiggle?.count).not.toBe(first);
   });
 
-  it("stops wiggling once the animation has run", () => {
+  it("clears the wiggle once the have-another-go cue has run", () => {
     vi.useFakeTimers();
     const feedback = feedbackSpy();
     const { result } = renderHook(() =>
@@ -129,7 +130,7 @@ describe("usePlacementState", () => {
 
     act(() => result.current.handleDragEnd(dragEnd("cow", "pond")));
     act(() => {
-      vi.advanceTimersByTime(WIGGLE_MS);
+      vi.advanceTimersByTime(NOT_QUITE_MS);
     });
 
     expect(result.current.wiggle).toBeUndefined();
@@ -280,5 +281,79 @@ describe("DragDropActivity", () => {
     expect(screen.getByTestId("activity-drag-drop").textContent).not.toMatch(
       /wrong|try again/i,
     );
+  });
+
+  describe("tap to place — the path that needs no drag", () => {
+    function renderWithSpies() {
+      const feedback = feedbackSpy();
+      const onActivityComplete = vi.fn();
+      render(
+        <Providers locale="en">
+          <DragDropActivity
+            definition={validDragDrop}
+            locale="en"
+            feedback={feedback}
+            onActivityComplete={onActivityComplete}
+          />
+        </Providers>,
+      );
+      return { feedback, onActivityComplete };
+    }
+
+    const tap = (testId: string) => fireEvent.click(screen.getByTestId(testId));
+
+    it("makes every target a button, so a keyboard or VoiceOver can reach it", () => {
+      renderWithSpies();
+
+      expect(screen.getByTestId("activity-target-farm").tagName).toBe("BUTTON");
+    });
+
+    it("marks the tapped card as in hand, and says so", () => {
+      renderWithSpies();
+
+      tap("activity-item-cow");
+
+      expect(screen.getByTestId("activity-item-cow")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(
+        screen.getByText("Cow is picked. Now tap where it goes."),
+      ).toHaveAttribute("role", "status");
+    });
+
+    it("places the card in hand on the right target and cheers", () => {
+      const { feedback } = renderWithSpies();
+
+      tap("activity-item-cow");
+      tap("activity-target-farm");
+
+      expect(feedback.success).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("activity-placed-cow")).toBeInTheDocument();
+      expect(screen.queryByTestId("activity-item-cow")).toBeNull();
+    });
+
+    it("encourages, and marks the card, on a wrong target (FR-ACT-05)", () => {
+      const { feedback } = renderWithSpies();
+
+      tap("activity-item-cow");
+      tap("activity-target-pond");
+
+      expect(feedback.retry).toHaveBeenCalledTimes(1);
+      const cow = screen.getByTestId("activity-item-cow");
+      expect(cow).toHaveAttribute("aria-pressed", "false");
+      expect(within(cow).getByTestId("status-mark-retry")).toBeInTheDocument();
+    });
+
+    it("finishes the activity by tapping alone", () => {
+      const { onActivityComplete } = renderWithSpies();
+
+      tap("activity-item-cow");
+      tap("activity-target-farm");
+      tap("activity-item-fish");
+      tap("activity-target-pond");
+
+      expect(onActivityComplete).toHaveBeenCalledTimes(1);
+    });
   });
 });

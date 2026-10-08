@@ -2,7 +2,7 @@
 
 > **Who this is for:** anyone who needs an administrator account — to build curriculum, review AI content, or set one up on a deployed server. No prior knowledge of the auth code is assumed.
 >
-> **Related:** [`user-journey-manual.md §6`](./user-journey-manual.md#6-admin-journey) is the full narrative of what an admin does. [`implementation/31-admin-auth-cms-foundation.md`](./implementation/31-admin-auth-cms-foundation.md) is the spec this behaviour comes from. [`project-requirement-details.md §9`](./project-requirement-details.md#9-deployment-strategy-vercel-frontend--single-aws-box) is the deployment design Part 2 follows.
+> **Related:** [`user-journey-manual.md §6`](./user-journey-manual.md#6-admin-journey) is the full narrative of what an admin does. [`project-requirement-details.md §9`](./project-requirement-details.md#9-deployment-strategy-vercel-frontend--single-aws-box) is the deployment design Part 2 follows.
 
 ---
 
@@ -86,11 +86,13 @@ Rules the script enforces:
 pnpm dev     # web on :3000, server on :4000
 ```
 
-Open **http://localhost:3000/admin/login** and enter the email and password.
+Open **http://localhost:3000**, choose **Admin sign-in**, and enter the email and password. (`/admin/login` still works: it redirects to that dialog.)
 
 What happens behind the scenes: the login screen posts to `http://localhost:4000/api/auth/sign-in/email`, the API sets an httpOnly session cookie, and you land on `/admin/analytics`. Locally you need no frontend environment variable — `NEXT_PUBLIC_API_URL` defaults to `http://localhost:4000`.
 
 The web and API origins must agree, or the browser will refuse the request: `WEB_ORIGIN` on the server has to be exactly `http://localhost:3000`.
+
+An admin sign-in lasts **12 hours from when you signed in**, however active you are — the 30-day sliding session parents get does not apply. After that every `/api/admin/*` path answers `401`, the session is revoked, and the CMS returns you to the login screen.
 
 ### 2.4 Check it worked
 
@@ -123,7 +125,7 @@ Easier still: the API reference at **http://localhost:4000/docs** has a **Send**
 
 ## 3. Part 2 — Create an admin on a deployed server
 
-> **Status note:** the deployment in §9 — Vercel frontend, both APIs on one AWS box — is specified in `implementation/38-deployment-aws-docker.md` but **not built yet** (`implementation/00-progress-tracker.md`, file 38). Treat this section as the procedure to follow when that deployment lands; the principles and the command do not change.
+> **Status note:** the deployment in §9 — Vercel frontend, both APIs on one AWS box — is specified in `implementation/38-deployment-aws-docker.md` but **not built yet** (file 38 in `implementation/00-progress-tracker.md`). Treat this section as the procedure to follow when that deployment lands; the principles and the command do not change.
 
 ### 3.1 The short version
 
@@ -159,7 +161,7 @@ ADMIN_NAME='Content Admin' \
 
 **4. Delete the throwaway file**, and make sure the password exists only in your password manager. Shell history is a real leak here — a leading space (`  ADMIN_...`) keeps the line out of history in `zsh` with `HIST_IGNORE_SPACE`, or clear the entry afterwards.
 
-**5. Sign in and confirm.** Go to `https://kidlearn.net/admin/login` (or `https://dev.kidlearn.net/admin/login`). You should land on the analytics page. If sign-in succeeds but every page bounces, see [Troubleshooting](#5-troubleshooting).
+**5. Sign in and confirm.** Go to `https://kidlearn.net` (or `https://dev.kidlearn.net`) and choose **Admin sign-in**. You should land on the analytics page. If sign-in succeeds but every page bounces, see [Troubleshooting](#5-troubleshooting).
 
 ### 3.3 Rules that must hold in production
 
@@ -251,7 +253,7 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 | The seed fails naming `CRON_SECRET`, `CLOUDINARY_*`, `GEMINI_API_KEY`… | The whole server env schema is validated on import | Fill in the server environment file. Placeholders are fine for values the seed does not use |
 | Login says *"Those details did not match an administrator account"* | Wrong password, or no `user` row for that email | Re-run the seed with a known password. Remember the email is lower-cased |
 | Login works but the CMS bounces you back | A session exists but there is no matching `AdminUser` row — the API returns `403` | Re-run the seed; it re-asserts the link on every run. That is exactly what repairs it |
-| `401` from `/api/admin/*` | No session cookie reached the API | Check `WEB_ORIGIN` matches the site origin exactly, and that `NEXT_PUBLIC_API_URL` points at the right API |
+| `401` from `/api/admin/*` | No session cookie reached the API, or the admin session is more than 12 hours old | Check `WEB_ORIGIN` matches the site origin exactly, and that `NEXT_PUBLIC_API_URL` points at the right API |
 | The admin exists but not in the database you expected | The seed used `DATABASE_URL` from the `apps/server` environment file | Point that file at the right database and run it again |
 | `403` on `/api/admin/jobs/*` with a valid admin session | That path is not session-guarded — it authenticates with `CRON_SECRET` | Use the bearer token, not a login. It is the scheduler's endpoint, not an admin one |
 
@@ -266,7 +268,6 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 | `apps/server/src/config/auth.ts` | better-auth setup; password sign-up disabled; the 12-character floor |
 | `apps/server/src/shared/middleware/require-admin.ts` | The gate on every `/api/admin/*` route (`401` vs `403`) |
 | `apps/server/.env.example` | Every environment variable, with setup notes for each credential |
-| `apps/web/app/(admin)/admin/login/AdminLoginScreen.tsx` | The login form |
+| `apps/web/features/admin/AdminSignInDialog.tsx` | The login form, a dialog on the homepage |
 | `apps/web/features/admin/admin-routes.ts` | The CMS routing table and sidebar |
 | `packages/db/prisma/schema.prisma` | `AdminUser`, `user`, `account`, `session` models |
-| `document/implementation/31-admin-auth-cms-foundation.md` | The spec behind all of the above |

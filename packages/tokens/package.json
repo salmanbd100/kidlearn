@@ -1,0 +1,23 @@
+{
+  "name": "@kidlearn/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "echo '@kidlearn/tokens exports raw TypeScript - nothing to watch'",
+    "build": "echo '@kidlearn/tokens exports raw TypeScript - nothing to build'",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@kidlearn/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

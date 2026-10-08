@@ -8,18 +8,12 @@ import type {
   Locale,
 } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
-import { Button, Input, Label } from "@kidlearn/ui";
+import { Button, DialogFooter, Input, Label } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
-import type { ContentDraft } from "@/features/admin/admin-api";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
+import type { ContentDraft } from "@/features/admin/content-api";
 import { GradeLevelPicker } from "./GradeLevelPicker";
 import { LocaleTabs } from "./LocaleTabs";
-
-/**
- * Create and edit for the three name-only resources — world, subject, topic
- * (FR-CMS-01). The lesson has its own form; it carries per-locale scripts and
- * step ids that nothing else does.
- */
 
 export type NameOnlyResource = "worlds" | "subjects" | "topics";
 
@@ -27,9 +21,7 @@ type Existing = AdminWorld | AdminSubject | AdminTopic;
 
 export interface ContentFormProps {
   resource: NameOnlyResource;
-  /** Absent when creating. */
   existing?: Existing;
-  /** Required when creating a topic — the subject it belongs to. */
   subjectId?: string;
   isBusy: boolean;
   error?: string;
@@ -44,7 +36,6 @@ const HAS_GRADES: Record<NameOnlyResource, boolean> = {
   topics: true,
 };
 
-/** Only a subject or topic carries grades, and only those two have the field. */
 function initialGradeLevels(existing: Existing | undefined): GradeLevelValue[] {
   if (existing === undefined || !("gradeLevels" in existing)) return [];
   return existing.gradeLevels;
@@ -95,8 +86,7 @@ export function ContentForm({
       ...(isEditing ? {} : { slug }),
       ...(HAS_GRADES[resource] ? { gradeLevels } : {}),
       ...(resource === "topics" && !isEditing ? { subjectId } : {}),
-      // A world needs a palette and the media library (file 33) is what will
-      // fill in a mascot, so a create sends the empty map the column requires.
+      // A world needs a palette; the create sends the empty map the column requires.
       ...(resource === "worlds" && !isEditing ? { palette: {} } : {}),
     };
 
@@ -104,10 +94,11 @@ export function ContentForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="content-slug">Slug</Label>
         <Input
+          size="sm"
           id="content-slug"
           value={slug}
           disabled={isEditing || isBusy}
@@ -126,6 +117,7 @@ export function ContentForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="content-name">Internal name</Label>
         <Input
+          size="sm"
           id="content-name"
           value={name}
           required
@@ -148,6 +140,7 @@ export function ContentForm({
               Name a child sees ({LOCALE_LABELS[locale]})
             </Label>
             <Input
+              size="sm"
               id={`content-name-${locale}`}
               value={translations[locale]}
               disabled={isBusy}
@@ -179,8 +172,8 @@ export function ContentForm({
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <DialogFooter className="border-border border-t pt-4">
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
@@ -191,7 +184,7 @@ export function ContentForm({
         >
           {isEditing ? "Save" : "Create draft"}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 }

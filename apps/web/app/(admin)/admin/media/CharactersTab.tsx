@@ -6,12 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createCharacterSheet,
   fetchCharacterSheets,
-  fetchWorlds,
   promoteJobCharacters,
   updateCharacterSheet,
-} from "@/features/admin/admin-api";
-
-// The Characters tab on `/admin/media` (file 36, FR-AI-09).
+} from "@/features/admin/ai-api";
+import { fetchWorlds } from "@/features/admin/content-api";
 
 type Draft = {
   name: string;
@@ -21,7 +19,6 @@ type Draft = {
 
 const EMPTY_DRAFT: Draft = { name: "", worldId: "", description: "" };
 
-/** The server's floor, restated so the form can refuse before the round trip. */
 const DESCRIPTION_MIN = 20;
 
 export function CharactersTab() {
@@ -100,13 +97,8 @@ export function CharactersTab() {
     if (saved) setEditingId(undefined);
   }
 
-  /**
-   * Not routed through `run()` because it needs the `created`/`skipped` payload,
-   * which `run()`'s boolean result discards — but it owes the same `isBusy` cycle:
-   * without it the button's `disabled={isBusy || …}` never engages, and a second
-   * click during an un-retried request that reads a job and writes *n* rows starts
-   * a second one.
-   */
+  /** Not via `run()`, which discards the `created`/`skipped` payload; still sets `isBusy` so a
+   * second click can't start a second un-retried import. */
   async function handleImport() {
     setIsBusy(true);
     setNotice(undefined);
@@ -159,7 +151,7 @@ export function CharactersTab() {
         the size, the clothing and whatever makes them unmistakable.
       </p>
 
-      <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+      <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
         <h3 className="font-medium text-foreground text-sm">
           Save a story&rsquo;s cast
         </h3>
@@ -190,7 +182,7 @@ export function CharactersTab() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-4">
+      <section className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-4">
         <h3 className="font-medium text-foreground text-sm">Add a character</h3>
 
         <div className="flex flex-wrap gap-3">
@@ -276,7 +268,7 @@ export function CharactersTab() {
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
@@ -285,7 +277,7 @@ export function CharactersTab() {
       {error ? (
         <p
           role="alert"
-          className="rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          className="rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-sm"
         >
           {error}
         </p>
@@ -304,7 +296,7 @@ export function CharactersTab() {
           {sheets.map((sheet) => (
             <li
               key={sheet.id}
-              className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3"
+              className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-3"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-medium text-card-foreground text-sm">

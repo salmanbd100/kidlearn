@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned actions in ci.yml current; each PR moves the SHA and
+  # the release comment beside it together.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Majors are left out on purpose: they follow the `/upgrade-dependency` skill,
+  # one branch each, behind the test-database
+  # harness. Dependabot proposes minors and patches, grouped, so a week's worth
+  # is one PR for `gates` to judge.
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]

@@ -7,16 +7,10 @@ import {
   isSlugConflict,
 } from "../../../shared/utils/slug-conflict.js";
 
-/**
- * Character sheets — the prompt text that keeps a recurring character
- * recognisable (file 36, FR-AI-09).
- */
-
 export type CharacterSheetDto = {
   id: string;
   slug: string;
   name: string;
-  /** `null` for a character used across every world — a narrator, a child. */
   worldId: string | null;
   description: string;
   createdAt: Date;
@@ -33,7 +27,6 @@ const sheetSelect = {
   updatedAt: true,
 } as const;
 
-/** The sheets, world-scoped ones first. */
 export function listCharacterSheets(filters: {
   worldId?: string;
 }): Promise<CharacterSheetDto[]> {
@@ -61,9 +54,7 @@ export async function createCharacterSheet(
   const slug = input.slug ?? (await uniqueSlug(prisma, input.name));
   await assertSlugFree(slug);
 
-  // `assertSlugFree` answers with the slug in the message, which is the error an
-  // admin retyping a name wants; `asSlugConflict` is the same 409 for the race it
-  // cannot cover, since the check and the write are two statements.
+  // `assertSlugFree` gives the friendly message; `asSlugConflict` covers the race between check and write.
   return asSlugConflict("character sheet", () =>
     prisma.characterSheet.create({
       data: {
@@ -77,7 +68,6 @@ export async function createCharacterSheet(
   );
 }
 
-/** Edits a sheet. `slug` is not editable. */
 export async function updateCharacterSheet(
   id: string,
   input: Partial<Omit<CharacterSheetInput, "slug">>,
@@ -105,14 +95,9 @@ export async function updateCharacterSheet(
 
 export interface PromotedCharacterSheets {
   created: CharacterSheetDto[];
-  /** Characters whose slug already had a sheet; nothing was overwritten. */
   skipped: number;
 }
 
-/**
- * Turns a story generation's `characterDescriptions` into sheets — the one-click
- * "Save as character sheet" action (FR-AI-09).
- */
 export async function promoteJobCharacters(
   jobId: string,
 ): Promise<PromotedCharacterSheets> {
@@ -166,10 +151,7 @@ export async function promoteJobCharacters(
         }),
       );
     } catch (error) {
-      // A lost race on the unique slug means somebody else saved this character
-      // between the check above and this write — which is the same outcome as
-      // finding it taken, and this import is idempotent by slug. Anything else is
-      // a real failure and belongs to the caller.
+      // A lost race on the unique slug means someone saved this character first; same outcome as finding it taken.
       if (!isSlugConflict(error)) throw error;
       skipped += 1;
     }
@@ -178,7 +160,6 @@ export async function promoteJobCharacters(
   return { created, skipped };
 }
 
-/** `rawOutput.parsed.characterDescriptions`, defensively. */
 function readCharacterDescriptions(
   rawOutput: Prisma.JsonValue,
 ): Array<{ name: string; visualDescription: string }> {
@@ -199,7 +180,6 @@ function readCharacterDescriptions(
   });
 }
 
-/** The world of the story the job created, or `null` if it wrote none. */
 async function readJobStoryWorld(
   rawOutput: Prisma.JsonValue,
 ): Promise<string | null> {
@@ -216,8 +196,7 @@ async function readJobStoryWorld(
 function readObject(
   value: Prisma.JsonValue | unknown,
 ): Record<string, unknown> | undefined {
-  // The JSONB column boundary: `JsonValue` covers arrays and scalars too, and the
-  // two guards are what make the narrowing true rather than asserted.
+  // JSONB boundary: `JsonValue` includes arrays and scalars; the two guards make the narrowing true.
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
@@ -243,7 +222,6 @@ async function assertSlugFree(slug: string) {
   }
 }
 
-/** Slugified name, suffixed until free — same walk as `generators/story.ts`. */
 async function uniqueSlug(
   client: Prisma.TransactionClient,
   name: string,

@@ -5,11 +5,8 @@ import {
   readerReducer,
 } from "./reader-machine";
 
-// The reading flow as a table of inputs (FR-STORY-02, FR-STORY-06..07).
-
 const THREE_PAGES = initialReaderState(3);
 
-/** Walks `events` from a starting state, so a case reads as a sequence. */
 function walk(
   state: ReaderState,
   ...events: Parameters<typeof readerReducer>[1][]
@@ -114,10 +111,7 @@ describe("completion", () => {
       { type: "NEXT" },
     );
 
-    // The flag never resets. It is what stops a child who loves a story from
-    // firing the completion call once per reading — the server would refuse to
-    // pay twice anyway (FR-STORY-06), and a request per replay is a request that
-    // exists only to be turned down.
+    // The flag never resets: it stops a child who loves a story firing the completion call once per reading.
     expect(second).toMatchObject({
       phase: "finished",
       completionRequested: true,

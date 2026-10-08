@@ -6,7 +6,6 @@ import { getI18n } from "@/shared/lib/i18n";
 import type { Locale } from "@/shared/lib/locale";
 import { AudioProvider } from "./AudioProvider";
 
-/** The client-side context the whole app sits inside. */
 export function Providers({
   locale,
   children,
@@ -16,10 +15,8 @@ export function Providers({
 }) {
   const i18n = getI18n(locale);
 
-  // `<html lang>` is rendered by the server and must follow a client-side
-  // switch: it is what picks the Bangla font stack and what a screen reader
-  // uses to choose a voice. Bound to the instance rather than to the switch
-  // component, so any caller of `changeLanguage` keeps it in step.
+  // `<html lang>` is server-rendered and must follow a client-side switch (Bangla font stack, screen-reader voice);
+  // bound to the instance so any `changeLanguage` caller keeps it in step.
   useEffect(() => {
     const syncDocumentLanguage = (language: string) => {
       document.documentElement.lang = language;

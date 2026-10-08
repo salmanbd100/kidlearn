@@ -1,20 +1,17 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { ApiError } from "../../shared/errors/errors.js";
 import { activeChild } from "../../shared/middleware/require-active-child.js";
-import { evaluateStartForChild } from "./screen-time.service.js";
+import {
+  evaluateStartForChild,
+  screenTimeBlockedError,
+} from "./screen-time.service.js";
 
-/**
- * The parental gate on *starting* content (FR-TIME-02..04). Mount it after
- * `requireActiveChild`, on content-detail reads only.
- */
+/** Mount after `requireActiveChild`, on content-detail reads only (FR-TIME-02..04). */
 export function enforceScreenTime(kind: "lesson" | "story"): RequestHandler {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       const child = activeChild(req);
-      // Only a lesson can be resumed. Express 5 types a param as
-      // `string | string[]`, and this middleware may run before `validate()`, so a
-      // non-string id is treated as "no lesson to be part-way through" — the
-      // route's own validation rejects it a moment later.
+      // Only a lesson can be resumed. Express 5 types a param as `string | string[]` and this may run before
+      // `validate()`, so a non-string id means no lesson to be part-way through.
       const lessonId =
         kind === "lesson" && typeof req.params.id === "string"
           ? req.params.id
@@ -23,22 +20,7 @@ export function enforceScreenTime(kind: "lesson" | "story"): RequestHandler {
       const decision = await evaluateStartForChild(child.id, lessonId);
       if (decision.allowed) return next();
 
-      throw new ApiError(
-        423,
-        decision.code,
-        decision.code === "TIME_LIMIT_REACHED"
-          ? "Today's learning time is used up"
-          : "Outside the allowed access window",
-        // The client cannot recompute any of this — it has no access to the
-        // settings and no trustworthy clock — and the window screen has to name
-        // the hour to come back at.
-        {
-          minutesToday: decision.details.minutesToday,
-          dailyLimitMinutes: decision.details.dailyLimitMinutes,
-          windowStart: decision.details.windowStart,
-          windowEnd: decision.details.windowEnd,
-        },
-      );
+      throw screenTimeBlockedError(decision);
     } catch (error) {
       next(error);
     }

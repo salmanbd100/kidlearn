@@ -10,8 +10,8 @@
 > **Requirement IDs:** none directly — this is a process/infrastructure decision, on the same
 > footing as files 37a and 38a. It makes `general.md §6`'s `[CI]` enforcement tier real, which
 > every `[CI]`-tagged rule in the standards depends on.
-> **Source:** `document/improvement-plan.md` P0-1, plus the harness updates in its §5.1–§5.5 that
-> are gated on this file landing.
+> **Source:** the CI pipeline requirement, plus the harness updates that are gated on this file
+> landing.
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
 >
 > **Re-verified 2026-09-10.** Requirements 1–5 and 7–9 have landed on `main` (#45, plus the
@@ -63,8 +63,8 @@ Everything in this section was measured on this branch's base commit, not estima
 | Tests | `pnpm test` | 7 (5 `test` + the same 2 builds) | 20.6s | 162 files, **2,577 tests** — green on any given run, but see below |
 
 Per-package test counts: `server` 1,354 · `web` 991 · `@kidlearn/types` 163 · `@kidlearn/db` 51 ·
-`@kidlearn/ui` 18. (`improvement-plan.md` §1 says 2,526 — it omitted `@kidlearn/db`'s 51 schema
-assertions. 2,577 is the real figure.)
+`@kidlearn/ui` 18. (2,577 is the real figure; an earlier count of 2,526 omitted `@kidlearn/db`'s 51 schema
+assertions.)
 
 **Re-measured 2026-09-10**, after the module reorganisation (#49): **166 files, 2,614 tests**
 (`server` 1,359 · `web` 1,014 · `@kidlearn/types` 163 · `@kidlearn/db` 51 · `@kidlearn/ui` 27),
@@ -135,7 +135,7 @@ No `vitest.config` in the repo configures `coverage`, and `@vitest/coverage-v8` 
 installed** — it appears in `pnpm-lock.yaml` only as an optional peer of `vitest` itself. So
 coverage reporting is genuinely new work here, not a flag flip.
 
-`improvement-plan.md` §6 is explicit that this file must **not** set a coverage threshold: "A
+This file must **not** set a coverage threshold: a
 percentage target in a repo with this many hand-written behavioural tests optimises for the wrong
 thing." The purpose is visibility — a PR that deletes `content.test.ts`'s status-filter assertions
 should show up as a number moving, in the PR's own checks, without anyone downloading anything.
@@ -150,8 +150,8 @@ run locally with a cold cache.
 
 ### The suite is not deterministic under load
 
-This is the finding that matters most in this file, and it was not in the improvement plan —
-`improvement-plan.md` §1 records "2,526 passing, 0 failing", which is what one run says. The suite
+This is the finding that matters most in this file. A single run reporting "0 failing" is what
+one run says. The suite
 was run **27 times** end to end while building this pipeline. It is green most of the time and
 red often enough that a required status check built on it would be untrustworthy on day one.
 
@@ -200,7 +200,7 @@ default for a small runner. It is **not** a mitigation for this flake, and the w
 must not imply otherwise.
 
 The real fix is one Supertest listener per file instead of one per request — 64 files of churn,
-and files 42–43 rewrite much of that suite against a real database anyway. It belongs there.
+and the real-database suites (`*.db.test.ts`) replace part of that suite anyway. It belongs there.
 Until then the pipeline is genuinely unreliable on `apps/server`, which is the whole reason
 requirement 6 defers the ruleset change.
 
@@ -274,8 +274,8 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    Turbo cache for their dependencies rather than rebuilding them.
 
 2. **Pin Node to 22 inline, and say why it is inline.** Local development runs Node 22.22.0; the
-   repository declares no `engines` field and has no `.nvmrc`. Both belong to **file 46**
-   (`improvement-plan.md` P2-3), which will replace this workflow's `node-version: 22` with
+   repository declares no `engines` field and has no `.nvmrc`. Adding both is out of scope here;
+   when they land, this workflow's `node-version: 22` should become
    `node-version-file: .nvmrc`. Add a comment on the line saying so, so the pin does not quietly
    become a second, drifting source of truth in the meantime.
 
@@ -304,8 +304,8 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    - Add `"test:coverage": "vitest run --coverage"` to each of the five package manifests, a
      `test:coverage` task to `turbo.json` (`dependsOn: ["^build"]`, `outputs: ["coverage/**"]`),
      and `"test:coverage": "turbo run test:coverage"` to the root manifest.
-   - **Set no `thresholds` key anywhere.** If a future reader adds one, `improvement-plan.md` §6 is
-     the argument against it.
+   - **Set no `thresholds` key anywhere.** A percentage target in a repo with this many
+     hand-written behavioural tests optimises for the wrong thing.
 
    CI runs `pnpm test:coverage` **instead of** `pnpm test`, not in addition — running 2,577 tests
    twice to produce one number is not a trade worth making. Measured, the coverage run costs
@@ -373,8 +373,7 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    **Ordering, and this is the one real judgement call in the file:** do not make `gates` required
    while a green run is not the normal outcome. When this was written that meant waiting on flake
    family 2; **that landed in #44**, and the blocker is now family 1 — `apps/server`'s Supertest
-   listener lifecycle, which files 42–43 own and which the tracker's **Open follow-up fixes** table
-   records as ⬜ Not started. A required check that fails a quarter of the time does not gate
+   listener lifecycle, which is not yet fixed. A required check that fails a quarter of the time does not gate
    anything — it
    teaches the one person with the bypass to use the bypass, and a gate everybody routes around is
    worth less than no gate, because it also costs the credibility of `general.md §6`'s whole
@@ -402,24 +401,22 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    update are unaffected by this file.
 
    **Do not touch** the recorded exception in `general.md §5` about mocking `@kidlearn/db`. Its
-   exit condition is the test-database harness, which is files 42–43. Deleting it here would be
+   exit condition is the test-database harness, which is out of scope here. Deleting it here would be
    claiming credit for work this file does not do.
 
-8. **Update the harness for the pipeline's existence** — the four items `improvement-plan.md`
-   §5.1–§5.5 explicitly gate on file 39, and no more than those:
+8. **Update the harness for the pipeline's existence** — the four items that are
+   explicitly gated on this file, and no more than those:
 
    - **`CLAUDE.md`** — add a short **CI** section after Commands: what runs, on what triggers, that
      `gates` is required on `main`, and that a PR is not done until it is green. Leave
      `CLAUDE.md`'s other stale claims (the `packages/types` and `packages/config` placeholder
-     entries, the `Parent ↔ Child[]` schema line, the `document/` file list) to **file 40** — that
-     is its entire job, and splitting it across two branches means neither diff tells the whole
-     story.
+     entries, the `Parent ↔ Child[]` schema line, the `document/` file list) to a separate
+     change — splitting it across two branches means neither diff tells the whole story.
 
      **One deliberate exception:** the "**No test runner** is configured yet" line is replaced
-     here, not in file 40. It sits four lines above the new CI section, which says `pnpm test` runs
+     here, not in that change. It sits four lines above the new CI section, which says `pnpm test` runs
      2,577 tests — leaving a file that contradicts itself on one screen is worse than a one-line
-     overlap with the next branch. Note the overlap in file 40's spec so its author is not
-     surprised to find the line already gone.
+     overlap with the next branch.
    - **`README.md`** — a CI badge under the title
      (`![CI](https://github.com/salmanbd100/kidlearn/actions/workflows/ci.yml/badge.svg)`), and a
      one-line description of the pipeline in the "Other commands" area next to `pnpm test`. The
@@ -438,7 +435,7 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    in a pnpm repo. It is not gitignored, it is not referenced by anything, and its only function is
    to make `npm ci` look like a supported way to install this monorepo — which, in a file whose
    whole subject is "the machine enforces the toolchain", is exactly the wrong artefact to leave
-   lying around. `improvement-plan.md` §P3 does not list it; add it to this file's scope because it
+   lying around. It was not in the original scope; it is added here because it
    is one line and it is a lockfile in a file about lockfile-frozen installs.
 
 10. **Trigger on `dev` as well as `main` — this is now the most load-bearing requirement in the
@@ -568,7 +565,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: 22 # file 46 replaces this with node-version-file: .nvmrc
+          node-version: 22 # swap for node-version-file: .nvmrc once .nvmrc exists
           cache: pnpm
       - uses: actions/cache@v6
         with:
@@ -632,8 +629,7 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
 ## Step-by-Step Plan
 
 1. **Branch and tracker.** `git checkout -b 39-ci-pipeline-and-branch-protection`; add the file 39
-   row to `00-progress-tracker.md` as `🟨 In progress` (the row itself is new — see requirement 8's
-   file list and §4 of `improvement-plan.md` for its contents). (~10 min)
+   row to `00-progress-tracker.md` as `🟨 In progress` (the row itself is new). (~10 min)
 
 2. **Coverage plumbing.** Add `@vitest/coverage-v8` to the five packages, the `coverage` block to
    the five configs, the five `test:coverage` scripts, the `turbo.json` task, and the root script.
@@ -645,8 +641,8 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
    land. `coverage/` is already gitignored.
 
    Repeating the run is what surfaced the non-determinism in Context, and it is the step most
-   likely to be skipped: a single green run is exactly the evidence that made
-   `improvement-plan.md` §1 report "0 failing". If failures appear, classify before mitigating —
+   likely to be skipped: a single green run is exactly the evidence that hides
+   the non-determinism. If failures appear, classify before mitigating —
    a socket-level signature and an assertion signature want different answers, and the assertion
    one may be a real bug (it was). (~45 min, most of it waiting)
 
@@ -672,7 +668,7 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
    requirement 6's ordering note, and once a `gates` context exists on both branches for GitHub to
    match. Target `main` and `dev`, read the ruleset back and confirm the rule types, then confirm
    from a PR page that `gates` shows as a **required** check rather than an informational one.
-   The blocker is `apps/server`'s Supertest listener lifecycle (files 42–43), not file 14 — that
+   The blocker is `apps/server`'s Supertest listener lifecycle, not file 14 — that
    landed in #44. Until then this step carries over; everything else in this file stands on its
    own. (~15 min)
 
@@ -702,7 +698,7 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
 - [ ] The PR page shows `gates` as a **required** check on both `main` and `dev`, and a PR cannot be
       merged while it is failing (confirm by observing the merge button's state, not by reading the
       ruleset back a second time). **Deferred until `apps/server`'s Supertest listener lifecycle is
-      fixed** (files 42–43) — see requirement 6's ordering note. The file 14 fix this criterion
+      fixed** — see requirement 6's ordering note. The file 14 fix this criterion
       originally waited on landed in #44. Until then this file is complete without it, and the
       tracker row says so.
 - [x] The whole suite passes under v8 instrumentation, and the coverage step's wall time is recorded
@@ -722,15 +718,14 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
 - [ ] **No `thresholds` key exists in any `vitest.config`** —
       `grep -rn "thresholds" apps packages --include=vitest.config.*` returns nothing.
 - [ ] `grep -rn "once Vitest is configured\|once tests are configured" document/standards CLAUDE.md README.md`
-      returns nothing. (`improvement-plan.md` and this file both quote the old strings on purpose —
-      one as a dated finding, one as a before/after table. Scoping the grep to `document/standards`
-      is the check, not a loophole.)
+      returns nothing. (this file quotes the old strings on purpose in a before/after table.
+      Scoping the grep to `document/standards` is the check, not a loophole.)
 - [ ] The recorded exception about mocking `@kidlearn/db` in `general.md §5` is **unchanged** —
-      files 42–43 own it.
+      it is out of scope here.
 - [ ] `general.md §6`'s CI subsection states that repository admins can bypass the gate, so the
       tier's strength is described accurately rather than aspirationally.
-- [ ] `CLAUDE.md` has a CI section, and its other stale claims are **untouched** — file 40 owns
-      those, and `git diff CLAUDE.md` on this branch should be additive only.
+- [ ] `CLAUDE.md` has a CI section, and its other stale claims are **untouched** — they are out of
+      scope, and `git diff CLAUDE.md` on this branch should be additive only.
 - [ ] `.claude/settings.json` no longer describes the repository as private.
 - [ ] `package-lock.json` is gone from the repository root.
 - [x] `pnpm lint && pnpm typecheck && pnpm build && pnpm test` all pass locally, and the same four
@@ -744,15 +739,15 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
 
 ## Out of Scope
 
-- **A Postgres service container.** No test needs one today. **File 42** adds the test-database
-  harness and adds the service container to this workflow as part of its own change — that keeps
+- **A Postgres service container.** No test needs one today. The test-database
+  harness will add the service container to this workflow as part of its own change — that keeps
   the container and the code that uses it in one reviewable diff.
-- **`engines.node` and `.nvmrc`.** **File 46** (`improvement-plan.md` P2-3), which will also
-  replace this workflow's inline `node-version: 22` with `node-version-file: .nvmrc`.
+- **`engines.node` and `.nvmrc`.** Out of scope; when added, they should also replace this
+  workflow's inline `node-version: 22` with `node-version-file: .nvmrc`.
 - **The rest of `CLAUDE.md`'s stale claims, and `frontend.md §1`'s `packages/ui` layering
-  fiction.** **File 40** — see `improvement-plan.md` P1-3 and P1-4.
-- **Coverage thresholds or a coverage gate.** Deliberately excluded; `improvement-plan.md` §6 is
-  the reasoning. Reporting only.
+  fiction.** Out of scope.
+- **Coverage thresholds or a coverage gate.** Deliberately excluded: a percentage target optimises for the wrong thing in a repo with this many
+  hand-written behavioural tests. Reporting only.
 - **A deploy job, or anything touching AWS.** File 38a's territory — it appends a `deploy` job to
   this same workflow, gated `needs: gates`, once file 38 has deployed by hand at least once. As
   written here the workflow verifies; it does not ship. Note for whoever does that: `gates` is the
@@ -761,9 +756,8 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
   file 38a. What has moved *out* of 38a and *into* this file is only the trigger list and `gates`
   being required on `dev` (requirement 10) — because those were sitting behind 8–9 hours of AWS
   work for no reason, and the standards already assume them.
-- **Dependabot, Renovate, CodeQL, or any other GitHub app.** Dependency upgrades are file 46's
-  subject and `improvement-plan.md` §5.3 proposes an `/upgrade-dependency` skill for the mechanical
-  part. Adding a bot that opens PRs before the pipeline has run a single week is how a new pipeline
+- **Dependabot, Renovate, CodeQL, or any other GitHub app.** Dependency upgrades are out of scope; the
+  `/upgrade-dependency` skill covers the mechanical part. Adding a bot that opens PRs before the pipeline has run a single week is how a new pipeline
   gets ignored.
 - **Matrix builds across Node versions or operating systems.** One target — the one the deployment
   runs — is the correct amount of matrix for a project with one deployment target.

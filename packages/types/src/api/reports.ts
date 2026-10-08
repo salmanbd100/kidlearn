@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/children/{id}/reports` and `/api/admin/jobs/weekly-reports` — the weekly
- * progress report (FR-DASH-05..06).
- */
+/** `/api/children/{id}/reports` and `/api/admin/jobs/weekly-reports` — the weekly progress report (FR-DASH-05..06). */
 
 /** Which encouraging note a week earned (FR-DASH-05). */
 export const REPORT_NOTE_KEYS = [
@@ -36,9 +33,7 @@ export const WeeklyReportBadgeSchema = z
 
 export type WeeklyReportBadge = z.infer<typeof WeeklyReportBadgeSchema>;
 
-/**
- * Everything FR-DASH-05 asks a week to report, as stored in `WeeklyReport.metrics`.
- */
+/** Everything FR-DASH-05 asks a week to report, as stored in `WeeklyReport.metrics`. */
 export const WeeklyReportMetricsSchema = z
   .object({
     /** Distinct local calendar days with at least one recorded event, 0–7. */
@@ -58,9 +53,7 @@ export const WeeklyReportMetricsSchema = z
     quizFirstAttemptsCorrect: z.number().int().min(0),
     badgesEarned: z.array(WeeklyReportBadgeSchema),
     noteKey: ReportNoteKeySchema,
-    /**
-     * Interpolation values for the note's template — e.g. `{ activeDays: 7 }`.
-     */
+    /** Interpolation values for the note's template, e.g. `{ activeDays: 7 }`. */
     noteParams: z.record(z.union([z.string(), z.number()])),
   })
   .strict();
@@ -90,14 +83,34 @@ export type WeeklyReportList = z.infer<typeof WeeklyReportListSchema>;
 
 export const WeeklyReportListResponseSchema = ok(WeeklyReportListSchema);
 
-/** What the cron job answers (`POST /api/admin/jobs/weekly-reports`). */
+/** What one cron run computed; logged by the server, never sent — the route answers before the run ends. */
 export const WeeklyReportJobResultSchema = z
   .object({
     childrenProcessed: z.number().int().min(0),
+    /** Children whose generation threw. The route answers 500 when above zero. */
+    childrenFailed: z.number().int().min(0),
     weekStart: IsoDateTimeSchema,
+    /** Raw session events past the retention window, deleted after the reports. */
+    sessionEventsPruned: z.number().int().min(0),
   })
   .strict();
 
 export type WeeklyReportJobResult = z.infer<typeof WeeklyReportJobResultSchema>;
 
-export const WeeklyReportJobResponseSchema = ok(WeeklyReportJobResultSchema);
+/** What `POST /api/admin/jobs/weekly-reports` answers: the run is accepted, not finished. */
+export const WeeklyReportJobAcceptedSchema = z
+  .object({
+    /** `alreadyRunning` when a run was in flight and this call joined it rather than starting a second pass. */
+    status: z.enum(["started", "alreadyRunning"]),
+    /** When the run this call refers to began. */
+    startedAt: IsoDateTimeSchema,
+  })
+  .strict();
+
+export type WeeklyReportJobAccepted = z.infer<
+  typeof WeeklyReportJobAcceptedSchema
+>;
+
+export const WeeklyReportJobAcceptedResponseSchema = ok(
+  WeeklyReportJobAcceptedSchema,
+);

@@ -8,20 +8,23 @@ import type {
   MediaAsset,
 } from "@kidlearn/types";
 import { isContentEditable, LOCALES } from "@kidlearn/types";
-import { Button, Label, Select } from "@kidlearn/ui";
+import {
+  Button,
+  DialogFooter,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+} from "@kidlearn/ui";
 import { useEffect, useState } from "react";
 import {
-  fetchBadges,
   fetchLessons,
   fetchWorlds,
-  updateBadge,
   updateContent,
-} from "@/features/admin/admin-api";
+} from "@/features/admin/content-api";
+import { fetchBadges, updateBadge } from "@/features/admin/editors-api";
 import { optionValue } from "@/features/admin/select-option";
-
-/**
- * Points an owning row's foreign key at one asset (FR-CMS-02, requirement 3).
- */
 
 type Target = "world-mascot" | "lesson-video" | "badge-icon";
 
@@ -31,7 +34,6 @@ const TARGET_LABELS: Record<Target, string> = {
   "badge-icon": "Badge icon",
 };
 
-/** Which targets an asset of each kind can legally fill. */
 const TARGETS_BY_KIND: Record<MediaAsset["kind"], Target[]> = {
   image: ["world-mascot", "badge-icon"],
   video: ["lesson-video"],
@@ -105,62 +107,67 @@ export function AttachDialog({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="attach-target">Attach as</Label>
-        <Select
-          id="attach-target"
+        <SelectMenu
           value={target ?? ""}
           disabled={isBusy}
-          onChange={(event) => {
-            setTarget(optionValue(available, event.target.value, undefined));
+          onValueChange={(value) => {
+            setTarget(optionValue(available, value, undefined));
             setRowId("");
           }}
         >
-          {available.map((one) => (
-            <option key={one} value={one}>
-              {TARGET_LABELS[one]}
-            </option>
-          ))}
-        </Select>
+          <SelectMenuTrigger id="attach-target" size="sm" />
+          <SelectMenuContent>
+            {available.map((one) => (
+              <SelectMenuItem key={one} value={one}>
+                {TARGET_LABELS[one]}
+              </SelectMenuItem>
+            ))}
+          </SelectMenuContent>
+        </SelectMenu>
       </div>
 
       {target === "lesson-video" ? (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="attach-locale">Locale</Label>
-          <Select
-            id="attach-locale"
+          <SelectMenu
             value={locale}
             disabled={isBusy}
-            onChange={(event) =>
-              setLocale(optionValue(LOCALES, event.target.value, locale))
+            onValueChange={(value) =>
+              setLocale(optionValue(LOCALES, value, locale))
             }
           >
-            {LOCALES.map((one) => (
-              <option key={one} value={one}>
-                {LANGUAGE_LABELS[one]}
-              </option>
-            ))}
-          </Select>
+            <SelectMenuTrigger id="attach-locale" size="sm" />
+            <SelectMenuContent>
+              {LOCALES.map((one) => (
+                <SelectMenuItem key={one} value={one}>
+                  {LANGUAGE_LABELS[one]}
+                </SelectMenuItem>
+              ))}
+            </SelectMenuContent>
+          </SelectMenu>
         </div>
       ) : null}
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="attach-row">Row</Label>
-        <Select
-          id="attach-row"
-          value={rowId}
-          disabled={isBusy}
-          aria-describedby="attach-row-hint"
-          onChange={(event) => setRowId(event.target.value)}
-        >
-          <option value="">Choose…</option>
-          {rows.map((row) => (
-            <option key={row.id} value={row.id}>
-              {row.label}
-            </option>
-          ))}
-        </Select>
+        <SelectMenu value={rowId} disabled={isBusy} onValueChange={setRowId}>
+          <SelectMenuTrigger
+            id="attach-row"
+            size="sm"
+            placeholder="Choose…"
+            aria-describedby="attach-row-hint"
+          />
+          <SelectMenuContent>
+            {rows.map((row) => (
+              <SelectMenuItem key={row.id} value={row.id}>
+                {row.label}
+              </SelectMenuItem>
+            ))}
+          </SelectMenuContent>
+        </SelectMenu>
         <p id="attach-row-hint" className="text-muted-foreground text-xs">
           Published rows are not listed — withdraw one to draft before changing
           what it plays.
@@ -173,7 +180,7 @@ export function AttachDialog({
         </p>
       ) : null}
 
-      <div className="flex justify-end">
+      <DialogFooter className="border-border border-t pt-4">
         <Button
           type="button"
           disabled={isBusy || rowId === ""}
@@ -181,7 +188,7 @@ export function AttachDialog({
         >
           Attach
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }
@@ -217,7 +224,6 @@ function editableRows(input: {
   return [];
 }
 
-/** The actual write, per target. */
 function attach(input: {
   target: Target;
   rowId: string;

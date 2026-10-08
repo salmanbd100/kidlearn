@@ -1,12 +1,9 @@
 import type { ZodIssue } from "zod";
-import type { ApiFailure } from "../../shared/api/api-client";
-
-// Turning failures into i18next keys.
+import type { ApiFailure } from "@/shared/api/api-client";
 
 /** Keys under the `parent` namespace, relative to it. */
 type ParentMessageKey = string;
 
-/** The message for a failed `POST /api/children`. */
 export function childWriteErrorKey(failure: ApiFailure): ParentMessageKey {
   switch (failure.code) {
     case "CONFLICT":
@@ -20,7 +17,6 @@ export function childWriteErrorKey(failure: ApiFailure): ParentMessageKey {
   }
 }
 
-/** The message for a failed screen-time write (file 28). */
 export function screenTimeErrorKey(failure: ApiFailure): ParentMessageKey {
   return failure.code === "NOT_FOUND"
     ? "errors.notFound"
@@ -32,10 +28,8 @@ export function generalErrorKey(failure: ApiFailure): ParentMessageKey {
   return failure.code === "NETWORK_ERROR" ? "errors.network" : "errors.generic";
 }
 
-/** Which field of the profile form an issue belongs to, and what it says. */
 export type FieldErrors = Partial<Record<string, ParentMessageKey>>;
 
-/** Maps Zod issues onto localized field messages. */
 export function toFieldErrors(issues: readonly ZodIssue[]): FieldErrors {
   const errors: FieldErrors = {};
 

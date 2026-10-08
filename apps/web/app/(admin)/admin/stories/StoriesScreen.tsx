@@ -2,14 +2,15 @@
 
 import type { AdminWorld } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
+import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { fetchWorlds } from "@/features/admin/admin-api";
+import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { fetchWorlds } from "@/features/admin/content-api";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 import { StoryMediaPanel } from "./StoryMediaPanel";
-
-// `/admin/stories` — the story section (file 35, FR-AI-02).
 
 export function StoriesScreen() {
   const [worlds, setWorlds] = useState<AdminWorld[]>([]);
@@ -36,51 +37,57 @@ export function StoriesScreen() {
 
   if (status === "error") {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <h1 className="font-semibold text-foreground text-xl">Stories</h1>
-        <p className="text-muted-foreground text-sm">
-          The worlds could not be loaded, and a story needs one to be set in.
-        </p>
-        <Button type="button" variant="outline" onClick={() => void load()}>
-          Try again
-        </Button>
+      <div className="flex flex-col gap-6">
+        <AdminPageHeader title="Stories" />
+        <AdminEmptyState
+          tone="error"
+          icon={TriangleAlert}
+          title="The worlds could not be loaded, and a story needs one to be set in."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void load()}
+            >
+              Try again
+            </Button>
+          }
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-semibold text-foreground text-xl">Stories</h1>
-          <p className="text-muted-foreground text-xs">
-            Generated stories are drafts. They are read and published from the
-            AI Queue.
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          disabled={status === "loading"}
-          onClick={() => {
-            setNotice(undefined);
-            setIsGenerateOpen(true);
-          }}
-        >
-          Generate a story
-        </Button>
-      </header>
+    <div className="flex flex-col gap-6">
+      <AdminPageHeader
+        title="Stories"
+        description="Generated stories are drafts. They are read and published from the AI Queue."
+        actions={
+          <Button
+            type="button"
+            disabled={status === "loading"}
+            onClick={() => {
+              setNotice(undefined);
+              setIsGenerateOpen(true);
+            }}
+          >
+            <Sparkles aria-hidden="true" className="size-4!" />
+            Generate a story
+          </Button>
+        }
+      />
 
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
       ) : null}
 
-      <section className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-4">
+      <section className="flex flex-col gap-2 rounded-(--radius) border border-border bg-card p-4">
         <h2 className="font-medium text-foreground text-sm">
           What lands where
         </h2>

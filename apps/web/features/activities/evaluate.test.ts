@@ -17,7 +17,6 @@ import {
   puzzleSlotId,
 } from "./evaluate";
 
-/** The ids each target is holding, which is all these assertions care about. */
 function idsByTarget(
   grouped: ReadonlyMap<string, readonly { id: string }[]>,
 ): Record<string, string[]> {

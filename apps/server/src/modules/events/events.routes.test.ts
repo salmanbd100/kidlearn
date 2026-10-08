@@ -1,32 +1,20 @@
 /**
- * The heartbeat surface and the parent-scoped learning-time read.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four rules that bound it shape this suite:
- *
- *  - **Rule 1, stub state not answers.** `store.events` is a real append-only
- *    array, and `sessionEvent.findFirst`/`findMany` read it with the same ordering
- *    and window Prisma would. So the throttle is a *second* request seeing what the
- *    first wrote, and `minutesToday` is the pure function run over rows the suite
- *    made the server write — not a number handed back by a mock.
- *  - **Rule 2, assert the query.** A stub cannot show that a draft lesson stayed
- *    invisible, so the `where` clause that keeps it invisible is asserted directly,
- *    against the same clause `modules/progress/progress.routes.test.ts` asserts.
- *  - **Rule 4, name what the stub cannot prove.** The composite index the window
- *    query relies on is asserted against `schema.prisma`; whether Postgres uses it
- *    needs a real database and an `EXPLAIN`.
+ * Stubs `config/prisma.js` under the stub exception in `general.md §5`. `store.events` is an append-only array read with
+ * Prisma's ordering and window, so the throttle and `minutesToday` run over rows the server wrote (rule 1); the draft-lesson
+ * `where` clause is asserted directly (rule 2); the window index is asserted against `schema.prisma` (rule 4).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import {
   ActivityEventResponseSchema,
+  CONSENT_VERSION,
   HeartbeatResponseSchema,
   LearningTimeReadResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 const STORY_ID = "55555555-5555-4555-8555-555555555555";
@@ -56,6 +44,8 @@ const db = vi.hoisted(() => ({
   eventCreate: vi.fn(),
   eventFindFirst: vi.fn(),
   eventFindMany: vi.fn(),
+  eventCount: vi.fn(),
+  screenTimeSettingFindUnique: vi.fn(),
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -68,12 +58,17 @@ vi.mock("../../config/prisma.js", () => ({
       create: db.eventCreate,
       findFirst: db.eventFindFirst,
       findMany: db.eventFindMany,
+      count: db.eventCount,
     },
+    screenTimeSetting: { findUnique: db.screenTimeSettingFindUnique },
   },
 }));
 
 const { app } = await import("../../app.js");
 const { auth } = await import("../../config/auth.js");
+const { CLIENT_EVENTS_PER_MINUTE } = await import(
+  "../progress/session-event.service.js"
+);
 
 const SESSION_USER = {
   id: "user_1",
@@ -89,8 +84,9 @@ const PARENT: Parent = {
   email: SESSION_USER.email,
   name: SESSION_USER.name,
   avatarUrl: null,
-  consentGivenAt: null,
-  consentVersion: null,
+  // Consented to the current text: `requireConsent` guards this mount.
+  consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
+  consentVersion: CONSENT_VERSION,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -112,10 +108,8 @@ function childProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
   };
 }
 
-/** Signs the request in as PARENT with `child` as the session's active profile. */
 function signInAs(child: ChildProfile | null) {
-  // `getSession` returns a deep better-auth type; only the fields the middleware
-  // reads are supplied, so the shape is narrowed at this boundary.
+  // Narrowed: `getSession` returns a deep better-auth type; only the fields the middleware reads are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -132,11 +126,7 @@ function events(): EventRow[] {
   return store.events as EventRow[];
 }
 
-/**
- * Moves the wall clock the *service* reads. `vi.setSystemTime` rather than a
- * parameter, because the throttle compares `Date.now()` against a stored row and
- * that comparison is the thing under test.
- */
+/** `vi.setSystemTime` rather than a parameter: the throttle compares `Date.now()` with a stored row, which is under test. */
 function setNow(iso: string) {
   store.now = new Date(iso);
   vi.setSystemTime(store.now);
@@ -149,10 +139,9 @@ function postHeartbeat() {
 beforeEach(() => {
   store.events = [];
   for (const fn of Object.values(db)) fn.mockReset();
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers({ toFake: ["Date"] });
   setNow("2026-08-18T09:00:00.000Z");
 
-  // Visible unless a test says otherwise.
   db.lessonFindFirst.mockResolvedValue({ id: LESSON_ID });
   db.storyFindFirst.mockResolvedValue({ id: STORY_ID });
 
@@ -162,11 +151,9 @@ beforeEach(() => {
       id: `event_${store.events.length + 1}`,
       childId: input.childId,
       type: input.type,
-      // Nullable column: a heartbeat sends no payload and an activity event does,
-      // so the absence is the schema's default and not something set here.
+      // Nullable: a heartbeat sends no payload, so absence is the schema default.
       payload: input.payload ?? null,
-      // The column default too. This is the value the server keeps — nothing in
-      // any request on this surface could have supplied one (FR-TIME-06).
+      // Column default: nothing on this surface can supply one (FR-TIME-06).
       occurredAt: store.now,
     };
     store.events.push(row);
@@ -181,8 +168,7 @@ beforeEach(() => {
             row.childId === where.childId &&
             (where.type === undefined || row.type === where.type),
         )
-        // `orderBy: { occurredAt: "desc" }` — the latest beat, which is what the
-        // throttle compares against.
+        // Latest beat, which the throttle compares against.
         .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())[0] ??
       null,
   );
@@ -203,6 +189,27 @@ beforeEach(() => {
         .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())
         .map((row) => ({ occurredAt: row.occurredAt })),
   );
+
+  db.eventCount.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: {
+        childId: string;
+        type: { not: string };
+        occurredAt: { gte: Date };
+      };
+    }) =>
+      events().filter(
+        (row) =>
+          row.childId === where.childId &&
+          row.type !== where.type.not &&
+          row.occurredAt >= where.occurredAt.gte,
+      ).length,
+  );
+
+  // No limit configured unless a test sets one, so the screen-time gate stays open.
+  db.screenTimeSettingFindUnique.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -231,6 +238,20 @@ describe("POST /api/events/heartbeat", () => {
     expect(store.events).toHaveLength(0);
   });
 
+  it("returns 403 CONSENT_REQUIRED, and records nothing, when consent is to an older text", async () => {
+    signInAs(childProfile());
+    db.parentFindUnique.mockResolvedValue({
+      ...PARENT,
+      consentVersion: "2020-01-v0",
+    });
+
+    const res = await postHeartbeat();
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("CONSENT_REQUIRED");
+    expect(store.events).toHaveLength(0);
+  });
+
   it("stores a heartbeat and answers with today's minutes", async () => {
     signInAs(childProfile());
 
@@ -253,9 +274,7 @@ describe("POST /api/events/heartbeat", () => {
   it("takes no timestamp from the request, whatever the client sends", async () => {
     signInAs(childProfile());
 
-    // A body at all is more than the contract allows, and a backdated one is the
-    // shape a tampered client would send. Neither reaches the row: `occurredAt` is
-    // the column default, and there is no schema field it could have come from.
+    // A body, or a backdated one (tampered client), never reaches the row: `occurredAt` is the column default.
     const res = await postHeartbeat().send({
       occurredAt: "2020-01-01T00:00:00.000Z",
       minutesToday: 0,
@@ -276,11 +295,9 @@ describe("POST /api/events/heartbeat", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.recorded).toBe(false);
-    // Nothing written — the density minutes are derived from is unchanged, which
-    // is the whole point of the guard.
+    // Nothing written, so the density minutes derive from is unchanged.
     expect(store.events).toHaveLength(1);
-    // And the total is still honest, so a throttled client is not blind to a
-    // limit it is about to cross (file 28).
+    // The total stays honest, so a throttled client can see a limit it is about to cross.
     expect(res.body.data.minutesToday).toBe(1);
   });
 
@@ -300,8 +317,7 @@ describe("POST /api/events/heartbeat", () => {
   it("cannot be inflated by a client beating in a loop", async () => {
     signInAs(childProfile());
 
-    // Twenty beats one second apart. A client that could pack them would claim
-    // more than the twenty seconds that actually passed.
+    // Twenty beats one second apart must not claim more than the twenty seconds that passed.
     for (let second = 0; second < 20; second += 1) {
       setNow(`2026-08-18T09:00:${String(second).padStart(2, "0")}.000Z`);
       await postHeartbeat();
@@ -325,8 +341,7 @@ describe("POST /api/events/heartbeat", () => {
     }
 
     const res = await postHeartbeat();
-    // 10 minutes spanned + 30s tail = 10.5 → 11. The figure survives because it
-    // is derived from 21 stored rows, so no client state could have reset it.
+    // 10 min + 30s tail = 10.5 → 11, derived from 21 stored rows so no client state could reset it.
     expect(res.body.data.minutesToday).toBe(11);
     expect(store.events).toHaveLength(21);
   });
@@ -340,8 +355,7 @@ describe("POST /api/events/heartbeat", () => {
     signInAs(childProfile({ id: OTHER_CHILD_ID }));
     const res = await postHeartbeat();
 
-    // A first beat for the sibling, and their own total — not the two rows the
-    // first child wrote a moment ago.
+    // The sibling's own first beat and total, not the first child's rows.
     expect(res.body.data).toEqual({ recorded: true, minutesToday: 1 });
   });
 });
@@ -393,17 +407,58 @@ describe("POST /api/events/activity", () => {
     signInAs(childProfile());
     await postHeartbeat();
 
-    // 80s later — past the 30s cadence but inside the 90s session gap only
-    // because this event exists.
+    // 80s later: past the 30s cadence, inside the 90s session gap only because this event exists.
     setNow("2026-08-18T09:01:20.000Z");
     await postActivity({ type: "story_complete", refId: STORY_ID });
 
     setNow("2026-08-18T09:02:40.000Z");
     const res = await postHeartbeat();
 
-    // One sitting of 160s + 30s tail = 3 minutes. Without the middle event the
-    // two beats would be lone sittings worth 1 minute between them.
+    // One 160s sitting + 30s tail = 3 minutes; without the middle event they are two 1-minute sittings.
     expect(res.body.data.minutesToday).toBe(3);
+  });
+
+  it("answers 429, and records nothing, once a child has posted a minute's worth of milestones", async () => {
+    signInAs(childProfile());
+    for (let n = 0; n < CLIENT_EVENTS_PER_MINUTE; n += 1) {
+      const ok = await postActivity({ type: "lesson_start", refId: LESSON_ID });
+      expect(ok.status).toBe(201);
+    }
+
+    const res = await postActivity({ type: "lesson_start", refId: LESSON_ID });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe("RATE_LIMITED");
+    expect(store.events).toHaveLength(CLIENT_EVENTS_PER_MINUTE);
+  });
+
+  it("lets the budget refill once the minute has passed", async () => {
+    signInAs(childProfile());
+    for (let n = 0; n < CLIENT_EVENTS_PER_MINUTE; n += 1) {
+      await postActivity({ type: "lesson_start", refId: LESSON_ID });
+    }
+
+    setNow("2026-08-18T09:01:00.001Z");
+    const res = await postActivity({ type: "lesson_start", refId: LESSON_ID });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("refuses a story_start, and records nothing, while the screen-time gate is shut", async () => {
+    signInAs(childProfile());
+    db.screenTimeSettingFindUnique.mockResolvedValue({
+      id: "setting_1",
+      childId: CHILD_ID,
+      dailyLimitMinutes: 0,
+      windowStart: null,
+      windowEnd: null,
+    });
+
+    const res = await postActivity({ type: "story_start", refId: STORY_ID });
+
+    expect(res.status).toBe(423);
+    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
+    expect(store.events).toHaveLength(0);
   });
 
   it("rejects a type outside the five surface milestones", async () => {
@@ -446,8 +501,7 @@ describe("POST /api/events/activity", () => {
       refId: MISSING_ID,
     });
 
-    // 403 would confirm the row exists; draft content must not be discoverable
-    // by probing (NFR-SAFE-02).
+    // 403 would confirm the row exists; draft content must not be discoverable (NFR-SAFE-02).
     expect(lesson.status).toBe(404);
     expect(story.status).toBe(404);
     expect(store.events).toHaveLength(0);
@@ -475,9 +529,7 @@ describe("POST /api/events/activity", () => {
       gradeLevels: { has: "KG1" },
       world: { is: { status: "published" } },
     };
-    // A lesson carries two more gates than a story does: it hangs off a topic
-    // and a subject that each have their own status and grade tags. A story
-    // hangs off a world alone.
+    // A lesson has two more gates than a story: its topic and subject each carry their own status and grade tags.
     expect(db.lessonFindFirst).toHaveBeenCalledWith({
       where: {
         id: LESSON_ID,
@@ -506,7 +558,6 @@ describe("GET /api/children/:id/learning-time", () => {
     return request(app).get(`/api/children/${childId}/learning-time${query}`);
   }
 
-  /** Puts `count` beats 30s apart into the store, starting at `start`. */
   function seedBeats(childId: string, start: string, count: number) {
     const first = new Date(start).getTime();
     for (let beat = 0; beat < count; beat += 1) {
@@ -521,9 +572,7 @@ describe("GET /api/children/:id/learning-time", () => {
   }
 
   beforeEach(() => {
-    // The route's guard is `loadOwnedChild`, which looks the child up by id *and*
-    // parentId — so a stub that answers by id alone would hide the ownership
-    // check. This one honours both, which is what makes the 404 test meaningful.
+    // Honours id and parentId like `loadOwnedChild`; an id-only stub would hide the ownership check.
     db.childFindFirst.mockImplementation(
       async ({ where }: { where: { id: string; parentId: string } }) =>
         where.id === CHILD_ID && where.parentId === PARENT.id
@@ -596,8 +645,7 @@ describe("GET /api/children/:id/learning-time", () => {
     seedBeats(CHILD_ID, "2026-08-17T17:58:00.000Z", 13);
 
     const today = await getLearningTime(CHILD_ID, "?range=today");
-    // Four beats fall before midnight; nine after. The pre-midnight half is
-    // credited to the 17th and is invisible here.
+    // Four beats before midnight, nine after; the pre-midnight half is credited to the 17th.
     expect(today.body.data.minutes).toBe(5);
   });
 
@@ -612,8 +660,7 @@ describe("GET /api/children/:id/learning-time", () => {
   it("returns a 404 envelope for another parent's child", async () => {
     const res = await getLearningTime(OTHER_CHILD_ID, "?range=today");
 
-    // 404, not 403: a 403 would confirm the profile exists and belongs to
-    // somebody, which is what a probe is after (NFR-SAFE-02).
+    // 404 not 403: 403 would confirm the profile exists (NFR-SAFE-02).
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
   });
@@ -646,10 +693,7 @@ describe("GET /api/children/:id/learning-time", () => {
   });
 
   it("rests on a composite index the stub cannot exercise", () => {
-    // Rule 4 of the stubbing exception: whether Postgres uses the index needs a
-    // real database and an `EXPLAIN`. What is assertable here is that the index
-    // the query above was written for still exists, in the column order that
-    // makes the range scan possible.
+    // Stub rule 4: whether Postgres uses the index needs a real database; assert it still exists in the column order the range scan needs.
     const schemaPath = fileURLToPath(
       new URL(
         "../../../../../packages/db/prisma/schema.prisma",

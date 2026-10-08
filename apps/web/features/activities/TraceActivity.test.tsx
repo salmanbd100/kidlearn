@@ -22,10 +22,8 @@ import { type ToViewBox, useTraceState } from "./trace/use-trace-state";
 import type { ActivityFeedback } from "./use-activity-feedback";
 
 /**
- * jsdom implements neither `getScreenCTM` nor `SVGPathElement.getPointAtLength`,
- * so a real trace cannot happen here. The gesture rules are therefore driven
- * through `useTraceState` with an identity `toViewBox` — the seam that exists for
- * exactly this — and the render tests below assert only what is on the board.
+ * jsdom has neither `getScreenCTM` nor `getPointAtLength`, so gesture rules are driven through
+ * `useTraceState` with an identity `toViewBox`; render tests assert the board only.
  */
 
 function feedbackSpy() {
@@ -38,7 +36,6 @@ function feedbackSpy() {
 
 const identity: ToViewBox = (client) => client;
 
-/** A single straight stroke in the reference 0–100 space, easy to walk exactly. */
 const singleStroke: TraceDefinition = {
   ...validTrace,
   glyph: "I",
@@ -46,7 +43,6 @@ const singleStroke: TraceDefinition = {
   strokeOrder: undefined,
 };
 
-/** Two separate strokes, so stroke ordering and advancement are observable. */
 const twoStrokes: TraceDefinition = {
   ...validTrace,
   glyph: "T",
@@ -55,9 +51,8 @@ const twoStrokes: TraceDefinition = {
 };
 
 /**
- * A hand-rolled animation-frame queue. Vitest's fake timers can stand in for
- * `requestAnimationFrame`, but the hook schedules at most one frame per burst of
- * moves and the tests need to say precisely when it drains.
+ * Hand-rolled frame queue: the hook schedules at most one frame per burst and the tests must say
+ * when it drains.
  */
 function installFrameQueue() {
   const queued: FrameRequestCallback[] = [];
@@ -85,11 +80,7 @@ function installFrameQueue() {
   };
 }
 
-/**
- * A `PointerEvent` carries a full input snapshot; the hook reads four things off
- * it. The cast stands in for a gesture the environment cannot produce, and
- * narrowing is impossible by construction.
- */
+/** The cast stands in for a gesture jsdom cannot produce; the hook reads four fields. */
 function pointerEvent(
   x: number,
   y: number,
@@ -108,7 +99,6 @@ function pointerEvent(
   } as unknown as ReactPointerEvent<SVGSVGElement>;
 }
 
-/** Same story as `pointerEvent`: the hook reads a key and cancels the default. */
 function keyEvent(key: string): ReactKeyboardEvent<SVGSVGElement> {
   return {
     key,
@@ -133,7 +123,6 @@ function mountTrace(definition: TraceDefinition): TraceHarness {
   return { result, frames, feedback, onActivityComplete };
 }
 
-/** Press at the first point, then drag through every remaining one, a frame each. */
 function traceStroke(
   harness: TraceHarness,
   points: readonly { x: number; y: number }[],
@@ -179,8 +168,7 @@ describe("useTraceState", () => {
   });
 
   it("frames the glyph in its own coordinate space, not an assumed one", () => {
-    // The canonical "A" is authored in 0–200; a fixed 0–100 viewBox would show a
-    // quarter of it.
+    // The canonical "A" is authored in 0–200; a fixed 0–100 viewBox would show a quarter of it.
     const harness = mountTrace(validTrace);
     const [, , width] = harness.result.current.frame.viewBox
       .split(" ")
@@ -222,8 +210,8 @@ describe("useTraceState", () => {
       );
     }
 
-    // Eight events, one queued frame — the six intermediate positions are dropped
-    // rather than each costing a coverage pass and a re-render.
+    // Eight events, one queued frame: intermediate positions are dropped, not each costing a
+    // coverage pass.
     expect(harness.frames.pending).toBe(1);
     harness.frames.flush();
     expect(harness.result.current.trail).toHaveLength(1);
@@ -255,9 +243,8 @@ describe("useTraceState", () => {
 
     traceStroke(harness, points);
 
-    // The stroke completes short of its final point, so the anchor is wherever
-    // the finger happened to be when the ratio was reached — near the end of the
-    // stroke, and one of the positions actually visited.
+    // The stroke completes short of its final point, so the anchor is wherever the finger was when
+    // the ratio was reached.
     const anchor = harness.feedback.success.mock.calls.at(0)?.[0];
     expect(points).toContainEqual(anchor);
     expect(anchor?.x).toBeGreaterThan(50);
@@ -398,7 +385,6 @@ describe("useTraceState", () => {
     );
     harness.frames.flush();
 
-    // A palm lands somewhere else entirely and lifts again.
     act(() =>
       harness.result.current.handlePointerDown(pointerEvent(400, 400, 2)),
     );
@@ -407,7 +393,6 @@ describe("useTraceState", () => {
       harness.result.current.handlePointerUp(pointerEvent(400, 400, 2)),
     );
 
-    // The tracing finger is still down and still drawing.
     expect(harness.result.current.isDrawing).toBe(true);
     for (const point of points.slice(1)) {
       act(() =>
@@ -516,8 +501,7 @@ describe("TraceActivity", () => {
   it("names the glyph to trace in the child's own language", () => {
     renderTrace(twoStrokes, "bn");
 
-    // The glyph itself is the payload's, not the interface's — the instruction
-    // wrapped around it is what has to be translated.
+    // The glyph is the payload's; only the instruction around it is translated.
     expect(
       screen.getByRole("application", { name: /T আঁকো/ }),
     ).toBeInTheDocument();
@@ -535,7 +519,6 @@ describe("TraceActivity", () => {
 
     const board = screen.getByRole("application");
     expect(board).toHaveAttribute("tabindex", "0");
-    // The keys are named where a screen reader will read them out.
     expect(
       screen.getByText(/press space to draw a little at a time/i),
     ).toBeInTheDocument();
@@ -568,6 +551,28 @@ describe("TraceActivity", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/finished/i);
   });
 
+  it("offers a way past a path that parses to no strokes instead of an empty board", () => {
+    const onActivityComplete = vi.fn();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    render(
+      <Providers locale="en">
+        <TraceActivity
+          definition={{ ...validTrace, pathData: "L 10 10" }}
+          locale="en"
+          feedback={feedbackSpy()}
+          onActivityComplete={onActivityComplete}
+        />
+      </Providers>,
+    );
+
+    expect(screen.getByTestId("activity-oops")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /go on/i }));
+    expect(onActivityComplete).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
+
   it("shows no error iconography anywhere on the board (FR-ACT-05)", () => {
     renderTrace();
 
@@ -579,7 +584,6 @@ describe("TraceActivity", () => {
   it("frames a glyph authored outside the reference space without clipping it", () => {
     renderTrace(validTrace);
 
-    // The "A" spans 20–180; a 0 0 100 100 viewBox would cut most of it away.
     const viewBox =
       screen.getByRole("application").getAttribute("viewBox") ?? "";
     const [minX, minY, width, height] = viewBox.split(" ").map(Number);

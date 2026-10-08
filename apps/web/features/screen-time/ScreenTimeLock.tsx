@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type { ScreenTimeBlockCode } from "@kidlearn/types";
 import { Home } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -8,12 +9,6 @@ import { useTranslation } from "react-i18next";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-
-/**
- * What a child sees when their grown-up's screen-time rule says no (FR-TIME-02,
- * FR-TIME-04).
- */
 
 export interface ScreenTimeLockProps {
   reason: ScreenTimeBlockCode;
@@ -41,12 +36,7 @@ export function ScreenTimeLock({ reason, windowStart }: ScreenTimeLockProps) {
     ? t("screenTime.windowBody")
     : t("screenTime.timeUpBody");
 
-  /**
-   * Says the line out loud, for the child who cannot read it. A missing clip is
-   * silent rather than an error — `AudioProvider` swallows both a failed load and
-   * an autoplay rejection, and the real narration arrives with the voice pipeline
-   * (file 36). Keyed on the reason so switching screens re-announces.
-   */
+  /** Says the line aloud for a child who cannot read it. A missing clip is silent, not an error (`AudioProvider` swallows failed loads and autoplay rejection). Keyed on the reason so switching screens re-announces. */
   useEffect(() => {
     void play(`/audio/ui/${narrationKey(reason)}.${i18n.language}.mp3`, {
       interrupt: true,
@@ -54,7 +44,7 @@ export function ScreenTimeLock({ reason, windowStart }: ScreenTimeLockProps) {
   }, [play, reason, i18n.language]);
 
   return (
-    <main className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
       <span aria-hidden="true" className="text-8xl">
         {isWindow ? "🌤️" : "🌙"}
       </span>
@@ -76,7 +66,7 @@ export function ScreenTimeLock({ reason, windowStart }: ScreenTimeLockProps) {
   );
 }
 
-/** The narration clip for each reason. See `lib/use-screen-narration.ts`. */
+/** The narration clip for each reason. */
 function narrationKey(reason: ScreenTimeBlockCode): string {
   return reason === "OUTSIDE_WINDOW" ? "outside-window" : "time-up";
 }

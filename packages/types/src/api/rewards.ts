@@ -37,15 +37,12 @@ export const NewCharacterSchema = z
 
 export type NewCharacterResponse = z.infer<typeof NewCharacterSchema>;
 
-/**
- * The two consecutive-day counts that get their own celebration (FR-GAM-06).
- */
+/** The two consecutive-day counts that get their own celebration (FR-GAM-06). */
 export const STREAK_MILESTONE_DAYS = [3, 7] as const;
 
 /**
- * `3` or `7` on the update that *reaches* that length, `null` on every other
- * update — including later days of the same streak, and including a second
- * completion on the milestone day itself. A milestone is a moment, not a state.
+ * `3` or `7` on the update that *reaches* that length, `null` otherwise (later days of the same
+ * streak and a second completion that day included): a milestone is a moment, not a state.
  */
 export const StreakMilestoneSchema = z
   .union([z.literal(3), z.literal(7)])
@@ -53,10 +50,7 @@ export const StreakMilestoneSchema = z
 
 export type StreakMilestone = z.infer<typeof StreakMilestoneSchema>;
 
-/**
- * The streak as the celebration needs it: how long it now is, and whether this
- * completion is the one that earned the flame.
- */
+/** The streak as the celebration needs it: its length, and whether this completion earned the flame. */
 export const CompletionStreakSchema = z
   .object({
     current: z.number().int().nonnegative(),
@@ -83,14 +77,10 @@ export type LessonCompletionResponse = z.infer<typeof LessonCompletionSchema>;
 export const LessonCompletionResponseSchema = ok(LessonCompletionSchema);
 
 /**
- * The answer to `POST /api/progress/stories/{id}/complete` (FR-STORY-07).
- *
- * Carries the same unlock fields as `LessonCompletionSchema` because finishing a
- * story runs the same three steps: reading is a learning activity, so it moves
- * the streak (FR-GAM-06), and the `stories_completed` badge (FR-GAM-04, "Reading
- * Star — 10 stories") has to be earnable by a child who only ever reads.
- * `alreadyCompleted` governs `granted` alone — a replay pays no stars but can
- * still be the day that extends a streak or the read that earns the badge.
+ * The answer to `POST /api/progress/stories/{id}/complete` (FR-STORY-07). Carries the same unlock
+ * fields as `LessonCompletionSchema`: reading moves the streak (FR-GAM-06) and must earn the
+ * `stories_completed` badge (FR-GAM-04). `alreadyCompleted` governs `granted` alone — a replay
+ * pays no stars but can still extend a streak or earn the badge.
  */
 export const StoryCompletionSchema = z
   .object({
@@ -112,10 +102,7 @@ export type StoryCompletionResponse = z.infer<typeof StoryCompletionSchema>;
 
 export const StoryCompletionResponseSchema = ok(StoryCompletionSchema);
 
-/**
- * The running totals behind the reward strip on the child's home screen
- * (FR-GAM-06).
- */
+/** The running totals behind the reward strip on the child's home screen (FR-GAM-06). */
 export const RewardSummarySchema = RewardTotalsSchema.extend({
   badgeCount: z.number().int().nonnegative(),
   currentStreak: z.number().int().nonnegative(),

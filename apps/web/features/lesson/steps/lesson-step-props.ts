@@ -1,9 +1,12 @@
 import type { LessonDetailResponse } from "@kidlearn/types";
+import type { Locale } from "@/shared/lib/locale";
+import type { PendingWrites } from "../pending-writes";
 
-/** The contract every one of the five steps is built against. */
 export interface LessonStepProps {
   lesson: LessonDetailResponse;
   onComplete: () => void;
-  /** Administrator preview: render everything, record nothing. */
+  /** The interface's locale, except in an admin preview where it is the language under review. */
+  locale: Locale;
   isPreview?: boolean;
+  pendingWrites?: PendingWrites;
 }

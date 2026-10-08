@@ -1,24 +1,10 @@
 /**
- * `/api/admin/media` — signed direct uploads and the asset library (file 33,
- * FR-CMS-02).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One `mediaAsset` array, and the stub applies the
- *     route's real `where` and `orderBy` to it. The filter tests read back rows a
- *     registration wrote.
- *  2. *Assert the query, not just the result.* The `?language=bn` case asserts
- *     that a language-neutral image is **excluded**, which is a claim about the
- *     `where` the service builds rather than about the response shape.
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here is
- *     content-gated. A `MediaAsset` has no status — the entities that point at one
- *     carry it.
- *  4. *Name what the stub cannot prove.* Two things, both stated where they are
- *     relevant: that Cloudinary actually accepts the signature (asserted against
- *     the documented algorithm instead — see the signing test), and that the
- *     browser really does bypass this server, which is a claim about
- *     `apps/web/lib/admin-api.ts` and is covered there.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`; the four bounds:
+ *  1. Stub state: one `mediaAsset` array; the stub applies the route's real `where` and `orderBy`.
+ *  2. The `?language=bn` case asserts a language-neutral image is excluded, a claim about the `where`.
+ *  3. Not applicable: a `MediaAsset` has no status; the entities pointing at it carry it.
+ *  4. Cloudinary accepting the signature is asserted against the documented algorithm (signing test);
+ *     that the browser bypasses this server is covered in `apps/web/lib/admin-api.ts`.
  */
 
 import { createHash } from "node:crypto";
@@ -27,23 +13,22 @@ import {
   MediaAssetResponseSchema,
   UploadSignatureResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../../openapi/assert-contract.js";
+import request from "../../../shared/testing/request.js";
 
 const BASE = "/api/admin/media";
 
 const ADMIN_USER_ID = "user_admin_1";
 const PARENT_USER_ID = "user_parent_1";
 
-/** Must match `vitest.setup.ts`, which is where env.ts reads them from. */
+/** Must match `vitest.setup.ts`. */
 const CLOUD_NAME = "test-cloud";
 const API_KEY = "test-api-key";
 const API_SECRET = "test-api-secret";
 
 const DELIVERY_BASE = `https://res.cloudinary.com/${CLOUD_NAME}`;
 
-/** A fixed clock, so the signature below is reproducible. */
 const FIXED_NOW_MS = 1_767_225_600_000;
 const FIXED_TIMESTAMP = Math.round(FIXED_NOW_MS / 1000);
 
@@ -65,7 +50,7 @@ vi.mock("../../../config/prisma.js", () => {
     mediaAsset: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row: Row = {
-          id: `asset-${store.assets.length + 1}`,
+          id: `00000000-0000-4000-8000-${String(store.assets.length + 1).padStart(12, "0")}`,
           createdAt: new Date(
             `2026-08-2${store.assets.length + 1}T00:00:00.000Z`,
           ),
@@ -75,25 +60,37 @@ vi.mock("../../../config/prisma.js", () => {
         store.assets.push(row);
         return row;
       },
+      // Newest first with `id` tie-break, then Prisma cursor semantics: start at the cursor row, `skip` it, `take` the page.
       findMany: async ({
         where,
-        orderBy,
+        take,
+        cursor,
+        skip = 0,
       }: {
         where?: Record<string, unknown>;
-        orderBy?: { createdAt?: "asc" | "desc" };
+        take?: number;
+        cursor?: { id: string };
+        skip?: number;
       }) => {
-        const found = store.assets.filter((row) => matches(row, where));
-        const direction = orderBy?.createdAt === "desc" ? -1 : 1;
-        return [...found].sort(
-          (left, right) =>
-            direction *
-            ((left.createdAt as Date).getTime() -
-              (right.createdAt as Date).getTime()),
+        const sorted = store.assets
+          .filter((row) => matches(row, where))
+          .sort(
+            (left, right) =>
+              (right.createdAt as Date).getTime() -
+                (left.createdAt as Date).getTime() ||
+              String(right.id).localeCompare(String(left.id)),
+          );
+        const start = cursor
+          ? sorted.findIndex((row) => row.id === cursor.id)
+          : 0;
+        if (start === -1) return [];
+        return sorted.slice(
+          start + skip,
+          take ? start + skip + take : undefined,
         );
       },
     },
-    // Present so a stray parent-provisioning read fails loudly: no admin route
-    // may create a Parent row.
+    // Present so a stray parent-provisioning read fails loudly: no admin route may create a Parent row.
     parent: { findUnique: vi.fn(), upsert: vi.fn() },
     account: { findFirst: vi.fn() },
   };
@@ -105,11 +102,10 @@ const { app } = await import("../../../app.js");
 const { auth } = await import("../../../config/auth.js");
 
 function mockSession(userId: string) {
-  // Only the fields the guards read are supplied, so the deep better-auth return
-  // type is narrowed at this boundary.
+  // Only the fields the guards read, narrowing the deep better-auth return type.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: { id: userId, email: "someone@example.com", name: "Someone" },
-    session: { id: `session_${userId}`, userId },
+    session: { id: `session_${userId}`, userId, createdAt: new Date() },
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
@@ -161,8 +157,7 @@ describe("the admin guard covers every media path", () => {
     method,
     path,
   }) => {
-    // A Google sign-in never writes an AdminUser row, and that absence *is* the
-    // authorisation check (spec §4.3).
+    // A Google sign-in never writes an AdminUser row; that absence is the authorisation check.
     mockSession(PARENT_USER_ID);
 
     const res = await request(app)[method](path).send({});
@@ -176,8 +171,8 @@ describe("the admin guard covers every media path", () => {
 describe("POST /api/admin/media/sign", () => {
   const OPERATION = "POST /api/admin/media/sign";
 
-  it("signs the timestamp and folder with Cloudinary's documented algorithm", async () => {
-    vi.useFakeTimers();
+  it("signs the timestamp, folder and formats with Cloudinary's documented algorithm", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(FIXED_NOW_MS);
 
     const res = await request(app).post(`${BASE}/sign`).send({ kind: "image" });
@@ -185,17 +180,17 @@ describe("POST /api/admin/media/sign", () => {
     expect(res.status).toBe(200);
     assertContract(UploadSignatureResponseSchema, res.body, OPERATION);
 
-    // Recomputed here rather than by calling the same helper the route used:
-    // sorted `key=value` pairs, `&`-joined, secret appended, SHA-1. Asserting it
-    // this way is what makes the test evidence that Cloudinary will accept the
-    // signature, which no stub can prove directly.
+    // Recomputed independently (sorted `key=value`, `&`-joined, secret appended, SHA-1): evidence Cloudinary accepts it.
     const expected = createHash("sha1")
-      .update(`folder=kidlearn/image&timestamp=${FIXED_TIMESTAMP}${API_SECRET}`)
+      .update(
+        `allowed_formats=png,jpg,jpeg,webp,gif&folder=kidlearn/image&timestamp=${FIXED_TIMESTAMP}${API_SECRET}`,
+      )
       .digest("hex");
 
     expect(res.body.data).toEqual({
       timestamp: FIXED_TIMESTAMP,
       folder: "kidlearn/image",
+      allowedFormats: "png,jpg,jpeg,webp,gif",
       signature: expected,
       apiKey: API_KEY,
       cloudName: CLOUD_NAME,
@@ -206,6 +201,12 @@ describe("POST /api/admin/media/sign", () => {
     const res = await request(app).post(`${BASE}/sign`).send({ kind: "audio" });
 
     expect(res.body.data.folder).toBe("kidlearn/audio");
+  });
+
+  it("never lets an image credential upload SVG, which can carry script", async () => {
+    const res = await request(app).post(`${BASE}/sign`).send({ kind: "image" });
+
+    expect(res.body.data.allowedFormats.split(",")).not.toContain("svg");
   });
 
   it("never returns the API secret", async () => {
@@ -253,9 +254,7 @@ describe("POST /api/admin/media", () => {
   });
 
   it("rejects a URL on another host", async () => {
-    // The client is the only party that knows the URL, because the upload never
-    // touched this server. Without this check the endpoint would write any address
-    // on the internet into a row a child's lesson later plays.
+    // The upload never touched this server, so without this check the endpoint would store any URL a child's lesson later plays.
     const res = await request(app).post(BASE).send({
       url: "https://evil.example.com/video/upload/v1/nasty.mp4",
       kind: "video",
@@ -282,6 +281,24 @@ describe("POST /api/admin/media", () => {
       .post(BASE)
       .send({
         url: `https://res.cloudinary.com/${CLOUD_NAME}-evil/image/upload/v1/x.png`,
+        kind: "image",
+      });
+
+    expect(res.status).toBe(400);
+    expect(store.assets).toEqual([]);
+  });
+
+  it.each([
+    "../someone-else",
+    "%2e%2e/someone-else",
+    "%2E%2E/someone-else",
+    "./../someone-else",
+  ])("rejects a path that climbs out of our cloud (%s)", async (climb) => {
+    // The prefix test passes on the raw string, but the browser resolves dot segments onto another cloud.
+    const res = await request(app)
+      .post(BASE)
+      .send({
+        url: `${DELIVERY_BASE}/${climb}/image/upload/v1/x.png`,
         kind: "image",
       });
 
@@ -347,6 +364,29 @@ describe("GET /api/admin/media", () => {
     expect(res.body.data.map((asset: { url: string }) => asset.url)).toEqual([
       `${DELIVERY_BASE}/c.mp3`,
     ]);
+  });
+
+  it("pages by cursor, newest first, without repeating an asset", async () => {
+    await seedThree();
+
+    const first = await request(app).get(`${BASE}?limit=2`);
+    const lastId = first.body.data[1].id;
+    const second = await request(app).get(`${BASE}?limit=2&before=${lastId}`);
+
+    assertContract(MediaAssetListResponseSchema, second.body, OPERATION);
+    expect(first.body.data.map((asset: { url: string }) => asset.url)).toEqual([
+      `${DELIVERY_BASE}/c.mp3`,
+      `${DELIVERY_BASE}/b.mp3`,
+    ]);
+    expect(second.body.data.map((asset: { url: string }) => asset.url)).toEqual(
+      [`${DELIVERY_BASE}/a.png`],
+    );
+  });
+
+  it("caps a page at 200", async () => {
+    const res = await request(app).get(`${BASE}?limit=201`);
+
+    expect(res.status).toBe(400);
   });
 
   it("rejects an unknown filter", async () => {

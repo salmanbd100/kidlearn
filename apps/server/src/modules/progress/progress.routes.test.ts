@@ -1,29 +1,14 @@
 /**
- * Lesson progress and the player's event log.
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four rules that bound it shape this suite:
- *
- *  - **Rule 1, stub state not answers.** `db` below keeps a single mutable
- *    `LessonProgress` row and an array of `SessionEvent`s, and the stubbed
- *    `$transaction` runs the real callback against them. So the monotonic guard is
- *    exercised as a sequence of requests against carried-over state, which is the
- *    only way it can be tested at all — a chain of one-shot `mockResolvedValue`s
- *    would be asserting the test's own script.
- *  - **Rule 2, assert the query.** A stub cannot show that a draft lesson stayed
- *    invisible, so the `where` clause that keeps it invisible is asserted directly,
- *    and against the same clause `modules/content/content.routes.test.ts` asserts.
- *  - **Rule 4, name what the stub cannot prove.** The Serializable isolation level
- *    that makes the read-then-write safe is asserted as the argument passed to
- *    `$transaction`; whether Postgres honours it needs a real database. So is the
- *    unique index the reward grants rely on: the stubbed `createMany` *emulates*
- *    `skipDuplicates`, which proves the service's arithmetic and nothing about
- *    Postgres — so `schema.prisma` is read and the constraint asserted directly.
+ * Stubs `config/prisma.js` under the stub exception in `general.md §5`. `db` keeps one mutable `LessonProgress` row and a `SessionEvent`
+ * array, and the stubbed `$transaction` runs the real callback, so the monotonic guard runs as requests against carried-over state (rule 1);
+ * the draft-lesson `where` clause is asserted directly, matching `content.routes.test.ts` (rule 2); the Serializable level is asserted as
+ * the `$transaction` argument and the unique indexes are read off `schema.prisma`, as the stubbed `createMany` only emulates `skipDuplicates` (rule 4).
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ChildProfile, LessonProgress, Parent } from "@kidlearn/db";
 import {
+  CONSENT_VERSION,
   LessonCompletionResponseSchema,
   LessonProgressReadResponseSchema,
   LessonProgressResponseSchema,
@@ -32,12 +17,11 @@ import {
   StoryCompletionResponseSchema,
   validMcq,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 import { localDateIn } from "../../shared/utils/local-date.js";
 
-/** The zone `config/env.ts` defaults to, which the suite runs under. */
 const APP_TIMEZONE = "Asia/Dhaka";
 
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
@@ -114,7 +98,6 @@ type CharacterRow = {
 
 type ChildCharacterRow = { childId: string; characterId: string };
 
-/** The `yyyy-MM-dd` local date `rewardService` will key today's grants on. */
 function localToday(): string {
   return localDateIn(APP_TIMEZONE, new Date());
 }
@@ -126,16 +109,13 @@ function daysAgoAsDateColumn(days: number): Date {
   return date;
 }
 
-/** An in-memory store, not a queue of canned answers. */
 const store = vi.hoisted(() => ({
   progressRows: [] as unknown[],
   events: [] as unknown[],
   quizResponses: [] as unknown[],
   ledger: [] as unknown[],
   transactionOptions: [] as unknown[],
-  /** One row per child, as `Streak.childId @unique` enforces. */
   streaks: [] as unknown[],
-  /** The published badge catalogue this run evaluates against. */
   badges: [] as unknown[],
   characters: [] as unknown[],
   childCharacters: [] as unknown[],
@@ -153,8 +133,11 @@ const db = vi.hoisted(() => ({
   progressCreate: vi.fn(),
   progressUpdate: vi.fn(),
   sessionEventCreate: vi.fn(),
+  sessionEventFindFirst: vi.fn(),
+  sessionEventCount: vi.fn(),
   quizResponseCreateMany: vi.fn(),
   quizResponseFindMany: vi.fn(),
+  quizResponseCount: vi.fn(),
   ledgerFindMany: vi.fn(),
   ledgerCreateMany: vi.fn(),
   ledgerGroupBy: vi.fn(),
@@ -165,6 +148,30 @@ const db = vi.hoisted(() => ({
   childCharacterFindMany: vi.fn(),
   childCharacterCreateMany: vi.fn(),
   transaction: vi.fn(),
+}));
+
+const gate = vi.hoisted(() => ({ isShut: false }));
+
+// The screen-time gate is `screen-time.routes.test.ts`'s subject; every child here is within their limit unless `gate.isShut`.
+vi.mock("../screen-time/screen-time.service.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../screen-time/screen-time.service.js")
+  >()),
+  evaluateStartForChild: async () =>
+    gate.isShut
+      ? {
+          allowed: false,
+          code: "TIME_LIMIT_REACHED",
+          details: {
+            allowed: false,
+            reason: "TIME_LIMIT_REACHED",
+            minutesToday: 30,
+            dailyLimitMinutes: 30,
+            windowStart: null,
+            windowEnd: null,
+          },
+        }
+      : { allowed: true },
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -183,10 +190,15 @@ vi.mock("../../config/prisma.js", () => ({
       create: db.progressCreate,
       update: db.progressUpdate,
     },
-    sessionEvent: { create: db.sessionEventCreate },
+    sessionEvent: {
+      create: db.sessionEventCreate,
+      findFirst: db.sessionEventFindFirst,
+      count: db.sessionEventCount,
+    },
     quizResponse: {
       createMany: db.quizResponseCreateMany,
       findMany: db.quizResponseFindMany,
+      count: db.quizResponseCount,
     },
     rewardLedger: {
       findMany: db.ledgerFindMany,
@@ -222,8 +234,9 @@ const PARENT: Parent = {
   email: SESSION_USER.email,
   name: SESSION_USER.name,
   avatarUrl: null,
-  consentGivenAt: null,
-  consentVersion: null,
+  // Consented to the current text: `requireConsent` guards this mount.
+  consentGivenAt: new Date("2026-01-01T00:00:00.000Z"),
+  consentVersion: CONSENT_VERSION,
   deleteToken: null,
   deleteTokenExpiresAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -245,10 +258,8 @@ function childProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
   };
 }
 
-/** Signs the request in as PARENT with `child` as the session's active profile. */
 function signInAs(child: ChildProfile | null) {
-  // `getSession` returns a deep better-auth type; only the fields the middleware
-  // reads are supplied, so the shape is narrowed at this boundary.
+  // Narrowed: `getSession` returns a deep better-auth type; only the fields the middleware reads are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -267,11 +278,21 @@ function postStep(step: string, completed: boolean, lessonId = LESSON_ID) {
     .send({ step, completed });
 }
 
+/** Steps must be reported in order, so reaching `reward` means walking every step before it. */
+async function playThroughQuiz(lessonId = LESSON_ID) {
+  for (const step of ["intro", "video", "activity", "quiz"] as const) {
+    await postStep(step, false, lessonId);
+  }
+}
+
 function progressRows(): ProgressRow[] {
   return store.progressRows as ProgressRow[];
 }
 
-/** The row for `LESSON_ID`, which is the lesson almost every test uses. */
+function events(): EventRow[] {
+  return store.events as EventRow[];
+}
+
 function currentRow(lessonId = LESSON_ID): ProgressRow {
   const row = progressRows().find(
     (candidate) => candidate.lessonId === lessonId,
@@ -292,11 +313,10 @@ beforeEach(() => {
   store.badges = [];
   store.characters = [];
   store.childCharacters = [];
+  gate.isShut = false;
   for (const fn of Object.values(db)) fn.mockReset();
 
-  // The lesson is visible unless a test says otherwise. The `quiz` half is what
-  // the quiz-submission query selects; the step and event services read only
-  // `id`, so carrying it here costs them nothing.
+  // Visible unless a test says otherwise; `quiz` is what the quiz-submission query selects.
   db.lessonFindFirst.mockResolvedValue({
     id: LESSON_ID,
     quiz: {
@@ -304,13 +324,10 @@ beforeEach(() => {
     },
   });
 
-  // The story the reader finishes is visible unless a test says otherwise. Only
-  // its id is selected — the completion endpoint needs the row to exist and
-  // nothing from it (file 26).
+  // The story the reader finishes is visible unless a test says otherwise; only its id is selected.
   db.storyFindFirst.mockResolvedValue({ id: STORY_ID });
 
-  // The reward service reads the lesson by id — visibility was settled by the
-  // step report before it ran — and needs the quiz's own status.
+  // The reward service reads the lesson by id (visibility was settled earlier) and needs the quiz's own status.
   db.lessonFindUnique.mockResolvedValue({
     quiz: {
       status: "published",
@@ -331,10 +348,8 @@ beforeEach(() => {
       ) ?? null,
   );
 
-  // Column defaults first, then whatever the caller supplied — the quiz endpoint
-  // creates a row with a `score` and no `currentStep`, the step endpoint the
-  // other way round, and a stub that pinned either would be asserting its own
-  // script rather than the schema's defaults.
+  // Column defaults first, then the caller's values: the quiz endpoint sets `score` without `currentStep`, the step
+  // endpoint the reverse, and pinning either would assert the test's own script.
   db.progressCreate.mockImplementation(async ({ data }: { data: unknown }) => {
     const row: ProgressRow = {
       id: `progress_${progressRows().length + 1}`,
@@ -377,14 +392,57 @@ beforeEach(() => {
     },
   );
 
+  db.sessionEventFindFirst.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: {
+        childId: string;
+        type: string;
+        payload?: { path: string[]; equals: string };
+        occurredAt?: { gte: Date };
+      };
+    }) =>
+      events()
+        .filter(
+          (row) =>
+            row.childId === where.childId &&
+            row.type === where.type &&
+            (where.payload === undefined ||
+              (row.payload as Record<string, unknown> | null)?.[
+                where.payload.path[0]
+              ] === where.payload.equals) &&
+            (where.occurredAt === undefined ||
+              row.occurredAt >= where.occurredAt.gte),
+        )
+        .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())[0] ??
+      null,
+  );
+
+  db.sessionEventCount.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: {
+        childId: string;
+        type: { not: string };
+        occurredAt: { gte: Date };
+      };
+    }) =>
+      events().filter(
+        (row) =>
+          row.childId === where.childId &&
+          row.type !== where.type.not &&
+          row.occurredAt >= where.occurredAt.gte,
+      ).length,
+  );
+
   db.quizResponseCreateMany.mockImplementation(
     async ({ data }: { data: unknown }) => {
       const rows = (data as Omit<QuizResponseRow, "answeredAt">[]).map(
         (row, index) => ({
           ...row,
-          // The column default. Ordered so that a replay's rows sort after the
-          // first run's, which is what makes "latest response per question"
-          // mean anything in the reward service.
+          // Column default. Ordered so a replay's rows sort after the first run's, which "latest response per question" relies on.
           answeredAt: new Date(
             Date.UTC(2026, 7, 10, 9, 0, store.quizResponses.length + index),
           ),
@@ -393,6 +451,19 @@ beforeEach(() => {
       store.quizResponses.push(...rows);
       return { count: rows.length };
     },
+  );
+
+  db.quizResponseCount.mockImplementation(
+    async ({
+      where,
+    }: {
+      where: { childId: string; answeredAt: { gte: Date } };
+    }) =>
+      (store.quizResponses as QuizResponseRow[]).filter(
+        (row) =>
+          row.childId === where.childId &&
+          row.answeredAt >= where.answeredAt.gte,
+      ).length,
   );
 
   db.quizResponseFindMany.mockImplementation(
@@ -418,10 +489,7 @@ beforeEach(() => {
     },
   );
 
-  // Three callers, three `where` shapes — the reward grant asks by `sourceId`,
-  // the badge engine by `rewardType`, and the story fact by `sourceType`. Filtered
-  // generically rather than per caller so the stub stays a store rather than
-  // becoming a script (Rule 1).
+  // Filtered generically (by `sourceId`, `rewardType` or `sourceType`) so the stub stays a store, not a script (Rule 1).
   db.ledgerFindMany.mockImplementation(
     async ({
       where,
@@ -454,10 +522,8 @@ beforeEach(() => {
       }),
   );
 
-  // `skipDuplicates` is *emulated* here, so nothing in this file proves the
-  // database enforces it — that is what the `schema.prisma` assertion at the
-  // bottom is for (Rule 4). What this does prove is the service's arithmetic:
-  // that it reports as earned only what it actually inserted.
+  // `skipDuplicates` is emulated, so this proves only the service's arithmetic (it reports as earned what it inserted);
+  // the `schema.prisma` assertion at the bottom covers the database (Rule 4).
   db.ledgerCreateMany.mockImplementation(
     async ({
       data,
@@ -496,10 +562,7 @@ beforeEach(() => {
     },
   );
 
-  // --- Streaks, badges and characters (file 24) ---------------------------
-  //
-  // The catalogues start empty, so the reward tests above stay about stars and
-  // coins; a test that cares seeds `store.badges` / `store.characters` itself.
+  // Catalogues start empty so the reward tests stay about stars and coins; a test that cares seeds `store.badges` / `store.characters`.
 
   db.streakFindUnique.mockImplementation(
     async ({ where }: { where: { childId: string } }) =>
@@ -549,9 +612,7 @@ beforeEach(() => {
       ),
   );
 
-  // `skipDuplicates` emulated, exactly as the ledger's is — and proving the same
-  // amount about Postgres, which is none (Rule 4: the unique pair is asserted
-  // against `schema.prisma` at the bottom of this file).
+  // `skipDuplicates` emulated as for the ledger; the unique pair is asserted against `schema.prisma` at the bottom (Rule 4).
   db.childCharacterCreateMany.mockImplementation(
     async ({
       data,
@@ -573,8 +634,7 @@ beforeEach(() => {
     },
   );
 
-  // The badge fact loader only runs when a candidate rule names a topic, and no
-  // suite here seeds curriculum for one — an empty answer is the honest zero.
+  // Only runs when a candidate rule names a topic, and no suite here seeds curriculum for one: an empty answer is the honest zero.
   db.lessonFindMany.mockResolvedValue([]);
   db.progressFindMany.mockResolvedValue([]);
 
@@ -642,6 +702,20 @@ describe("progress route guards", () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
+  it("returns 403 CONSENT_REQUIRED, and records nothing, when consent is to an older text", async () => {
+    signInAs(childProfile());
+    db.parentFindUnique.mockResolvedValue({
+      ...PARENT,
+      consentVersion: "2020-01-v0",
+    });
+
+    const res = await postStep("intro", false);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("CONSENT_REQUIRED");
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it("rejects a non-uuid lesson id before touching the database", async () => {
     signInAs(childProfile());
 
@@ -692,8 +766,7 @@ describe("POST /api/progress/lessons/:id/step", () => {
     await postStep("video", false);
     await postStep("activity", false);
 
-    // A replay walks the flow again from the beginning. Acknowledged, absorbed —
-    // never a step backwards, or a resuming child gets the video twice.
+    // A replay walks the flow from the start; absorbed, never a step backwards, or a resuming child gets the video twice.
     const res = await postStep("intro", false);
 
     expect(res.status).toBe(200);
@@ -703,6 +776,7 @@ describe("POST /api/progress/lessons/:id/step", () => {
 
   it("stamps completedAt when the reward step is reported complete", async () => {
     signInAs(childProfile());
+    await playThroughQuiz();
 
     const res = await postStep("reward", true);
 
@@ -712,14 +786,76 @@ describe("POST /api/progress/lessons/:id/step", () => {
 
   it("keeps the original completedAt when a finished lesson is replayed", async () => {
     signInAs(childProfile());
+    await playThroughQuiz();
     await postStep("reward", true);
     const firstCompletion = currentRow().completedAt;
 
-    await postStep("intro", false);
+    await playThroughQuiz();
     await postStep("reward", true);
 
     // A child re-watching something must not move the date they first finished it.
     expect(currentRow().completedAt).toEqual(firstCompletion);
+  });
+
+  it("restarts a finished run at intro when a replay begins, keeping completedAt", async () => {
+    signInAs(childProfile());
+    await playThroughQuiz();
+    await postStep("reward", true);
+    const firstCompletion = currentRow().completedAt;
+
+    const res = await postStep("intro", false);
+
+    // The row follows the replay back so completion can tell a replay played through from a re-posted one.
+    expect(res.status).toBe(200);
+    expect(currentRow().currentStep).toBe("intro");
+    expect(currentRow().completedAt).toEqual(firstCompletion);
+  });
+
+  it("holds a replay to the same step order", async () => {
+    signInAs(childProfile());
+    await playThroughQuiz();
+    await postStep("reward", true);
+    await postStep("intro", false);
+
+    const res = await postStep("activity", false);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STEP_OUT_OF_ORDER");
+  });
+
+  it("answers 409 STEP_OUT_OF_ORDER, and writes nothing, for a first report past the intro", async () => {
+    signInAs(childProfile());
+
+    const res = await postStep("activity", false);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STEP_OUT_OF_ORDER");
+    expect(db.progressCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a jump of more than one step past the furthest reached", async () => {
+    signInAs(childProfile());
+    await postStep("intro", false);
+
+    const res = await postStep("activity", false);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STEP_OUT_OF_ORDER");
+    expect(currentRow().currentStep).toBe("intro");
+  });
+
+  it("records a server-stamped beat on a step report, so minutes do not rest on the client's heartbeats", async () => {
+    signInAs(childProfile());
+
+    await postStep("intro", false);
+
+    expect(events()).toEqual([
+      expect.objectContaining({
+        childId: CHILD_ID,
+        type: "heartbeat",
+        payload: { source: "server", activity: "lesson_step" },
+      }),
+    ]);
   });
 
   it("rejects completed: true on any step but the reward", async () => {
@@ -784,12 +920,34 @@ describe("POST /api/progress/lessons/:id/step", () => {
   });
 });
 
+/** The progress row a child has by the time the reward step mounts; completion refuses a lesson without one. */
+function playThrough(lessonId = LESSON_ID) {
+  const rows = store.progressRows as ProgressRow[];
+  // A row the quiz endpoint created sits at the column default `intro`, and a finished one at `reward`; in the real flow the step
+  // reports of this run would have moved either to the quiz.
+  const existing = rows.find((row) => row.lessonId === lessonId);
+  if (existing !== undefined) {
+    existing.currentStep = "quiz";
+    return;
+  }
+  rows.push({
+    id: `progress_${rows.length + 1}`,
+    childId: CHILD_ID,
+    lessonId,
+    currentStep: "quiz",
+    completedAt: null,
+    score: null,
+    timeSpentSec: 0,
+    updatedAt: new Date("2026-08-10T09:00:00.000Z"),
+  });
+}
+
 describe("POST /api/progress/lessons/:id/complete", () => {
   function complete(lessonId = LESSON_ID) {
+    playThrough(lessonId);
     return request(app).post(`/api/progress/lessons/${lessonId}/complete`);
   }
 
-  /** Three of the four right on the first go, as the quiz endpoint would store. */
   function answerTheQuiz(correct = 3) {
     return request(app)
       .post(`/api/progress/quizzes/${QUIZ_ID}/responses`)
@@ -834,6 +992,74 @@ describe("POST /api/progress/lessons/:id/complete", () => {
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
     expect(ledger()).toHaveLength(0);
+  });
+
+  it("refuses to pay out for a lesson the child never opened", async () => {
+    // Stars, the day's coins and the streak, all for one POST.
+    signInAs(childProfile());
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("LESSON_NOT_PLAYED");
+    expect(ledger()).toHaveLength(0);
+    expect(store.progressRows).toHaveLength(0);
+  });
+
+  it("refuses a lesson opened but abandoned before the activity", async () => {
+    signInAs(childProfile());
+    playThrough();
+    (store.progressRows as ProgressRow[])[0].currentStep = "video";
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(409);
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("refuses a second completion of a finished run, so re-posting it cannot farm the day's coins and streak", async () => {
+    signInAs(childProfile());
+    await complete();
+    const ledgerAfterFirst = ledger().length;
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("LESSON_NOT_PLAYED");
+    expect(ledger()).toHaveLength(ledgerAfterFirst);
+  });
+
+  it("completes a replay once its steps have been reported again", async () => {
+    signInAs(childProfile());
+    await complete();
+    await playThroughQuiz();
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ starsEarned: 0, coinsEarned: 0 });
+  });
+
+  it("completes once the activity is finished, even if the quiz report was lost", async () => {
+    // The quiz step's report races the reward step's mount; losing it must not
+    // cost the child the celebration.
+    signInAs(childProfile());
+    playThrough();
+    (store.progressRows as ProgressRow[])[0].currentStep = "activity";
+
+    const res = await request(app).post(
+      `/api/progress/lessons/${LESSON_ID}/complete`,
+    );
+
+    expect(res.status).toBe(200);
   });
 
   it("grants the lesson star and the day's coins on a first completion", async () => {
@@ -927,9 +1153,7 @@ describe("POST /api/progress/lessons/:id/complete", () => {
         rewardType: "coin",
         amount: 5,
         sourceType: "daily_activity",
-        // The local date, so "once a day" is the same uniqueness as "once a
-        // lesson" — matched loosely because the suite runs on whatever day it
-        // runs on.
+        // Local date, so "once a day" is the same uniqueness as "once a lesson"; matched loosely since the suite runs on any day.
         sourceId: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       },
     ]);
@@ -1010,10 +1234,8 @@ describe("POST /api/progress/lessons/:id/complete", () => {
 
     await complete();
 
-    // Two: the step report that marks the lesson finished, then the grant. Both
-    // are read-then-write, and the grant's read is what decides the number the
-    // child is shown — under READ COMMITTED two taps would both celebrate the
-    // same stars even though the index let only one row through.
+    // Two: the step report, then the grant. Both are read-then-write, and under READ COMMITTED two taps would both
+    // celebrate the same stars even though the index let one row through.
     expect(store.transactionOptions).toEqual([
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -1056,12 +1278,9 @@ describe("POST /api/progress/lessons/:id/complete", () => {
   });
 });
 
-/**
- * Streaks, badges and character unlocks, through the endpoint that produces them
- * (FR-GAM-04..06).
- */
 describe("POST /api/progress/lessons/:id/complete — achievements", () => {
   function complete(lessonId = LESSON_ID) {
+    playThrough(lessonId);
     return request(app).post(`/api/progress/lessons/${lessonId}/complete`);
   }
 
@@ -1075,7 +1294,6 @@ describe("POST /api/progress/lessons/:id/complete — achievements", () => {
     return row;
   }
 
-  /** Seeds the child mid-streak: `current` days, last active `daysAgo` days ago. */
   function seedStreak(current: number, longest: number, daysAgo: number) {
     store.streaks = [
       {
@@ -1200,9 +1418,7 @@ describe("POST /api/progress/lessons/:id/complete — achievements", () => {
 
     it("evaluates the streak rule after the streak has advanced", async () => {
       signInAs(childProfile());
-      // Two days on the row; the badge needs three, and the third is *this* call.
-      // Evaluated before the update, the child would be told about their streak
-      // today and handed the badge for it tomorrow.
+      // Two days on the row; the badge needs three and the third is this call. Evaluated before the update, the badge would arrive a day late.
       seedStreak(2, 2, 1);
       store.badges = [STREAK_STARTER];
 
@@ -1244,8 +1460,7 @@ describe("POST /api/progress/lessons/:id/complete — achievements", () => {
 
       const res = await complete();
 
-      // A bad CMS row must never turn a child's celebration into a 500 — and it
-      // must not stop the badges beside it being granted either.
+      // A bad CMS row must not turn a celebration into a 500, nor stop the badges beside it.
       expect(res.status).toBe(200);
       expect(
         res.body.data.newBadges.map((badge: { slug: string }) => badge.slug),
@@ -1347,9 +1562,7 @@ describe("POST /api/progress/lessons/:id/complete — achievements", () => {
 
     await complete();
 
-    // Two, not five: the step report, then one transaction covering the grants,
-    // the streak, the badges and the characters. A badge visible without the
-    // star that earned it is a state no reader should ever be able to observe.
+    // Two: the step report, then one transaction for grants, streak, badges and characters; a badge visible without its star must be unobservable.
     expect(store.transactionOptions).toEqual([
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -1396,6 +1609,7 @@ describe("GET /api/progress/lessons/:id", () => {
 
   it("serialises completedAt as an ISO string, not a Date", async () => {
     signInAs(childProfile());
+    await playThroughQuiz();
     await postStep("reward", true);
 
     const res = await request(app).get(`/api/progress/lessons/${LESSON_ID}`);
@@ -1564,11 +1778,8 @@ describe("POST /api/progress/events", () => {
 
 describe("POST /api/progress/quizzes/:quizId/responses", () => {
   /**
-   * Three of the four right on the first go — 75%.
-   *
-   * No `isCorrect`: the server grades `answer` against `validMcq`, whose
-   * `correctOptionId` is `"apple"`, and reads first-time success off `attempts`.
-   * A "wrong" answer here is therefore one the child needed a second go at.
+   * Three of four right first go (75%). No `isCorrect`: the server grades `answer` against `validMcq` and reads
+   * first-time success off `attempts`, so a "wrong" answer here is one needing a second go.
    */
   function answers(overrides: Partial<Record<string, boolean>> = {}) {
     return QUESTION_IDS.map((questionId, index) => ({
@@ -1595,6 +1806,26 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
 
     expect(res.status).toBe(401);
     expect(store.quizResponses).toHaveLength(0);
+  });
+
+  it("answers 429 RATE_LIMITED, and stores nothing, once the minute's answers are spent", async () => {
+    signInAs(childProfile());
+    for (let index = 0; index < 30; index += 1) {
+      store.quizResponses.push({
+        childId: CHILD_ID,
+        questionId: QUESTION_IDS[index % QUESTION_IDS.length],
+        answer: "apple",
+        isCorrect: true,
+        attempts: 1,
+        answeredAt: new Date(),
+      });
+    }
+
+    const res = await submit(answers());
+
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe("RATE_LIMITED");
+    expect(store.quizResponses).toHaveLength(30);
   });
 
   it("returns 403 FORBIDDEN when the session has no active child profile", async () => {
@@ -1649,8 +1880,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
       },
     ]);
 
-    // The attempt count is what tells a walkover from a struggle, and it is now
-    // also half the server's verdict — see `gradeResponse`.
+    // The attempt count tells a walkover from a struggle and is half the server's verdict (`gradeResponse`).
     expect(storedResponses()).toEqual([
       expect.objectContaining({ questionId: "q_1", attempts: 1 }),
       expect.objectContaining({ questionId: "q_2", attempts: 3 }),
@@ -1660,11 +1890,8 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
   it("grades the answer itself — a wrong option scores zero however few attempts it claims", async () => {
     signInAs(childProfile());
 
-    // The regression this pins. `isCorrect` used to be a field on the request
-    // and was written to `QuizResponse` verbatim, so a client could report a
-    // perfect quiz it never answered and collect `coinsPerCorrectAnswer` for
-    // every question (`backend.md §8`). The verdict is now computed here, from
-    // `validMcq.correctOptionId`.
+    // Regression: `isCorrect` used to be a request field written verbatim, so a client could report a perfect quiz it never
+    // answered and collect coins (`backend.md §8`). The verdict is now computed from `validMcq.correctOptionId`.
     const res = await submit(
       QUESTION_IDS.map((questionId) => ({
         questionId,
@@ -1687,9 +1914,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
       { questionId: "q_1", answer: "apple", attempts: 1, isCorrect: true },
     ]);
 
-    // `QuizResponseRecordSchema` is `.strict()`, so the old field is now an
-    // unknown key rather than a believed one — the request never reaches the
-    // service.
+    // `QuizResponseRecordSchema` is `.strict()`: the old field is rejected as unknown before reaching the service.
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
     expect(storedResponses()).toHaveLength(0);
@@ -1702,12 +1927,33 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
       { questionId: "q_1", answer: "apple", attempts: 2 },
     ]);
 
-    // A quiz here has no fail state — the child retries until the answer is
-    // accepted — so the committed answer is right by construction and
-    // `attempts === 1` is what carries "right first time". That is the figure
-    // the coin grant, the topic badge and the weekly report's accuracy read.
+    // No fail state, so the committed answer is right by construction; `attempts === 1` carries "right first time",
+    // which the coin grant, topic badge and weekly accuracy read.
     expect(res.body.data.correctCount).toBe(0);
     expect(storedResponses()[0].isCorrect).toBe(false);
+  });
+
+  it("grades against a stored question carrying a field this deploy does not know", async () => {
+    signInAs(childProfile());
+    db.lessonFindFirst.mockResolvedValue({
+      id: LESSON_ID,
+      quiz: {
+        questions: QUESTION_IDS.map((id) => ({
+          id,
+          // Written by a newer deploy, then read after a rollback.
+          definition: { ...validMcq, difficulty: "easy" },
+        })),
+      },
+    });
+
+    const res = await submit([
+      { questionId: "q_1", answer: "apple", attempts: 1 },
+    ]);
+
+    // A strict read would grade a right answer as wrong and cost the child
+    // the coin.
+    expect(res.body.data.correctCount).toBe(1);
+    expect(storedResponses()[0].isCorrect).toBe(true);
   });
 
   it("stores a match_pair answer as the pair set the child ended with", async () => {
@@ -1742,8 +1988,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
       answers({ q_1: false, q_2: false, q_3: false, q_4: false }),
     );
 
-    // The reply describes the attempt; the row keeps the child's best. A second,
-    // more tired run must not erase what they did on the first.
+    // The reply describes the attempt; the row keeps the best, so a more tired second run cannot erase the first.
     expect(res.body.data.score).toBe(0);
     expect(currentRow().score).toBe(75);
   });
@@ -1760,8 +2005,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
   it("scores over the quiz, not over what was submitted", async () => {
     signInAs(childProfile());
 
-    // One of four, and it was right. A denominator taken from the submission
-    // would score this 100% for skipping the three that went badly.
+    // One of four, right: a denominator from the submission would score 100% for skipping the three that went badly.
     const res = await submit([
       { questionId: "q_1", answer: "apple", attempts: 1 },
     ]);
@@ -1787,8 +2031,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
-    // The whole submission is rejected — a partial write would score the quiz
-    // from a set of answers nobody asked for.
+    // The whole submission is rejected; a partial write would score from answers nobody asked for.
     expect(db.transaction).not.toHaveBeenCalled();
     expect(store.quizResponses).toHaveLength(0);
   });
@@ -1796,9 +2039,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
   it("rejects one question answered twice and stores nothing", async () => {
     signInAs(childProfile());
 
-    // Four questions, five records, every one of them the same correct answer.
-    // Counted as sent, that is 125% — and five rows against one question in the
-    // accuracy report file 29 reads.
+    // Four questions, five records: counted as sent that is 125%, and five rows against one question skew the accuracy report.
     const res = await submit(
       Array.from({ length: 5 }, () => ({
         questionId: "q_1",
@@ -1848,9 +2089,7 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
 
     await submit(answers());
 
-    // Both the best-score read-then-write and the row insert have to survive two
-    // submissions racing. Whether Postgres honours the level needs a real
-    // database; that it is asked for is testable.
+    // The best-score read-then-write and the row insert must survive racing submissions; that the level is asked for is testable.
     expect(store.transactionOptions).toEqual([
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ]);
@@ -1878,7 +2117,31 @@ describe("POST /api/progress/quizzes/:quizId/responses", () => {
 });
 
 describe("POST /api/progress/stories/:id/complete", () => {
+  /** The `story_start` the reader posts on opening; completion is paid against it. */
+  function openStory(storyId = STORY_ID, minutesAgo = 1, childId = CHILD_ID) {
+    store.events.push({
+      id: `event_${store.events.length + 1}`,
+      childId,
+      type: "story_start",
+      occurredAt: new Date(Date.now() - minutesAgo * 60_000),
+      payload: { refId: storyId },
+    });
+  }
+
   function finish(storyId = STORY_ID) {
+    if (
+      !events().some(
+        (row) =>
+          row.type === "story_start" &&
+          (row.payload as { refId: string }).refId === storyId,
+      )
+    ) {
+      openStory(storyId);
+    }
+    return finishUnopened(storyId);
+  }
+
+  function finishUnopened(storyId = STORY_ID) {
     return request(app).post(`/api/progress/stories/${storyId}/complete`);
   }
 
@@ -1916,6 +2179,75 @@ describe("POST /api/progress/stories/:id/complete", () => {
     expect(db.storyFindFirst).not.toHaveBeenCalled();
   });
 
+  it("answers 409 STORY_NOT_STARTED, and grants nothing, for a story never opened", async () => {
+    signInAs(childProfile());
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.details.code).toBe("STORY_NOT_STARTED");
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("does not accept another story's start as evidence", async () => {
+    signInAs(childProfile());
+    openStory(MISSING_ID);
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(409);
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("does not accept a start older than three hours", async () => {
+    signInAs(childProfile());
+    openStory(STORY_ID, 4 * 60);
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(409);
+    expect(ledger()).toHaveLength(0);
+  });
+
+  it("asks the store for this child's start of this story only", async () => {
+    signInAs(childProfile());
+
+    await finish();
+
+    // Rule 2: the stub filters on these keys, so the clause itself is the assertion that matters.
+    expect(db.sessionEventFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          childId: CHILD_ID,
+          type: "story_start",
+          payload: { path: ["refId"], equals: STORY_ID },
+        }),
+      }),
+    );
+  });
+
+  it("finishes a reading under way even when the screen-time gate has shut", async () => {
+    signInAs(childProfile());
+    openStory(STORY_ID, 10);
+    gate.isShut = true;
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(200);
+  });
+
+  it("answers 423 for a start older than the resume grace while the gate is shut", async () => {
+    signInAs(childProfile());
+    openStory(STORY_ID, 60);
+    gate.isShut = true;
+
+    const res = await finishUnopened();
+
+    expect(res.status).toBe(423);
+    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
+    expect(ledger()).toHaveLength(0);
+  });
+
   it("grants 1 star and 5 coins the first time a story is finished (FR-STORY-07)", async () => {
     signInAs(childProfile());
 
@@ -1930,9 +2262,7 @@ describe("POST /api/progress/stories/:id/complete", () => {
     expect(res.body.data).toMatchObject({
       alreadyCompleted: false,
       granted: { stars: 1, coins: 5 },
-      // The unlock fields a lesson completion has always carried. Both empty
-      // here — the fixture child has earned nothing else — but present, because
-      // finishing a story now runs the same evaluation.
+      // The unlock fields a lesson completion carries: empty here, but present because finishing a story runs the same evaluation.
       newBadges: [],
       newCharacters: [],
       streak: { current: 1, milestone: null },
@@ -1978,6 +2308,7 @@ describe("POST /api/progress/stories/:id/complete", () => {
     await finish();
 
     signInAs(childProfile({ id: "child_2" }));
+    openStory(STORY_ID, 1, "child_2");
     const res = await finish();
 
     expect(res.body.data.granted).toEqual({ stars: 1, coins: 5 });
@@ -2001,9 +2332,7 @@ describe("POST /api/progress/stories/:id/complete", () => {
 
     const res = await finish(MISSING_ID);
 
-    // Not 403: an unpublished or wrong-grade story must be indistinguishable
-    // from one that was never written (NFR-SAFE-02) — and a draft that paid out
-    // would be a star farm for anyone who could guess a uuid.
+    // Not 403: an unpublished or wrong-grade story must look never written (NFR-SAFE-02), and a draft that paid out would be a star farm.
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
     expect(ledger()).toHaveLength(0);
@@ -2014,10 +2343,8 @@ describe("POST /api/progress/stories/:id/complete", () => {
 
     await finish();
 
-    // Asserted rather than demonstrated, for the reason the file header gives
-    // (`general.md §5`, rule 2) — and asserted to be the *same* clause
-    // `stories.routes.test.ts` requires, because the two disagreeing is the failure
-    // mode: a story the reader cannot open but can be paid for finishing.
+    // Asserted per the file header (rule 2), and must be the clause `stories.routes.test.ts` requires:
+    // disagreement means a story the reader cannot open but is paid for finishing.
     expect(db.storyFindFirst).toHaveBeenCalledWith({
       where: {
         id: STORY_ID,
@@ -2034,9 +2361,7 @@ describe("POST /api/progress/stories/:id/complete", () => {
 
     await finish();
 
-    // Rule 4: whether Postgres honours it needs a real database. What is
-    // assertable here is that the service asked for it — two taps arriving
-    // together must not both be told they earned the star.
+    // Rule 4: that the service asks for the level is assertable; two simultaneous taps must not both be told they earned the star.
     expect(store.transactionOptions).toContainEqual({
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
@@ -2047,19 +2372,9 @@ describe("POST /api/progress/stories/:id/complete", () => {
 
     await finish();
 
-    // **This reverses an earlier decision, deliberately.** The rule used to be
-    // that a story paid its small reward and nothing else, so that "a bedtime
-    // story does not turn into a six-phase celebration" — and file 24's engine
-    // would pick the rows up on the child's next *lesson*.
-    //
-    // That made two MVP requirements unsatisfiable. FR-GAM-04 names "Reading
-    // Star (10 stories)" as a launch badge, and a child who only ever reads
-    // could never earn it. FR-GAM-06 counts "consecutive days with ≥1 learning
-    // activity", and a day spent reading did not count as one.
-    //
-    // The celebration concern was about presentation, and it is answered in the
-    // presentation layer: `FinishScreen` reveals a badge inline rather than
-    // running the lesson player's six phases.
+    // Stories feed the streak and badge engine: FR-GAM-04's Reading Star (10 stories) and FR-GAM-06's streak day
+    // would otherwise be unreachable by reading alone. The celebration concern is presentational: `FinishScreen`
+    // reveals a badge inline rather than running the lesson player's six phases.
     expect(db.streakUpsert).toHaveBeenCalled();
     expect(db.badgeFindMany).toHaveBeenCalled();
   });
@@ -2072,10 +2387,8 @@ describe("POST /api/progress/stories/:id/complete", () => {
 
     const res = await finish();
 
-    // `alreadyCompleted` governs the stars, not the streak — turning up is what
-    // FR-GAM-06 counts and a second reading is still turning up. The *write* is
-    // skipped because `computeStreakUpdate` is a no-op on a day already counted,
-    // which is the same thing a second lesson on one day does.
+    // `alreadyCompleted` governs the stars, not the streak: a second reading still counts as turning up (FR-GAM-06);
+    // the write is skipped because `computeStreakUpdate` is a no-op on an already-counted day.
     expect(res.body.data.alreadyCompleted).toBe(true);
     expect(res.body.data.granted).toBeNull();
     expect(db.streakFindUnique).toHaveBeenCalled();
@@ -2085,11 +2398,8 @@ describe("POST /api/progress/stories/:id/complete", () => {
 });
 
 /**
- * The content-safety half (`backend.md §4`). A stub cannot show that a draft
- * lesson stayed out of the progress table, so the `where` clause that keeps it out
- * is asserted — and it is asserted to be the *same* clause `content.routes.test.ts`
- * requires, because the two endpoints disagreeing is the actual failure mode: a
- * lesson the player cannot open but can record progress against.
+ * Content-safety half (`backend.md §4`): the `where` clause that keeps a draft lesson out is asserted, and must match
+ * `content.routes.test.ts`, or the player could not open a lesson it can record progress against.
  */
 describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
   const VISIBILITY_WHERE = {
@@ -2097,10 +2407,7 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
     status: "published",
     gradeLevels: { has: "NURSERY" },
     world: { is: { status: "published" } },
-    // The topic and subject gates the content API's list endpoints have always
-    // applied. They were missing here and on `GET /api/content/lessons/{id}`,
-    // so withdrawing a topic to draft left its lessons recordable — and
-    // payable — through a bookmarked id.
+    // The topic and subject gates the content list endpoints apply; without them a withdrawn topic's lessons stayed recordable via a bookmarked id.
     topic: {
       is: {
         status: "published",
@@ -2184,9 +2491,8 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
         responses: [{ questionId: "q_1", answer: "apple", attempts: 1 }],
       });
 
-    // A `Quiz` carries a status but no grade tags, so resolving it by id alone
-    // would let a child answer another grade's content. Every clause of the
-    // lesson gate above applies, plus the quiz's own status.
+    // A `Quiz` has a status but no grade tags, so resolving it by id alone would expose another grade's content:
+    // every lesson-gate clause applies, plus the quiz's own status.
     expect(db.lessonFindFirst).toHaveBeenCalledWith({
       where: {
         quizId: QUIZ_ID,
@@ -2257,12 +2563,7 @@ describe("lesson visibility (FR-CURR-02, NFR-SAFE-02)", () => {
   });
 });
 
-/**
- * The two guarantees the rewards engine rests on that a stubbed Prisma client
- * cannot demonstrate (Rule 4). Replace the first with a real double-insert once
- * the test-database harness exists; the second is a source-level property and
- * stays useful either way.
- */
+/** What a stubbed Prisma client cannot demonstrate (Rule 4); replace the first with a real double-insert once a db suite covers it. */
 describe("reward grant contract (FR-GAM-07..08)", () => {
   const serverSrc = new URL("../../", import.meta.url);
 

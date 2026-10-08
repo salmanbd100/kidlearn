@@ -1,20 +1,24 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { validPuzzle, validPuzzlePrePlaced } from "@kidlearn/types";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
+import { NOT_QUITE_MS } from "@/shared/hooks/use-wiggle";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { puzzlePieceId, puzzleSlotId } from "./evaluate";
 import { PuzzleActivity } from "./PuzzleActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
 import { SHINE_MS, usePuzzleState } from "./use-puzzle-state";
-import { WIGGLE_MS } from "./use-wiggle";
 
 /**
- * jsdom cannot perform a drag — there is no layout, so no collision detection and
- * no sensor run. The placement rules are therefore driven through `usePuzzleState`
- * directly, which is the reason that hook exists; the render tests below cover
- * only what the board and tray are made of.
+ * jsdom cannot drag (no layout), so placement rules are driven through `usePuzzleState`; render
+ * tests cover the board and tray only.
  */
 
 function feedbackSpy() {
@@ -22,8 +26,7 @@ function feedbackSpy() {
     success: vi.fn<(anchor?: { x: number; y: number }) => void>(),
     retry: vi.fn<() => void>(),
   };
-  // `satisfies`, not an annotation: the tests need the mock's own type to read
-  // `.mock.calls`, and this still fails the build if the channel's shape moves.
+  // `satisfies` keeps the mock's own type for `.mock.calls`.
   return spy satisfies ActivityFeedback;
 }
 
@@ -40,10 +43,7 @@ function dropPiece(
   pieceIndex: number,
   slotIndex: number | undefined,
 ): DragEndEvent {
-  // A real `DragEndEvent` carries the whole sensor run — collisions, deltas, the
-  // activator event, both measured rects. `handleDragEnd` reads three fields of
-  // it, so the fixture supplies those; the cast is what stands in for a drag the
-  // environment cannot produce, and narrowing is impossible by construction.
+  // The cast stands in for a drag jsdom cannot produce; `handleDragEnd` reads only three fields.
   return {
     active: {
       id: puzzlePieceId(pieceIndex),
@@ -143,7 +143,7 @@ describe("usePuzzleState", () => {
     expect(result.current.wiggle?.count).not.toBe(first);
   });
 
-  it("stops wiggling once the animation has run", () => {
+  it("clears the wiggle once the have-another-go cue has run", () => {
     vi.useFakeTimers();
     const { result } = renderHook(() =>
       usePuzzleState(validPuzzle, feedbackSpy(), vi.fn()),
@@ -151,7 +151,7 @@ describe("usePuzzleState", () => {
 
     act(() => result.current.handleDragEnd(dropPiece(0, 3)));
     act(() => {
-      vi.advanceTimersByTime(WIGGLE_MS);
+      vi.advanceTimersByTime(NOT_QUITE_MS);
     });
 
     expect(result.current.wiggle).toBeUndefined();
@@ -223,7 +223,6 @@ describe("usePuzzleState", () => {
 
     expect(onActivityComplete).toHaveBeenCalledTimes(1);
 
-    // And the timer it pre-empted must not report the step a second time.
     act(() => {
       vi.advanceTimersByTime(SHINE_MS * 3);
     });
@@ -370,5 +369,46 @@ describe("PuzzleActivity", () => {
     renderActivity();
 
     expect(screen.queryByTestId("puzzle-shine")).not.toBeInTheDocument();
+  });
+
+  describe("tap to place — the path that needs no drag", () => {
+    function renderWithSpies() {
+      const feedback = feedbackSpy();
+      render(
+        <Providers locale="en">
+          <PuzzleActivity
+            definition={validPuzzle}
+            locale="en"
+            feedback={feedback}
+            onActivityComplete={vi.fn()}
+          />
+        </Providers>,
+      );
+      return { feedback };
+    }
+
+    it("puts the piece in hand into the space it belongs in", () => {
+      const { feedback } = renderWithSpies();
+
+      fireEvent.click(screen.getByRole("button", { name: "Piece 1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Space 1" }));
+
+      expect(feedback.success).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("puzzle-slot-0")).toHaveAttribute(
+        "data-state",
+        "filled",
+      );
+      expect(screen.queryByRole("button", { name: "Space 1" })).toBeNull();
+    });
+
+    it("encourages and keeps the piece in the tray on the wrong space", () => {
+      const { feedback } = renderWithSpies();
+
+      fireEvent.click(screen.getByRole("button", { name: "Piece 1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Space 4" }));
+
+      expect(feedback.retry).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("puzzle-piece-0")).toBeInTheDocument();
+    });
   });
 });

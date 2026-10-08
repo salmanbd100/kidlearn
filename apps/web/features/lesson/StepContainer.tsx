@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { LESSON_STEPS, type LessonStep } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
@@ -7,18 +8,20 @@ import { X } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
+import { IconControl } from "@/shared/components/kid/IconControl";
+import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
 
-// The frame every lesson step is rendered inside (Pillar A, design.md §6).
-
+// Every dot is ringed and the ring carries the step: sky, sunshine and the muted wash are under the
+// 3:1 non-text floor on cream (design.md §2.3), so a child reads filled versus hollow.
 const dotVariants = cva(
-  "block size-4 rounded-pill transition-[background-color,transform]",
+  "block size-4 rounded-pill border-2 transition-[background-color,transform]",
   {
     variants: {
       state: {
-        done: "bg-primary",
-        current: "bg-accent scale-125 motion-safe:animate-pulse",
-        todo: "bg-muted",
+        done: "border-foreground bg-primary",
+        current:
+          "border-foreground bg-accent scale-125 motion-safe:animate-pulse",
+        todo: "border-muted-foreground bg-background",
       },
     },
   },
@@ -26,7 +29,6 @@ const dotVariants = cva(
 
 export interface StepContainerProps {
   step: LessonStep;
-  /** The world's mascot, from `lesson.world.mascot`. Decorative. */
   mascotUrl?: string;
   onExit: () => void;
   children: ReactNode;
@@ -42,16 +44,16 @@ export function StepContainer({
 }: StepContainerProps) {
   const { t } = useTranslation(LESSON_NAMESPACE);
   const currentIndex = LESSON_STEPS.indexOf(step);
+  const headingRef = useFocusWhenDropped<HTMLHeadingElement>(step);
 
   return (
-    // `min-h-dvh` and the safe-area insets are repeated here rather than inherited:
-    // the player is the one student screen that fills the viewport itself, and a
-    // step's own content is what must clear a notch (design.md §6).
-    <div className="relative flex min-h-dvh flex-1 flex-col bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
+    // `flex-1`, not viewport height plus safe-area insets: the student layout already applies both,
+    // and repeating them doubled the insets on a notched phone.
+    <div className="relative flex flex-1 flex-col bg-background">
       <header className="flex items-start justify-between gap-4 p-4">
         <ol
-          // One `progressbar` for the strip, not five bare dots. The dots
-          // themselves are `aria-hidden` — their meaning is in the label below.
+          // One `progressbar` for the strip; the dots are `aria-hidden` and the label carries the
+          // meaning.
           role="progressbar"
           aria-valuemin={1}
           aria-valuemax={LESSON_STEPS.length}
@@ -73,9 +75,8 @@ export function StepContainer({
               <li key={candidate} className="flex">
                 <span
                   aria-hidden="true"
-                  // `data-dot`, not `data-step`: the step *component* carries
-                  // `data-step`, and a test asking "which step is on screen?"
-                  // must not match a dot that merely names one.
+                  // `data-dot`, not `data-step`: the step component carries `data-step`, and tests
+                  // must not match a dot that names one.
                   data-dot={candidate}
                   data-state={state}
                   className={cn(dotVariants({ state }))}
@@ -85,24 +86,26 @@ export function StepContainer({
           })}
         </ol>
 
-        <button
-          type="button"
-          // 64px, because this is a control a *child* uses (design.md §7) —
-          // unlike the parent-corner lock, which is deliberately small.
-          className="inline-flex size-16 shrink-0 items-center justify-center rounded-pill text-muted-foreground transition-colors [touch-action:manipulation] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          aria-label={t("exit.open")}
-          onClick={onExit}
-        >
+        {/*
+          64px: a child uses this control (design.md §7), unlike the deliberately small parent-
+          corner lock.
+        */}
+        <IconControl label={t("exit.open")} tone="quiet" onPress={onExit}>
           <X aria-hidden="true" className="size-8" />
-        </button>
+        </IconControl>
       </header>
 
-      <main className="flex flex-1 flex-col px-6 pb-6">{children}</main>
+      <main className="flex flex-1 flex-col px-6 pb-6">
+        {/* Named for assistive technology only, and where focus lands on a new step. */}
+        <h1 ref={headingRef} tabIndex={-1} className="sr-only">
+          {t(`steps.${step}`)}
+        </h1>
+        {children}
+      </main>
 
       {mascotUrl === undefined ? null : (
-        // Bottom corner, behind the step's content and non-interactive: company for
-        // the child, never something to tap. Hidden in landscape on a short
-        // viewport, where the step needs every pixel of height it can get.
+        // Bottom corner, behind the content and non-interactive. Hidden in landscape on a short
+        // viewport.
         <Image
           src={mascotUrl}
           alt=""

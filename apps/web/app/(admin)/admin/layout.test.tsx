@@ -1,11 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-
-/**
- * The CMS shell: the guard's verdict, and that no page is rendered to someone it
- * has not cleared (file 31, spec §4.3).
- */
+import { apiFetch } from "@/shared/api/api-client";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 const api = vi.hoisted(() => ({
@@ -13,11 +9,10 @@ const api = vi.hoisted(() => ({
   fetchPlatformOverview: vi.fn(),
   adminSignIn: vi.fn(),
   adminSignOut: vi.fn(),
-  // File 37 — the shell polls this for the AI Queue badge on every CMS screen.
+  // The shell polls this for the AI Queue badge.
   fetchAiJobCount: vi.fn(),
 }));
 
-/** Widened past the literal so a test can point the guard at another route. */
 let pathname: string = ADMIN_ROUTES.analytics;
 
 vi.mock("next/navigation", () => ({
@@ -26,6 +21,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/features/admin/admin-api", () => api);
+vi.mock("@/features/admin/ai-api", () => api);
 
 const { default: AdminCmsLayout } = await import("./layout");
 
@@ -66,9 +62,8 @@ describe("AdminCmsLayout", () => {
     expect(screen.getByText(ADMIN.name)).toBeInTheDocument();
   });
 
-  it("bounces a signed-in parent to the login screen without rendering the page", async () => {
-    // What the API answers a valid parent session on `/api/admin/me`: authenticated,
-    // but no `AdminUser` row claims the identity (spec §4.3).
+  it("bounces a signed-in parent to the sign-in dialog without rendering the page", async () => {
+    // A valid parent session on `/api/admin/me`: authenticated, but no `AdminUser` row claims the identity.
     api.fetchAdminMe.mockResolvedValue({
       ok: false,
       error: {
@@ -127,10 +122,8 @@ describe("AdminCmsLayout", () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it("does not poll the review count on the login screen", async () => {
-    // An unauthenticated poll is a 401 a minute, and there is no rail to render
-    // the badge on (file 37, requirement 8).
-    pathname = ADMIN_ROUTES.login;
+  it("does not poll the review count for a signed-out visitor", async () => {
+    // An unauthenticated poll is a 401 a minute; the guard keeps the shell unmounted until there is a session.
     api.fetchAdminMe.mockResolvedValue({
       ok: false,
       error: {
@@ -141,7 +134,9 @@ describe("AdminCmsLayout", () => {
     });
 
     renderLayout();
-    await screen.findByText("curriculum tree");
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
+    );
 
     expect(api.fetchAiJobCount).not.toHaveBeenCalled();
   });
@@ -159,8 +154,12 @@ describe("AdminCmsLayout", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the login screen with no rail and no redirect", async () => {
-    pathname = ADMIN_ROUTES.login;
+  it("signs the admin out when a later request comes back 401 (R-12)", async () => {
+    renderLayout();
+    await screen.findByText("curriculum tree");
+
+    // The session expired mid-visit: the next CMS request answers 401, and the
+    // session re-reads itself rather than leaving the editor on a generic error.
     api.fetchAdminMe.mockResolvedValue({
       ok: false,
       error: {
@@ -169,12 +168,48 @@ describe("AdminCmsLayout", () => {
         status: 401,
       },
     });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: "UNAUTHORIZED", message: "no" } }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+    );
 
+    await apiFetch("/api/admin/stories");
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
+    );
+    vi.unstubAllGlobals();
+  });
+  it("signs the admin out and goes to the sign-in dialog when the cookie is revoked", async () => {
+    api.adminSignOut.mockResolvedValue(true);
     renderLayout();
 
-    expect(await screen.findByText("curriculum tree")).toBeInTheDocument();
-    // A rail whose every link bounces back here would be worse than no rail.
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
+    );
+  });
+
+  it("keeps the session and says so when sign-out fails", async () => {
+    // The cookie is still live, so going to login would bounce straight back into the CMS.
+    api.adminSignOut.mockResolvedValue(false);
+    renderLayout();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /could not sign out/i,
+    );
+    expect(screen.getByText("curriculum tree")).toBeInTheDocument();
+    expect(screen.getByText(ADMIN.name)).toBeInTheDocument();
     expect(router.replace).not.toHaveBeenCalled();
   });
 });

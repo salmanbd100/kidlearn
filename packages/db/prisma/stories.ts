@@ -1,9 +1,6 @@
 import type { GradeLevel, Language, MediaKind } from "@prisma/client";
 
-// The development story library (FR-STORY-08).
-
 export interface MediaFixture {
-  /** Fixed so a re-seed updates the row it wrote last time (idempotence). */
   id: string;
   url: string;
   kind: MediaKind;
@@ -13,17 +10,13 @@ export interface MediaFixture {
 export interface StoryPageFixture {
   sortOrder: number;
   illustration?: MediaFixture;
-  /** Required in both locales — page text is what a story *is* (FR-STORY-05). */
   text: Record<Language, string>;
-  /** Best-effort per locale; a missing recording falls back to English. */
   narration?: Partial<Record<Language, MediaFixture>>;
 }
 
 export interface StoryFixture {
   slug: string;
-  /** The admin label. What a child reads is `translations[locale].title`. */
   title: string;
-  /** The authoring label for the moral (FR-STORY-03), never shown to a child. */
   theme: string;
   worldSlug: string;
   gradeLevels: GradeLevel[];
@@ -229,12 +222,7 @@ const SHARING_MONKEY: StoryFixture = {
   ],
 };
 
-/**
- * Deliberately thinner than the story above: no Bangla narration and no Bangla
- * moral. A `bn` child on this story reads Bangla text, hears the English
- * voice-over, and is served `moral: null` rather than the authoring label — the
- * three fallback paths `storyService` implements, all visible on one cover.
- */
+/** Deliberately thinner: no Bangla narration or moral, so a `bn` child exercises all three `storyService` fallback paths on one cover. */
 const DOT_COUNTS_THE_FISH: StoryFixture = {
   slug: "dot-counts-the-fish",
   title: "Dot Counts the Fish",

@@ -11,11 +11,7 @@ export const REDACTED_LOG_PATHS = {
   censor: "[redacted]",
 } as const;
 
-/**
- * Process-wide logger. `pino-pretty` is a devDependency, so the human-readable
- * transport is only wired up in development — production and test emit plain
- * NDJSON to stdout.
- */
+/** `pino-pretty` is a devDependency, so pretty output is dev-only; production and test emit NDJSON. */
 export const logger = pino({
   level: env.LOG_LEVEL,
   redact: { ...REDACTED_LOG_PATHS, paths: [...REDACTED_LOG_PATHS.paths] },

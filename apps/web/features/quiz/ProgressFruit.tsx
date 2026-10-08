@@ -4,10 +4,6 @@ import { cn } from "@kidlearn/ui";
 import { cva } from "class-variance-authority";
 import { Apple } from "lucide-react";
 
-/**
- * How far through the quiz the child is, without a number in sight (FR-QUIZ-07).
- */
-
 const fruitVariants = cva("size-8 shrink-0", {
   variants: {
     state: {

@@ -14,8 +14,8 @@ Run from the repo root:
 pnpm install          # install all workspaces (pnpm 9)
 pnpm dev              # turbo run dev — starts web (port 3000) + server (port 4000) together
 pnpm build            # turbo run build — caches .next/** and dist/**
-pnpm lint             # biome check .        — lint + format-check + import sort (no writes)
-pnpm format           # biome check --write . — apply Biome fixes
+pnpm lint             # biome check . + prisma format --check — lint, format-check, import sort (no writes)
+pnpm format           # biome check --write . + prisma format — apply the fixes
 pnpm typecheck        # turbo run typecheck  — runs tsc --noEmit per package
 ```
 
@@ -56,13 +56,24 @@ pnpm lint
 pnpm build            # ^build is required before typecheck and test resolve
 pnpm typecheck
 pnpm test:coverage    # same suite as pnpm test, plus a coverage report
+pnpm --filter server test:db   # *.db.test.ts against the Postgres service
 ```
 
 **A PR is not done until `gates` is green** — `gh pr checks` says whether it is. Coverage is reported in the run summary and as an artifact; it is deliberately not gated on a threshold (see `document/standards/general.md §5`).
 
-`gates` is not yet a *required* status check on `main`: `apps/server`'s Supertest suites fail intermittently under load for reasons that have nothing to do with the code under test — see **Open follow-up fixes** in `document/implementation/00-progress-tracker.md`. Until that is fixed the pipeline reports; it does not block. A red `gates` on a PR is worth re-running once before assuming it found something.
+`gates` is not yet a *required* status check on `main` or `dev` — the ruleset rule is the last open item of file 39 in `document/implementation/00-progress-tracker.md`. The Supertest socket flake that held it back is fixed (`apps/server/src/shared/testing/request.ts` shares one listener per app). Until the rule lands the pipeline reports; it does not block.
 
-CI needs no secrets, no environment variables and no database: `apps/server/vitest.setup.ts` supplies everything `config/env.ts` requires, and no test opens a connection. That changes when the test-database harness lands.
+CI needs no secrets. `apps/server/vitest.setup.ts` supplies everything `config/env.ts` requires, and `pnpm test` opens no database connection. The real-database suites (`*.db.test.ts`) are a separate step, `pnpm --filter server test:db`, against a `postgres:16-alpine` service container — locally, `docker compose up -d postgres` and set `TEST_DATABASE_URL` if your port differs from 5432. The harness refuses any database not named `*_test`. Rules in `document/standards/general.md §5`.
+
+## Testing
+
+- **Server suites mostly stub Prisma.** 35 `apps/server` test files `vi.mock` the client; that is a recorded exception in `document/standards/general.md §5`, with rules a new stubbed suite must follow and cite. Anything a stub cannot prove — the `status` gate on `include`d relations, cascades, unique constraints, transaction races — belongs in a `*.db.test.ts` using the harness in `apps/server/src/shared/testing/`.
+- **Every successful response in a route test goes through `assertContract`** (`apps/server/src/openapi/assert-contract.ts`) against its schema in `packages/types/src/api/`.
+- **An undocumented route fails the suite** — `src/openapi/coverage.test.ts`, see API documentation below.
+
+## Where decisions live
+
+- **`document/mobile-app-plan.md`** is the architecture of record for what is and is not shared between web and mobile. `packages/ui` is web-only by design (§4.2) — do not hoist `apps/web` components into it without a second consumer.
 
 ## Layout & current state
 
@@ -82,21 +93,23 @@ packages/
   db/         @kidlearn/db — Prisma schema + client (Supabase/PostgreSQL)
   types/      @kidlearn/types — versioned content payloads + HTTP contracts
   config/     @kidlearn/config — shared tsconfig bases, no source
+  i18n/       @kidlearn/i18n — en/bn UI strings, namespaces, locale helpers (shared with mobile)
+  tokens/     @kidlearn/tokens — design-token values as TypeScript (shared with mobile)
 document/     design.md, project-requirement-details.md, key-description.md
 ```
 
 - **`apps/web`** — Next.js 16 App Router. `app/` is routing only; everything else lives in `features/<domain>/` (named after the server module) or `shared/{api,components,hooks,lib}/`. Path alias `@/*` maps to the app root; there are no barrel files, so imports name the file (`@/features/quiz/QuizEngine`). Tailwind v4 via `postcss.config.mjs` (no `tailwind.config`). Imports `@kidlearn/ui`. Read `apps/web/AGENTS.md` before writing Next.js code — v16 has breaking changes from prior versions.
 - **`apps/server`** — Express 5 ESM, port 4000. Imports `@kidlearn/db`. Copy `packages/db/.env.example` → `packages/db/.env` (Supabase connection strings) before running.
 - **`packages/db`** — Prisma 6 against Supabase PostgreSQL. Entry: `src/index.ts` exports `prisma` singleton + all Prisma types. Schema: `Parent` ↔ `Child[]`. Runtime uses the pooled `DATABASE_URL` (port 6543, `?pgbouncer=true`); migrations use `DIRECT_URL` (port 5432).
-- **`packages/ui`** — shadcn/ui "new-york" style. `src/primitives/` holds copied shadcn components (own the code — no upstream dependency). `src/styles/tokens.css` is the token contract. `src/lib/` is `cn()` plus the a11y preference store; `src/hooks/` is `useIsMotionReduced`. No build step — exports raw TypeScript via `exports` map.
+- **`packages/ui`** — shadcn/ui "new-york" style. `src/primitives/` holds copied shadcn components (own the code — no upstream dependency). `src/styles/tokens.css` is the token contract; its `@generated` regions come from `@kidlearn/tokens` — change a value in `packages/tokens/src/index.ts`, run `pnpm --filter @kidlearn/ui tokens:generate`, never edit a region by hand (a test fails if the two disagree, and another if `design.md`'s tables disagree with the TypeScript). `src/lib/` is `cn()` plus the a11y preference store; `src/hooks/` is `useIsMotionReduced`. No build step — exports raw TypeScript via `exports` map.
 
 ## Architecture
 
 ### Dual-portal & theming
 
 The app has two distinct surfaces sharing one component library:
-- **Student Portal** — ages 3–5, visual-first, large touch targets (≥64px), no text below 20px, gamified. Apply `data-theme="kid"` at the layout boundary.
-- **Parent Dashboard** — dense, professional, reached from the signed-in Google session. Apply `data-theme="parent"`.
+- **Student Portal** — ages 3–5, visual-first, large touch targets (≥64px), no text below 20px, gamified. Wrap the layout boundary in `<ThemeScope theme="kid">` from `@kidlearn/ui`.
+- **Parent Dashboard** — dense, professional, reached from the signed-in Google session. `<ThemeScope theme="parent">`. A bare `data-theme` div is not enough: Radix dialogs and menus portal into `<body>`, outside it, and only `ThemeScope` carries the theme to them.
 
 Token values swap at runtime via CSS variables (`--primary`, `--background`, etc.) — components never branch on theme in JS.
 
@@ -130,8 +143,8 @@ All content has a `status` field (`draft → in_review → approved/rejected →
 - Build components with **`cva`** (class-variance-authority) + `cn()` from `@kidlearn/ui/lib/cn`.
 - Animation via **Motion** (`motion` package). Always check `prefers-reduced-motion`. Animate only `transform` and `opacity`.
 - Fonts: `--font-display` (Fredoka) for kid headings, `--font-body` (Nunito) for body, `--font-ui` (Inter) for parent UI. Load via `next/font`.
-- All strings go through `i18next` — no hard-coded user-facing text.
+- All strings go through `i18next` — no hard-coded user-facing text. The JSON lives in `packages/i18n/locales/{en,bn}/`; a key in one locale and not the other fails `@kidlearn/i18n`'s parity test.
 
 ## Workspace wiring
 
-New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. All four of `ui`, `db`, `types` and `config` are active workspaces.
+New packages in `packages/` need their own `package.json` with a `name`, plus `dev`/`build`/`typecheck` scripts, before pnpm/Turbo picks them up. All six of `ui`, `db`, `types`, `config`, `i18n` and `tokens` are active workspaces.

@@ -1,4 +1,8 @@
-/** Content read API — behaviour and, above all, leak-proofing. */
+/**
+ * Stubs `config/prisma.js` under the general.md §5 stub exception: `where`
+ * clauses are asserted directly (rule 2) and related-row status gates on the
+ * response body (rule 3).
+ */
 import type { ChildProfile, Parent } from "@kidlearn/db";
 import {
   LessonDetailResponseSchema,
@@ -11,9 +15,9 @@ import {
   WorldLessonsResponseSchema,
   WorldListResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -93,10 +97,8 @@ function childProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
   };
 }
 
-/** Signs the request in as PARENT with `child` as the session's active profile. */
 function signInAs(child: ChildProfile | null) {
-  // `getSession` returns a deep better-auth type; only the fields the
-  // middleware reads are supplied, so the shape is narrowed at this boundary.
+  // `getSession` returns a deep better-auth type; only the fields read are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -120,7 +122,7 @@ const JUNGLE_MASCOT = {
 const JUNGLE_WORLD = {
   id: "world_jungle",
   slug: "jungle",
-  // The admin label. What a child reads comes from `translations` below.
+  // The admin label; a child reads `translations`.
   name: "Jungle World",
   translations: [
     { language: "en", name: "Jungle World" },
@@ -235,7 +237,6 @@ function lessonRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Every `where` object the mocked Prisma methods were called with, flattened. */
 function everyWhereClause(): unknown[] {
   return [
     db.worldFindMany,
@@ -266,10 +267,8 @@ beforeEach(() => {
   db.subjectFindFirst.mockResolvedValue({ id: SUBJECT_ID });
   db.topicFindFirst.mockResolvedValue({ id: TOPIC_ID });
   db.lessonFindFirst.mockResolvedValue(null);
-  // File 28 put `enforceScreenTime` in front of the detail route below, so it now
-  // reads the screen-time policy and the presence log on the way through. Both
-  // default to "no policy, no minutes" — the state every test in this file is
-  // about. The gate itself is exercised in `screen-time.routes.test.ts`.
+  // `enforceScreenTime` fronts the detail route and reads the screen-time policy
+  // and presence log; both default to "no policy, no minutes". The gate is tested in `screen-time.routes.test.ts`.
   db.screenTimeFindUnique.mockResolvedValue(null);
   db.sessionEventFindMany.mockResolvedValue([]);
   db.lessonProgressFindUnique.mockResolvedValue(null);
@@ -445,12 +444,9 @@ describe("GET /api/content/worlds/:id/lessons", () => {
         worldId: JUNGLE_WORLD.id,
         status: "published",
         gradeLevels: { has: "KG1" },
-        // A lesson tagged for this child can still sit under a topic tagged for
-        // another grade, or under a subject still in draft. Both say the lesson
-        // is not for this child, and neither is visible in the lesson's own row.
-        // The world gate rides along because all four now come from one
-        // `visibleLessonWhere` — which is what stops the detail endpoint and
-        // this one from disagreeing again.
+        // A lesson can sit under a topic tagged for another grade or a subject still in
+        // draft; neither shows on the lesson's own row. The world gate rides along
+        // because all four come from one `visibleLessonWhere`.
         world: { is: { status: "published" } },
         topic: {
           is: {
@@ -462,7 +458,12 @@ describe("GET /api/content/worlds/:id/lessons", () => {
           },
         },
       },
-      orderBy: [{ topic: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      orderBy: [
+        { topic: { sortOrder: "asc" } },
+        { topic: { id: "asc" } },
+        { sortOrder: "asc" },
+        { id: "asc" },
+      ],
       include: {
         topic: { include: { translations: true } },
         translations: { select: { language: true, title: true } },
@@ -595,7 +596,9 @@ describe("GET /api/content/subjects/:id/topics", () => {
       { id: TOPIC_ID, slug: "alphabet", name: "Alphabet", sortOrder: 1 },
     ]);
     expect(db.topicFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { sortOrder: "asc" } }),
+      expect.objectContaining({
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      }),
     );
   });
 
@@ -614,8 +617,7 @@ describe("GET /api/content/subjects/:id/topics", () => {
 
   it("returns 404 — not 403 — for a draft subject, so its existence stays hidden", async () => {
     signInAs(childProfile());
-    // The status condition is part of the lookup, so a draft row is simply not
-    // found. Assert the condition is really there as well as the status code.
+    // The status condition is in the lookup, so a draft row is not found; assert the condition as well as the status code.
     db.subjectFindFirst.mockResolvedValue(null);
 
     const res = await request(app).get(
@@ -675,9 +677,7 @@ describe("GET /api/content/topics/:id/lessons", () => {
         topicId: TOPIC_ID,
         status: "published",
         gradeLevels: { has: "NURSERY" },
-        // The lesson's world, topic and subject each carry their own status,
-        // and the list must agree with the detail endpoint about which lessons
-        // exist — both compose the same `visibleLessonWhere`.
+        // World, topic and subject each carry their own status; the list must agree with the detail endpoint (same `visibleLessonWhere`).
         world: { is: { status: "published" } },
         topic: {
           is: {
@@ -689,7 +689,7 @@ describe("GET /api/content/topics/:id/lessons", () => {
           },
         },
       },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       include: { translations: { select: { language: true, title: true } } },
     });
   });
@@ -748,7 +748,6 @@ describe("GET /api/content/lessons/:id", () => {
     expect(
       lesson.quiz.questions.map((q: { format: string }) => q.format),
     ).toEqual(["mcq", "picture_select", "mcq"]);
-    // Payloads are passed through whole — the engines pick their own locale.
     expect(lesson.quiz.questions[1].definition).toEqual(validPictureSelect);
     expect(lesson.progress).toBeNull();
   });
@@ -781,7 +780,7 @@ describe("GET /api/content/lessons/:id", () => {
     expect(res.body.data.lesson.quiz).toBeNull();
   });
 
-  it("returns 500 INTERNAL and leaks no payload when a published activity definition is corrupt", async () => {
+  it("omits a corrupt published activity, serves the rest of the lesson, and leaks no payload", async () => {
     signInAs(childProfile());
     db.lessonFindFirst.mockResolvedValue(
       lessonRow({
@@ -792,7 +791,6 @@ describe("GET /api/content/lessons/:id", () => {
           status: "published",
           definition: {
             ...validDragDrop,
-            // Points at a drop target that is not on screen.
             correctMappings: [{ itemId: "cow", targetId: "barn" }],
           },
         },
@@ -801,41 +799,84 @@ describe("GET /api/content/lessons/:id", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
+    // One bad step is not a bad lesson: the player degrades a missing activity but not a 500.
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity).toBeNull();
+    expect(res.body.data.lesson.quiz).not.toBeNull();
     expect(res.text).not.toContain("correctMappings");
     expect(res.text).not.toContain("barn");
   });
 
-  it("returns 500 INTERNAL when a published quiz question definition is corrupt", async () => {
+  it("plays a payload carrying a field this deploy does not know, without the field", async () => {
+    signInAs(childProfile());
+    const row = lessonRow({
+      activity: {
+        id: "activity_1",
+        type: "drag_drop",
+        schemaVersion: 1,
+        status: "published",
+        // Written by a newer deploy, then read after a rollback.
+        definition: { ...validDragDrop, hint: "from a newer deploy" },
+      },
+    });
+    row.quiz.questions[0] = {
+      ...row.quiz.questions[0],
+      // Assigned rather than spread: the row is typed from the fixture and the unknown key is the point.
+      definition: Object.assign({ difficulty: "easy" }, validMcq),
+    };
+    db.lessonFindFirst.mockResolvedValue(row);
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity.definition).toEqual(validDragDrop);
+    expect(res.body.data.lesson.quiz.questions[0].definition).toEqual(validMcq);
+    expect(res.text).not.toContain("from a newer deploy");
+    expect(res.text).not.toContain("difficulty");
+  });
+
+  it("omits a corrupt published quiz question and keeps the others", async () => {
     signInAs(childProfile());
     const row = lessonRow();
     row.quiz.questions[1] = {
       ...row.quiz.questions[1],
-      // Two options is below the FR-QUIZ-01 floor of three.
       definition: { ...validMcq, options: validMcq.options.slice(0, 2) },
     };
     db.lessonFindFirst.mockResolvedValue(row);
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
-    expect(res.text).not.toContain("options");
+    expect(res.status).toBe(200);
+    const ids = res.body.data.lesson.quiz.questions.map(
+      (question: { id: string }) => question.id,
+    );
+    expect(ids).toEqual(["q1", "q3"]);
   });
 
-  /**
-   * Both halves of these two rows are individually valid — the payload parses, the
-   * column holds a legal enum member — and they describe different things. Zod
-   * cannot see it, so the service compares them.
-   */
-  it("returns 500 INTERNAL when Activity.type disagrees with its definition", async () => {
+  it("serves no quiz when every question is corrupt", async () => {
+    signInAs(childProfile());
+    const row = lessonRow();
+    row.quiz.questions = row.quiz.questions.map((question) => ({
+      ...question,
+      definition: { ...validMcq, options: [] },
+    }));
+    db.lessonFindFirst.mockResolvedValue(row);
+
+    const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    // An empty quiz would play a score screen for nothing; a null one is skipped.
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.quiz).toBeNull();
+  });
+
+  // Both halves are individually valid (payload parses, column is a legal enum
+  // member) yet describe different things, so the service compares them.
+  it("omits an activity whose type disagrees with its definition", async () => {
     signInAs(childProfile());
     db.lessonFindFirst.mockResolvedValue(
       lessonRow({
         activity: {
           id: "activity_1",
-          // The column says trace; the payload is a perfectly valid drag_drop.
           type: "trace",
           schemaVersion: 1,
           status: "published",
@@ -846,12 +887,12 @@ describe("GET /api/content/lessons/:id", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.status).toBe(200);
+    expect(res.body.data.lesson.activity).toBeNull();
     expect(res.text).not.toContain("drag_drop");
   });
 
-  it("returns 500 INTERNAL when QuizQuestion.format disagrees with its definition", async () => {
+  it("omits a quiz question whose format disagrees with its definition", async () => {
     signInAs(childProfile());
     const row = lessonRow();
     row.quiz.questions[0] = {
@@ -863,9 +904,11 @@ describe("GET /api/content/lessons/:id", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.status).toBe(200);
     expect(res.text).not.toContain("match_pair");
+    expect(res.body.data.lesson.quiz.questions).toHaveLength(
+      row.quiz.questions.length - 1,
+    );
   });
 
   it("serves a lesson whose column and definition agree", async () => {
@@ -879,13 +922,9 @@ describe("GET /api/content/lessons/:id", () => {
   });
 });
 
-/**
- * `Lesson.status` is only part of the guard. `Activity`, `Quiz` and `World` each
- * carry a `ContentStatus` of their own, and the publishing workflow routinely
- * produces a published lesson whose activity is still in review. Those edges are
- * relations, so the `where`-clause assertions above cannot see them — these
- * tests inspect the response body instead.
- */
+// `Lesson.status` is only part of the guard: `Activity`, `Quiz` and `World` carry
+// their own status, and these relations are invisible to `where` assertions, so
+// the response body is inspected (rule 3).
 describe("related rows carry their own status gate (backend.md §4)", () => {
   const UNPUBLISHED = ["draft", "in_review", "approved", "rejected"] as const;
 
@@ -909,7 +948,6 @@ describe("related rows carry their own status gate (backend.md §4)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.lesson.activity).toBeNull();
-    // Not one field of the unreviewed payload reaches the child.
     expect(res.text).not.toContain("drag_drop");
   });
 
@@ -946,8 +984,7 @@ describe("related rows carry their own status gate (backend.md §4)", () => {
     await request(app).get(`/api/content/lessons/${LESSON_ID}`);
     await request(app).get(`/api/content/topics/${TOPIC_ID}/lessons`);
 
-    // A required to-one relation cannot be filtered in an `include`, so the
-    // condition sits in `where` and an unpublished world 404s the lesson.
+    // A required to-one relation cannot be filtered in an `include`, so the condition sits in `where` and an unpublished world 404s the lesson.
     for (const fn of [db.lessonFindFirst, db.lessonFindMany]) {
       const [args] = fn.mock.calls[0] as [{ where: Record<string, unknown> }];
       expect(args.where.world).toEqual({ is: { status: "published" } });
@@ -995,10 +1032,33 @@ describe("leak-proofing (FR-CURR-02, spec §7.3.4)", () => {
     }
   });
 
+  it("gates the lesson row itself on status and grade, on every lesson query", async () => {
+    signInAs(childProfile({ gradeLevel: "NURSERY" }));
+    const worldId = "55555555-5555-4555-8555-555555555555";
+    await request(app).get(`/api/content/worlds/${worldId}/lessons`);
+    await request(app).get(`/api/content/topics/${TOPIC_ID}/lessons`);
+    await request(app).get(`/api/content/lessons/${LESSON_ID}`);
+
+    const lessonWheres = [
+      ...db.lessonFindMany.mock.calls,
+      ...db.lessonFindFirst.mock.calls,
+    ].map(([args]) => (args as { where?: unknown }).where);
+
+    // The nested `topic.is.status` and `world.is.status` also contain
+    // `"status":"published"`, so a substring check survives deleting the lesson's
+    // own `status`; pin the top-level keys.
+    expect(lessonWheres.length).toBeGreaterThanOrEqual(3);
+    for (const where of lessonWheres) {
+      expect(where).toMatchObject({
+        status: "published",
+        gradeLevels: { has: "NURSERY" },
+      });
+    }
+  });
+
   it("returns 404 for a lesson that is not tagged for the child's grade", async () => {
     signInAs(childProfile({ gradeLevel: "NURSERY" }));
-    // A kg2-only lesson does not satisfy the grade condition, so the query
-    // finds nothing — 404, not 403: a 403 would confirm the row exists.
+    // A kg2-only lesson fails the grade condition: 404, not 403 (a 403 would confirm the row exists).
     db.lessonFindFirst.mockResolvedValue(null);
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
@@ -1028,12 +1088,9 @@ describe("leak-proofing (FR-CURR-02, spec §7.3.4)", () => {
 
   it("returns 404 for a lesson whose topic has been withdrawn to draft", async () => {
     signInAs(childProfile({ gradeLevel: "NURSERY" }));
-    // The regression this pins: the detail endpoint used to gate the lesson and
-    // its world but not its topic or subject, while every list endpoint gated
-    // all four. Withdrawing a topic therefore removed its lessons from every
-    // screen and left a bookmarked lesson URL playing — recording progress and
-    // paying out against unreviewed curriculum. The `where` is the guard, so the
-    // `where` is what is asserted (`general.md §5`, stub exception rule 2).
+    // Regression: the detail endpoint gated the lesson and its world but not topic
+    // or subject, so a withdrawn topic left a bookmarked lesson playable, recording
+    // progress against unreviewed curriculum. The `where` is the guard, so assert it (rule 2).
     db.lessonFindFirst.mockResolvedValue(null);
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
@@ -1097,7 +1154,6 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
     expect(lesson.videoUrl).toBe(
       "https://cdn.kidlearn.test/video/bn/letter-a.mp4",
     );
-    // Single-locale resolution: the other language never reaches the child.
     expect(res.text).not.toContain("Hello! Today we learn the letter A.");
   });
 
@@ -1134,7 +1190,6 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
     const { lesson } = res.body.data;
-    // Text stayed Bangla; only the missing asset fell back.
     expect(lesson.locale).toBe("bn");
     expect(lesson.introScript).toBe("হ্যালো! আজ আমরা A শিখব।");
     expect(lesson.videoUrl).toBe(
@@ -1191,8 +1246,7 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    // The poster is still Bangla's own, so flagging the lesson wholesale would
-    // send a content report chasing a translation that already exists.
+    // The poster is still Bangla's own; flagging the lesson wholesale would chase a translation that exists.
     expect(res.body.data.lesson.assetFallbacks).toEqual({
       introAudioUrl: false,
       videoUrl: true,
@@ -1206,8 +1260,7 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
 
     const res = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    // A recording nobody made is a hole in the content, not an untranslated
-    // asset — counting it here would conflate "translate this" with "make this".
+    // A recording nobody made is a content hole, not an untranslated asset; don't conflate "translate" with "make".
     expect(res.body.data.lesson.videoUrl).toBeNull();
     expect(res.body.data.lesson.assetFallbacks.videoUrl).toBe(false);
   });
@@ -1222,10 +1275,6 @@ describe("locale resolution (FR-PROF-03, FR-I18N-01)", () => {
   });
 });
 
-/**
- * Display names are child-facing text, and were the one kind this API resolved by
- * reading the untranslated column.
- */
 describe("curriculum names are localised (FR-I18N-01)", () => {
   const BANGLA = { preferredLanguage: "bn" as const };
 
@@ -1242,7 +1291,6 @@ describe("curriculum names are localised (FR-I18N-01)", () => {
       "GET /api/content/worlds",
     );
     expect(res.body.data.worlds[0].name).toBe("জঙ্গল জগৎ");
-    // The admin label is never what a child receives.
     expect(res.text).not.toContain("Jungle World");
   });
 
@@ -1300,8 +1348,7 @@ describe("curriculum names are localised (FR-I18N-01)", () => {
     );
     const detail = await request(app).get(`/api/content/lessons/${LESSON_ID}`);
 
-    // Both, and the same string: a tile a child taps must not be named one thing
-    // and the screen it opens another.
+    // Both, and the same string: a tile must not be named one thing and its screen another.
     expect(list.body.data.lessons[0].title).toBe("অক্ষর A");
     expect(detail.body.data.lesson.title).toBe("অক্ষর A");
   });
@@ -1322,8 +1369,7 @@ describe("curriculum names are localised (FR-I18N-01)", () => {
   });
 
   it("falls back to the row's own label when nothing is translated", async () => {
-    // Not a blank tile and not a 404: content authored before a translation
-    // existed stays usable, and the gap is a content report rather than an outage.
+    // Not a blank tile or a 404: content authored before a translation existed stays usable, and the gap is a content report.
     signInAs(childProfile(BANGLA));
     db.worldFindMany.mockResolvedValue([{ ...JUNGLE_WORLD, translations: [] }]);
 

@@ -6,11 +6,12 @@
     "moduleResolution": "bundler",
     "esModuleInterop": true,
     "strict": true,
+    "noImplicitReturns": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "sourceMap": true
   },
-  "include": ["src/**/*.ts", "vitest.setup.ts", "vitest.config.ts"],
+  "include": ["src/**/*.ts", "vitest.*.ts"],
   "exclude": ["node_modules", "dist"]
 }

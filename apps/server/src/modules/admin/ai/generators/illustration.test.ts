@@ -1,26 +1,13 @@
 /**
- * Batch illustration (file 36, FR-AI-05, FR-AI-09, FR-CMS-05, FR-AI-07).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
- *  2. *Assert the query, not just the result.* Two claims here are queries: that
- *     `StoryPage.illustrationAssetId` is never written (the stub throws on every
- *     `storyPage` write method, so the deferral is enforced rather than only
- *     checked afterwards), and that the sheets applied are the story world's plus
- *     the world-less ones (the stub applies the `OR` clause to a sheets array).
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here
- *     reads student-facing content.
- *  4. *Name what the stub cannot prove.* That a rolled-back `persist` leaves no
- *     asset row is Postgres's transaction guarantee; the stub runs the callback
- *     and rethrows, so the test asserts the job failed and no asset was written
- *     on the completed path.
- *
- * Gemini and the Cloudinary upload are mocked, which `general.md §5` permits
- * explicitly: external network boundaries are the one allowed mock.
- * `buildIllustrationPrompt` is deliberately *not* mocked — the prompt is the
- * FR-AI-09 mechanism, so this suite reads the real one out of the job record.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: arrays per table, and writes land in them.
+ *  2. Assert the query: the stub throws on every `storyPage` write (`illustrationAssetId` is never written) and
+ *     applies the sheets `OR` clause to an array (the story world's plus the world-less ones).
+ *  3. `include` gates: not applicable, nothing here reads student-facing content.
+ *  4. Not provable: a rolled-back `persist` leaving no asset row is Postgres's guarantee; the stub reruns and
+ *     rethrows, so the test asserts the job failed and no asset was written.
+ * Gemini and the Cloudinary upload are mocked (external boundaries). `buildIllustrationPrompt` stays real:
+ * the prompt is the FR-AI-09 mechanism.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,8 +30,7 @@ const image = vi.hoisted(() => ({ generateIllustration: vi.fn() }));
 const upload = vi.hoisted(() => ({ uploadBuffer: vi.fn() }));
 
 vi.mock("../gemini.js", async (importOriginal) => ({
-  // `buildIllustrationPrompt` stays real: it *is* the character-consistency
-  // mechanism, and this suite asserts the string it produces.
+  // Stays real: it is the character-consistency mechanism, and this suite asserts its string.
   ...(await importOriginal<typeof import("../gemini.js")>()),
   generateIllustration: image.generateIllustration,
 }));
@@ -71,8 +57,7 @@ vi.mock("../../../../config/prisma.js", () => {
       findUnique: async ({ where }: { where: { id: string } }) =>
         store.stories.find((one) => one.id === where.id) ?? null,
     },
-    // The table holding the illustration foreign key. Every write is a throw, so
-    // "attachment is file 37's" is enforced by the stub.
+    // Every write throws, so deferring attachment to a later step is enforced by the stub.
     storyPage: {
       update: forbid("storyPage", "update"),
       updateMany: forbid("storyPage", "updateMany"),
@@ -104,6 +89,8 @@ vi.mock("../../../../config/prisma.js", () => {
       },
     },
     aIGenerationJob: {
+      // Stale-job sweep that precedes every run; nothing is old enough.
+      updateMany: async () => ({ count: 0 }),
       count: async ({
         where,
       }: {
@@ -215,7 +202,6 @@ describe("which pages a batch draws", () => {
       storyWith([
         page("page-1", 1, { illustrationAssetId: "asset-existing" }),
         page("page-2", 2),
-        // No brief: a hand-authored page has nothing to draw from.
         page("page-3", 3, { illustrationPrompt: null }),
       ]),
     );
@@ -223,8 +209,7 @@ describe("which pages a batch draws", () => {
     const result = await generateIllustrationBatch({ storyId: STORY_ID });
 
     expect(result.jobIds).toHaveLength(1);
-    // Two candidates, one of which already had a picture. The page with no brief
-    // is not a candidate at all, so it is not counted as skipped either.
+    // Two candidates, one already illustrated; the page with no brief is not a candidate, so not counted as skipped.
     expect(result.skipped).toBe(1);
   });
 
@@ -287,8 +272,7 @@ describe("character consistency (FR-AI-09)", () => {
   });
 
   it("gives two pages the identical character block", async () => {
-    // The requirement itself: page 3 and page 7 differ only after `Scene:`, so
-    // the same rabbit is described to the model both times.
+    // Pages differ only after `Scene:`, so the same rabbit is described both times.
     store.stories.push(storyWith([page("page-3", 3), page("page-7", 7)]));
 
     const result = await generateIllustrationBatch({ storyId: STORY_ID });
@@ -333,8 +317,7 @@ describe("character consistency (FR-AI-09)", () => {
     const result = await generateIllustrationBatch({ storyId: STORY_ID });
 
     expect(result.jobIds).toHaveLength(1);
-    // A heading with nothing under it would tell the model there are characters
-    // it has not been told about.
+    // An empty heading would tell the model about characters it has not been given.
     expect(resolvedPrompt(result.jobIds[0])).not.toContain(
       "Recurring characters",
     );
@@ -352,8 +335,7 @@ describe("what an illustration job records", () => {
     expect(store.mediaAssets).toHaveLength(1);
     expect(store.mediaAssets[0]).toMatchObject({
       kind: "image",
-      // A picture has no language; stamping one would hide it from the other
-      // locale's media filter.
+      // A picture has no language; stamping one would hide it from the other locale's media filter.
       language: null,
       aiJobId: result.jobIds[0],
     });
@@ -396,8 +378,7 @@ describe("what an illustration job records", () => {
   });
 
   it("counts the failed jobs, so a batch that drew nothing does not read as done", async () => {
-    // Same claim as `narration.test.ts`: the ids alone cannot distinguish a page
-    // drawn from a page the model refused, and the CMS reported both as drawn.
+    // Ids alone cannot tell a drawn page from a refused one, and the CMS reported both as drawn.
     image.generateIllustration.mockRejectedValue(
       new Error("Gemini returned no image"),
     );

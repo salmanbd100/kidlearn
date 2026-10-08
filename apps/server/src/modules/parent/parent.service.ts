@@ -1,18 +1,12 @@
-/**
- * Parent domain logic. No Express types cross this boundary — every function
- * here is callable from a test without an HTTP layer.
- */
 import { type Parent, Prisma } from "@kidlearn/db";
+import { hasCurrentConsent } from "@kidlearn/types";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
 
-/** better-auth writes this into `account.providerId` for Google sign-ins. */
 const GOOGLE_PROVIDER_ID = "google";
 
-/** Prisma's unique-constraint violation. */
 const UNIQUE_VIOLATION = "P2002";
 
-/** The subset of a better-auth session user this service needs. */
 export type AuthenticatedUser = {
   id: string;
   email: string;
@@ -20,25 +14,17 @@ export type AuthenticatedUser = {
   image?: string | null;
 };
 
-/**
- * Shape returned to the client. An allowlist, not an omission: new columns on
- * `Parent` stay invisible to HTTP until someone adds them here deliberately, so
- * no credential-shaped column can leak by accident.
- */
+/** An allowlist, not an omission: new `Parent` columns stay invisible to HTTP until added here, so no credential-shaped column leaks. */
 export type ParentSummary = {
   id: string;
   email: string;
   name: string | null;
   avatarUrl: string | null;
   consentGivenAt: Date | null;
+  hasCurrentConsent: boolean;
 };
 
-/**
- * Resolves the `Parent` row for an authenticated better-auth user, creating it
- * on first sight. This is why kidlearn has no separate sign-up: the Google
- * callback creates the identity, and the first authenticated request creates the
- * domain row (FR-AUTH-02).
- */
+/** Creates the `Parent` row on first sight, which is why there is no separate sign-up (FR-AUTH-02). */
 export async function findOrCreateParentForUser(
   user: AuthenticatedUser,
 ): Promise<Parent> {
@@ -46,6 +32,17 @@ export async function findOrCreateParentForUser(
     where: { userId: user.id },
   });
   if (existing) return existing;
+
+  // A user who is already an admin must not get a parent row, or one session would pass both `requireParent` and `requireAdmin`.
+  const adminRow = await prisma.adminUser.findUnique({
+    where: { authUserId: user.id },
+    select: { id: true },
+  });
+  if (adminRow) {
+    throw ApiError.forbidden(
+      "Admin accounts cannot access the parent dashboard",
+    );
+  }
 
   const googleAccount = await prisma.account.findFirst({
     where: { userId: user.id, providerId: GOOGLE_PROVIDER_ID },
@@ -58,9 +55,7 @@ export async function findOrCreateParentForUser(
   }
 
   try {
-    // `upsert` on the unique `userId` compiles to a single INSERT ... ON
-    // CONFLICT, so two requests racing on a parent's very first page load
-    // cannot produce two rows.
+    // `upsert` on the unique `userId` is a single INSERT ... ON CONFLICT, so racing first page loads cannot create two rows.
     return await prisma.parent.upsert({
       where: { userId: user.id },
       update: {},
@@ -73,10 +68,8 @@ export async function findOrCreateParentForUser(
       },
     });
   } catch (error) {
-    // A conflict here is on `email` or `googleId`, not `userId`: some other
-    // Parent row already claims this person's Google identity. Surfacing it as
-    // a 409 is honest — silently reusing that row would hand one identity's
-    // children to another.
+    // Conflict is on `email` or `googleId`: another Parent row claims this Google identity. A 409 is honest;
+    // reusing that row would hand one identity's children to another.
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === UNIQUE_VIOLATION
@@ -89,15 +82,15 @@ export async function findOrCreateParentForUser(
   }
 }
 
-/** Projects a `Parent` down to the fields safe to send over HTTP. */
 export function toParentSummary(parent: Parent): ParentSummary {
   return {
     id: parent.id,
     email: parent.email,
-    // What the parent chip and the dashboard menu render (file 29). Safe to
-    // send: it is the profile Google already shows the same person.
+    // Rendered by the parent chip and dashboard menu; safe because Google already shows the same person this profile.
     name: parent.name,
     avatarUrl: parent.avatarUrl,
     consentGivenAt: parent.consentGivenAt,
+    // Derived here rather than by the client so a web build behind the API cannot judge an old version current.
+    hasCurrentConsent: hasCurrentConsent(parent),
   };
 }

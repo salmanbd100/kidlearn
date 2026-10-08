@@ -7,16 +7,17 @@ import { resetI18nForTests } from "@/shared/lib/i18n";
 import { IntroStep } from "./IntroStep";
 
 /**
- * The audio channel is the thing under test here as much as the markup is: the
- * intro's whole job is to speak on arrival, and jsdom has no playback. So the
- * hook is replaced with a recorder that also lets a test decide *when* the clip
- * ends, which is what drives the advance cue.
+ * The intro's job is to speak on arrival and jsdom has no playback, so the hook is a recorder that
+ * lets a test decide when the clip ends.
  */
 const audio = vi.hoisted(() => {
   const play = vi.fn(
     async (
       _url: string,
-      _opts?: { interrupt?: boolean; onFinished?: () => void },
+      _opts?: {
+        interrupt?: boolean;
+        onFinished?: (outcome: "ended" | "unplayed") => void;
+      },
     ) => {},
   );
   return {
@@ -74,22 +75,21 @@ function renderIntro(overrides: Partial<LessonDetailResponse> = {}) {
   const onComplete = vi.fn();
   render(
     <Providers locale="en">
-      <IntroStep lesson={lessonDetail(overrides)} onComplete={onComplete} />
+      <IntroStep
+        lesson={lessonDetail(overrides)}
+        onComplete={onComplete}
+        locale="en"
+      />
     </Providers>,
   );
   return onComplete;
 }
 
-/**
- * Fires the `onFinished` callback handed to the most recent `play()` call — what
- * the real provider does when a clip reaches its end.
- */
 function finishNarration(): void {
   const lastCall = audio.play.mock.calls.at(-1);
-  // The mock's argument tuple is typed from the stub above, not from the real
-  // hook, so the options object arrives wider than `PlayOptions`.
+  // Typed from the stub, not the real hook, so the options object arrives wider than `PlayOptions`.
   const options = lastCall?.[1] as PlayOptions | undefined;
-  act(() => options?.onFinished?.());
+  act(() => options?.onFinished?.("ended"));
 }
 
 describe("IntroStep", () => {
@@ -146,7 +146,6 @@ describe("IntroStep", () => {
   it("never traps the child behind the narration — the advance works while it plays", () => {
     const onComplete = renderIntro();
 
-    // Deliberately not calling `finishNarration()` first.
     const advance = screen.getByRole("button", { name: /Let's go!/ });
     expect(advance).not.toBeDisabled();
     fireEvent.click(advance);
@@ -170,8 +169,8 @@ describe("IntroStep", () => {
   it("shows the advance cue immediately when the lesson has no narration yet", () => {
     renderIntro({ introAudioUrl: null });
 
-    // Silence must not read as "still loading" — a lesson awaiting the voice
-    // pipeline (file 36) still has to be walkable today.
+    // Silence must not read as "still loading": a lesson awaiting the voice pipeline must stay
+    // walkable.
     expect(
       screen.getByRole("button", { name: /Let's go!/ }).className,
     ).toContain("animate-pulse");

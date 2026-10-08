@@ -51,6 +51,18 @@ All four packages — `ui`, `db`, `types`, `config` — have completed this chec
 - `packages/db` owns both `DATABASE_URL` (pooled, runtime) and `DIRECT_URL` (direct, migrations). Apps import `@kidlearn/db` — they never hold database credentials themselves.
 - Consuming apps copy the example: `cp packages/db/.env.example packages/db/.env`.
 
+### Dependency versions
+
+- A dependency more than one workspace declares is declared **once**, in the `catalog:` block of
+  `pnpm-workspace.yaml`, and each manifest names it as `"catalog:"`. Bump it there, never in a
+  `package.json`. A second workspace adding a dependency moves it into the catalog in the same
+  change. **[REVIEW]**
+- The Node major is pinned in three places that must agree: `.nvmrc` (developers and CI's
+  `setup-node`), `engines.node` in the root `package.json`, and the `FROM node:<major>` lines of
+  both Dockerfiles. `@types/node` in the catalog tracks the same major. **[REVIEW]**
+- Major upgrades follow the `/upgrade-dependency` skill, one branch each — Dependabot
+  is configured to propose minors and patches only.
+
 ### Turborepo pipeline rule
 
 `typecheck` depends on `^build` — consuming packages must build before their dependents can typecheck. When you add a new inter-package dependency, add the corresponding `dependsOn` entry in `turbo.json` before the pipeline will resolve correctly.
@@ -209,13 +221,34 @@ No separate `__tests__` directories. **[REVIEW]**
 
 Service tests and route integration tests run against a real test database. Do not mock Prisma. The lesson from `document/project-requirement-details.md §12` (assumption 8) applies: mock/real divergence masks broken migrations. The only permitted mocks are external network boundaries — AI generation APIs, text-to-speech APIs, media hosting APIs. **[REVIEW]**
 
-#### Recorded exception — `apps/server` stubs `config/prisma.js` until the test database lands
+#### The test-database harness
 
-**Status: active as of 2026-08-05. Remove this section the day the harness exists.**
+**Landed 2026-10-05.** A suite named `*.db.test.ts` runs
+against Postgres: `pnpm --filter server test:db` (CI runs it with a `postgres:16-alpine`
+service; locally, `docker compose up -d postgres`). `vitest.db.config.ts` applies the
+committed migrations with `prisma migrate deploy` once per run, truncates every table before
+each test, and runs files one at a time. It refuses any database whose name does not end in
+`_test`, so `TEST_DATABASE_URL` cannot be pointed at a real one by mistake. Build rows with
+`src/shared/testing/factories.ts`. `pnpm test` excludes these files and still needs no
+database.
 
-No test database is provisioned yet, so every route and service suite in `apps/server` stubs `config/prisma.js` instead. This is a deliberate, documented deviation, not an oversight — recording it here is what keeps it from reading as an unnoticed violation on review.
+**A new suite that touches the database is a `.db.test.ts`.** The suites that stubbed
+`config/prisma.js` before the harness existed stay stubbed until they are next substantially
+changed; they cover routing, validation and response contracts, which a stub tests honestly.
+What a stub cannot prove — rows a status gate lets back, cascades, transaction isolation,
+unique constraints — lives in a `.db.test.ts` beside the stubbed suite (`content.service`,
+`story.service`, `child-profile.service`, `account-deletion.service`, `reward.service`). A
+change to one of those guarantees adds its proof there, not to the stub.
 
-The deviation is bounded by four rules. A suite that breaks one of them is not covered by this exception:
+#### Recorded exception — the stubbed suites still standing
+
+**Status: narrowed 2026-10-05.** From 2026-08-05 until the harness landed, every `apps/server`
+suite stubbed `config/prisma.js`; that was this section's exception, and its exit condition —
+port the suites whose guarantees a stub cannot express — is met by the five `.db.test.ts`
+files above. What remains is the stubbed suites themselves, kept rather than rewritten. Test
+comments cite the "stub exception" rules below by number; they still bind every stubbed suite.
+
+A stubbed suite is bounded by four rules:
 
 1. **Stub state, not answers.** The stub models the store — `children.test.ts` keeps an in-memory array; `parent.test.ts` applies Prisma's `{ increment: n }` to a row it carries across writes. A chain of one-shot `mockResolvedValue`s asserts nothing about behaviour and is not permitted.
 2. **Assert the query, not just the result.** A stubbed suite cannot show that a draft row stayed in the database, so it asserts the `where` clause that keeps it there. This is how the content-safety guard is testable at all before the harness exists — see `content.test.ts`.
@@ -224,7 +257,7 @@ The deviation is bounded by four rules. A suite that breaks one of them is not c
 
 **What this exception costs, so the cost is on the record:** two defects shipped through it in files 10–12 — a content-safety leak through `include`d relations, invisible to `where`-clause assertions, and a lost-update on the PIN counter that a fixed-row stub could not express. Rules 1, 3 and 4 above are the direct response. Rule 2 is not a substitute for the real thing; it is what is possible in the meantime.
 
-**Exit condition:** once the Vitest test-database harness exists, port these suites to it and delete this section. Until then, a new suite that stubs Prisma must cite this exception in its file-header comment.
+**Exit condition:** the last stubbed suite is ported or deleted. No new stubbed suite is written in the meantime.
 
 ### No snapshot tests
 
@@ -296,7 +329,7 @@ A reviewer is responsible for catching these. **They are mandatory — not optio
 | Semantic tokens only — no raw hex, brand hues, or Tailwind color literals in component code | frontend | CSS string values are not type-checked |
 | All user-facing strings via `i18next` — no hard-coded text | frontend | No static analysis for JSX string literals |
 | `'use client'` boundary placed as low as possible | frontend | Architectural judgment |
-| Component placed in the correct `packages/ui` layer (`primitives/`, `kid/`, `parent/`) | frontend | Requires understanding of surface assumptions |
+| Component placed where `frontend.md §1` puts it — `packages/ui/src/primitives/` only when two surfaces render it and it depends on nothing app-owned | frontend | Requires understanding of surface assumptions |
 | Design rules: touch targets, motion, accessibility — see `document/design.md §7, §5, §11` | frontend | Visual and accessibility review |
 | Service layer holds business logic; route handlers are thin | backend | Structural, not syntactic |
 | Zod validation present on every route that accepts user input | backend | Requires reading the full route |
@@ -316,8 +349,8 @@ A reviewer is responsible for catching these. **They are mandatory — not optio
 Every implementation file in `document/implementation/` maps to exactly one feature branch. The branch name is the implementation filename without the `.md` extension.
 
 ```
-document/implementation/01-workspace-packages-and-test-setup.md
-→ branch: 01-workspace-packages-and-test-setup
+document/implementation/39-ci-pipeline-and-branch-protection.md
+→ branch: 39-ci-pipeline-and-branch-protection
 ```
 
 ### Starting work on an implementation file
@@ -380,12 +413,12 @@ The two rules above assume a branch is *derived from* one implementation file. A
 The deviation is bounded by three rules. A branch that breaks one of them is not covered:
 
 1. **The findings are enumerated in the tracker row, one numbered entry each**, with the defect, its consequence and its fix — so the row does the work seven PR descriptions would have.
-2. **It is named for what it is, not for a file number.** `NN-` prefixes belong to implementation files; taking one for unrelated work collides with the spec that number is reserved for (`improvement-plan.md §4` reserves 40–46).
+2. **It is named for what it is, not for a file number.** `NN-` prefixes belong to implementation files; taking one for unrelated work collides with the spec that number is reserved for.
 3. **No new feature.** A review pass fixes what is there. Anything that adds behaviour leaves the pass and gets its own file and branch.
 
 **What this exception costs, so the cost is on the record:** one PR carrying seven unrelated fixes cannot be reverted per-fix, and a reviewer cannot approve six of them and reject the seventh. That is the trade accepted for not fragmenting a single review into seven.
 
-**Exit condition:** file 40 (`40-docs-and-standards-truth-pass.md`) is the planned home for the next docs pass. A review pass that finds code defects rather than documentation drift still needs this section; delete it if a future one is small enough to sit under a single file.
+**Exit condition:** a review pass that finds code defects rather than documentation drift still needs this section; delete it if a future one is small enough to sit under a single file.
 
 ---
 

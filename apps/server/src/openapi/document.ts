@@ -8,8 +8,6 @@ import {
 import { ALL_ROUTE_DOCS } from "./paths/index.js";
 import type { JsonSchemaObject } from "./to-json-schema.js";
 
-// Assembles the OpenAPI document from the route registry.
-
 const OPENAPI_VERSION = "3.0.3";
 
 export type OpenApiDocument = {
@@ -17,7 +15,6 @@ export type OpenApiDocument = {
   info: JsonSchemaObject;
   servers: JsonSchemaObject[];
   tags: JsonSchemaObject[];
-  /** Sidebar grouping. Readers that do not know the extension ignore it. */
   "x-tagGroups": JsonSchemaObject[];
   security: JsonSchemaObject[];
   paths: Record<string, JsonSchemaObject>;
@@ -65,11 +62,7 @@ const DESCRIPTION = [
   "Request schemas are the same Zod objects the server validates with at the route boundary, and response schemas the same ones its tests assert against, both converted at boot. Zod refinements have no JSON Schema equivalent and are lost in that conversion, so where one carries a rule that a caller must know, the rule is restated in the operation's description.",
 ].join("\n");
 
-/**
- * `serverUrl` is a parameter, not an `env` import, and deliberately so: `config/env.ts`
- * calls `process.exit(1)` on a missing `.env`, which would kill the
- * `openapi:write` script and make this function untestable.
- */
+/** `serverUrl` is a parameter because importing the env module would `process.exit(1)` on missing config, killing `openapi:write`. */
 export function buildOpenApiDocument({
   serverUrl,
 }: {
@@ -80,8 +73,7 @@ export function buildOpenApiDocument({
   for (const { method, path, operation } of ALL_ROUTE_DOCS) {
     const pathItem = paths[path] ?? {};
     if (pathItem[method]) {
-      // Two registry entries for the same method+path would silently overwrite
-      // each other, publishing one and dropping the other.
+      // Duplicate method+path entries would silently overwrite each other.
       throw new Error(
         `Duplicate OpenAPI operation: ${method.toUpperCase()} ${path}`,
       );
@@ -99,19 +91,14 @@ export function buildOpenApiDocument({
     },
     servers: [
       { url: serverUrl, description: "This server" },
-      // Documented before they exist. Both hosts are specified in
-      // `project-requirement-details.md §9` but implementation file 38 has not
-      // run, so neither resolves yet — hence descriptions that say so rather
-      // than a **Send** that times out with no explanation. A mobile build
-      // needs these two values for `EXPO_PUBLIC_API_URL` well before it needs
-      // them to answer.
+      // Documented before the hosts resolve, so descriptions say so rather than **Send** timing out.
       {
         url: "https://api.dev.kidlearn.net",
-        description: "Development — tracks the `dev` branch. Not yet deployed.",
+        description: "Development — tracks the `dev` branch.",
       },
       {
         url: "https://api.kidlearn.net",
-        description: "Production — tracks `main`. Not yet deployed.",
+        description: "Production — tracks `main`.",
       },
     ],
     tags: TAGS,

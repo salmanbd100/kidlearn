@@ -172,7 +172,7 @@ flowchart TD
   - **Reward strip** at top: star count, coin count, and a **streak chip** shown as `🔥 3`. 🎈 For a brand-new child the flame is dimmed with *"Start a streak!"* — the goal is always visible, never hidden.
   - **World cards** — large gradient cards with the world's mascot and name. Tapping one opens that world's lessons; 🎈 the lesson/world name *plays aloud* on tap so pre-readers navigate by ear.
   - **Lesson tiles** — big picture thumbnails with names (≥20px). One tap = open.
-  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ.
+  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ. Not shown inside a lesson or an open story: those screens put their own exit button in that corner, and a grown-up leaves through it.
 - **Orientation:** portrait stacks cards vertically (lessons 2-up); landscape places them side-by-side (lessons 3–4-up). Never any horizontal scrolling.
 
 ### 4.3 The 5-step lesson adventure
@@ -434,7 +434,7 @@ flowchart TD
     Dash --> D4[Manage profiles]
     Dash --> D5[Delete account]
     Dash --> D6["👤 Account menu:<br/>back to kid mode · sign out"]
-    D6 -->|Sign out 🔒| Google
+    D6 -->|Sign out 🔒| Home["🏠 Homepage /"]
 ```
 
 ### 5.1 First-time setup
@@ -448,7 +448,7 @@ flowchart LR
     Ch --> Done([Lands on profiles page])
 ```
 
-- **Google only** — there is no email/password field anywhere. One "Continue with Google" button.
+- **Google only** — there is no email/password field anywhere. One "Continue with Google" button, in the **Parent sign-in** dialog on the homepage (`/?signin=parent`) or on the bare `/parent/login` page. A signed-out visit to a `/parent/*` page lands on the dialog; a signed-out session on the child's screens lands on `/parent/login` instead, because the homepage carries external links and a child must not reach it (NFR-SAFE-07).
 - 🔒 **Consent before any child** — no child-profile UI is reachable until consent is recorded (COPPA). The button stays disabled until the box is ticked.
 - **First child** — name (1–30 chars), age (3–6), grade (Nursery / KG-1), language (English / Bangla), and an avatar from a starter grid.
 
@@ -459,7 +459,7 @@ There is **no parental gate**. A signed-in Google session reaches every `/parent
 ```mermaid
 flowchart TD
     Enter[Parent navigates to any /parent/* page] --> Signed{Signed in?}
-    Signed -->|No| Login[→ Continue with Google]
+    Signed -->|No| Login["→ Sign-in dialog on the homepage"]
     Signed -->|Yes| Onboarded{Consent + at least one profile?}
     Onboarded -->|No| Steps[→ The missing onboarding step]
     Onboarded -->|Yes| Allow[Show the page ✅]
@@ -506,13 +506,13 @@ flowchart LR
     Bar --> Menu["👤 Account menu"]
     Menu --> Who["Name + email<br/>(read-only)"]
     Menu --> Kid["🧒 Back to kid mode<br/>→ /select-profile"]
-    Menu --> Out["🚪 Sign out<br/>→ /parent/login 🔒"]
+    Menu --> Out["🚪 Sign out<br/>→ / (homepage) 🔒"]
 ```
 
 - **Three section links** — Progress, Children, Weekly report — with the current one marked (`aria-current="page"`). On a phone they wrap to a second row rather than hiding behind a hamburger; three short labels fit, and a menu to reach three places is worse than no menu.
 - **The account menu** carries the parent's Google name and email, *Back to kid mode*, and *Sign out*. **Back to kid mode is the only route from the dashboard to the student portal** — before it existed the parent had to edit the URL.
-- 🔒 **Sign out** revokes the session server-side (FR-AUTH-07), which ends the active child profile with it, and returns to the sign-in screen.
-- **The bar is absent during onboarding** (consent, first child) and on the login page. There is nowhere to navigate to yet, and a sign-out control mid-consent is a dead end rather than an escape.
+- 🔒 **Sign out** revokes the session server-side (FR-AUTH-07), which ends the active child profile with it, and returns to the homepage (`/`).
+- **The bar is absent during onboarding** (consent, first child). There is nowhere to navigate to yet, and a sign-out control mid-consent is a dead end rather than an escape.
 
 The parent sees a per-child summary. A child-switcher (tabs) sits below the bar; the selected child persists in the URL.
 
@@ -584,7 +584,7 @@ The admin is the **content factory and the safety gate**. Their interface is a p
 
 ```mermaid
 flowchart TD
-    Login["🔐 /admin/login<br/>email + password"] --> CMS["CMS workspace<br/>(sidebar nav)"]
+    Login["🔐 Admin sign-in dialog on /<br/>email + password"] --> CMS["CMS workspace<br/>(sidebar nav)"]
     CMS --> Curr[📚 Curriculum]
     CMS --> Stories[📖 Stories]
     CMS --> Media[🎬 Media]
@@ -595,7 +595,7 @@ flowchart TD
 
 ### 6.1 Login & workspace
 
-- **`/admin/login`** — plain email + password (no signup, no password reset link at MVP). Admins are seeded internally; parent Google accounts are rejected from admin routes, and vice-versa.
+- **Admin sign-in** — a dialog on the homepage (`/?signin=admin`, opened by the *Admin sign-in* link), plain email + password (no signup, no password reset link at MVP). `/admin/login` only redirects to it; a signed-out visit to any `/admin/*` page lands on it, and so does signing out. Admins are seeded internally; parent Google accounts are rejected from admin routes, and vice-versa.
 - **Workspace** — a fixed left sidebar (collapses to a top bar under 768px) with six sections. The AI Queue item shows a live count badge of items awaiting review.
 
 ### 6.2 Building the curriculum

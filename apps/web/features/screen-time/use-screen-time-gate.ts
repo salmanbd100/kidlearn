@@ -5,18 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import { getScreenTimeStatus } from "./screen-time-api";
 
 /**
- * The student surface's view of the screen-time gate (FR-TIME-02, FR-TIME-04).
+ * A hint, not the gate: the server answers `423` regardless. A failed status read counts as "not blocked";
+ * failing closed would lock out a child on a merely slow connection.
  */
 
 export type ScreenTimeGate = {
-  /** `undefined` while the first check is in flight, `null` when allowed. */
   block: ScreenTimeBlockCode | null | undefined;
-  /** `"HH:MM"` when a window is set — what the lock screen names. */
   windowStart: string | null;
-  /**
-   * Re-checks, then runs `start` only if the child may. Blocked children get the
-   * lock screen instead, and never the navigation.
-   */
+  /** Re-checks, then runs `start` only if the child may; blocked children get the lock screen instead. */
   guardStart: (start: () => void) => Promise<void>;
 };
 
@@ -31,7 +27,7 @@ export function useScreenTimeGate(): ScreenTimeGate {
 
     void getScreenTimeStatus().then((result) => {
       if (!isCurrent) return;
-      // A failed read is not a block — see the file header.
+      // A failed read is not a block: the server still enforces on the fetch.
       setBlock(result.ok ? result.data.reason : null);
       if (result.ok) setWindowStart(result.data.windowStart);
     });

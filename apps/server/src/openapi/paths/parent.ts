@@ -8,7 +8,7 @@ import {
 } from "../components.js";
 import type { RouteDoc } from "../route-doc.js";
 
-// `modules/parent/parent.routes.ts` — `requireParent` guards the whole router.
+// `requireParent` guards the whole router.
 
 export const PARENT_ROUTES: RouteDoc[] = [
   {
@@ -23,7 +23,7 @@ export const PARENT_ROUTES: RouteDoc[] = [
         "",
         "`accepted` must be the literal `true`. `accepted: false` is not a consent record with a different value — it is an absence of consent, and is rejected as invalid input.",
         "",
-        "Until this succeeds, `POST /api/children` answers `403 CONSENT_REQUIRED`.",
+        "Until this succeeds for the current version, `POST /api/children` and every `/api/progress` and `/api/events` write answer `403 CONSENT_REQUIRED`. `GET /api/auth/me` reports `hasCurrentConsent` so a client can send the parent here first.",
       ].join("\n"),
       requestBody: jsonRequestBody("ConsentBody"),
       responses: {

@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-/**
- * The lesson-flow vocabulary, shared by the player and the server (FR-LSN-01..07).
- */
+/** The lesson-flow vocabulary, shared by the player and the server (FR-LSN-01..07). */
 export const LESSON_STEPS = [
   "intro",
   "video",
@@ -61,10 +59,7 @@ export const SessionEventReportSchema = z
     lessonId: z.string().uuid(),
     /** Present on `step_complete`, absent on the two lesson-level events. */
     step: LessonStepSchema.optional(),
-    /**
-     * `true` when the step the child just finished played an English asset
-     * because their locale had none (`LessonAssetFallbacks`, FR-I18N-01).
-     */
+    /** `true` when the finished step played an English asset because the locale had none (FR-I18N-01). */
     fallback: z.boolean().optional(),
     clientTs: z.string().datetime(),
   })
@@ -72,9 +67,7 @@ export const SessionEventReportSchema = z
 
 export type SessionEventReport = z.infer<typeof SessionEventReportSchema>;
 
-/**
- * One answer, in the shape the format that produced it gives it (FR-QUIZ-08).
- */
+/** One answer, in the shape the format that produced it gives it (FR-QUIZ-08). */
 export const QuizAnswerValueSchema = z.union([
   z.string().min(1),
   z
@@ -93,18 +86,10 @@ export const QuizAnswerValueSchema = z.union([
 export type QuizAnswerValue = z.infer<typeof QuizAnswerValueSchema>;
 
 /**
- * One question, as the child answered it.
- *
- * **No `isCorrect`.** Whether an answer was right is the server's verdict, not
- * the client's report (`backend.md §8`): `recordQuizResponses` evaluates `answer`
- * against the stored `QuizQuestion.definition` with `evaluateAnswer`, and stores
- * `QuizResponse.isCorrect` from that. A client that could name its own verdict
- * could name its own coin balance — the reward grant counts those rows.
- *
- * `attempts` still comes from the client because only the client can see a tap.
- * It is the one remaining self-report, and it is a bounded integer rather than a
- * free verdict: the stored row is recomputable from `(answer, attempts,
- * definition)` at any time, which the old shape was not.
+ * One question, as the child answered it. **No `isCorrect`**: the verdict is the server's
+ * (`backend.md §8`) — `recordQuizResponses` evaluates `answer` against the stored definition, and a
+ * client that could name its own verdict could name its own coin balance. `attempts` is the one
+ * self-report (only the client sees a tap); it is a bounded integer and the row stays recomputable.
  */
 export const QuizResponseRecordSchema = z
   .object({

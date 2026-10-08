@@ -36,8 +36,7 @@ describe("ExitConfirm", () => {
   it("offers two big answers, not a small dismiss", () => {
     renderConfirm();
 
-    // Both outcomes are equally reachable targets. A child who cannot read still
-    // gets two plainly different buttons rather than one and a tiny X.
+    // Both outcomes must be plainly different buttons, not one button and a tiny X.
     expect(screen.getByRole("button", { name: "Stay" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Leave" })).toBeInTheDocument();
   });
@@ -71,9 +70,8 @@ describe("ExitConfirm", () => {
   it("gives the primitive's close button a real name, and makes it mean stay", () => {
     const { onStay, onLeave } = renderConfirm();
 
-    // The primitive renders this whenever the dialog is dismissable. Unnamed, it
-    // would be a control a screen reader cannot describe on the one dialog a child
-    // has to answer — and it must not be a third outcome.
+    // The primitive's close button must be named for screen readers, and must not be a third
+    // outcome.
     fireEvent.click(screen.getByRole("button", { name: "Keep playing" }));
 
     expect(onStay).toHaveBeenCalledTimes(1);

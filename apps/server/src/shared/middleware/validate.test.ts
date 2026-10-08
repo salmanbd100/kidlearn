@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
-import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import request from "../testing/request.js";
 import { errorHandler } from "./error-handler.js";
 import { validate, validatedQuery } from "./validate.js";
 

@@ -1,19 +1,9 @@
 /**
- * `seedAdmin()` — the only way an administrator comes into existence (file 31).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5`. Rule 1
- * (stub state, not answers) is the whole point here: `store.admins` is a table and
- * the stubbed `upsert` matches on `email`, so "running twice leaves one row" is a
- * row count rather than a mock told to return the same object twice.
- *
- * better-auth's side is spied on `auth.$context` rather than stubbed as a module,
- * because what is under test is that this script writes the *same* three things
- * `sign-up/email` writes — a hashed password, a user, and a `credential` account —
- * and a hand-rolled fake of the internal adapter could agree with a wrong order.
- *
- * Rule 4 — what neither can prove: that `AdminUser.email` and
- * `AdminUser.authUserId` are actually unique in Postgres. Asserted against
- * `schema.prisma` at the bottom, until a real database can be pointed at it.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`. Rule 1 (stub state, not answers): the stubbed
+ * `upsert` matches on `email`, so "running twice leaves one row" is a row count. better-auth is spied on `auth.$context`
+ * because the script must write the same three things `sign-up/email` does.
+ * Rule 4 — what neither can prove: `AdminUser.email` and `AdminUser.authUserId` are unique in Postgres, asserted against
+ * `schema.prisma` at the bottom until a real database replaces it.
  */
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,17 +27,20 @@ type AccountRow = { providerId: string; password?: string };
 
 const store = vi.hoisted(() => ({
   admins: [] as AdminRow[],
+  sessions: [] as { id: string; userId: string }[],
   nextAdminId: 1,
 }));
 
 const db = vi.hoisted(() => ({
   adminFindUnique: vi.fn(),
   adminUpsert: vi.fn(),
+  sessionDeleteMany: vi.fn(),
 }));
 
 vi.mock("../config/prisma.js", () => ({
   prisma: {
     adminUser: { findUnique: db.adminFindUnique, upsert: db.adminUpsert },
+    session: { deleteMany: db.sessionDeleteMany },
   },
 }));
 
@@ -55,7 +48,6 @@ const { auth } = await import("../config/auth.js");
 const { seedAdmin } = await import("./seed-admin.js");
 const context = await auth.$context;
 
-/** The better-auth `user` + `account` rows, as an in-memory pair of tables. */
 const identity = {
   users: [] as Array<{ id: string; email: string; name: string }>,
   accounts: new Map<string, AccountRow[]>(),
@@ -63,11 +55,23 @@ const identity = {
 
 beforeEach(() => {
   store.admins = [];
+  store.sessions = [];
   store.nextAdminId = 1;
   identity.users = [];
   identity.accounts = new Map();
   db.adminFindUnique.mockReset();
   db.adminUpsert.mockReset();
+  db.sessionDeleteMany.mockReset();
+
+  db.sessionDeleteMany.mockImplementation(
+    async ({ where }: { where: { userId: string } }) => {
+      const before = store.sessions.length;
+      store.sessions = store.sessions.filter(
+        (row) => row.userId !== where.userId,
+      );
+      return { count: before - store.sessions.length };
+    },
+  );
 
   db.adminFindUnique.mockImplementation(
     async ({ where }: { where: { email: string } }) =>
@@ -108,8 +112,7 @@ beforeEach(() => {
   );
 
   vi.spyOn(context.internalAdapter, "findUserByEmail").mockImplementation(
-    // The real signature returns better-auth's full user shape; the fake supplies
-    // only the fields `seedAdmin` reads, so it is narrowed at this boundary.
+    // The fake supplies only the fields `seedAdmin` reads, so it is narrowed at this boundary.
     (async (email: string) => {
       const user = identity.users.find((row) => row.email === email);
       if (!user) return null;
@@ -163,8 +166,7 @@ describe("seedAdmin", () => {
     expect(isCreated).toBe(true);
     expect(admin.email).toBe(EMAIL);
     expect(admin.authUserId).toBe(AUTH_USER_ID);
-    // The same three writes `sign-up/email` makes, in the same order: a hashed
-    // password, a user, then a `credential` account carrying the hash.
+    // Same three writes as `sign-up/email`, in the same order.
     expect(context.password.hash).toHaveBeenCalledWith(PASSWORD);
     expect(identity.accounts.get(AUTH_USER_ID)).toEqual([
       { providerId: "credential", password: `hashed:${PASSWORD}` },
@@ -187,8 +189,7 @@ describe("seedAdmin", () => {
       name: NAME,
     });
 
-    // What makes `pnpm --filter server seed:admin` safe to re-run, which is also
-    // the recovery path for a forgotten password at MVP.
+    // Makes `seed:admin` safe to re-run; also the recovery path for a forgotten password.
     expect(second.isCreated).toBe(false);
     expect(store.admins).toHaveLength(1);
     expect(identity.users).toHaveLength(1);
@@ -212,9 +213,28 @@ describe("seedAdmin", () => {
     ]);
   });
 
+  it("signs the admin out everywhere when a re-run rotates the password", async () => {
+    await seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME });
+    store.sessions = [
+      { id: "session_admin_1", userId: AUTH_USER_ID },
+      { id: "session_admin_2", userId: AUTH_USER_ID },
+      { id: "session_parent_1", userId: "user_parent_1" },
+    ];
+
+    await seedAdmin({
+      email: EMAIL,
+      password: "a-different-long-password",
+      name: NAME,
+    });
+
+    // A rotation answers a leaked password; a session minted with the old one must not survive it.
+    expect(store.sessions).toEqual([
+      { id: "session_parent_1", userId: "user_parent_1" },
+    ]);
+  });
+
   it("links a credential account to a user left without one", async () => {
-    // The state an earlier run that died between `createUser` and `linkAccount`
-    // leaves behind: an identity that can never sign in.
+    // An earlier run died between `createUser` and `linkAccount`: an identity that can never sign in.
     identity.users.push({ id: AUTH_USER_ID, email: EMAIL, name: NAME });
     identity.accounts.set(AUTH_USER_ID, []);
 
@@ -231,8 +251,7 @@ describe("seedAdmin", () => {
       email: EMAIL,
       name: "Old Name",
       role: "admin",
-      // What `ON DELETE SET NULL` leaves when the identity is deleted: a row that
-      // keeps its review history but cannot sign in.
+      // What `ON DELETE SET NULL` leaves: review history kept, no sign-in.
       authUserId: null,
       createdAt: new Date("2026-08-01T00:00:00.000Z"),
       updatedAt: new Date("2026-08-01T00:00:00.000Z"),
@@ -257,10 +276,23 @@ describe("seedAdmin", () => {
       name: NAME,
     });
 
-    // better-auth stores every email lower-cased, so the domain row has to match
-    // or the second run would create a user it could not find next time.
+    // better-auth lower-cases emails; the domain row must match or the next run creates a duplicate.
     expect(store.admins).toHaveLength(1);
     expect(store.admins[0].email).toBe(EMAIL);
+  });
+
+  it("refuses an email that already belongs to a Google sign-in, so one session is never both a parent and an admin", async () => {
+    identity.users.push({ id: "user_parent_1", email: EMAIL, name: NAME });
+    identity.accounts.set("user_parent_1", [{ providerId: "google" }]);
+
+    await expect(
+      seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME }),
+    ).rejects.toThrow(/Google sign-in/);
+
+    expect(db.adminUpsert).not.toHaveBeenCalled();
+    expect(identity.accounts.get("user_parent_1")).toEqual([
+      { providerId: "google" },
+    ]);
   });
 
   it("refuses a password shorter than the floor, before touching anything", async () => {
@@ -280,9 +312,7 @@ describe("what the stub cannot prove (general.md §5, rule 4)", () => {
   );
 
   it("declares AdminUser.email and AdminUser.authUserId unique", () => {
-    // Idempotency above rests on both: a stubbed table matches on email because
-    // Postgres will, and the link is one-to-one because `authUserId` is unique.
-    // A real test replaces this once the test-database harness exists.
+    // Idempotency rests on both: Postgres matches on email, and `authUserId` is unique. A real test replaces this.
     const model = schema.slice(
       schema.indexOf("model AdminUser {"),
       schema.indexOf("}", schema.indexOf("model AdminUser {")),
@@ -296,8 +326,7 @@ describe("what the stub cannot prove (general.md §5, rule 4)", () => {
       schema.indexOf("model AdminUser {"),
       schema.indexOf("}", schema.indexOf("model AdminUser {")),
     );
-    // `Cascade` here would delete the AdminUser row with the identity and take
-    // `AIGenerationJob.reviewer` with it (FR-AI-08).
+    // `Cascade` would delete the AdminUser with the identity and take `AIGenerationJob.reviewer` with it.
     expect(model).toContain("onDelete: SetNull");
   });
 });

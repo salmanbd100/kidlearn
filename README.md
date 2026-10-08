@@ -57,9 +57,11 @@ kidlearn/
 │   └── server/     # Express API — progress, quiz responses, AI pipeline
 │       └── src/openapi/   # OpenAPI document served at /docs
 ├── packages/
-│   ├── ui/         # Shared React components
+│   ├── ui/         # Theme-agnostic React primitives — web-only by design (mobile-app-plan.md §4.2)
 │   ├── types/      # Shared Zod schemas — activity/quiz payloads + API contracts (src/api/)
 │   ├── db/         # Prisma schema + client (PostgreSQL)
+│   ├── i18n/       # en/bn UI strings — one copy for web and mobile
+│   ├── tokens/     # Design-token values — tokens.css is generated from them
 │   └── config/     # Shared TS configs
 ├── docker/         # Local Postgres init scripts
 └── document/       # Full requirements spec, design decisions, DB design
@@ -71,7 +73,7 @@ kidlearn/
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) 22+
+- [Node.js](https://nodejs.org) 22 — the major in `.nvmrc` (`nvm use` picks it up); pnpm warns on any other, from `engines` in `package.json`
 - [pnpm](https://pnpm.io) 9+ — install with `npm install -g pnpm`
 - [Docker Desktop](https://docs.docker.com/desktop/) — runs the local PostgreSQL. You can point at a hosted Supabase instance instead, but Docker is the shortest path to a working checkout.
 
@@ -185,6 +187,7 @@ pnpm format       # Apply Biome fixes
 pnpm typecheck    # tsc --noEmit per package
 pnpm test         # Vitest across every package
 pnpm test:coverage # ...with a coverage report per package (what CI runs)
+pnpm --filter server test:db  # *.db.test.ts against Postgres (needs docker compose up -d postgres)
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:migrate   # Run DB migrations
 pnpm db:studio    # Open Prisma Studio (DB browser)
@@ -214,7 +217,7 @@ Port conflicts belong in `docker-compose.override.yml` — see step 2.
 
 ### CI
 
-`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every pull request and every push to `main` or `dev`. It needs no secrets and no database. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
+`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck`, `pnpm test:coverage` and `pnpm --filter server test:db` as one `gates` job on every pull request and every push to `main` or `dev`. It needs no secrets; the database tests run against a `postgres:16-alpine` service container, and every other step opens no database connection. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
 
 ### Production build
 

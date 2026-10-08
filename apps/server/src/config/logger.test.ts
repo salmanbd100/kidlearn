@@ -1,4 +1,3 @@
-/** What the log stream is not allowed to contain (file 30). */
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 import { REDACTED_LOG_PATHS } from "./logger.js";

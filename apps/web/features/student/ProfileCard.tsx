@@ -1,5 +1,6 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
@@ -10,12 +11,9 @@ import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/features/children/avatars";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
-
-// How a child says "that one is me" (FR-AUTH-06).
 
 const profileCardVariants = cva(
-  "flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+  "flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring disabled:pointer-events-none disabled:opacity-50",
 );
 
 /** Big enough to recognise across a room; the tap target is the card around it. */
@@ -40,9 +38,7 @@ export function ProfileCard({
   const character = avatars.find(
     (avatar) => avatar.id === child.avatarCharacterId,
   );
-  // A retired character leaves the profile pointing at nothing renderable — the
-  // column is nullable precisely so that can happen — so fall back rather than
-  // render a hole where a child expects their face.
+  // A retired character leaves the (nullable) column pointing at nothing renderable; fall back rather than render a hole where a child expects their face.
   const art = character ? avatarArtFor(character.slug) : FALLBACK_AVATAR_ART;
   const hasImage = character?.imageUrl != null;
 

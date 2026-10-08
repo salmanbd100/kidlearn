@@ -1,41 +1,26 @@
 /**
- * The publishing workflow's matrix (file 32, FR-CMS-06).
+ * Every one of the 36 transition cells is asserted, not a sample: this decides
+ * whether something a five-year-old can see may become visible, and the
+ * `rejected → published` cell in particular must stay refused.
  *
- * Every one of the 36 cells is asserted, not a sample. This is the only place in
- * the product that decides whether something a five-year-old can see is allowed
- * to become visible, and a matrix tested by example is a matrix with untested
- * cells — the `rejected → published` cell in particular, which is the one an
- * author under deadline pressure would most like to exist.
- *
- * The matrix itself needs no Prisma: it is data and the functions over it are
- * pure, which is exactly why it lives in a service rather than inside a route
- * handler.
- *
- * File 37's `assertAiPublishable` is the exception and is covered at the foot of
- * this file. It has to read the creating job, so this suite stubs
- * `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One `jobs` array the tests write rows into, read
- *     back by id. No queued `mockResolvedValue` chain: the point of every case is
- *     which *combination* of a job's status and decision opens the gate, and a
- *     queued answer would assert nothing about that.
- *  2. *Assert the query, not just the result.* The claim here is a refusal, so
- *     each case asserts the thrown `details.code` and the job state that produced
- *     it — including the `edit_then_approve`-without-approval case, which is the
- *     one a decision-only check would let through.
- *  3. *`where` clauses are not the whole guard.* Not applicable: nothing here
- *     reads student-facing content.
- *  4. *Name what the stub cannot prove.* That the guard actually runs on a real
- *     publish is a property of the two call sites, asserted over HTTP in
- *     `modules/admin/content/content.routes.test.ts` and `modules/admin/ai/ai-review.routes.test.ts`.
+ * The matrix is pure data. `assertAiPublishable` (FR-AI-07) reads the creating
+ * job, so that part stubs `config/prisma.js` under the general.md §5 stub
+ * exception: one `jobs` array tests write into (rule 1), refusals asserted by
+ * `details.code` and job state (rule 2). That the guard runs on a real publish is
+ * asserted over HTTP in `modules/admin/content/content.routes.test.ts` and
+ * `modules/admin/ai/ai-review.routes.test.ts` (rule 4).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../shared/errors/errors.js";
 
 const store = vi.hoisted(() => ({
   jobs: [] as { id: string; status: string; decision: string | null }[],
-  questions: [] as { quizId: string; aiJobId: string | null }[],
+  questions: [] as {
+    quizId: string;
+    aiJobId: string | null;
+    definition?: unknown;
+  }[],
+  mediaAssets: [] as { url: string; aiJobId: string | null }[],
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -45,19 +30,14 @@ vi.mock("../../config/prisma.js", () => ({
         store.jobs.filter((job) => where.id.in.includes(job.id)),
     },
     quizQuestion: {
-      // `distinct: ["aiJobId"]` is part of the query under test — a stub that
-      // ignored it would pass a guard that shipped duplicate ids to the database.
-      findMany: async ({ where }: { where: { quizId: string } }) => {
-        const seen = new Set<string>();
-        return store.questions
-          .filter((one) => one.quizId === where.quizId && one.aiJobId !== null)
-          .filter((one) => {
-            if (seen.has(one.aiJobId as string)) return false;
-            seen.add(one.aiJobId as string);
-            return true;
-          })
-          .map((one) => ({ aiJobId: one.aiJobId }));
-      },
+      findMany: async ({ where }: { where: { quizId: string } }) =>
+        store.questions
+          .filter((one) => one.quizId === where.quizId)
+          .map((one) => ({ aiJobId: one.aiJobId, definition: one.definition })),
+    },
+    mediaAsset: {
+      findMany: async ({ where }: { where: { url: { in: string[] } } }) =>
+        store.mediaAssets.filter((asset) => where.url.in.includes(asset.url)),
     },
   },
 }));
@@ -70,15 +50,12 @@ const {
   CONTENT_STATUS_VALUES,
   canTransition,
   nextStatuses,
-  readQuizAiJobIds,
+  collectAssetUrls,
+  readQuizGuard,
   routeToStatus,
 } = await import("./content-status.service.js");
 
-/**
- * The matrix restated as a set of "from → to" strings, transcribed from the table
- * in `document/implementation/32-admin-curriculum-management.md` rather than read
- * back out of `ALLOWED_TRANSITIONS`.
- */
+// The matrix written out by hand rather than read back from `ALLOWED_TRANSITIONS`.
 const ALLOWED_CELLS = new Set([
   "draft→in_review",
   "draft→archived",
@@ -108,17 +85,14 @@ describe("canTransition", () => {
   });
 
   it("refuses every self-transition", () => {
-    // The diagonal is `—` in the spec table, not `✅`. A no-op transition would
-    // otherwise re-stamp `updatedBy` and `updatedAt` and look like a review step
-    // that nobody performed.
+    // The diagonal is empty: a no-op transition would re-stamp `updatedBy`/`updatedAt` and look like a review nobody performed.
     for (const status of CONTENT_STATUS_VALUES) {
       expect(canTransition(status, status)).toBe(false);
     }
   });
 
   it("keeps rejected content at least three hops from published", () => {
-    // The re-review rule (FR-CMS-06). Rejected work cannot be published by
-    // undoing the rejection; it has to be reworked and reviewed again.
+    // Re-review rule (FR-CMS-06): rejected work must be reworked and reviewed again, not un-rejected into published.
     expect(canTransition("rejected", "published")).toBe(false);
     expect(canTransition("rejected", "approved")).toBe(false);
     expect(canTransition("rejected", "in_review")).toBe(false);
@@ -165,8 +139,7 @@ describe("assertTransition", () => {
       assertTransition("rejected", "published");
       expect.unreachable("assertTransition should have thrown");
     } catch (error) {
-      // Narrowed by the assertions below rather than by a cast: a wrong error
-      // type must fail the test, not be asserted into the right shape.
+      // Narrowed by the assertions below, not a cast: a wrong error type must fail the test.
       expect(error).toMatchObject({
         statusCode: 409,
         code: "CONFLICT",
@@ -186,16 +159,32 @@ describe("assertTransition", () => {
 });
 
 describe("assertEditable", () => {
-  it.each(
-    CONTENT_STATUS_VALUES.filter((status) => status !== "published"),
-  )("allows an edit at %s", (status) => {
+  it.each([
+    "draft",
+    "rejected",
+    "archived",
+  ] as const)("allows an edit at %s", (status) => {
     expect(() => assertEditable(status)).not.toThrow();
   });
 
+  // An edit does not move the status, so `approved → published` would otherwise ship words the reviewer never saw.
+  it.each([
+    "in_review",
+    "approved",
+  ] as const)("refuses an edit at %s, where a review decision rides on the content", (status) => {
+    expect(() => assertEditable(status)).toThrow(
+      expect.objectContaining({
+        statusCode: 409,
+        details: expect.objectContaining({
+          code: "EDIT_REQUIRES_UNPUBLISH",
+          status,
+        }),
+      }),
+    );
+  });
+
   it("refuses an edit to a published row with a 409 that names the way out", () => {
-    // The whole point of the guard: the matrix never sees an edit, because an
-    // edit does not move the status, so a `PATCH` on a live lesson would reach a
-    // child without passing a reviewer again.
+    // The matrix never sees an edit, so a `PATCH` on a live lesson would reach a child without re-review.
     try {
       assertEditable("published");
       expect.unreachable("assertEditable should have thrown");
@@ -213,10 +202,7 @@ describe("assertEditable", () => {
   });
 
   it("offers draft as a way out, so the refusal is actionable", () => {
-    // `allowed` is what the CMS turns into a Withdraw button. If `published`
-    // ever lost its hop to `draft`, a published row would become uneditable with
-    // no path back, and this asserts against that rather than against the
-    // matrix's current shape being merely non-empty.
+    // `allowed` becomes the CMS's Withdraw button: if `published` lost its hop to `draft`, a published row would be uneditable with no way back.
     expect(ALLOWED_TRANSITIONS.published).toContain("draft");
   });
 });
@@ -231,9 +217,7 @@ describe("nextStatuses", () => {
   });
 
   it("hands back a copy, so a caller cannot widen the matrix", () => {
-    // The admin UI renders this list, and a client-side `.push()` reaching the
-    // shared constant would add a transition button the server refuses — and,
-    // worse, would do it for every request the process serves after.
+    // A client-side `.push()` reaching the shared constant would add a transition the server refuses, for every later request.
     const returned = nextStatuses("draft");
     returned.push("published");
 
@@ -241,7 +225,6 @@ describe("nextStatuses", () => {
   });
 });
 
-/** The FR-AI-07 invariant (file 37). */
 describe("assertAiPublishable", () => {
   beforeEach(() => {
     store.jobs = [];
@@ -249,8 +232,7 @@ describe("assertAiPublishable", () => {
   });
 
   it("lets human-authored content through without reading any job", async () => {
-    // No job row exists at all, so a lookup would answer `null` and throw. That
-    // it resolves is what proves the null `aiJobId` short-circuits.
+    // No job row exists, so a lookup would answer `null` and throw; resolving proves the null `aiJobId` short-circuits.
     await expect(assertAiPublishable([null])).resolves.toBeUndefined();
     await expect(assertAiPublishable([])).resolves.toBeUndefined();
   });
@@ -335,16 +317,13 @@ describe("assertAiPublishable", () => {
   }
 
   it("refuses when the row names a job that is not there", async () => {
-    // Unreachable through the foreign key — and still not a reason to publish
-    // unreviewed content if the row somehow outlives its job.
+    // Unreachable through the foreign key, but still not a reason to publish unreviewed content.
     await expect(assertAiPublishable(["missing"])).rejects.toThrow(ApiError);
   });
 
   it("refuses when any one of several jobs is undecided", async () => {
-    // The case the single-`aiJobId` guard could not see: a quiz an admin created
-    // by hand, whose questions a later generation job wrote. The container's own
-    // job is approved and the questions' job is not — publishing the quiz
-    // publishes the questions.
+    // A hand-created quiz whose questions a later generation job wrote: the quiz's
+    // own job is approved and the questions' job is not, so publishing it would publish the questions.
     store.jobs.push(
       { id: "job-container", status: "approved", decision: "approve" },
       { id: "job-questions", status: "awaiting_review", decision: null },
@@ -370,10 +349,13 @@ describe("assertAiPublishable", () => {
   });
 });
 
-/** The questions half of the FR-AI-07 guard. */
-describe("readQuizAiJobIds", () => {
+describe("readQuizGuard", () => {
+  const LIBRARY_IMAGE =
+    "https://res.cloudinary.com/test-cloud/image/upload/a.png";
+
   beforeEach(() => {
     store.questions = [];
+    store.mediaAssets = [];
   });
 
   it("collects the distinct jobs that wrote a quiz's questions", async () => {
@@ -385,20 +367,74 @@ describe("readQuizAiJobIds", () => {
       { quizId: "quiz-2", aiJobId: "job-c" },
     );
 
-    expect((await readQuizAiJobIds("quiz-1")).sort()).toEqual([
-      "job-a",
-      "job-b",
-    ]);
+    const guard = await readQuizGuard("quiz-1");
+
+    expect(guard.aiJobIds.sort()).toEqual(["job-a", "job-b"]);
   });
 
   it("answers nothing for a hand-written quiz", async () => {
     store.questions.push({ quizId: "quiz-1", aiJobId: null });
 
-    expect(await readQuizAiJobIds("quiz-1")).toEqual([]);
+    expect(await readQuizGuard("quiz-1")).toEqual({
+      aiJobIds: [],
+      unregisteredUrls: [],
+    });
+  });
+
+  it("answers for the job behind a library image a question links to", async () => {
+    store.mediaAssets.push({ url: LIBRARY_IMAGE, aiJobId: "job-image" });
+    store.questions.push({
+      quizId: "quiz-1",
+      aiJobId: null,
+      definition: { image: { kind: "image", url: LIBRARY_IMAGE } },
+    });
+
+    expect((await readQuizGuard("quiz-1")).aiJobIds).toEqual(["job-image"]);
+  });
+
+  it("names every link the library does not hold", async () => {
+    store.mediaAssets.push({ url: LIBRARY_IMAGE, aiJobId: null });
+    store.questions.push({
+      quizId: "quiz-1",
+      aiJobId: null,
+      definition: {
+        options: [
+          { image: { kind: "image", url: LIBRARY_IMAGE } },
+          {
+            image: { kind: "image", url: "https://tracker.example.com/p.png" },
+          },
+        ],
+      },
+    });
+
+    expect((await readQuizGuard("quiz-1")).unregisteredUrls).toEqual([
+      "https://tracker.example.com/p.png",
+    ]);
   });
 });
 
-/** The route the review queue drives a row along (file 37). */
+describe("collectAssetUrls", () => {
+  it("finds a url at any depth, once each", () => {
+    const urls = collectAssetUrls({
+      promptAudio: {
+        en: { url: "https://a/en.mp3" },
+        bn: { url: "https://a/bn.mp3" },
+      },
+      options: [
+        { image: { url: "https://a/x.png" } },
+        { image: { url: "https://a/x.png" } },
+      ],
+      text: { en: "url", bn: "url" },
+    });
+
+    expect([...urls].sort()).toEqual([
+      "https://a/bn.mp3",
+      "https://a/en.mp3",
+      "https://a/x.png",
+    ]);
+  });
+});
+
 describe("routeToStatus", () => {
   it("routes a draft to published through review and approval", () => {
     expect(routeToStatus("draft", "published")).toEqual([
@@ -416,8 +452,7 @@ describe("routeToStatus", () => {
   });
 
   it("routes a row somebody published back round to rejected", () => {
-    // The case a fixed chain refused: `published → in_review` is not in the
-    // matrix, so a rejection of live content used to throw and roll back.
+    // `published → in_review` is not in the matrix, so rejecting live content used to throw and roll back.
     expect(routeToStatus("published", "rejected")).toEqual([
       "draft",
       "in_review",
@@ -440,8 +475,7 @@ describe("routeToStatus", () => {
   });
 
   it("walks no hops when the row is already there", () => {
-    // The diagonal is empty in the matrix so an audit trail cannot claim a review
-    // step nobody performed; the route has to respect that rather than re-stamp.
+    // The diagonal is empty so an audit trail cannot claim a review nobody performed; the route must not re-stamp.
     expect(routeToStatus("rejected", "rejected")).toEqual([]);
   });
 

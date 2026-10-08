@@ -1,13 +1,6 @@
 import type { TFunction } from "i18next";
 
-/**
- * "Leo", or "Leo and Mia" — joined through i18next, because the conjunction and
- * the separator are both language-specific.
- *
- * Shared by the lesson celebration and the story finish screen, which now
- * announce the same unlocks: finishing a story runs the same badge and character
- * evaluation a lesson does (FR-GAM-04..05).
- */
+/** Joined through i18next: the conjunction and separator are language-specific. */
 export function unlockNames(
   t: TFunction,
   items: ReadonlyArray<{ name: string }>,

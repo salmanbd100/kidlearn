@@ -58,7 +58,11 @@
       "Bash(pnpm --filter @kidlearn/db build)",
       "Bash(pnpm --filter @kidlearn/ui:*)",
       "Bash(pnpm --filter @kidlearn/types:*)",
+      "Bash(pnpm --filter @kidlearn/i18n:*)",
+      "Bash(pnpm --filter @kidlearn/tokens:*)",
       "Bash(pnpm turbo run:*)",
+      "Bash(docker compose up -d postgres)",
+      "Bash(docker compose ps)",
       "Bash(npx biome check:*)",
       "Bash(npx tsc:*)",
       "Bash(npx vitest:*)",
@@ -100,7 +104,7 @@
       "**Needs confirmation**: any git push (especially to `main`), gh pr create / merge, prisma migrate / db push / db seed against Supabase, Vercel deploys, and anything writing to the hosted database",
       "**Sensitive data**: the packages/db env file holds the Supabase connection strings and apps/server env files hold AI provider keys — never read, print, or echo them; the .example templates are fine",
       "**Local services**: web on http://localhost:3000, server on http://localhost:4000 (Swagger UI at /docs) — local curls against these are routine",
-      "**CI**: .github/workflows/ci.yml runs lint / build / typecheck / test:coverage as one `gates` job on every PR and every push to `main` or `dev` — a PR is not done until it is green (`gh pr checks`). It is not yet a *required* status check; that ruleset rule is pending. Reading CI state is routine; changing repository settings or rulesets needs confirmation"
+      "**CI**: .github/workflows/ci.yml runs lint / build / typecheck / test:coverage / server test:db (against a Postgres service container) as one `gates` job on every PR and every push to `main` or `dev` — a PR is not done until it is green (`gh pr checks`). It is not yet a *required* status check; that ruleset rule is pending. Reading CI state is routine; changing repository settings or rulesets needs confirmation"
     ]
   }
 }

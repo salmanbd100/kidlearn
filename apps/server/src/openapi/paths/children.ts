@@ -1,5 +1,9 @@
 import type { GradeLevel } from "@kidlearn/db";
-import { GRADE_LEVELS, type GradeLevelValue } from "@kidlearn/types";
+import {
+  GRADE_LEVELS,
+  type GradeLevelValue,
+  LEARNING_TIME_RANGES,
+} from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -15,7 +19,7 @@ import {
 } from "../examples.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
-/** `modules/children/children.routes.ts` — `requireParent` guards the whole router. */
+/** `requireParent` guards the whole router. */
 type _GradeLevelsCoverPrisma = GradeLevel extends GradeLevelValue
   ? true
   : never;
@@ -42,7 +46,7 @@ const CHILD_ID_PARAM = pathParam(
 const LEARNING_TIME_RANGE_PARAM = queryParam(
   "range",
   "Which window to measure. `today` is a calendar day in the deployment's `APP_TIMEZONE`, `week` starts Monday, `month` is the calendar month. Required — there is no default, because a silent one would leave the returned `from`/`to` as the only clue about which window was actually measured.",
-  { type: "string", enum: ["today", "week", "month"] },
+  { type: "string", enum: [...LEARNING_TIME_RANGES] },
 );
 
 export const CHILDREN_ROUTES: RouteDoc[] = [
@@ -357,9 +361,7 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
       parameters: [CHILD_ID_PARAM],
       requestBody: jsonRequestBody(
         "UpdateChildBody",
-        // JSON Schema cannot express the `.refine()` this schema carries, and
-        // zod-to-json-schema drops it silently — so it is restated here or the
-        // spec would claim `{}` is a valid body.
+        // Restated: zod-to-json-schema silently drops the `.refine()`, so the spec would claim `{}` is valid.
         "Every field is optional, but **at least one must be present**: an empty object is rejected with `400 VALIDATION_FAILED` and the message `At least one field required`. That rule is a Zod refinement with no JSON Schema equivalent, so the schema below cannot show it.",
       ),
       responses: {
@@ -425,5 +427,4 @@ export const CHILDREN_ROUTES: RouteDoc[] = [
   },
 ];
 
-/** Re-exported for the document's `description`, which lists the legal grades. */
 export const DOCUMENTED_GRADE_LEVELS = GRADE_LEVELS;

@@ -1,20 +1,18 @@
 "use client";
 
+import { LESSON_NAMESPACE } from "@kidlearn/i18n";
 import { ArrowRight, Moon } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
-import { LESSON_NAMESPACE } from "@/shared/lib/i18n";
 
-/** The way out of an activity that cannot be played (FR-ACT-06). */
 export function ActivityUnavailable({
   message,
   audioUrl,
   onSkip,
 }: {
   message: string;
-  /** Spoken on arrival. Omitted where there is nothing to apologise for. */
   audioUrl?: string;
   onSkip: () => void;
 }) {

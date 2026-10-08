@@ -1,11 +1,6 @@
 /**
- * See the note at the top of `shared/middleware/require-parent.test.ts`: no test
- * database exists yet, so `config/prisma.js` is stubbed. That limits what this
- * suite can prove — it asserts the *order and scope* of the deletes and that
- * they all run inside one transaction, but the cascade from `ChildProfile` to
- * the eight child-owned tables is a database guarantee (declared in
- * `schema.prisma`) that only a real-database test can verify. Rewrite these as
- * row-count assertions when the test-database harness lands.
+ * Stubs `config/prisma.js` per the stub exception in `document/standards/general.md §5`. Asserts the order and scope of the deletes
+ * inside one transaction; the cascade to the child-owned tables is proven in `account-deletion.service.db.test.ts`.
  */
 import type { Parent } from "@kidlearn/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +9,7 @@ const db = vi.hoisted(() => ({
   parentUpdate: vi.fn(),
   childProfileDeleteMany: vi.fn(),
   parentDelete: vi.fn(),
+  parentUpdateMany: vi.fn(),
   userDelete: vi.fn(),
   transaction: vi.fn(),
 }));
@@ -50,10 +46,9 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
   };
 }
 
-/** The transaction client the mocked `$transaction` hands to the callback. */
 const tx = {
   childProfile: { deleteMany: db.childProfileDeleteMany },
-  parent: { delete: db.parentDelete },
+  parent: { delete: db.parentDelete, updateMany: db.parentUpdateMany },
   user: { delete: db.userDelete },
 };
 
@@ -96,6 +91,7 @@ describe("confirmAccountDeletion", () => {
   beforeEach(() => {
     db.childProfileDeleteMany.mockReset().mockResolvedValue({ count: 2 });
     db.parentDelete.mockReset().mockResolvedValue(parentRow());
+    db.parentUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     db.userDelete.mockReset().mockResolvedValue({ id: "user_1" });
     db.transaction
       .mockReset()
@@ -106,6 +102,39 @@ describe("confirmAccountDeletion", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("lets only one of two concurrent confirmations erase the account", async () => {
+    // Both pass the in-memory token check against the same loaded row; the
+    // conditional claim inside the transaction is what separates them.
+    db.parentUpdateMany.mockResolvedValue({ count: 0 });
+    const parent = parentRow({
+      deleteToken: VALID_TOKEN,
+      deleteTokenExpiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await expect(
+      confirmAccountDeletion(parent, VALID_TOKEN),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(db.parentUpdateMany).toHaveBeenCalledWith({
+      where: { id: "parent_1", deleteToken: VALID_TOKEN },
+      data: { deleteToken: null, deleteTokenExpiresAt: null },
+    });
+    expect(db.childProfileDeleteMany).not.toHaveBeenCalled();
+    expect(db.parentDelete).not.toHaveBeenCalled();
+  });
+
+  it("gives the erasure transaction more than Prisma's 5 s default", async () => {
+    const parent = parentRow({
+      deleteToken: VALID_TOKEN,
+      deleteTokenExpiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await confirmAccountDeletion(parent, VALID_TOKEN);
+
+    const options = db.transaction.mock.calls[0][1] as { timeout: number };
+    expect(options.timeout).toBeGreaterThan(5_000);
   });
 
   it("refuses when no deletion was ever requested", async () => {

@@ -1,26 +1,13 @@
 /**
- * The AI Quiz Generator (file 35, FR-AI-03, FR-AI-07).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
- *     The `sortOrder` assertions read back what the generator wrote against what
- *     was already there, which is the whole point of the append.
- *  2. *Assert the query, not just the result.* Two claims are asserted as queries
- *     rather than results: that no `create` names a `status` (the draft default is
- *     what keeps a generated question out of a child's quiz), and that a published
- *     quiz is refused before any job row exists.
- *  3. *`where` clauses are not the whole guard.* Not applicable: this file writes.
- *     That a draft quiz's questions never reach a child is asserted in
- *     `modules/content/content.routes.test.ts`.
- *  4. *Name what the stub cannot prove.* `@@unique([quizId, sortOrder])` is a
- *     database constraint; what is asserted here is the append the generator does
- *     in front of it. And that a failed `persist` leaves nothing behind is
- *     Postgres's transaction guarantee — the stub runs the callback and rethrows.
- *
- * The Gemini client is mocked, which `general.md §5` permits explicitly:
- * external network boundaries are the one allowed mock.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: arrays per table, writes land in them; `sortOrder` assertions read back what was
+ *     written against what was already there.
+ *  2. Assert the query: no `create` names a `status` (the draft default keeps generated questions from a child),
+ *     and a published quiz is refused before any job row exists.
+ *  3. `include` gates: not applicable, this file writes (`content.routes.test.ts` covers drafts never reaching a child).
+ *  4. Not provable: `@@unique([quizId, sortOrder])` is a database constraint (we assert the append in front of it);
+ *     a failed `persist` leaving nothing behind is Postgres's guarantee, the stub runs the callback and rethrows.
+ * The Gemini client is mocked (external boundary).
  */
 
 import {
@@ -72,19 +59,17 @@ vi.mock("../../../../config/prisma.js", () => {
       },
     },
     quiz: {
-      // Read live off the store rather than from a snapshot, which is what lets a
-      // test publish the quiz mid-generation and have the write see it.
+      // Read live off the store, so a test can publish the quiz mid-generation and have the write see it.
       findUnique: async ({ where }: { where: { id: string } }) =>
         store.quizzes.find((one) => one.id === where.id) ?? null,
       create: async ({ data }: { data: Record<string, unknown> }) => {
         store.creates.push({ table: "quiz", data });
-        // `lessons: { connect: ... }` is the pointer the real client writes onto
-        // `Lesson.quizId`; the stub does the same so the link is observable.
-        const { lessons, ...columns } = data;
+        // The pointer the real client writes onto `Lesson.quizId`, so the link is observable.
+        const { lesson: lessonLink, ...columns } = data;
         const row: Row = { id: nextId("quiz"), status: "draft", ...columns };
         store.quizzes.push(row);
 
-        const connect = (lessons as { connect?: { id: string } } | undefined)
+        const connect = (lessonLink as { connect?: { id: string } } | undefined)
           ?.connect;
         if (connect) {
           const lesson = store.lessons.find((one) => one.id === connect.id);
@@ -121,6 +106,10 @@ vi.mock("../../../../config/prisma.js", () => {
       },
     },
     aIGenerationJob: {
+      // Stale-job sweep that precedes every run; nothing is old enough.
+      updateMany: async () => ({ count: 0 }),
+      // The cap check reads today's spend; these suites exercise one job at a time.
+      count: async () => 0,
       findUnique: async ({ where }: { where: { id: string } }) =>
         store.jobs.find((one) => one.id === where.id) ?? null,
       create: async ({ data }: { data: Record<string, unknown> }) => {
@@ -155,20 +144,12 @@ const LESSON_ID = "11111111-1111-4111-8111-111111111111";
 const LESSON_JOB_ID = "job-lesson-1";
 const USAGE = { inputTokens: 800, outputTokens: 1600 };
 
-/** Four questions across four formats — the shape the prompt asks for. */
 function validQuestions() {
   return [validMcq, validMatchPair, validDragAnswer, validPictureSelect];
 }
 
-/**
- * Answers one question per call, in the order `generators/quiz.ts` asks for them,
- * for as many attempts as the job takes. Every attempt makes the same number of
- * calls, because the count is fixed before the job starts.
- */
 function mockGeneration(round: (attempt: number) => unknown[]) {
-  // Counted from the first real call rather than up front: a round that changes
-  // the world (publishing the quiz mid-generation) must not run before the job
-  // has started.
+  // Counted from the first real call: a round that publishes the quiz mid-generation must not run before the job starts.
   let perAttempt: number | undefined;
   let call = 0;
   ai.generateStructured.mockImplementation(async () => {
@@ -182,7 +163,6 @@ function mockGeneration(round: (attempt: number) => unknown[]) {
   });
 }
 
-/** Every question prompt the job recorded, as one searchable string. */
 function prompts(job: Record<string, unknown>): string {
   return ((job.input as { userPrompts: string[] }).userPrompts ?? []).join(
     "\n",
@@ -265,8 +245,7 @@ describe("what a successful generation writes", () => {
   });
 
   it("stores questions the shared payload parser accepts", async () => {
-    // The acceptance criterion: a generated question read back out of the column
-    // parses with `parseQuizQuestion` — same union the renderer draws from.
+    // Acceptance criterion: a generated question read back parses with `parseQuizQuestion`, the union the renderer draws from.
     await generateQuiz(request());
 
     for (const row of store.questions) {
@@ -321,8 +300,7 @@ describe("the quiz the questions are attached to", () => {
   });
 
   it("appends after the questions already in the quiz", async () => {
-    // `@@unique([quizId, sortOrder])` would refuse a collision, and an admin who
-    // wrote two questions by hand keeps them in front of the generated ones.
+    // An admin's hand-written questions stay in front of the generated ones; the unique index would refuse a collision.
     store.quizzes = [{ id: "quiz-existing", status: "draft" }];
     store.lessons[0].quizId = "quiz-existing";
     store.questions = [
@@ -340,9 +318,7 @@ describe("the quiz the questions are attached to", () => {
 
 describe("the published-quiz refusal (FR-AI-07)", () => {
   it("refuses with 409 QUIZ_PUBLISHED and creates no job row", async () => {
-    // A `QuizQuestion` has no status of its own, so a generated question appended
-    // to a published quiz would be live the instant it landed — there is no draft
-    // state to hold it and no transition for a reviewer to refuse.
+    // A QuizQuestion has no status, so a question appended to a published quiz would be live instantly: no draft state, no reviewer transition.
     store.quizzes = [{ id: "quiz-live", status: "published" }];
     store.lessons[0].quizId = "quiz-live";
 
@@ -358,10 +334,8 @@ describe("the published-quiz refusal (FR-AI-07)", () => {
   });
 
   it("refuses the write too, when the quiz is published mid-generation", async () => {
-    // The pre-flight check is a snapshot taken tens of seconds before the insert,
-    // because generation is awaited inline. Publishing inside that window is the
-    // one way an appended question reaches a child without review, so the status
-    // is read again under the write transaction.
+    // The pre-flight check is a snapshot taken tens of seconds before the insert; publishing in that window is the one way
+    // an unreviewed question reaches a child, so status is re-read under the write transaction.
     store.quizzes = [{ id: "quiz-draft", status: "draft" }];
     store.lessons[0].quizId = "quiz-draft";
     mockGeneration(() => {
@@ -379,9 +353,7 @@ describe("the published-quiz refusal (FR-AI-07)", () => {
   });
 
   it("keeps the failed job, and names it, when it refuses the write", async () => {
-    // Unlike the pre-flight refusal there *is* a job here — the model was paid
-    // for — so it is failed rather than hidden, and the 409 carries its id
-    // (FR-AI-08).
+    // Unlike the pre-flight refusal a job exists here (the model was paid for), so it is failed, not hidden, and the 409 carries its id (FR-AI-08).
     store.quizzes = [{ id: "quiz-draft", status: "draft" }];
     store.lessons[0].quizId = "quiz-draft";
     mockGeneration(() => {
@@ -397,8 +369,7 @@ describe("the published-quiz refusal (FR-AI-07)", () => {
   });
 
   it("allows a quiz that is in review or approved but not yet live", async () => {
-    // Only `published` is visible to a child; the earlier states are exactly the
-    // window in which an admin is still assembling the quiz.
+    // Only published is visible to a child; earlier states are the window where an admin is still assembling the quiz.
     store.quizzes = [{ id: "quiz-review", status: "in_review" }];
     store.lessons[0].quizId = "quiz-review";
 
@@ -434,8 +405,7 @@ describe("what the prompt is grounded in", () => {
   });
 
   it("falls back to the intro scripts and says so, for a hand-authored lesson", async () => {
-    // An intro is a greeting rather than a lesson, so naming the gap in the prompt
-    // is what stops the model inventing material a child was never shown.
+    // An intro is a greeting, so naming the gap stops the model inventing material a child was never shown.
     await generateQuiz(request());
 
     const asked = prompts(store.jobs[0]);
@@ -463,8 +433,7 @@ describe("what the prompt is grounded in", () => {
   });
 
   it("quotes one format per prompt, because a question is asked for one at a time", async () => {
-    // The whole four-format union is past what `responseJsonSchema` accepts — see
-    // `generate-questions.ts` — so each call carries only the format it asks for.
+    // The four-format union exceeds responseJsonSchema (see generate-questions.ts), so each call carries only its format.
     await generateQuiz(request());
 
     const asked = (store.jobs[0].input as { userPrompts: string[] })
@@ -479,8 +448,7 @@ describe("what the prompt is grounded in", () => {
 
 describe("asset URLs", () => {
   it("rewrites every generated URL onto the reserved placeholder host", async () => {
-    // A plausible-looking CDN address would survive a review that read the words
-    // rather than the links, and a text model can neither draw nor record.
+    // A plausible CDN address would survive a review that read words rather than links, and a text model can neither draw nor record.
     mockGeneration(() => [
       {
         ...validMcq,
@@ -501,7 +469,7 @@ describe("asset URLs", () => {
 
     const serialised = JSON.stringify(creates("quizQuestion"));
     expect(serialised).not.toContain("cdn.evil.example");
-    // The path survives, so file 36 can still see what the clip was meant to be.
+    // The path survives so each clip's intent is still visible.
     expect(serialised).toContain(`${PLACEHOLDER_ASSET_HOST}/audio/en/q1.mp3`);
   });
 });

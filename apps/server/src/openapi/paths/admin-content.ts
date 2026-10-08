@@ -10,10 +10,6 @@ import {
 } from "../components.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/admin/content/content.routes.ts` — the curriculum CMS (file 32, FR-CURR-04,
- * FR-CMS-01, FR-CMS-06).
- */
 type _StatusesCoverPrisma = ContentStatus extends ContentStatusValue
   ? true
   : never;
@@ -26,7 +22,6 @@ const _contentStatusMirrorIsExhaustive: [
 ] = [true, true];
 void _contentStatusMirrorIsExhaustive;
 
-/** The `403` every operation under `/api/admin` shares. */
 const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   "Authenticated, but not an administrator. Every signed-in *parent* lands here — see `GET /api/admin/me` for why a valid session is not enough.",
   ["FORBIDDEN"],
@@ -38,28 +33,20 @@ const NOT_FOUND_RESPONSE = errorResponse(
 );
 
 const SLUG_CONFLICT_RESPONSE = errorResponse(
-  "The slug is already taken. `error.details.code` is `DUPLICATE_SLUG`. Slugs are unique per model for worlds and subjects, and unique *within a parent* for topics and lessons.",
+  "The slug is already taken (`error.details.code` is `DUPLICATE_SLUG`), or — on a lesson — the quiz is already linked to another lesson (`QUIZ_IN_USE`). Slugs are unique per model for worlds and subjects, and unique *within a parent* for topics and lessons; a quiz belongs to at most one lesson.",
   ["CONFLICT"],
 );
 
-/**
- * An edit has two ways to conflict, and `error.details.code` is what tells them
- * apart on one status code.
- */
+/** An edit has two ways to conflict; `error.details.code` tells them apart on one status. */
 const EDIT_CONFLICT_RESPONSE = errorResponse(
   [
-    'Either the slug is taken (`code: "DUPLICATE_SLUG"` — unique per model for worlds and subjects, unique *within a parent* for topics and lessons), or the row is `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
+    'Either the slug is taken (`code: "DUPLICATE_SLUG"` — unique per model for worlds and subjects, unique *within a parent* for topics and lessons), the quiz is already linked to another lesson (`code: "QUIZ_IN_USE"`, lessons only), or the row is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
     "",
     "**A published row refuses an edit.** The transition matrix guards the act of publishing, not the content that stays published afterwards, so without this a `PATCH` could rewrite a live lesson and reach a child without passing a reviewer again. Withdraw first — `published → draft` — then edit, then come back through `draft → in_review → approved → published`. `allowed` carries those first hops so a client can offer the withdrawal rather than only reporting the refusal.",
   ].join("\n"),
   ["CONFLICT"],
 );
 
-/**
- * The one paragraph that has to appear on every create and edit operation, and
- * the reason this file exists as a generator rather than four copies.
- */
-/** `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07). */
 const JOB_ID_QUERY_NOTE =
   "**`?jobId=…`** records `edit_then_approve` on that AI generation job (FR-AI-07), for a save made from the review queue's Edit button. It rides on this request rather than following it as a second call: a client that crashed between the two would leave a rewritten lesson whose audit trail says nobody rewrote it (FR-AI-08). Ignored — never an error — when the job named has already been decided, because the save is real work and the breadcrumb is not. Recording it publishes nothing: the publish guard also requires the job to *be* approved, which only `POST /api/admin/ai/jobs/{id}/approve` writes.";
 
@@ -123,20 +110,15 @@ const AT_LEAST_ONE_FIELD =
   "At least one field is required — an empty body is a `400`. (Zod's refinement carrying that rule is dropped in JSON Schema conversion, so it is stated here rather than visible in the schema below.)";
 
 type ResourceDoc = {
-  /** Path segment and the tail of every schema name. */
   segment: ContentResourceName;
   singular: string;
-  /** Registered component schema names, from `components.ts`. */
   itemSchema: string;
   listSchema: string;
   createBodySchema: string;
   updateBodySchema: string;
-  /** What this resource is, in one sentence, for the list operation. */
   summary: string;
-  /** Anything true of this resource and not the others. */
   notes: string;
   listQueryParams: Array<Record<string, unknown>>;
-  /** `false` for worlds, which have no `sortOrder`. */
   isOrderable: boolean;
 };
 
@@ -232,14 +214,12 @@ const RESOURCES: ResourceDoc[] = [
   },
 ];
 
-/** Responses shared by every operation here, in the order they are documented. */
 const GUARD_RESPONSES = {
   "401": UNAUTHORIZED_RESPONSE,
   "403": ADMIN_FORBIDDEN_RESPONSE,
   "500": INTERNAL_RESPONSE,
 };
 
-/** `worlds` → `Worlds`, `world` → `World`, for the generated `operationId`s. */
 function pascal(segment: string): string {
   return segment.charAt(0).toUpperCase() + segment.slice(1);
 }
@@ -342,7 +322,7 @@ function docsFor(resource: ResourceDoc): RouteDoc[] {
         description: [
           `Partial edit. ${AT_LEAST_ONE_FIELD}`,
           "",
-          "**A `published` row refuses an edit** with a `409` — withdraw it to `draft` first. See that response below for why.",
+          "**An `in_review`, `approved` or `published` row refuses an edit** with a `409` — move it back to `draft` first. See that response below for why.",
           "",
           NO_STATUS_IN_BODY,
           "",

@@ -80,9 +80,8 @@ describe("PictureSelectQuestion", () => {
     expect(screen.getByRole("img", { name: "একটি ত্রিভুজ" })).toBeInTheDocument();
   });
 
-  // `alt` is optional on the schema, so this payload is one an author can
-  // publish. A card left with no accessible name at all would be a button a
-  // screen reader reads as "button" and voice control cannot address.
+  // `alt` is optional on the schema; a card with no accessible name reads as "button" and voice
+  // control cannot address it.
   it("still names a picture the payload never described", () => {
     renderQuestion("en", {
       ...validPictureSelect,

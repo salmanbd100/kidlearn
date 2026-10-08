@@ -10,10 +10,8 @@ import {
 } from "./geometry";
 
 /**
- * Runs in node, not jsdom: nothing here touches an `SVGPathElement`, which is
- * the reason `svg-path-properties` is a dependency at all (jsdom implements no
- * `getPointAtLength`). If a change to this module makes these tests need a DOM,
- * the change has put geometry in the wrong file.
+ * Runs in node, not jsdom: nothing here may touch an `SVGPathElement` (jsdom has no
+ * `getPointAtLength`).
  */
 
 describe("splitStrokes", () => {
@@ -33,8 +31,7 @@ describe("splitStrokes", () => {
   });
 
   it("resolves a relative moveto against the previous stroke's end point", () => {
-    // Without the resolution the second stroke would start at (5,5) instead of
-    // (35,15), so the child would be asked to trace it in the wrong place.
+    // Without resolution the second stroke would start at (5,5), not (35,15).
     const [, second] = splitStrokes("M10 10 l20 0 m5 5 l10 10");
     expect(samplePath(second ?? "", 2)[0]).toEqual({ x: 35, y: 15 });
   });
@@ -50,8 +47,7 @@ describe("splitStrokes", () => {
   });
 
   it("falls back to document order when strokeOrder misses a stroke", () => {
-    // A payload the child could otherwise never finish: stroke 1 is never
-    // reachable, so the glyph would stay half-traced forever.
+    // Stroke 1 is unreachable, so the glyph would stay half-traced forever.
     const strokes = splitStrokes("M0 0 L10 0 M0 50 L10 50", [0]);
     expect(strokes).toHaveLength(2);
     expect(samplePath(strokes[0] ?? "", 2)[0]).toEqual({ x: 0, y: 0 });
@@ -76,8 +72,7 @@ describe("splitStrokes", () => {
     expect(splitStrokes("L10 10")).toEqual([]);
   });
 
-  // The canonical payloads the CMS and the AI prompts are modelled on. If either
-  // stops splitting the way its `strokeOrder` claims, the content is the problem.
+  // If a canonical payload stops splitting as its `strokeOrder` claims, the content is the problem.
   it("splits the canonical capital A into its three authored strokes", () => {
     expect(
       splitStrokes(validTrace.pathData, validTrace.strokeOrder),
@@ -107,7 +102,6 @@ describe("samplePath", () => {
   });
 
   it("still yields two points for a zero-length path", () => {
-    // A degenerate stroke must not divide by zero — the child simply taps it.
     const points = samplePath("M20 20 L20 20", 2);
     expect(points).toEqual([
       { x: 20, y: 20 },
@@ -144,8 +138,8 @@ describe("glyphFrameOf", () => {
   });
 
   it("scales the unit with the glyph's own coordinate range", () => {
-    // The canonical "A" fixture is authored in a 0–200 space. A tolerance of 12
-    // has to mean the same fraction of the glyph there as it does in 0–100.
+    // The "A" fixture is authored in 0–200; a tolerance of 12 must mean the same fraction there as
+    // in 0–100.
     const doubled = [
       { x: 0, y: 0 },
       { x: 200, y: 200 },

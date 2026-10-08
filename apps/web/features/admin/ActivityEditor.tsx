@@ -2,7 +2,7 @@
 
 import type { ActivityType, Locale } from "@kidlearn/types";
 import { ACTIVITY_SCHEMAS, ACTIVITY_TYPES, LOCALES } from "@kidlearn/types";
-import { Button, Input, Label, Select } from "@kidlearn/ui";
+import { Button, Input, Label, Select, ThemeScope } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { ActivityEngine } from "@/features/activities/ActivityEngine";
 import { LOCALE_LABELS } from "@/features/admin/admin-labels";
@@ -18,8 +18,6 @@ import {
 } from "./activity-draft";
 import { MediaPicker } from "./MediaPicker";
 import { type IssueMap, toIssueMap } from "./payload-issues";
-
-// The guided activity form (FR-ACT-06, FR-CMS-03's sibling).
 
 const TYPE_LABELS: Record<ActivityType, string> = {
   drag_drop: "Drag and drop",
@@ -49,9 +47,7 @@ export function ActivityEditor({
   const [previewLocale, setPreviewLocale] = useState<Locale>("en");
 
   const definition = useMemo(() => compileActivity(draft), [draft]);
-  // The member schema the chosen type names, never the union — see
-  // `QuizQuestionEditor` and `ACTIVITY_SCHEMAS` for why a union's single
-  // root-level issue leaves every message with nowhere to land.
+  // Member schema, not the union: a failed union is one root-level issue, leaving messages nowhere to land.
   const parsed = useMemo(
     () => ACTIVITY_SCHEMAS[draft.type].safeParse(definition),
     [definition, draft.type],
@@ -262,8 +258,7 @@ export function ActivityEditor({
               field={draft.type === "match" ? "rightSet" : "targets"}
               legend={draft.type === "match" ? "Right set" : "Drop zones"}
               items={draft.targets}
-              // A drop zone always shows a picture; a `match` right-hand item does
-              // not have to (FR-ACT-03).
+              // A drop zone always shows a picture; a `match` right-hand item need not.
               isImageRequired={draft.type === "drag_drop"}
               issues={issues}
               isBusy={isBusy}
@@ -320,7 +315,7 @@ export function ActivityEditor({
         {issues.unplaced.length > 0 ? (
           <div
             role="alert"
-            className="flex flex-col gap-1 rounded-[var(--radius)] border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-xs"
+            className="flex flex-col gap-1 rounded-(--radius) border border-destructive bg-destructive/10 px-3 py-2 text-destructive text-xs"
           >
             {issues.unplaced.map((message) => (
               <span key={message}>{message}</span>
@@ -369,20 +364,18 @@ export function ActivityEditor({
           </div>
         </div>
 
-        <div
-          data-theme="kid"
-          className="min-h-[420px] overflow-hidden rounded-[var(--radius)] border border-border bg-background"
+        <ThemeScope
+          theme="kid"
+          className="min-h-[420px] overflow-hidden rounded-(--radius) border border-border bg-background"
         >
           {parsed.success ? (
             <ActivityEngine
-              // Keyed on the payload so a change restarts the activity rather
-              // than mutating one already in progress.
+              // Keyed on the payload so a change restarts the activity.
               key={`${JSON.stringify(parsed.data)}-${previewLocale}`}
               definition={parsed.data}
               locale={previewLocale}
               onComplete={() => {
-                // A preview records nothing. In a lesson it is `ActivityStep`
-                // that reports the step, not the engine.
+                // A preview records nothing; `ActivityStep` reports the step in a lesson.
               }}
             />
           ) : (
@@ -390,13 +383,12 @@ export function ActivityEditor({
               The preview appears once the activity is valid.
             </p>
           )}
-        </div>
+        </ThemeScope>
       </aside>
     </div>
   );
 }
 
-/** Assigning `""` clears the mapping rather than storing an empty target id. */
 function withMapping(
   mapping: Record<string, string>,
   itemId: string,
@@ -420,7 +412,7 @@ function Fieldset({
   children: React.ReactNode;
 }) {
   return (
-    <fieldset className="flex flex-col gap-3 rounded-[var(--radius)] border border-border p-3">
+    <fieldset className="flex flex-col gap-3 rounded-(--radius) border border-border p-3">
       <legend className="px-1 font-semibold text-foreground text-sm">
         {legend}
       </legend>
@@ -472,7 +464,6 @@ function Field({
   );
 }
 
-/** The waypoints a finger is snapped to, in trace order. */
 function GuideDots({
   dots,
   error,
@@ -489,8 +480,7 @@ function GuideDots({
       <span className="font-medium text-foreground text-sm">Guide dots</span>
       {dots.map((dot, index) => (
         <div
-          // Position *is* the identity here: the dots are an ordered path, and two
-          // waypoints may legitimately share coordinates.
+          // Position is the identity: waypoints may share coordinates.
           // biome-ignore lint/suspicious/noArrayIndexKey: see above.
           key={index}
           className="flex items-end gap-2"
@@ -582,7 +572,7 @@ function ItemList({
       {items.map((item, index) => (
         <div
           key={item.id}
-          className="flex flex-col gap-3 rounded-[var(--radius)] bg-muted/40 p-3"
+          className="flex flex-col gap-3 rounded-(--radius) bg-muted/40 p-3"
         >
           <Field
             id={`${field}-${index}-id`}
@@ -635,9 +625,7 @@ function ItemList({
               ))
             : null}
 
-          {/* Optional, and only meaningful as a pair: the schema requires both
-              locales or neither, because a label a child hears in one language and
-              not the other is worse than one they hear in neither. */}
+          {/* Both locales or neither: a label heard in one language only is worse than none. */}
           {LOCALES.map((locale) => (
             <MediaPicker
               key={locale}

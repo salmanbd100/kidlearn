@@ -12,25 +12,35 @@ import {
   notFoundHandler,
 } from "./shared/middleware/error-handler.js";
 import { requestLogger } from "./shared/middleware/request-logger.js";
+import {
+  apiRateLimit,
+  rejectCrossOriginWrites,
+  securityHeaders,
+} from "./shared/middleware/security.js";
 
-/**
- * Builds the Express application without binding a port, so tests can drive it
- * through Supertest. Middleware order is load-bearing: logging first (so every
- * request is recorded, including rejected ones), then CORS, then the auth
- * routes, then body parsing, then routes, then the two terminal handlers.
- */
+/** Middleware order is load-bearing: the rate limit follows CORS so a browser can read the 429. */
 export function buildApp(): Express {
   const app = express();
 
   app.disable("x-powered-by");
 
+  // Behind Caddy `req.protocol` is `http`, so better-auth would not set a `Secure` cookie. One hop,
+  // not `true`: trusting the whole chain lets a client forge `req.ip` via `X-Forwarded-For`.
+  if (env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
+
   app.use(requestLogger);
+  app.use(securityHeaders);
   app.use(
     cors({
       origin: [env.WEB_ORIGIN],
       credentials: true,
     }),
   );
+  // The API's own origin is what Scalar's **Send** on `/docs` posts from.
+  app.use(rejectCrossOriginWrites([env.WEB_ORIGIN, env.BETTER_AUTH_URL]));
+  app.use("/api", apiRateLimit(env.API_RATE_LIMIT_PER_MINUTE));
 
   app.use("/api/auth", authRouter);
   // better-auth reads the raw request stream, so it must be mounted *before*
@@ -39,11 +49,11 @@ export function buildApp(): Express {
 
   app.all("/api/auth/{*any}", toNodeHandler(auth));
 
-  app.use(express.json());
+  // Editors send one item per request; stated explicitly so the 100 KB default is not raised by accident.
+  app.use(express.json({ limit: "100kb" }));
 
   app.use(healthRouter);
 
-  // API documentation
   if (isDocsEnabled(env)) {
     app.use(docsRouter);
   }

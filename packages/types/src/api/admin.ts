@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-// The administrator surface (file 31, spec §4.3, FR-CMS-01/07).
+// The administrator surface (spec §4.3, FR-CMS-01/07).
 
 /** The signed-in admin, as the sidebar footer and `AdminGuard` see them. */
 export const AdminIdentitySchema = z
@@ -17,9 +17,7 @@ export type AdminIdentity = z.infer<typeof AdminIdentitySchema>;
 export const AdminIdentityResponseSchema = ok(AdminIdentitySchema);
 export type AdminIdentityResponse = z.infer<typeof AdminIdentityResponseSchema>;
 
-/**
- * The four numbers the admin analytics page renders (FR-CMS-07, basic tier).
- */
+/** The four numbers the admin analytics page renders (FR-CMS-07, basic tier). */
 export const PlatformOverviewSchema = z
   .object({
     totalParents: z.number().int().min(0),

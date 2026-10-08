@@ -8,11 +8,7 @@ import {
 import { STORY_DETAIL_EXAMPLE } from "../examples.js";
 import { pathParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/content/stories.routes.ts` — nested on `contentRouter` at `/stories`, so it carries the
- * same `requireParent` + `requireActiveChild` guards as the rest of
- * `/api/content/*` and can produce the same 401 and 403.
- */
+/** Nested on `contentRouter`, so it carries the same guards and can produce the same 401 and 403. */
 
 const NO_ACTIVE_CHILD_RESPONSE = errorResponse(
   "No active child profile on this session. Call `POST /api/children/{id}/activate` first — there is no grade or language to filter the library by until then. Also returned when the session's active profile belongs to another parent, or has since been deleted.",
@@ -107,7 +103,7 @@ export const STORIES_ROUTES: RouteDoc[] = [
           ["NOT_FOUND"],
         ),
         "423": errorResponse(
-          "The parental screen-time gate is shut (FR-TIME-02, FR-TIME-04). `TIME_LIMIT_REACHED` — today's allowance is used up; `OUTSIDE_WINDOW` — the clock is outside the parent's access window, and `error.details.windowStart` is the time to come back at.\n\n**No in-progress exemption, and none is needed.** The reader receives every page in this one response, so a story already open is never interrupted by the gate; only opening a new one is refused. `POST /api/progress/stories/{id}/complete` is never gated either, so a story being read can always be finished and paid for.",
+          "The parental screen-time gate is shut (FR-TIME-02, FR-TIME-04). `TIME_LIMIT_REACHED` — today's allowance is used up; `OUTSIDE_WINDOW` — the clock is outside the parent's access window, and `error.details.windowStart` is the time to come back at.\n\n**No in-progress exemption, and none is needed.** The reader receives every page in this one response, so a story already open is never interrupted by the gate; only opening a new one is refused. `POST /api/progress/stories/{id}/complete` is exempt for 30 minutes after the story's `story_start`, so a story being read can be finished and paid for.",
           ["TIME_LIMIT_REACHED", "OUTSIDE_WINDOW"],
         ),
         "500": INTERNAL_RESPONSE,

@@ -1,13 +1,12 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import type { ChildProfileResponse } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
-/** Which child's dashboard is showing (FR-DASH-01). */
 export interface ChildSwitcherProps {
   profiles: readonly ChildProfileResponse[];
   selectedChildId: string;
@@ -21,8 +20,7 @@ export function ChildSwitcher({
 }: ChildSwitcherProps) {
   const { t } = useTranslation(PARENT_NAMESPACE);
 
-  // One child is not a choice, and a lone tab reads as a control that does
-  // nothing. The name is already in the heading above it.
+  // One child is not a choice; the name is already in the heading above.
   if (profiles.length < 2) return null;
 
   return (
@@ -38,8 +36,8 @@ export function ChildSwitcher({
                 aria-current={isSelected ? "page" : undefined}
                 className={cn(
                   // 44px minimum touch target on a parent surface (design.md §7).
-                  "flex min-h-11 items-center gap-2 rounded-[var(--radius)] border px-3 py-2 font-medium text-sm transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "flex min-h-11 items-center gap-2 rounded-(--radius) border px-3 py-2 font-medium text-sm transition-colors",
+                  "focus-ring",
                   isSelected
                     ? "border-primary bg-primary/10 text-foreground"
                     : "border-border bg-card text-muted-foreground hover:text-foreground",

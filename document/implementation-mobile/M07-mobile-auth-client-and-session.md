@@ -13,9 +13,10 @@ Sign a parent in on a real phone and keep them signed in: the better-auth Expo c
 
 - M06 shipped the server half: `expo()` plugin, `kidlearn://` in `trustedOrigins`, `GET /api/auth/google?client=mobile` and `GET /api/auth/apple?client=mobile` producing whitelisted `kidlearn://parent` callbacks, and the Apple provider.
 - M04 shipped `apiFetch` with `setAuthHeaderProvider(fn)` — the single seam through which auth reaches every request. No screen sets headers itself.
-- `GET /api/auth/me` (`apps/server/src/routes/auth.ts`) returns `{ parent, activeChildProfileId }` behind `requireParent`, and is also what lazily provisions the `Parent` row on a brand-new parent's first request. It is therefore the correct call to make immediately after sign-in — not an optimisation to skip.
+- `GET /api/auth/me` (`apps/server/src/modules/auth/auth.routes.ts`) returns `{ parent, activeChildProfileId }` behind `requireParent`, and is also what lazily provisions the `Parent` row on a brand-new parent's first request. It is therefore the correct call to make immediately after sign-in — not an optimisation to skip.
 - `packages/types` provides `AuthMeResponseSchema` / `AuthMeSchema` and `ParentSummarySchema`. Use them; do not describe the response again in `apps/mobile`.
-- `apps/web/lib/active-child.tsx` is the web precedent for a session-shaped provider: statuses `"loading" | "ready" | "signedOut" | "error"`. Reuse that vocabulary so the two clients read the same way.
+- `apps/web/app/(parent)/context/parent-session.tsx` and `apps/web/features/children/active-child.tsx` are the web precedent for a session-shaped provider: statuses `"loading" | "ready" | "signedOut" | "error"`, and an `onUnauthorized` hook in `apps/web/shared/api/api-client.ts` that flips any 401 to `signedOut`. Reuse that vocabulary and behaviour so the two clients read the same way.
+- `apps/web/features/parent/parent-redirect.ts` (`resolveParentRedirect`) is the pure function that decides where a parent belongs from `{ parent, childCount }` and the current path. Port it rather than re-deriving the rules (M08 owns the port; this file only routes signed-out vs signed-in).
 - **The native difference that trips people up:** `credentials: "include"` is a no-op in React Native. There is no cookie jar. The Expo plugin stores the cookie in SecureStore and returns it from `authClient.getCookie()`, which is **async** in current better-auth versions — any helper reading it must be `async`.
 - SecureStore is backed by the iOS keychain and Android keystore. The session goes there; ordinary preferences (locale, mute) stay in AsyncStorage (M03).
 
@@ -25,9 +26,9 @@ Sign a parent in on a real phone and keep them signed in: the better-auth Expo c
 2. **Register the header provider once.** At module load (imported from `app/_layout.tsx`), call `setAuthHeaderProvider(async () => { const cookie = await authClient.getCookie(); return cookie ? { Cookie: cookie } : {}; })`. This is the whole reason M04 has that seam: after this line, every existing and future `apiFetch` call is authenticated with no per-call code.
 3. **Sign-in flows.** `signInWithGoogle()` and `signInWithApple()` in `lib/auth-client.ts`, each calling `authClient.signIn.social({ provider, callbackURL: "kidlearn://parent" })`. The plugin opens the system browser (`expo-web-browser`) and completes on the deep link. Both return a discriminated result so the screen can show a real error rather than a silent failure.
 4. **Apple's native path.** On iOS, use `expo-apple-authentication`'s native sheet where available rather than a browser round-trip — it is what Apple expects and it reviews better. Fall back to the browser flow on Android (Apple sign-in on Android is a web flow by definition). Keep the branch inside `signInWithApple()` so screens do not know about it.
-5. **`AuthProvider`.** `lib/auth.tsx` exporting `AuthProvider` and `useAuth(): { status, parent, activeChildProfileId, refresh, signOut }` with `status: "loading" | "signedOut" | "ready" | "error"`. On mount it calls `GET /api/auth/me` through `apiFetch` (parsed with `AuthMeSchema`) and derives the status from the result: `ok` → `ready`; a `401`/`UNAUTHENTICATED` → `signedOut`; anything else → `error` with the failure retained so the screen can offer a retry.
+5. **`AuthProvider`.** `lib/auth.tsx` exporting `AuthProvider` and `useAuth(): { status, parent, activeChildProfileId, refresh, signOut }` with `status: "loading" | "signedOut" | "ready" | "error"`. On mount it calls `GET /api/auth/me` through `apiFetch` (parsed with `AuthMeSchema`) and derives the status from the result: `ok` → `ready`; a `401`/`UNAUTHORIZED` → `signedOut`; anything else → `error` with the failure retained so the screen can offer a retry.
 6. **Splash gate.** `app/_layout.tsx` holds `expo-splash-screen` until fonts (M02), i18n (M03) **and** the first session resolution have all settled. No screen may render while `status === "loading"` — a flash of the sign-in screen for an already-signed-in parent is the exact bug this prevents.
-7. **Routing by status.** `app/index.tsx` becomes the router's decision point: `signedOut` → redirect to `/(parent)/login`; `ready` → redirect to `/(student)/select-profile` when a child profile exists, else `/(parent)` (onboarding continues in M08/M09); `error` → a retry screen using M04's `ColdStartNotice`, because the most likely cause is the free tier waking up.
+7. **Routing by status.** `app/index.tsx` becomes the router's decision point: `signedOut` → redirect to `/(parent)/login`; `ready` → `/(parent)` for now (M08 adds the consent/first-child routing; M10 adds the student-side destination); `error` → a retry screen using M04's `ColdStartNotice`, because the most likely cause is a slow or waking backend.
 8. **Login screen.** `app/(parent)/login.tsx`: parent theme, calm copy, the two provider buttons (each ≥44px, with the provider's required branding and wording), a localised explanation that this is the grown-ups' area, and an error region that maps `ApiFailure.code` to a message — never `error.message`, which is a developer hint.
 9. **Sign-out.** `signOut()` calls `authClient.signOut()` **and** clears the SecureStore entries the plugin wrote, then resets the provider to `signedOut` and navigates to the login screen. A sign-out that leaves a stale cookie behind is a security bug, not a cosmetic one.
 10. **Deep-link handling.** `app.config.ts` already declares the scheme (M01). Verify the OAuth return actually re-enters the app on both platforms, including the cold-start case: the app killed, sign-in completed in the browser, and the deep link launching the app fresh. That path is a separate code path from the warm one and is where these flows usually break.
@@ -99,7 +100,7 @@ export async function signInWithApple() {
 }
 ```
 
-`AuthProvider` — status vocabulary lifted from `apps/web/lib/active-child.tsx`:
+`AuthProvider` — status vocabulary lifted from `apps/web/features/children/active-child.tsx`:
 
 ```tsx
 export type AuthStatus = "loading" | "signedOut" | "ready" | "error";
@@ -163,8 +164,8 @@ Test the cold-start deep link explicitly: force-stop the app, then run the comma
 
 ## Out of Scope
 
-- Consent, PIN setup and the PIN gate — M08. This file gets a parent authenticated; it does not open the parent area.
+- Consent and account deletion — M08. This file gets a parent authenticated; onboarding routing comes next.
 - Child profiles and the profile picker — M09/M10.
 - Apple credential creation in the developer portal — M30/M31 (needs the paid account). The code path exists and is exercised as far as the credentials allow.
 - Session refresh UI or a "you were signed out" toast. better-auth's 30-day sliding session with a one-day `updateAge` makes this a non-event at MVP.
-- Biometric unlock. Deliberately excluded: the PIN gate must be hard for a child, and a child's face or finger unlocks a phone (design.md §7).
+- Biometric unlock of the parent area. Deliberately excluded: a child's face or finger unlocks a phone, so it would prove nothing.

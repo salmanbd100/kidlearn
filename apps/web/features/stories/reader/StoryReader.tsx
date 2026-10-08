@@ -1,16 +1,14 @@
 "use client";
 
+import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
   ScreenTimeBlockCode,
   StoryCompletionResponse,
   StoryDetailResponse,
 } from "@kidlearn/types";
-import { cn } from "@kidlearn/ui";
-import { cva } from "class-variance-authority";
 import { ArrowLeft, ArrowRight, BookOpen, Home, Volume2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
-  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -19,7 +17,6 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { StudentStatus } from "@/app/(student)/StudentGuard";
 import { getStory } from "@/features/content/content-api";
 import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
 import {
@@ -29,8 +26,12 @@ import {
 import { trackEvent, useHeartbeat } from "@/features/screen-time/use-heartbeat";
 import { completeStory } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
-import { STUDENT_NAMESPACE } from "@/shared/lib/i18n";
+import { IconControl } from "@/shared/components/kid/IconControl";
+import { Retryable } from "@/shared/components/kid/Retryable";
+import { StudentStatus } from "@/shared/components/kid/StudentStatus";
+import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
 import { FinishScreen, type StoryFinishReward } from "./FinishScreen";
+import { activeSpanIndex } from "./NarratedText";
 import {
   initialReaderState,
   type ReaderEvent,
@@ -38,9 +39,6 @@ import {
 } from "./reader-machine";
 import { StoryPageView } from "./StoryPageView";
 
-// The story reader (FR-STORY-02..03, FR-STORY-06..07).
-
-/** Held after the narration ends before the page turns itself. */
 const AUTO_ADVANCE_HOLD_MS = 1500;
 
 /** How far a finger travels before it counts as a page turn rather than a tap. */
@@ -49,11 +47,7 @@ const SWIPE_THRESHOLD_PX = 50;
 /** How often the follow-along highlight re-reads its position. */
 const HIGHLIGHT_TICK_MS = 100;
 
-/**
- * What the server would answer for any reading after the first (FR-STORY-06).
- * Written here rather than asked for: the reader posts the completion once per
- * mount, so the second ending has no reply of its own to show.
- */
+/** What the server would answer for any reading after the first. Written here because the reader posts the completion once per mount. */
 const REPLAY_COMPLETION: StoryFinishReward = {
   granted: null,
   // A re-read inside one mount unlocks nothing new — the badge and character
@@ -66,11 +60,7 @@ type LoadState =
   | { status: "loading" }
   | { status: "ready"; story: StoryDetailResponse }
   | { status: "gone" }
-  /**
-   * The parental screen-time gate refused this start (FR-TIME-02, FR-TIME-04).
-   * Only opening a story can land here — every page arrives in this one response,
-   * so a story already open is never interrupted mid-reading.
-   */
+  /** The screen-time gate refused this start. Only opening a story can land here; every page arrives in one response. */
   | {
       status: "blocked";
       reason: ScreenTimeBlockCode;
@@ -79,6 +69,20 @@ type LoadState =
   | { status: "error" };
 
 export function StoryReader({ storyId }: { storyId: string }) {
+  return (
+    <Retryable>
+      {(retry) => <StoryLoader storyId={storyId} onRetry={retry} />}
+    </Retryable>
+  );
+}
+
+function StoryLoader({
+  storyId,
+  onRetry,
+}: {
+  storyId: string;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [isWakingUp, setIsWakingUp] = useState(false);
@@ -133,7 +137,11 @@ export function StoryReader({ storyId }: { storyId: string }) {
     );
   }
   if (load.status === "error") {
-    return <StudentStatus tone="alert">{t("status.error")}</StudentStatus>;
+    return (
+      <StudentStatus tone="alert" onRetry={onRetry}>
+        {t("status.error")}
+      </StudentStatus>
+    );
   }
   if (load.story.pages.length === 0) {
     // A published story whose pages were all removed. Not an error screen —
@@ -148,10 +156,8 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   const { t } = useTranslation(STUDENT_NAMESPACE);
   const router = useRouter();
   const { play, stop } = useAudio();
-  // Mounted here rather than on `StoryReader` so the beats start when there is a
-  // story on screen — the loading and "put away" states are not reading time
-  // (FR-TIME-06). Nothing on this screen renders the returned total; it is the
-  // student session's own figure, which file 28 will check a limit against.
+  // Mounted here so beats start only when a story is on screen; the loading and "put away" states are not reading time.
+  // Nothing renders the returned total; it is the session's own figure.
   useHeartbeat();
   const [state, dispatch] = useReducer(
     readerReducer,
@@ -162,29 +168,19 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
     StoryCompletionResponse | undefined
   >(undefined);
   const [elapsedMs, setElapsedMs] = useState(0);
-  /**
-   * When the clip now on screen started. Held in state rather than in the
-   * highlight effect's closure so that every page turn and every replay restarts
-   * the follow-along clock instead of it counting on from the first timed page.
-   */
+  /** When the clip now on screen started; state, not the effect's closure, so every page turn and replay restarts the follow-along clock. */
   const [narrationStartedAt, setNarrationStartedAt] = useState(0);
-  /**
-   * Set the moment the child asks for the story again, and never cleared. The
-   * grant `completion` holds belongs to the reading that earned it; showing it a
-   * second time would promise stars that were not paid. It also outranks a reply
-   * that lands after the replay has begun.
-   */
+  /** Set when the child asks for the story again, never cleared: the grant `completion` holds belongs to the reading that earned it, and it outranks a reply landing after the replay began. */
   const [isReplay, setIsReplay] = useState(false);
 
   const storyId = story.id;
   const page = story.pages[state.pageIndex];
+  const pageRef = useFocusWhenDropped<HTMLElement>(state.pageIndex);
   const narrationUrl = page?.narrationUrl ?? null;
   const isReading = state.phase === "reading";
   const isLastPage = state.pageIndex === story.pages.length - 1;
 
-  // FR-LSN-07 — the reading began. Once per mount, matching `lesson_start` in the
-  // player: a "Read again" is the same sitting continuing, and the milestone the
-  // time aggregation needs is the one that says this child opened this book.
+  // The reading began. Once per mount, like `lesson_start`: "Read again" is the same sitting continuing.
   useEffect(() => {
     trackEvent("story_start", storyId);
   }, [storyId]);
@@ -200,12 +196,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
     }
   }, []);
 
-  /**
-   * Every dispatch a control makes goes through here, so a pending advance is
-   * cancelled by construction. A tap always beats the timer: the child asked for
-   * this page, and a book that turns itself under their finger is one they
-   * cannot steer.
-   */
+  /** Every control dispatch goes through here so a pending advance is cancelled by construction: a tap always beats the timer. */
   const act = useCallback(
     (event: ReaderEvent) => {
       cancelPendingAdvance();
@@ -214,19 +205,18 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
     [cancelPendingAdvance],
   );
 
-  /**
-   * Starts a clip and re-arms the hold that turns the page after it. Shared by
-   * the page effect and the speaker button so that both move the highlight's
-   * clock — a replay that left it running would highlight the end of the
-   * sentence while the voice is back at the start of it.
-   */
+  /** Starts a clip and re-arms the hold that turns the page. Shared by the page effect and the speaker button so both move the highlight clock. */
   const playNarration = useCallback(
     (url: string) => {
       setElapsedMs(0);
       setNarrationStartedAt(performance.now());
       void play(url, {
         interrupt: true,
-        onFinished: () => {
+        onFinished: (outcome) => {
+          // A clip nobody heard — muted, blocked, failed to load — must not turn
+          // the page: the child would be flipped past text they have not read.
+          if (outcome !== "ended") return;
+          cancelPendingAdvance();
           advanceTimer.current = setTimeout(() => {
             advanceTimer.current = undefined;
             dispatch({ type: "NARRATION_ENDED" });
@@ -234,14 +224,11 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
         },
       });
     },
-    [play],
+    [play, cancelPendingAdvance],
   );
 
-  // Narration follows the page — keyed on the page itself, not on its url, so a
-  // story that reuses a recording still restarts it. The cleanup is what makes a
-  // fast run of taps leave one voice playing rather than five, and what silences
-  // the last page on the way to the ending: `FinishScreen` interrupts only when
-  // there is a moral recorded, and there is none until file 36.
+  // Narration follows the page, keyed on the page not its url, so a reused recording still restarts. The cleanup leaves one voice
+  // playing after fast taps and silences the last page on the way to the ending.
   useEffect(() => {
     if (!isReading || page === undefined || page.narrationUrl === null) return;
 
@@ -258,15 +245,22 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   useEffect(() => stop, [stop]);
 
   /** Where the narration has got to, for the follow-along highlight. */
-  const hasTimings = page?.narrationTimings != null;
+  const narrationTimings = page?.narrationTimings ?? null;
   useEffect(() => {
-    if (!isReading || !hasTimings) return;
-    const tick = setInterval(
-      () => setElapsedMs(performance.now() - narrationStartedAt),
-      HIGHLIGHT_TICK_MS,
-    );
+    if (!isReading || narrationTimings === null) return;
+    // Sampled often so the highlight lands on the word, but state is only set
+    // when the active word changes: setting it every tick re-rendered the whole
+    // reader (picture, header, controls) ten times a second on a low-end tablet.
+    let lastActive = Number.NaN;
+    const tick = setInterval(() => {
+      const elapsed = performance.now() - narrationStartedAt;
+      const active = activeSpanIndex(narrationTimings, elapsed);
+      if (active === lastActive) return;
+      lastActive = active;
+      setElapsedMs(elapsed);
+    }, HIGHLIGHT_TICK_MS);
     return () => clearInterval(tick);
-  }, [isReading, hasTimings, narrationStartedAt]);
+  }, [isReading, narrationTimings, narrationStartedAt]);
 
   const hasRequestedCompletion = useRef(false);
   useEffect(() => {
@@ -322,12 +316,11 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
   }
 
   return (
-    // Edge to edge with the safe-area insets the lesson player uses: the reader is
-    // a full-screen surface of its own, and a page of a story must clear a notch
-    // (design.md §6).
+    // The student layout supplies the viewport height and the safe-area insets;
+    // the reader fills what is left of it.
     <div
       data-testid="story-reader"
-      className="relative flex min-h-dvh flex-1 flex-col bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
+      className="relative flex flex-1 flex-col bg-background"
       onPointerDown={(event) => {
         swipeStartX.current = event.clientX;
       }}
@@ -341,8 +334,7 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
           <Home aria-hidden="true" className="size-8" />
         </IconControl>
 
-        {/* Where the child is in the book. `polite`, so it is read after the
-            page's own text rather than over it. */}
+        {/* `polite`, so it is read after the page's own text rather than over it. */}
         <p
           role="status"
           aria-live="polite"
@@ -367,15 +359,19 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
         </IconControl>
       </header>
 
-      <main className="flex flex-1 flex-col px-6 pb-4">
+      <main
+        ref={pageRef}
+        // Where focus lands when the control the child used leaves with the
+        // page — the back arrow, on returning to page one.
+        tabIndex={-1}
+        className="flex flex-1 flex-col px-6 pb-4 outline-none"
+      >
         {page === undefined ? null : (
           <StoryPageView page={page} elapsedMs={elapsedMs} />
         )}
       </main>
 
-      {/* The three controls sit along the bottom, in the thumb zone: back and
-          next in the corners a hand already rests on, "hear it again" between
-          them where neither is hit by accident (design.md §6). */}
+      {/* The three controls sit in the thumb zone: back and next in the corners a hand rests on, "hear it again" between them (design.md §6). */}
       <nav className="flex items-center justify-between gap-4 px-6 pb-6">
         {state.pageIndex === 0 ? (
           // A spacer, not a disabled button: page one has nothing before it, and
@@ -417,49 +413,5 @@ function ReadingSurface({ story }: { story: StoryDetailResponse }) {
         </IconControl>
       </nav>
     </div>
-  );
-}
-
-/**
- * A round 64px control — the kid touch-target floor (design.md §7, NFR-A11Y-02).
- */
-const iconControlVariants = cva(
-  "inline-flex size-16 shrink-0 items-center justify-center rounded-pill transition-colors [touch-action:manipulation] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-  {
-    variants: {
-      tone: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-      },
-    },
-    defaultVariants: { tone: "secondary" },
-  },
-);
-
-function IconControl({
-  label,
-  tone,
-  isPressed,
-  onPress,
-  children,
-}: {
-  label: string;
-  tone?: "primary" | "secondary";
-  /** Sets `aria-pressed`; omitted for controls that are not toggles. */
-  isPressed?: boolean;
-  onPress: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={isPressed}
-      className={cn(iconControlVariants({ tone }))}
-      onClick={onPress}
-    >
-      {children}
-    </button>
   );
 }

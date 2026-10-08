@@ -1,9 +1,10 @@
-/* kidlearn design tokens — single source of truth in code.
-   Mirrors document/design.md. Update design.md first, then this file. */
+/* kidlearn design tokens. Values come from @kidlearn/tokens; every `@generated` region is rewritten by
+   `pnpm --filter @kidlearn/ui tokens:generate` — edit the TypeScript, never a region. */
 
 /* 1. Static design tokens ─────────────────────────────────────────────────── */
 @theme {
   /* Brand palette (raw) — decorative/game art only; UI uses semantic tokens. */
+  /* @generated:brand */
   --color-sky: #36b3f5;
   --color-grape: #8b5cf6;
   --color-sunshine: #ffc93c;
@@ -12,20 +13,31 @@
   --color-blossom: #d16cc9;
   --color-ink: #2b2a4a;
   --color-cream: #fffdf7;
+  /* @end:brand */
+
+  /* Type scale (design.md §3.2). Tailwind's `text-lg` is 1.125rem; kid surfaces may never go below 20px. */
+  /* @generated:type */
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.4;
+  /* @end:type */
 
   /* Radius scale (design.md §4.2) */
+  /* @generated:radius */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
   --radius-xl: 28px;
   --radius-pill: 9999px;
+  /* @end:radius */
 
   /* Elevation (design.md §4.3) — soft, ink-tinted */
+  /* @generated:shadow */
   --shadow-sm: 0 1px 2px 0 rgb(43 42 74 / 0.06);
   --shadow-md: 0 4px 12px -2px rgb(43 42 74 / 0.12);
   --shadow-lg: 0 12px 32px -8px rgb(43 42 74 / 0.18);
   --shadow-pop:
     0 8px 0 0 rgb(54 179 245 / 0.16), 0 12px 24px -6px rgb(43 42 74 / 0.18);
+  /* @end:shadow */
 }
 
 /* 2. Per-theme semantic values ────────────────────────────────────────────── */
@@ -33,6 +45,7 @@
 /* Kid theme (default): bright, playful, rounded. design.md §2.2 */
 :root,
 [data-theme="kid"] {
+  /* @generated:kid */
   --background: #fffdf7;
   --foreground: #2b2a4a;
   --card: #ffffff;
@@ -40,32 +53,30 @@
   --popover: #ffffff;
   --popover-foreground: #2b2a4a;
   --primary: #36b3f5;
-  --primary-foreground: #ffffff;
+  --primary-foreground: #2b2a4a;
   --secondary: #8b5cf6;
   --secondary-foreground: #ffffff;
   --accent: #ffc93c;
   --accent-foreground: #2b2a4a;
   --muted: #eaf7fe;
-  --muted-foreground: #64748b;
+  --muted-foreground: #475569;
   --success: #34d399;
-  --success-foreground: #ffffff;
+  --success-foreground: #2b2a4a;
   --warning: #ffc93c;
   --warning-foreground: #2b2a4a;
   --destructive: #ff6b6b;
-  --destructive-foreground: #ffffff;
+  --destructive-foreground: #2b2a4a;
   --border: #d6eefc;
   --input: #d6eefc;
   --ring: #36b3f5;
-  /* Decorative sweep across a surface — the puzzle tile's shine. Light on
-     the kid theme's cream ground; see design.md §2.2. */
   --shine: rgb(255 255 255 / 0.65);
-
-  /* base radius for this surface = rounded-lg (design.md §4.2) */
   --radius: var(--radius-lg);
+  /* @end:kid */
 }
 
 /* Parent / admin theme: calm, neutral, professional. design.md §2.2 */
 [data-theme="parent"] {
+  /* @generated:parent */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
@@ -79,8 +90,8 @@
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --success: #059669;
+  --muted-foreground: #475569;
+  --success: #047857;
   --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-foreground: #0f172a;
@@ -90,24 +101,23 @@
   --input: #e2e8f0;
   --ring: #6366f1;
   --shine: rgb(255 255 255 / 0.55);
-
-  /* base radius for this surface = rounded-md */
   --radius: var(--radius-md);
+  /* @end:parent */
 }
 
 /* Motion tokens (design.md §5.1) — plain custom props, used via Motion / arbitrary values */
 :root {
+  /* @generated:motion */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-base: 220ms;
   --dur-slow: 400ms;
+  /* @end:motion */
 }
 
-/* Font families (design.md §3.1). The indirection is load-bearing: `@theme
-   inline` substitutes a token's value into the utility it generates, so
-   `.font-body` would compile to `font-family: var(--font-nunito)` and
-   redefining `--font-body` further down the tree would do nothing. Pointing the
-   theme key at `--family-*` lets the utility re-resolve per element. */
+/* Font families (design.md §3.1). The indirection is load-bearing: `@theme inline` substitutes a
+   token's value into the utility, so redefining `--font-body` down the tree would do nothing; pointing
+   the theme key at `--family-*` lets the utility re-resolve per element. */
 :root {
   --family-display: var(--font-fredoka);
   --family-body: var(--font-nunito);
@@ -143,8 +153,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Font families — see the --family-* block above for why this indirection
-     exists rather than pointing straight at next/font's variables. */
+  /* Font families — via --family-* (see above) rather than next/font's variables directly. */
   --font-display: var(--family-display);
   --font-body: var(--family-body);
   --font-ui: var(--family-ui);

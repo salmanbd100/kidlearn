@@ -1,8 +1,5 @@
 import { ReportsScreen } from "./ReportsScreen";
 
-/**
- * `/parent/reports` — the weekly report card and its history (FR-DASH-05..06).
- */
 export default async function ParentReportsPage({
   searchParams,
 }: {
@@ -10,9 +7,7 @@ export default async function ParentReportsPage({
 }) {
   const { child, week } = await searchParams;
 
-  // A repeated `?child=a&child=b` arrives as an array. The first wins rather than
-  // the request being rejected — a malformed query parameter is not worth an error
-  // screen, and the screen below falls back for a value it cannot match anyway.
+  // A repeated `?child=` arrives as an array; first wins rather than erroring on a malformed param.
   return (
     <ReportsScreen
       selectedChildId={first(child)}

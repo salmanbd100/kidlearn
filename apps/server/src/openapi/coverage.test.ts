@@ -21,12 +21,6 @@ import { screenTimeRouter } from "../modules/screen-time/screen-time.routes.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
 
-// The drift gate.
-
-/**
- * Every router that serves documented routes, with the prefix `app.ts` and
- * `modules/index.ts` mount it at.
- */
 const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   { prefix: "", router: healthRouter, file: "paths/health.ts" },
   { prefix: "/api/auth", router: authRouter, file: "paths/auth.ts" },
@@ -42,10 +36,7 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     file: "paths/characters.ts",
   },
   { prefix: "/api/content", router: contentRouter, file: "paths/content.ts" },
-  // Nested inside `contentRouter` rather than mounted on `apiRouter`, so it
-  // inherits that surface's guards. The walk below reads a router's own
-  // registrations and cannot see through a nested mount, which is exactly why the
-  // stories router is listed here in its own right.
+  // Nested inside `contentRouter` to inherit its guards; the walk cannot see through nested mounts, so it is listed in its own right.
   {
     prefix: "/api/content/stories",
     router: storiesRouter,
@@ -65,18 +56,13 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   },
   { prefix: "/api/admin/jobs", router: jobsRouter, file: "paths/jobs.ts" },
   { prefix: "/api/admin", router: adminRouter, file: "paths/admin.ts" },
-  // Nested inside `adminRouter`, for the same reason `storiesRouter` is nested
-  // inside `contentRouter`: it inherits that surface's `requireAdmin` guard, and
-  // the walk below cannot see through a nested mount.
+  // Nested inside `adminRouter` for its `requireAdmin` guard, listed separately for the same reason as `storiesRouter`.
   {
     prefix: "/api/admin/content",
     router: adminContentRouter,
     file: "paths/admin-content.ts",
   },
-  // File 33 — a second router at the same mount path as the one above, carrying
-  // the quiz/activity/badge editors. Two entries rather than one because the walk
-  // reads a router's own registrations, and this is what gives each surface its
-  // own registry file in the failure message.
+  // A second router at the same mount path, listed separately so each surface gets its own registry file in the failure message.
   {
     prefix: "/api/admin/content",
     router: adminContentEditorsRouter,
@@ -94,29 +80,15 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   },
 ];
 
-/**
- * How many routers are reachable under `/api`, at any depth: the ten
- * `modules/index.ts` mounts, plus `storiesRouter` nested on `contentRouter`, and
- * `adminContentRouter`, `adminContentEditorsRouter`, `adminMediaRouter` and
- * `adminAiRouter` nested on `adminRouter` (file 33 added the middle two, file 34
- * the last).
- */
+/** Routers reachable under `/api` at any depth, including those nested on `contentRouter` and `adminRouter`. */
 const EXPECTED_ROUTERS_UNDER_API = 15;
 
-/**
- * The shape Express 5's router exposes per registered route. Declared structurally
- * because `@types/express` does not describe `stack` — this is an introspection of
- * library internals, which is exactly why the assertion at the bottom of this file
- * exists: if the shape ever changes, that test fails loudly instead of this one
- * silently finding zero routes and passing.
- */
+/** Declared structurally because `@types/express` omits `stack`; the canary test below fails loudly if the shape changes. */
 type RouteLayer = {
   route?: { path?: unknown; methods?: Record<string, boolean> };
-  /** Present on every layer; only a mounted Router carries a `stack` of its own. */
   handle?: unknown;
 };
 
-/** Joins a mount prefix to a route path. */
 function joinPath(prefix: string, routePath: string): string {
   const joined = `${prefix}${routePath}`.replace(/\/+$/, "");
   return joined === "" ? "/" : joined;
@@ -131,8 +103,7 @@ function operationsOf(router: Router, prefix: string): string[] {
     if (!route || typeof route.path !== "string") continue;
 
     for (const [method, enabled] of Object.entries(route.methods ?? {})) {
-      // Express registers an implicit HEAD alongside every GET, and `_all`
-      // appears for `router.all()`. Neither is a documented operation.
+      // Express adds an implicit HEAD for every GET, and `_all` for `router.all()`; neither is a documented operation.
       if (!enabled || method === "_all" || method === "head") continue;
 
       const path = toOpenApiPath(joinPath(prefix, route.path));
@@ -150,7 +121,6 @@ const documentedOperations = ROUTE_DOCS.map(
   ({ method, path }) => `${method.toUpperCase()} ${path}`,
 );
 
-/** Which registry file a live route ought to have been declared in. */
 function registryFileFor(operation: string): string {
   const match = MOUNTS.filter(({ prefix }) =>
     prefix ? operation.includes(` ${prefix}`) : false,
@@ -160,8 +130,7 @@ function registryFileFor(operation: string): string {
 
 describe("openapi coverage", () => {
   it("finds the live routes at all (guards the introspection itself)", () => {
-    // If Express changes how `stack` is shaped, `operationsOf` returns nothing
-    // and every other test here would pass vacuously. This is the canary.
+    // Canary: if `stack` changes shape, every other test here would pass vacuously.
     expect(liveOperations.length).toBeGreaterThanOrEqual(20);
     expect(liveOperations).toContain("GET /api/children/{id}");
   });
@@ -204,9 +173,7 @@ describe("openapi coverage", () => {
   });
 
   it("notices a newly mounted router under /api, however deeply nested", () => {
-    // The prefix map above is hand-maintained, so it cannot see a router someone
-    // mounts without touching this file. This count is what turns that blind spot
-    // into a failure with a clear cause.
+    // The prefix map is hand-maintained; this count catches a router mounted without touching this file.
     function countRouters(router: Router): number {
       const stack = (router as unknown as { stack: RouteLayer[] }).stack;
       let count = 0;
@@ -214,8 +181,7 @@ describe("openapi coverage", () => {
         if (layer.route) continue;
         const handle = layer.handle as { stack?: unknown } | undefined;
         if (!Array.isArray(handle?.stack)) continue;
-        // A nested router counts itself and whatever it mounts in turn, which is
-        // how `storiesRouter` on `contentRouter` reaches this total.
+        // A nested router counts itself and whatever it mounts in turn.
         count += 1 + countRouters(layer.handle as Router);
       }
       return count;

@@ -1,30 +1,14 @@
 /**
- * The AI Story Generator (file 35, FR-AI-02, FR-AI-07).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* Arrays per table, and the writes land in them.
- *     The assertions read back the rows the generator created rather than a value
- *     queued in advance, which is what makes "every row is a draft" and "the pages
- *     are in order" checkable at all.
- *  2. *Assert the query, not just the result.* The draft guarantee is asserted as
- *     the absence of any `status` in every `create` the generator issued — the
- *     column's default is what keeps a generated story out of the library, so an
- *     assertion on the return value would prove nothing.
- *  3. *`where` clauses are not the whole guard.* Not applicable: this file only
- *     writes. That a draft story answers `404` on the student library is asserted
- *     in `modules/content/stories.routes.test.ts`, against the `status: "published"` filter every
- *     read there carries.
- *  4. *Name what the stub cannot prove.* Two things. That `@@unique([storyId,
- *     sortOrder])` and `Story.slug @unique` are real constraints is the database's
- *     business; the tests here assert the numbering and the suffixing the generator
- *     does in front of them. And that a failed `persist` leaves nothing behind is
- *     Postgres's transaction guarantee — the stub runs the callback and rethrows,
- *     so the tests assert the *job* fails and that no completed path wrote a story.
- *
- * The Gemini client is mocked, which `general.md §5` permits explicitly:
- * external network boundaries are the one allowed mock.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`:
+ *  1. State, not answers: arrays per table; assertions read back the rows the generator created.
+ *  2. Assert the query: "every row is a draft" is asserted as no `status` in any `create`; the column default
+ *     keeps generated stories out of the library.
+ *  3. `include` gates: not applicable, this file only writes (the student library's 404 is asserted in
+ *     `stories.routes.test.ts`).
+ *  4. Not provable: `@@unique([storyId, sortOrder])` and `Story.slug @unique` are the database's (we assert the
+ *     numbering and suffixing in front of them); a failed `persist` leaving nothing behind is Postgres's
+ *     guarantee, the stub runs the callback and rethrows.
+ * The Gemini client is mocked (external boundary).
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,7 +22,6 @@ const store = vi.hoisted(() => ({
   pages: [] as Row[],
   pageTranslations: [] as Row[],
   jobs: [] as Row[],
-  /** Every `create` the generator issued, so the draft guarantee is checkable. */
   creates: [] as Array<{ table: string; data: Record<string, unknown> }>,
 }));
 
@@ -55,7 +38,6 @@ vi.mock("../../../../config/prisma.js", () => {
     return `${prefix}-${counter}`;
   }
 
-  /** Splits the nested `translations.create` off and records both halves. */
   function create(
     table: string,
     rows: Row[],
@@ -115,6 +97,10 @@ vi.mock("../../../../config/prisma.js", () => {
         ),
     },
     aIGenerationJob: {
+      // Stale-job sweep that precedes every run; nothing is old enough.
+      updateMany: async () => ({ count: 0 }),
+      // The cap check reads today's spend; these suites exercise one job at a time.
+      count: async () => 0,
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row: Row = { id: nextId("job"), ...data };
         store.jobs.push(row);
@@ -191,7 +177,6 @@ function request(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Every `create` for one table, as the generator sent it. */
 function creates(table: string) {
   return store.creates
     .filter((one) => one.table === table)
@@ -257,9 +242,7 @@ describe("what a successful generation writes", () => {
   });
 
   it("writes both locales in one job, not one job per language (FR-I18N-01)", async () => {
-    // The recorded decision in `schemas/localized.ts`: both languages come back
-    // from a single call, so a bilingual story is one review item whose pages tell
-    // the same story in each language — not two drafts to reconcile.
+    // Recorded decision in `schemas/localized.ts`: both languages come back from one call, so a bilingual story is one review item, not two drafts.
     await generateStory(request({ languages: ["en", "bn"] }));
 
     expect(store.jobs).toHaveLength(1);
@@ -282,9 +265,7 @@ describe("what a successful generation writes", () => {
   });
 
   it("gives each locale the title and moral the model wrote for it", async () => {
-    // `StoryTranslation.title` and `.moral` are child-facing — file 26 reads the
-    // moral aloud — so an English sentence in the Bangla row would be
-    // untranslated child-facing text that looks filled in (FR-I18N-01).
+    // `StoryTranslation.title`/`.moral` are child-facing: an English sentence in the Bangla row would be untranslated text that looks filled in (FR-I18N-01).
     await generateStory(request());
 
     const byLanguage = Object.fromEntries(
@@ -308,9 +289,7 @@ describe("what a successful generation writes", () => {
   it("keeps the character descriptions in the job rather than in rows", async () => {
     await generateStory(request());
 
-    // File 36 reads them for illustration consistency and file 37 promotes them
-    // into `CharacterSheet` rows on approval — creating those now would leave
-    // orphans behind a rejected story.
+    // Promoted into `CharacterSheet` rows on approval; creating them now would leave orphans behind a rejected story.
     const rawOutput = store.jobs[0].rawOutput as {
       parsed: { characterDescriptions: Array<{ name: string }> };
     };
@@ -374,8 +353,7 @@ describe("locales", () => {
   });
 
   it("takes the slug from the theme when English was not requested", async () => {
-    // A Bangla title reduces to an empty ASCII slug, so the admin's own words are
-    // the only readable handle left.
+    // A Bangla title reduces to an empty ASCII slug, leaving the admin's own words as the only readable handle.
     ai.generateStructured.mockResolvedValue({
       raw: {
         ...validOutput({ languages: ["bn"] }),
@@ -395,8 +373,7 @@ describe("locales", () => {
 
 describe("slugs", () => {
   it("suffixes rather than colliding with a story that already exists", async () => {
-    // `Story.slug` is unique across the whole table, so two stories generated a
-    // month apart from the same title is the normal case.
+    // `Story.slug` is unique table-wide, and two stories from the same title a month apart is the normal case.
     store.stories.push({ id: "existing", slug: "bina-shares-en" });
 
     await generateStory(request());

@@ -1,3 +1,27 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Every dependency more than one workspace declares, declared once. A manifest
+# names it as `catalog:`, so two packages cannot drift onto different versions
+# of zod or motion. Bump a version here, never in a package.json.
+#
+# The exception is react / react-dom: apps/web pins the exact version it ships,
+# while packages/ui states the peer range it supports. Those are two different
+# statements, so they stay in their manifests.
+catalog:
+  "@testing-library/jest-dom": ^6.9.1
+  "@testing-library/react": ^16.3.2
+  "@types/node": ^22.0.0
+  "@types/react": ^19
+  "@types/react-dom": ^19
+  "@vitejs/plugin-react": ^6.0.2
+  "@vitest/coverage-v8": ^4.1.11
+  class-variance-authority: ^0.7.1
+  jsdom: ^29.1.1
+  lucide-react: ^0.469.0
+  motion: ^11.15.0
+  tsx: ^4.22.4
+  typescript: ^5
+  vitest: ^4.1.11
+  zod: ^3.24.0

@@ -4,8 +4,7 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { cva } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "../lib/cn";
-
-// DropdownMenu — the shadcn/Radix primitive, tokenized for both themes.
+import { usePortalContainer } from "./theme-scope";
 
 function DropdownMenu(
   props: React.ComponentProps<typeof DropdownMenuPrimitive.Root>,
@@ -20,8 +19,7 @@ function DropdownMenuTrigger(
 }
 
 const dropdownMenuContentVariants = cva(
-  // `var(--radius)` rather than a fixed step, for the reason `dialog.tsx`
-  // spells out: only `--radius` is redefined per theme.
+  // `var(--radius)`, not a fixed step, for the reason given in `dialog.tsx`.
   "z-50 min-w-56 overflow-hidden rounded-[var(--radius)] border border-border bg-card p-1 text-card-foreground shadow-lg",
 );
 
@@ -30,8 +28,9 @@ function DropdownMenuContent({
   sideOffset = 8,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  const container = usePortalContainer();
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={container}>
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(dropdownMenuContentVariants(), className)}
@@ -49,7 +48,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       className={cn(
         // 44px tall: a menu row is a parent-surface tap target (design.md §7).
-        "flex h-11 cursor-pointer select-none items-center gap-2 rounded-sm px-3 text-sm outline-none [touch-action:manipulation] focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+        "flex h-11 cursor-pointer select-none items-center gap-2 rounded-sm px-3 text-sm outline-none touch-manipulation focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
         className,
       )}
       {...props}
@@ -57,11 +56,7 @@ function DropdownMenuItem({
   );
 }
 
-/**
- * A non-interactive row — an identity block, a section heading. Radix skips it
- * in keyboard navigation, which is what makes it safe to put a name and email
- * at the top of a menu.
- */
+/** A non-interactive row (identity block, section heading); Radix skips it in keyboard navigation. */
 function DropdownMenuLabel({
   className,
   ...props

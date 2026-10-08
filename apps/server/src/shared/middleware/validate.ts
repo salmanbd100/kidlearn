@@ -7,20 +7,10 @@ type ValidationSchemas = {
   query?: ZodTypeAny;
 };
 
-/**
- * Key under which `validate({ query })` stashes the parsed query string.
- * Express 5 exposes `req.query` as a getter with no setter, so parsed values
- * cannot be written back onto the request the way `body` and `params` can.
- */
+/** Express 5 `req.query` is a getter with no setter, so parsed query values are stashed on `res.locals` under this key. */
 const VALIDATED_QUERY = "validatedQuery";
 
-/**
- * Validates the request at the route boundary. On success the parsed (typed,
- * unknown-key-stripped) values replace `req.body` and `req.params`; the parsed
- * query is available via `validatedQuery(res)`. On failure the `ZodError` is
- * forwarded to the error handler, which returns a 400 `VALIDATION_FAILED`
- * envelope — the request never reaches the service layer.
- */
+/** On failure the `ZodError` goes to the error handler (400 `VALIDATION_FAILED`); the request never reaches the service layer. */
 export function validate(schemas: ValidationSchemas): RequestHandler {
   return (req, res, next) => {
     try {
@@ -40,22 +30,14 @@ export function validate(schemas: ValidationSchemas): RequestHandler {
   };
 }
 
-/**
- * Reads the query values parsed by `validate({ query })`. Call it only on
- * routes that ran that middleware — the schema type is supplied by the caller.
- */
 export function validatedQuery<TQuery>(res: Response): TQuery {
-  // `res.locals` is typed `Record<string, any>` by @types/express, so this cast
-  // narrows an external-library boundary. The value was written by `validate`
-  // after a successful parse of the schema the caller is naming here.
+  // `res.locals` is `Record<string, any>`; this cast narrows it to the schema `validate` parsed.
   return res.locals[VALIDATED_QUERY] as TQuery;
 }
 
-/** The same read, for a helper that cannot see its own route's middleware. */
 export function optionalValidatedQuery<TQuery>(
   res: Response,
 ): TQuery | undefined {
-  // Same external-library boundary as `validatedQuery`, minus its promise that
-  // the middleware ran.
+  // Same boundary as `validatedQuery`, without its promise that the middleware ran.
   return res.locals[VALIDATED_QUERY] as TQuery | undefined;
 }

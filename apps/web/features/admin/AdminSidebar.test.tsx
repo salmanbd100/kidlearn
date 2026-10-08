@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { AdminSidebar } from "./AdminSidebar";
 
-/** The six-section contract (FR-CMS-01 shell). */
 describe("AdminSidebar", () => {
   it("renders exactly the six CMS sections, in order", () => {
     render(<AdminSidebar pathname={ADMIN_ROUTES.analytics} />);
@@ -35,8 +34,7 @@ describe("AdminSidebar", () => {
   it("marks the current section with aria-current, not colour alone", () => {
     render(<AdminSidebar pathname={ADMIN_ROUTES.curriculum} />);
 
-    // design.md §2.3 — meaning is never carried by colour on its own, and the
-    // active item has to be announced to a screen reader.
+    // Meaning is never carried by colour alone; the active item must be announced.
     expect(screen.getByRole("link", { name: "Curriculum" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -47,7 +45,7 @@ describe("AdminSidebar", () => {
   });
 
   it("keeps a section active on its detail pages", () => {
-    // Files 32+ add routes under a section; the rail must not go blank on them.
+    // Routes under a section must keep the rail lit.
     render(<AdminSidebar pathname={`${ADMIN_ROUTES.curriculum}/lesson/abc`} />);
 
     expect(screen.getByRole("link", { name: "Curriculum" })).toHaveAttribute(
@@ -75,7 +73,6 @@ describe("AdminSidebar", () => {
 
     expect(screen.getByText("Reviewer One")).toBeInTheDocument();
   });
-  /** The AI Queue badge (file 37, requirement 8). */
   describe("the AI Queue badge", () => {
     it("shows the count on the AI Queue item", () => {
       render(
@@ -91,8 +88,7 @@ describe("AdminSidebar", () => {
     });
 
     it("says what the number counts, not just the number", () => {
-      // design.md §2.3 — "AI Queue 3" announced on its own tells a screen-reader
-      // user nothing about what the 3 is.
+      // "AI Queue 3" alone tells a screen-reader user nothing about the 3.
       render(
         <AdminSidebar
           pathname={ADMIN_ROUTES.analytics}

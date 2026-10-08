@@ -42,15 +42,13 @@ describe("publishedForChild", () => {
 
 describe("publishedOnly", () => {
   it("restricts to published content without a grade condition", () => {
-    // Worlds are not grade-tagged: the lessons inside them are.
     expect(publishedOnly).toEqual({ status: "published" });
   });
 });
 
 describe("publishedRelation", () => {
   it("wraps the status gate as a to-one relation filter", () => {
-    // For a row whose visibility depends on one it points at — `Lesson.world`.
-    // Prisma cannot filter an `include`, so this belongs in `where`.
+    // Prisma cannot filter an `include`, so a relation's own status belongs in `where`.
     expect(publishedRelation).toEqual({ is: { status: "published" } });
   });
 });
@@ -69,8 +67,7 @@ describe("isPublished", () => {
   });
 
   it.each(HIDDEN)("rejects a row in %s", (status) => {
-    // `approved` is the trap: it has cleared human review but has not been
-    // published, so it is still not something a child may see.
+    // `approved` has cleared review but is not published, so a child still may not see it.
     expect(isPublished({ status })).toBe(false);
   });
 

@@ -3,11 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ParentAvatar, parentInitials } from "./ParentAvatar";
 
-/**
- * Both fields Google fills in here are nullable, and the photo can 404 long
- * after sign-in, so every path through this component ends somewhere readable.
- */
-
 function parent(
   overrides: Partial<ParentSummaryResponse> = {},
 ): ParentSummaryResponse {
@@ -17,6 +12,7 @@ function parent(
     name: "Salman Rahman",
     avatarUrl: null,
     consentGivenAt: "2026-06-01T00:00:00.000Z",
+    hasCurrentConsent: true,
     ...overrides,
   };
 }
@@ -67,8 +63,7 @@ describe("ParentAvatar", () => {
 
     const image = document.querySelector("img");
     expect(image).not.toBeNull();
-    // A photo the account has since removed 404s, and a broken-image icon beside
-    // a name reads as an error rather than as "no photo set".
+    // A photo the account has since removed 404s; a broken-image icon reads as an error, not "no photo set".
     if (image) fireEvent.error(image);
 
     expect(document.querySelector("img")).toBeNull();

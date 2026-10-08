@@ -1,4 +1,3 @@
-/** Request schemas for `/api/children`. */
 import type { Language } from "@kidlearn/db";
 import {
   ChildProfileCreateSchema,
@@ -6,7 +5,6 @@ import {
 } from "@kidlearn/types";
 import { z } from "zod";
 
-/** Language mirror, checked rather than trusted. */
 type MirroredLanguage = z.infer<
   typeof ChildProfileCreateSchema
 >["preferredLanguage"];

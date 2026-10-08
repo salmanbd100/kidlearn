@@ -2,9 +2,7 @@ import { z } from "zod";
 import { LessonStepSchema } from "../domain/progress.js";
 import { IsoDateTimeSchema, ok } from "./envelope.js";
 
-/**
- * `/api/progress` — where the lesson player's progress is recorded (FR-LSN-06..07).
- */
+/** `/api/progress` — where the lesson player's progress is recorded (FR-LSN-06..07). */
 
 /** One child's position in one lesson. */
 export const LessonProgressSchema = z

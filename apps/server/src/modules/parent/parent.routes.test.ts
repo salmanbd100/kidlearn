@@ -1,10 +1,6 @@
 /**
- * See the note at the top of `shared/middleware/require-parent.test.ts`: there is
- * no test database yet, so `config/prisma.js` is stubbed and
- * `auth.api.getSession` is spied on.
- *
- * What a stub cannot prove is called out where it matters: the deletion test
- * asserts the writes that were issued, not that a row vanished from Postgres.
+ * Stubs `config/prisma.js` per the stub exception in `document/standards/general.md §5`; `auth.api.getSession` is spied on.
+ * The deletion test asserts the writes issued, not that a row vanished from Postgres.
  */
 // `Prisma` is a value import: the stub constructs the real P2025 error class so
 // the service's own `instanceof` check is exercised rather than bypassed.
@@ -15,9 +11,9 @@ import {
   DeletedResponseSchema,
   DeletionRequestResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 const db = vi.hoisted(() => ({
   parentFindUnique: vi.fn(),
@@ -78,8 +74,7 @@ function parentRow(overrides: Partial<Parent> = {}): Parent {
 }
 
 function mockSession() {
-  // `getSession` returns a deep better-auth type; only the fields the routes
-  // read are supplied, so the shape is narrowed at this boundary.
+  // Narrowed: `getSession` returns a deep better-auth type; only the fields the routes read are supplied.
   vi.spyOn(auth.api, "getSession").mockResolvedValue({
     user: SESSION_USER,
     session: {
@@ -90,7 +85,6 @@ function mockSession() {
   } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>);
 }
 
-/** The `data` written by the most recent `prisma.parent.update`. */
 function lastParentUpdateData(): Record<string, unknown> {
   const calls = db.parentUpdate.mock.calls;
   const [{ data }] = calls[calls.length - 1] as [
@@ -99,10 +93,7 @@ function lastParentUpdateData(): Record<string, unknown> {
   return data;
 }
 
-/**
- * The row `prisma.parent.update` writes to: seeded from whatever the test told
- * `parentFindUnique` to return, then carried across every write in the test.
- */
+/** Seeded from what the test told `parentFindUnique` to return, then carried across every write. */
 let storedParent: Parent | undefined;
 
 function applyUpdate(row: Parent, data: Record<string, unknown>): Parent {
@@ -119,7 +110,6 @@ function applyUpdate(row: Parent, data: Record<string, unknown>): Parent {
   return next as Parent;
 }
 
-/** Evaluates a Prisma `where` against the stored row. */
 function matchesWhere(row: Parent, where: Record<string, unknown>): boolean {
   return Object.entries(where).every(([field, condition]) => {
     if (field === "OR") {
@@ -161,7 +151,6 @@ function matchesWhere(row: Parent, where: Record<string, unknown>): boolean {
   });
 }
 
-/** Prisma's P2025 — what a conditional `update` throws when no row matched. */
 function recordNotFound(): Error {
   const error = new Prisma.PrismaClientKnownRequestError(
     "No record was found for an update.",
@@ -170,11 +159,7 @@ function recordNotFound(): Error {
   return error;
 }
 
-/**
- * Seeded lazily from the fixture the test handed `parentFindUnique`, so no call
- * site has to opt in. Requests keep their own stale snapshot — which is the
- * point: the stored row is the only thing that accumulates.
- */
+// Seeded lazily from the `parentFindUnique` fixture; requests keep their own stale snapshot, so only the stored row accumulates.
 async function seedRow(): Promise<Parent> {
   return (
     storedParent ??
@@ -303,7 +288,10 @@ describe("account deletion", () => {
       (run: (client: unknown) => Promise<void>) =>
         run({
           childProfile: { deleteMany: db.childProfileDeleteMany },
-          parent: { delete: db.parentDelete },
+          parent: {
+            delete: db.parentDelete,
+            updateMany: async () => ({ count: 1 }),
+          },
           user: { delete: db.userDelete },
         }),
     );

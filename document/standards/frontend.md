@@ -25,7 +25,7 @@
 
 ## 1. `packages/ui` Component Architecture
 
-### Full intended structure
+### Structure
 
 ```
 packages/ui/src/
@@ -35,27 +35,34 @@ packages/ui/src/
 └── styles/         # tokens.css + theme blocks — CSS only, no TS
 ```
 
-`kid/` and `parent/` layers are described in the table below but do not exist
-yet, and nothing should be created there speculatively. A surface component
-earns promotion out of `apps/web` only once it has a second consumer **and**
-depends on nothing app-owned. `BigButton` and `IconTile` are the closest
-candidates and still fail the second test: both call `useAudio`, whose provider
-loads assets from `apps/web/public`.
+#### Recorded decision — `packages/ui` is the primitive layer, not a component library
 
-### Layer decision rules
+**Decided 2026-09-04 , confirmed 2026-10-05.** This section
+once specified `kid/` and `parent/` layers inside `packages/ui`. Nothing was ever
+placed there, and nothing should be: their only payoff is reuse by a second app,
+and [`mobile-app-plan.md §4.2`](../mobile-app-plan.md) rules that out — Radix
+primitives are DOM-bound and Tailwind's CSS variables do not exist in React
+Native, so the mobile app shares tokens, types and strings, not components.
 
-Use this table to decide where a new file goes. If it matches more than one row, use the most specific match.
+`packages/ui` therefore holds what is theme-agnostic and app-agnostic. A
+surface component lives in the app that renders it. It is promoted into
+`packages/ui/src/primitives/` only when a second surface renders it **and** it
+depends on nothing app-owned — `BigButton` and `IconTile` fail the second test,
+because both call `useAudio`, whose provider loads assets from `apps/web/public`.
 
-| Question | Layer |
+### Where a new file goes
+
+If it matches more than one row, use the first.
+
+| Question | Home |
 |---|---|
-| Is it a copied shadcn/ui primitive? | `primitives/` |
-| Does it work identically in both `kid` and `parent` themes with no surface assumptions? | `primitives/` |
-| Is it a game widget (balloon-pop, tracing, drag-drop matching, puzzle)? | `kid/` |
-| Is it a kid-portal-specific composed component (world map, reward ceremony, character selector)? | `kid/` |
-| Is it a parent-dashboard-specific component (stat card, weekly report card, data table)? | `parent/` |
-| Is it a React hook with no JSX? | `hooks/` |
-| Is it a pure function with no JSX? | `lib/` |
-| Is it a CSS variable declaration or theme block? | `styles/` |
+| Is it a copied shadcn/ui primitive, or a component both themes render with no surface assumptions? | `packages/ui/src/primitives/` |
+| Is it a React hook with no JSX and no app-owned dependency? | `packages/ui/src/hooks/` |
+| Is it a pure function with no JSX and no app-owned dependency? | `packages/ui/src/lib/` |
+| Is it a CSS variable declaration or theme block? | `packages/ui/src/styles/` |
+| Does one feature use it (a game widget, a stat card, a reward ceremony)? | `apps/web/features/<domain>/` |
+| Do two or more features use it on the kid surface? | `apps/web/shared/components/kid/` |
+| Do two or more features use it elsewhere? | `apps/web/shared/components/` |
 
 ### Rules that apply to every layer
 
@@ -65,10 +72,17 @@ Use this table to decide where a new file goes. If it matches more than one row,
 - Components expose `variant`, `size`, and `tone` props. Callers do not pass long `className` strings to fundamentally restyle a component. If a caller needs a visual treatment that no variant covers, add the variant — do not make the caller responsible for styling internals. **[REVIEW]**
 - All color, radius, shadow, and spacing values come from semantic tokens (CSS variables). Components never reference raw hex values, brand hue names, or Tailwind color literals directly. See `document/design.md §2` for the full token contract. **[REVIEW]**
 
+#### Recorded exception — third-party brand marks
+
+**Status: active as of 2026-10-07 (file 40).** A third party's logo keeps the colours its owner
+prescribes; re-tinting it with our tokens breaks their brand terms and makes it unrecognisable.
+Covers `apps/web/features/parent/GoogleIcon.tsx` (the four Google "G" colours) and nothing else — a
+new mark is added to this list by name. The hex values stay inside the mark's own component.
+
 **Theme isolation**
 
-- Components never branch on theme in JavaScript (`if theme === 'kid'`). Theme is applied by setting `data-theme="kid"` or `data-theme="parent"` on a layout boundary; token values cascade automatically. **[REVIEW]**
-- `kid/` and `parent/` components compose from `primitives/` — they never duplicate primitive markup inline. **[REVIEW]**
+- Components never branch on theme in JavaScript (`if theme === 'kid'`). Theme is applied by `<ThemeScope theme="kid">` or `<ThemeScope theme="parent">` (`@kidlearn/ui`) on a layout boundary; token values cascade automatically. A hand-written `data-theme` div does not reach portalled dialogs and menus, which mount in `<body>`. **[REVIEW]**
+- Surface components compose from `packages/ui` primitives — they never duplicate primitive markup inline. **[REVIEW]**
 
 **Adding a shadcn component**
 
@@ -94,8 +108,10 @@ apps/web/
 │   ├── components/ # Providers and cross-feature components (kid/ surface layer)
 │   ├── hooks/      # Cross-feature React hooks
 │   └── lib/        # i18n, locale and formatting helpers — no JSX
-└── locales/        # i18next resource bundles
 ```
+
+The strings themselves are not here: they are `@kidlearn/i18n`
+(`packages/i18n/locales/{en,bn}/`), shared with the mobile app.
 
 A feature owns everything one domain needs: its components, its hooks, its pure
 helpers, its API client, and every suite that covers them. `features/screen-time/`
@@ -134,21 +150,39 @@ Rules:
 - Push the client boundary as far down the tree as possible. A single interactive button must not force its entire parent subtree to become a Client Component. Extract the interactive element into its own file and mark only that file with `'use client'`. **[REVIEW]**
 - Never fetch data in a Client Component. Fetch in Server Components or Server Actions and pass data as props. **[REVIEW]**
 
-#### Recorded exception — the `(admin)` CMS fetches in the browser
+#### Recorded exception — every surface fetches in the browser
 
-**Status: active as of 2026-08-22 (file 31), widened to the curriculum tree in
-file 32.** The admin session cookie belongs to the API origin, not the Next
-server, so a Server Component calling `/api/admin/*` sends no credentials and
-gets a `401` — see the comment at the head of `features/admin/admin-api.ts`. Server-side
-fetching is not merely inconvenient here; it cannot authenticate.
+**Status: active. Opened 2026-08-22 for `(admin)` (file 31, widened to the
+curriculum tree in file 32); widened on 2026-10-04 to `(student)` and `(parent)`
+by the `apps/web` review, which found the code already doing it.** The session
+cookie is set by better-auth on the API origin and carries no `domain`
+attribute (`apps/server/src/config/auth.ts`), so it is host-only: a Server
+Component calling `/api/*` sends no credentials and gets a `401`. See the comment
+at the head of `features/admin/admin-api.ts` and the `credentials: "include"` in
+`shared/api/api-client.ts`. Server-side fetching is not merely inconvenient on
+any of the three surfaces; it cannot authenticate.
 
-The CMS screens therefore hold their own data: `AnalyticsScreen`,
-`CurriculumScreen` and the components under `app/(admin)/`. Each `page.tsx`
-stays a Server Component and the `'use client'` boundary sits on the screen, so
-the rest of the rule above still binds.
+The screens therefore hold their own data. Each `page.tsx` stays a Server
+Component and the `'use client'` boundary sits on the screen, so the rest of the
+rule above still binds: push the boundary down, and keep fetching out of
+components that are not screens, guards or providers.
 
-This is bounded to `app/(admin)/`. A `(student)` or `(parent)` route has a
-session the Next server can read and gets no exception.
+What stays a finding: a Client Component that fetches data no session is needed
+for (a public, cacheable read) — that one has no reason to leave the server.
+
+In `(student)` a screen's own reads start only after `ActiveChildProvider`'s
+three have resolved, because `StudentGuard` does not mount a screen without a
+child. That is one extra round trip, not two cold starts — the provider's
+requests wake the API, so the screen's find it awake. It stays serial on
+purpose: mounting a screen before the child is known starts its narration and
+screen-time gate with no child, and the alternative — a cross-screen prefetch
+cache — is the kind of module-level state R-27 deleted from the lesson player
+for having no reader.
+
+**Exit condition:** the day the API and the web app share a registrable domain
+and the cookie is issued with a `domain` the Next server can read, or a
+token-exchange route lets Server Components act as the signed-in parent. Delete
+this section then and move the reads to Server Components.
 
 ### File naming in `app/`
 
@@ -156,16 +190,21 @@ Next.js App Router reserves specific filenames: `page.tsx`, `layout.tsx`, `loadi
 
 ### Route organisation
 
-The app has three distinct surfaces. Each lives in its own App Router route group with its own root layout:
+The app has three product surfaces and one public site. Each lives in its own App Router route group with its own layout:
 
 ```
 app/
+├── (site)/         # Public homepage and guides — kid theme, unauthenticated
 ├── (student)/      # Student Portal — kid theme, full-bleed, gamified
-├── (parent)/       # Parent Dashboard — parent theme, Google session only
+├── (parent)/       # Parent Dashboard — parent theme, Google session only (sign-in: homepage dialog, or /parent/login)
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
-A layout file in `(student)` must never import components from `(parent)` or `(admin)`, and vice versa. Shared components live in `packages/ui`. **[REVIEW]**
+A layout file in `(student)` must never import components from `(parent)` or `(admin)`, and vice versa. What two groups share lives in `features/` or `shared/` — see §1 for when it goes further, into `packages/ui`. **[REVIEW]**
+
+`(site)` owns `/` and `/guide/*` (FR-SITE-01..03). It is public, needs no session, and is scoped `<ThemeScope theme="kid">` so it reads as the same product — but it is **not part of the Student Portal**. It carries external links (GitHub), which NFR-SAFE-07 forbids on the child's surface, so the rule runs one way: no `(student)` screen links to a `(site)` route, and `app/(student)/no-external-links.test.tsx` fails if one does. The root `not-found.tsx` is shared by every surface and still links to `/`; the homepage's primary action leads a child straight back to `/select-profile`.
+
+Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either: a signed-out session on the student surface — `StudentGuard` and the profile picker — goes to `/parent/login` (`PARENT_ROUTES.signInPage`), the same sign-in on a bare page inside `(parent)` with no site chrome, because a child who dismissed the homepage dialog would be one tap from GitHub. `no-external-links.test.tsx` sweeps `(student)` and `features/student` for `PARENT_ROUTES.login`, `ADMIN_ROUTES.login` and a bare `/` as a navigation target. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
 
 ### Component files
 
@@ -182,7 +221,7 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 
 #### Recorded exception — the `(admin)` CMS is English-only
 
-**Status: active as of 2026-08-22 (file 31).** FR-I18N covers the child and parent
+**Status: active as of 2026-08-22 (file 31).** It also covers `features/admin/AdminSignInDialog.tsx`, which renders on the homepage but belongs to the CMS. FR-I18N covers the child and parent
 surfaces, which are the ones a family reads. The CMS is an internal tool used by
 the team, so strings in `app/(admin)/` and `features/admin/`
 (including `features/admin/admin-routes.ts`) stay hard-coded English rather than wiring a fourth i18next
@@ -216,11 +255,11 @@ Test rendered, observable output — not internal state or markup structure.
 
 Before considering frontend work complete:
 
-- [ ] Component sits in the correct `packages/ui` layer (`primitives/` / `kid/` / `parent/` / `hooks/` / `lib/` / `styles/`)
+- [ ] Component sits where §1's table puts it: a component two surfaces render, depending on nothing app-owned, belongs in `packages/ui/src/primitives/`; one a single surface renders stays in `apps/web`
 - [ ] Variants built with `cva` + `cn()` — no ad-hoc `className` concatenation
 - [ ] Semantic tokens only — no raw hex, brand hue names, or Tailwind color literals
-- [ ] No theme branching in JavaScript — `data-theme` on the layout boundary only
-- [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components (except the `(admin)` CMS — see §2)
+- [ ] No theme branching in JavaScript — `ThemeScope` on the layout boundary only
+- [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components (except where the session cookie forces it — see §3)
 - [ ] All user-facing strings via `i18next` (except the `(admin)` CMS — see §3)
 - [ ] Images via `next/image`, fonts via `next/font`
 - [ ] Touch targets: ≥64px on kid surfaces, ≥44px on parent surfaces (`document/design.md §7`)

@@ -1,14 +1,13 @@
 "use client";
 
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildProfileForm } from "@/features/children/ChildProfileForm";
 import { updateChild } from "@/features/parent/parent-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
-/** Edit a profile (FR-PROF-05). */
 export function EditChildScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const router = useRouter();

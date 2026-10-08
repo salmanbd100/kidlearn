@@ -1,0 +1,26 @@
+{
+  "name": "@kidlearn/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./site": "./src/site.ts"
+  },
+  "scripts": {
+    "dev": "echo '@kidlearn/i18n exports raw TypeScript and JSON - nothing to watch'",
+    "build": "echo '@kidlearn/i18n exports raw TypeScript and JSON - nothing to build'",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@kidlearn/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@kidlearn/config": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

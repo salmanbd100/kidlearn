@@ -12,7 +12,7 @@ Port letter and number tracing to native: the glyph outline and guide dots rende
 ## Context & Current State
 
 - `TraceActivitySchema` (`packages/types/src/activity/schemas.ts`) carries: `schemaVersion: 1`, `type: "trace"`, `instructionAudio`, `glyph` (the character being traced — "A", "৩", …), `pathData` (the SVG path the finger follows) and `guideDots` (waypoints the renderer snaps to, **in trace order**).
-- `apps/web/components/activities/TraceActivity.tsx` and `apps/web/components/activities/trace/` are the reference. `svg-path-properties` is already a dependency of `apps/web` and is **platform-free** — the same package computes point-at-length and total length on native. Read the web implementation's tolerance and progress rules and reuse them; a letter that is easy to trace in the browser and hard on a phone is a bug, not a platform difference.
+- `apps/web/features/activities/TraceActivity.tsx` and `apps/web/features/activities/trace/` are the reference. `svg-path-properties` is already a dependency of `apps/web` and is **platform-free** — the same package computes point-at-length and total length on native. Read the web implementation's tolerance and progress rules and reuse them; a letter that is easy to trace in the browser and hard on a phone is a bug, not a platform difference.
 - M16 gives the renderer contract (`{ definition, onFinished, onWrongAttempt }`), the engine that speaks the instruction and celebrates, the pure grader module, and the registry this file adds an entry to.
 - `react-native-svg` is needed for the glyph outline, the guide dots and the child's drawn stroke. It must be added to the M01 `transformIgnorePatterns` list if it is not already covered.
 - design.md §7: ≥64px targets. A tracing surface is not a button, but the **guide dots** are effectively targets and must be generously sized (≥48px hit area even if drawn smaller), and the glyph must be large — a full-width canvas on a phone.
@@ -128,7 +128,7 @@ function signalOffPath() {
 
 ## Step-by-Step Plan
 
-1. Read `apps/web/components/activities/TraceActivity.tsx` and `trace/` in full; note the tolerance and completion-threshold values to carry over. (~20 min)
+1. Read `apps/web/features/activities/TraceActivity.tsx` and `trace/` in full; note the tolerance and completion-threshold values to carry over. (~20 min)
 2. Write `lib/trace-progress.ts` with tests first: sampling, forward-only advance, jump-to-end rejected, threshold. (~45 min)
 3. Install `react-native-svg` (and add it to `transformIgnorePatterns` if needed); build `GlyphCanvas` with the three layers and confirm a seeded glyph renders at full width on device. (~35 min)
 4. Add the pan gesture, the dp→path tolerance conversion, and the Reanimated `strokeDashoffset` reveal. (~40 min)
@@ -158,6 +158,6 @@ function signalOffPath() {
 
 - Handwriting recognition or scoring stroke quality. The spec asks for tracing, not assessment.
 - Freehand drawing that preserves the child's actual line shape. The snapped reveal is deliberate: it teaches the letter's form.
-- Authoring `pathData` or `guideDots` — the CMS (web file 33).
+- Authoring `pathData` or `guideDots` — the admin CMS (`apps/web/features/admin/`).
 - Match and puzzle activities — M18.
 - Haptic feedback on reaching each guide dot: appealing, not in the spec, and it needs its own setting.

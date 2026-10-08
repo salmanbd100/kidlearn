@@ -1,15 +1,9 @@
 import { QUIZ_QUESTION_TYPES, QuizQuestionSchema } from "@kidlearn/types";
 import { z } from "zod";
 
-// What the quiz generator's answer must be shaped like (FR-AI-03).
-
 export const QUIZ_COUNT_BOUNDS = { min: 3, max: 5 } as const;
 
-/**
- * How many of the four formats a generated quiz must use. Three rather than four
- * because the floor on `count` is three: requiring all four would make the
- * smallest permitted quiz impossible.
- */
+// Three rather than four formats: the floor on `count` is three, so requiring all four would forbid the smallest quiz.
 export const MIN_DISTINCT_FORMATS = 3;
 
 export function buildQuizGenerationOutputSchema(

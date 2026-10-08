@@ -19,19 +19,7 @@ import {
 import { AI_JOB_LIST_EXAMPLE } from "../examples.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
 
-/**
- * `modules/admin/ai/ai.routes.ts` — the AI generation pipeline (files 34–36, FR-AI-01..06,
- * FR-AI-08, FR-AI-09).
- */
-
-/**
- * Compile-time guards on the three mirrored job enums. `@kidlearn/types` may not
- * depend on `@kidlearn/db`, so it restates `AIJobType`, `AIJobStatus` and
- * `AIReviewDecision` by hand; these assignments make the restatement checked
- * rather than trusted, exactly as `paths/children.ts` does for `GradeLevel`.
- * Adding a job type or a review decision to `schema.prisma` without adding it to
- * `packages/types` fails `pnpm typecheck` here.
- */
+/** Compile-time guards: `@kidlearn/types` cannot depend on `@kidlearn/db`, so these make its restated job enums checked, not trusted. */
 type _JobEnumsAgree = AIJobType extends AiJobType
   ? AiJobType extends AIJobType
     ? AIJobStatus extends AiJobStatus
@@ -118,7 +106,7 @@ const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   ["FORBIDDEN"],
 );
 
-/** The `429` every generation operation shares (file 36). */
+/** The `429` every generation operation shares. */
 const RATE_LIMITED_RESPONSE = errorResponse(
   [
     'Today\'s generation cap for this operation\'s cost bucket is used up. `error.details` carries `{ bucket, cap, used, pending }` — the arithmetic, not just the verdict, so a client can say "40 of 50 used, this needs 16" rather than "try again tomorrow".',
@@ -470,9 +458,10 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
         "404": JOB_NOT_FOUND_RESPONSE,
         "409": errorResponse(
           [
-            "The approval was refused, and `error.details.code` says which of two reasons:",
+            "The approval was refused, and `error.details.code` says which of three reasons:",
             "",
             "- `JOB_NOT_AWAITING_REVIEW` — the job is already decided, still generating, or failed. `details.status` carries its state.",
+            "- `UNREGISTERED_ASSET` — an asset URL in the payload is not in the media library; `details.urls` lists them. The payload schema accepts any https URL, so this is what stops a link to an unreviewed host reaching a child. Every library asset the payload links to also answers to `AI_REVIEW_REQUIRED` through its own `aiJobId`.",
             "- `APPROVAL_BLOCKED` — `details.blockers` lists the sentences. A linked row is no longer `draft`, meaning somebody changed it since the job was generated; or a generated quiz question still points at a placeholder asset on the reserved `.invalid` host, meaning its picture or clip was never produced. Publishing either would put something broken in front of a child mid-lesson.",
           ].join("\n"),
           ["CONFLICT"],

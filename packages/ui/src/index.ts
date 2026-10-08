@@ -1,6 +1,3 @@
-// Public surface of @kidlearn/ui. Re-export primitives + helpers here so
-// consumers import from "@kidlearn/ui" rather than deep paths.
-
 export { useIsMotionReduced } from "./hooks/use-reduced-motion";
 export {
   A11Y_BOOTSTRAP_SCRIPT,
@@ -45,7 +42,21 @@ export { Input, type InputProps, inputVariants } from "./primitives/input";
 export { Label, type LabelProps, labelVariants } from "./primitives/label";
 export { Select, type SelectProps, selectVariants } from "./primitives/select";
 export {
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuSeparator,
+  SelectMenuTrigger,
+  type SelectMenuTriggerProps,
+  selectMenuTriggerVariants,
+} from "./primitives/select-menu";
+export {
   Textarea,
   type TextareaProps,
   textareaVariants,
 } from "./primitives/textarea";
+export {
+  type Theme,
+  ThemeScope,
+  type ThemeScopeProps,
+} from "./primitives/theme-scope";

@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_LOCALE } from "@kidlearn/i18n";
 import type {
   AvatarCharacterResponse,
   ChildProfileResponse,
@@ -16,37 +17,35 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import type { ApiResult } from "../../shared/api/api-client";
 import {
   activateChild,
   fetchAuthMe,
   listAvatars,
   listChildren,
-} from "../parent/parent-api";
-
-// Who is playing, for the whole `(student)` route group.
+} from "@/features/parent/parent-api";
+import {
+  type ApiResult,
+  onConsentRequired,
+  onUnauthorized,
+} from "@/shared/api/api-client";
+import { readLocaleCookie } from "@/shared/lib/locale";
 
 export type ActiveChildStatus = "loading" | "ready" | "signedOut" | "error";
 
 export interface ActiveChildValue {
   status: ActiveChildStatus;
-  /**
-   * The grown-up who owns this device, for the parent chip on `/select-profile`.
-   * `undefined` until the session loads, and while signed out.
-   */
+  /** The grown-up who owns this device; `undefined` until the session loads or while signed out. */
   parent: ParentSummaryResponse | undefined;
-  /** Every profile the signed-in parent owns, oldest first. */
   profiles: ChildProfileResponse[];
-  /** Starter characters, for resolving a profile's avatar art. */
   avatars: AvatarCharacterResponse[];
   /** The profile the session is scoped to, or `undefined` before one is picked. */
   child: ChildProfileResponse | undefined;
   /** True once a request has been retried — the API is asleep (NFR-PERF-04). */
   isWakingUp: boolean;
-  /** FR-AUTH-06 — scopes the session to a child. */
   activate: (
     childId: string,
   ) => Promise<ApiResult<{ activeChildProfileId: string }>>;
+  /** Reloads from the loading state, so the screen shows something is happening. */
   refresh: () => Promise<void>;
 }
 
@@ -76,10 +75,14 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
   // Guards against a response from an unmounted provider writing state, and
   // against a slow first load overwriting a faster refresh.
   const loadId = useRef(0);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const isLoadingRef = useRef(false);
 
   const load = useCallback(async () => {
     loadId.current += 1;
     const id = loadId.current;
+    isLoadingRef.current = true;
 
     // In parallel: all three need only `requireParent`, so none waits on another.
     const [me, list, characters] = await Promise.all([
@@ -89,6 +92,7 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     ]);
 
     if (id !== loadId.current) return;
+    isLoadingRef.current = false;
     setIsWakingUp(false);
 
     if (!me.ok) {
@@ -114,6 +118,11 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     setStatus("ready");
   }, []);
 
+  const refresh = useCallback(async () => {
+    setStatus("loading");
+    await load();
+  }, [load]);
+
   useEffect(() => {
     void load();
     return () => {
@@ -121,6 +130,31 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
       loadId.current += 1;
     };
   }, [load]);
+
+  // A 401 on any later request means the session may be gone; see the parent
+  // session for why this re-reads rather than assumes.
+  useEffect(
+    () =>
+      onUnauthorized(() => {
+        if (statusRef.current === "ready" && !isLoadingRef.current) {
+          void load();
+        }
+      }),
+    [load],
+  );
+
+  // The 403 is the server's verdict, so no re-read: marking the parent is enough for the guards to send them to consent.
+  useEffect(
+    () =>
+      onConsentRequired(() => {
+        setParent((current) =>
+          current === undefined
+            ? current
+            : { ...current, hasCurrentConsent: false },
+        );
+      }),
+    [],
+  );
 
   const activate = useCallback(async (childId: string) => {
     const result = await activateChild(childId);
@@ -136,13 +170,24 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
     [profiles, activeChildId],
   );
 
-  /** FR-I18N-02 — the child's own language wins over the device cookie. */
+  /** The child's own language wins over the device cookie. */
   const language = child?.preferredLanguage;
   useEffect(() => {
     if (language !== undefined && i18n.resolvedLanguage !== language) {
       void i18n.changeLanguage(language);
     }
   }, [language, i18n]);
+
+  // The root i18n instance outlives this provider, so leaving the portal would carry the child's language into the dashboard.
+  // A ref: `useTranslation` returns a new `i18n` per language change, which as a dependency would undo each switch.
+  const i18nRef = useRef(i18n);
+  i18nRef.current = i18n;
+  useEffect(
+    () => () => {
+      void i18nRef.current.changeLanguage(readLocaleCookie() ?? DEFAULT_LOCALE);
+    },
+    [],
+  );
 
   const value = useMemo<ActiveChildValue>(
     () => ({
@@ -153,9 +198,9 @@ export function ActiveChildProvider({ children }: { children: ReactNode }) {
       child,
       isWakingUp,
       activate,
-      refresh: load,
+      refresh,
     }),
-    [status, parent, profiles, avatars, child, isWakingUp, activate, load],
+    [status, parent, profiles, avatars, child, isWakingUp, activate, refresh],
   );
 
   return (

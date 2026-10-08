@@ -22,15 +22,12 @@ import {
   type LessonGenerationOutput,
 } from "../schemas/lesson.js";
 
-// The AI Lesson Generator (FR-AI-01).
-
 export interface GenerateLessonInput {
   gradeLevel: GradeLevel;
   subjectId: string;
   topicId: string;
   lessonFocus: string;
   languages: Locale[];
-  /** Optional — otherwise inherited from the topic's existing lessons. */
   worldId?: string;
 }
 
@@ -72,9 +69,7 @@ export async function generateLesson(
 
   return runGenerationJob<LessonGenerationOutput>({
     type: "lesson",
-    // The admin's parameters *and* the resolved prompt. A reviewer reading a
-    // generation months later needs the words the model actually saw, and the
-    // prompt builder will have changed by then (FR-AI-08).
+    // Params and resolved prompt: the prompt builder will have changed by the time a reviewer reads this.
     input: {
       gradeLevel: input.gradeLevel,
       subjectId: input.subjectId,
@@ -99,12 +94,7 @@ export async function generateLesson(
     generate: async (retryFeedback) => {
       const body = await generateStructured({
         system: KIDLEARN_SYSTEM_PROMPT,
-        // The retry is a second *user* message rather than a model turn carrying
-        // the rejected answer, because that answer is not something to echo back:
-        // the model produced it, it is quoted in the feedback by way of its
-        // validation errors, and replaying it would double the tokens the second
-        // call costs to tell the model what it already said. `gemini-text.ts`
-        // sends both messages as parts of one user turn.
+        // Retry feedback is a second user message, not a replayed model turn: replaying the rejected answer doubles the retry's tokens.
         messages:
           retryFeedback === undefined
             ? [{ role: "user", content: userPrompt }]
@@ -115,8 +105,7 @@ export async function generateLesson(
         outputSchema: bodySchema,
       });
 
-      // A body that stopped short is the whole lesson stopping short: the
-      // questions would be written for a lesson whose narration does not exist.
+      // A short body means the questions would be written for narration that does not exist.
       if (body.stopReason === "refusal" || body.stopReason === "max_tokens") {
         return body;
       }
@@ -149,12 +138,7 @@ export async function generateLesson(
   });
 }
 
-/**
- * The body and the questions as one object, for the schema that validates the
- * whole lesson. A body that is not an object is left alone rather than wrapped:
- * it is about to fail validation, and the reviewer needs to see what the model
- * actually answered (FR-AI-08).
- */
+// A non-object body is left unwrapped so the reviewer sees what the model actually answered.
 function assemble(body: unknown, quizQuestions: unknown[]): unknown {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return body;
@@ -162,7 +146,6 @@ function assemble(body: unknown, quizQuestions: unknown[]): unknown {
   return { ...body, quizQuestions };
 }
 
-/** Which world the lesson is themed from. */
 async function resolveWorldId(input: GenerateLessonInput): Promise<string> {
   if (input.worldId !== undefined) {
     const world = await prisma.world.findUnique({
@@ -201,8 +184,7 @@ async function persistLesson({
   topicId: string;
   worldId: string;
 }): Promise<Prisma.JsonObject> {
-  // The focus line names the row for the CMS and supplies the slug; what a child
-  // reads is `parsed.title`, written per locale. See `schemas/lesson.ts`.
+  // The focus line names the row and supplies the slug; the child reads parsed.title, per locale.
   const internalTitle = input.lessonFocus.trim();
   const slug = await uniqueSlug(tx, topicId, internalTitle);
   const sortOrder = await nextLessonSortOrder(tx, topicId);
@@ -216,10 +198,7 @@ async function persistLesson({
   for (const [index, question] of parsed.quizQuestions.entries()) {
     const definition = withPlaceholderAssets(question);
 
-    // Defence in depth: the payload already parsed as part of the generation
-    // output, and it is parsed again against the shared union immediately before
-    // it becomes a JSONB row. The two checks are cheap and the failure they guard
-    // is a question a child cannot answer.
+    // Defence in depth: re-parsed against the shared union just before it becomes a JSONB row.
     const checked = safeParseQuizQuestion(definition);
     if (!checked.success) {
       throw new Error(
@@ -256,8 +235,7 @@ async function persistLesson({
       translations: {
         create: input.languages.map((language) => ({
           language,
-          // The schema requires both keys for every requested locale, so these
-          // fall back only if that contract is ever loosened.
+          // The schema requires both keys per locale; these fall back only if that is loosened.
           title: parsed.title[language] ?? internalTitle,
           introScript: parsed.introScript[language] ?? "",
         })),
@@ -269,7 +247,6 @@ async function persistLesson({
   return { lessonId: lesson.id, quizId: quiz.id, questionIds };
 }
 
-/** Slugified focus, suffixed until it is free within the topic. */
 async function uniqueSlug(
   tx: Prisma.TransactionClient,
   topicId: string,

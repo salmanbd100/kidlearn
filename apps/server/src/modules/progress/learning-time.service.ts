@@ -16,27 +16,22 @@ import {
   mondayOfLocalWeek,
 } from "../../shared/utils/local-date.js";
 import { requireVisibleStoryId } from "../content/story.service.js";
+import {
+  evaluateStartForChild,
+  screenTimeBlockedError,
+} from "../screen-time/screen-time.service.js";
 import { requireVisibleLessonId } from "./lesson-progress.service.js";
+import {
+  assertWithinClientEventBudget,
+  recordBeatUnlessRecent,
+} from "./session-event.service.js";
 
-/**
- * Learning time as a server-derived fact (FR-TIME-06, FR-DASH-02, FR-LSN-07).
- */
-
-/**
- * Longer than this between two events and the child had walked away — a new
- * sitting rather than one long one.
- */
+/** Longer than this between two events and the child had walked away: a new sitting. */
 export const LEARNING_TIME_GAP_MS = 90_000;
 
 /** What the last event of a sitting is worth on its own. */
 export const LEARNING_TIME_TAIL_MS = 30_000;
 
-/** Beats closer together than this are dropped. */
-export const HEARTBEAT_MIN_INTERVAL_MS = 20_000;
-
-/**
- * Minutes of presence in `[from, to)`, from the timestamps of events inside it.
- */
 export function computeLearningMinutes(
   timestamps: Date[],
   from: Date,
@@ -65,7 +60,6 @@ export function computeLearningMinutes(
   return Math.round(totalMs / 60_000);
 }
 
-/** The `[from, to)` a range name means, as UTC instants. */
 export function learningTimeWindow(
   range: LearningTimeRange,
   now: Date,
@@ -81,9 +75,7 @@ export function learningTimeWindow(
   }
 
   if (range === "week") {
-    // Monday start (FR-DASH-02), and the bounds themselves from
-    // `shared/utils/local-date.ts` so this window and the weekly report (file 30) cannot
-    // disagree about which seven days a week is.
+    // Monday start (FR-DASH-02); bounds from `shared/utils/local-date.ts` so this and the weekly report agree on which seven days a week is.
     return localWeekBounds(timeZone, mondayOfLocalWeek(today));
   }
 
@@ -100,56 +92,53 @@ function pad(month: number): string {
   return String(month).padStart(2, "0");
 }
 
-/** FR-DASH-02 — how long this child has learned in one window. */
 export async function getLearningMinutes(
   childId: string,
   range: LearningTimeRange,
 ): Promise<LearningTimeResponse> {
-  const { from, to } = learningTimeWindow(range, new Date(), env.APP_TIMEZONE);
+  const [result] = await getLearningMinutesForRanges(childId, [range]);
+  return result;
+}
+
+/** Fetches the events covering all windows once and sums each in memory, so today/week/month together do not scan today's beats three times. */
+export async function getLearningMinutesForRanges(
+  childId: string,
+  ranges: readonly LearningTimeRange[],
+): Promise<LearningTimeResponse[]> {
+  const now = new Date();
+  const windows = ranges.map((range) => ({
+    range,
+    ...learningTimeWindow(range, now, env.APP_TIMEZONE),
+  }));
+  if (windows.length === 0) return [];
+
+  // The covering span, not the month alone: a week that began last month starts before it.
+  const from = new Date(Math.min(...windows.map((w) => w.from.getTime())));
+  const to = new Date(Math.max(...windows.map((w) => w.to.getTime())));
 
   const events = await prisma.sessionEvent.findMany({
     where: { childId, occurredAt: { gte: from, lt: to } },
     select: { occurredAt: true },
     orderBy: { occurredAt: "asc" },
   });
+  const timestamps = events.map((event) => event.occurredAt);
 
-  return {
-    range,
-    minutes: computeLearningMinutes(
-      events.map((event) => event.occurredAt),
-      from,
-      to,
-    ),
-    from: from.toISOString(),
-    to: to.toISOString(),
-  };
+  return windows.map((window) => ({
+    range: window.range,
+    minutes: computeLearningMinutes(timestamps, window.from, window.to),
+    from: window.from.toISOString(),
+    to: window.to.toISOString(),
+  }));
 }
 
-/** Records one heartbeat and answers with the child's total for today. */
 export async function recordHeartbeat(
   child: ChildProfile,
 ): Promise<HeartbeatResponse> {
-  const previous = await prisma.sessionEvent.findFirst({
-    where: { childId: child.id, type: "heartbeat" },
-    orderBy: { occurredAt: "desc" },
-    select: { occurredAt: true },
-  });
-
-  const isTooSoon =
-    previous !== null &&
-    Date.now() - previous.occurredAt.getTime() < HEARTBEAT_MIN_INTERVAL_MS;
-
-  if (!isTooSoon) {
-    await prisma.sessionEvent.create({
-      data: { childId: child.id, type: "heartbeat" },
-    });
-  }
-
+  const recorded = await recordBeatUnlessRecent(child.id);
   const { minutes } = await getLearningMinutes(child.id, "today");
-  return { recorded: !isTooSoon, minutesToday: minutes };
+  return { recorded, minutesToday: minutes };
 }
 
-/** Records one discrete activity event (FR-LSN-07). */
 export async function recordActivityEvent(
   child: ChildProfile,
   report: ActivityEventReport,
@@ -161,6 +150,15 @@ export async function recordActivityEvent(
     ? await requireVisibleStoryId(child, report.refId)
     : await requireVisibleLessonId(child, report.refId);
 
+  // A `story_start` is the evidence a story completion is paid against, and a recent one exempts that completion from the
+  // screen-time gate; recording one while the gate is shut would manufacture that exemption.
+  if (report.type === "story_start") {
+    const decision = await evaluateStartForChild(child.id, undefined);
+    if (!decision.allowed) throw screenTimeBlockedError(decision);
+  }
+
+  await assertWithinClientEventBudget(child.id);
+
   const payload: Prisma.InputJsonObject = { refId };
 
   const event = await prisma.sessionEvent.create({
@@ -169,9 +167,8 @@ export async function recordActivityEvent(
 
   return {
     id: event.id,
-    // The column holds Prisma's whole `SessionEventType`; the narrow union the
-    // response promises is the value just written, which Zod already restricted
-    // to the five surface milestones.
+    // The column holds the whole `SessionEventType`; the narrow union promised is the value just written,
+    // which Zod restricted to the five milestones.
     type: report.type,
     occurredAt: event.occurredAt.toISOString(),
   };

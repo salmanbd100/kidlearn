@@ -1,14 +1,6 @@
 /**
- * See the note at the top of `shared/middleware/require-parent.test.ts`: `general.md §5`
- * wants service and route tests to run against a real test database, and there
- * is none wired up yet. Until that harness lands, these tests stub
- * `config/prisma.js` with a small in-memory store so ownership, the five-profile
- * limit and the session bookkeeping are exercised against realistic query
- * behaviour rather than one-shot `mockResolvedValue`s.
- *
- * The one thing a stub genuinely cannot prove is the `ON DELETE CASCADE` that
- * `DELETE /api/children/:id` relies on, so that is asserted against the Prisma
- * schema itself at the bottom of this file.
+ * Stubs `config/prisma.js` with an in-memory store (general.md §5 stub exception).
+ * The `ON DELETE CASCADE` a stub cannot prove is asserted against the Prisma schema at the bottom.
  */
 import { readFileSync } from "node:fs";
 import { type ChildProfile, type Parent, Prisma } from "@kidlearn/db";
@@ -17,11 +9,12 @@ import {
   CharacterUnlockListResponseSchema,
   ChildProfileListResponseSchema,
   ChildProfileResponseSchema,
+  CONSENT_VERSION,
   DeletedResponseSchema,
 } from "@kidlearn/types";
-import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertContract } from "../../openapi/assert-contract.js";
+import request from "../../shared/testing/request.js";
 
 type CharacterRow = {
   id: string;
@@ -36,15 +29,11 @@ type SessionRow = {
   activeChildProfileId: string | null;
 };
 
-/** The store the stub models (`general.md §5`, stub exception rule 1). */
 type StubState = {
   children: ChildProfile[];
   sessions: Map<string, SessionRow>;
-  /** `ChildCharacter` rows — the characters a child has earned (file 24). */
   unlocks: { childId: string; characterId: string }[];
-  /** `RewardLedger` rows, so `stats` is summed rather than answered. */
   ledger: { childId: string; rewardType: string; amount: number }[];
-  /** `Streak` rows, keyed by child. */
   streaks: Map<string, number>;
   nextChildId: number;
 };
@@ -97,10 +86,8 @@ vi.mock("../../config/prisma.js", () => {
     session: { update: db.sessionUpdate, updateMany: db.sessionUpdateMany },
     rewardLedger: { groupBy: db.rewardLedgerGroupBy },
     streak: { findMany: db.streakFindMany },
-    // Interactive transaction: the callback gets the same stubbed client, so
-    // `tx.childProfile.count` and the real client's spy are one and the same.
-    // Rollback is not simulated — the limit test asserts `create` was never
-    // reached instead of asserting a rolled-back row.
+    // The callback gets the same stubbed client. Rollback is not simulated; the
+    // limit test asserts `create` was never reached.
     $transaction: db.transaction,
   };
   return { prisma: client };
@@ -109,7 +96,6 @@ vi.mock("../../config/prisma.js", () => {
 const { app } = await import("../../app.js");
 const { auth } = await import("../../config/auth.js");
 
-/** Header the stubbed `getSession` reads to decide who is calling. */
 const TEST_PARENT_HEADER = "x-test-parent";
 
 type ParentFixture = {
@@ -139,11 +125,10 @@ function makeParentFixture(key: string): ParentFixture {
       email: user.email,
       name: user.name,
       avatarUrl: null,
-      // Consented by default: `POST /api/children` sits behind `requireConsent`,
-      // so an unconsented fixture would 403 every creation test. `beforeEach`
-      // restores this, and the consent tests clear it deliberately.
+      // Consented by default: `POST /api/children` sits behind `requireConsent`.
+      // `beforeEach` restores this; the consent tests clear it deliberately.
       consentGivenAt: CONSENTED_AT,
-      consentVersion: "1.0",
+      consentVersion: CONSENT_VERSION,
       deleteToken: null,
       deleteTokenExpiresAt: null,
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -159,11 +144,8 @@ const FIXTURES = new Map([
   [PARENT_B.key, PARENT_B],
 ]);
 
-/**
- * The catalogue a real `beforeAll` would seed. `character_default` is the only
- * row a new profile may pick: the other two exist to prove the query filters on
- * both `isDefault` and `status`.
- */
+// `character_default` is the only row a new profile may pick; the other two
+// prove the query filters on both `isDefault` and `status`.
 const CHARACTERS: CharacterRow[] = [
   {
     id: "character_default",
@@ -196,7 +178,6 @@ const VALID_BODY = {
   avatarCharacterId: "character_default",
 };
 
-/** The exact envelope every ownership failure must produce. */
 const NOT_FOUND_ENVELOPE = {
   error: { code: "NOT_FOUND", message: "Child profile not found" },
 };
@@ -222,11 +203,8 @@ function seedChild(
   return child;
 }
 
-/**
- * A Supertest wrapper that authenticates every request as `fixture`. Two of
- * these coexist in the ownership tests, which is the point: the cross-parent
- * 404s are the security-critical assertions in this file.
- */
+// Two of these coexist in the ownership tests: the cross-parent 404s are the
+// security-critical assertions in this file.
 function authedAgentFor(fixture: ParentFixture) {
   const agent = request(app);
   const { key } = fixture;
@@ -238,14 +216,12 @@ function authedAgentFor(fixture: ParentFixture) {
   };
 }
 
-/** An agent with no session at all. */
 function anonymousAgent() {
   return request(app);
 }
 
 type ChildWhere = { id?: string; parentId?: string };
 
-/** The shape `assertAvatarIsSelectable` sends to `character.findFirst`. */
 type AvatarWhere = {
   id: string;
   status: string;
@@ -276,10 +252,9 @@ beforeEach(() => {
       userId: fixture.user.id,
       activeChildProfileId: null,
     });
-    // The fixture parents are module-level objects, so a test that revokes
-    // consent would otherwise leak into every test after it.
+    // Fixture parents are module-level, so revoked consent would leak into later tests.
     fixture.parent.consentGivenAt = CONSENTED_AT;
-    fixture.parent.consentVersion = "1.0";
+    fixture.parent.consentVersion = CONSENT_VERSION;
   }
 
   for (const spy of Object.values(db)) spy.mockReset();
@@ -297,9 +272,8 @@ beforeEach(() => {
       null,
   );
 
-  // Sums the modelled ledger the way Postgres would, so `stats` is a figure
-  // derived from rows rather than a fixed answer (stub exception rule 1). A
-  // badge is counted, not summed — as `readTotals` does.
+  // Sums the modelled ledger like Postgres so `stats` derives from rows (stub
+  // rule 1); a badge is counted, not summed, as in `readTotals`.
   db.rewardLedgerGroupBy.mockImplementation(
     async ({ where }: { where: { childId: { in: string[] } } }) => {
       const scoped = state.ledger.filter((row) =>
@@ -334,13 +308,15 @@ beforeEach(() => {
     async ({ where }: { where: { childId: { in: string[] } } }) =>
       [...state.streaks.entries()]
         .filter(([childId]) => where.childId.in.includes(childId))
-        .map(([childId, current]) => ({ childId, current })),
+        .map(([childId, current]) => ({
+          childId,
+          current,
+          lastActivityDate: new Date(),
+        })),
   );
 
-  // Models the real `where`: the status gate is unconditional, and selectability
-  // is an OR of "is a starter" and "this child unlocked it". A stub that only
-  // understood `isDefault` could not tell the update path's rule from the create
-  // path's, which is the difference these tests exist to pin down.
+  // Models the real `where`: status gate unconditional, selectable = starter OR
+  // unlocked by this child. Distinguishes the update path's rule from create's.
   db.characterFindFirst.mockImplementation(
     async ({ where }: { where: AvatarWhere }) => {
       const unlockedChildId = where.OR?.find(
@@ -367,9 +343,8 @@ beforeEach(() => {
     },
   );
 
-  // The per-child character list (file 24). The status gate is applied here, as
-  // Postgres would, so a draft character can be shown to have stayed out of the
-  // response rather than only out of the `where` clause (Rule 3).
+  // The status gate is applied here as Postgres would, so a draft character is
+  // shown to stay out of the response, not only the `where` clause (rule 3).
   db.characterFindMany.mockImplementation(
     async ({
       where,
@@ -446,6 +421,12 @@ beforeEach(() => {
       const index = state.children.findIndex((c) => c.id === where.id);
       if (index === -1) throw new Error("delete on missing child");
       const [removed] = state.children.splice(index, 1);
+      // What the ON DELETE SET NULL on `session_activeChildProfileId_fkey` does in Postgres.
+      for (const row of state.sessions.values()) {
+        if (row.activeChildProfileId === where.id) {
+          row.activeChildProfileId = null;
+        }
+      }
       return removed;
     },
   );
@@ -484,9 +465,8 @@ beforeEach(() => {
     },
   );
 
-  // Resolves the caller from the test header, then hands back the live session
-  // row so a write through `session.update` is visible to the next request —
-  // which is how `GET /api/auth/me` can be used to verify activation.
+  // Returns the live session row so a write through `session.update` is visible
+  // to the next request.
   vi.spyOn(auth.api, "getSession").mockImplementation(async (context) => {
     const key = context?.headers?.get(TEST_PARENT_HEADER) ?? "";
     const fixture = FIXTURES.get(key);
@@ -494,8 +474,7 @@ beforeEach(() => {
     return {
       user: fixture.user,
       session: state.sessions.get(fixture.sessionId),
-      // Narrowed at this boundary: `getSession` returns a deep better-auth type
-      // and the server only reads the fields supplied here.
+      // Narrowed here: `getSession` returns a deep better-auth type of which only these fields are read.
     } as unknown as Awaited<ReturnType<typeof auth.api.getSession>>;
   });
 });
@@ -639,11 +618,9 @@ describe("POST /api/children", () => {
   });
 
   it("runs that transaction at Serializable, which is what makes the cap hold", async () => {
-    // Sharing a transaction is not enough on its own: an interactive
-    // transaction runs at Postgres's default READ COMMITTED, under which two
-    // concurrent creates both count four and both commit — the sixth profile
-    // the transaction is supposed to prevent. A stub cannot reproduce that
-    // interleaving, so assert the isolation level the guarantee rests on.
+    // An interactive transaction runs at READ COMMITTED, where two concurrent
+    // creates both count four and both commit. A stub cannot reproduce that, so
+    // assert the isolation level the guarantee rests on.
     await authedAgentFor(PARENT_A).post("/api/children").send(VALID_BODY);
 
     const [, options] = db.transaction.mock.calls[0] as [
@@ -700,7 +677,7 @@ describe("POST /api/children", () => {
       expect(res.body).toEqual({
         error: {
           code: "CONSENT_REQUIRED",
-          message: "Parental consent is required before adding a child",
+          message: "Parental consent to the current terms is required",
         },
       });
       expect(state.children).toHaveLength(0);
@@ -715,10 +692,7 @@ describe("POST /api/children", () => {
       expect(state.children).toHaveLength(1);
     });
 
-    /**
-     * The gate must run before the body is parsed, so an unconsented parent
-     * cannot tell a valid payload from an invalid one — 403 either way.
-     */
+    // The gate runs before body parsing, so an unconsented parent cannot tell a valid payload from an invalid one.
     it("gates before validation, so an invalid body still answers 403", async () => {
       PARENT_A.parent.consentGivenAt = null;
 
@@ -749,11 +723,6 @@ describe("POST /api/children", () => {
   });
 });
 
-/**
- * A signed-in parent reaches every verb on this router with no further
- * ceremony. This suite replaces the parental-PIN gate tests: the gate is gone,
- * so what needs proving is that nothing was left half-guarding these routes.
- */
 describe("write verbs need only an authenticated parent", () => {
   const WRITE_ROUTES = [
     ["post", "/api/children", VALID_BODY],
@@ -868,10 +837,6 @@ describe("GET /api/children/:id", () => {
   });
 
   it("reports the stars, coins, badges and streak the child has actually earned", async () => {
-    // `stats` was hardcoded to four zeros on every read, which made four
-    // published contract fields permanently untrue and gave the student home
-    // screen a reward strip that flashed "0 stars" before the separate
-    // `/api/me/rewards/summary` read replaced it.
     const child = seedChild(PARENT_A);
     state.ledger.push(
       { childId: child.id, rewardType: "star", amount: 2 },
@@ -886,8 +851,6 @@ describe("GET /api/children/:id", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.stats).toEqual({
-      // Summed for stars and coins; counted for badges — a badge is a row you
-      // have, not an amount, exactly as `readTotals` treats it.
       stars: 3,
       coins: 5,
       badges: 2,
@@ -998,12 +961,8 @@ describe("PATCH /api/children/:id", () => {
     expect(res.body.error.code).toBe("VALIDATION_FAILED");
   });
 
-  /**
-   * The update path may not reuse creation's rule. A brand-new profile can only
-   * wear a starter, but an existing one may wear anything it has earned — and
-   * checking `isDefault` on both paths would refuse every character a child
-   * unlocks the day rewards ship (file 24).
-   */
+  // The update path may not reuse creation's rule: an existing profile may wear
+  // anything it has earned, not only a starter.
   it("accepts a non-starter character this child has unlocked", async () => {
     const child = seedChild(PARENT_A);
     state.unlocks.push({
@@ -1035,8 +994,7 @@ describe("PATCH /api/children/:id", () => {
   });
 
   it("still refuses an unpublished character even when unlocked", async () => {
-    // The status gate is unconditional — an unlock is not a publication
-    // (`backend.md §4`).
+    // The status gate is unconditional: an unlock is not a publication.
     const child = seedChild(PARENT_A);
     state.unlocks.push({ childId: child.id, characterId: "character_draft" });
 
@@ -1061,7 +1019,6 @@ describe("PATCH /api/children/:id", () => {
   });
 });
 
-/** The list the avatar picker draws from (FR-GAM-05, FR-PROF-02). */
 describe("GET /api/children/:id/characters", () => {
   it("returns every published character, locked ones included", async () => {
     const child = seedChild(PARENT_A);
@@ -1076,8 +1033,6 @@ describe("GET /api/children/:id/characters", () => {
       res.body,
       "GET /api/children/{id}/characters",
     );
-    // A picker showing only what a child already has cannot show them what
-    // there is to earn.
     expect(res.body.data.characters).toEqual([
       {
         id: "character_default",
@@ -1109,8 +1064,6 @@ describe("GET /api/children/:id/characters", () => {
       `/api/children/${child.id}/characters`,
     );
 
-    // Exactly the character `PATCH` accepts three tests above — the agreement
-    // between the two is the point of this endpoint existing.
     expect(res.body.data.characters[1]).toMatchObject({
       id: "character_unlockable",
       isUnlocked: true,
@@ -1140,8 +1093,7 @@ describe("GET /api/children/:id/characters", () => {
       `/api/children/${child.id}/characters`,
     );
 
-    // An unlock is not a publication, so a draft character stays out of the
-    // picker even for a child who somehow holds a row for it.
+    // An unlock is not a publication: a draft stays out of the picker.
     expect(
       res.body.data.characters.some(
         (character: { id: string }) => character.id === "character_draft",
@@ -1159,8 +1111,7 @@ describe("GET /api/children/:id/characters", () => {
       `/api/children/${child.id}/characters`,
     );
 
-    // 404 rather than 403, like every other route on this router: a 403 would
-    // confirm the profile exists (NFR-SAFE-02).
+    // 404 not 403, so a probe cannot confirm the profile exists (NFR-SAFE-02).
     expect(res.status).toBe(404);
     expect(res.body).toEqual(NOT_FOUND_ENVELOPE);
     expect(db.characterFindMany).not.toHaveBeenCalled();
@@ -1203,6 +1154,15 @@ describe("DELETE /api/children/:id", () => {
 
     expect(db.childDelete).toHaveBeenCalledTimes(1);
     expect(db.childDelete).toHaveBeenCalledWith({ where: { id: child.id } });
+  });
+
+  it("runs no interactive transaction, so a heavy profile cannot time out", async () => {
+    // Prisma's interactive transactions time out at 5s by default.
+    const child = seedChild(PARENT_A);
+
+    await authedAgentFor(PARENT_A).delete(`/api/children/${child.id}`);
+
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 
   it("clears activeChildProfileId so the session stops pointing at a deleted profile", async () => {
@@ -1326,12 +1286,7 @@ describe("ownership leaks nothing (NFR-SAFE-02)", () => {
 });
 
 describe("cascade-delete contract", () => {
-  /**
-   * `DELETE /api/children/:id` deletes one row and trusts Postgres to remove the
-   * child's progress, rewards, streak and so on. A stubbed Prisma client cannot
-   * demonstrate that, so this asserts the declaration the guarantee rests on.
-   * Replace it with a real deletion test once the test-database harness exists.
-   */
+  // Postgres removes the child's rows on delete; a stub cannot show that, so assert the declaration it rests on.
   it("declares onDelete: Cascade on every relation pointing at ChildProfile", () => {
     const schema = readFileSync(
       new URL(
@@ -1345,11 +1300,25 @@ describe("cascade-delete contract", () => {
       .split("\n")
       .filter((line) => /^\s*child\s+ChildProfile\b/.test(line));
 
-    // LessonProgress, QuizResponse, RewardLedger, ChildCharacter, Streak,
-    // ScreenTimeSetting, SessionEvent, WeeklyReport.
     expect(relations).toHaveLength(8);
     for (const relation of relations) {
       expect(relation).toContain("onDelete: Cascade");
     }
+  });
+
+  it("declares onDelete: SetNull on the session's active-child pointer", () => {
+    const schema = readFileSync(
+      new URL(
+        "../../../../../packages/db/prisma/schema.prisma",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    const pointer = schema
+      .split("\n")
+      .find((line) => /^\s*activeChildProfile\s+ChildProfile\?/.test(line));
+
+    expect(pointer).toContain("onDelete: SetNull");
   });
 });

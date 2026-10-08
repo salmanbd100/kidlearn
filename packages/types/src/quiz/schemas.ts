@@ -1,12 +1,10 @@
-/**
- * Quiz question payload schemas (FR-QUIZ-07) — the single source of truth for
- * the JSONB stored in `QuizQuestion.definition`.
- */
+/** Quiz question payload schemas (FR-QUIZ-07) — source of truth for `QuizQuestion.definition` JSONB. */
 import { z } from "zod";
 import {
   ImageAssetRefSchema,
   LocalizedAudioSchema,
   LocalizedTextSchema,
+  SCHEMA_VERSION,
 } from "../primitives.js";
 import {
   addAnswerOptionIssues,
@@ -15,11 +13,7 @@ import {
   addSingleBlankTokenIssues,
 } from "../refinements.js";
 
-/**
- * The `satisfies` clause is the drift guard: an entry here that no union member
- * declares is a compile error. The reverse direction — a union member missing
- * from this list — is covered by the coverage test in `./schemas.test.ts`.
- */
+/** `satisfies` makes an entry no union member declares a compile error; the reverse is covered in `./schemas.test.ts`. */
 export const QUIZ_QUESTION_TYPES = [
   "mcq",
   "match_pair",
@@ -48,7 +42,7 @@ export type PictureQuizOption = z.infer<typeof PictureQuizOptionSchema>;
 
 export const McqQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("mcq"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,
@@ -63,7 +57,7 @@ export type McqQuestion = z.infer<typeof McqQuestionSchema>;
 
 export const MatchPairQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("match_pair"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,
@@ -108,7 +102,7 @@ export type MatchPairQuestion = z.infer<typeof MatchPairQuestionSchema>;
 
 export const DragAnswerQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("drag_answer"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,
@@ -126,7 +120,7 @@ export type DragAnswerQuestion = z.infer<typeof DragAnswerQuestionSchema>;
 
 export const PictureSelectQuestionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
     type: z.literal("picture_select"),
     prompt: LocalizedTextSchema,
     promptAudio: LocalizedAudioSchema,

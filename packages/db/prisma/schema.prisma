@@ -29,8 +29,7 @@ model Parent {
   avatarUrl            String?
   consentGivenAt       DateTime?
   consentVersion       String?
-  // File 10 — account-deletion confirmation: a single-use random token with a
-  // short expiry. Both columns disappear with the row on a completed deletion.
+  // Single-use account-deletion token with a short expiry.
   deleteToken          String?
   deleteTokenExpiresAt DateTime?
   createdAt            DateTime       @default(now())
@@ -70,9 +69,7 @@ model ChildProfile {
   screenTime        ScreenTimeSetting?
   sessionEvents     SessionEvent[]
   weeklyReports     WeeklyReport[]
-  /**
-   * Sessions currently acting as this child (FR-AUTH-06).
-   */
+  /// Sessions currently acting as this child (FR-AUTH-06).
   activeInSessions  Session[]          @relation("SessionActiveChild")
 
   @@index([parentId])
@@ -114,6 +111,10 @@ model MediaAsset {
   storyPageNarrations    StoryPageTranslation[]    @relation("StoryPageNarration")
   badgeIcons             Badge[]                   @relation("BadgeIcon")
   characterAssets        Character[]               @relation("CharacterAsset")
+
+  @@index([kind, createdAt])
+  @@index([aiJobId])
+  @@index([url])
 }
 
 model World {
@@ -221,7 +222,7 @@ model Lesson {
   status      ContentStatus @default(draft)
   activityId  String?
   activity    Activity?     @relation(fields: [activityId], references: [id])
-  quizId      String?
+  quizId      String?       @unique
   quiz        Quiz?         @relation(fields: [quizId], references: [id])
 
   conceptsIntroduced String[]            @default([])
@@ -239,6 +240,7 @@ model Lesson {
   @@index([worldId])
   @@index([status])
   @@index([gradeLevels], type: Gin)
+  @@index([aiJobId])
 }
 
 model LessonTranslation {
@@ -286,6 +288,8 @@ model Activity {
   aiJob         AIGenerationJob?      @relation(fields: [aiJobId], references: [id])
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
+
+  @@index([aiJobId])
 }
 
 model ActivityTranslation {
@@ -304,11 +308,13 @@ model Quiz {
   title     String?
   status    ContentStatus    @default(draft)
   questions QuizQuestion[]
-  lessons   Lesson[]
+  lesson    Lesson?
   aiJobId   String?
   aiJob     AIGenerationJob? @relation(fields: [aiJobId], references: [id])
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+
+  @@index([aiJobId])
 }
 
 model QuizQuestion {
@@ -325,6 +331,7 @@ model QuizQuestion {
   responses     QuizResponse[]
 
   @@unique([quizId, sortOrder])
+  @@index([aiJobId])
 }
 
 model QuizQuestionTranslation {
@@ -359,6 +366,7 @@ model Story {
 
   @@index([status, worldId])
   @@index([gradeLevels], type: Gin)
+  @@index([aiJobId])
 }
 
 model StoryTranslation {
@@ -402,7 +410,6 @@ model StoryPageTranslation {
   @@unique([storyPageId, language])
 }
 
-//--------part-6-----------
 enum LessonStep {
   intro
   video
@@ -456,15 +463,17 @@ model LessonProgress {
   childId      String
   child        ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
   lessonId     String
-  lesson       Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson       Lesson       @relation(fields: [lessonId], references: [id], onDelete: Restrict)
   currentStep  LessonStep   @default(intro)
   completedAt  DateTime?
   score        Int?
   timeSpentSec Int          @default(0)
+  startedAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
   @@unique([childId, lessonId])
   @@index([childId, completedAt])
+  @@index([completedAt])
 }
 
 model QuizResponse {
@@ -472,13 +481,14 @@ model QuizResponse {
   childId    String
   child      ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
   questionId String
-  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
   answer     Json
   isCorrect  Boolean
   attempts   Int          @default(1)
   answeredAt DateTime     @default(now())
 
   @@index([childId, answeredAt])
+  @@index([questionId])
 }
 
 model Badge {
@@ -501,7 +511,7 @@ model RewardLedger {
   rewardType RewardType
   amount     Int
   sourceType String
-  sourceId   String?
+  sourceId   String
   badgeId    String?
   badge      Badge?       @relation(fields: [badgeId], references: [id])
   createdAt  DateTime     @default(now())
@@ -614,8 +624,6 @@ model CharacterSheet {
   @@index([worldId])
 }
 
-//--------part-9 · better-auth (identity) -------------------------------------
-
 model User {
   id            String     @id
   name          String
@@ -643,10 +651,7 @@ model Session {
   userAgent            String?
   userId               String
   user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // FR-AUTH-06. A real relation with `SetNull` rather than a bare id column:
-  // `deleteChildProfile` used to clear this by hand in a transaction, which was
-  // correct but depended on every future caller remembering to. The database
-  // enforces it now.
+  // A real relation with `SetNull`, so the database clears it on child deletion rather than every caller remembering to.
   activeChildProfileId String?
   activeChildProfile   ChildProfile? @relation("SessionActiveChild", fields: [activeChildProfileId], references: [id], onDelete: SetNull)
 

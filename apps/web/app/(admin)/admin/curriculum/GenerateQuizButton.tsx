@@ -4,23 +4,16 @@ import type { Locale } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { useState } from "react";
-import { generateQuiz } from "@/features/admin/admin-api";
-
-/**
- * "Generate questions with AI" — the admin end of the AI Quiz Generator
- * (file 35, FR-AI-03).
- */
+import { generateQuiz } from "@/features/admin/ai-api";
 
 /** Both locales, always: a stored question requires both (FR-I18N-01). */
 const LANGUAGES: Locale[] = [...LOCALES];
 
-/** The spec's default, and the count an admin almost always wants. */
 const QUESTION_COUNT = 4;
 
 export interface GenerateQuizButtonProps {
   lessonId: string;
   isBusy: boolean;
-  /** Reloads the tree and shows the "sent to review" notice. */
   onGenerated: (message: string) => void;
   onError: (message: string) => void;
 }
@@ -50,8 +43,7 @@ export function GenerateQuizButton({
     }
 
     if (result.data.status === "failed") {
-      // Not an error response — the job exists and holds both attempts
-      // (FR-AI-08). Naming it is what makes it findable in the queue.
+      // Not an error response: the job exists with both attempts (FR-AI-08).
       onError(
         `The model could not produce usable questions. Job ${result.data.jobId} kept what it tried, so it can be read in the AI Queue.`,
       );

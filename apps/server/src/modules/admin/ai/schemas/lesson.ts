@@ -2,21 +2,12 @@ import { type Locale, QuizQuestionSchema } from "@kidlearn/types";
 import { z } from "zod";
 import { localized } from "./localized.js";
 
-// What the lesson generator's answer must be shaped like (FR-AI-01).
-
 export const LEARNING_OBJECTIVE_BOUNDS = { min: 2, max: 4 } as const;
 export const QUIZ_QUESTION_BOUNDS = { min: 3, max: 5 } as const;
 
-/**
- * How many questions a generated lesson carries. One per format, which is both
- * inside the bounds above and the mix `planQuestionFormats` exists to produce.
- */
 export const LESSON_QUESTION_COUNT = 4;
 
-/**
- * `LessonTranslation.title` is a varchar the hand-authored admin body caps at
- * 200, and a generated row goes into the same column.
- */
+// Shares the 200-char `LessonTranslation.title` cap with the admin body.
 const TITLE_MAX = 200;
 
 function bodyShape(languages: readonly Locale[]) {
@@ -44,22 +35,14 @@ function bodyShape(languages: readonly Locale[]) {
   };
 }
 
-/**
- * Everything but the questions — one model call's worth. The questions are asked
- * for separately, one call each: see `generate-questions.ts` for why the four
- * formats cannot be offered in a single response schema.
- */
+// Everything but the questions: one model call; questions are asked one call each (see `generate-questions.ts`).
 export function buildLessonBodyOutputSchema(
   languages: readonly Locale[],
 ): z.ZodType<LessonBodyOutput, z.ZodTypeDef, unknown> {
   return z.object(bodyShape(languages)).strict();
 }
 
-/**
- * The whole lesson, body and questions assembled. Never sent to the model as a
- * response schema — it is what `runGenerationJob` validates the assembled answer
- * against before anything is written.
- */
+// The assembled lesson; `runGenerationJob` validates against it, it is never sent to the model.
 export function buildLessonGenerationOutputSchema(
   languages: readonly Locale[],
 ): z.ZodType<LessonGenerationOutput, z.ZodTypeDef, unknown> {
@@ -74,7 +57,6 @@ export function buildLessonGenerationOutputSchema(
     .strict();
 }
 
-/** The parsed shape, widened to every locale as optional. */
 export interface LessonBodyOutput {
   title: Partial<Record<Locale, string>>;
   learningObjectives: string[];

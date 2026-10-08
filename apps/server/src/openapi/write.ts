@@ -2,9 +2,6 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildOpenApiDocument } from "./document.js";
 
-/**
- * Writes the spec to `apps/server/openapi.json` — `pnpm --filter server openapi:write`.
- */
 const DEFAULT_SERVER_URL = "http://localhost:4000";
 
 const outputPath = resolve(process.cwd(), "openapi.json");

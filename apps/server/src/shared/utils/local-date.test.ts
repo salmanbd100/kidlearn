@@ -9,13 +9,10 @@ describe("localDateIn", () => {
   });
 
   it("returns the local day, not the UTC one, for an instant either side of midnight", () => {
-    // 21:30 UTC is already tomorrow in Dhaka (+06). A child playing in the
-    // evening must not be handed a second first-activity-of-the-day grant when
-    // the server's own date rolls over six hours later.
+    // 21:30 UTC is already tomorrow in Dhaka (+06); the day grant must not double up when the server's date rolls over.
     expect(
       localDateIn("Asia/Dhaka", new Date("2026-03-07T21:30:00.000Z")),
     ).toBe("2026-03-08");
-    // The minute before it, on the same UTC day, is still the 7th.
     expect(
       localDateIn("Asia/Dhaka", new Date("2026-03-07T17:59:00.000Z")),
     ).toBe("2026-03-07");

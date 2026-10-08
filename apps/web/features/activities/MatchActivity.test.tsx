@@ -5,22 +5,20 @@ import {
   render,
   renderHook,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Providers } from "@/shared/components/Providers";
+import { usePairing } from "@/shared/hooks/use-pairing";
+import { NOT_QUITE_MS } from "@/shared/hooks/use-wiggle";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import { evaluatePair } from "./evaluate";
 import { MatchActivity } from "./MatchActivity";
 import type { ActivityFeedback } from "./use-activity-feedback";
-import { usePairing } from "./use-pairing";
-import { WIGGLE_MS } from "./use-wiggle";
 
 /**
- * The tap rules are driven through `usePairing` directly, which is the reason
- * that hook exists: they are the part file 22's quiz format reuses, and they are
- * testable without a board. The render tests below cover what a tap does to the
- * markup — the connecting lines are not among them, because jsdom performs no
- * layout, so every card reports a zero-sized box.
+ * Tap rules are driven through `usePairing` directly; jsdom does no layout, so connecting lines are
+ * not tested.
  */
 
 const audio = vi.hoisted(() => ({
@@ -43,8 +41,7 @@ function feedbackSpy() {
     success: vi.fn<(anchor?: { x: number; y: number }) => void>(),
     retry: vi.fn<() => void>(),
   };
-  // `satisfies`, not an annotation: the tests need the mock's own type to read
-  // `.mock.calls`, and this still fails the build if the channel's shape moves.
+  // `satisfies` keeps the mock's own type for `.mock.calls`.
   return spy satisfies ActivityFeedback;
 }
 
@@ -347,18 +344,47 @@ describe("MatchActivity", () => {
     );
   });
 
-  it("stops shaking once the animation has run", () => {
+  it("marks a wrong pair with a have-another-go cue that needs no motion", () => {
+    renderActivity();
+
+    tapCard("sun");
+    tapCard("night");
+
+    // The shake vanishes under reduced motion; the static mark remains (design.md §2.3).
+    for (const id of ["sun", "night"]) {
+      expect(
+        within(screen.getByTestId(`match-card-${id}`)).getByTestId(
+          "status-mark-retry",
+        ),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("marks a matched card done with a shape, not only its pair colour", () => {
+    renderActivity();
+
+    tapCard("sun");
+    tapCard("day");
+
+    expect(
+      within(screen.getByTestId("match-card-sun")).getByTestId(
+        "status-mark-done",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("clears the shake and the cue once it has run", () => {
     vi.useFakeTimers();
     renderActivity();
 
     tapCard("sun");
     tapCard("night");
     act(() => {
-      vi.advanceTimersByTime(WIGGLE_MS);
+      vi.advanceTimersByTime(NOT_QUITE_MS);
     });
 
-    expect(screen.getByTestId("match-card-sun").innerHTML).not.toMatch(
-      /animate-wiggle/,
-    );
+    const card = screen.getByTestId("match-card-sun");
+    expect(card.innerHTML).not.toMatch(/animate-wiggle/);
+    expect(within(card).queryByTestId("status-mark-retry")).toBeNull();
   });
 });

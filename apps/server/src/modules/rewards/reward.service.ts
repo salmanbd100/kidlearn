@@ -1,4 +1,4 @@
-import { Prisma, type RewardType } from "@kidlearn/db";
+import { type ChildProfile, Prisma, type RewardType } from "@kidlearn/db";
 import type {
   CompletionStreakResponse,
   NewBadgeResponse,
@@ -14,59 +14,36 @@ import {
   findNewlyEarnedBadges,
   unlockCharacters,
 } from "./achievement.service.js";
-import { updateStreakForActivity } from "./streak.service.js";
+import { liveStreakLength, updateStreakForActivity } from "./streak.service.js";
 
-// Stars and coins (FR-GAM-01, FR-GAM-02, FR-GAM-07).
-
-/**
- * The MVP grant table. Fixed constants deliberately — tuning these is a
- * data-driven decision post-MVP (a `RewardRule` table read at grant time), and
- * shipping the knob before there is anything to turn it with is how a number
- * ends up configurable in three places and authoritative in none.
- */
+/** Fixed constants deliberately: a tunable knob shipped before anything can turn it ends up configurable in three places and authoritative in none. */
 export const REWARD_RULES = {
   lessonCompletionStars: 2,
   quizCompletionStars: 1,
   coinsPerCorrectAnswer: 2,
   firstActivityOfDayCoins: 5,
-  /**
-   * Finishing a story (FR-STORY-07). Deliberately smaller than a lesson: a story
-   * is read for its own sake, and a reward large enough to compete with a lesson
-   * would turn page-turning into the cheaper way to earn.
-   */
+  /** Smaller than a lesson (FR-STORY-07): a reward that competes with a lesson would make page-turning the cheaper way to earn. */
   storyCompletionStars: 1,
   storyCompletionCoins: 5,
 } as const;
 
-/** The reward sources this file grants. `sourceType` is a free-text column on
- *  the row; this union is what keeps the values in it a closed set. */
+/** `sourceType` is free text on the row; this union keeps its values a closed set. */
 export type GrantSource =
   | "lesson_completion"
   | "quiz_completion"
   | "quiz_correct_answers"
   | "daily_activity"
   | "badge_unlock"
-  /**
-   * Written by file 26 when a child finishes a story (FR-STORY-07). Already read
-   * in two places before the grant exists — `achievementService` counts these rows
-   * for the story badges, and `storyService` derives a cover's `completed` flag
-   * from them — so the value belongs in this union now rather than as a string
-   * literal in three files that could disagree.
-   */
+  /** A child finishing a story (FR-STORY-07); read by `achievementService` and `storyService`, so it belongs in the union rather than as literals in three files. */
   | "story_completion";
 
-/** The story-completion `sourceType`, as a value. */
 export const STORY_COMPLETION: GrantSource = "story_completion";
 
 export interface GrantSpec {
   rewardType: Extract<RewardType, "star" | "coin">;
   amount: number;
   sourceType: GrantSource;
-  /**
-   * Always set. Postgres treats a NULL as distinct in a unique index, so a grant
-   * written without one would be outside the idempotency guard entirely and
-   * could be granted again on every replay.
-   */
+  /** Always set: Postgres treats NULL as distinct in a unique index, so a grant without one escapes the idempotency guard. */
   sourceId: string;
 }
 
@@ -81,10 +58,6 @@ export interface GrantInput {
   localDate: string;
 }
 
-/**
- * What finishing this lesson is worth — pure, so every rule above is testable
- * without a database.
- */
 export function computeLessonGrants(input: GrantInput): GrantSpec[] {
   const specs: GrantSpec[] = [
     {
@@ -95,8 +68,7 @@ export function computeLessonGrants(input: GrantInput): GrantSpec[] {
     },
   ];
 
-  // Finishing the quiz, not passing it. There is no pass: a child stays on a
-  // question until it is right (spec §5.7), so this star is for turning up.
+  // Finishing the quiz, not passing it: there is no pass, so this star is for turning up.
   if (input.quizAttempted) {
     specs.push({
       rewardType: "star",
@@ -106,10 +78,8 @@ export function computeLessonGrants(input: GrantInput): GrantSpec[] {
     });
   }
 
-  // One row for the whole quiz rather than one per question, so the grant has a
-  // stable `sourceId` to be unique on. The consequence is deliberate: a replay
-  // that goes better earns nothing extra, because the lesson has already paid
-  // out. Paying the difference would make a balance reward repetition.
+  // One row for the whole quiz so the grant has a stable `sourceId`. A better replay earns nothing extra:
+  // paying the difference would make a balance reward repetition.
   if (input.correctCount > 0) {
     specs.push({
       rewardType: "coin",
@@ -119,8 +89,7 @@ export function computeLessonGrants(input: GrantInput): GrantSpec[] {
     });
   }
 
-  // The local date *is* the idempotency key — "once a day" and "once a lesson"
-  // are then the same constraint, and neither needs a query to be right.
+  // The local date is the idempotency key: "once a day" and "once a lesson" become the same constraint.
   if (input.firstActivityOfDay) {
     specs.push({
       rewardType: "coin",
@@ -146,7 +115,6 @@ export interface CompletionRewards {
   newBadges: NewBadgeResponse[];
   /** Avatar characters this call unlocked. Empty on a replay (FR-GAM-05). */
   newCharacters: NewCharacterResponse[];
-  /** The streak as it stands after this activity (FR-GAM-06). */
   streak: CompletionStreakResponse;
   totals: RewardTotals;
 }
@@ -156,7 +124,6 @@ export interface RewardSummary extends RewardTotals {
   currentStreak: number;
 }
 
-/** The key the unique index is on. */
 function grantKey(spec: {
   rewardType: string;
   sourceType: string;
@@ -165,25 +132,24 @@ function grantKey(spec: {
   return `${spec.rewardType}|${spec.sourceType}|${spec.sourceId}`;
 }
 
-/** Grants everything finishing this lesson is worth, once. */
 export async function grantLessonCompletion(
-  childId: string,
+  child: ChildProfile,
   lessonId: string,
 ): Promise<CompletionRewards> {
-  // Read once and passed in, so a retry cannot straddle local midnight and take
-  // the day's coins twice under two different keys.
+  // Read once and passed in so a retry cannot straddle local midnight and take the day's coins under two keys.
   const localDate = localDateIn(env.APP_TIMEZONE, new Date());
 
   return withSerializationRetry(() =>
-    grantLessonCompletionOnce(childId, lessonId, localDate),
+    grantLessonCompletionOnce(child, lessonId, localDate),
   );
 }
 
 function grantLessonCompletionOnce(
-  childId: string,
+  child: ChildProfile,
   lessonId: string,
   localDate: string,
 ): Promise<CompletionRewards> {
+  const childId = child.id;
   return prisma.$transaction(
     async (tx) => {
       const { quizAttempted, correctCount } = await readQuizOutcome(
@@ -192,8 +158,7 @@ function grantLessonCompletionOnce(
         lessonId,
       );
 
-      // One read covers both questions this needs of the ledger: whether today's
-      // daily grant exists, and which of this lesson's grants already do.
+      // One read answers both: whether today's daily grant exists and which of this lesson's grants already do.
       const existing = await tx.rewardLedger.findMany({
         where: { childId, sourceId: { in: [lessonId, localDate] } },
         select: { rewardType: true, sourceType: true, sourceId: true },
@@ -219,29 +184,20 @@ function grantLessonCompletionOnce(
       if (fresh.length > 0) {
         await tx.rewardLedger.createMany({
           data: fresh.map((spec) => ({ childId, ...spec })),
-          // Belt to the isolation level's braces: the index is what makes a
-          // double grant impossible, and this is what keeps a losing race a
-          // no-op rather than a 500 in the middle of a celebration.
+          // Belt to the isolation level's braces: keeps a losing race a no-op rather than a 500 mid-celebration.
           skipDuplicates: true,
         });
       }
 
-      // The order of the next three steps is load-bearing (file 24 §8): the
-      // streak has to be current before a `streak_days` badge is evaluated, and
-      // the badge has to be in the ledger before a `{ badges: n }` character is.
+      // Order is load-bearing: the streak must be current before a `streak_days` badge is evaluated,
+      // and badges must be in the ledger before a `{ badges: n }` character.
       const streak = await updateStreakForActivity(tx, childId, localDate);
 
-      const newBadges = await findNewlyEarnedBadges(
-        tx,
-        childId,
-        streak.current,
-      );
+      const newBadges = await findNewlyEarnedBadges(tx, child, streak.current);
       if (newBadges.length > 0) {
         await tx.rewardLedger.createMany({
-          // `amount: 1` because the ledger is one table — a badge is a thing you
-          // have or do not. `sourceId` is the slug rather than the id so the row
-          // stays readable in a report, and it is set for the reason `GrantSpec`
-          // gives: a NULL would sit outside the unique index entirely.
+          // `amount: 1` because the ledger is one table. `sourceId` is the slug so the row stays readable,
+          // and is set because a NULL escapes the unique index (see `GrantSpec`).
           data: newBadges.map((badge) => ({
             childId,
             rewardType: "badge" as const,
@@ -271,8 +227,7 @@ function grantLessonCompletionOnce(
         coinsEarned: sumOf("coin"),
         newBadges,
         newCharacters,
-        // `longest` is left out of the response deliberately — see
-        // `CompletionStreakSchema`.
+        // `longest` is deliberately left out of the response (see `CompletionStreakSchema`).
         streak: { current: streak.current, milestone: streak.milestone },
         totals: { stars: totals.stars, coins: totals.coins },
       };
@@ -281,26 +236,24 @@ function grantLessonCompletionOnce(
   );
 }
 
-/** Pays for finishing a story, once per story per child (FR-STORY-07). */
 export async function grantStoryCompletion(
-  childId: string,
+  child: ChildProfile,
   storyId: string,
 ): Promise<StoryCompletionResponse> {
-  // Read once and passed in for the reason `grantLessonCompletion` gives: a
-  // retry must not straddle local midnight and move the streak under two
-  // different dates.
+  // Read once and passed in, as in `grantLessonCompletion`, so a retry cannot straddle local midnight.
   const localDate = localDateIn(env.APP_TIMEZONE, new Date());
 
   return withSerializationRetry(() =>
-    grantStoryCompletionOnce(childId, storyId, localDate),
+    grantStoryCompletionOnce(child, storyId, localDate),
   );
 }
 
 function grantStoryCompletionOnce(
-  childId: string,
+  child: ChildProfile,
   storyId: string,
   localDate: string,
 ): Promise<StoryCompletionResponse> {
+  const childId = child.id;
   const specs: GrantSpec[] = [
     {
       rewardType: "star",
@@ -320,27 +273,17 @@ function grantStoryCompletionOnce(
     async (tx) => {
       const written = await tx.rewardLedger.createMany({
         data: specs.map((spec) => ({ childId, ...spec })),
-        // The unique index is the idempotency guard; this keeps the losing side
-        // of a double tap a no-op rather than a 500 at the end of a story.
+        // The unique index is the guard; this keeps the losing side of a double tap a no-op rather than a 500.
         skipDuplicates: true,
       });
 
-      // Reading a story is a learning activity, so it moves the streak whether
-      // or not it paid out — FR-GAM-06 counts days with ≥1 activity, and a
-      // re-read is still a day the child turned up. `updateStreakForActivity` is
-      // itself a no-op on a day already counted.
+      // Reading is a learning activity, so it moves the streak even when nothing paid out (FR-GAM-06);
+      // `updateStreakForActivity` is a no-op on an already-counted day.
       const streak = await updateStreakForActivity(tx, childId, localDate);
 
-      // The same three steps a lesson completion runs, in the same load-bearing
-      // order (file 24 §8). Without them the `stories_completed` badge
-      // ("Reading Star — 10 stories", FR-GAM-04) could only ever be awarded by
-      // the child's next *lesson*, and a child who only reads would never earn
-      // it at all.
-      const newBadges = await findNewlyEarnedBadges(
-        tx,
-        childId,
-        streak.current,
-      );
+      // The same three steps, in the same load-bearing order as a lesson completion; otherwise a child
+      // who only reads would never earn the `stories_completed` badge (FR-GAM-04).
+      const newBadges = await findNewlyEarnedBadges(tx, child, streak.current);
       if (newBadges.length > 0) {
         await tx.rewardLedger.createMany({
           data: newBadges.map((badge) => ({
@@ -381,19 +324,14 @@ function grantStoryCompletionOnce(
   );
 }
 
-/** The subset of the client these helpers need, so a transaction callback and
- *  the plain client are interchangeable. */
+/** Lets a transaction callback and the plain client be interchangeable. */
 type LedgerReader = {
   lesson: { findUnique: typeof prisma.lesson.findUnique };
   quizResponse: { findMany: typeof prisma.quizResponse.findMany };
   rewardLedger: { groupBy: typeof prisma.rewardLedger.groupBy };
 };
 
-/**
- * How the child did on this lesson's quiz, **derived from the stored responses**
- * rather than taken from the request. A client that could report its own
- * `correctCount` could report any number of coins.
- */
+/** Derived from the stored responses, not the request: a client that could report its own `correctCount` could report any number of coins. */
 async function readQuizOutcome(
   tx: LedgerReader,
   childId: string,
@@ -408,9 +346,7 @@ async function readQuizOutcome(
     },
   });
 
-  // A lesson may have no quiz, or one still in review — both are ordinary
-  // authoring states the player already renders around (`QuizStep`). An
-  // unpublished quiz pays no star, for the same reason it is not served.
+  // A lesson may have no quiz or one still in review (ordinary authoring states); an unpublished quiz pays no star, as it is not served.
   const quiz = lesson?.quiz;
   if (!quiz || !isPublished(quiz) || quiz.questions.length === 0) {
     return { quizAttempted: false, correctCount: 0 };
@@ -438,7 +374,6 @@ async function readQuizOutcome(
   };
 }
 
-/** Every balance in one read. */
 async function readTotals(
   tx: LedgerReader,
   childId: string,
@@ -460,15 +395,17 @@ async function readTotals(
   };
 }
 
-/** FR-GAM-06 — what the child has, for the strip on the home screen. */
 export async function getRewardSummary(
   childId: string,
 ): Promise<RewardSummary> {
   const totals = await readTotals(prisma, childId);
   const streak = await prisma.streak.findUnique({
     where: { childId },
-    select: { current: true },
+    select: { current: true, lastActivityDate: true },
   });
 
-  return { ...totals, currentStreak: streak?.current ?? 0 };
+  return {
+    ...totals,
+    currentStreak: liveStreakLength(streak, env.APP_TIMEZONE),
+  };
 }

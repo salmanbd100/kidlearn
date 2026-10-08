@@ -1,16 +1,10 @@
 import type { NarrationTimings } from "@kidlearn/types";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { NarratedText } from "./NarratedText";
-
-/**
- * The one component that has to be right for both the story content that exists
- * today (no timings at all) and the content the voice pipeline will produce.
- */
+import { activeSpanIndex, NarratedText } from "./NarratedText";
 
 const TEXT = "The monkey shared the banana.";
 
-/** Word-level spans over `TEXT`, as file 36 will emit them. */
 const TIMINGS: NarrationTimings = {
   unit: "word",
   spans: [
@@ -106,5 +100,25 @@ describe("with timings", () => {
     );
 
     expect(highlighted()).toEqual([TEXT]);
+  });
+});
+
+describe("activeSpanIndex", () => {
+  it("is -1 before the first span is reached", () => {
+    expect(
+      activeSpanIndex(
+        { unit: "word", spans: [{ start: 0, end: 3, tMs: 100 }] },
+        50,
+      ),
+    ).toBe(-1);
+  });
+
+  it("holds the last span reached through the gap before the next one", () => {
+    // The reader only re-renders when this changes, so a value that flickered
+    // between words would bring back the ten-renders-a-second cost.
+    expect(activeSpanIndex(TIMINGS, 299)).toBe(0);
+    expect(activeSpanIndex(TIMINGS, 300)).toBe(1);
+    expect(activeSpanIndex(TIMINGS, 799)).toBe(1);
+    expect(activeSpanIndex(TIMINGS, 5000)).toBe(2);
   });
 });

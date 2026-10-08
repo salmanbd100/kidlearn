@@ -1,8 +1,10 @@
 "use client";
 
-import type {
-  AvatarCharacterResponse,
-  ChildProfileResponse,
+import { PARENT_NAMESPACE } from "@kidlearn/i18n";
+import {
+  type AvatarCharacterResponse,
+  type ChildProfileResponse,
+  MAX_CHILDREN_PER_PARENT,
 } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { Plus } from "lucide-react";
@@ -13,12 +15,7 @@ import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildCard } from "@/features/children/ChildCard";
 import { DeleteChildDialog } from "@/features/children/DeleteChildDialog";
 import { deleteChild, listAvatars } from "@/features/parent/parent-api";
-import { PARENT_NAMESPACE } from "@/shared/lib/i18n";
 
-/** FR-PROF-01 — a household may hold at most five learner profiles. */
-const MAX_CHILDREN = 5;
-
-/** The profile list (FR-PROF-05..06). */
 export function ChildrenScreen() {
   const { t } = useTranslation(PARENT_NAMESPACE);
   const { children: profiles, refresh } = useParentSession();
@@ -37,11 +34,9 @@ export function ChildrenScreen() {
     };
   }, []);
 
-  // `ParentGuard` does not render this screen until the profiles have loaded and
-  // there is at least one, so an empty array here means a parent who just deleted
-  // their last profile — a real state, briefly, before the guard redirects.
+  // The guard ensures a profile exists; empty means the last one was just deleted, before the redirect.
   const items = profiles ?? [];
-  const isAtLimit = items.length >= MAX_CHILDREN;
+  const isAtLimit = items.length >= MAX_CHILDREN_PER_PARENT;
 
   return (
     <main className="flex flex-1 flex-col gap-6 py-2">
@@ -72,7 +67,7 @@ export function ChildrenScreen() {
       )}
 
       {isAtLimit ? (
-        <p className="rounded-[var(--radius)] bg-muted p-4 text-muted-foreground text-sm">
+        <p className="rounded-(--radius) bg-muted p-4 text-muted-foreground text-sm">
           {t("children.limitReached")}
         </p>
       ) : (

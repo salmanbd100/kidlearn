@@ -11,29 +11,29 @@ The parent's landing screen: a child switcher, learning minutes for today / this
 
 ## Context & Current State
 
-- `GET /api/children/:id/dashboard` (`requirePinVerified` + `loadOwnedChild`) returns everything the screen needs in one call — `DashboardSummarySchema` / `DashboardData` in `packages/types`:
+- `GET /api/children/:id/dashboard` (parent session + `loadOwnedChild`) returns everything the screen needs in one call — `DashboardSummarySchema` / `DashboardData` in `packages/types`:
   - `learningMinutes: { today, week, month }` (FR-DASH-02, from the server's `getLearningMinutes`, in `APP_TIMEZONE`);
   - `subjects[]` — `{ subjectId, slug, name (localised), completed, total, percent }`, with subjects whose `total === 0` **omitted** (FR-DASH-03);
   - `strongestSubjectId` / `weakestSubjectId` — both `null` when fewer than two subjects have `total > 0` or when every percent is 0, because "a brand-new child has no 'weak area'";
   - `recentActivity[]` — up to `RECENT_ACTIVITY_LIMIT` (20) merged items of `DASHBOARD_ACTIVITY_TYPES` (`lesson_completed`, `story_completed`, `badge_earned`) with a localised `title` and `occurredAt` (FR-DASH-04).
-- The web implementation is `document/implementation/29-parent-dashboard.md` and `apps/web/app/(parent)/parent/page.tsx` + `components/parent/`. Its decisions to carry over: one call per child, **no chart library** (pure layout bars), `Intl.RelativeTimeFormat` for dates via a tested helper, and a presentational summary component fed fixtures so the test needs no network.
+- The web implementation is `apps/web/app/(parent)/parent/page.tsx` + `DashboardScreen.tsx`, with the pieces in `apps/web/features/children/` (`DashboardSummary`, `ChildSwitcher`, `SubjectProgressCard`, `ActivityTimeline`, `dashboard-api.ts`) and `shared/components/StatCard.tsx`. Its decisions to carry over: one call per child, **no chart library** (pure layout bars), `Intl.RelativeTimeFormat` for dates via a tested helper, and a presentational summary component fed fixtures so the test needs no network.
 - A 404 on a child route means "not yours or not there" (`loadOwnedChild`) — never distinguish them.
-- M08 puts this whole area behind `PinGate`; M09 provides the child list and `ChildCard`; M03 provides `lib/format.ts` (`formatRelative`, `formatMinutes`) — already verified for Bengali on Android, which is exactly why that check was done in phase M0.
+- The parent area is reached from the signed-in Google/Apple session only (M07); M09 provides the child list and `ChildCard`; M03 provides `lib/format.ts` (`formatRelative`, `formatMinutes`) — already verified for Bengali on Android, which is exactly why that check was done in phase M0.
 - M05 gives `Card`, `EmptyState`, `Spinner`; M04 gives `useApi`, `ColdStartNotice`, `OfflineNotice`.
 - The web app keeps the selected child in the URL (`?child=<id>`) so refresh and back work. On mobile the equivalent is a **router param**, and the reason is the same: process death and restore must not lose the selection.
 
 ## Detailed Requirements
 
 1. **`lib/dashboard-api.ts`** — `getDashboard(childId)` returning `ApiResult<DashboardData>`, parsed with `DashboardSummarySchema`. This is a screen whose numbers a parent will act on, so parse it rather than trusting the shape.
-2. **Dashboard screen** (`app/(parent)/index.tsx`) — the PIN-gated landing route. Structure:
-   - **Child switcher**: a horizontally scrollable segmented control of avatar + first name; the first child selected by default; the selection held in a router param so it survives a restore. Switching refetches and must not drop the PIN grant.
+2. **Dashboard screen** (`app/(parent)/index.tsx`) — the parent landing route. Structure:
+   - **Child switcher**: a horizontally scrollable segmented control of avatar + first name; the first child selected by default; the selection held in a router param so it survives a restore. Switching refetches only the dashboard.
    - **Three minute cards** (Today / This week / This month) using `formatMinutes` — "1h 35m" past 60 minutes, matching the web app exactly.
    - **Subject progress card**: one labelled bar per subject rendered as two nested `View`s with a percentage width (no chart library), plus "Strongest" and "Needs practice" chips when the ids are non-null.
    - **Activity timeline**: type icon, localised title, and a relative date from `formatRelative`, newest first, capped at what the server sent.
 3. **One request.** The screen makes exactly one dashboard call per selected child, plus the child list it already has from M09's provider. No per-subject or per-activity follow-ups.
-4. **Localised titles.** `title[locale] ?? title.en` through `lib/localized-label.ts`. Subject names likewise — never a slug on screen.
+4. **Localised titles.** `title[locale] ?? title.en` (both `title` and subject `name` are `{ en, bn | null }` label objects, not resolved strings) through `lib/localized-label.ts`. Subject names likewise — never a slug on screen.
 5. **Empty states, per card.** A child with no activity: zero-state minute cards ("No learning time yet" rather than "0m" as a headline), the progress card without highlight chips, and a warm activity empty state naming the child ("No adventures yet — Rina's progress will appear here!"). No `NaN%`, no empty chips, no bare zeros presented as failure.
-6. **No children.** A parent with zero children is routed to the children screen (M09) — M08's onboarding flow guarantees one exists, but guard anyway, exactly as the web file does.
+6. **No children.** A parent with zero children is routed to the children screen (M09) — M08's consent-and-onboarding flow guarantees one exists, but guard anyway, exactly as the web app does.
 7. **Pull to refresh.** A `RefreshControl` on the scroll view: it is the native idiom, and a parent checking progress mid-afternoon expects to be able to pull. Refetch the dashboard only, not the child list.
 8. **Accessibility of the numbers.** Each bar carries an `accessibilityLabel` with the subject name and the percentage as words ("Language, 35 percent complete") and an `accessibilityValue`. A bar that only a sighted user can read is not a report. Chips announce their meaning, not just their colour.
 9. **Layout.** Phone: single column, cards stacked, switcher pinned above. Tablet/landscape: two columns (minutes + subjects left, timeline right). Parent surface, so ≥44px targets and Inter — but the parent dashboard "must be fully manageable on a phone" (design.md §6), so the phone layout is the primary case, not the fallback.
@@ -54,7 +54,7 @@ apps/mobile/components/parent/SubjectProgressCard.tsx
 apps/mobile/components/parent/ActivityTimeline.tsx
 ```
 
-Keep the summary purely presentational so its test needs no network — the same split the web file uses:
+Keep the summary purely presentational so its test needs no network — the same split the web app uses:
 
 ```tsx
 // The screen owns fetching, the summary owns rendering. That is what lets one
@@ -102,7 +102,7 @@ function selectChild(id: string) {
 }
 ```
 
-Minute formatting must come from `lib/format.ts` (M03) and must agree with `apps/web/lib/duration.ts` — spot-check the five values in the test rather than trusting two implementations to have drifted the same way.
+Minute formatting must come from `lib/format.ts` (M03) and must agree with `apps/web/features/screen-time/duration.ts` — spot-check the five values in the test rather than trusting two implementations to have drifted the same way.
 
 For the timeline icons, map `DASHBOARD_ACTIVITY_TYPES` to a `lucide-react-native` icon in one record, and give each row a text label as well: an icon-only timeline is unreadable to a screen reader and ambiguous to everyone else.
 
@@ -127,7 +127,7 @@ For the timeline icons, map `DASHBOARD_ACTIVITY_TYPES` to a `lucide-react-native
 - [ ] Strongest / needs-practice chips appear only when the server sends non-null ids, and are absent for a brand-new child.
 - [ ] The activity timeline shows the server's items newest first with the right icon, a localised title and a relative date, capped at `RECENT_ACTIVITY_LIMIT`.
 - [ ] A brand-new child renders warm empty states everywhere: no `NaN%`, no bare zeros as headlines, no empty chips.
-- [ ] Switching children refetches without dropping the PIN grant, and the selection survives an app restore.
+- [ ] Switching children refetches the dashboard, and the selection survives an app restore.
 - [ ] A 404 renders a not-found state and never distinguishes "not yours" from "does not exist".
 - [ ] Pull-to-refresh refetches the dashboard.
 - [ ] Every bar and chip is announced meaningfully by TalkBack and VoiceOver, with a percentage value.
@@ -137,9 +137,9 @@ For the timeline icons, map `DASHBOARD_ACTIVITY_TYPES` to a `lucide-react-native
 
 ## Out of Scope
 
-- Weekly reports — M27 (and blocked on web file 30).
+- Weekly reports — M27.
 - Screen-time settings — M25, though the child cards link there.
 - Charts, per-topic drill-downs and quiz-level analytics. The web plan defers these to Phase 2; mobile does not get ahead of it.
 - Exporting or sharing a child's progress. Sharing a child's data needs a privacy decision, not a share sheet.
 - Comparison between children or against other families. Against the product's tone and a privacy risk.
-- Admin platform analytics — web-only (file 31).
+- Admin platform analytics — web-only (`apps/web/features/admin/`).

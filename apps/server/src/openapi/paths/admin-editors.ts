@@ -1,3 +1,4 @@
+import { ACTIVITY_TYPES } from "@kidlearn/types";
 import {
   errorResponse,
   INTERNAL_RESPONSE,
@@ -7,11 +8,6 @@ import {
   VALIDATION_RESPONSE,
 } from "../components.js";
 import { pathParam, queryParam, type RouteDoc } from "../route-doc.js";
-
-/**
- * `modules/admin/content-editors/content-editors.routes.ts` — the guided editors (file 33, FR-CMS-03,
- * FR-GAM-04).
- */
 
 const ADMIN_FORBIDDEN_RESPONSE = errorResponse(
   "Authenticated, but not an administrator. Every signed-in *parent* lands here — see `GET /api/admin/me` for why a valid session is not enough.",
@@ -29,10 +25,7 @@ const NOT_FOUND_RESPONSE = errorResponse(
   ["NOT_FOUND"],
 );
 
-/**
- * Why the request body cannot show the payload shape inline, and where to look
- * instead.
- */
+/** Why the request body cannot show the payload shape inline, and where to look instead. */
 function definitionNote(schemaName: string, discriminator: string): string {
   return [
     `\`definition\` is the versioned JSONB payload — see the **${schemaName}** schema for the full union. It is typed as an untyped value in the request body below, and that is deliberate rather than a gap:`,
@@ -45,7 +38,7 @@ function definitionNote(schemaName: string, discriminator: string): string {
 
 const EDIT_CONFLICT_RESPONSE = errorResponse(
   [
-    'The row is `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
+    'The row is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`, with `status` and `allowed`).',
     "",
     "**A published row refuses an edit.** The transition matrix guards the act of publishing, not the content that stays published afterwards, so without this a `PATCH` could rewrite a live quiz question and reach a child without passing a reviewer again. Withdraw first — `published → draft` — then edit, then come back through `draft → in_review → approved → published`.",
   ].join("\n"),
@@ -91,6 +84,8 @@ const CONFLICT_RESPONSE = errorResponse(
     "`409` rather than `400`: the request is well formed and the target status is a real one. What is wrong is the state the row happens to be in, which may not be wrong a moment later.",
     "",
     'Publishing carries a second cause. `code: "AI_REVIEW_REQUIRED"` means the row was written by a generation job that no reviewer has approved (FR-AI-07); `details` carries `jobId`, `jobStatus` and `decision`. A quiz reports its **questions\'** jobs as well as its own, because a generator appending to an existing quiz stamps only the questions — so a quiz whose own `aiJobId` is null can still be refused. The fix is the AI review queue, not the matrix.',
+    "",
+    "A quiz or activity can be refused a third way: `UNREGISTERED_ASSET` — an asset URL in the payload is not in the media library; `details.urls` lists them. The payload schema accepts any https URL, so this is what stops a link to an unreviewed host reaching a child. Every library asset the payload links to also answers to `AI_REVIEW_REQUIRED` through its own `aiJobId`.",
   ].join("\n"),
   ["CONFLICT"],
 );
@@ -104,7 +99,6 @@ const INCLUDE_ARCHIVED_PARAM = {
   schema: { type: "string", enum: ["true", "false"] },
 };
 
-/** `?jobId=…` — the edit-then-approve breadcrumb (file 37, FR-AI-07). */
 const JOB_ID_QUERY_PARAM = {
   ...queryParam(
     "jobId",
@@ -321,7 +315,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
         "",
         "That is also why this answers with a body rather than `204`: the client's list is stale the moment the delete succeeds, and `remainingIds` is what lets the editor settle on the server's order instead of guessing at it.",
         "",
-        "A question that does not belong to the quiz named in the path is a `404`.",
+        'A question that does not belong to the quiz named in the path is a `404`. A question a child has already answered is a `409` with `code: "QUESTION_HAS_RESPONSES"`: deleting it would erase their answer history, which feeds badges and weekly reports.',
       ].join("\n"),
       parameters: [
         quizId,
@@ -390,7 +384,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
           description: "Restrict to one activity type.",
           schema: {
             type: "string",
-            enum: ["drag_drop", "trace", "match", "puzzle"],
+            enum: [...ACTIVITY_TYPES],
           },
         },
       ],
@@ -590,7 +584,7 @@ export const ADMIN_EDITOR_ROUTES: RouteDoc[] = [
         ...GUARD_RESPONSES,
         "404": NOT_FOUND_RESPONSE,
         "409": errorResponse(
-          'Either the slug is taken (`code: "DUPLICATE_SLUG"`), or the badge is `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`). A published badge refuses an edit for the reason every published row does: changing a live badge\'s rule would change what a child has to do to earn it, retroactively, without review.',
+          'Either the slug is taken (`code: "DUPLICATE_SLUG"`), or the badge is `in_review`, `approved` or `published` (`code: "EDIT_REQUIRES_UNPUBLISH"`). Such a badge refuses an edit for the reason every such row does: changing a live badge\'s rule would change what a child has to do to earn it, retroactively, without review.',
           ["CONFLICT"],
         ),
       },

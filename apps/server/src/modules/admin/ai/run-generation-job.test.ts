@@ -1,23 +1,10 @@
 /**
- * The generation-job lifecycle (file 34, FR-AI-08).
- *
- * Stubs `config/prisma.js` under the recorded exception in `general.md §5` — no test
- * database exists yet. The four bounds that exception sets are met as follows:
- *
- *  1. *Stub state, not answers.* One `aiGenerationJob` array. `create` pushes a
- *     row and `update` mutates it in place, so the assertions below read the row
- *     the service actually wrote rather than a value queued in advance.
- *  2. *Assert the query, not just the result.* `statusWrites` records every
- *     `status` the service sent, in order, which is how `pending → generating →
- *     awaiting_review` is provable at all without a database to watch.
- *  3. *`where` clauses are not the whole guard.* Not applicable: no route reads
- *     these rows yet, and nothing here is student-facing.
- *  4. *Name what the stub cannot prove.* The stub's `$transaction` runs the
- *     callback and rethrows, but it cannot roll anything back — so the
- *     "persistence is skipped" cases assert that `persist` was never *called*,
- *     which is the property this service is responsible for. That a thrown
- *     `persist` leaves no rows behind is Postgres's guarantee and needs the real
- *     harness.
+ * Stubs `config/prisma.js` under the recorded exception in `general.md §5`; the four bounds:
+ *  1. Stub state: one `aiGenerationJob` array; `create` pushes and `update` mutates, so assertions read the written row.
+ *  2. `statusWrites` records every `status` sent, in order, which proves `pending → generating → awaiting_review`.
+ *  3. Not applicable: no route reads these rows and nothing here is student-facing.
+ *  4. The stub's `$transaction` cannot roll back, so "persistence is skipped" cases assert `persist` was never called;
+ *     that a thrown `persist` leaves no rows is Postgres's guarantee.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,6 +30,23 @@ vi.mock("../../../config/prisma.js", () => {
         store.jobs.push(row);
         store.statusWrites.push(String(row.status));
         return row;
+      },
+      count: async () => store.jobs.length,
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { status: { in: string[] }; updatedAt: { lt: Date } };
+        data: Record<string, unknown>;
+      }) => {
+        const stale = store.jobs.filter(
+          (row) =>
+            where.status.in.includes(row.status) &&
+            row.updatedAt instanceof Date &&
+            row.updatedAt < where.updatedAt.lt,
+        );
+        for (const row of stale) Object.assign(row, data);
+        return { count: stale.length };
       },
       update: async ({
         where,
@@ -82,7 +86,6 @@ function job(): JobRow {
   return row;
 }
 
-/** The job's `rawOutput`, narrowed at the JSONB boundary the stub writes it to. */
 function rawOutput(): Record<string, unknown> {
   return job().rawOutput as Record<string, unknown>;
 }
@@ -94,6 +97,68 @@ function attempts(): Array<Record<string, unknown>> {
 beforeEach(() => {
   store.jobs = [];
   store.statusWrites = [];
+});
+
+describe("the daily cap, checked where the row is created", () => {
+  it("refuses with 429 and writes no row when the day's budget is already spent", async () => {
+    // Parallel requests all pass the request-level check; this transaction-level check is the one that holds.
+    const cap = Number(process.env.AI_TEXT_JOBS_PER_DAY ?? 3);
+    store.jobs = Array.from({ length: cap }, (_, index) => ({
+      id: `spent-${index}`,
+      status: "awaiting_review",
+    }));
+    const generate = vi.fn();
+
+    await expect(
+      runGenerationJob({
+        type: "lesson",
+        input: {},
+        generate,
+        schema: Schema,
+        persist: async () => ({}),
+      }),
+    ).rejects.toMatchObject({ statusCode: 429, code: "RATE_LIMITED" });
+
+    expect(store.jobs).toHaveLength(cap);
+    expect(generate).not.toHaveBeenCalled();
+  });
+});
+
+describe("a job a crash left behind", () => {
+  it("is failed before the next run, so its pair can be generated again", async () => {
+    // Stranded by a dead process; this runner is the only writer of `generating`.
+    store.jobs = [
+      {
+        id: "stranded",
+        status: "generating",
+        updatedAt: new Date(Date.now() - 60 * 60_000),
+      },
+    ];
+
+    await runGenerationJob({
+      type: "lesson",
+      input: {},
+      generate: async () => ({ raw: VALID, usage: USAGE }),
+      schema: Schema,
+      persist: async () => ({}),
+    });
+
+    expect(store.jobs[0]).toMatchObject({ id: "stranded", status: "failed" });
+  });
+
+  it("is left alone while it could still be running", async () => {
+    store.jobs = [{ id: "live", status: "generating", updatedAt: new Date() }];
+
+    await runGenerationJob({
+      type: "lesson",
+      input: {},
+      generate: async () => ({ raw: VALID, usage: USAGE }),
+      schema: Schema,
+      persist: async () => ({}),
+    });
+
+    expect(store.jobs[0]).toMatchObject({ id: "live", status: "generating" });
+  });
 });
 
 describe("the happy path", () => {
@@ -152,9 +217,7 @@ describe("the happy path", () => {
   });
 
   it("keeps the model's answer verbatim, not the parsed value", async () => {
-    // A key the schema strips is exactly what a reviewer needs to see when a
-    // generation looks wrong — `.strict()` would have rejected it, so this proves
-    // the stored attempt is the model's raw JSON rather than the parse output.
+    // Proves the stored attempt is the model's raw JSON, not the parse output (`.strict()` would have rejected the key).
     await runGenerationJob({
       type: "lesson",
       input: {},
@@ -323,9 +386,7 @@ describe("failure", () => {
       persist: async () => ({}),
     });
 
-    // The retry exists to correct a *schema* mistake by showing the model its
-    // issues. A rejected key or an overloaded API is not something a second
-    // identical request fixes.
+    // The retry corrects schema mistakes; a rejected key or overloaded API is not fixed by an identical request.
     expect(generate).toHaveBeenCalledTimes(1);
   });
 
@@ -343,8 +404,7 @@ describe("failure", () => {
     expect(result.status).toBe("failed");
     expect(store.statusWrites).toEqual(["pending", "generating", "failed"]);
     expect(rawOutput().error).toContain("topic no longer exists");
-    // The generation itself succeeded and was paid for; losing it because the
-    // write failed would make the failure unreadable.
+    // The generation was paid for; losing it to a write failure would make the failure unreadable.
     expect(rawOutput().parsed).toEqual(VALID);
   });
 
@@ -364,8 +424,7 @@ describe("failure", () => {
 
 describe("the stops that are not schema failures", () => {
   it("does not retry a refusal, and says the model declined", async () => {
-    // A refusal is a decision, not a mistake: the same prompt earns it again, and
-    // "failed schema validation" would send a reviewer to look at the schema.
+    // A refusal is a decision, not a schema mistake, so it must not read as "failed schema validation".
     const generate = vi.fn().mockResolvedValue({
       raw: null,
       usage: USAGE,
@@ -389,8 +448,7 @@ describe("the stops that are not schema failures", () => {
   });
 
   it("does not retry an answer cut off at the token ceiling", async () => {
-    // A second identical request is cut off in the same place. Naming the ceiling
-    // is what makes the job diagnosable (FR-AI-08).
+    // Naming the ceiling makes the job diagnosable (FR-AI-08).
     const generate = vi.fn().mockResolvedValue({
       raw: INVALID,
       usage: USAGE,

@@ -1,12 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/**
- * What the provider reports for each shape of `GET /api/auth/me`. The branch
- * that matters is the 401: it is the ordinary signed-out case and must not be
- * reported as an error, or a signed-out visitor meets a failure message instead
- * of the login screen.
- */
 const api = vi.hoisted(() => ({
   fetchAuthMe: vi.fn(),
   listChildren: vi.fn(),
@@ -24,11 +18,11 @@ const PARENT = {
   name: "Parent One",
   avatarUrl: null,
   consentGivenAt: "2026-06-01T00:00:00.000Z",
+  hasCurrentConsent: true,
 };
 
 type Session = ReturnType<typeof useParentSession>;
 
-/** Every render's session value, so identities can be compared across loads. */
 function renderSession(): Session[] {
   const seen: Session[] = [];
 
@@ -74,8 +68,7 @@ describe("ParentSessionProvider", () => {
 
     await waitFor(() => expect(seen.at(-1)?.status).toBe("signedOut"));
     expect(seen.at(-1)?.parent).toBeUndefined();
-    // A signed-out visitor is routed to login; an error message here would be
-    // reported as a fault instead.
+    // A signed-out visitor is routed to login; an error message here would read as a fault.
     expect(seen.at(-1)?.error).toBeUndefined();
   });
 
@@ -91,7 +84,7 @@ describe("ParentSessionProvider", () => {
     expect(seen.at(-1)?.error?.code).toBe("NETWORK_ERROR");
   });
 
-  it("leaves the profiles undefined when only that request fails", async () => {
+  it("reports an error when only the profile list fails, rather than going ready without it", async () => {
     api.listChildren.mockResolvedValue({
       ok: false,
       error: { code: "NETWORK_ERROR", message: "offline" },
@@ -99,10 +92,20 @@ describe("ParentSessionProvider", () => {
 
     const seen = renderSession();
 
-    // The parent is still known, so the shell renders; only the list is missing.
-    await waitFor(() => expect(seen.at(-1)?.status).toBe("ready"));
-    expect(seen.at(-1)?.parent).toEqual(PARENT);
-    expect(seen.at(-1)?.children).toBeUndefined();
+    // `ready` with no list would let every page through and skip the onboarding redirect.
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("error"));
+    expect(seen.at(-1)?.error?.code).toBe("NETWORK_ERROR");
+  });
+
+  it("treats a 401 on the profile list as signed out", async () => {
+    api.listChildren.mockResolvedValue({
+      ok: false,
+      error: { code: "UNAUTHORIZED", message: "no", status: 401 },
+    });
+
+    const seen = renderSession();
+
+    await waitFor(() => expect(seen.at(-1)?.status).toBe("signedOut"));
   });
 
   it("keeps `refresh` stable across a load, so effects do not re-run on it", async () => {

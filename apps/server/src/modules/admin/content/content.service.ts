@@ -30,11 +30,6 @@ import type {
   WorldUpdateBody,
 } from "../admin-content.schema.js";
 
-/**
- * The curriculum hierarchy as admins write it (file 32, FR-CURR-04, FR-CMS-01).
- */
-
-/** The two locales every piece of content carries, in a deterministic order. */
 const LANGUAGES = ["en", "bn"] as const satisfies readonly Language[];
 
 type LocalizedName = { en: string; bn: string };
@@ -91,7 +86,6 @@ export type AdminLessonDto = AuditFields & {
   };
 };
 
-/** Folds translation rows into the `{ en, bn }` pair the API publishes. */
 function toLocalizedName(rows: Array<{ language: Language; name: string }>) {
   return {
     en: rows.find((row) => row.language === "en")?.name ?? "",
@@ -126,10 +120,7 @@ function toAdminWorld(row: WorldRow): AdminWorldDto {
     id: row.id,
     slug: row.slug,
     name: row.name,
-    // `palette` is a JSONB column, so Prisma types it `JsonValue` and nothing can
-    // narrow it statically. The flat token→colour shape is the contract
-    // `PaletteSchema` states, and a row that broke it would fail the route test's
-    // `assertContract` rather than pass silently.
+    // Cast: `palette` is JSONB (`JsonValue`); `PaletteSchema` states the shape and `assertContract` catches drift.
     palette: (row.palette ?? {}) as Record<string, string>,
     mascotAssetId: row.mascotAssetId,
     status: row.status,
@@ -186,10 +177,7 @@ export async function updateWorld(
   input: WorldUpdateBody,
   adminId: string,
 ): Promise<AdminWorldDto> {
-  // Named rather than inlined, for the reason `createChildProfileOnce` gives:
-  // Prisma's update input is an XOR of a checked and an unchecked shape, and an
-  // inline literal carrying both a scalar foreign key (`mascotAssetId`) and a
-  // nested relation write (`translations`) is ambiguous to the compiler.
+  // Named rather than inlined: Prisma's update input is an XOR, and a literal with both a scalar FK and a nested write is ambiguous.
   const data: Prisma.WorldUncheckedUpdateInput = {
     ...pick(input, ["slug", "name", "palette"]),
     ...optionalNullable("mascotAssetId", input.mascotAssetId),
@@ -432,7 +420,6 @@ const lessonSelect = {
 
 type LessonRow = Prisma.LessonGetPayload<{ select: typeof lessonSelect }>;
 
-/** Same reasoning as `toLocalizedName`: a missing locale is editable, not fatal. */
 const EMPTY_LESSON_TRANSLATION: AdminLessonTranslationDto = {
   title: "",
   introScript: "",
@@ -582,7 +569,6 @@ export async function updateLesson(
   return toAdminLesson(row);
 }
 
-/** The four resources this router manages, spelled as a path segment. */
 export { CONTENT_RESOURCES };
 export type ContentResource = ContentResourceName;
 
@@ -602,13 +588,11 @@ export const READ_BY_RESOURCE: Record<
   lessons: getLesson,
 };
 
-/** The slice of the client a transaction callback and the plain client share. */
 type ContentWriter = Pick<
   typeof prisma,
   "world" | "subject" | "topic" | "lesson"
 >;
 
-/** Moves one row through the publishing workflow (FR-CMS-06). */
 export async function transitionContent(
   resource: ContentResource,
   id: string,
@@ -620,8 +604,7 @@ export async function transitionContent(
       async (tx) => {
         const current = await readGuardFields(tx, resource, id);
         assertTransition(current.status, to);
-        if (to === "published")
-          await assertAiPublishable([current.aiJobId], tx);
+        if (to === "published") await assertAiPublishable(current.aiJobIds, tx);
         await writeStatus(tx, resource, id, to, adminId);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -631,28 +614,63 @@ export async function transitionContent(
   return READ_BY_RESOURCE[resource](id);
 }
 
-/**
- * The status a transition is judged against, and the job that created the row.
- */
 async function readGuardFields(
   tx: ContentWriter,
   resource: ContentResource,
   id: string,
-): Promise<{ status: ContentStatus; aiJobId: string | null }> {
+): Promise<{ status: ContentStatus; aiJobIds: (string | null)[] }> {
   const select = { status: true } as const;
-  const row = await (resource === "worlds"
-    ? tx.world.findUnique({ where: { id }, select })
-    : resource === "subjects"
-      ? tx.subject.findUnique({ where: { id }, select })
-      : resource === "topics"
-        ? tx.topic.findUnique({ where: { id }, select })
-        : tx.lesson.findUnique({
-            where: { id },
-            select: { ...select, aiJobId: true },
-          }));
+  // Media assets carry their own `aiJobId`; one awaiting review can be linked by a plain edit, so the row's job is not the whole question.
+  const asset = { select: { aiJobId: true } } as const;
 
-  if (!row) throw ApiError.notFound(`No such ${singular(resource)}`);
-  return { status: row.status, aiJobId: "aiJobId" in row ? row.aiJobId : null };
+  if (resource === "worlds") {
+    const row = await tx.world.findUnique({
+      where: { id },
+      select: { ...select, mascotAsset: asset },
+    });
+    if (!row) throw ApiError.notFound("No such world");
+    return { status: row.status, aiJobIds: [row.mascotAsset?.aiJobId ?? null] };
+  }
+
+  if (resource === "subjects") {
+    const row = await tx.subject.findUnique({ where: { id }, select });
+    if (!row) throw ApiError.notFound("No such subject");
+    return { status: row.status, aiJobIds: [] };
+  }
+
+  if (resource === "topics") {
+    const row = await tx.topic.findUnique({ where: { id }, select });
+    if (!row) throw ApiError.notFound("No such topic");
+    return { status: row.status, aiJobIds: [] };
+  }
+
+  const row = await tx.lesson.findUnique({
+    where: { id },
+    select: {
+      ...select,
+      aiJobId: true,
+      translations: {
+        select: {
+          introAudioAsset: asset,
+          videoAsset: asset,
+          videoPosterAsset: asset,
+        },
+      },
+    },
+  });
+  if (!row) throw ApiError.notFound("No such lesson");
+
+  return {
+    status: row.status,
+    aiJobIds: [
+      row.aiJobId ?? null,
+      ...row.translations.flatMap((translation) => [
+        translation.introAudioAsset?.aiJobId ?? null,
+        translation.videoAsset?.aiJobId ?? null,
+        translation.videoPosterAsset?.aiJobId ?? null,
+      ]),
+    ],
+  };
 }
 
 async function readStatus(
@@ -677,7 +695,6 @@ async function writeStatus(
   else await tx.lesson.update(args);
 }
 
-/** Runs one edit against the status the row actually holds. */
 async function editWithinTransaction<T>(
   resource: ContentResource,
   id: string,
@@ -694,11 +711,10 @@ async function editWithinTransaction<T>(
   );
 }
 
-/** Which resources have a `sortOrder` to reorder. `World` has no such column. */
+// `World` has no `sortOrder`.
 export { ORDERABLE_CONTENT_RESOURCES as ORDERABLE_RESOURCES };
 export type OrderableResource = OrderableContentResourceName;
 
-/** Persists a whole sibling set's order in one transaction (requirement 4). */
 export async function reorderContent(
   resource: OrderableResource,
   input: { parentId?: string; orderedIds: string[]; includeArchived?: boolean },
@@ -769,11 +785,7 @@ function updateSortOrder(
   return tx.lesson.update(args);
 }
 
-/**
- * Rejects anything that is not exactly the sibling set — a missing id, an extra
- * one, or a duplicate — and names which. "Reorder failed" would leave an admin
- * with a list that snapped back and no idea why.
- */
+// Names the missing, extra or duplicate id; a bare "Reorder failed" leaves the admin with a list that snapped back.
 function assertSameSet(
   siblings: Array<{ id: string }>,
   orderedIds: string[],
@@ -795,20 +807,15 @@ function assertSameSet(
   );
 }
 
-/** Archived rows are hidden from admin lists by default (requirement 5). */
 const ARCHIVED: ContentStatus = "archived";
 const NOT_ARCHIVED = { status: { not: ARCHIVED } };
 
-/**
- * Ties broken by name, so a set that has never been reordered — every row at
- * `sortOrder` 0 — still comes back in a stable order rather than Postgres's.
- */
+// Ties broken by name so a never-reordered set (all `sortOrder` 0) is stable.
 const SIBLING_ORDER = [
   { sortOrder: "asc" },
   { name: "asc" },
 ] satisfies Prisma.SubjectOrderByWithRelationInput[];
 
-/** Copies only the keys actually supplied, so a `PATCH` stays partial. */
 function pick<TSource extends object, TKey extends keyof TSource>(
   source: TSource,
   keys: readonly TKey[],
@@ -820,25 +827,17 @@ function pick<TSource extends object, TKey extends keyof TSource>(
   return result;
 }
 
-/**
- * A nullable field on a `PATCH`, where `null` clears the link and `undefined`
- * leaves it alone. `pick` cannot express the difference — both are "absent" to a
- * spread — and collapsing them would make a link impossible to remove.
- */
+// `null` clears the link, `undefined` leaves it alone; `pick` cannot tell them apart.
 function optionalNullable<TKey extends string>(
   key: TKey,
   value: string | null | undefined,
 ): Partial<Record<TKey, string | null>> {
   return value === undefined
     ? {}
-    : // A computed key widens to `{ [x: string]: … }` — TypeScript cannot tie a
-      // generic `TKey` back to the literal it was instantiated with, so the
-      // narrowing this asserts is not expressible. Safe because `key` is the
-      // only thing written and it is `TKey` by the signature.
+    : // Cast: a computed key widens to an index signature; `key` is the only thing written and is `TKey` by signature.
       ({ [key]: value } as Record<TKey, string | null>);
 }
 
-/** The per-locale `upsert` list that writes a name in both languages. */
 function nameUpserts<TWhere>(
   translations: LocalizedName,
   whereFor: (language: Language) => TWhere,
@@ -850,7 +849,6 @@ function nameUpserts<TWhere>(
   }));
 }
 
-/** The next free position at the end of a sibling set. */
 async function nextSortOrder(
   resource: OrderableResource,
   where: { subjectId?: string; topicId?: string },
@@ -871,10 +869,7 @@ async function nextSortOrder(
   return highest === null || highest === undefined ? 0 : highest + 1;
 }
 
-/**
- * `404` for a parent that does not exist, rather than the `500` that Prisma's
- * foreign-key violation would otherwise become.
- */
+// `404` for a missing parent rather than the `500` Prisma's foreign-key violation would become.
 async function assertParentExists(
   model: "world" | "subject" | "topic",
   id: string,
@@ -887,8 +882,4 @@ async function assertParentExists(
       : prisma.topic.findUnique({ where: { id }, select }));
 
   if (!found) throw ApiError.notFound(`No such ${model}`);
-}
-
-function singular(resource: ContentResource): string {
-  return resource.slice(0, -1);
 }

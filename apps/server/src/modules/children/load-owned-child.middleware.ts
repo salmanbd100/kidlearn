@@ -5,10 +5,8 @@ import { authContext } from "../parent/require-parent.middleware.js";
 import { findOwnedChildProfile } from "./child-profile.service.js";
 import { ChildIdParamsSchema } from "./children.schema.js";
 
-/**
- * Ownership gate for every `/:id` route that addresses a child profile
- * (FR-PROF-07, NFR-SAFE-02). Mount it after `requireParent`.
- */
+// Ownership gate for every `/:id` child route (FR-PROF-07, NFR-SAFE-02);
+// mount after `requireParent`.
 export const loadOwnedChild: RequestHandler = async (
   req: Request,
   _res: Response,
@@ -16,10 +14,8 @@ export const loadOwnedChild: RequestHandler = async (
 ) => {
   try {
     const { parent } = authContext(req);
-    // Express 5 types a route param as `string | string[]` (wildcards can
-    // repeat), so the id is narrowed through the same schema the route mounts
-    // rather than asserted. It also means this middleware is safe on a route
-    // that forgot `validate({ params })`.
+    // Express 5 types params as `string | string[]`; parse through the schema instead
+    // of asserting, which also keeps this safe on a route missing `validate({ params })`.
     const { id } = ChildIdParamsSchema.parse(req.params);
     const child = await findOwnedChildProfile(id, parent.id);
     if (!child) {
@@ -32,16 +28,11 @@ export const loadOwnedChild: RequestHandler = async (
   }
 };
 
-/**
- * Reads the child `loadOwnedChild` attached. Use this instead of `req.child!`:
- * the property is optional on the Express `Request` because it does not exist
- * before the middleware runs, and this narrows it without an assertion.
- */
+// Use instead of `req.child!`: the property is optional on `Request`.
 export function ownedChild(req: Request): ChildProfile {
   const { child } = req;
   if (!child) {
-    // Reaching here means the route was mounted without `loadOwnedChild`. Fail
-    // closed rather than serving an unscoped request.
+    // Mounted without `loadOwnedChild`: fail closed.
     throw ApiError.notFound("Child profile not found");
   }
   return child;

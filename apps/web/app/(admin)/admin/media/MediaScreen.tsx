@@ -9,21 +9,24 @@ import {
 } from "@kidlearn/types";
 import {
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@kidlearn/ui";
+import { AudioLines, FolderOpen, TriangleAlert, Upload } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
-import { fetchMediaAssets } from "@/features/admin/admin-api";
+import { useState } from "react";
+import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
+import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
+import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
+import { useMediaPages } from "@/features/admin/use-media-pages";
 import { AttachDialog } from "./AttachDialog";
 import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";
-
-// `/admin/media` — the asset library (file 33, FR-CMS-02).
 
 const KIND_LABELS: Record<AssetKind, string> = {
   image: "Images",
@@ -45,85 +48,72 @@ type Tab = "library" | "characters";
 
 export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
   const [tab, setTab] = useState<Tab>("library");
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [kind, setKind] = useState<AssetKind>();
   const [language, setLanguage] = useState<Locale>();
-  const [status, setStatus] = useState<
-    "loading" | "waking" | "ready" | "error"
-  >("loading");
   const [dialog, setDialog] = useState<DialogState>({ kind: "closed" });
   const [notice, setNotice] = useState<string>();
   const [copiedId, setCopiedId] = useState<string>();
 
-  const load = useCallback(async () => {
-    setStatus("loading");
-    const result = await fetchMediaAssets({
-      ...(kind ? { kind } : {}),
-      ...(language ? { language } : {}),
-    });
-
-    if (!result.ok) {
-      setStatus("error");
-      return;
-    }
-    setAssets(result.data);
-    setStatus("ready");
-  }, [kind, language]);
-
-  useEffect(() => {
-    // Only the library tab reads assets; the characters tab holds its own data.
-    if (tab === "library") void load();
-  }, [load, tab]);
+  const {
+    assets,
+    status,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+    reload: load,
+  } = useMediaPages(
+    { ...(kind ? { kind } : {}), ...(language ? { language } : {}) },
+    { isEnabled: tab === "library" },
+  );
 
   async function handleCopy(asset: MediaAsset) {
     try {
       await navigator.clipboard.writeText(asset.url);
       setCopiedId(asset.id);
     } catch {
-      // A denied clipboard permission is not worth an error banner — the URL is
-      // on screen and selectable either way.
+      // A denied clipboard permission isn't worth a banner; the URL is selectable.
       setCopiedId(undefined);
     }
   }
 
   const header = (
     <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-semibold text-foreground text-xl">Media</h1>
-          <p className="text-muted-foreground text-xs">
-            {tab === "library"
-              ? "Files upload straight to Cloudinary — they never pass through the API."
-              : "The visual descriptions that keep recurring characters recognisable."}
-          </p>
-        </div>
+      <AdminPageHeader
+        title="Media"
+        description={
+          tab === "library"
+            ? "Files upload straight to Cloudinary — they never pass through the API."
+            : "The visual descriptions that keep recurring characters recognisable."
+        }
+        actions={
+          tab === "library" ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setNotice(undefined);
+                setDialog({ kind: "upload" });
+              }}
+            >
+              <Upload aria-hidden="true" className="size-4!" />
+              Upload
+            </Button>
+          ) : undefined
+        }
+      />
 
-        {tab === "library" ? (
-          <Button
-            type="button"
-            onClick={() => {
-              setNotice(undefined);
-              setDialog({ kind: "upload" });
-            }}
-          >
-            Upload
-          </Button>
-        ) : null}
-      </header>
-
-      <div className="flex gap-2">
-        <FilterChip
+      <div className="-mt-1 flex gap-1 border-border border-b">
+        <TabButton
           isActive={tab === "library"}
           onClick={() => setTab("library")}
         >
           Library
-        </FilterChip>
-        <FilterChip
+        </TabButton>
+        <TabButton
           isActive={tab === "characters"}
           onClick={() => setTab("characters")}
         >
           Characters
-        </FilterChip>
+        </TabButton>
       </div>
     </div>
   );
@@ -141,14 +131,21 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
     return (
       <div className="flex flex-col gap-5">
         {header}
-        <p className="text-muted-foreground text-sm">
-          The media library could not be loaded.
-        </p>
-        <div>
-          <Button type="button" variant="outline" onClick={() => void load()}>
-            Try again
-          </Button>
-        </div>
+        <AdminEmptyState
+          tone="error"
+          icon={TriangleAlert}
+          title="The media library could not be loaded."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => load()}
+            >
+              Try again
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -157,77 +154,100 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
     <div className="flex flex-col gap-5">
       {header}
 
-      <div className="flex flex-wrap gap-2">
-        <FilterChip
-          isActive={kind === undefined}
+      <div className="flex flex-wrap items-center gap-2">
+        <AdminFilterChip
+          isSelected={kind === undefined}
           onClick={() => setKind(undefined)}
         >
           All kinds
-        </FilterChip>
+        </AdminFilterChip>
         {ASSET_KINDS.map((one) => (
-          <FilterChip
+          <AdminFilterChip
             key={one}
-            isActive={kind === one}
+            isSelected={kind === one}
             onClick={() => setKind(one)}
           >
             {KIND_LABELS[one]}
-          </FilterChip>
+          </AdminFilterChip>
         ))}
 
-        <span aria-hidden="true" className="w-3" />
+        <span aria-hidden="true" className="mx-1 h-6 w-px bg-border" />
 
-        <FilterChip
-          isActive={language === undefined}
+        <AdminFilterChip
+          isSelected={language === undefined}
           onClick={() => setLanguage(undefined)}
         >
           Any language
-        </FilterChip>
+        </AdminFilterChip>
         {LOCALES.map((one) => (
-          <FilterChip
+          <AdminFilterChip
             key={one}
-            isActive={language === one}
+            isSelected={language === one}
             onClick={() => setLanguage(one)}
           >
             {LANGUAGE_LABELS[one]}
-          </FilterChip>
+          </AdminFilterChip>
         ))}
       </div>
 
       {notice ? (
         <p
           role="status"
-          className="rounded-[var(--radius)] border border-border bg-muted px-3 py-2 text-foreground text-sm"
+          className="rounded-(--radius) border border-border bg-muted px-3 py-2 text-foreground text-sm"
         >
           {notice}
         </p>
       ) : null}
 
       {status === "loading" ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <div className="flex flex-col gap-3">
+          <p role="status" className="text-muted-foreground text-sm">
+            Loading…
+          </p>
+          <ul
+            aria-hidden="true"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          >
+            {[0, 1, 2, 3].map((tile) => (
+              <li
+                key={tile}
+                className="h-64 rounded-(--radius) border border-border bg-card motion-safe:animate-pulse"
+              />
+            ))}
+          </ul>
+        </div>
       ) : assets.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          Nothing here yet with those filters.
-        </p>
+        <AdminEmptyState
+          icon={FolderOpen}
+          title="Nothing here yet with those filters."
+        />
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {assets.map((asset) => (
             <li
               key={asset.id}
-              className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3"
+              className="flex flex-col gap-3 rounded-(--radius) border border-border bg-card p-3 shadow-xs"
             >
               <AssetPreview asset={asset} />
 
-              <p className="break-all font-mono text-muted-foreground text-xs">
-                {asset.url.split("/").pop()}
-              </p>
+              <div className="flex min-w-0 flex-col gap-1">
+                <p
+                  className="truncate font-mono text-foreground text-xs"
+                  title={asset.url.split("/").pop()}
+                >
+                  {asset.url.split("/").pop()}
+                </p>
 
-              <p className="text-muted-foreground text-xs">
-                {asset.kind}
-                {asset.language ? ` · ${LANGUAGE_LABELS[asset.language]}` : ""}{" "}
-                · {new Date(asset.createdAt).toLocaleDateString("en-GB")}
-              </p>
+                <p className="text-muted-foreground text-xs">
+                  {KIND_LABELS[asset.kind]}
+                  {asset.language
+                    ? ` · ${LANGUAGE_LABELS[asset.language]}`
+                    : ""}{" "}
+                  · {new Date(asset.createdAt).toLocaleDateString("en-GB")}
+                </p>
+              </div>
 
-              <div className="mt-auto flex gap-2">
+              <div className="mt-auto flex gap-2 border-border border-t pt-3">
                 <Button
                   type="button"
                   variant="outline"
@@ -253,6 +273,18 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
         </ul>
       )}
 
+      {status === "ready" && hasMore ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="self-center"
+          disabled={isLoadingMore}
+          onClick={() => void loadMore()}
+        >
+          {isLoadingMore ? "Loading…" : "Show older files"}
+        </Button>
+      ) : null}
+
       {videoWorkflow}
 
       <Dialog
@@ -275,7 +307,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
                 onUploaded={() => {
                   setDialog({ kind: "closed" });
                   setNotice("Uploaded and recorded.");
-                  void load();
+                  load();
                 }}
               />
             </>
@@ -302,7 +334,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
   );
 }
 
-function FilterChip({
+function TabButton({
   isActive,
   onClick,
   children,
@@ -312,33 +344,42 @@ function FilterChip({
   children: React.ReactNode;
 }) {
   return (
-    <Button
+    <button
       type="button"
-      size="sm"
       aria-pressed={isActive}
-      variant={isActive ? "default" : "outline"}
       onClick={onClick}
+      className={cn(
+        "-mb-px flex min-h-11 items-center border-b-2 px-3 text-sm transition-colors",
+        "focus-ring",
+        isActive
+          ? "border-primary font-medium text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
     >
       {children}
-    </Button>
+    </button>
   );
 }
 
-/**
- * Inline preview per kind. The image goes through `next/image` with `unoptimized`
- * — see `components/admin/MediaPicker.tsx` for why the CMS bypasses the optimizer
- * rather than widening the app's remote-image allowlist.
- */
+/** Images use `next/image` `unoptimized`; see `features/admin/MediaPicker.tsx` for why. */
 function AssetPreview({ asset }: { asset: MediaAsset }) {
   if (asset.kind === "audio") {
-    // biome-ignore lint/a11y/useMediaCaption: an admin preview of a narration clip has no caption track to offer — the clip is what is being checked.
-    return <audio className="w-full" controls preload="none" src={asset.url} />;
+    return (
+      // Same height as an image tile, so a mixed grid lines its filenames up.
+      <div className="flex aspect-video w-full flex-col justify-between gap-2 rounded-(--radius) bg-muted p-2">
+        <span className="flex flex-1 items-center justify-center text-muted-foreground">
+          <AudioLines aria-hidden="true" className="size-8" />
+        </span>
+        {/* biome-ignore lint/a11y/useMediaCaption: an admin preview of a narration clip has no caption track to offer — the clip is what is being checked. */}
+        <audio className="h-9 w-full" controls preload="none" src={asset.url} />
+      </div>
+    );
   }
   if (asset.kind === "video") {
     return (
       // biome-ignore lint/a11y/useMediaCaption: same — captions are authored content this preview exists to check, not something the preview can supply.
       <video
-        className="aspect-video w-full rounded-[var(--radius)] bg-muted"
+        className="aspect-video w-full rounded-(--radius) bg-muted"
         controls
         preload="none"
         src={asset.url}
@@ -352,7 +393,7 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
       width={320}
       height={180}
       unoptimized
-      className="aspect-video w-full rounded-[var(--radius)] border border-border object-contain"
+      className="aspect-video w-full rounded-(--radius) border border-border object-contain"
     />
   );
 }

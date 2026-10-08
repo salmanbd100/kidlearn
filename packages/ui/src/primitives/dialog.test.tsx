@@ -10,7 +10,13 @@ import {
 
 // `isDismissable={false}` is the security-relevant half of this primitive.
 
-function renderDialog(props: { isDismissable?: boolean; closeLabel?: string }) {
+type DismissableProps =
+  | { isDismissable?: true; closeLabel: string; closeSize?: "default" | "kid" }
+  | { isDismissable: false; closeLabel?: never };
+
+function renderDialog(
+  props: DismissableProps & Partial<React.ComponentProps<typeof DialogContent>>,
+) {
   const onOpenChange = vi.fn();
   render(
     <Dialog open onOpenChange={onOpenChange}>
@@ -29,6 +35,20 @@ describe("DialogContent — dismissable (the default)", () => {
   it("renders a labelled close button", () => {
     renderDialog({ closeLabel: "Close" });
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
+  it("keeps the close button at the parent surface's 44px floor by default", () => {
+    renderDialog({ closeLabel: "Close" });
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "size-11",
+    );
+  });
+
+  it("grows the close button to the 64px kid floor on request", () => {
+    renderDialog({ closeLabel: "Close", closeSize: "kid" });
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "size-16",
+    );
   });
 
   it("closes on Escape", () => {
@@ -70,6 +90,37 @@ describe("DialogContent — isDismissable={false}", () => {
 
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("DialogContent — a caller's own handlers", () => {
+  it("cannot reopen a gate by passing onEscapeKeyDown", () => {
+    // `{...props}` used to be spread after the guard, so a caller handler let Escape dismiss the gate.
+    const onEscapeKeyDown = vi.fn();
+    const { onOpenChange } = renderDialog({
+      isDismissable: false,
+      onEscapeKeyDown,
+    });
+
+    fireEvent.keyDown(screen.getByRole("dialog"), {
+      key: "Escape",
+      code: "Escape",
+    });
+
+    expect(onEscapeKeyDown).toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("still runs on a dismissable dialog", () => {
+    const onEscapeKeyDown = vi.fn();
+    renderDialog({ closeLabel: "Close", onEscapeKeyDown });
+
+    fireEvent.keyDown(screen.getByRole("dialog"), {
+      key: "Escape",
+      code: "Escape",
+    });
+
+    expect(onEscapeKeyDown).toHaveBeenCalled();
   });
 });
 
