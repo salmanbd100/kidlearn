@@ -120,6 +120,15 @@ Service functions are plain async functions and must not import or reference Exp
 - `packages/db` owns both `DATABASE_URL` (pooled, port 6543, runtime) and `DIRECT_URL` (direct, port 5432, migrations). Apps never hold database credentials themselves.
 - Activity and quiz JSON payloads are stored as versioned `JSONB`. The schema for those payloads is defined once in `packages/types` and consumed by the frontend renderer, the backend validator, and the AI generation prompts. **[REVIEW]**
 
+### Row-level security on every table
+
+Supabase's Data API serves the `public` schema to anyone holding the project's anon key,
+which is public by design. Every table therefore has RLS enabled and **no policies**, which
+refuses every role but the owner; Prisma connects as the owner and is unaffected. A
+migration that creates a table ends with `ALTER TABLE "<Table>" ENABLE ROW LEVEL SECURITY;`
+— `prisma migrate dev --create-only`, then add the line. **[CI]** —
+`apps/server/src/shared/testing/row-level-security.db.test.ts` fails on any table without it.
+
 ### Migrations on tables that already hold rows
 
 `prisma migrate deploy` runs while the live API keeps serving, so a migration must not
