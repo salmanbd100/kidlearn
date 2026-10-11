@@ -641,6 +641,11 @@ The `aws` command on your Mac needs a key to act as `salman-admin`.
    # Default output format: json
    ```
 
+   **Type `ap-south-1` at the region prompt — do not just press Enter.** If a
+   default such as `[us-east-1]` is shown in brackets, Enter keeps it. Every
+   `aws` command without `--region` then works in N. Virginia, and in Step 13
+   the Mumbai parameters look as if they do not exist.
+
    This saves the key in `~/.aws/credentials` on your Mac — outside the repo.
 
 4. **Log out** of root. From now on, log in with the **console sign-in URL** as
@@ -651,7 +656,15 @@ The `aws` command on your Mac needs a key to act as `salman-admin`.
 ```bash
 aws sts get-caller-identity
 # shows "Arn": "arn:aws:iam::<12 digits>:user/salman-admin"
+
+aws configure get region
+# ap-south-1
 ```
+
+If the region line prints anything else, fix it with
+`aws configure set region ap-south-1`. Also check that
+`echo $AWS_REGION $AWS_DEFAULT_REGION` prints nothing: either variable overrides
+the setting. If one is set, remove it from `~/.zshrc` and open a new terminal.
 
 Write the 12-digit number in your values sheet as **AWS account ID**.
 
@@ -1116,6 +1129,36 @@ Then the seed script runs with those values. `exit` leaves the bash shell and
 throws the variables away.
 
 Then **close this Terminal window** — it held production secrets in memory.
+
+> **Behind the scenes — how this works before any server exists**
+>
+> The script never touches EC2 or a deployed API. It runs the code in your repo,
+> on your Mac, and writes straight into the production database, which is
+> already there since Step 8.
+>
+> ```
+>  your Mac                                           Supabase (Mumbai)
+>  pnpm --filter server seed:admin
+>    └─ tsx runs apps/server/src/scripts/seed-admin.ts
+>         ├─ loads config/env.ts  ◄── the 16 values from Parameter Store
+>         ├─ hashes the password the way better-auth does
+>         └─ prisma ── DATABASE_URL, over the internet ──────►  admin row saved
+>                                                                (tables exist since Step 8c)
+>
+>  later, Step 23:  EC2 → prod-api ── same DATABASE_URL ─────►  finds the admin row
+> ```
+>
+> - **Supabase is reachable from anywhere,** including your Mac, so the
+>   database does not need the server.
+> - **No build, no Docker.** `seed:admin` is `tsx src/scripts/seed-admin.ts`.
+>   It creates the admin through better-auth's own functions, so the password
+>   is stored in the exact format the deployed API checks at sign-in.
+> - **Why all 16 secrets:** the script imports `config/auth.ts`, which loads
+>   `config/env.ts`, and that refuses to start unless every required variable
+>   is set — even Cloudinary or Gemini, which the script never uses. The Google
+>   `placeholder` values are fine here: only their presence is checked.
+> - **Order matters:** database (Step 8) → secrets (Step 13) → admin (this step)
+>   → server (Steps 17–23). Each step needs only what came before it.
 
 ✅ **Check:** the script says the admin was created. Save email and password in
 your sheet. (Running it again with a new password is how you reset it.)
@@ -2132,6 +2175,7 @@ Most likely first.
 | Caddy logs errors about `api.dev.kidlearn.net` | Expected until Part B — that name has no DNS record yet |
 | Session Manager will not connect | Server still starting (wait), or role `kidlearn-instance` not attached. **Never** open port 22 |
 | `deploy.sh`: "no parameters found" | Parameter name typo, wrong region, or wrong account number in the role JSON |
+| An `aws` command without `--region` finds nothing, but with `--region ap-south-1` it works | The CLI's default region is wrong: `aws configure get region` must print `ap-south-1`. Fix with `aws configure set region ap-south-1` (Step 3) |
 | Step 13 check prints nothing or fewer than 16 names | Parameters were created in another region. Copy them to Mumbai with the commands under Step 13's check |
 | `deploy.sh`: "exited — it did not get as far as a healthcheck" | A secret is missing or malformed — the printed log names the variable `env.ts` rejected |
 | `deploy.sh`: "up but /ready failed" | Check `DATABASE_URL` in Parameter Store; is the Supabase project **paused**? |
