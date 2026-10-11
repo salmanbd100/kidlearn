@@ -306,7 +306,7 @@ AWS changes prices, so check them in the
 | EC2 `t4g.small` server | 18 | 8.18 | A bigger instance type; long periods of heavy CPU ("unlimited" mode bills extra credits) |
 | Public IPv4 / Elastic IP | 18c | 3.65 | Every extra Elastic IP, attached or not |
 | EBS disk, 20 GiB gp3 | 18 | ~1.70 | A bigger disk; leftover snapshots |
-| ECR image storage | 15 | ~0.10 | Removing the keep-last-10 lifecycle rule |
+| ECR image storage | 15 | ~0.05–0.45 | Removing the keep-last-10 lifecycle rule on either repository |
 | S3 backups | 12 | ~0.10 | Removing the 30-day expiry rule |
 | Parameter Store (Standard tier) | 13 | 0.00 | Choosing the **Advanced** tier, or Secrets Manager (~$0.40 per secret) |
 | IAM, Budgets, Session Manager | 4, 17, 20 | 0.00 | — |
@@ -319,7 +319,7 @@ AWS changes prices, so check them in the
 | healthchecks.io (free plan) | 11 | 0.00 | — |
 | Google sign-in (OAuth) | 22 | 0.00 | — |
 | Vercel (Hobby plan) | 24 | 0.00 | Commercial use needs Pro ($20 per member per month) |
-| **Total, monthly** | | **≈ 13.73** | |
+| **Total, monthly** | | **≈ 14.08** | |
 | Domain `kidlearn.net`, Namecheap | 7 | ~1 | Billed **yearly** (roughly $10–15) — check your renewal price |
 
 A new AWS account comes with welcome credits that may cover the first months.
@@ -1190,8 +1190,19 @@ your sheet. (Running it again with a new password is how you reset it.)
 
 ### Step 15 · 🌐 Image storage — ECR
 
-**Cost:** about $0.10/month for stored images, kept low by the keep-last-10
-rule below.
+**Cost:** $0.10 per GB stored per month. One release is about 0.42 GB
+compressed (`kidlearn-api` ~167 MB + `kidlearn-migrate` ~251 MB, measured from
+local arm64 builds on 2026-10-06), so:
+
+| Releases kept | Stored | $/month |
+|---|---|---|
+| 1 (first push) | ~0.42 GB | ~0.04 |
+| 10 (the cap set below) | at most ~4.2 GB | at most ~0.42 |
+
+The 10-release figure is the ceiling. Releases share unchanged layers (the
+Node base image, and the dependencies when the lockfile has not changed), and
+ECR stores a shared layer once, so the real bill sits below it. The server
+pulling images from ECR in the same region is free.
 
 **Why:** the server does not build code. You build a Docker image on your Mac,
 put it in ECR, and the server downloads it from there.
@@ -1202,24 +1213,36 @@ put it in ECR, and the server downloads it from there.
                                   kidlearn-migrate:a1b2c3d
 ```
 
-Region menu (top right): **Asia Pacific (Mumbai) ap-south-1**. Step 16 pushes
-to `…dkr.ecr.ap-south-1.amazonaws.com`, so repositories anywhere else are never
-found.
-
-1. Search **ECR** → **Private registry → Repositories** → **Create repository**.
-2. Name `kidlearn-api` → **Create**.
-3. Again: **Create repository** → name `kidlearn-migrate` → **Create**.
+1. **Region first.** Region menu (top right) → **Asia Pacific (Mumbai)
+   ap-south-1**. This is required: ECR repositories exist in one region only,
+   and Step 16 pushes to `…dkr.ecr.ap-south-1.amazonaws.com`. A repository
+   created in any other region is never found.
+2. Search **ECR** → **Private registry → Repositories** → **Create repository**.
+3. Name `kidlearn-api` → **Create**. Leave every other setting at its default
+   (**Mutable**, **AES-256**, scanning untouched).
+4. Again: **Create repository** → name `kidlearn-migrate` → **Create**.
    (*Why two?* `kidlearn-api` is the app. `kidlearn-migrate` only updates the
    database tables, and runs only when you ask.)
 
 Keep only the newest 10 images, so storage stays cheap but you can still roll
 back. For **each** repository:
 
-4. Open it → left side **Lifecycle Policy** → **Create rule**.
-5. Priority `1`. Description `keep last 10`. Image status **Any**.
-   **Image count more than** `10`. **Save**.
+5. **Repositories** → click the repository **name** (e.g. `kidlearn-api`) →
+   the **Lifecycle policy** tab (between **Images** and **Permissions**) →
+   **Create rule** (orange, top right).
+6. Fill in the form, top to bottom:
+   - **Rule priority** `1`
+   - **Rule description** `keep last 10`
+   - **Image tag status** **Any**
+   - **Image tag filters** leave empty
+   - **Match criteria** **Image count** → the number box below it → `10`
+   - **Rule action** **Expire** (not Archive — archived images still cost money)
+   - **Save**. Ignore the "Destructive action warning": the repository is empty.
 
-✅ **Check:** two repositories, each with one lifecycle rule.
+   Images past the newest 10 are removed within 24 hours, not at once.
+
+✅ **Check:** two repositories, each showing one rule on its **Lifecycle
+policy** tab.
 
 ### Step 16 · 💻 Build and upload the images
 
