@@ -1101,12 +1101,23 @@ later as "the server will not start", so look carefully now.
 purpose. This script is the only way to make one. It needs all the production
 secrets, so it reads them from Parameter Store into this terminal only.
 
-On your Mac, in the repo, in **two separate goes**:
+**Where to run it:** on your Mac, **inside the kidlearn repo** (any folder in
+it works — `pnpm --filter server` finds the workspace root itself). Outside the
+repo, `pnpm` fails with "No projects matched the filters". It also needs:
 
-**1. Start bash.** Type this alone and press Enter. The commands below are
-written for bash, and macOS's default shell is zsh:
+| Needs | Why |
+|---|---|
+| `pnpm install` already run in the repo | The script is `apps/server/src/scripts/seed-admin.ts`, run by `tsx` from `node_modules` |
+| The AWS CLI signed in as `salman-admin` (Step 3) | The `eval` line reads `/kidlearn/prod/*` from Parameter Store |
+| An internet connection | The script connects straight to Supabase |
+
+Run it in **two separate goes**:
+
+**1. Go to the repo and start bash.** Type these and press Enter. The commands
+in step 2 are written for bash, and macOS's default shell is zsh:
 
 ```bash
+cd ~/Documents/Me/kidlearn
 bash
 ```
 
@@ -2191,6 +2202,9 @@ Most likely first.
 | `deploy.sh`: "no parameters found" | Parameter name typo, wrong region, or wrong account number in the role JSON |
 | An `aws` command without `--region` finds nothing, but with `--region ap-south-1` it works | The CLI's default region is wrong: `aws configure get region` must print `ap-south-1`. Fix with `aws configure set region ap-south-1` (Step 3) |
 | Step 13 check prints nothing or fewer than 16 names | Parameters were created in another region. Copy them to Mumbai with the commands under Step 13's check |
+| Step 14: a bare `bash-3.2$` prompt and nothing else | `bash` was pasted together with the block. Paste the step 2 block again at that prompt |
+| Step 14: "No projects matched the filters" | You are outside the repo. `cd ~/Documents/Me/kidlearn` and run it again |
+| Step 14: "Invalid environment configuration … `<NAME>`: Invalid url" | That parameter's value is wrong, often its own name pasted into **Value**. Print it with `aws ssm get-parameter --name /kidlearn/prod/<NAME> --with-decryption --query Parameter.Value --output text \| cat -vet` (only for non-secret ones like `BETTER_AUTH_URL` and `WEB_ORIGIN`), fix it in Parameter Store, then paste the block again |
 | `deploy.sh`: "exited — it did not get as far as a healthcheck" | A secret is missing or malformed — the printed log names the variable `env.ts` rejected |
 | `deploy.sh`: "up but /ready failed" | Check `DATABASE_URL` in Parameter Store; is the Supabase project **paused**? |
 | `docker pull` "denied" / "no basic auth credentials" | Role policy: account ID or repository name wrong in Step 17 |
