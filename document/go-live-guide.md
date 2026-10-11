@@ -20,6 +20,7 @@
 
 **Time:** about one full day. You can stop between any two steps.
 **Cost:** about **$14 per month** (AWS), plus your domain. Everything else is free.
+The service-by-service breakdown is in 0.12.
 
 ---
 
@@ -292,6 +293,137 @@ Image tag (SHA):         ____________
 Admin email/password:    ____________
 ```
 
+### 0.12 What it costs
+
+Monthly running cost once everything is live. AWS figures are for Mumbai
+(`ap-south-1`), taken from the cost table in
+`document/implementation/38-deployment-aws-docker.md` (checked 2026-09-06).
+AWS changes prices, so check them in the
+[AWS Pricing Calculator](https://calculator.aws/) if a bill looks wrong.
+
+| Service | Step | $/month | What would make it cost more |
+|---|---|---|---|
+| EC2 `t4g.small` server | 18 | 8.18 | A bigger instance type; long periods of heavy CPU ("unlimited" mode bills extra credits) |
+| Public IPv4 / Elastic IP | 18c | 3.65 | Every extra Elastic IP, attached or not |
+| EBS disk, 20 GiB gp3 | 18 | ~1.70 | A bigger disk; leftover snapshots |
+| ECR image storage | 15 | ~0.10 | Removing the keep-last-10 lifecycle rule |
+| S3 backups | 12 | ~0.10 | Removing the 30-day expiry rule |
+| Parameter Store (Standard tier) | 13 | 0.00 | Choosing the **Advanced** tier, or Secrets Manager (~$0.40 per secret) |
+| IAM, Budgets, Session Manager | 4, 17, 20 | 0.00 | — |
+| Data transfer out of AWS | — | 0.00 | Over 100 GB a month (media is on Cloudinary, so unlikely) |
+| Cloudflare DNS (Free plan) | 6 | 0.00 | — |
+| Supabase (Free plan) | 8 | 0.00 | Outgrowing the free limits; Pro is $25/month |
+| Cloudinary (Free plan) | 9 | 0.00 | Using up the monthly credit allowance |
+| Gemini API (free tier) | 10 | 0.00 | Rate limits only; a paid tier is opt-in |
+| Google Text-to-Speech | 10 | ~0.00 | Going past Google's free monthly character quota; billed per character after that |
+| healthchecks.io (free plan) | 11 | 0.00 | — |
+| Google sign-in (OAuth) | 22 | 0.00 | — |
+| Vercel (Hobby plan) | 24 | 0.00 | Commercial use needs Pro ($20 per member per month) |
+| **Total, monthly** | | **≈ 13.73** | |
+| Domain `kidlearn.net`, Namecheap | 7 | ~1 | Billed **yearly** (roughly $10–15) — check your renewal price |
+
+A new AWS account comes with welcome credits that may cover the first months.
+Budget as if it does not, so the first real bill is not a surprise. Step 4's
+alarm is set at $20, about 1.5× the expected total.
+
+### 0.13 How much this server can handle
+
+**These are estimates, not measurements.** Nobody has load-tested this
+deployment yet. The numbers below come from the machine's specification, the
+memory figures in file 38, and how often the app sends requests. Treat them as
+a starting point, and measure (end of this section) before you rely on them.
+
+**What a `t4g.small` is**
+
+| Part | Size | What it means for you |
+|---|---|---|
+| CPU | 2 vCPU, Arm (Graviton2) | Two cores. A Node.js process uses **one** core at a time |
+| Memory | 2 GiB, plus 2 GB swap from `bootstrap.sh` | Usually the first thing to run out |
+| Disk | 20 GiB gp3 | Images, logs, the dev database. Logs are capped (10 MB × 3 per container) |
+| CPU baseline | 20% of each core, all day | It is a **burstable** machine — see below |
+
+*Burstable* means the server is allowed 20% of each core all the time, and
+saves up "CPU credits" while it is quieter than that. In a busy moment it spends
+the credits and runs both cores at 100%. If it stays busy so long that the
+credits run out, it keeps going at full speed anyway ("unlimited" mode) and AWS
+bills the extra — a few cents per busy hour. That is why Step 4's budget alarm
+exists. In short: **short peaks are free, being busy all day is not.**
+
+**What already runs on it** (file 38's figures)
+
+| Process | Memory |
+|---|---|
+| `prod-api` (Node.js) | ~250 MB |
+| Caddy | ~30 MB |
+| Operating system + Docker | ~300 MB |
+| `dev-api` + `dev-postgres` (Part 11, later) | ~500 MB, capped at 400 MB each |
+| **Used** | **~1.1 GiB of 2 GiB** |
+
+**How many more Node.js apps fit?** About **one more** small Node.js service
+(~250–400 MB) and the server still has room for the nightly backup, an image
+download during a deploy, and a memory spike all at once. Two more is possible
+but tight: a spike then pushes the machine into swap, and everything slows
+down. Memory, not CPU, is the limit here. CPU-heavy work (image or video
+processing, PDF generation) does not belong on this box at all.
+
+**How many visitors?**
+
+Only **API calls** reach this server. Vercel serves the web pages and Cloudinary
+serves pictures and audio, so a visitor costs the server far less than you
+might expect. While a child plays a lesson or reads a story, the app sends a
+heartbeat every 30 seconds (`features/screen-time/use-heartbeat.ts`) plus an
+event for each step, roughly **one request every 5–10 seconds**. Parents
+browsing the dashboard send a few requests per page.
+
+| Level | Children playing **at the same moment** | Roughly per day* | How the server feels |
+|---|---|---|---|
+| Comfortable | up to ~200 | ~2,000 | Well inside the CPU baseline; no extra cost |
+| Busy peaks | ~500–1,000 for an hour or so | — | Spends saved credits; still fine |
+| Time to upgrade | 1,000+ for hours every day | 10,000+ | Credits run out, extra CPU billing starts, replies slow down |
+
+\* Assuming a child plays 15–20 minutes and families use the app at different
+times of day, so the busiest moment holds about one in ten of the day's
+children.
+
+**What will probably limit you first** — not the EC2 server:
+
+1. **The rate limit per IP address.** The API accepts **300 requests per minute
+   from one IP address** (`API_RATE_LIMIT_PER_MINUTE`, default 300). A school
+   classroom on one Wi-Fi, or many phones behind one mobile operator's shared
+   address (common in Bangladesh), all share one IP. Around **30–50 children
+   playing at once behind the same address** will start seeing "Too many
+   requests". To raise it, add a parameter
+   `/kidlearn/prod/API_RATE_LIMIT_PER_MINUTE` (e.g. `1200`) in Parameter Store
+   and redeploy (`deploy.sh` copies every `/kidlearn/prod/*` value into the API).
+2. **Supabase Free plan.** It runs on a small shared database machine and holds
+   500 MB of data. The database will slow down before this server does. Moving
+   to Supabase Pro ($25/month) is the first upgrade to expect.
+3. **Database connections.** The API keeps at most 5 open at once
+   (`connection_limit=5`). Each request holds one for a few milliseconds, so
+   this is fine at the levels above; it matters only past them.
+
+**When to upgrade, and to what**
+
+| You see | Do this |
+|---|---|
+| Memory full, swap in use all the time | Move to `t4g.medium` (2 vCPU, 4 GiB, ~$8/month more) |
+| CPU credit balance keeps falling to zero (CloudWatch) | First take the dev stack off this box. Still zero? Move to `t4g.large` (2 vCPU, 8 GiB, 30% baseline, ~$25/month more). `t4g.medium` does **not** help here: it earns credits at the same rate as `small` |
+| Database slow, Supabase usage near its limits | Supabase Pro |
+| Many "Too many requests" errors | Raise `API_RATE_LIMIT_PER_MINUTE` (above) |
+
+Changing the instance type: stop the instance → **Actions → Instance settings →
+Change instance type** → start it again. The Elastic IP, disk and role stay; the
+API is down for a minute or two.
+
+**How to measure it yourself**
+
+- 🖥️ `docker stats --no-stream` — memory and CPU per container, right now.
+- 🖥️ `free -m` — whether swap is being used (the "Swap used" column).
+- 🌐 **EC2 → your instance → Monitoring** — **CPU utilization** and **CPU credit
+  balance**. A balance that keeps going down each day means the box is too small.
+- Before a big launch (a school, a campaign), run a load test against the
+  **dev** API, never production, with a tool such as `k6` or `autocannon`.
+
 ---
 
 ## Part 1 — Prepare your Mac, your code and GitHub
@@ -445,6 +577,9 @@ minutes, DNS can take hours). Making them first means you do not wait later.
 
 ### Step 3 · 🌐 AWS account — and keep it safe
 
+**Cost:** $0 to open. AWS holds about $1 on your card to check it and gives it
+back. You pay only for what you create in Parts 5–6 (table 0.12).
+
 **Why:** AWS runs your API server. The first login ("root user") can do
 *anything*, including deleting the whole account, so you protect it and then
 make a normal everyday user.
@@ -531,6 +666,8 @@ Write the 12-digit number in your values sheet as **AWS account ID**.
 
 ### Step 4 · 🌐 Budget alarm — before you create anything that costs money
 
+**Cost:** $0. A budget that only sends emails is free.
+
 **Why:** if you make a mistake (for example a bigger server than planned), AWS
 keeps charging silently. The `t4g` server also runs in "unlimited CPU" mode by
 default, which bills extra rather than slowing down under heavy load. This alarm
@@ -548,6 +685,9 @@ emails you before the bill grows.
 email, click the link in it.
 
 ### Step 5 · 🌐 Other free accounts
+
+**Cost:** $0. Every account below is on a free plan; table 0.12 says what would
+move each one onto a paid plan.
 
 Make these now (sign in with Google or GitHub where offered — fewer passwords):
 
@@ -581,6 +721,8 @@ You keep the domain at Namecheap. Only the phone book moves.
 
 ### Step 6 · 🌐 Add the domain to Cloudflare
 
+**Cost:** $0 — Cloudflare's Free plan.
+
 1. Cloudflare dashboard → **Add a domain** (or "Add a site").
 2. Type `kidlearn.net`. Choose **Quick scan for DNS records** → Continue.
 3. Choose the **Free** plan.
@@ -597,6 +739,9 @@ You keep the domain at Namecheap. Only the phone book moves.
    Keep this page open.
 
 ### Step 7 · 🌐 Point Namecheap at Cloudflare
+
+**Cost:** $0 to change nameservers. The domain itself renews yearly at
+Namecheap (roughly $10–15 for a `.net`).
 
 1. Log in to <https://www.namecheap.com> → **Domain List** → next to
    `kidlearn.net` click **Manage**.
@@ -624,6 +769,10 @@ breaks two things here — Caddy cannot prove to Let's Encrypt that it owns
 ## Part 4 — Database and outside services
 
 ### Step 8 · 🌐💻 Production database — Supabase
+
+**Cost:** $0 — Supabase Free plan. The catches: a project with no use for 7
+days pauses, and there is no point-in-time restore (Step 12 covers that). Pro is
+$25/month if you outgrow it.
 
 **Why:** all KidLearn data (parents, children, lessons, progress) lives here.
 
@@ -718,6 +867,9 @@ Lessons and stories come later, through the admin CMS.
 
 ### Step 9 · 🌐 Cloudinary — images and audio
 
+**Cost:** $0 — Cloudinary Free plan. It has a monthly credit allowance; the
+dashboard shows how much is used.
+
 **Why:** uploaded pictures and generated audio are stored here, not on your
 server, so the server's disk stays small.
 
@@ -725,6 +877,12 @@ Cloudinary → **Dashboard** (or Settings → API Keys). Copy **Cloud name**,
 **API Key**, **API Secret** into your sheet.
 
 ### Step 10 · 🌐 Google keys — Gemini and Text-to-Speech
+
+**Cost:** Gemini is $0 on the free tier (rate-limited, no bill). Text-to-Speech
+needs a billing account, but lesson audio stays inside Google's free monthly
+character quota; past it, Google bills per character. Add a small budget alert
+in **Google Cloud → Billing → Budgets & alerts** too, just as Step 4 does for
+AWS.
 
 **Why:** Gemini writes AI content for admins to review; Text-to-Speech makes
 the lesson audio.
@@ -739,6 +897,8 @@ the lesson audio.
    *Why restrict:* if the key ever leaks, it can only make speech, nothing else.
 
 ### Step 11 · 🌐 Two backup monitors — healthchecks.io
+
+**Cost:** $0 — the free plan has far more checks than the two you need.
 
 **Why:** the server makes a database backup every night and sends a weekly
 parent report. If one of them silently stops, nobody would notice — cron on the
@@ -764,37 +924,59 @@ Save both URLs in your sheet.
 
 Check the region menu says **Mumbai** before every step in this part.
 
+Most AWS services are **regional**: S3 buckets, Parameter Store, ECR and EC2
+each keep their own separate list per region. Something created in N. Virginia
+or Frankfurt is invisible from Mumbai. The server and `deploy/*.sh` only ever
+look in `ap-south-1`. Only IAM (Step 17) is **global** and ignores the menu.
+
+| Step | Service | Where the region is chosen |
+|---|---|---|
+| 12 | S3 | the **AWS Region** field in the Create bucket form |
+| 13 | Parameter Store | the region menu, top right |
+| 15 | ECR | the region menu, top right |
+| 17 | IAM | nowhere: global, shows "Global" in the menu |
+| 18 | EC2 | the region menu, top right |
+
 ### Step 12 · 🌐 Backup bucket — S3
+
+**Cost:** about $0.10/month, kept that low by the 30-day expiry rule below.
 
 **Why:** Supabase's free plan has no "go back in time". If data is deleted by
 mistake, these nightly backups are your only way to get it back.
 
 1. Search **S3** → **Create bucket**.
-2. Bucket name: `kidlearn-backups-<something unique>`, e.g.
+2. **AWS Region:** **Asia Pacific (Mumbai) ap-south-1**. The form has its own
+   region field, so check it even if the menu already says Mumbai.
+3. Bucket name: `kidlearn-backups-<something unique>`, e.g.
    `kidlearn-backups-salman-2026`. (Names are unique across the whole world.)
-3. **Block all public access:** leave it **ON** (all boxes ticked).
-4. **Bucket Versioning:** **Enable**.
-5. **Create bucket**.
+4. **Block all public access:** leave it **ON** (all boxes ticked).
+5. **Bucket Versioning:** **Enable**.
+6. **Create bucket**.
 
 Now make old backups delete themselves after 30 days, so the cost stays at a
 few cents:
 
-6. Open the bucket → **Management** tab → **Create lifecycle rule**.
-7. Name `expire-30-days`. Choose **Limit the scope … using one or more
+7. Open the bucket → **Management** tab → **Create lifecycle rule**.
+8. Name `expire-30-days`. Choose **Limit the scope … using one or more
    filters** → Prefix: `prod/`.
-8. Tick **Expire current versions of objects** → `30` days.
-9. Tick **Permanently delete noncurrent versions of objects** → `30` days.
-10. **Create rule**.
+9. Tick **Expire current versions of objects** → `30` days.
+10. Tick **Permanently delete noncurrent versions of objects** → `30` days.
+11. **Create rule**.
 
 *Why let the bucket delete old backups instead of the script?* A script that
 deletes its own old backups is a script that can, with one bug, delete all of
 them. The server is deliberately not allowed to delete finished backups at all
 (see the policy in Step 17).
 
-✅ **Check:** the bucket is listed with "Objects can be public" **not** shown.
+✅ **Check:** the bucket is listed with "Objects can be public" **not** shown,
+and its **AWS Region** column says **Asia Pacific (Mumbai) ap-south-1**.
 Bucket name is in your sheet.
 
 ### Step 13 · 💻🌐 Secrets — Parameter Store
+
+**Cost:** $0. Standard-tier parameters and the AWS-managed `alias/aws/ssm` key
+are free. (Secrets Manager would be ~$0.40 per secret, ~$6.40/month for these
+16.)
 
 **Why:** the API needs about 16 secret values to start. We store them in AWS,
 encrypted. The server reads them itself at deploy time (diagram 0.5), so no
@@ -809,8 +991,11 @@ openssl rand -base64 32    # → CRON_SECRET (protects the weekly-report job)
 
 Save both in your sheet.
 
-**13b. Store all values** — 🌐 search **Systems Manager** → left side
-**Parameter Store** → **Create parameter**. For **each** row below:
+**13b. Store all values** — 🌐 **first look at the region menu, top right: it
+must say Asia Pacific (Mumbai) ap-south-1.** Parameter Store has no region field
+of its own; every parameter goes into whatever region the menu shows. Then
+search **Systems Manager** → left side **Parameter Store** → **Create
+parameter**. For **each** row below:
 
 - **Name:** copy exactly, including `/kidlearn/prod/`
 - **Tier:** Standard
@@ -848,13 +1033,56 @@ list of every variable and its home is `runbook.md` §4.
 ✅ **Check:** 💻 on your Mac:
 
 ```bash
-aws ssm get-parameters-by-path --path /kidlearn/prod/ --query 'Parameters[].Name' --output text | tr '\t' '\n' | sort
+aws ssm get-parameters-by-path --path /kidlearn/prod/ --region ap-south-1 --query 'Parameters[].Name' --output text | tr '\t' '\n' | sort
 ```
 
 You see **exactly 16 names**, spelled as in the table. A typo here shows up much
 later as "the server will not start", so look carefully now.
 
+> **Created them in the wrong region?** The check above prints nothing, or
+> fewer than 16 names. You do not have to type them again. 💻 on your Mac:
+>
+> 1. Find the region you used:
+>
+>    ```bash
+>    for r in $(aws ec2 describe-regions --query 'Regions[].RegionName' --output text); do
+>      n=$(aws ssm describe-parameters --region "$r" \
+>        --parameter-filters Key=Name,Option=BeginsWith,Values=/kidlearn/ \
+>        --query 'length(Parameters)' --output text 2>/dev/null)
+>      [ -n "$n" ] && [ "$n" != "0" ] && echo "$r: $n parameters"
+>    done
+>    ```
+>
+> 2. Copy them into Mumbai. Type `bash` first, and replace `us-east-1` with the
+>    region step 1 printed. The values go straight from one region to the other;
+>    only the names are printed:
+>
+>    ```bash
+>    bash
+>    FROM=us-east-1
+>    aws ssm get-parameters-by-path --path /kidlearn/prod/ --with-decryption \
+>      --region "$FROM" --query 'Parameters[].[Name,Value]' --output text \
+>      | while IFS=$'\t' read -r n v; do
+>          aws ssm put-parameter --region ap-south-1 --name "$n" --value "$v" \
+>            --type SecureString --overwrite </dev/null >/dev/null && echo "copied $n"
+>        done
+>    exit
+>    ```
+>
+> 3. Run the ✅ check again. Once it shows all 16, delete the copies in the
+>    wrong region, so you never edit the wrong ones by mistake later. (AWS
+>    deletes at most 10 names per call, hence `xargs -n 10`.)
+>
+>    ```bash
+>    FROM=us-east-1        # the same wrong region as in step 2
+>    aws ssm get-parameters-by-path --path /kidlearn/prod/ --region "$FROM" \
+>      --query 'Parameters[].Name' --output text | tr '\t' '\n' \
+>      | xargs -n 10 aws ssm delete-parameters --region "$FROM" --names
+>    ```
+
 ### Step 14 · 💻 Create your admin account
+
+**Cost:** $0.
 
 **Why:** admins (who approve AI content) cannot sign up on the website — on
 purpose. This script is the only way to make one. It needs all the production
@@ -894,6 +1122,9 @@ your sheet. (Running it again with a new password is how you reset it.)
 
 ### Step 15 · 🌐 Image storage — ECR
 
+**Cost:** about $0.10/month for stored images, kept low by the keep-last-10
+rule below.
+
 **Why:** the server does not build code. You build a Docker image on your Mac,
 put it in ECR, and the server downloads it from there.
 
@@ -902,6 +1133,10 @@ put it in ECR, and the server downloads it from there.
  docker build ──docker push──►    kidlearn-api:a1b2c3d     ◄──docker pull── deploy.sh
                                   kidlearn-migrate:a1b2c3d
 ```
+
+Region menu (top right): **Asia Pacific (Mumbai) ap-south-1**. Step 16 pushes
+to `…dkr.ecr.ap-south-1.amazonaws.com`, so repositories anywhere else are never
+found.
 
 1. Search **ECR** → **Private registry → Repositories** → **Create repository**.
 2. Name `kidlearn-api` → **Create**.
@@ -919,6 +1154,9 @@ back. For **each** repository:
 ✅ **Check:** two repositories, each with one lifecycle rule.
 
 ### Step 16 · 💻 Build and upload the images
+
+**Cost:** $0. Uploading into AWS is free; storing the images is counted in
+Step 15.
 
 **Why:** this packs the API into images and uploads them to ECR. Your Mac is
 ARM (Apple chip) and the server is ARM too, so the build is fast.
@@ -983,11 +1221,15 @@ your SHA. Write the SHA in your sheet as **Image tag** — you need it in Step 2
 
 ### Step 17 · 🌐 Permissions for the server — IAM role
 
+**Cost:** $0 — IAM is free.
+
 **Why:** the server must read secrets, download images and upload backups. A
 **role** gives it these rights **without** storing any AWS key on it. If the
 server were hacked, there is no key to steal.
 
 **17a. Create the role**
+
+IAM is global: the region menu says **Global** here, and that is correct.
 
 1. Search **IAM** → **Roles** → **Create role**.
 2. Trusted entity: **AWS service**. Use case: **EC2** → Next.
@@ -1065,6 +1307,10 @@ In plain words, statement by statement:
 
 ### Step 18 · 🌐 Launch the server — EC2
 
+**Cost:** about **$13.53/month**, nearly the whole bill: the `t4g.small` server
+$8.18, the Elastic IP (public IPv4 address, 18c) $3.65, and the 20 GiB disk
+~$1.70. Billing starts the moment the instance is launched.
+
 **18a. Copy the setup script first**
 
 Open `deploy/bootstrap.sh` in your editor and **copy the whole file**.
@@ -1073,6 +1319,10 @@ Docker, cron (for scheduled jobs) and extra memory (swap). You do not have to do
 these by hand.
 
 **18b. Launch**
+
+Region menu (top right): **Asia Pacific (Mumbai) ap-south-1**. A server in
+another region still starts, but it cannot read the Mumbai secrets: the role in
+Step 17 only allows `ssm.ap-south-1`.
 
 Search **EC2** → **Instances** → **Launch instances**. Fill in:
 
@@ -1155,6 +1405,8 @@ then point at nothing. An Elastic IP never changes.
 
 ### Step 19 · 🌐 DNS record for the API — Cloudflare
 
+**Cost:** $0.
+
 **Why:** now people's browsers can find your server by name.
 
 Wait until Cloudflare says **Active** (Step 7). Then Cloudflare →
@@ -1176,6 +1428,8 @@ It must print **exactly your Elastic IP**. If it prints something starting with
 `104.` or `172.67.`, the cloud is orange — edit the record, make it grey.
 
 ### Step 20 · 🖥️ Open the server terminal and copy the deploy files
+
+**Cost:** $0 — Session Manager is free.
 
 **20a. Open a terminal in the browser**
 
@@ -1238,6 +1492,8 @@ edge  weekly-reports.sh`.
 > like an older version of the scripts, this is why.
 
 ### Step 21 · 🖥️ HTTPS for the API — Caddy, in two careful stages
+
+**Cost:** $0 — Let's Encrypt certificates are free.
 
 **Why two stages?** Caddy asks Let's Encrypt for a certificate the moment it
 starts. Let's Encrypt allows only a few tries per week. If DNS is wrong, you can
@@ -1341,6 +1597,8 @@ curl -sI https://api.kidlearn.net/health | head -1
 
 ### Step 22 · 🌐 Google sign-in for production
 
+**Cost:** $0 — Google sign-in is free.
+
 **Why:** parents sign in with Google. Google only sends people back to addresses
 you list, so production needs its own client with `kidlearn.net` in it. It is a
 **new** client — keep your local one separate, so the production secret never
@@ -1366,6 +1624,8 @@ the next step. (Later, every time you change a parameter, run `deploy.sh` again
 with the **same** tag to pick it up.)
 
 ### Step 23 · 🖥️ Start the API
+
+**Cost:** $0 beyond the server from Step 18.
 
 **Why:** everything the API needs now exists: database, secrets, images, HTTPS.
 `deploy.sh` reads the secrets, downloads the image, starts it, and checks it is
@@ -1472,6 +1732,9 @@ website deploy.
 
 ### Step 24 · 🌐 Create the Vercel project
 
+**Cost:** $0 — Vercel Hobby plan. Hobby is for non-commercial use; if KidLearn
+starts charging, move to Pro ($20 per member per month).
+
 **Why:** Vercel builds `apps/web` from GitHub and serves it worldwide, with
 HTTPS, for free.
 
@@ -1574,6 +1837,8 @@ Your Cloudflare DNS should now have **exactly three records**, all grey:
 ## Part 8 — Backups, scheduled jobs, final test
 
 ### Step 27 · 🖥️ Nightly backup and weekly reports
+
+**Cost:** $0 beyond the S3 bucket from Step 12.
 
 **Why:** cron is the server's alarm clock. Every night at 01:30 it backs up the
 database to S3. Every Monday at 02:00 it builds the weekly parent reports.
@@ -1867,6 +2132,7 @@ Most likely first.
 | Caddy logs errors about `api.dev.kidlearn.net` | Expected until Part B — that name has no DNS record yet |
 | Session Manager will not connect | Server still starting (wait), or role `kidlearn-instance` not attached. **Never** open port 22 |
 | `deploy.sh`: "no parameters found" | Parameter name typo, wrong region, or wrong account number in the role JSON |
+| Step 13 check prints nothing or fewer than 16 names | Parameters were created in another region. Copy them to Mumbai with the commands under Step 13's check |
 | `deploy.sh`: "exited — it did not get as far as a healthcheck" | A secret is missing or malformed — the printed log names the variable `env.ts` rejected |
 | `deploy.sh`: "up but /ready failed" | Check `DATABASE_URL` in Parameter Store; is the Supabase project **paused**? |
 | `docker pull` "denied" / "no basic auth credentials" | Role policy: account ID or repository name wrong in Step 17 |
