@@ -1066,12 +1066,12 @@ later as "the server will not start", so look carefully now.
 >    done
 >    ```
 >
-> 2. Copy them into Mumbai. Type `bash` first, and replace `us-east-1` with the
->    region step 1 printed. The values go straight from one region to the other;
->    only the names are printed:
+> 2. Copy them into Mumbai. First type `bash` on its own and press Enter. Then
+>    paste the block below, with `us-east-1` replaced by the region step 1
+>    printed. The values go straight from one region to the other; only the
+>    names are printed:
 >
 >    ```bash
->    bash
 >    FROM=us-east-1
 >    aws ssm get-parameters-by-path --path /kidlearn/prod/ --with-decryption \
 >      --region "$FROM" --query 'Parameters[].[Name,Value]' --output text \
@@ -1101,12 +1101,21 @@ later as "the server will not start", so look carefully now.
 purpose. This script is the only way to make one. It needs all the production
 secrets, so it reads them from Parameter Store into this terminal only.
 
-On your Mac, in the repo. **Type `bash` first** — the commands below are
-written for bash:
+On your Mac, in the repo, in **two separate goes**:
+
+**1. Start bash.** Type this alone and press Enter. The commands below are
+written for bash, and macOS's default shell is zsh:
 
 ```bash
 bash
+```
 
+The prompt changes to `bash-3.2$`, under a notice that "the default
+interactive shell is now zsh". That notice is normal; ignore it.
+
+**2. Then paste this block** at the `bash-3.2$` prompt:
+
+```bash
 set -a
 eval "$(aws ssm get-parameters-by-path --path /kidlearn/prod/ --with-decryption \
   --recursive --region ap-south-1 --query 'Parameters[].[Name,Value]' --output text \
@@ -1120,6 +1129,11 @@ pnpm --filter server seed:admin
 
 exit
 ```
+
+*Why two goes?* If `bash` is pasted together with the rest, it starts a new
+shell, and the lines after it never reach that shell: nothing runs, and you
+are left at a bare `bash-3.2$` prompt. If that happens, paste the step 2 block
+again at that prompt.
 
 *What that block does, line by line:* `set -a` means "every variable I set from
 now on is exported". The long `eval` line asks Parameter Store for every
