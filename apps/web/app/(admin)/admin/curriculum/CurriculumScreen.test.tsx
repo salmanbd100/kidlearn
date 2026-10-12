@@ -21,6 +21,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/features/admin/content-api", () => api);
 
 const { CurriculumScreen } = await import("./CurriculumScreen");
+const { ADMIN_ROUTES } = await import("@/features/admin/admin-routes");
 
 const SUBJECT = {
   id: "bbbbbbbb-0000-4000-8000-000000000001",
@@ -190,5 +191,15 @@ describe("CurriculumScreen messages", () => {
       expect(banner()).toHaveTextContent("Moved to in review.");
     });
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("CurriculumScreen header", () => {
+  it("links to the curriculum guide", async () => {
+    await renderScreen();
+
+    expect(
+      screen.getByRole("link", { name: "How this works" }),
+    ).toHaveAttribute("href", ADMIN_ROUTES.guide);
   });
 });

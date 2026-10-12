@@ -52,47 +52,42 @@ describe("the student visibility gate against Postgres", () => {
     });
   });
 
-  it.each([
-    "world",
-    "subject",
-    "topic",
-    "lesson",
-  ] as const)("hides the lesson everywhere when its %s is a draft", async (level) => {
-    const curriculum = await createCurriculum("published", {
-      [level]: { status: "draft" },
-    });
+  it.each(["world", "subject", "topic", "lesson"] as const)(
+    "hides the lesson everywhere when its %s is a draft",
+    async (level) => {
+      const curriculum = await createCurriculum("published", {
+        [level]: { status: "draft" },
+      });
 
-    expect(await reach(curriculum)).toEqual({
-      detail: false,
-      inTopic: false,
-      inWorld: false,
-    });
-  });
+      expect(await reach(curriculum)).toEqual({
+        detail: false,
+        inTopic: false,
+        inWorld: false,
+      });
+    },
+  );
 
-  it.each([
-    "in_review",
-    "approved",
-    "rejected",
-    "archived",
-  ] as const)("treats %s as not published", async (status) => {
-    const curriculum = await createCurriculum("published", {
-      lesson: { status },
-    });
+  it.each(["in_review", "approved", "rejected", "archived"] as const)(
+    "treats %s as not published",
+    async (status) => {
+      const curriculum = await createCurriculum("published", {
+        lesson: { status },
+      });
 
-    expect((await reach(curriculum)).detail).toBe(false);
-  });
+      expect((await reach(curriculum)).detail).toBe(false);
+    },
+  );
 
-  it.each([
-    "subject",
-    "topic",
-    "lesson",
-  ] as const)("hides the lesson when its %s is tagged for another grade", async (level) => {
-    const curriculum = await createCurriculum("published", {
-      [level]: { gradeLevels: ["NURSERY"] },
-    });
+  it.each(["subject", "topic", "lesson"] as const)(
+    "hides the lesson when its %s is tagged for another grade",
+    async (level) => {
+      const curriculum = await createCurriculum("published", {
+        [level]: { gradeLevels: ["NURSERY"] },
+      });
 
-    expect((await reach(curriculum)).detail).toBe(false);
-  });
+      expect((await reach(curriculum)).detail).toBe(false);
+    },
+  );
 
   it("lists no subject whose only lesson is a draft", async () => {
     const live = await createCurriculum();

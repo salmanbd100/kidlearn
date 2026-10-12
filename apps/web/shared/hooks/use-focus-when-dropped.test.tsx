@@ -2,7 +2,15 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useFocusWhenDropped } from "./use-focus-when-dropped";
 
-function Pager({ page, withControl }: { page: number; withControl: boolean }) {
+function Pager({
+  page,
+  withControl,
+  isLast = false,
+}: {
+  page: number;
+  withControl: boolean;
+  isLast?: boolean;
+}) {
   const ref = useFocusWhenDropped<HTMLHeadingElement>(page);
   return (
     <div>
@@ -15,6 +23,9 @@ function Pager({ page, withControl }: { page: number; withControl: boolean }) {
         </button>
       ) : null}
       <button type="button">stays</button>
+      <button type="button" disabled={isLast}>
+        forward
+      </button>
     </div>
   );
 }
@@ -32,6 +43,15 @@ describe("useFocusWhenDropped", () => {
 
     // Keyed on the page, so the focused button is a different node afterwards.
     rerender(<Pager page={2} withControl />);
+
+    expect(screen.getByRole("heading")).toHaveFocus();
+  });
+
+  it("takes focus back when the focused control is disabled by the change", () => {
+    const { rerender } = render(<Pager page={1} withControl={false} />);
+    screen.getByRole("button", { name: "forward" }).focus();
+
+    rerender(<Pager page={2} withControl={false} isLast />);
 
     expect(screen.getByRole("heading")).toHaveFocus();
   });

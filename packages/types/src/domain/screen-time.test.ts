@@ -36,17 +36,18 @@ describe("ScreenTimeUpdateSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it.each(
-    SCREEN_TIME_LIMIT_OPTIONS,
-  )("accepts the %i-minute option", (limit) => {
-    const result = ScreenTimeUpdateSchema.safeParse({
-      dailyLimitMinutes: limit,
-      windowStart: null,
-      windowEnd: null,
-    });
+  it.each(SCREEN_TIME_LIMIT_OPTIONS)(
+    "accepts the %i-minute option",
+    (limit) => {
+      const result = ScreenTimeUpdateSchema.safeParse({
+        dailyLimitMinutes: limit,
+        windowStart: null,
+        windowEnd: null,
+      });
 
-    expect(result.success).toBe(true);
-  });
+      expect(result.success).toBe(true);
+    },
+  );
 
   it("rejects a limit outside the offered set", () => {
     const result = ScreenTimeUpdateSchema.safeParse({
@@ -78,22 +79,18 @@ describe("ScreenTimeUpdateSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it.each([
-    "24:00",
-    "9:30",
-    "07:60",
-    "0730",
-    "07:30:00",
-    "",
-  ])("rejects %o as a time of day", (value) => {
-    const result = ScreenTimeUpdateSchema.safeParse({
-      dailyLimitMinutes: null,
-      windowStart: value,
-      windowEnd: "20:00",
-    });
+  it.each(["24:00", "9:30", "07:60", "0730", "07:30:00", ""])(
+    "rejects %o as a time of day",
+    (value) => {
+      const result = ScreenTimeUpdateSchema.safeParse({
+        dailyLimitMinutes: null,
+        windowStart: value,
+        windowEnd: "20:00",
+      });
 
-    expect(result.success).toBe(false);
-  });
+      expect(result.success).toBe(false);
+    },
+  );
 
   it("accepts midnight and the last minute of the day", () => {
     const result = ScreenTimeUpdateSchema.safeParse({

@@ -430,30 +430,30 @@ describe("the admin guard covers every editor path", () => {
     { method: "post" as const, path: `${BASE}/badges/${BADGE_ID}/transition` },
   ];
 
-  it.each(PROBES)("401 unauthenticated: $method $path", async ({
-    method,
-    path,
-  }) => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+  it.each(PROBES)(
+    "401 unauthenticated: $method $path",
+    async ({ method, path }) => {
+      vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
 
-    const res = await request(app)[method](path).send({});
+      const res = await request(app)[method](path).send({});
 
-    expect(res.status).toBe(401);
-    expect(res.body.error.code).toBe("UNAUTHORIZED");
-  });
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe("UNAUTHORIZED");
+    },
+  );
 
-  it.each(PROBES)("403 for a signed-in parent: $method $path", async ({
-    method,
-    path,
-  }) => {
-    mockSession(PARENT_USER_ID);
+  it.each(PROBES)(
+    "403 for a signed-in parent: $method $path",
+    async ({ method, path }) => {
+      mockSession(PARENT_USER_ID);
 
-    const res = await request(app)[method](path).send({});
+      const res = await request(app)[method](path).send({});
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("FORBIDDEN");
-    expect(store.questions).toEqual([]);
-  });
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("FORBIDDEN");
+      expect(store.questions).toEqual([]);
+    },
+  );
 });
 
 describe("POST /api/admin/content/quizzes", () => {

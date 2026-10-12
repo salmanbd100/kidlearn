@@ -4,7 +4,7 @@ import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { AdminSidebar } from "./AdminSidebar";
 
 describe("AdminSidebar", () => {
-  it("renders exactly the six CMS sections, in order", () => {
+  it("renders exactly the seven CMS sections, in order", () => {
     render(<AdminSidebar pathname={ADMIN_ROUTES.analytics} />);
 
     const links = screen.getAllByRole("link");
@@ -15,6 +15,7 @@ describe("AdminSidebar", () => {
       "Badges",
       "AI Queue",
       "Analytics",
+      "Curriculum guide",
     ]);
   });
 
@@ -29,6 +30,21 @@ describe("AdminSidebar", () => {
       "href",
       ADMIN_ROUTES.aiQueue,
     );
+    expect(
+      screen.getByRole("link", { name: "Curriculum guide" }),
+    ).toHaveAttribute("href", ADMIN_ROUTES.guide);
+  });
+
+  it("files the guide under its own Help heading and marks it current", () => {
+    render(<AdminSidebar pathname={ADMIN_ROUTES.guide} />);
+
+    expect(screen.getByText("Help")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Curriculum guide" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("link", { name: "Curriculum" }),
+    ).not.toHaveAttribute("aria-current");
   });
 
   it("marks the current section with aria-current, not colour alone", () => {

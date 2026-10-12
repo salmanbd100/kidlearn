@@ -9,9 +9,10 @@ export const ADMIN_ROUTES = {
   media: "/admin/media",
   badges: "/admin/badges",
   aiQueue: "/admin/ai-queue",
+  guide: "/admin/guide",
 } as const;
 
-export type AdminNavGroup = "content" | "review" | "insights";
+export type AdminNavGroup = "content" | "review" | "insights" | "help";
 
 export interface AdminNavItem {
   href: string;
@@ -23,6 +24,7 @@ export const ADMIN_NAV_GROUP_LABELS: Record<AdminNavGroup, string> = {
   content: "Content",
   review: "Review",
   insights: "Insights",
+  help: "Help",
 };
 
 /** The sidebar, in order; consecutive items of one group render under one heading. */
@@ -33,6 +35,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: ADMIN_ROUTES.badges, label: "Badges", group: "content" },
   { href: ADMIN_ROUTES.aiQueue, label: "AI Queue", group: "review" },
   { href: ADMIN_ROUTES.analytics, label: "Analytics", group: "insights" },
+  { href: ADMIN_ROUTES.guide, label: "Curriculum guide", group: "help" },
 ];
 
 export function activeAdminNavHref(pathname: string): string | undefined {

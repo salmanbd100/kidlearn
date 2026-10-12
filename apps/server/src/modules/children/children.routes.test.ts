@@ -730,17 +730,18 @@ describe("write verbs need only an authenticated parent", () => {
     ["delete", "/api/children/:id", undefined],
   ] as const;
 
-  it.each(
-    WRITE_ROUTES,
-  )("answers %s %s without a 403", async (method, path, body) => {
-    const child = seedChild(PARENT_A);
+  it.each(WRITE_ROUTES)(
+    "answers %s %s without a 403",
+    async (method, path, body) => {
+      const child = seedChild(PARENT_A);
 
-    const url = path.replace(":id", child.id);
-    const request_ = authedAgentFor(PARENT_A)[method](url);
-    const res = await (body === undefined ? request_ : request_.send(body));
+      const url = path.replace(":id", child.id);
+      const request_ = authedAgentFor(PARENT_A)[method](url);
+      const res = await (body === undefined ? request_ : request_.send(body));
 
-    expect(res.status).toBeLessThan(400);
-  });
+      expect(res.status).toBeLessThan(400);
+    },
+  );
 
   it("leaves reads and activate open — the Student Portal calls them (FR-AUTH-06)", async () => {
     const child = seedChild(PARENT_A);

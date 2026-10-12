@@ -12,8 +12,10 @@ Give `apps/mobile` the design system: consume the existing `@kidlearn/tokens` pa
 ## Context & Current State
 
 - `document/design.md` is the single source of truth. §2.2 is the full semantic token table for both themes; §3.2 is the type scale; §4.1–4.3 are spacing (4px grid), radius and elevation; §5.1 is the motion scale.
-- `packages/tokens` (`@kidlearn/tokens`) already exists and is the machine-readable source: `brand`, `radius` (px), `shadow` (CSS `box-shadow` strings), `motion`, `typeScale` (only the `lg` step that differs from Tailwind's default) and `themes.kid` / `themes.parent` (`ThemeName`, `ThemeTokens`, checked structurally against a `Theme` type). `src/design.test.ts` holds it to `design.md`; `packages/ui/src/styles/tokens.css` has regions generated from it (`pnpm --filter @kidlearn/ui tokens:generate`). Do not touch the web side.
-- Not in the package yet: `spacing`, native `elevation` (iOS shadow props + Android `elevation`), and the phone/tablet `fontSize` pairs. Those are this file's additions.
+- `packages/tokens` (`@kidlearn/tokens`) already exists and is the machine-readable source: `brand`, `radius` (px), `shadow` (CSS `box-shadow` strings), `motion`, `typeScale` (only the `lg` step that differs from Tailwind's default) and `themes.kid` / `themes.parent` (`ThemeName`, `ThemeTokens`, checked structurally against a `Theme` type). `src/design.test.ts` holds §2.1, §2.2, §4.2 and §5.1 to `design.md` by parsing its tables; `packages/ui/src/styles/tokens.css` has regions generated from it (`pnpm --filter @kidlearn/ui tokens:generate`). Do not touch the web side.
+- Already there, so not re-added: `shadow` (CSS strings) and `typeScale` (the one `lg` step). Not in the package yet: `spacing`, native `elevation` (iOS shadow props + Android `elevation`), and the full §3.2 size/line-height table with phone and tablet values. Those are this file's only additions.
+- design.md §4.1 gives spacing as a prose list (**4, 8, 12, 16, 24, 32, 48, 64, 96**), and §4.3 names the four shadow levels without values — the values are `shadow` in the package. So `elevation` is held to `shadow`, not to design.md.
+- The package is raw TypeScript (`"type": "module"`, `exports: "./src/index.ts"`) with no React dependency; Metro transpiles it (M01). Keep it React-free.
 - React Native has no CSS cascade and no `data-theme` attribute, so the web's theming mechanism cannot be reused. Only the *values* travel.
 - `apps/web` uses Tailwind v4. `apps/mobile` will use Tailwind 3.4 through NativeWind v4. Two majors coexist without conflict because they are separate apps with separate configs — do not attempt to unify them.
 - The kid theme is light-only (design.md §2.3); dark mode is parent-surface-only and deferred.
@@ -21,13 +23,13 @@ Give `apps/mobile` the design system: consume the existing `@kidlearn/tokens` pa
 ## Detailed Requirements
 
 1. **Extend `@kidlearn/tokens`; do not recreate it.** Read colours, `radius`, `motion` and `brand` from the package — never copy hex values into `apps/mobile`. Add `apps/mobile` as a consumer (`"@kidlearn/tokens": "workspace:*"`).
-2. **Add the native-only scales to `packages/tokens/src/index.ts`:** `spacing` (4px grid, design.md §4.1), `elevation` (§4.3 as an object per level with iOS shadow props and an Android `elevation` number — `shadow` today is CSS strings and unusable in React Native) and `fontSize` / `lineHeight` (§3.2, with phone and tablet values for display sizes since `clamp()` has no native equivalent). Extend `design.test.ts` so the new tables are held to design.md the same way the existing ones are.
+2. **Add the native-only scales to `packages/tokens/src/index.ts`:** `spacing` (the nine §4.1 steps), `elevation` (one object per `shadow` level — `sm`, `md`, `lg`, `pop` — with iOS shadow props and an Android `elevation` number; `shadow` is CSS strings and unusable in React Native) and `fontSize` (the §3.2 table — `display`, `h1`, `h2`, `h3`, `lg`, `base`, `sm`, `xs` — each with `lineHeight` and `weight`, plus phone and tablet sizes for `display`/`h1`/`h2` since `clamp()` has no native equivalent). Leave `typeScale` as it is: `tokens.css` generation reads it. Extend `design.test.ts`: §3.2 rows against `fontSize`, the §4.1 step list against `spacing`, and each `elevation` level's offset/radius/opacity against the matching `shadow` string.
 3. **Colour keys.** `themes.kid` and `themes.parent` already carry one key per §2.2 row (including `popover*`, `*Foreground`, `success`/`warning`/`destructive` foregrounds and `shine`). A missing key is already a type error; no new parity test is needed here.
 4. **NativeWind v4 setup.** `nativewind` pinned to `^4`, `tailwindcss` pinned to `^3.4`, `apps/mobile/tailwind.config.js` generating its `colors` map from `@kidlearn/tokens`, `global.css` with the Tailwind directives, `babel.config.js` with the NativeWind preset, and `metro.config.js` wrapped in `withNativeWind`. `nativewind-env.d.ts` added so `className` typechecks on RN components.
 5. **ThemeProvider.** `lib/theme.tsx` exporting `ThemeProvider` and `useTheme(): { name: ThemeName; tokens: ThemeTokens }`. It sets the CSS-variable values NativeWind reads (via `vars()`) on a wrapper `View` so class names resolve to the active theme, **and** exposes the raw tokens for the cases class names cannot cover (Reanimated interpolations, SVG `stroke`, `expo-video` background). Components must prefer class names; the raw tokens are the escape hatch, not the default.
 6. **Route-group theming.** `app/(student)/_layout.tsx` wraps in `<ThemeProvider name="kid">`; `app/(parent)/_layout.tsx` in `<ThemeProvider name="parent">`. No component anywhere branches on theme in JS (design.md §8).
 7. **Fonts.** `expo-font` loads Fredoka (`--font-display`, kid headings), Nunito (`--font-body`), Inter (`--font-ui`, parent surfaces) from `@expo-google-fonts/*`. `app/_layout.tsx` holds `expo-splash-screen` until fonts resolve, then hides it — no flash of system font, no layout shift.
-8. **Type scale components.** `components/ui/Text.tsx` exporting a `Text` with `variant` props matching design.md §3.2 (`display`, `title`, `heading`, `body`, `caption`, `label`) which pick font family, size, line height and weight. Kid variants never resolve below **20px**. Display sizes interpolate between the phone and tablet value using `useWindowDimensions()`.
+8. **Type scale components.** `components/ui/Text.tsx` exporting a `Text` with semantic `variant` props (`display`, `title`, `heading`, `body`, `caption`, `label`) that resolve to design.md §3.2 steps from `fontSize` per theme: `display` → `display`; `title` → `h1`; `heading` → `h3`; `body` → `lg` (kid) / `base` (parent); `label` → `lg` (kid) / `xs` (parent); `caption` → `sm`, parent-only. Each picks font family (Fredoka headings on kid, Inter on parent, Nunito body), size, line height and weight. Kid variants never resolve below **20px** (`text-lg`). Display sizes interpolate between the phone and tablet value using `useWindowDimensions()`.
 9. **Elevation helper.** `lib/elevation.ts` turning an elevation token into the right platform props (`shadowColor`/`shadowOffset`/`shadowOpacity`/`shadowRadius` on iOS, `elevation` on Android) so no component writes a platform branch inline.
 10. **Tests.** `packages/tokens` tests for the new scales (above). Component test in `apps/mobile` asserting a `<Text variant="body">` inside a `kid` provider resolves the kid `foreground` colour and inside a `parent` provider resolves the parent one.
 
@@ -37,10 +39,11 @@ Give `apps/mobile` the design system: consume the existing `@kidlearn/tokens` pa
 
 ```ts
 // packages/tokens/src/index.ts — additions
-export const spacing = { 1: 4, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32 } as const; // design.md §4.1, px
+export const spacing = { 1: 4, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32, 12: 48, 16: 64, 24: 96 } as const; // design.md §4.1, px
+// Mirrors `shadow` — `0 1px 2px 0 rgb(43 42 74 / 0.06)` is sm.
 export const elevation = {
   sm: { ios: { shadowColor: brand.ink, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2 }, android: 1 },
-  // …md, lg, pop from design.md §4.3
+  // …md, lg, pop; `pop` is two layered shadows on web — native keeps the softer one.
 } as const;
 ```
 
@@ -139,11 +142,13 @@ export default function RootLayout() {
 }
 ```
 
+`tailwind.config.js` is CommonJS and `@kidlearn/tokens` is raw ESM TypeScript; Tailwind 3.4 loads its config through `jiti`, which should transpile the import — confirm on first run, and fall back to a `tailwind.config.ts` if it does not.
+
 Keep the `Text` variant map data-driven (a record from variant → style) rather than a switch, so the a11y rule "kid text never below 20px" can be asserted in one test that walks every kid variant.
 
 ## Step-by-Step Plan
 
-1. Add `spacing`, `elevation` and `fontSize`/`lineHeight` to `packages/tokens/src/index.ts`, with `design.test.ts` coverage; `pnpm --filter @kidlearn/tokens test` green. (~30 min)
+1. Add `spacing`, `elevation` and `fontSize` to `packages/tokens/src/index.ts`, with `design.test.ts` coverage; `pnpm --filter @kidlearn/tokens test` green. (~30 min)
 2. Add `@kidlearn/tokens` as a dependency of `apps/mobile`; install `nativewind@^4`, `tailwindcss@^3.4`, `react-native-reanimated`; add `tailwind.config.js`, `global.css`, `babel.config.js`, `nativewind-env.d.ts`; wrap `metro.config.js` in `withNativeWind`. Verify a `className="bg-primary"` `View` renders sky blue on device. (~45 min)
 3. Write `lib/theme.tsx` and the failing component test (`kid` vs `parent` foreground). Implement until green. (~35 min)
 4. Add `app/(student)/_layout.tsx` and `app/(parent)/_layout.tsx` with the two providers, plus a throwaway screen in each group to eyeball both palettes side by side on device. (~20 min)
@@ -153,7 +158,7 @@ Keep the `Text` variant map data-driven (a record from variant → style) rather
 
 ## Acceptance Criteria
 
-- [ ] `packages/tokens` gains `spacing`, `elevation` and phone/tablet `fontSize`, each held to `document/design.md` by `design.test.ts`.
+- [ ] `packages/tokens` gains `spacing`, `elevation` and `fontSize` (with phone/tablet display sizes) — nothing else; `shadow` and `typeScale` are unchanged. `design.test.ts` holds `spacing` and `fontSize` to design.md and `elevation` to `shadow`; `pnpm --filter @kidlearn/ui test` (the `tokens.css` drift test) still passes.
 - [ ] `apps/mobile` reads every colour from `@kidlearn/tokens`; no hex value appears in `apps/mobile`.
 - [ ] `className="bg-primary text-primary-foreground"` renders the kid palette inside `(student)` and the parent palette inside `(parent)`, with no JS theme branching in any component.
 - [ ] Fredoka, Nunito and Inter all render on a physical device, with the splash screen held until they load — no system-font flash.

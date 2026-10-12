@@ -1,24 +1,27 @@
 # M26 — Parent Dashboard
 
-> **Estimated effort:** 3–4 hours
-> **Depends on:** M09, M24
-> **Requirement IDs:** FR-DASH-01, FR-DASH-02, FR-DASH-03, FR-DASH-04
+> **Estimated effort:** 4–5 hours
+> **Depends on:** M08, M09, M10, M24
+> **Requirement IDs:** FR-DASH-01, FR-DASH-02, FR-DASH-03, FR-DASH-04, FR-AUTH-07 (sign-out entry)
 > **Status tracking:** update `M00-progress-tracker.md` when starting/finishing
 
 ## Goal
 
-The parent's landing screen: a child switcher, learning minutes for today / this week / this month, per-subject progress bars with strongest and weakest highlighted, and a recent-activity timeline — all from **one** request per child, with warm empty states for a brand-new learner.
+The parent's landing screen: a child switcher, learning minutes for today / this week / this month, per-subject progress bars with strongest and weakest highlighted, and a recent-activity timeline — all from **one** request per child, with warm empty states for a brand-new learner. Plus the `(parent)` navigation that mirrors web's `ParentTopBar`: Dashboard / Children / Reports, "Back to kid mode", the language switch and an account menu with sign-out.
 
 ## Context & Current State
 
-- `GET /api/children/:id/dashboard` (parent session + `loadOwnedChild`) returns everything the screen needs in one call — `DashboardSummarySchema` / `DashboardData` in `packages/types`:
+- `GET /api/children/:id/dashboard` (parent session + ownership; not consent-gated) returns everything the screen needs in one call — `DashboardSummarySchema` / `DashboardData` in `packages/types/src/api/dashboard.ts`:
   - `learningMinutes: { today, week, month }` (FR-DASH-02, from the server's `getLearningMinutes`, in `APP_TIMEZONE`);
-  - `subjects[]` — `{ subjectId, slug, name (localised), completed, total, percent }`, with subjects whose `total === 0` **omitted** (FR-DASH-03);
+  - `subjects[]` — `{ subjectId, slug, name: { en, bn | null }, completed, total (positive), percent (0–100 int) }`, highest percent first, with subjects whose total is 0 **omitted** (FR-DASH-03);
   - `strongestSubjectId` / `weakestSubjectId` — both `null` when fewer than two subjects have `total > 0` or when every percent is 0, because "a brand-new child has no 'weak area'";
-  - `recentActivity[]` — up to `RECENT_ACTIVITY_LIMIT` (20) merged items of `DASHBOARD_ACTIVITY_TYPES` (`lesson_completed`, `story_completed`, `badge_earned`) with a localised `title` and `occurredAt` (FR-DASH-04).
-- The web implementation is `apps/web/app/(parent)/parent/page.tsx` + `DashboardScreen.tsx`, with the pieces in `apps/web/features/children/` (`DashboardSummary`, `ChildSwitcher`, `SubjectProgressCard`, `ActivityTimeline`, `dashboard-api.ts`) and `shared/components/StatCard.tsx`. Its decisions to carry over: one call per child, **no chart library** (pure layout bars), `Intl.RelativeTimeFormat` for dates via a tested helper, and a presentational summary component fed fixtures so the test needs no network.
+  - `recentActivity[]` — newest first, up to `RECENT_ACTIVITY_LIMIT` (20) items `{ type, refId, title: { en, bn | null }, occurredAt }` of `DASHBOARD_ACTIVITY_TYPES` (`lesson_completed`, `story_completed`, `badge_earned`) (FR-DASH-04).
+  - Every schema is `.strict()`.
+- `GET /api/children/:id/learning-time?range=today|week|month` → `{ range, minutes, from, to }` (`packages/types/src/api/learning-time.ts`) uses the same server function (`getLearningMinutesForRanges`), so the dashboard's three figures equal it by construction. The dashboard does not call it; it is the cross-check in the device pass. Weeks start Monday in `APP_TIMEZONE`.
+- The web implementation is `apps/web/app/(parent)/parent/page.tsx` + `DashboardScreen.tsx`, with the pieces in `apps/web/features/children/` (`DashboardSummary`, `ChildSwitcher`, `SubjectProgressCard`, `ActivityTimeline`, `dashboard-api.ts`, `localized-label.ts`) and `shared/components/StatCard.tsx`. Its decisions to carry over: one call per child, **no chart library** (pure layout bars), `Intl.RelativeTimeFormat` for dates via a tested helper (`shared/lib/relative-time.ts`), minutes through `features/screen-time/duration.ts` (`formatMinutes`), a presentational summary component fed fixtures so the test needs no network, and an "Open report" button that carries the selected child to `/parent/reports?child=<id>`. Web's `getDashboard` does not parse the response; mobile does (requirement 1).
+- **Web's parent navigation** is `apps/web/app/(parent)/ParentTopBar.tsx`: wordmark, nav links Dashboard / Children / Reports (`nav.dashboard`, `nav.children`, `nav.reports`), a "Back to kid mode" button (→ `/select-profile`, on the bar because nobody found it in the menu), `LanguageSwitch`, and an avatar menu (name, email, Sign out). It renders nothing during onboarding. Sign-out failure keeps the parent where they are with `nav.signOutFailed`, rather than navigating as if it had worked. `document/mobile-app-plan.md` §8 ("parent top bar") maps this to a `Stack.Screen` header plus a bottom tab or segmented control, and an ActionSheet for the account menu. There is **no admin entry** on mobile (D1).
 - A 404 on a child route means "not yours or not there" (`loadOwnedChild`) — never distinguish them.
-- The parent area is reached from the signed-in Google/Apple session only (M07); M09 provides the child list and `ChildCard`; M03 provides `lib/format.ts` (`formatRelative`, `formatMinutes`) — already verified for Bengali on Android, which is exactly why that check was done in phase M0.
+- The parent area is reached from the signed-in Google/Apple session only (M07); M09 provides the child list and `ChildCard`; M03 provides `lib/format.ts` (`formatRelative`, `formatMinutes`, the latter matching web's `duration.ts` — lift it rather than copy if it is not shared yet, D6) — already verified for Bengali on Android. M07 provides `signOut()`; M08 provides the settings screen (language, sign-out, account deletion) that the account menu opens.
 - M05 gives `Card`, `EmptyState`, `Spinner`; M04 gives `useApi`, `ColdStartNotice`, `OfflineNotice`.
 - The web app keeps the selected child in the URL (`?child=<id>`) so refresh and back work. On mobile the equivalent is a **router param**, and the reason is the same: process death and restore must not lose the selection.
 
@@ -33,17 +36,21 @@ The parent's landing screen: a child switcher, learning minutes for today / this
 3. **One request.** The screen makes exactly one dashboard call per selected child, plus the child list it already has from M09's provider. No per-subject or per-activity follow-ups.
 4. **Localised titles.** `title[locale] ?? title.en` (both `title` and subject `name` are `{ en, bn | null }` label objects, not resolved strings) through `lib/localized-label.ts`. Subject names likewise — never a slug on screen.
 5. **Empty states, per card.** A child with no activity: zero-state minute cards ("No learning time yet" rather than "0m" as a headline), the progress card without highlight chips, and a warm activity empty state naming the child ("No adventures yet — Rina's progress will appear here!"). No `NaN%`, no empty chips, no bare zeros presented as failure.
-6. **No children.** A parent with zero children is routed to the children screen (M09) — M08's consent-and-onboarding flow guarantees one exists, but guard anyway, exactly as the web app does.
+6. **No children.** A parent with zero children is sent to the first-child onboarding screen by M08's `lib/parent-redirect.ts` (web's `resolveParentRedirect`: 0 children → first child) — never re-derive that rule here. The dashboard only renders a brief loading state until the redirect lands, as web does after the last profile is deleted.
+6a. **Report link.** An "Open report" action carries the selected child into M27's reports screen as a route param.
 7. **Pull to refresh.** A `RefreshControl` on the scroll view: it is the native idiom, and a parent checking progress mid-afternoon expects to be able to pull. Refetch the dashboard only, not the child list.
 8. **Accessibility of the numbers.** Each bar carries an `accessibilityLabel` with the subject name and the percentage as words ("Language, 35 percent complete") and an `accessibilityValue`. A bar that only a sighted user can read is not a report. Chips announce their meaning, not just their colour.
+8a. **Parent navigation** (`app/(parent)/_layout.tsx`). Mirror `ParentTopBar`: the three sections (Dashboard / Children / Reports) as bottom tabs or a header segmented control; in the header, "Back to kid mode" (→ the profile picker, M10; a visible labelled control, not buried in the menu), the M03 language switch, and the parent avatar opening an ActionSheet with name, email, Settings (M08) and Sign out (M07's `signOut()`, FR-AUTH-07). Hidden on the onboarding routes. A failed sign-out keeps the parent in place with an error, never navigates. No admin, no link to the public site.
 9. **Layout.** Phone: single column, cards stacked, switcher pinned above. Tablet/landscape: two columns (minutes + subjects left, timeline right). Parent surface, so ≥44px targets and Inter — but the parent dashboard "must be fully manageable on a phone" (design.md §6), so the phone layout is the primary case, not the fallback.
-10. **Tests** (`app/(parent)/index.test.tsx`, `components/parent/DashboardSummary.test.tsx`, `lib/dashboard-api.test.ts`): the summary renders stat values, bar widths, and both highlight chips from a fixture; a brand-new child renders every empty state with no `NaN` and no chips; switching children refetches and keeps the selection across a remount; a 404 renders a not-found state; the timeline renders one row per item with the right icon and a relative date; minute formatting matches the web app for 5, 59, 60, 95 and 310; a cold start shows the notice; pull-to-refresh refetches.
+10. **Tests** (`app/(parent)/index.test.tsx`, `components/parent/DashboardSummary.test.tsx`, `lib/dashboard-api.test.ts`): the summary renders stat values, bar widths, and both highlight chips from a fixture; a brand-new child renders every empty state with no `NaN` and no chips; switching children refetches and keeps the selection across a remount; a 404 renders a not-found state; the timeline renders one row per item with the right icon and a relative date; minute formatting matches the web app for 5, 59, 60, 95 and 310; a cold start shows the notice; pull-to-refresh refetches; the parent layout shows the three sections and hides them on onboarding routes; "Back to kid mode" routes to the profile picker; Sign out calls `signOut()` and a failure leaves the parent in place.
 
 ## Technical Approach & Suggestions
 
 ```
 apps/mobile/lib/dashboard-api.ts
 apps/mobile/lib/dashboard-api.test.ts
+apps/mobile/app/(parent)/_layout.tsx                   # nav header, sections, account ActionSheet
+apps/mobile/app/(parent)/_layout.test.tsx
 apps/mobile/app/(parent)/index.tsx
 apps/mobile/app/(parent)/index.test.tsx
 apps/mobile/components/parent/ChildSwitcher.tsx
@@ -116,6 +123,7 @@ For the timeline icons, map `DASHBOARD_ACTIVITY_TYPES` to a `lucide-react-native
 6. Build `ChildSwitcher` with the router-param selection; test that switching refetches and that the selection survives a remount. (~30 min)
 7. Assemble the screen: fetch, loading, cold start, offline, 404, no-children redirect, pull-to-refresh. (~35 min)
 8. Add the tablet/landscape two-column layout. (~20 min)
+8a. Build the `(parent)` navigation header, sections and account ActionSheet against `ParentTopBar.tsx`, with its test. (~40 min)
 9. Device pass: a seeded child and a brand-new child, EN and BN (check Bengali numerals in minutes and relative dates), phone and tablet, TalkBack across every bar and chip, and a spot-check that the minutes match `GET /api/children/:id/learning-time` for the same ranges. (~40 min)
 10. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
 
@@ -133,6 +141,7 @@ For the timeline icons, map `DASHBOARD_ACTIVITY_TYPES` to a `lucide-react-native
 - [ ] Every bar and chip is announced meaningfully by TalkBack and VoiceOver, with a percentage value.
 - [ ] Bengali renders localised numerals in minutes and relative dates (the M03 `Intl` work paying off).
 - [ ] The whole screen is usable on a phone; the tablet layout is an enhancement.
+- [ ] The parent navigation offers Dashboard / Children / Reports, "Back to kid mode", the language switch and an account menu with Settings and Sign out; it is hidden during onboarding and has no admin entry.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm --filter mobile test` pass.
 
 ## Out of Scope
