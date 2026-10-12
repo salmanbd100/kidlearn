@@ -361,7 +361,7 @@ function TabButton({
   );
 }
 
-/** Images use `next/image` `unoptimized`; see `features/admin/MediaPicker.tsx` for why. */
+/** Images use `next/image` `unoptimized`; see `features/admin/media/MediaPicker.tsx` for why. */
 function AssetPreview({ asset }: { asset: MediaAsset }) {
   if (asset.kind === "audio") {
     return (

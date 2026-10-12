@@ -252,7 +252,7 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   `/guide/engineering` scale with the figure and fall to about 11–13px on a phone. The page is for an
   adult reader; each diagram has a 20px caption and an accessible name and sits in a section whose
   text explains it; and a three-column diagram cannot carry 20px labels at 360px. Covers
-  `features/site/diagrams/` only.
+  `features/site/guide/diagrams/` only.
 - Kid screens are **full-bleed and immersive** — no traditional nav chrome; navigation is
   large illustrated waypoints, placed in the thumb zone (lower/center), not top corners. The one
   standing exception is the **parent corner**: a small adult-only control pinned to a top corner,
