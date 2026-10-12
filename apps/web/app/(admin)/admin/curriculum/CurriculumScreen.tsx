@@ -39,11 +39,11 @@ import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { StatusChip } from "@/features/admin/ui/StatusChip";
-import { type ColumnItem, ContentColumn } from "./ContentColumn";
-import { ContentForm } from "./ContentForm";
-import { GenerateLessonDialog } from "./GenerateLessonDialog";
-import { GenerateQuizButton } from "./GenerateQuizButton";
-import { LessonForm } from "./LessonForm";
+import { type ColumnItem, ContentColumn } from "./_components/ContentColumn";
+import { ContentForm } from "./_components/ContentForm";
+import { GenerateLessonDialog } from "./_components/GenerateLessonDialog";
+import { GenerateQuizButton } from "./_components/GenerateQuizButton";
+import { LessonForm } from "./_components/LessonForm";
 
 type DialogState =
   | { kind: "closed" }
