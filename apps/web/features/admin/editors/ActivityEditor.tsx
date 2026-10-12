@@ -5,8 +5,9 @@ import { ACTIVITY_SCHEMAS, ACTIVITY_TYPES, LOCALES } from "@kidlearn/types";
 import { Button, Input, Label, Select, ThemeScope } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { ActivityEngine } from "@/features/activities/ActivityEngine";
-import { LOCALE_LABELS } from "@/features/admin/admin-labels";
-import { optionValue } from "@/features/admin/select-option";
+import { LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
+import { optionValue } from "@/features/admin/ui/select-option";
+import { MediaPicker } from "../media/MediaPicker";
 import {
   type ActivityDraft,
   compileActivity,
@@ -16,7 +17,6 @@ import {
   MAXIMUM_ITEMS,
   MINIMUM_ITEMS,
 } from "./activity-draft";
-import { MediaPicker } from "./MediaPicker";
 import { type IssueMap, toIssueMap } from "./payload-issues";
 
 const TYPE_LABELS: Record<ActivityType, string> = {

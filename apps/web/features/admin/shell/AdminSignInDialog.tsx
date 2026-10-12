@@ -21,7 +21,7 @@ import {
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useQueryDialog } from "@/shared/hooks/use-query-dialog";
-import { adminSignIn, adminSignOut } from "./admin-api";
+import { adminSignIn, adminSignOut } from "../api/admin-api";
 import { ADMIN_ROUTES, ADMIN_SIGN_IN_PARAM } from "./admin-routes";
 
 /**

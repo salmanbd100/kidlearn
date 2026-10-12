@@ -10,8 +10,8 @@ import type {
 import { LOCALES } from "@kidlearn/types";
 import { Button, DialogFooter, Input, Label } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
-import { LOCALE_LABELS } from "@/features/admin/admin-labels";
-import type { ContentDraft } from "@/features/admin/content-api";
+import type { ContentDraft } from "@/features/admin/api/content-api";
+import { LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
 import { GradeLevelPicker } from "./GradeLevelPicker";
 import { LocaleTabs } from "./LocaleTabs";
 

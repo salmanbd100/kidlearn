@@ -4,7 +4,7 @@ import { GenerateNarrationButton } from "./GenerateNarrationButton";
 
 const generateNarration = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/admin/ai-api", () => ({ generateNarration }));
+vi.mock("@/features/admin/api/ai-api", () => ({ generateNarration }));
 
 const LESSON_ID = "dddddddd-0000-4000-8000-000000000001";
 

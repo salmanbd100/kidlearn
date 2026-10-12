@@ -4,7 +4,7 @@ import type { Locale } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { useState } from "react";
-import { generateQuiz } from "@/features/admin/ai-api";
+import { generateQuiz } from "@/features/admin/api/ai-api";
 
 /** Both locales, always: a stored question requires both (FR-I18N-01). */
 const LANGUAGES: Locale[] = [...LOCALES];

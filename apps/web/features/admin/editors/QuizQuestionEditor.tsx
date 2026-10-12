@@ -17,11 +17,11 @@ import {
   ThemeScope,
 } from "@kidlearn/ui";
 import { useMemo, useState } from "react";
-import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
-import { LOCALE_LABELS } from "@/features/admin/admin-labels";
-import { optionValue } from "@/features/admin/select-option";
+import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
+import { LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
+import { optionValue } from "@/features/admin/ui/select-option";
 import { QuizEngine } from "@/features/quiz/QuizEngine";
-import { MediaPicker } from "./MediaPicker";
+import { MediaPicker } from "../media/MediaPicker";
 import { type IssueMap, toIssueMap } from "./payload-issues";
 import {
   compileQuestion,

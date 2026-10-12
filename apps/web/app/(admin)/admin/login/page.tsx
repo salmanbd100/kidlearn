@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 
 // Sign-in moved to a dialog on the homepage; this keeps bookmarks and old links working.
 export default function AdminLoginPage() {

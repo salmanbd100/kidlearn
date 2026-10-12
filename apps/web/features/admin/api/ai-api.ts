@@ -16,7 +16,7 @@ import type {
   Locale,
   PromotedCharacterSheets,
 } from "@kidlearn/types";
-import { CONTENT_BASE, listQuery } from "@/features/admin/admin-url";
+import { CONTENT_BASE, listQuery } from "@/features/admin/shell/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
 // Generation endpoints answer with a job to look up, never the content; `retries: 0` because a replay would spend a second generation.

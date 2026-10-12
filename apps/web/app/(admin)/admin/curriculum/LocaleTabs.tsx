@@ -1,8 +1,8 @@
 "use client";
 
 import { LOCALES, type Locale } from "@kidlearn/types";
-import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
-import { LOCALE_LABELS } from "@/features/admin/admin-labels";
+import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
+import { LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
 
 export function LocaleTabs({
   active,

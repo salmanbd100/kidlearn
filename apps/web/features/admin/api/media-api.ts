@@ -4,7 +4,7 @@ import type {
   MediaAsset,
   UploadSignature,
 } from "@kidlearn/types";
-import { listQuery } from "@/features/admin/admin-url";
+import { listQuery } from "@/features/admin/shell/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
 const MEDIA_BASE = "/api/admin/media";

@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { adminSignOut, fetchAdminMe } from "@/features/admin/admin-api";
+import { adminSignOut, fetchAdminMe } from "@/features/admin/api/admin-api";
 import { onUnauthorized } from "@/shared/api/api-client";
 
 export type AdminSessionStatus = "loading" | "ready" | "signedOut" | "error";

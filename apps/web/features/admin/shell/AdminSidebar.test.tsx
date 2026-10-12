@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { AdminSidebar } from "./AdminSidebar";
 
 describe("AdminSidebar", () => {

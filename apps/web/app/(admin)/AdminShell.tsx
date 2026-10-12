@@ -4,9 +4,9 @@ import { Button } from "@kidlearn/ui";
 import { LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
-import { AdminSidebar } from "@/features/admin/AdminSidebar";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { fetchAiJobCount } from "@/features/admin/ai-api";
+import { fetchAiJobCount } from "@/features/admin/api/ai-api";
+import { AdminSidebar } from "@/features/admin/shell/AdminSidebar";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { useAdminSession } from "./context/admin-session";
 
 const BADGE_POLL_MS = 60_000;

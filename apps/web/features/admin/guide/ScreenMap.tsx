@@ -6,7 +6,7 @@ import { cva } from "class-variance-authority";
 import { GripVertical } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { type ReactNode, useState } from "react";
-import { StatusChip } from "@/features/admin/StatusChip";
+import { StatusChip } from "@/features/admin/ui/StatusChip";
 import { swapTransition } from "./guide-sections";
 
 type RegionId = "header" | "cascade" | "worlds" | "detail" | "parts";

@@ -3,7 +3,7 @@
 import { GRADE_LEVELS, type GradeLevelValue } from "@kidlearn/types";
 import { cn } from "@kidlearn/ui";
 import { Check } from "lucide-react";
-import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
+import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
 
 const LABELS: Record<GradeLevelValue, string> = {
   NURSERY: "Nursery",

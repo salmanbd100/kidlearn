@@ -12,23 +12,23 @@ import {
 } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   createQuestion,
   deleteQuestion,
   fetchQuiz,
   replaceQuestion,
   transitionEditorContent,
-} from "@/features/admin/editors-api";
-import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
-import { QuizQuestionEditor } from "@/features/admin/QuizQuestionEditor";
+} from "@/features/admin/api/editors-api";
+import { GenerateNarrationButton } from "@/features/admin/editors/GenerateNarrationButton";
+import { QuizQuestionEditor } from "@/features/admin/editors/QuizQuestionEditor";
 import {
   draftFromDefinition,
   emptyQuestionDraft,
   type QuestionDraft,
-} from "@/features/admin/quiz-draft";
-import { StatusChip } from "@/features/admin/StatusChip";
-import { TransitionButtons } from "@/features/admin/TransitionButtons";
+} from "@/features/admin/editors/quiz-draft";
+import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { StatusChip } from "@/features/admin/ui/StatusChip";
 
 type DialogState =
   | { kind: "closed" }

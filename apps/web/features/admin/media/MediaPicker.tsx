@@ -11,7 +11,7 @@ import {
   SelectMenuTrigger,
 } from "@kidlearn/ui";
 import Image from "next/image";
-import { useMediaPages } from "@/features/admin/use-media-pages";
+import { useMediaPages } from "@/features/admin/media/use-media-pages";
 
 /** Radix reserves `""` for "no value", and "Not set" is a choice that clears the field. */
 const NO_ASSET = "none";

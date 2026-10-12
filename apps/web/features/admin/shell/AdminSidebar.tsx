@@ -19,7 +19,7 @@ import {
   type AdminNavGroup,
   type AdminNavItem,
   activeAdminNavHref,
-} from "@/features/admin/admin-routes";
+} from "@/features/admin/shell/admin-routes";
 
 export interface AdminSidebarProps {
   pathname: string;

@@ -9,12 +9,12 @@ import type {
   QuestionDeleted,
   QuizQuestionType,
 } from "@kidlearn/types";
+import type { ContentDraft } from "@/features/admin/api/content-api";
 import {
   CONTENT_BASE,
   type ListOptions,
   listQuery,
-} from "@/features/admin/admin-url";
-import type { ContentDraft } from "@/features/admin/content-api";
+} from "@/features/admin/shell/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
 export function fetchQuiz(quizId: string): Promise<ApiResult<AdminQuizDetail>> {

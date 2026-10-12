@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useSearchParams: () => new URLSearchParams(navigation.search),
 }));
-vi.mock("./admin-api", () => api);
+vi.mock("../api/admin-api", () => api);
 
 const { AdminSignInDialog } = await import("./AdminSignInDialog");
 

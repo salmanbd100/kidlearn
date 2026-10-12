@@ -11,8 +11,8 @@ const api = vi.hoisted(() => ({
   updateBadge: vi.fn(),
 }));
 
-vi.mock("@/features/admin/content-api", () => api);
-vi.mock("@/features/admin/editors-api", () => api);
+vi.mock("@/features/admin/api/content-api", () => api);
+vi.mock("@/features/admin/api/editors-api", () => api);
 
 const TIMESTAMPS = {
   createdAt: "2026-08-01T00:00:00.000Z",

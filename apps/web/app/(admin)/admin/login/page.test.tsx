@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 
 const navigation = vi.hoisted(() => ({ redirect: vi.fn() }));
 

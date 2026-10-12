@@ -3,7 +3,7 @@
 import type { NarrationEntity } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { useState } from "react";
-import { generateNarration } from "@/features/admin/ai-api";
+import { generateNarration } from "@/features/admin/api/ai-api";
 
 const ENTITY_NOUN: Record<NarrationEntity, string> = {
   lesson: "lesson",

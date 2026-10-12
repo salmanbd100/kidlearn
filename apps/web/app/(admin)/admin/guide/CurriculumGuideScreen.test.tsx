@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { GUIDE_SECTIONS } from "@/features/admin/guide/guide-sections";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { CurriculumGuideScreen } from "./CurriculumGuideScreen";
 
 describe("CurriculumGuideScreen", () => {

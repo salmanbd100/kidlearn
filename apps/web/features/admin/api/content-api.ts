@@ -12,7 +12,7 @@ import {
   CONTENT_BASE,
   type ListOptions,
   listQuery,
-} from "@/features/admin/admin-url";
+} from "@/features/admin/shell/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
 
 /** `onColdStart` is on this call only: the four lists load together, so wiring all four would fire the message four times. */
