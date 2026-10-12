@@ -250,6 +250,16 @@ Always:
   Ad-hoc work (no implementation file) needs no file, no tracker row and no `NN-` branch name —
   never report their absence. Uncommitted ad-hoc work sitting on `dev` is allowed too; it only
   has to move to a branch before the first commit.
+- **Paths the standards name** — a diff that moves or renames files (`git diff --name-status -M`
+  shows `R` rows) can silently unscope a rule. Every path a recorded exception, a `[REVIEW]`
+  rule, `CLAUDE.md` or `design.md` names must still exist after the move, and every test that
+  sweeps source by directory (`no-external-links.test.tsx`, `viewport-chrome.test.ts`) must still
+  reach the moved files — a non-recursive `readdirSync` stops seeing a file pushed one level down,
+  and the test stays green. A stale path in an exception is a finding: the exception now covers
+  nothing, or the wrong file.
+- **A rule and its first application** — when a diff adds a rule to the standards and applies it
+  in the same branch, check the code against the rule as written. Code that contradicts the rule
+  it ships with is the example the next engineer copies.
 
 Frontend:
 

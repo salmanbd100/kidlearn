@@ -9,8 +9,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParentSession } from "@/app/(parent)/context/parent-session";
 import { ChildSwitcher } from "@/features/children/ChildSwitcher";
-import { DashboardSummary } from "@/features/children/DashboardSummary";
-import { getDashboard } from "@/features/children/dashboard-api";
+import { DashboardSummary } from "@/features/children/dashboard/DashboardSummary";
+import { getDashboard } from "@/features/children/dashboard/dashboard-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 
 export function DashboardScreen({

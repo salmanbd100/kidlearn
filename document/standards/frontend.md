@@ -132,6 +132,15 @@ Rules:
 - **`app/` holds routing, not logic.** Pages, layouts and the screen components
   they render stay under `app/`; anything a second route could reuse belongs in a
   feature. **[REVIEW]**
+- **Split a feature by sub-domain once it outgrows a screen** — roughly 15
+  non-test files. Sub-folders name what the code is for (`admin/editors/`,
+  `children/dashboard/`), never what kind of file it is: no `components/`,
+  `hooks/` or `utils/` inside a feature, which would rebuild the scatter this
+  layout exists to prevent. `api/` is the one exception, mirroring
+  `shared/api/`. Code two sub-folders share stays at the feature root
+  (`site/Doodle.tsx`). A screen under `app/` with many private parts keeps
+  them in a `_components/` private folder beside it, which Next.js excludes
+  from routing. **[REVIEW]**
 - **No barrel files.** Imports name the file: `@/features/quiz/QuizEngine`. See
   [`general.md §3`](./general.md#3-module--import-rules). **[REVIEW]**
 - Components stay PascalCase, everything else kebab-case, per
@@ -158,7 +167,7 @@ by the `apps/web` review, which found the code already doing it.** The session
 cookie is set by better-auth on the API origin and carries no `domain`
 attribute (`apps/server/src/config/auth.ts`), so it is host-only: a Server
 Component calling `/api/*` sends no credentials and gets a `401`. See the comment
-at the head of `features/admin/admin-api.ts` and the `credentials: "include"` in
+at the head of `features/admin/api/admin-api.ts` and the `credentials: "include"` in
 `shared/api/api-client.ts`. Server-side fetching is not merely inconvenient on
 any of the three surfaces; it cannot authenticate.
 
@@ -221,10 +230,10 @@ Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent`
 
 #### Recorded exception — the `(admin)` CMS is English-only
 
-**Status: active as of 2026-08-22 (file 31).** It also covers `features/admin/AdminSignInDialog.tsx`, which renders on the homepage but belongs to the CMS. FR-I18N covers the child and parent
+**Status: active as of 2026-08-22 (file 31).** It also covers `features/admin/shell/AdminSignInDialog.tsx`, which renders on the homepage but belongs to the CMS. FR-I18N covers the child and parent
 surfaces, which are the ones a family reads. The CMS is an internal tool used by
 the team, so strings in `app/(admin)/` and `features/admin/`
-(including `features/admin/admin-routes.ts`) stay hard-coded English rather than wiring a fourth i18next
+(including `features/admin/shell/admin-routes.ts`) stay hard-coded English rather than wiring a fourth i18next
 namespace — the alternative is a Bangla translation of "AI Queue" that nobody has
 asked for.
 
@@ -232,7 +241,7 @@ This is bounded to the `(admin)` surface. A string on any `(student)` or `(paren
 path is not covered by it, whichever directory the component lives in.
 
 **Exit condition:** the day a reviewer outside the team is onboarded.
-`features/admin/admin-routes.ts` holds the nav labels, so it and the screens under
+`features/admin/shell/admin-routes.ts` holds the nav labels, so it and the screens under
 `app/(admin)/` are what change; delete this section then.
 
 ---

@@ -13,12 +13,12 @@ import {
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
-import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
-import { AdminStatCard } from "@/features/admin/AdminStatCard";
-import { fetchPlatformOverview } from "@/features/admin/admin-api";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { fetchAiJobCount } from "@/features/admin/ai-api";
+import { fetchPlatformOverview } from "@/features/admin/api/admin-api";
+import { fetchAiJobCount } from "@/features/admin/api/ai-api";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
+import { AdminStatCard } from "@/features/admin/ui/AdminStatCard";
 
 const CARDS: ReadonlyArray<{
   key: keyof Omit<PlatformOverview, "generatedAt">;

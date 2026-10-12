@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
+import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
 import { swapTransition } from "./guide-sections";
 
 interface Format {

@@ -7,8 +7,6 @@ import {
   Unplug,
 } from "lucide-react";
 import Link from "next/link";
-import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import { AiFlow } from "@/features/admin/guide/AiFlow";
 import { ContentTreeDiagram } from "@/features/admin/guide/ContentTreeDiagram";
 import { FormatGallery } from "@/features/admin/guide/FormatGallery";
@@ -23,6 +21,8 @@ import { TroubleshootingFinder } from "@/features/admin/guide/TroubleshootingFin
 import { VisibilityChecker } from "@/features/admin/guide/VisibilityChecker";
 import { WithoutGemini } from "@/features/admin/guide/WithoutGemini";
 import { WritingTips } from "@/features/admin/guide/WritingTips";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 
 const ROUTES_IN = [
   {

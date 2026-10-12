@@ -8,8 +8,8 @@ import {
   fetchCharacterSheets,
   promoteJobCharacters,
   updateCharacterSheet,
-} from "@/features/admin/ai-api";
-import { fetchWorlds } from "@/features/admin/content-api";
+} from "@/features/admin/api/ai-api";
+import { fetchWorlds } from "@/features/admin/api/content-api";
 
 type Draft = {
   name: string;

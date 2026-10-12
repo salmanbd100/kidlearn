@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchAdminMe } from "@/features/admin/admin-api";
+import { fetchAdminMe } from "@/features/admin/api/admin-api";
 import { fetchAuthMe } from "@/features/parent/parent-api";
 
 /** `unknown` until the probe settles, and for good if the API cannot be reached. */

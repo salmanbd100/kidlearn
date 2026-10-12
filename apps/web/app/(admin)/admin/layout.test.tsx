@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { apiFetch } from "@/shared/api/api-client";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
@@ -20,8 +20,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
 }));
 
-vi.mock("@/features/admin/admin-api", () => api);
-vi.mock("@/features/admin/ai-api", () => api);
+vi.mock("@/features/admin/api/admin-api", () => api);
+vi.mock("@/features/admin/api/ai-api", () => api);
 
 const { default: AdminCmsLayout } = await import("./layout");
 

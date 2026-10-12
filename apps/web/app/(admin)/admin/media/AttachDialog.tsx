@@ -22,9 +22,9 @@ import {
   fetchLessons,
   fetchWorlds,
   updateContent,
-} from "@/features/admin/content-api";
-import { fetchBadges, updateBadge } from "@/features/admin/editors-api";
-import { optionValue } from "@/features/admin/select-option";
+} from "@/features/admin/api/content-api";
+import { fetchBadges, updateBadge } from "@/features/admin/api/editors-api";
+import { optionValue } from "@/features/admin/ui/select-option";
 
 type Target = "world-mascot" | "lesson-video" | "badge-icon";
 

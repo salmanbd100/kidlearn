@@ -18,10 +18,10 @@ const api = vi.hoisted(() => ({
   reorderContent: vi.fn(),
 }));
 
-vi.mock("@/features/admin/content-api", () => api);
+vi.mock("@/features/admin/api/content-api", () => api);
 
 const { CurriculumScreen } = await import("./CurriculumScreen");
-const { ADMIN_ROUTES } = await import("@/features/admin/admin-routes");
+const { ADMIN_ROUTES } = await import("@/features/admin/shell/admin-routes");
 
 const SUBJECT = {
   id: "bbbbbbbb-0000-4000-8000-000000000001",

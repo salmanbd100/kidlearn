@@ -20,9 +20,9 @@ import {
 } from "@kidlearn/ui";
 import { Check, Sparkles } from "lucide-react";
 import { type FormEvent, useState } from "react";
-import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
-import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/admin-labels";
-import { generateStory } from "@/features/admin/ai-api";
+import { generateStory } from "@/features/admin/api/ai-api";
+import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
+import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
 
 /** The bounds the server enforces, and the length a 3–6 year old sits through. */
 const PAGE_COUNTS = [6, 7, 8] as const;

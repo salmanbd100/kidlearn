@@ -10,7 +10,10 @@ import { cva } from "class-variance-authority";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
-import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/features/children/avatars";
+import {
+  avatarArtFor,
+  FALLBACK_AVATAR_ART,
+} from "@/features/children/profile/avatars";
 
 const profileCardVariants = cva(
   "flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-card-foreground shadow-md transition-[border-color,box-shadow] touch-manipulation focus-ring disabled:pointer-events-none disabled:opacity-50",

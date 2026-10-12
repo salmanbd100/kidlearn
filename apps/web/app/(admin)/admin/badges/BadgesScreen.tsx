@@ -12,17 +12,17 @@ import {
 } from "@kidlearn/ui";
 import { Award, Plus, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
-import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
-import type { ContentDraft } from "@/features/admin/content-api";
+import type { ContentDraft } from "@/features/admin/api/content-api";
 import {
   createBadge,
   fetchBadges,
   transitionEditorContent,
   updateBadge,
-} from "@/features/admin/editors-api";
-import { StatusChip } from "@/features/admin/StatusChip";
-import { TransitionButtons } from "@/features/admin/TransitionButtons";
+} from "@/features/admin/api/editors-api";
+import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
+import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
+import { StatusChip } from "@/features/admin/ui/StatusChip";
 import { BadgeForm } from "./BadgeForm";
 
 type DialogState =

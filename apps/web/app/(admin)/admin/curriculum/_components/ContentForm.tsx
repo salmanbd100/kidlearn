@@ -1,0 +1,190 @@
+"use client";
+
+import type {
+  AdminSubject,
+  AdminTopic,
+  AdminWorld,
+  GradeLevelValue,
+  Locale,
+} from "@kidlearn/types";
+import { LOCALES } from "@kidlearn/types";
+import { Button, DialogFooter, Input, Label } from "@kidlearn/ui";
+import { type FormEvent, useState } from "react";
+import type { ContentDraft } from "@/features/admin/api/content-api";
+import { LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
+import { GradeLevelPicker } from "./GradeLevelPicker";
+import { LocaleTabs } from "./LocaleTabs";
+
+export type NameOnlyResource = "worlds" | "subjects" | "topics";
+
+type Existing = AdminWorld | AdminSubject | AdminTopic;
+
+export interface ContentFormProps {
+  resource: NameOnlyResource;
+  existing?: Existing;
+  subjectId?: string;
+  isBusy: boolean;
+  error?: string;
+  onSubmit: (draft: ContentDraft) => void;
+  onCancel: () => void;
+}
+
+/** Worlds are a theming surface shared by every grade, so they carry no tags. */
+const HAS_GRADES: Record<NameOnlyResource, boolean> = {
+  worlds: false,
+  subjects: true,
+  topics: true,
+};
+
+function initialGradeLevels(existing: Existing | undefined): GradeLevelValue[] {
+  if (existing === undefined || !("gradeLevels" in existing)) return [];
+  return existing.gradeLevels;
+}
+
+export function ContentForm({
+  resource,
+  existing,
+  subjectId,
+  isBusy,
+  error,
+  onSubmit,
+  onCancel,
+}: ContentFormProps) {
+  const [slug, setSlug] = useState(existing?.slug ?? "");
+  const [name, setName] = useState(existing?.name ?? "");
+  const [translations, setTranslations] = useState({
+    en: existing?.translations.en ?? "",
+    bn: existing?.translations.bn ?? "",
+  });
+  const [gradeLevels, setGradeLevels] = useState<GradeLevelValue[]>(() =>
+    initialGradeLevels(existing),
+  );
+  const [activeLocale, setActiveLocale] = useState<Locale>("en");
+  const [fieldError, setFieldError] = useState<string>();
+
+  const isEditing = existing !== undefined;
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+
+    const missing = LOCALES.find(
+      (locale) => translations[locale].trim() === "",
+    );
+    if (missing !== undefined) {
+      setActiveLocale(missing);
+      setFieldError(
+        `Add the ${LOCALE_LABELS[missing]} name a child sees before saving.`,
+      );
+      return;
+    }
+
+    setFieldError(undefined);
+
+    const draft: ContentDraft = {
+      name,
+      translations,
+      ...(isEditing ? {} : { slug }),
+      ...(HAS_GRADES[resource] ? { gradeLevels } : {}),
+      ...(resource === "topics" && !isEditing ? { subjectId } : {}),
+      // A world needs a palette; the create sends the empty map the column requires.
+      ...(resource === "worlds" && !isEditing ? { palette: {} } : {}),
+    };
+
+    onSubmit(draft);
+  }
+
+  return (
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="content-slug">Slug</Label>
+        <Input
+          size="sm"
+          id="content-slug"
+          value={slug}
+          disabled={isEditing || isBusy}
+          required={!isEditing}
+          placeholder="letters-and-sounds"
+          aria-describedby="content-slug-hint"
+          onChange={(event) => setSlug(event.target.value)}
+        />
+        <p id="content-slug-hint" className="text-muted-foreground text-xs">
+          {isEditing
+            ? "Fixed once created — it is part of the URL of anything published."
+            : "Lowercase words separated by hyphens."}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="content-name">Internal name</Label>
+        <Input
+          size="sm"
+          id="content-name"
+          value={name}
+          required
+          disabled={isBusy}
+          aria-describedby="content-name-hint"
+          onChange={(event) => setName(event.target.value)}
+        />
+        <p id="content-name-hint" className="text-muted-foreground text-xs">
+          What this list and the audit trail show. Children see the translations
+          below.
+        </p>
+      </div>
+
+      <LocaleTabs
+        active={activeLocale}
+        onActiveChange={setActiveLocale}
+        render={(locale) => (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`content-name-${locale}`}>
+              Name a child sees ({LOCALE_LABELS[locale]})
+            </Label>
+            <Input
+              size="sm"
+              id={`content-name-${locale}`}
+              value={translations[locale]}
+              disabled={isBusy}
+              aria-invalid={
+                fieldError !== undefined && translations[locale].trim() === ""
+              }
+              onChange={(event) =>
+                setTranslations((current) => ({
+                  ...current,
+                  [locale]: event.target.value,
+                }))
+              }
+            />
+          </div>
+        )}
+      />
+
+      {HAS_GRADES[resource] ? (
+        <GradeLevelPicker
+          value={gradeLevels}
+          onChange={setGradeLevels}
+          isBusy={isBusy}
+        />
+      ) : null}
+
+      {(fieldError ?? error) ? (
+        <p role="alert" className="text-destructive text-sm">
+          {fieldError ?? error}
+        </p>
+      ) : null}
+
+      <DialogFooter className="border-border border-t pt-4">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={
+            isBusy || (HAS_GRADES[resource] && gradeLevels.length === 0)
+          }
+        >
+          {isEditing ? "Save" : "Create draft"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}

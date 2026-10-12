@@ -8,7 +8,7 @@ const api = vi.hoisted(() => ({
   registerMediaAsset: vi.fn(),
 }));
 
-vi.mock("@/features/admin/media-api", () => api);
+vi.mock("@/features/admin/api/media-api", () => api);
 
 const URL = "https://res.cloudinary.com/demo/video/upload/count.mp3";
 

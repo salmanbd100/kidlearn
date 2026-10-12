@@ -5,19 +5,19 @@ import { isContentEditable } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityEditor } from "@/features/admin/ActivityEditor";
-import {
-  type ActivityDraft,
-  draftFromActivity,
-} from "@/features/admin/activity-draft";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   fetchActivity,
   transitionEditorContent,
   updateActivity,
-} from "@/features/admin/editors-api";
-import { StatusChip } from "@/features/admin/StatusChip";
-import { TransitionButtons } from "@/features/admin/TransitionButtons";
+} from "@/features/admin/api/editors-api";
+import { ActivityEditor } from "@/features/admin/editors/ActivityEditor";
+import {
+  type ActivityDraft,
+  draftFromActivity,
+} from "@/features/admin/editors/activity-draft";
+import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { StatusChip } from "@/features/admin/ui/StatusChip";
 
 export function ActivityEditorScreen({ activityId }: { activityId: string }) {
   const [activity, setActivity] = useState<AdminActivity>();
