@@ -345,12 +345,16 @@ A reviewer is responsible for catching these. **They are mandatory — not optio
 
 ### The rule
 
-Every implementation file in `document/implementation/` maps to exactly one feature branch. The branch name is the implementation filename without the `.md` extension.
+Every change reaches `dev` through a pull request from a feature branch. Work comes in two kinds, and only the first needs an implementation file:
 
-```
-document/implementation/39-ci-pipeline-and-branch-protection.md
-→ branch: 39-ci-pipeline-and-branch-protection
-```
+- **Spec-driven work.** An implementation file in `document/implementation/` maps to exactly one feature branch, named after the file without the `.md` extension:
+
+  ```
+  document/implementation/39-ci-pipeline-and-branch-protection.md
+  → branch: 39-ci-pipeline-and-branch-protection
+  ```
+
+- **Ad-hoc work** — a fix, a docs change, a small feature or an improvement that no implementation file describes. It needs no implementation file and no tracker row. The branch is named for what it does in kebab-case (`admin-curriculum-guide`), never with an `NN-` prefix: those belong to implementation files. The PR description carries what a spec would have — what changed and why.
 
 ### Starting work on an implementation file
 
@@ -361,7 +365,7 @@ Use the `/start-implementation <filename-without-extension>` skill. It will:
 3. Read the implementation file, load the standards documents relevant to the layers it touches, and begin the work described in it.
 4. **Stop before committing.** Leave all changes unstaged (or staged but not committed) for the engineer to review manually.
 
-Do not start implementation work directly on `dev` or `main`. Do not create ad-hoc branch names — the branch name must match the implementation filename exactly.
+Spec-driven work starts on its feature branch, and its branch name matches the implementation filename exactly. Ad-hoc work may begin in a `dev` working tree; it moves to its own branch before the first commit (`git checkout -b <name>` carries the uncommitted changes across). Nothing is committed directly to `dev` or `main` — the ruleset refuses the push anyway.
 
 **`dev` is the integration branch; `main` is the release branch.** Feature branches are cut from
 `dev` and merge back into `dev`. `main` accepts pull requests only from `dev`, enforced by a
@@ -388,20 +392,20 @@ Then watch the pipeline: `gh pr checks` (or `gh run watch`). A PR is not ready f
 | Ready for review | Feature branch pushed, PR opened against `dev` by `/pr`, `gates` green |
 | Merged | PR squash-merged to `dev`; feature branch deleted. `dev` reaches `main` through its own release PR. |
 
-### Progress tracking — mandatory
+### Progress tracking — mandatory for spec-driven work
 
-`document/implementation/00-progress-tracker.md` is the single source of truth for what is done and what is not. It must be kept current at every stage:
+`document/implementation/00-progress-tracker.md` is the single source of truth for what is done and what is not among the implementation files. Ad-hoc work has no row and adds none. For a branch built from an implementation file it must be kept current at every stage:
 
 | Moment | Action |
 |---|---|
 | When the feature branch is created | Change the row's **Status** from `⬜ Not started` → `🟨 In progress` |
 | When implementation is complete (before committing) | Change the row's **Status** from `🟨 In progress` → `✅ Done` |
 
-Both edits to `00-progress-tracker.md` are left unstaged alongside the implementation work so the engineer reviews and commits them together. Never push a feature branch without the tracker reflecting the correct status. **[REVIEW]**
+Both edits to `00-progress-tracker.md` are left unstaged alongside the implementation work so the engineer reviews and commits them together. Never push a spec-driven branch without the tracker reflecting the correct status. **[REVIEW]**
 
 ### One branch per implementation file
 
-Do not combine two implementation files into one branch. If work on file `07` reveals a bug in file `05`'s output, fix it in a separate branch named `05-<filename>-fix` and open a separate PR.
+Do not combine two implementation files into one branch, and do not fold ad-hoc work into a spec-driven branch. If work on file `07` reveals a bug in file `05`'s output, fix it in a separate branch named `05-<filename>-fix` and open a separate PR.
 
 #### Recorded exception — a whole-codebase review pass ships as one branch
 
