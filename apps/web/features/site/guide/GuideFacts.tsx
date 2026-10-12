@@ -1,7 +1,7 @@
 "use client";
 
+import { useSiteTranslation } from "../use-site-translation";
 import { GuideTrans } from "./GuideTrans";
-import { useSiteTranslation } from "./use-site-translation";
 
 /** A term and its explanation, set as a definition list rather than a grid of cards. */
 export function GuideFacts({

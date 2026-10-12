@@ -1,7 +1,7 @@
 "use client";
 
 import { Trans } from "react-i18next";
-import { useSiteTranslation } from "./use-site-translation";
+import { useSiteTranslation } from "../use-site-translation";
 
 // Tags a translated paragraph may use: `<code>` for identifiers, `<strong>` for the one sentence that matters.
 const INLINE_COMPONENTS = {

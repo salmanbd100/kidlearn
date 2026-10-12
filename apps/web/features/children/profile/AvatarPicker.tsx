@@ -7,7 +7,7 @@ import { Lock } from "lucide-react";
 import Image from "next/image";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { avatarArtFor } from "@/features/children/avatars";
+import { avatarArtFor } from "@/features/children/profile/avatars";
 import { useAudio } from "@/shared/components/AudioProvider";
 
 export interface AvatarPickerOption extends AvatarCharacterResponse {

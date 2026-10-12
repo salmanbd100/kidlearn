@@ -2,7 +2,7 @@
 
 import { cn } from "@kidlearn/ui";
 import { cva, type VariantProps } from "class-variance-authority";
-import { useSiteTranslation } from "../use-site-translation";
+import { useSiteTranslation } from "../../use-site-translation";
 
 const boxVariants = cva("stroke-current", {
   variants: {

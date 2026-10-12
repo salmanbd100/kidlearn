@@ -1,6 +1,6 @@
 "use client";
 
-import { useSiteTranslation } from "../use-site-translation";
+import { useSiteTranslation } from "../../use-site-translation";
 
 export function DiagramLabel({
   x,

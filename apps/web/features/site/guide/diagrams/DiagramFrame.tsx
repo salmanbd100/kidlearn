@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useId } from "react";
-import { useSiteTranslation } from "../use-site-translation";
+import { useSiteTranslation } from "../../use-site-translation";
 import { ArrowMarkerContext } from "./arrow-marker-context";
 
 // Text and strokes are `currentColor`, so the high-contrast preference reaches them; brand hues only fill accents.

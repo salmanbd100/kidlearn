@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
-import { useIsMotionReducedAfterHydration } from "./use-is-motion-reduced-after-hydration";
+import { useIsMotionReducedAfterHydration } from "../use-is-motion-reduced-after-hydration";
 
 const HIDDEN = { opacity: 0, y: 24 } as const;
 const SHOWN = { opacity: 1, y: 0 } as const;

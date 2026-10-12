@@ -1,9 +1,12 @@
 "use client";
 
-import { LifecycleDiagram } from "@/features/site/diagrams/LifecycleDiagram";
-import { GuideLayout, type GuideSection } from "@/features/site/GuideLayout";
-import { GuideSteps } from "@/features/site/GuideSteps";
-import { GuideText } from "@/features/site/GuideText";
+import { LifecycleDiagram } from "@/features/site/guide/diagrams/LifecycleDiagram";
+import {
+  GuideLayout,
+  type GuideSection,
+} from "@/features/site/guide/GuideLayout";
+import { GuideSteps } from "@/features/site/guide/GuideSteps";
+import { GuideText } from "@/features/site/guide/GuideText";
 
 const ADMIN_DOC = "admin-account-guide.md";
 const MANUAL = "user-journey-manual.md";

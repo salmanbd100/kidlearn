@@ -3,9 +3,9 @@
 import { cn } from "@kidlearn/ui";
 import { motion, type Variants } from "motion/react";
 import type { ReactNode } from "react";
-import { toNumeral } from "./HangingSection";
-import { useIsMotionReducedAfterHydration } from "./use-is-motion-reduced-after-hydration";
-import { useSiteTranslation } from "./use-site-translation";
+import { toNumeral } from "../HangingSection";
+import { useIsMotionReducedAfterHydration } from "../use-is-motion-reduced-after-hydration";
+import { useSiteTranslation } from "../use-site-translation";
 
 const SPRING = { type: "spring", stiffness: 400, damping: 15 } as const;
 

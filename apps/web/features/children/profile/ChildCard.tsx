@@ -11,7 +11,10 @@ import { Clock, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
-import { avatarArtFor, FALLBACK_AVATAR_ART } from "@/features/children/avatars";
+import {
+  avatarArtFor,
+  FALLBACK_AVATAR_ART,
+} from "@/features/children/profile/avatars";
 
 /** Every grade the API can return, not every grade this app's form offers. */
 const GRADE_LABEL_KEYS: Record<GradeLevelValue, string> = {

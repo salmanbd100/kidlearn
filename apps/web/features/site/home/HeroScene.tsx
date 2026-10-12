@@ -2,7 +2,7 @@
 
 import { cn } from "@kidlearn/ui";
 import { motion, useAnimate } from "motion/react";
-import { useIsMotionReducedAfterHydration } from "./use-is-motion-reduced-after-hydration";
+import { useIsMotionReducedAfterHydration } from "../use-is-motion-reduced-after-hydration";
 
 const SPRING = { type: "spring", stiffness: 400, damping: 15 } as const;
 
