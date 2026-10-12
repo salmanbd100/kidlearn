@@ -115,7 +115,7 @@ export function GenerateStoryDialog({
         <DialogHeader gutter="inset">
           <DialogTitle>Generate a story</DialogTitle>
           <DialogDescription>
-            Claude writes the title, the moral, the page text and a picture
+            Gemini writes the title, the moral, the page text and a picture
             brief for every page. Everything it produces is saved as a draft and
             goes to the review queue — nothing reaches a child until an admin
             publishes it.

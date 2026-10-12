@@ -124,7 +124,7 @@ export function GenerateLessonDialog({
         <DialogHeader gutter="inset">
           <DialogTitle>Generate a lesson</DialogTitle>
           <DialogDescription>
-            Claude writes the title, the objectives, the scripts and the quiz.
+            Gemini writes the title, the objectives, the scripts and the quiz.
             Everything it produces is saved as a draft and goes to the review
             queue — nothing reaches a child until an admin publishes it.
           </DialogDescription>

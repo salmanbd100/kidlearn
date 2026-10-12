@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, cn } from "@kidlearn/ui";
-import { useState } from "react";
+import { COPY_FAILED_LABEL, useCopyToClipboard } from "./use-copy-to-clipboard";
 
 export interface JsonInspectorProps {
   title: string;
@@ -10,19 +10,8 @@ export interface JsonInspectorProps {
 }
 
 export function JsonInspector({ title, value, className }: JsonInspectorProps) {
-  const [isCopied, setIsCopied] = useState(false);
-
   const text = stringify(value);
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      setIsCopied(true);
-      window.setTimeout(() => setIsCopied(false), 2000);
-    } catch {
-      // Clipboard access can be refused; the text is selectable either way.
-    }
-  }
+  const { copyState, copy } = useCopyToClipboard();
 
   return (
     <details
@@ -47,9 +36,13 @@ export function JsonInspector({ title, value, className }: JsonInspectorProps) {
           variant="ghost"
           size="sm"
           className="self-start"
-          onClick={() => void handleCopy()}
+          onClick={() => void copy(text)}
         >
-          {isCopied ? "Copied" : "Copy JSON"}
+          {copyState === "copied"
+            ? "Copied"
+            : copyState === "failed"
+              ? COPY_FAILED_LABEL
+              : "Copy JSON"}
         </Button>
         {/* Scroll the block, not the page, on a long prompt line. */}
         <pre className="max-h-96 overflow-auto rounded-(--radius) bg-muted p-3 font-mono text-muted-foreground text-xs leading-relaxed">

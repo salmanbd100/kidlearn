@@ -225,6 +225,9 @@ export function CurriculumScreen() {
         description="Publishing a row makes it visible to children immediately."
         actions={
           <>
+            <Button asChild variant="ghost">
+              <Link href={ADMIN_ROUTES.guide}>How this works</Link>
+            </Button>
             <Button
               type="button"
               variant={includeArchived ? "default" : "outline"}

@@ -6,6 +6,7 @@ import {
   ChartColumn,
   GraduationCap,
   Image,
+  LifeBuoy,
   type LucideIcon,
   Shapes,
   Sparkles,
@@ -34,6 +35,7 @@ const ICON_BY_HREF: Record<string, LucideIcon> = {
   [ADMIN_ROUTES.badges]: Award,
   [ADMIN_ROUTES.aiQueue]: Sparkles,
   [ADMIN_ROUTES.analytics]: ChartColumn,
+  [ADMIN_ROUTES.guide]: LifeBuoy,
 };
 
 const navLinkVariants = cva(
