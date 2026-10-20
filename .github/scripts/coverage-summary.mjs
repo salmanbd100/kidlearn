@@ -68,6 +68,7 @@ lines.push(
   "",
 );
 
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: CI runs this script with plain `node`, not as a Turbo task, so no Turbo cache key depends on it.
 const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 if (summaryPath) {
   appendFileSync(summaryPath, `${lines.join("\n")}\n`);
