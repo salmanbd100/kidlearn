@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:db": "vitest run --config vitest.db.config.ts",
+    "test:db:local": "TEST_DATABASE_URL=postgresql://postgres:password@localhost:5433/kidlearn_test pnpm run test:db",
     "openapi:write": "tsx src/openapi/write.ts",
     "seed:admin": "tsx src/scripts/seed-admin.ts"
   },

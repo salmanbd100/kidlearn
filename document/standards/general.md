@@ -225,7 +225,8 @@ Service tests and route integration tests run against a real test database. Do n
 
 **Landed 2026-10-05.** A suite named `*.db.test.ts` runs
 against Postgres: `pnpm --filter server test:db` (CI runs it with a `postgres:16-alpine`
-service; locally, `docker compose up -d postgres`). `vitest.db.config.ts` applies the
+service; locally, `docker compose up -d postgres`, or `test:db:local` for a Postgres on
+port 5433). `vitest.db.config.ts` applies the
 committed migrations with `prisma migrate deploy` once per run, truncates every table before
 each test, and runs files one at a time. It refuses any database whose name does not end in
 `_test`, so `TEST_DATABASE_URL` cannot be pointed at a real one by mistake. Build rows with

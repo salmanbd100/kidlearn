@@ -201,6 +201,7 @@ pnpm typecheck    # tsc --noEmit per package
 pnpm test         # Vitest across every package
 pnpm test:coverage # ...with a coverage report per package (what CI runs)
 pnpm --filter server test:db  # *.db.test.ts against Postgres (needs docker compose up -d postgres)
+pnpm --filter server test:db:local  # ...against a local Postgres on port 5433
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:migrate   # Run DB migrations
 pnpm db:studio    # Open Prisma Studio (DB browser)
