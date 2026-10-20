@@ -970,11 +970,26 @@ Now make old backups delete themselves after 30 days, so the cost stays at a
 few cents:
 
 7. Open the bucket → **Management** tab → **Create lifecycle rule**.
-8. Name `expire-30-days`. Choose **Limit the scope … using one or more
-   filters** → Prefix: `prod/`.
-9. Tick **Expire current versions of objects** → `30` days.
-10. Tick **Permanently delete noncurrent versions of objects** → `30` days.
-11. **Create rule**.
+8. **Lifecycle rule name:** `expire-30-days`.
+9. **Choose a rule scope:** **Limit the scope of this rule using one or more
+   filters**.
+10. **Filter type → Prefix:** `prod/` (no bucket name, no leading `/`). Leave
+    **Object tags** empty and both **Object size** boxes unticked — the prefix
+    is the only filter needed, and the red "You must specify an object tag or
+    another filter" message clears once the prefix is filled in.
+11. **Lifecycle rule actions:** tick exactly these two, leave the other three
+    unticked:
+    - **Expire current versions of objects**
+    - **Permanently delete noncurrent versions of objects**
+12. **Expire current versions of objects → Days after object creation:** `30`.
+13. **Permanently delete noncurrent versions of objects → Days after objects
+    become noncurrent:** `30`. Leave **Number of newer versions to retain**
+    empty.
+14. Check the **Review transition and expiration actions** panel at the bottom:
+    it should read **Day 30 · Objects expire** on the left and **Day 30 · All
+    other noncurrent versions are permanently deleted** on the right, with no
+    red text.
+15. **Create rule**.
 
 *Why let the bucket delete old backups instead of the script?* A script that
 deletes its own old backups is a script that can, with one bug, delete all of
