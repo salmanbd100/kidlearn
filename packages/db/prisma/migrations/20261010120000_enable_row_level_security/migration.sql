@@ -39,4 +39,10 @@ ALTER TABLE "account" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "session" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "user" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "verification" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
+-- Prisma's shadow database has no _prisma_migrations table, so migrate dev fails without the guard.
+DO $$
+BEGIN
+  IF to_regclass('"_prisma_migrations"') IS NOT NULL THEN
+    ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
