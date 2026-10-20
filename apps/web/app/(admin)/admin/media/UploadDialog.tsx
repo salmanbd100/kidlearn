@@ -22,8 +22,8 @@ import {
   registerMediaAsset,
   signMediaUpload,
   uploadToCloudinary,
-} from "@/features/admin/media-api";
-import { optionValue } from "@/features/admin/select-option";
+} from "@/features/admin/api/media-api";
+import { optionValue } from "@/features/admin/ui/select-option";
 
 type UploadState =
   | { phase: "idle" }

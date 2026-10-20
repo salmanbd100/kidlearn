@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import MissingAdminPage from "./[...missing]/page";
 import AdminError from "./error";
 import AdminNotFound from "./not-found";

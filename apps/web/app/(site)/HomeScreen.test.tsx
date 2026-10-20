@@ -75,12 +75,12 @@ describe("HomeScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("sends a child to the profile picker, a parent to sign-in and an admin to the CMS login", () => {
+  it("sends a signed-out child, a parent and an admin to the sign-in dialogs", () => {
     renderHome();
 
     expect(
       screen.getByRole("link", { name: "Start learning" }),
-    ).toHaveAttribute("href", "/select-profile");
+    ).toHaveAttribute("href", "/?signin=parent");
     expect(
       screen.getByRole("link", { name: "Parent sign-in" }),
     ).toHaveAttribute("href", "/?signin=parent");
@@ -94,6 +94,9 @@ describe("HomeScreen", () => {
     session.role = "parent";
     renderHome();
 
+    expect(
+      screen.getByRole("link", { name: "Start learning" }),
+    ).toHaveAttribute("href", "/select-profile");
     expect(
       screen.getByRole("link", { name: "Parent dashboard" }),
     ).toHaveAttribute("href", "/parent");
@@ -118,6 +121,10 @@ describe("HomeScreen", () => {
     session.role = "unknown";
     renderHome();
 
+    // The profile picker's guard sends a signed-out visitor to sign-in, so this is safe before the probe settles.
+    expect(
+      screen.getByRole("link", { name: "Start learning" }),
+    ).toHaveAttribute("href", "/select-profile");
     expect(
       screen.getByRole("link", { name: "Parent sign-in" }),
     ).toBeInTheDocument();

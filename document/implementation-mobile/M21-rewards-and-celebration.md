@@ -7,36 +7,36 @@
 
 ## Goal
 
-Pay the child. The reward step — stars bursting, coins counting up, a badge revealing itself, a character unlocking, a streak celebrating — all rendered from the **server's** completion response, plus the collection screens where a child can revisit what they have earned. This is the last step of the lesson flow and the file that makes the loop feel worth repeating.
+Pay the child. The reward step — stars bursting, coins counting up, a badge revealing itself, a character unlocking, a streak celebrating — calls the completion endpoint and renders everything from the **server's** response, plus the collection screens where a child can revisit what they have earned. This is the last step of the lesson flow and the file that makes the loop feel worth repeating.
 
 ## Context & Current State
 
-- Rewards are **entirely server-computed** (spec §7.3). `POST /api/progress/lessons/:id/complete` (called by M13's shell as the reward step mounts) returns `LessonCompletionResponse`: `{ starsEarned, coinsEarned, newBadges: NewBadge[], newCharacters: NewCharacter[], streak: { current, milestone: 3 | 7 | null }, totals: { stars, coins } }`. A badge is `{ id, slug, name, iconUrl | null }`, a character `{ id, slug, name, imageUrl | null }` — **there is no badge description field**, and `name` is a plain string from the row, not locale-resolved. `POST /api/progress/stories/:id/complete` returns the same unlock fields (`newBadges`, `newCharacters`, `streak`, `totals`) plus `alreadyCompleted` and `granted`, so M23 renders from the same components. The client animates what it is given and grants nothing itself.
+- Rewards are **entirely server-computed** (`apps/server/src/modules/rewards/reward.service.ts`, no router of its own). `POST /api/progress/lessons/:id/complete` returns `LessonCompletionResponse` (`packages/types/src/api/rewards.ts`): `{ starsEarned, coinsEarned, newBadges: NewBadge[], newCharacters: NewCharacter[], streak: { current, milestone: 3 | 7 | null }, totals: { stars, coins } }`. A badge is `{ id, slug, name, iconUrl | null }`, a character `{ id, slug, name, imageUrl | null }` — **there is no badge description field**, and `name` is a plain string from the row, not locale-resolved. `starsEarned` is what *this call* wrote: `0` on a replay, and badges/characters are empty on a replay; the day's activity coins may still appear. `POST /api/progress/stories/:id/complete` returns the same unlock fields (`newBadges`, `newCharacters`, `streak`, `totals`) plus `alreadyCompleted` and `granted: { stars, coins } | null`, so M23 renders from the same components. The client animates what it is given and grants nothing itself.
+- **Completion needs evidence and settled writes.** The server refuses with `409 LESSON_NOT_PLAYED` unless this run reached `activity` (and is not an already-paid run), and it derives the quiz star and per-answer coins from **stored** quiz responses. So the reward step awaits `pendingWrites.settled()` (M13's chain: every step report and M20's quiz submission) before calling. The endpoint is idempotent server-side (grants are guarded by the ledger's unique index), so `isIdempotent: true` lets M04's transport retry a dropped connection; there is no manual retry.
 - `packages/types/src/api/rewards.ts` provides `RewardTotalsSchema`, `RewardSummarySchema` (`{ stars, coins, badgeCount, currentStreak }`), `NewBadgeSchema`, `NewCharacterSchema`, `StreakMilestoneSchema`, `STREAK_MILESTONE_DAYS` (`[3, 7]`), `CompletionStreakSchema`, `LessonCompletionSchema` and `StoryCompletionSchema`; `api/children.ts` provides `AvatarCharacterSchema` and `CharacterUnlockSchema`.
-- Read endpoints (`requireParent` + `requireActiveChild`): `GET /api/me/rewards/summary` (already used by M11's home) and `GET /api/me/characters` → `{ characters: [{ id, slug, name, imageUrl, isDefault, isUnlocked }] }`, **every published character** flagged per child, alphabetical — enough to draw locked ones as silhouettes. (`GET /api/characters` is only the starter-avatar list for profile creation, not the catalogue.) **No endpoint lists a child's earned badges or the badge catalogue**, and `apps/web` has no collection screens; only `badgeCount` is available outside a completion response.
-- `apps/web/features/rewards/` is the reference: `StarBurst.tsx`, `CoinCountUp.tsx`, `BadgeReveal.tsx`, `StreakCelebration.tsx`. Match their sequence and their beats (`RewardStep.tsx` in `features/lesson/steps/` composes them) — a reward that lands differently on the two clients feels like two products.
+- Read endpoints (`requireParent` + `requireActiveChild`, under `/api/me`): `GET /api/me/rewards/summary` (already used by M11's home) and `GET /api/me/characters` → `{ characters: [{ id, slug, name, imageUrl, isDefault, isUnlocked }] }`, **every published character** flagged per child, alphabetical — enough to draw locked ones as silhouettes. (`GET /api/characters` is only the starter-avatar list for profile creation, not the catalogue.) **No endpoint lists a child's earned badges or the badge catalogue**, and `apps/web` has no collection screens; only `badgeCount` is available outside a completion response.
+- Web reference: `apps/web/features/lesson/steps/RewardStep.tsx` composes `apps/web/features/rewards/StarBurst.tsx` (`STAR_STAGGER_MS = 400`), `CoinCountUp.tsx` (`from`/`to`, ease-out, `COIN_COUNT_DURATION_MS = 1200`; the step counts `0 → coinsEarned`), `StreakCelebration.tsx`, and `apps/web/shared/components/kid/BadgeReveal.tsx` (one component, `kind: "badge" | "character"`); `apps/web/shared/lib/unlock-names.ts` joins several names through i18n. The sequence is **timer-driven**, phases `stars → coins → badges → characters → streak → mascot`, skipping phases with nothing in them; holds are `starsEarned × STAR_STAGGER_MS + 600`, `1200`, `2200` per unlock phase and `2000` for the streak; the mascot phase is terminal and the child taps "done". One clip per phase, never per item: a random cheer, `coin-1` (only when coins > 0), `unlock-1`, `streak-{locale}`, `celebration-{locale}`. A failed completion is logged and the celebration runs with no numbers. Match these beats — a reward that lands differently on the two clients feels like two products.
 - `apps/web` uses `canvas-confetti`; mobile has no canvas. Use Reanimated for the burst and `lottie-react-native` for badge and character reveals if a Lottie asset exists, otherwise a Reanimated composition. Do not add both libraries if one suffices — check the bundle cost.
-- M13's machine pauses in `status: "completing"` before the reward step; the step shows its celebratory waiting state until the completion response (or its failure) arrives. M14 gives the `celebrate` sound. M05 gives `useReducedMotion`.
+- M13 hands the step `pendingWrites` and does not report `reward` itself. M14 gives the feedback clips. M05 gives `useReducedMotion`.
 - design.md §5.2: animate `transform` and `opacity` only; respect reduced motion. §7: ≥64px targets. §10: kid copy 1–4 words with an icon and a voice-over.
 - NFR-PERF: a low-end Android phone is the target. A celebration that drops frames reads as a broken app at exactly the moment the child is supposed to feel good.
 
 ## Detailed Requirements
 
-1. **Reward step** (`components/lesson/steps/RewardStep.tsx`) — replaces M13's placeholder. Renders a **sequence**, not a pile: stars burst in → coins count up → badge reveals (if any) → character unlocks (if any) → streak celebration (if a milestone) → one big "Done" button. Each beat is skippable by a tap, and the whole sequence is skippable to the button — a child who has seen it forty times should not be held hostage by it.
-2. **Everything from the response.** The star count, coin delta, new badges, unlocked characters and streak milestone all come from `LessonCompletionResponse`. No client-side arithmetic, no "if score > 80 then 3 stars" rule in the app. If the response carries no badge, no badge appears.
-3. **Star burst** (`components/rewards/StarBurst.tsx`) — n stars (from the response) flying from the centre with a spring, settling into the counter. Reanimated on `transform`/`opacity`; under reduced motion the stars simply appear in place with the count.
-4. **Coin count-up** (`components/rewards/CoinCountUp.tsx`) — animates from the previous total to the new one over a short duration with the coin sound; under reduced motion it shows the final number immediately. Port the web component's easing and duration.
-5. **Badge reveal** (`components/rewards/BadgeReveal.tsx`) — the badge `iconUrl` image (Cloudinary, `expo-image`, prefetched during the completion request), its `name` (a plain string), with a scale-and-shine entrance. Reduced motion: a static presentation.
-6. **Character unlock** (`components/rewards/CharacterUnlock.tsx`) — a new character joining the collection: silhouette → colour, name, and a hint that it can be used as an avatar (FR-GAM-05). Tapping through goes to the collection screen rather than dead-ending.
-7. **Streak celebration** (`components/rewards/StreakCelebration.tsx`) — only when the response reports a milestone from `STREAK_MILESTONE_DAYS`. Shows the day count as a number **and** a shape (a chain of markers), with warm copy. A non-milestone day shows the streak quietly in the totals rather than celebrating (FR-GAM-06) — otherwise every day is a party and none of them mean anything.
-8. **Collection screens.**
-   - `app/(student)/collection/badges.tsx` — **blocked on a server read endpoint that does not exist** (see Context). Until one is added, show only `badgeCount` from the reward summary and the badges revealed at completion; do not invent a client-side catalogue. If an endpoint is added, earned badges are bright and unearned are silhouettes with names hidden but their count visible ("3 more to find!").
-   - `app/(student)/collection/characters.tsx` — from `GET /api/me/characters`: unlocked characters bright and selectable as the child's avatar, locked ones as silhouettes. Selecting calls `PATCH /api/children/:id` with `{ avatarCharacterId }` from M09, which needs only the signed-in parent session (no further gate); the server answers `400 VALIDATION_FAILED` (`field: "avatarCharacterId"`) for a character that is not a default or unlocked for this child, so surface that as a gentle retry rather than silence.
-   - Both reachable from the home screen (M11) with ≥64px entries.
-9. **Reduced motion is a first-class path, not a fallback.** Every celebration has a designed static form. Test with the OS setting on: the child must still learn what they earned.
-10. **Performance budget.** The whole sequence must hold 60fps (or the device's refresh rate) on a low-end Android device. Animate `transform`/`opacity` only, cap simultaneous animated nodes (a dozen stars, not eighty), and prefetch every image before the step renders. If a Lottie asset costs more than ~150KB, question it.
-11. **Replay mode.** M13 opens a completed lesson on `reward` in replay form. In that mode the sequence shows what was earned **previously** without implying a new award — no coin count-up from an old total, no "new badge" framing. Take the data from `GET /api/progress/lessons/:id` and the reward summary, not from a completion call that must not be repeated.
-12. **Tests** (`RewardStep.test.tsx`, plus one per reward component): the sequence renders only the beats the response contains; no badge in the response renders no badge; a tap skips the current beat and a second tap reaches the button; reduced motion renders every beat statically with the same information; the streak celebration appears only on a milestone; replay mode shows no "new" framing and fires no completion call; the collection screens show earned and locked states correctly.
+1. **Reward step** (`components/lesson/steps/RewardStep.tsx`) — replaces M13's placeholder. On mount: `await pendingWrites.settled()`, then `completeLesson(lesson.id)`, showing a celebratory loading state (sparkles, not a spinner) meanwhile. Then render web's **sequence**, not a pile: stars → coins → badges (if any) → characters (if any) → streak (if a milestone) → mascot with one big "Done". Each beat is skippable by a tap, and the whole sequence is skippable to the button — a child who has seen it forty times should not be held hostage by it.
+2. **Everything from the response.** Star count, coin delta, new badges, unlocked characters and the streak milestone all come from `LessonCompletionResponse`. No client-side arithmetic, no "if score > 80 then 3 stars" rule in the app. If the response carries no badge, no badge appears. On any failure (including `409 LESSON_NOT_PLAYED`), log it and run the celebration with no numbers — never grant locally and never retry by hand.
+3. **Star burst** (`components/rewards/StarBurst.tsx`) — `starsEarned` stars, staggered `STAR_STAGGER_MS`, with a spring. Reanimated on `transform`/`opacity`; under reduced motion the stars simply appear in place.
+4. **Coin count-up** (`components/rewards/CoinCountUp.tsx`) — `from`/`to` with web's ease-out over `COIN_COUNT_DURATION_MS`; the reward step counts `0 → coinsEarned`. Under reduced motion it shows the final number immediately.
+5. **Badge and character reveal** (`components/rewards/BadgeReveal.tsx`, `kind: "badge" | "character"`, as web) — the `iconUrl` / `imageUrl` (`expo-image`, prefetched while the completion request is in flight; a `null` URL gets a generic glyph), its `name` (a plain string; several names joined through i18n like `unlock-names.ts`), with a scale-and-shine entrance. For a character, a hint that it can now be the child's avatar (FR-GAM-05). Reduced motion: a static presentation.
+6. **Streak celebration** (`components/rewards/StreakCelebration.tsx`) — only when `streak.milestone` is set (`STREAK_MILESTONE_DAYS`). Shows the day count as a number **and** a shape (a chain of markers), with warm copy and the `streak` clip. A non-milestone day shows nothing extra (FR-GAM-06) — otherwise every day is a party and none of them mean anything.
+7. **Collection screens.**
+   - `app/(student)/collection/badges.tsx` — **blocked on a server read endpoint that does not exist** (see Context). Until one is added, show only `badgeCount` from the reward summary; do not invent a client-side catalogue. If an endpoint is added, earned badges are bright and unearned are silhouettes with names hidden but their count visible ("3 more to find!").
+   - `app/(student)/collection/characters.tsx` — from `GET /api/me/characters`: unlocked characters bright and selectable as the child's avatar, locked ones as silhouettes that play the `locked` clip (an invitation, never a refusal — as web's `AvatarPicker`). Selecting calls `PATCH /api/children/:id` with `{ avatarCharacterId }` (M09); the server answers `400 VALIDATION_FAILED` (`field: "avatarCharacterId"`) for a character that is neither a default nor unlocked for this child, so surface that as a gentle retry rather than silence.
+   - Both reachable from the home screen (M11) with ≥64px entries. These are mobile additions; web has none.
+8. **Reduced motion is a first-class path, not a fallback.** Every celebration has a designed static form. Test with the OS setting on: the child must still learn what they earned.
+9. **Performance budget.** The whole sequence must hold 60fps (or the device's refresh rate) on a low-end Android device. Animate `transform`/`opacity` only, cap simultaneous animated nodes, and prefetch every image before its beat. If a Lottie asset costs more than ~150KB, question it.
+10. **Replays need no special mode.** A finished lesson replays from `intro` (M13), so a replay reaches this step like any run and calls completion once it has been played through again. The server answers with `starsEarned: 0` and no unlocks (perhaps the day's coins); the sequence shows only what was granted, so nothing implies a new award. Do not read old progress to fake a past celebration.
+11. **Tests** (`RewardStep.test.tsx`, plus one per reward component): completion is called once and only after `pendingWrites.settled()` resolves; the sequence renders only the phases the response contains, in web's order; no badge in the response renders no badge; a failed or `409` completion celebrates without numbers and is not retried; a tap skips the current beat and a second tap reaches the button; reduced motion renders every beat statically with the same information; the streak celebration appears only on a milestone; a replay response (`starsEarned: 0`, empty unlocks) renders no star burst or unlock beats; the collection screens show earned and locked states correctly.
 
 ## Technical Approach & Suggestions
 
@@ -46,52 +46,63 @@ apps/mobile/components/lesson/steps/RewardStep.test.tsx
 apps/mobile/components/rewards/StarBurst.tsx
 apps/mobile/components/rewards/CoinCountUp.tsx
 apps/mobile/components/rewards/CoinCountUp.test.tsx
-apps/mobile/components/rewards/BadgeReveal.tsx
-apps/mobile/components/rewards/CharacterUnlock.tsx
+apps/mobile/components/rewards/BadgeReveal.tsx            # badge | character, as web
 apps/mobile/components/rewards/StreakCelebration.tsx
-apps/mobile/lib/reward-sequence.ts                  # pure: response -> ordered beats
+apps/mobile/lib/reward-sequence.ts                  # pure: response -> ordered phases with holds
 apps/mobile/lib/reward-sequence.test.ts
-apps/mobile/lib/characters-api.ts                   # GET /api/me/characters, GET /api/characters
+apps/mobile/lib/characters-api.ts                   # GET /api/me/characters
 apps/mobile/app/(student)/collection/badges.tsx
 apps/mobile/app/(student)/collection/characters.tsx
 ```
 
-Derive the sequence purely, so the step component is a player and the logic is testable:
+Derive the sequence purely, mirroring web's `buildSchedule`, so the step component is a player and the logic is testable:
 
 ```ts
 // apps/mobile/lib/reward-sequence.ts
 import type { LessonCompletionResponse } from "@kidlearn/types";
 
-export type RewardBeat =
-  | { kind: "stars"; count: number }
-  | { kind: "coins"; from: number; to: number }
-  | { kind: "badge"; badgeId: string }
-  | { kind: "character"; characterId: string }
-  | { kind: "streak"; days: number };
+const PHASES = ["stars", "coins", "badges", "characters", "streak", "mascot"] as const;
+export type RewardPhase = (typeof PHASES)[number];
 
-/** Only what the server actually granted, in a fixed order. */
-export function rewardSequence(completion: LessonCompletionResponse): RewardBeat[] {
-  const beats: RewardBeat[] = [];
-  if (completion.stars > 0) beats.push({ kind: "stars", count: completion.stars });
-  if (completion.coinsAwarded > 0) {
-    beats.push({ kind: "coins", from: completion.totals.coins - completion.coinsAwarded, to: completion.totals.coins });
-  }
-  for (const badge of completion.newBadges) beats.push({ kind: "badge", badgeId: badge.id });
-  for (const character of completion.newCharacters) beats.push({ kind: "character", characterId: character.id });
-  if (completion.streakMilestone) beats.push({ kind: "streak", days: completion.streakMilestone.days });
-  return beats;
+/** Only what the server granted, in web's order; `rewards` is undefined when completion failed. */
+export function rewardSequence(rewards: LessonCompletionResponse | undefined) {
+  const stars = rewards?.starsEarned ?? 0;
+  return PHASES.filter((phase) => {
+    if (phase === "badges") return (rewards?.newBadges.length ?? 0) > 0;
+    if (phase === "characters") return (rewards?.newCharacters.length ?? 0) > 0;
+    if (phase === "streak") return rewards?.streak.milestone != null;
+    return true;
+  }).map((phase) => ({
+    phase,
+    holdMs:
+      phase === "stars" ? stars * STAR_STAGGER_MS + STAR_PHASE_TAIL_MS
+      : phase === "coins" ? COIN_COUNT_DURATION_MS
+      : phase === "streak" ? STREAK_PHASE_MS
+      : UNLOCK_PHASE_MS,       // the mascot phase is terminal; its hold is unused
+  }));
 }
 ```
 
-(Field names above follow `LessonCompletionSchema` — read it and match it exactly rather than trusting this sketch.)
+The completion call, as web's `RewardStep` makes it:
 
-The star burst, bounded and cheap:
+```ts
+useEffect(() => {
+  let isCurrent = true;
+  void pendingWrites.settled()
+    .then(() => completeLesson(lesson.id))          // isIdempotent: true
+    .then((result) => {
+      if (!isCurrent) return;
+      if (!result.ok) console.warn(`completion not recorded: ${result.error.code}`);
+      setRewards(result.ok ? result.data : undefined);
+      setPhase("stars");
+    });
+  return () => { isCurrent = false; };
+}, [lesson.id, pendingWrites]);
+```
+
+The star burst, cheap on low-end Android — one shared value per star, transform + opacity only:
 
 ```tsx
-const STAR_CAP = 12;   // more than this is invisible and costs frames on low-end Android
-const stars = Array.from({ length: Math.min(count, STAR_CAP) });
-
-// Each star: one shared value, transform + opacity only.
 const style = useAnimatedStyle(() => ({
   opacity: progress.value,
   transform: [
@@ -105,39 +116,37 @@ const style = useAnimatedStyle(() => ({
 Skippable beats, so a fortieth playthrough is not a hostage situation:
 
 ```tsx
-<Pressable onPress={advanceBeat} accessibilityLabel={t("lesson:skipCelebration")} style={StyleSheet.absoluteFill}>
-  {renderBeat(beats[index])}
+<Pressable onPress={advancePhase} accessibilityLabel={t("lesson:skipCelebration")} style={StyleSheet.absoluteFill}>
+  {renderPhase(schedule[index])}
 </Pressable>
 ```
 
-Under reduced motion, render the *whole* sequence at once as a summary card (stars, coins, badge, character, streak) with a single "Done" — one screen, all the information, no motion. That is a better accommodation than five static screens in a row.
-
-Prefetch badge and character art during the completion request (M13 is already awaiting it), so the reveal never waits on a network round-trip.
+Under reduced motion, render the *whole* sequence at once as a summary card (stars, coins, badge, character, streak) with a single "Done" — one screen, all the information, no motion.
 
 ## Step-by-Step Plan
 
-1. Read `LessonCompletionSchema`, `NewBadgeSchema`, `NewCharacterSchema` and `StreakMilestoneSchema`, and the four web reward components; note the exact field names and animation timings. (~25 min)
-2. Write `lib/reward-sequence.ts` + tests (only granted beats, correct order, empty response). (~30 min)
+1. Read `LessonCompletionSchema`, `NewBadgeSchema`, `NewCharacterSchema`, `StreakMilestoneSchema`, web's `RewardStep.tsx`, the three `features/rewards/` components and `shared/components/kid/BadgeReveal.tsx`; note the phase holds and clips. (~25 min)
+2. Write `lib/reward-sequence.ts` + tests (only granted phases, web's order, failed completion, replay response). (~30 min)
 3. Build `CoinCountUp` (ported easing, reduced-motion branch) with its test. (~25 min)
-4. Build `StarBurst` with the cap and transform/opacity-only animation. (~30 min)
-5. Build `BadgeReveal` and `CharacterUnlock` with prefetched art and localised copy. (~35 min)
+4. Build `StarBurst` with transform/opacity-only animation. (~30 min)
+5. Build `BadgeReveal` (both kinds) with prefetched art and the null-URL glyph. (~30 min)
 6. Build `StreakCelebration`, milestone-only, with number + shape encoding. (~25 min)
-7. Build `RewardStep`: the beat player, tap-to-skip, the reduced-motion summary card, the final "Done" that calls `onComplete("reward")`. Test each branch. (~45 min)
-8. Add replay mode (no completion call, no "new" framing) and its test. (~25 min)
-9. Build `lib/characters-api.ts` and the two collection screens (earned/locked states, home-screen entries); confirm the avatar-change guard before wiring that button. (~40 min)
-10. Device pass: complete a real lesson on a **low-end Android phone**, watch for dropped frames, then repeat with reduced motion on and with TalkBack on. (~30 min)
-11. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
+7. Build `RewardStep`: settled-then-complete, the loading state, the phase player, tap-to-skip, the reduced-motion summary card, the final "Done" that calls `onComplete()`. Test each branch. (~45 min)
+8. Build `lib/characters-api.ts` and the two collection screens (earned/locked states, home-screen entries); confirm the avatar-change rejection path before wiring that button. (~40 min)
+9. Device pass: complete a real lesson on a **low-end Android phone**, watch for dropped frames, then replay it, then repeat with reduced motion on and with TalkBack on. (~30 min)
+10. `pnpm lint && pnpm typecheck && pnpm --filter mobile test`; commit; update the tracker. (~15 min)
 
 ## Acceptance Criteria
 
-- [ ] Every reward shown comes from `LessonCompletionResponse`; the app computes no stars, coins, badges, characters or streaks.
-- [ ] The sequence contains only the beats the server actually granted, in a fixed order, ending in one large "Done".
+- [ ] Completion is called once per run, only after `pendingWrites` has settled; the app computes no stars, coins, badges, characters or streaks.
+- [ ] The sequence contains only the phases the server actually granted, in web's order, ending on the mascot with one large "Done".
 - [ ] Any beat can be tapped through, and the whole sequence can be skipped to the button.
+- [ ] A failed or `409` completion celebrates without numbers, is logged, and is not retried by hand.
 - [ ] Reduced motion renders a single static summary carrying the same information — nothing is lost, only the movement.
-- [ ] The streak celebration appears only on a `STREAK_MILESTONE_DAYS` milestone; other days show the streak quietly.
-- [ ] Badge and character art is prefetched before the step renders; no reveal waits on the network.
-- [ ] The full celebration holds the device's refresh rate on a **low-end Android phone**, animating `transform`/`opacity` only, with the star count capped.
-- [ ] Replaying a completed lesson shows past rewards without "new" framing and triggers no completion call.
+- [ ] The streak celebration appears only on a `STREAK_MILESTONE_DAYS` milestone.
+- [ ] Badge and character art is prefetched before its beat; no reveal waits on the network.
+- [ ] The full celebration holds the device's refresh rate on a **low-end Android phone**, animating `transform`/`opacity` only.
+- [ ] A replayed lesson shows only what the replay's completion granted, with no "new" framing.
 - [ ] The character collection shows unlocked and locked characters; the badge screen shows the count (full gallery only once a server endpoint exists).
 - [ ] Selecting an unlocked character updates the child's avatar via `PATCH /api/children/:id`, and a rejected selection is shown gently, never silently.
 - [ ] TalkBack announces what was earned in every beat.

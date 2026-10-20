@@ -20,10 +20,10 @@ import { AudioLines, FolderOpen, TriangleAlert, Upload } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
-import { AdminFilterChip } from "@/features/admin/AdminFilterChip";
-import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
-import { useMediaPages } from "@/features/admin/use-media-pages";
+import { useMediaPages } from "@/features/admin/media/use-media-pages";
+import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
+import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
+import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { AttachDialog } from "./AttachDialog";
 import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";
@@ -361,7 +361,7 @@ function TabButton({
   );
 }
 
-/** Images use `next/image` `unoptimized`; see `features/admin/MediaPicker.tsx` for why. */
+/** Images use `next/image` `unoptimized`; see `features/admin/media/MediaPicker.tsx` for why. */
 function AssetPreview({ asset }: { asset: MediaAsset }) {
   if (asset.kind === "audio") {
     return (

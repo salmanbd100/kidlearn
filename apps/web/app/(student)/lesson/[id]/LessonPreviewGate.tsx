@@ -5,7 +5,7 @@ import type { Locale } from "@kidlearn/types";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StudentGuard } from "@/app/(student)/StudentGuard";
-import { fetchAdminMe } from "@/features/admin/admin-api";
+import { fetchAdminMe } from "@/features/admin/api/admin-api";
 import { LessonPlayer } from "@/features/lesson/LessonPlayer";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
 

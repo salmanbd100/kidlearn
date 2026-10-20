@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { GoogleIcon } from "./GoogleIcon";
 import { googleSignInUrl } from "./parent-api";
 
-/** The Google button and its two notes, shared by the homepage dialog and the bare sign-in page. */
+/** The Google button and its two notes, shared by the homepage dialog and the Student Portal gate. */
 export function ParentSignInOptions() {
   const { t } = useTranslation(PARENT_NAMESPACE);
 

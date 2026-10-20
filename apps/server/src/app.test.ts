@@ -101,22 +101,20 @@ describe("cross-origin writes", () => {
   const FOREIGN = "https://evil.kidlearn.net";
   const API_ORIGIN = new URL(env.BETTER_AUTH_URL).origin;
 
-  it.each([
-    "post",
-    "put",
-    "patch",
-    "delete",
-  ] as const)("refuses a %s from a foreign origin with a 403 envelope", async (method) => {
-    const res = await request(app)
-      [method]("/api/not-a-resource")
-      .set("Origin", FOREIGN);
+  it.each(["post", "put", "patch", "delete"] as const)(
+    "refuses a %s from a foreign origin with a 403 envelope",
+    async (method) => {
+      const res = await request(app)
+        [method]("/api/not-a-resource")
+        .set("Origin", FOREIGN);
 
-    // `sameSite=lax` still lets a sibling subdomain ride the session cookie; this is what stops it.
-    expect(res.status).toBe(403);
-    expect(res.body).toEqual({
-      error: { code: "FORBIDDEN", message: "Cross-origin request refused" },
-    });
-  });
+      // `sameSite=lax` still lets a sibling subdomain ride the session cookie; this is what stops it.
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({
+        error: { code: "FORBIDDEN", message: "Cross-origin request refused" },
+      });
+    },
+  );
 
   it("refuses the opaque `null` origin a sandboxed frame sends", async () => {
     const res = await request(app)
@@ -221,7 +219,9 @@ describe("security headers", () => {
     expect(csp).toContain("connect-src 'self'");
     expect(csp).not.toContain("default-src 'none'");
     // The CSP allows this bundle URL; if Scalar moves CDN this fails rather than the page blanking.
-    expect(res.text).toContain('src="https://cdn.jsdelivr.net/');
+    expect(res.text).toMatch(
+      /["']https:\/\/cdn\.jsdelivr\.net\/npm\/@scalar\/api-reference\//,
+    );
   });
 });
 

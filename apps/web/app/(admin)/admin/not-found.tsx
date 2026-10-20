@@ -1,6 +1,6 @@
 import { Button } from "@kidlearn/ui";
 import Link from "next/link";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 
 export default function AdminNotFound() {
   return (

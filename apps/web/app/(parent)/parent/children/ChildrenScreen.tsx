@@ -12,8 +12,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParentSession } from "@/app/(parent)/context/parent-session";
-import { ChildCard } from "@/features/children/ChildCard";
-import { DeleteChildDialog } from "@/features/children/DeleteChildDialog";
+import { ChildCard } from "@/features/children/profile/ChildCard";
+import { DeleteChildDialog } from "@/features/children/profile/DeleteChildDialog";
 import { deleteChild, listAvatars } from "@/features/parent/parent-api";
 
 export function ChildrenScreen() {

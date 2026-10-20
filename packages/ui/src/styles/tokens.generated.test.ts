@@ -17,12 +17,13 @@ const css = readFileSync(
 describe("tokens.css agrees with @kidlearn/tokens", () => {
   const rendered = renderTokenRegions();
 
-  it.each(
-    TOKEN_REGIONS,
-  )("the %s region holds exactly the generated declarations", (region) => {
-    // On failure edit packages/tokens/src/index.ts and run `pnpm --filter @kidlearn/ui tokens:generate`.
-    expect(readTokenRegion(css, region)).toEqual(rendered[region]);
-  });
+  it.each(TOKEN_REGIONS)(
+    "the %s region holds exactly the generated declarations",
+    (region) => {
+      // On failure edit packages/tokens/src/index.ts and run `pnpm --filter @kidlearn/ui tokens:generate`.
+      expect(readTokenRegion(css, region)).toEqual(rendered[region]);
+    },
+  );
 
   it("regenerating changes no declaration", () => {
     const again = writeTokenRegions(css);

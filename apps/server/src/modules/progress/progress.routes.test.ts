@@ -1757,23 +1757,22 @@ describe("POST /api/progress/events", () => {
     ]);
   });
 
-  it.each([
-    "heartbeat",
-    "session_start",
-    "story_complete",
-  ])("rejects %s — a client may not forge the rows a time limit is enforced from", async (type) => {
-    signInAs(childProfile());
+  it.each(["heartbeat", "session_start", "story_complete"])(
+    "rejects %s — a client may not forge the rows a time limit is enforced from",
+    async (type) => {
+      signInAs(childProfile());
 
-    const res = await postEvent({
-      type,
-      lessonId: LESSON_ID,
-      clientTs: CLIENT_TS,
-    });
+      const res = await postEvent({
+        type,
+        lessonId: LESSON_ID,
+        clientTs: CLIENT_TS,
+      });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe("VALIDATION_FAILED");
-    expect(store.events).toHaveLength(0);
-  });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("VALIDATION_FAILED");
+      expect(store.events).toHaveLength(0);
+    },
+  );
 });
 
 describe("POST /api/progress/quizzes/:quizId/responses", () => {

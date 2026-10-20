@@ -13,7 +13,10 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-vi.mock("@/features/parent/parent-api", () => api);
+vi.mock("@/features/parent/parent-api", () => ({
+  ...api,
+  googleSignInUrl: () => "http://localhost:4000/api/auth/google",
+}));
 
 const { ActiveChildProvider } = await import(
   "@/features/children/active-child"
@@ -133,16 +136,17 @@ describe("SelectProfileScreen", () => {
     expect(screen.getByText("Ask a grown-up to add you.")).toBeInTheDocument();
   });
 
-  it("sends a signed-out visitor to sign in", async () => {
+  it("asks a signed-out visitor to sign in over the picker instead of redirecting", async () => {
     api.fetchAuthMe.mockResolvedValue({
       ok: false,
       error: { code: "UNAUTHORIZED", message: "no session", status: 401 },
     });
     renderScreen();
 
-    await waitFor(() =>
-      expect(router.replace).toHaveBeenCalledWith("/parent/login"),
-    );
+    expect(
+      await screen.findByRole("dialog", { name: "Parent sign-in" }),
+    ).toBeInTheDocument();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("sends a parent whose consent is outdated to consent instead of offering profiles", async () => {

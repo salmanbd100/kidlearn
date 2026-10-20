@@ -135,11 +135,14 @@ describe("QuizEngine", () => {
       ["picture_select", validPictureSelect, "quiz-picture-select"],
       ["match_pair", validMatchPair, "quiz-match-pair"],
       ["drag_answer", validDragAnswer, "quiz-drag-answer"],
-    ])("renders a %s question from its payload", (_type, definition, testId) => {
-      renderEngine([{ id: "q1", definition }]);
+    ])(
+      "renders a %s question from its payload",
+      (_type, definition, testId) => {
+        renderEngine([{ id: "q1", definition }]);
 
-      expect(screen.getByTestId(testId)).toBeInTheDocument();
-    });
+        expect(screen.getByTestId(testId)).toBeInTheDocument();
+      },
+    );
 
     it("finishes with nothing when no question can be asked", () => {
       const error = vi.spyOn(console, "error").mockImplementation(() => {});

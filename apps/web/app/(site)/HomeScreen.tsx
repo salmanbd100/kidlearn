@@ -5,15 +5,15 @@ import { Languages, ShieldCheck, Trophy, UserCheck } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { Suspense } from "react";
-import { AdminSignInDialog } from "@/features/admin/AdminSignInDialog";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
+import { AdminSignInDialog } from "@/features/admin/shell/AdminSignInDialog";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { ParentSignInDialog } from "@/features/parent/ParentSignInDialog";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { Doodle } from "@/features/site/Doodle";
 import { HangingSection, toNumeral } from "@/features/site/HangingSection";
-import { HeroScene } from "@/features/site/HeroScene";
-import { HowItWorks } from "@/features/site/HowItWorks";
-import { Reveal } from "@/features/site/Reveal";
+import { HeroScene } from "@/features/site/home/HeroScene";
+import { HowItWorks } from "@/features/site/home/HowItWorks";
+import { Reveal } from "@/features/site/home/Reveal";
 import { SITE_ROUTES } from "@/features/site/site-routes";
 import { useIsMotionReducedAfterHydration } from "@/features/site/use-is-motion-reduced-after-hydration";
 import { useSignedInRole } from "@/features/site/use-signed-in-role";
@@ -69,9 +69,16 @@ export function HomeScreen() {
           </p>
           <div className="flex flex-col gap-4 sm:flex-row">
             <Button asChild size="kid">
-              <Link href={STUDENT_ROUTES.selectProfile}>
-                {t("home.startLearning")}
-              </Link>
+              {/* The portal needs a parent's session: signed out, ask for it here rather than on the bare page. */}
+              {role === "signedOut" ? (
+                <Link href={PARENT_ROUTES.login} replace scroll={false}>
+                  {t("home.startLearning")}
+                </Link>
+              ) : (
+                <Link href={STUDENT_ROUTES.selectProfile}>
+                  {t("home.startLearning")}
+                </Link>
+              )}
             </Button>
             {role === "parent" ? (
               <Button asChild size="kid" variant="outline">

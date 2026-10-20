@@ -90,7 +90,8 @@ Then read the spec. Branch names carry an implementation-file number
 (`14-parent-onboarding-profile-ui` → `document/implementation/14-*.md`); read that file's
 acceptance criteria and FR IDs and check the branch against them. **A branch that ships something
 other than what it was asked for is the most expensive finding available, and no linter will ever
-make it.** Say so if the branch name carries no file number, and skip this.
+make it.** A branch name with no file number is ad-hoc work (`general.md §7`) — say so, and
+skip this; it is not a finding.
 
 If the diff touches only `document/**`, `README` or `.github/**`, check the docs against the code
 they describe, report that the diff is documentation-only, and stop.
@@ -243,9 +244,22 @@ Always:
   quoting the numbered rule. A diff that changes a status gate, a cascade, a transaction or a
   unique constraint with no `.db.test.ts` assertion for it is a finding: the stub cannot see it. Test names describe observable
   behaviour, not implementation.
-- **The progress tracker** — `general.md §7` makes it mandatory and tags it `[REVIEW]`: the row in
-  `document/implementation/00-progress-tracker.md` for this branch's file reads `✅ Done` before
-  the branch is pushed. Also: one implementation file per branch, not two.
+- **The progress tracker** — `general.md §7` makes it mandatory for spec-driven work and tags it
+  `[REVIEW]`: the row in `document/implementation/00-progress-tracker.md` for this branch's file
+  reads `✅ Done` before the branch is pushed. Also: one implementation file per branch, not two.
+  Ad-hoc work (no implementation file) needs no file, no tracker row and no `NN-` branch name —
+  never report their absence. Uncommitted ad-hoc work sitting on `dev` is allowed too; it only
+  has to move to a branch before the first commit.
+- **Paths the standards name** — a diff that moves or renames files (`git diff --name-status -M`
+  shows `R` rows) can silently unscope a rule. Every path a recorded exception, a `[REVIEW]`
+  rule, `CLAUDE.md` or `design.md` names must still exist after the move, and every test that
+  sweeps source by directory (`no-external-links.test.tsx`, `viewport-chrome.test.ts`) must still
+  reach the moved files — a non-recursive `readdirSync` stops seeing a file pushed one level down,
+  and the test stays green. A stale path in an exception is a finding: the exception now covers
+  nothing, or the wrong file.
+- **A rule and its first application** — when a diff adds a rule to the standards and applies it
+  in the same branch, check the code against the rule as written. Code that contradicts the rule
+  it ships with is the example the next engineer copies.
 
 Frontend:
 

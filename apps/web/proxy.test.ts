@@ -73,20 +73,17 @@ describe("the paths the gate covers", () => {
     return unstable_doesMiddlewareMatch({ config, url });
   }
 
-  it.each([
-    "/",
-    "/parent",
-    "/select-profile",
-    "/world/1",
-  ])("runs on %s", async (url) => {
-    expect(await matches(url)).toBe(true);
-  });
+  it.each(["/", "/parent", "/select-profile", "/world/1"])(
+    "runs on %s",
+    async (url) => {
+      expect(await matches(url)).toBe(true);
+    },
+  );
 
-  it.each([
-    "/_next/static/chunks/main.js",
-    "/_next/image",
-    "/favicon.ico",
-  ])("does not run on %s", async (url) => {
-    expect(await matches(url)).toBe(false);
-  });
+  it.each(["/_next/static/chunks/main.js", "/_next/image", "/favicon.ico"])(
+    "does not run on %s",
+    async (url) => {
+      expect(await matches(url)).toBe(false);
+    },
+  );
 });

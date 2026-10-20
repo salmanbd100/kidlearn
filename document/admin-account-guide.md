@@ -181,7 +181,7 @@ ADMIN_NAME='Content Admin' \
 
 ### 4.1 The workspace
 
-Signing in lands you on **Analytics**. A fixed left sidebar (a top bar on narrow screens) holds six sections, and **Sign out** is in the shell:
+Signing in lands you on **Analytics**. A fixed left sidebar (a top bar on narrow screens) holds seven sections, and **Sign out** is in the shell:
 
 | Section | Route | What you do there |
 |---|---|---|
@@ -191,6 +191,7 @@ Signing in lands you on **Analytics**. A fixed left sidebar (a top bar on narrow
 | **Badges** | `/admin/badges` | Define badges — name, icon, and the rule that earns them |
 | **AI Queue** | `/admin/ai-queue` | Review everything the AI generated. The sidebar shows a live count of items waiting |
 | **Analytics** | `/admin/analytics` | The platform counters |
+| **Curriculum guide** | `/admin/guide` | How the CMS works and how to write content — read it before creating anything |
 
 The CMS is deliberately plain and desktop-first — the opposite of the child surface.
 
@@ -206,6 +207,8 @@ draft → in_review → approved → published
 **Children only ever see `published` content.** Every student-facing query filters to it, so a draft cannot leak. There is no shortcut from `rejected` straight to `published` — rejected content has to earn approval again.
 
 ### 4.3 Flow A — authoring a lesson by hand
+
+> The full field-by-field walkthrough — including publishing without Gemini — is in the CMS itself, at **Help → Curriculum guide** (`/admin/guide`).
 
 1. **Curriculum** → pick or create a Subject, then a Topic.
 2. Create a Lesson. Fill in the English and Bangla tabs: title, intro script, narration script, world, grade levels, video URLs.
@@ -268,6 +271,6 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 | `apps/server/src/config/auth.ts` | better-auth setup; password sign-up disabled; the 12-character floor |
 | `apps/server/src/shared/middleware/require-admin.ts` | The gate on every `/api/admin/*` route (`401` vs `403`) |
 | `apps/server/.env.example` | Every environment variable, with setup notes for each credential |
-| `apps/web/features/admin/AdminSignInDialog.tsx` | The login form, a dialog on the homepage |
-| `apps/web/features/admin/admin-routes.ts` | The CMS routing table and sidebar |
+| `apps/web/features/admin/shell/AdminSignInDialog.tsx` | The login form, a dialog on the homepage |
+| `apps/web/features/admin/shell/admin-routes.ts` | The CMS routing table and sidebar |
 | `packages/db/prisma/schema.prisma` | `AdminUser`, `user`, `account`, `session` models |

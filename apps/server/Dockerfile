@@ -18,7 +18,7 @@ WORKDIR /repo
 # Global rather than the lockfile's copy because nothing is installed yet; keep
 # the version in step with `turbo` in pnpm-lock.yaml.
 FROM base AS prune
-RUN npm install -g turbo@2.9.18
+RUN npm install -g turbo@2.11.7
 COPY . .
 RUN turbo prune server --docker
 

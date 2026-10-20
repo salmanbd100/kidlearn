@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 /**
  * Restores focus when what the child last touched has gone, so assistive-tech users don't restart from `<body>`.
  * Only when focus was dropped; effects run child-first so the innermost target wins. Needs `tabIndex={-1}`.
+ * A control disabled under focus counts as dropped: Firefox and Safari leave focus on it, stranding the keyboard.
  */
 
 const NEVER = Symbol("never");
@@ -20,7 +21,11 @@ export function useFocusWhenDropped<T extends HTMLElement>(key: unknown) {
     previous.current = key;
 
     const active = document.activeElement;
-    if (active !== null && active !== document.body) return;
+    const isDropped =
+      active === null ||
+      active === document.body ||
+      active.matches(":disabled");
+    if (!isDropped) return;
     ref.current?.focus({ preventScroll: true });
   }, [key]);
 

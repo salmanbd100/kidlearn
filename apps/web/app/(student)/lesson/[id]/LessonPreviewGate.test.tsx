@@ -6,7 +6,7 @@ import { resetI18nForTests } from "@/shared/lib/i18n";
 const LESSON_ID = "33333333-3333-4333-8333-333333333333";
 
 const admin = vi.hoisted(() => ({ fetchAdminMe: vi.fn() }));
-vi.mock("@/features/admin/admin-api", () => admin);
+vi.mock("@/features/admin/api/admin-api", () => admin);
 
 const player = vi.hoisted(() => ({ render: vi.fn() }));
 vi.mock("@/features/lesson/LessonPlayer", () => ({

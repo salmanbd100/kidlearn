@@ -26,6 +26,13 @@
 > **Requirement 10 was implemented on `39-ci-pipeline-and-branch-protection-fix-2`.** Its own pull
 > request against `dev` is the verification: if `gates` reports on it, the requirement is met, and
 > if it does not, the trigger list is still wrong. Nothing else about the branch proves it.
+>
+> **Requirement 6 landed 2026-10-08.** Ruleset 17802318 now targets `refs/heads/main` and
+> `refs/heads/dev` with four rules — `deletion`, `non_fast_forward`, `pull_request`
+> (`required_approving_review_count: 0`) and `required_status_checks` (`gates`, not strict) — and
+> keeps the repository-admin bypass. Read back after the `PUT`; on PR #61 (Dependabot, into `dev`)
+> GitHub reports `gates` as `isRequired: true` and the PR as `BLOCKED` while it fails. File 38a adds
+> `promotion-guard` on `main` to this same ruleset.
 
 ## Goal
 
@@ -690,17 +697,15 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
       `pnpm build`, `pnpm typecheck`, `pnpm test:coverage`.
 - [ ] The workflow declares no secrets and no `env:` block, and the run passes anyway — proving the
       "CI needs no database and no environment variables" finding in Context.
-- [ ] `gh api repos/salmanbd100/kidlearn/rulesets/17802318 --jq '[.rules[].type]'` returns all four
+- [x] `gh api repos/salmanbd100/kidlearn/rulesets/17802318 --jq '[.rules[].type]'` returns all four
       of `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks` — the two
-      pre-existing rules survived the `PUT`. **Outstanding at 2026-09-10:** that call returns
-      `["deletion","non_fast_forward"]`, and the ruleset's `conditions` still name
-      `~DEFAULT_BRANCH` alone rather than `main` and `dev`.
-- [ ] The PR page shows `gates` as a **required** check on both `main` and `dev`, and a PR cannot be
+      pre-existing rules survived the `PUT`. Verified 2026-10-08; `conditions` name
+      `refs/heads/main` and `refs/heads/dev`.
+- [x] The PR page shows `gates` as a **required** check on both `main` and `dev`, and a PR cannot be
       merged while it is failing (confirm by observing the merge button's state, not by reading the
-      ruleset back a second time). **Deferred until `apps/server`'s Supertest listener lifecycle is
-      fixed** — see requirement 6's ordering note. The file 14 fix this criterion
-      originally waited on landed in #44. Until then this file is complete without it, and the
-      tracker row says so.
+      ruleset back a second time). Observed on `dev` via PR #61 — `isRequired: true`,
+      `mergeStateStatus: BLOCKED` with `gates` failing. `main` shares the same rule; the next
+      `dev` → `main` PR is where it is first seen there.
 - [x] The whole suite passes under v8 instrumentation, and the coverage step's wall time is recorded
       in the PR description alongside the plain-`test` baseline. (2,577 tests at the time; **2,614
       across 166 files as re-measured 2026-09-10**, 23.6s — assert against the suite, not against
@@ -722,7 +727,7 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
       Scoping the grep to `document/standards` is the check, not a loophole.)
 - [ ] The recorded exception about mocking `@kidlearn/db` in `general.md §5` is **unchanged** —
       it is out of scope here.
-- [ ] `general.md §6`'s CI subsection states that repository admins can bypass the gate, so the
+- [x] `general.md §6`'s CI subsection states that repository admins can bypass the gate, so the
       tier's strength is described accurately rather than aspirationally.
 - [ ] `CLAUDE.md` has a CI section, and its other stale claims are **untouched** — they are out of
       scope, and `git diff CLAUDE.md` on this branch should be additive only.
