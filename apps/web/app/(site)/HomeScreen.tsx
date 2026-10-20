@@ -69,9 +69,16 @@ export function HomeScreen() {
           </p>
           <div className="flex flex-col gap-4 sm:flex-row">
             <Button asChild size="kid">
-              <Link href={STUDENT_ROUTES.selectProfile}>
-                {t("home.startLearning")}
-              </Link>
+              {/* The portal needs a parent's session: signed out, ask for it here rather than on the bare page. */}
+              {role === "signedOut" ? (
+                <Link href={PARENT_ROUTES.login} replace scroll={false}>
+                  {t("home.startLearning")}
+                </Link>
+              ) : (
+                <Link href={STUDENT_ROUTES.selectProfile}>
+                  {t("home.startLearning")}
+                </Link>
+              )}
             </Button>
             {role === "parent" ? (
               <Button asChild size="kid" variant="outline">
