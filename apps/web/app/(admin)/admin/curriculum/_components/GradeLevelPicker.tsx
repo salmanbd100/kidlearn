@@ -1,0 +1,69 @@
+"use client";
+
+import { GRADE_LEVELS, type GradeLevelValue } from "@kidlearn/types";
+import { cn } from "@kidlearn/ui";
+import { Check } from "lucide-react";
+import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
+
+const LABELS: Record<GradeLevelValue, string> = {
+  NURSERY: "Nursery",
+  KG1: "KG-1",
+  KG2: "KG-2",
+};
+
+const HINT_ID = "grade-levels-hint";
+
+export function GradeLevelPicker({
+  value,
+  onChange,
+  isBusy,
+}: {
+  value: GradeLevelValue[];
+  onChange: (next: GradeLevelValue[]) => void;
+  isBusy: boolean;
+}) {
+  const isEmpty = value.length === 0;
+
+  return (
+    <fieldset className="flex flex-col gap-2" aria-describedby={HINT_ID}>
+      <legend className="mb-2 font-medium text-foreground text-sm">
+        Grade levels
+      </legend>
+      <div className="flex flex-wrap gap-2">
+        {GRADE_LEVELS.map((grade) => {
+          const isOn = value.includes(grade);
+          return (
+            <AdminFilterChip
+              key={grade}
+              isSelected={isOn}
+              isDisabled={isBusy}
+              onClick={() =>
+                onChange(
+                  isOn
+                    ? value.filter((one) => one !== grade)
+                    : [...value, grade],
+                )
+              }
+            >
+              {isOn ? (
+                <Check aria-hidden="true" className="-ml-0.5 size-3.5" />
+              ) : null}
+              {LABELS[grade]}
+            </AdminFilterChip>
+          );
+        })}
+      </div>
+      <p
+        id={HINT_ID}
+        className={cn(
+          "text-xs",
+          isEmpty ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {isEmpty
+          ? "Pick at least one — content no grade can see is content nobody can see."
+          : "Which learners this appears for."}
+      </p>
+    </fieldset>
+  );
+}

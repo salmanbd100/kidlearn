@@ -9,11 +9,11 @@ import { Button, cn, useIsMotionReduced } from "@kidlearn/ui";
 import { Eye, EyeOff, Lock, LockOpen, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
 import {
   CONTENT_STATUS_LABELS as STATUS_LABELS,
   StatusChip,
-} from "@/features/admin/StatusChip";
-import { TransitionButtons } from "@/features/admin/TransitionButtons";
+} from "@/features/admin/ui/StatusChip";
 import { useFocusWhenDropped } from "@/shared/hooks/use-focus-when-dropped";
 import { swapTransition } from "./guide-sections";
 

@@ -271,6 +271,6 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 | `apps/server/src/config/auth.ts` | better-auth setup; password sign-up disabled; the 12-character floor |
 | `apps/server/src/shared/middleware/require-admin.ts` | The gate on every `/api/admin/*` route (`401` vs `403`) |
 | `apps/server/.env.example` | Every environment variable, with setup notes for each credential |
-| `apps/web/features/admin/AdminSignInDialog.tsx` | The login form, a dialog on the homepage |
-| `apps/web/features/admin/admin-routes.ts` | The CMS routing table and sidebar |
+| `apps/web/features/admin/shell/AdminSignInDialog.tsx` | The login form, a dialog on the homepage |
+| `apps/web/features/admin/shell/admin-routes.ts` | The CMS routing table and sidebar |
 | `packages/db/prisma/schema.prisma` | `AdminUser`, `user`, `account`, `session` models |

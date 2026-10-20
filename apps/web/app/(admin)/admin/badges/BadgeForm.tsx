@@ -14,9 +14,9 @@ import {
   Textarea,
 } from "@kidlearn/ui";
 import { type FormEvent, useState } from "react";
-import type { ContentDraft } from "@/features/admin/content-api";
-import { MediaPicker } from "@/features/admin/MediaPicker";
-import { optionValue } from "@/features/admin/select-option";
+import type { ContentDraft } from "@/features/admin/api/content-api";
+import { MediaPicker } from "@/features/admin/media/MediaPicker";
+import { optionValue } from "@/features/admin/ui/select-option";
 
 const RULE_LABELS: Record<BadgeRuleType, string> = {
   lessons_completed_in_topic: "Finish lessons in a topic",

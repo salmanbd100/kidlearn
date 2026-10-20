@@ -1,8 +1,11 @@
 "use client";
 
-import { GuideLayout, type GuideSection } from "@/features/site/GuideLayout";
-import { GuideSteps } from "@/features/site/GuideSteps";
-import { GuideText } from "@/features/site/GuideText";
+import {
+  GuideLayout,
+  type GuideSection,
+} from "@/features/site/guide/GuideLayout";
+import { GuideSteps } from "@/features/site/guide/GuideSteps";
+import { GuideText } from "@/features/site/guide/GuideText";
 
 const MANUAL = "user-journey-manual.md";
 

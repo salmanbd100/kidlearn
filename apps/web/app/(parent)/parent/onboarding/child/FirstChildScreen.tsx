@@ -3,7 +3,7 @@
 import { PARENT_NAMESPACE } from "@kidlearn/i18n";
 import { useTranslation } from "react-i18next";
 import { useParentSession } from "@/app/(parent)/context/parent-session";
-import { ChildProfileForm } from "@/features/children/ChildProfileForm";
+import { ChildProfileForm } from "@/features/children/profile/ChildProfileForm";
 import { OnboardingStep } from "@/features/parent/OnboardingStep";
 import { createChild } from "@/features/parent/parent-api";
 

@@ -5,7 +5,7 @@ const parentApi = vi.hoisted(() => ({ fetchAuthMe: vi.fn() }));
 const adminApi = vi.hoisted(() => ({ fetchAdminMe: vi.fn() }));
 
 vi.mock("@/features/parent/parent-api", () => parentApi);
-vi.mock("@/features/admin/admin-api", () => adminApi);
+vi.mock("@/features/admin/api/admin-api", () => adminApi);
 
 const { useSignedInRole } = await import("./use-signed-in-role");
 

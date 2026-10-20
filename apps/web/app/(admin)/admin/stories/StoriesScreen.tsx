@@ -5,10 +5,10 @@ import { Button } from "@kidlearn/ui";
 import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
-import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { fetchWorlds } from "@/features/admin/content-api";
+import { fetchWorlds } from "@/features/admin/api/content-api";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { GenerateStoryDialog } from "./GenerateStoryDialog";
 import { StoryMediaPanel } from "./StoryMediaPanel";
 

@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import {
   COPY_FAILED_LABEL,
   useCopyToClipboard,
-} from "@/features/admin/use-copy-to-clipboard";
+} from "@/features/admin/ui/use-copy-to-clipboard";
 
 export function CopyBlock({ label, text }: { label: string; text: string }) {
   const { copyState, copy } = useCopyToClipboard();

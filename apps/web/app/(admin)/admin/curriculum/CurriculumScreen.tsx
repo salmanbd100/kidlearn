@@ -21,9 +21,6 @@ import {
 import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AdminEmptyState } from "@/features/admin/AdminEmptyState";
-import { AdminPageHeader } from "@/features/admin/AdminPageHeader";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
 import {
   type ContentDraft,
   createContent,
@@ -34,16 +31,19 @@ import {
   reorderContent,
   transitionContent,
   updateContent,
-} from "@/features/admin/content-api";
-import { createQuiz } from "@/features/admin/editors-api";
-import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
-import { StatusChip } from "@/features/admin/StatusChip";
-import { TransitionButtons } from "@/features/admin/TransitionButtons";
-import { type ColumnItem, ContentColumn } from "./ContentColumn";
-import { ContentForm } from "./ContentForm";
-import { GenerateLessonDialog } from "./GenerateLessonDialog";
-import { GenerateQuizButton } from "./GenerateQuizButton";
-import { LessonForm } from "./LessonForm";
+} from "@/features/admin/api/content-api";
+import { createQuiz } from "@/features/admin/api/editors-api";
+import { GenerateNarrationButton } from "@/features/admin/editors/GenerateNarrationButton";
+import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
+import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
+import { StatusChip } from "@/features/admin/ui/StatusChip";
+import { type ColumnItem, ContentColumn } from "./_components/ContentColumn";
+import { ContentForm } from "./_components/ContentForm";
+import { GenerateLessonDialog } from "./_components/GenerateLessonDialog";
+import { GenerateQuizButton } from "./_components/GenerateQuizButton";
+import { LessonForm } from "./_components/LessonForm";
 
 type DialogState =
   | { kind: "closed" }

@@ -2,8 +2,8 @@
 
 import { Button, Input, Label } from "@kidlearn/ui";
 import { useState } from "react";
-import { generateIllustrations } from "@/features/admin/ai-api";
-import { GenerateNarrationButton } from "@/features/admin/GenerateNarrationButton";
+import { generateIllustrations } from "@/features/admin/api/ai-api";
+import { GenerateNarrationButton } from "@/features/admin/editors/GenerateNarrationButton";
 
 /** Loose enough to catch a typo, not a validator — the server owns that. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

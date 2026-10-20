@@ -2,7 +2,7 @@ import { siteResources } from "@kidlearn/i18n/site";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { GuideSection } from "@/features/site/GuideLayout";
+import type { GuideSection } from "@/features/site/guide/GuideLayout";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
 import {

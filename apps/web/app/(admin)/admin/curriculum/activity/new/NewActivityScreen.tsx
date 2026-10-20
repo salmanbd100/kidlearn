@@ -5,10 +5,10 @@ import { Button } from "@kidlearn/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ActivityEditor } from "@/features/admin/ActivityEditor";
-import { emptyActivityDraft } from "@/features/admin/activity-draft";
-import { ADMIN_ROUTES } from "@/features/admin/admin-routes";
-import { createActivity } from "@/features/admin/editors-api";
+import { createActivity } from "@/features/admin/api/editors-api";
+import { ActivityEditor } from "@/features/admin/editors/ActivityEditor";
+import { emptyActivityDraft } from "@/features/admin/editors/activity-draft";
+import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 
 export function NewActivityScreen() {
   const router = useRouter();

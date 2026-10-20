@@ -1,12 +1,15 @@
 "use client";
 
-import { LifecycleDiagram } from "@/features/site/diagrams/LifecycleDiagram";
-import { MonorepoDiagram } from "@/features/site/diagrams/MonorepoDiagram";
-import { RequestDiagram } from "@/features/site/diagrams/RequestDiagram";
 import { ExternalLink } from "@/features/site/ExternalLink";
-import { GuideFacts } from "@/features/site/GuideFacts";
-import { GuideLayout, type GuideSection } from "@/features/site/GuideLayout";
-import { GuideText } from "@/features/site/GuideText";
+import { LifecycleDiagram } from "@/features/site/guide/diagrams/LifecycleDiagram";
+import { MonorepoDiagram } from "@/features/site/guide/diagrams/MonorepoDiagram";
+import { RequestDiagram } from "@/features/site/guide/diagrams/RequestDiagram";
+import { GuideFacts } from "@/features/site/guide/GuideFacts";
+import {
+  GuideLayout,
+  type GuideSection,
+} from "@/features/site/guide/GuideLayout";
+import { GuideText } from "@/features/site/guide/GuideText";
 import { REPO_DOC_URL } from "@/features/site/site-routes";
 import { useSiteTranslation } from "@/features/site/use-site-translation";
 
