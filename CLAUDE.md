@@ -124,7 +124,7 @@ The app has three product surfaces and one public site, sharing one component li
 - **Parent Dashboard** `(parent)` — dense, professional, reached from the signed-in Google session. `<ThemeScope theme="parent">`. A bare `data-theme` div is not enough: Radix dialogs and menus portal into `<body>`, outside it, and only `ThemeScope` carries the theme to them.
 - **Admin CMS** `(admin)` — curriculum, media, stories, badges, the AI review queue and analytics, behind a grouped sidebar. Shared CMS pieces (`AdminPageHeader`, `AdminEmptyState`, `AdminFilterChip`, `StatusChip`, …) live in `features/admin/ui/`.
 
-Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either — a signed-out student session goes to `/parent/login` (`PARENT_ROUTES.signInPage`), the same sign-in on a bare page with no site chrome. Full rules: `document/standards/frontend.md §3` "Route organisation".
+Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either — a signed-out student session gets `ParentSignInGate` in place, the same sign-in as a dialog that cannot be closed, so a child is never sent to the homepage. There is no `/parent/login` page. Full rules: `document/standards/frontend.md §3` "Route organisation".
 
 Token values swap at runtime via CSS variables (`--primary`, `--background`, etc.) — components never branch on theme in JS.
 

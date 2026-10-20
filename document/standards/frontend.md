@@ -205,7 +205,7 @@ The app has three product surfaces and one public site. Each lives in its own Ap
 app/
 ├── (site)/         # Public homepage and guides — kid theme, unauthenticated
 ├── (student)/      # Student Portal — kid theme, full-bleed, gamified
-├── (parent)/       # Parent Dashboard — parent theme, Google session only (sign-in: homepage dialog, or /parent/login)
+├── (parent)/       # Parent Dashboard — parent theme, Google session only (sign-in: homepage dialog, or the Student Portal's gate)
 └── (admin)/        # Admin CMS — internal, content management
 ```
 
@@ -213,7 +213,7 @@ A layout file in `(student)` must never import components from `(parent)` or `(a
 
 `(site)` owns `/` and `/guide/*` (FR-SITE-01..03). It is public, needs no session, and is scoped `<ThemeScope theme="kid">` so it reads as the same product — but it is **not part of the Student Portal**. It carries external links (GitHub), which NFR-SAFE-07 forbids on the child's surface, so the rule runs one way: no `(student)` screen links to a `(site)` route, and `app/(student)/no-external-links.test.tsx` fails if one does. The root `not-found.tsx` is shared by every surface and still links to `/`; the homepage's primary action leads a child straight back to `/select-profile`.
 
-Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either: a signed-out session on the student surface — `StudentGuard` and the profile picker — goes to `/parent/login` (`PARENT_ROUTES.signInPage`), the same sign-in on a bare page inside `(parent)` with no site chrome, because a child who dismissed the homepage dialog would be one tap from GitHub. `no-external-links.test.tsx` sweeps `(student)` and `features/student` for `PARENT_ROUTES.login`, `ADMIN_ROUTES.login` and a bare `/` as a navigation target. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
+Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent` (`PARENT_ROUTES.login`) and `?signin=admin` (`ADMIN_ROUTES.login`); `/admin/login` only redirects there. The Student Portal never uses either: a signed-out session on the student surface — `StudentGuard` and the profile picker — renders `ParentSignInGate` (`features/parent/ParentSignInDialog.tsx`) in place: the same sign-in as a dialog with `isDismissable={false}`, because a child who dismissed the homepage dialog would be one tap from GitHub. There is no bare sign-in page. On the homepage, **Start learning** opens the homepage dialog for a signed-out visitor rather than routing into the portal. `no-external-links.test.tsx` sweeps `(student)` and `features/student` for `PARENT_ROUTES.login`, `ADMIN_ROUTES.login` and a bare `/` as a navigation target. Its pieces live in `features/site/` — a web-only domain with no server module, so the "feature names track the server" rule in §2 does not bind it. **[REVIEW]**
 
 ### Component files
 

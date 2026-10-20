@@ -10,6 +10,7 @@ import {
   ThemeScope,
 } from "@kidlearn/ui";
 import { HeartHandshake } from "lucide-react";
+import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryDialog } from "@/shared/hooks/use-query-dialog";
 import { ParentSignInOptions } from "./ParentSignInOptions";
@@ -21,30 +22,57 @@ export function ParentSignInDialog() {
   const { isOpen, onOpenChange } = useQueryDialog(PARENT_SIGN_IN_PARAM);
 
   return (
+    <SignInDialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent
+        size="sm"
+        closeLabel={t("login.close")}
+        className="gap-6 p-8"
+      >
+        <SignInBody />
+      </DialogContent>
+    </SignInDialog>
+  );
+}
+
+/**
+ * The same sign-in over a signed-out Student Portal screen. It cannot be closed: the only other place it
+ * could send a child is the homepage, which carries external links (NFR-SAFE-07).
+ */
+export function ParentSignInGate() {
+  return (
+    <SignInDialog open>
+      <DialogContent size="sm" isDismissable={false} className="gap-6 p-8">
+        <SignInBody />
+      </DialogContent>
+    </SignInDialog>
+  );
+}
+
+function SignInDialog({ children, ...props }: ComponentProps<typeof Dialog>) {
+  return (
     // A parent surface on a kid-themed page; the scope carries the theme into the portal.
     <ThemeScope theme="parent" className="contents font-ui text-foreground">
-      <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent
-          size="sm"
-          closeLabel={t("login.close")}
-          className="gap-6 p-8"
-        >
-          {/* Centred, so `flush`: the close button sits above the icon, clear of the title. */}
-          <DialogHeader
-            gutter="flush"
-            className="items-center gap-3 text-center"
-          >
-            <span className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <HeartHandshake aria-hidden="true" className="size-7" />
-            </span>
-            <DialogTitle className="text-2xl">{t("login.title")}</DialogTitle>
-            <DialogDescription className="text-base leading-relaxed">
-              {t("login.subtitle")}
-            </DialogDescription>
-          </DialogHeader>
-          <ParentSignInOptions />
-        </DialogContent>
-      </Dialog>
+      <Dialog {...props}>{children}</Dialog>
     </ThemeScope>
+  );
+}
+
+function SignInBody() {
+  const { t } = useTranslation(PARENT_NAMESPACE);
+
+  return (
+    <>
+      {/* Centred, so `flush`: the close button sits above the icon, clear of the title. */}
+      <DialogHeader gutter="flush" className="items-center gap-3 text-center">
+        <span className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <HeartHandshake aria-hidden="true" className="size-7" />
+        </span>
+        <DialogTitle className="text-2xl">{t("login.title")}</DialogTitle>
+        <DialogDescription className="text-base leading-relaxed">
+          {t("login.subtitle")}
+        </DialogDescription>
+      </DialogHeader>
+      <ParentSignInOptions />
+    </>
   );
 }

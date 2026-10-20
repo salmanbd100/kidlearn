@@ -8,7 +8,6 @@ import type {
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { SITE_ROUTES } from "@/features/site/site-routes";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
@@ -224,18 +223,10 @@ describe("no route into the public site from the Student Portal", () => {
   });
 
   it("never sends a child to the homepage sign-in dialogs", () => {
-    // Both open over the homepage; the portal's signed-out redirect uses `PARENT_ROUTES.signInPage`.
+    // Both open over the homepage; a signed-out portal shows `ParentSignInGate` in place instead.
     const offending = sources
       .filter(({ text }) => /\b(PARENT|ADMIN)_ROUTES\.login\b/.test(text))
       .map(({ file }) => file);
     expect(offending).toEqual([]);
-  });
-
-  it("signs a child's device out to a page outside the public site", () => {
-    const { pathname } = new URL(
-      PARENT_ROUTES.signInPage,
-      window.location.origin,
-    );
-    expect(Object.values(SITE_ROUTES)).not.toContain(pathname);
   });
 });

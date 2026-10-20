@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/features/children/active-child";
+import { ParentSignInGate } from "@/features/parent/ParentSignInDialog";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
@@ -16,17 +17,18 @@ export function StudentGuard({ children }: { children: ReactNode }) {
 
   // Consent before the profile picker: the API refuses every progress write until the current text is accepted.
   const redirectTo =
-    status === "signedOut"
-      ? PARENT_ROUTES.signInPage
-      : status === "ready" && parent?.hasCurrentConsent === false
-        ? PARENT_ROUTES.consent
-        : status === "ready" && child === undefined
-          ? STUDENT_ROUTES.selectProfile
-          : undefined;
+    status === "ready" && parent?.hasCurrentConsent === false
+      ? PARENT_ROUTES.consent
+      : status === "ready" && child === undefined
+        ? STUDENT_ROUTES.selectProfile
+        : undefined;
 
   useEffect(() => {
     if (redirectTo !== undefined) router.replace(redirectTo);
   }, [redirectTo, router]);
+
+  // Signed in here rather than sent away: the homepage's dialog sits one tap from external links.
+  if (status === "signedOut") return <ParentSignInGate />;
 
   if (status === "error") {
     return (

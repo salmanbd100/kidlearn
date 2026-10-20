@@ -354,7 +354,7 @@ Web route → mobile route, with the porting note that matters:
 | Web route | Mobile route | Porting note |
 | --- | --- | --- |
 | `/` homepage, `/guide/*` | — | Web only (FR-SITE). The app launches into the sign-in screen or the profile picker. |
-| homepage `?signin=parent` dialog, `/parent/login` | `(parent)/login` | Google + Apple buttons (§7), `expo-web-browser` session, Apple's native sheet on iOS. No password field. |
+| homepage `?signin=parent` dialog, Student Portal sign-in gate | `(parent)/login` | Google + Apple buttons (§7), `expo-web-browser` session, Apple's native sheet on iOS. No password field. |
 | `StudentGuard` | `(student)/_layout` guard | Same order as web: signed out → login; `!hasCurrentConsent` → consent; no active child → profile picker. |
 | `/select-profile` | `(student)/select-profile` | Avatar grid; sets active child via `POST /api/children/:id/activate`, not local state. Carries the **named parent chip** (`parent.avatarUrl` + first name from `/api/auth/me`) rather than the anonymous lock the other student screens use — same door, named only here. See `user-journey-manual.md §4.2`. |
 | `ParentCorner` lock | lock button in the student layout | Leads to the parent area with no PIN. Top corner, outside the thumb zone; hidden on the lesson and story players, which put their own exit there. |

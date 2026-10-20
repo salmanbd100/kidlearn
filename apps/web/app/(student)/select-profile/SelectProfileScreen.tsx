@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/features/children/active-child";
+import { ParentSignInGate } from "@/features/parent/ParentSignInDialog";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { ProfileCard } from "@/features/student/ProfileCard";
 import { StudentStatus } from "@/shared/components/kid/StudentStatus";
@@ -21,11 +22,9 @@ export function SelectProfileScreen() {
   useScreenNarration("selectProfile");
 
   const redirectTo =
-    status === "signedOut"
-      ? PARENT_ROUTES.signInPage
-      : status === "ready" && parent?.hasCurrentConsent === false
-        ? PARENT_ROUTES.consent
-        : undefined;
+    status === "ready" && parent?.hasCurrentConsent === false
+      ? PARENT_ROUTES.consent
+      : undefined;
 
   useEffect(() => {
     if (redirectTo !== undefined) router.replace(redirectTo);
@@ -46,6 +45,8 @@ export function SelectProfileScreen() {
     setPendingId(undefined);
     setHasFailed(true);
   };
+
+  if (status === "signedOut") return <ParentSignInGate />;
 
   if (status === "error" || hasFailed) {
     return (
