@@ -197,49 +197,40 @@ repo, `pnpm` fails with "No projects matched the filters". It also needs:
 | The AWS CLI signed in as `salman-admin` ([Step 3](02-accounts.md)) | The `eval` line reads `/kidlearn/prod/*` from Parameter Store |
 | An internet connection | The script connects straight to Supabase |
 
-Run it in **two separate goes**:
-
-**1. Go to the repo and start bash.** Type these and press Enter. The commands
-in step 2 are written for bash, and macOS's default shell is zsh:
+Paste this into your normal Terminal prompt as **one block**. Keep the space
+before `cd`: it keeps the block, password included, out of zsh history.
 
 ```bash
-cd ~/Documents/Me/kidlearn
-bash
-```
-
-The prompt changes to `bash-3.2$`, under a notice that "the default
-interactive shell is now zsh". That notice is normal; ignore it.
-
-**2. Then paste this block** at the `bash-3.2$` prompt:
-
-```bash
+ cd ~/Documents/Me/kidlearn && bash <<'EOF'
 set -a
 eval "$(aws ssm get-parameters-by-path --path /kidlearn/prod/ --with-decryption \
   --recursive --region ap-south-1 --query 'Parameters[].[Name,Value]' --output text \
   | while IFS=$'\t' read -r n v; do printf '%s=%q\n' "${n##*/}" "$v"; done)"
 set +a
-
+[ -n "$DATABASE_URL" ] || { echo "No DATABASE_URL — is the AWS CLI signed in?"; exit 1; }
+echo "Database: $(echo "$DATABASE_URL" | sed -E 's#(//[^:]*):[^@]*@#\1:***@#')"
 ADMIN_EMAIL='you@example.com' \
 ADMIN_PASSWORD='<at least 12 characters>' \
 ADMIN_NAME='<your name>' \
-pnpm --filter server seed:admin
-
-exit
+  pnpm --filter server seed:admin
+EOF
 ```
 
-*Why two goes?* If `bash` is pasted together with the rest, it starts a new
-shell, and the lines after it never reach that shell: nothing runs, and you
-are left at a bare `bash-3.2$` prompt. If that happens, paste the step 2 block
-again at that prompt.
+*Why a heredoc:* everything between `<<'EOF'` and `EOF` runs in a separate
+bash process that ends when the block does, so the production secrets vanish
+with it and your Terminal stays open. Do **not** paste `bash` and `exit` as
+separate lines instead: in zsh, a stray `exit` closes the Terminal window and
+the seed's output — including any error — goes with it.
 
 *What that block does, line by line:* `set -a` means "every variable I set from
 now on is exported". The long `eval` line asks Parameter Store for every
 `/kidlearn/prod/*` value, turns `/kidlearn/prod/DATABASE_URL` into
-`DATABASE_URL=…`, and sets it in this shell only. `set +a` stops exporting.
-Then the seed script runs with those values. `exit` leaves the bash shell and
-throws the variables away.
+`DATABASE_URL=…`, and sets it in that bash process only. `set +a` stops
+exporting. The `Database:` line prints the host and project ref with the
+password hidden — check it is the production Supabase project before trusting
+the result. Then the seed script runs with those values.
 
-Then **close this Terminal window** — it held production secrets in memory.
+*Use a password with no `'` in it.* A single quote ends the quoted value early.
 
 > **Behind the scenes — how this works before any server exists**
 >
@@ -271,8 +262,23 @@ Then **close this Terminal window** — it held production secrets in memory.
 > - **Order matters:** database ([Step 8](04-database-and-services.md)) → secrets (Step 13) → admin (this step)
 >   → server (Steps 17–23). Each step needs only what came before it.
 
-✅ **Check:** the script says the admin was created. Save email and password in
-your sheet. (Running it again with a new password is how you reset it.)
+✅ **Check:** the script prints `Created admin …` (or `Updated admin …` on a
+re-run). It only prints that after re-reading the account and verifying the
+password exactly the way sign-in will, so success here means the password works.
+Save email and password in your sheet. (Running it again with a new password is
+how you reset it.)
+
+Once the server is up ([Step 23](06-server.md)), you can confirm sign-in from
+the API itself, without the browser's saved passwords getting in the way (keep
+the leading space):
+
+```bash
+ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.kidlearn.net/api/auth/sign-in/email \
+  -H 'Origin: https://kidlearn.net' -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"<the password>"}'
+```
+
+`200` means the account works. `401` — see [Troubleshooting](troubleshooting.md).
 
 ## Step 15 · 🌐 Image storage — ECR
 

@@ -110,13 +110,21 @@ beforeEach(() => {
   vi.spyOn(context.password, "hash").mockImplementation(
     async (plain: string) => `hashed:${plain}`,
   );
+  vi.spyOn(context.password, "verify").mockImplementation(
+    async ({ hash, password }: { hash: string; password: string }) =>
+      hash === `hashed:${password}`,
+  );
 
   vi.spyOn(context.internalAdapter, "findUserByEmail").mockImplementation(
     // The fake supplies only the fields `seedAdmin` reads, so it is narrowed at this boundary.
-    (async (email: string) => {
+    (async (email: string, options?: { includeAccounts?: boolean }) => {
       const user = identity.users.find((row) => row.email === email);
       if (!user) return null;
-      return { user, accounts: identity.accounts.get(user.id) ?? [] };
+      // better-auth joins accounts only when asked; without the flag they come back empty.
+      const accounts = options?.includeAccounts
+        ? (identity.accounts.get(user.id) ?? [])
+        : [];
+      return { user, accounts };
     }) as unknown as typeof context.internalAdapter.findUserByEmail,
   );
 
@@ -244,6 +252,26 @@ describe("seedAdmin", () => {
     expect(identity.accounts.get(AUTH_USER_ID)).toEqual([
       { providerId: "credential", password: `hashed:${PASSWORD}` },
     ]);
+  });
+
+  it("fails instead of reporting success when a credential row did not take the new password", async () => {
+    // What an earlier seed left in production: a second credential row that sign-in can pick ahead of the updated one.
+    identity.users.push({ id: AUTH_USER_ID, email: EMAIL, name: NAME });
+    identity.accounts.set(AUTH_USER_ID, [
+      { providerId: "credential", password: "hashed:an-old-password" },
+      { providerId: "credential", password: "hashed:an-old-password" },
+    ]);
+    vi.mocked(context.internalAdapter.updatePassword).mockImplementationOnce(
+      async (userId: string, password: string) => {
+        const [first] = identity.accounts.get(userId) ?? [];
+        first.password = password;
+      },
+    );
+
+    await expect(
+      seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME }),
+    ).rejects.toThrow(/sign-in would fail/);
+    expect(db.adminUpsert).not.toHaveBeenCalled();
   });
 
   it("re-asserts the link on an AdminUser row whose identity was cleared", async () => {
