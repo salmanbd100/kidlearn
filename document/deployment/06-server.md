@@ -146,7 +146,14 @@ nothing to steal.
 **Advanced details** (click to open — it is closed by default):
 
 - **IAM instance profile:** `kidlearn-instance`
+- **Credit specification:** **Standard** ← the default for `t4g` is Unlimited
 - **User data:** paste the whole `bootstrap.sh` from 18a
+
+*Why Standard?* In Unlimited mode a server that stays busy after its CPU
+credits run out keeps running at full speed, and AWS bills the extra. Anyone
+can cause that by aiming a script at the API. In Standard mode the CPU drops
+back to its 20% baseline instead: the API slows down, but it can never cost
+more than the price above. [Part 0.13](00-understand.md) explains credits.
 
 Click **Launch instance**.
 
@@ -187,7 +194,10 @@ then point at nothing. An Elastic IP never changes.
 > Do not make extra Elastic IPs "just in case". AWS charges for each one, used or
 > not.
 
-✅ **Check:** EC2 → Instances shows `kidlearn` as **Running**. Write the
+✅ **Check:** EC2 → Instances shows `kidlearn` as **Running**. Tick it →
+**Details** tab → **Credit specification** says **standard**. If it says
+**unlimited**, fix it without a restart: **Actions → Instance settings →
+Change credit specification** → untick **Unlimited** → **Save**. Write the
 **Instance ID** (`i-0…`) and the **Elastic IP** in your sheet.
 
 ## Step 19 · 🌐 DNS record for the API — Cloudflare

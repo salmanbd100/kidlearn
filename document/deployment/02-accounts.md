@@ -116,9 +116,10 @@ Write the 12-digit number in your values sheet as **AWS account ID**.
 **Cost:** $0. A budget that only sends emails is free.
 
 **Why:** if you make a mistake (for example a bigger server than planned), AWS
-keeps charging silently. The `t4g` server also runs in "unlimited CPU" mode by
-default, which bills extra rather than slowing down under heavy load. This alarm
-emails you before the bill grows.
+keeps charging silently. This alarm emails you before the bill grows. (The
+server's CPU cannot add to the bill: [Step 18](06-server.md) launches it in
+**Standard** credit mode, which slows down under heavy load instead of billing
+extra.)
 
 1. Search **Billing and Cost Management** → left side **Budgets** → **Create
    budget**.

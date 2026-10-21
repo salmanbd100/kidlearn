@@ -282,7 +282,7 @@ AWS changes prices, so check them in the
 
 | Service | Step | $/month | What would make it cost more |
 |---|---|---|---|
-| EC2 `t4g.small` server | 18 | 8.18 | A bigger instance type; long periods of heavy CPU ("unlimited" mode bills extra credits) |
+| EC2 `t4g.small` server | 18 | 8.18 | A bigger instance type; switching the credit specification to **Unlimited** (then heavy CPU bills extra) |
 | Public IPv4 / Elastic IP | 18c | 3.65 | Every extra Elastic IP, attached or not |
 | EBS disk, 20 GiB gp3 | 18 | ~1.70 | A bigger disk; leftover snapshots |
 | ECR image storage | 15 | ~0.05–0.45 | Removing the keep-last-10 lifecycle rule on either repository |
@@ -323,10 +323,18 @@ a starting point, and measure (end of this section) before you rely on them.
 
 *Burstable* means the server is allowed 20% of each core all the time, and
 saves up "CPU credits" while it is quieter than that. In a busy moment it spends
-the credits and runs both cores at 100%. If it stays busy so long that the
-credits run out, it keeps going at full speed anyway ("unlimited" mode) and AWS
-bills the extra — a few cents per busy hour. That is why [Step 4](02-accounts.md)'s budget alarm
-exists. In short: **short peaks are free, being busy all day is not.**
+the credits and runs both cores at 100%. What happens when the credits run out
+depends on the **credit specification**, a setting on the server:
+
+| Mode | When the credits run out | Extra cost |
+|---|---|---|
+| **Standard** (this guide, [Step 18](06-server.md)) | The CPU drops back to 20% of each core until it earns credits again. The API slows down | **Never** |
+| Unlimited (the AWS default for `t4g`) | It keeps going at full speed | About $0.04 per extra vCPU-hour, up to ~$1.50 a day if the server is busy around the clock |
+
+This guide uses **Standard** because anyone on the internet can keep the server
+busy by aiming a script at the API. In Standard mode that costs you speed, not
+money. In short: **short peaks are free and fast, being busy all day is free
+but slow.**
 
 **What already runs on it** (file 38's figures)
 
@@ -358,7 +366,7 @@ browsing the dashboard send a few requests per page.
 |---|---|---|---|
 | Comfortable | up to ~200 | ~2,000 | Well inside the CPU baseline; no extra cost |
 | Busy peaks | ~500–1,000 for an hour or so | — | Spends saved credits; still fine |
-| Time to upgrade | 1,000+ for hours every day | 10,000+ | Credits run out, extra CPU billing starts, replies slow down |
+| Time to upgrade | 1,000+ for hours every day | 10,000+ | Credits run out, the CPU is held at its baseline, replies slow down |
 
 \* Assuming a child plays 15–20 minutes and families use the app at different
 times of day, so the busiest moment holds about one in ten of the day's
@@ -386,7 +394,7 @@ children.
 | You see | Do this |
 |---|---|
 | Memory full, swap in use all the time | Move to `t4g.medium` (2 vCPU, 4 GiB, ~$8/month more) |
-| CPU credit balance keeps falling to zero (CloudWatch) | First take the dev stack off this box. Still zero? Move to `t4g.large` (2 vCPU, 8 GiB, 30% baseline, ~$25/month more). `t4g.medium` does **not** help here: it earns credits at the same rate as `small` |
+| CPU credit balance keeps falling to zero (CloudWatch) and the API is slow | First take the dev stack off this box. Still zero? Move to `t4g.large` (2 vCPU, 8 GiB, 30% baseline, ~$25/month more). `t4g.medium` does **not** help here: it earns credits at the same rate as `small` |
 | Database slow, Supabase usage near its limits | Supabase Pro |
 | Many "Too many requests" errors | Raise `API_RATE_LIMIT_PER_MINUTE` (above) |
 
