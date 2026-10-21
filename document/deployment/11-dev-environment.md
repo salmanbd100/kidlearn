@@ -367,7 +367,8 @@ Click **Deploy**. This first build is from `main`; that is fixed next.
 
 1. **Build and Deployment:** *Include files outside the root directory* **on**;
    Node.js **22.x**.
-2. **Git → Production Branch: `dev`** ← the difference. *Why:* this project's
+2. **Environments → Production → Branch Tracking → Branch: `dev`** ← the
+   difference. *Why:* this project's
    "production" is the `dev` branch, so every merge into `dev` updates
    `dev.kidlearn.net` by itself.
 3. **Functions → Function Region:** Mumbai (`bom1`).
@@ -387,15 +388,16 @@ shows a **CNAME** target. Cloudflare → **Add record**:
 ✅ **Check:** the domain turns **Valid Configuration**, and opening
 <https://dev.kidlearn.net> asks for a username and password.
 
-Your Cloudflare DNS now has all **five** records, every one grey:
+Your Cloudflare DNS now has all **five** web/API records, every one grey (plus
+any `MX` / `TXT` records for email):
 
 ```
- Type   Name     Points to             Served by
- A      @        Vercel's IP           Vercel  → kidlearn.net
- CNAME  www      …vercel-dns…          Vercel  → redirects to kidlearn.net
- CNAME  dev      …vercel-dns… (dev)    Vercel  → dev.kidlearn.net
- A      api      Elastic IP            Caddy   → prod-api
- A      api.dev  Elastic IP (same)     Caddy   → dev-api
+ Type          Name     Points to                 Served by
+ CNAME (or A)  @        …vercel-dns… (or an IP)   Vercel  → kidlearn.net
+ CNAME         www      …vercel-dns…              Vercel  → redirects to kidlearn.net
+ CNAME         dev      …vercel-dns… (dev)        Vercel  → dev.kidlearn.net
+ A             api      Elastic IP                Caddy   → prod-api
+ A             api.dev  Elastic IP (same)         Caddy   → dev-api
 ```
 
 ## Step 35 · 🌐 Google sign-in for dev
