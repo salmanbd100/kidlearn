@@ -81,7 +81,7 @@ CI needs no secrets. `apps/server/vitest.setup.ts` supplies everything `config/e
 
 ## Where decisions live
 
-- **Deployment** — web on Vercel, API + jobs on one AWS EC2 box behind Caddy (`deploy/`). `document/go-live-guide.md` is the first-time walkthrough, `document/runbook.md` the day-two operations.
+- **Deployment** — web on Vercel, API + jobs on one AWS EC2 box behind Caddy (`deploy/`). `document/deployment/` is the first-time walkthrough, one file per stage, `document/runbook.md` the day-two operations.
 - **`document/mobile-app-plan.md`** is the architecture of record for what is and is not shared between web and mobile. `packages/ui` is web-only by design (§4.2) — do not hoist `apps/web` components into it without a second consumer.
 
 ## Layout & current state

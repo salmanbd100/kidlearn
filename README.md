@@ -245,7 +245,7 @@ cd apps/server && pnpm build && pnpm start   # compiles to dist/, runs node dist
 
 ### Deployment
 
-The web app deploys to Vercel; the API, the weekly-report job and backups run on one AWS EC2 box in Docker behind Caddy (`deploy/`, `apps/*/Dockerfile`). Start with [`go-live-guide.md`](document/go-live-guide.md) for a first deploy, [`deployment-walkthrough.md`](document/deployment-walkthrough.md) for the detail, and [`runbook.md`](document/runbook.md) for day-two operations.
+The web app deploys to Vercel; the API, the weekly-report job and backups run on one AWS EC2 box in Docker behind Caddy (`deploy/`, `apps/*/Dockerfile`). Start with [`deployment/`](document/deployment/README.md) for a first deploy, [`deployment-walkthrough.md`](document/deployment-walkthrough.md) for the detail, and [`runbook.md`](document/runbook.md) for day-two operations.
 
 ---
 
@@ -285,7 +285,7 @@ Detailed specs live in `document/`:
   - [`standards/backend.md`](document/standards/backend.md) — `apps/server`, Prisma, `packages/db`, API design, and the OpenAPI rules every new endpoint follows (§7)
 - [`user-journey-manual.md`](document/user-journey-manual.md) — end-to-end user flows
 - [`admin-account-guide.md`](document/admin-account-guide.md) — creating and using an admin account
-- [`go-live-guide.md`](document/go-live-guide.md), [`deployment-walkthrough.md`](document/deployment-walkthrough.md), [`runbook.md`](document/runbook.md) — deploying and operating production
+- [`deployment/`](document/deployment/README.md), [`deployment-walkthrough.md`](document/deployment-walkthrough.md), [`runbook.md`](document/runbook.md) — deploying and operating production
 - [`mobile-app-plan.md`](document/mobile-app-plan.md) — what is shared between web and the planned mobile app
 - [`implementation/`](document/implementation/) — one spec per piece of work, tracked in `00-progress-tracker.md`
 
