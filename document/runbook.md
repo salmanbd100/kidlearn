@@ -403,7 +403,7 @@ Registrar nameservers point at Cloudflare. Five records:
 
 | Name | Type | Target |
 |---|---|---|
-| `kidlearn.net` | A | the apex address Vercel shows for the production project |
+| `kidlearn.net` | CNAME (flattened by Cloudflare), or A on older projects | the apex target Vercel shows for the production project |
 | `www` | CNAME | the `*.vercel-dns.com` target Vercel shows for the production project |
 | `dev` | CNAME | the same, for the dev project |
 | `api` | A | the Elastic IP |

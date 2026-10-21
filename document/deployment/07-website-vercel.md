@@ -77,8 +77,11 @@ In the project → **Settings**:
    the root directory in the Build Step** is **on**. *Why:* the shared packages
    live outside `apps/web`.
 2. **Build and Deployment → Node.js Version:** **22.x**.
-3. **Git → Production Branch:** `main`. *Why:* only `main` goes live; pushes to
-   `dev` make preview links only.
+3. **Environments → Production → Branch Tracking → Branch:** `main`. *Why:*
+   only `main` goes live; pushes to `dev` make preview links only. Vercel moved
+   this setting out of **Git**: the page says "Every commit pushed to the `main`
+   branch will create a Production Deployment". Leave **Auto-assign Custom
+   Production Domains** on, so `kidlearn.net` follows each production deploy.
 4. **Functions → Function Region:** **Mumbai, India (bom1)**. *Why:* close to
    the API and your users. The default is the USA.
 5. **Billing / Usage → notifications:** turn on usage emails. *Why:* the free
@@ -98,32 +101,47 @@ Redeploy** so they take effect.
 
 **26a. In Vercel:** project → **Settings → Domains** → **Add Domain**.
 
-1. Type `kidlearn.net` → Add. If Vercel offers "add `www.kidlearn.net` and
-   redirect to it", choose **redirect `www.kidlearn.net` → `kidlearn.net`**.
-   *Why:* one main address is cleaner; both still work.
-2. Vercel now shows "Invalid Configuration" and tells you exactly which records
-   to add — usually an **A** record for `kidlearn.net` and a **CNAME** for
-   `www`. **Copy the values Vercel shows you**; do not copy them from any guide,
-   because Vercel changes them.
+1. Type `kidlearn.net` → Add. If Vercel asks whether to redirect the apex to
+   `www`, say **no** — `kidlearn.net` is the main address.
+2. Vercel now shows "Invalid Configuration" and the record to add. It detects
+   that the domain is on Cloudflare, and because Cloudflare flattens a CNAME at
+   the root, it usually asks for **one CNAME on `@`** — e.g.
+   `0bd69dec1dc15cb2.vercel-dns-017.com.` — rather than an A record. Older
+   projects, or other DNS hosts, get an **A** record with an IP instead.
+   **Copy whatever Vercel shows you**; the target is per-project and Vercel
+   changes the format.
+3. `www.kidlearn.net` is **not** added for you. Add it as a second domain:
+   **Add Domain** → `www.kidlearn.net` → choose **Redirect to
+   `kidlearn.net`** (308). Vercel shows a CNAME target for `www` as well.
 
-**26b. In Cloudflare:** **DNS → Records → Add record**, for each one Vercel gave:
+**26b. In Cloudflare:** **DNS → Records**. For each record Vercel gave:
 
 | Type | Name | Value | Proxy |
 |---|---|---|---|
-| A | `@` | the IP Vercel shows | **grey cloud** |
-| CNAME | `www` | the `…vercel-dns…` name Vercel shows | **grey cloud** |
+| CNAME (or A) | `@` | exactly what Vercel shows for `kidlearn.net` | **DNS only — grey cloud** |
+| CNAME | `www` | exactly what Vercel shows for `www.kidlearn.net` | **DNS only — grey cloud** |
 
-✅ **Check:** back in Vercel, both domains turn to **Valid Configuration** with a
-green tick (can take a few minutes). Open <https://kidlearn.net> — the site
-loads with a padlock.
+**"An A, AAAA, or CNAME record with that host already exists"** — Cloudflare
+already has a record on that name (often a parking or leftover `@` record), and
+a CNAME cannot sit beside another record on the same name. Do not add a second
+one: **Edit** the existing `@` row, change its type and value to what Vercel
+gave, set it to grey, and save. Touch only that row — leave `api`, and any
+`MX` / `TXT` (email, SPF) records, alone.
 
-Your Cloudflare DNS should now have **exactly three records**, all grey:
+✅ **Check:** back in Vercel, press **Refresh** on each domain. Each turns to
+**Valid Configuration** with a green tick, then shows "Generating SSL
+Certificate" for a few minutes. Once that clears, open <https://kidlearn.net> —
+the site loads with a padlock — and <https://www.kidlearn.net> lands on
+`kidlearn.net`.
+
+Your Cloudflare DNS should now have these records, all grey (plus any `MX` /
+`TXT` records you set up for email):
 
 ```
- Type   Name   Points to                 Served by
- A      @      Vercel's IP               Vercel  → kidlearn.net
- CNAME  www    …vercel-dns…              Vercel  → redirects to kidlearn.net
- A      api    your Elastic IP           EC2/Caddy → api.kidlearn.net
+ Type          Name   Points to                 Served by
+ CNAME (or A)  @      …vercel-dns… (or an IP)   Vercel  → kidlearn.net
+ CNAME         www    …vercel-dns…              Vercel  → redirects to kidlearn.net
+ A             api    your Elastic IP           EC2/Caddy → api.kidlearn.net
 ```
 
 ---

@@ -22,10 +22,12 @@ Most likely first.
 | [Step 14](05-aws-storage-secrets-images.md): "No projects matched the filters" | You are outside the repo. `cd ~/Documents/Me/kidlearn` and run it again |
 | [Step 14](05-aws-storage-secrets-images.md): "Invalid environment configuration … `<NAME>`: Invalid url" | That parameter's value is wrong, often its own name pasted into **Value**. Print it with `aws ssm get-parameter --name /kidlearn/prod/<NAME> --with-decryption --query Parameter.Value --output text \| cat -vet` (only for non-secret ones like `BETTER_AUTH_URL` and `WEB_ORIGIN`), fix it in Parameter Store, then paste the block again |
 | `deploy.sh`: "exited — it did not get as far as a healthcheck" | A secret is missing or malformed — the printed log names the variable `env.ts` rejected |
+| `deploy.sh`: "reported unhealthy" and the log says `Invalid environment configuration. Fix these variables in apps/server/.env` | Same cause — ignore the `.env` hint on the server. Add or fix `/kidlearn/<env>/<NAME>` in Parameter Store (region `ap-south-1`), then run `deploy.sh` again; it rebuilds `app.env` from SSM every time |
 | `deploy.sh`: "up but /ready failed" | Check `DATABASE_URL` in Parameter Store; is the Supabase project **paused**? |
 | `docker pull` "denied" / "no basic auth credentials" | Role policy: account ID or repository name wrong in [Step 17](06-server.md) |
 | `pull access denied … not found` | The tag does not exist in ECR — typo, or [Step 16](05-aws-storage-secrets-images.md) not pushed |
 | Backup fails every night | `DIRECT_URL` must be the **Session pooler** string (port 5432 on `pooler.supabase.com`), not "Direct connection" |
+| Cloudflare: "An A, AAAA, or CNAME record with that host already exists" | A record already sits on that name. **Edit** it to the value Vercel shows ([Step 26](07-website-vercel.md)) instead of adding a second one |
 | Vercel build: `@kidlearn/types` has no `dist` | Build command must be `cd ../.. && pnpm turbo run build --filter=web` |
 | Website loads but sign-in fails | Google client origins/redirect ([Step 22](06-server.md)); is the consent screen **published**? |
 | Sign-in fails on a `…vercel.app` preview | Expected — previews are not `WEB_ORIGIN` ([Step 25](07-website-vercel.md) note) |
