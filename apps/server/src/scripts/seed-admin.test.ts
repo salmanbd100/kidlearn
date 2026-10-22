@@ -347,7 +347,7 @@ describe("what the stub cannot prove (general.md §5, rule 4)", () => {
       schema.indexOf("}", schema.indexOf("model AdminUser {")),
     );
     expect(model).toMatch(/email\s+String\s+@unique/);
-    expect(model).toMatch(/authUserId String\?\s+@unique/);
+    expect(model).toMatch(/authUserId\s+String\?\s+@unique/);
   });
 
   it("keeps a revoked admin's review history by setting the link null, not cascading", () => {

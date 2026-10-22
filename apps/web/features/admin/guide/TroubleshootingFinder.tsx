@@ -57,12 +57,12 @@ const PROBLEMS: Problem[] = [
     symptom:
       "An AI button fails, or says the model could not produce anything usable",
     meaning: "A Gemini error, quota, or lapsed subscription.",
-    fix: "Write the content by hand — see Working without Gemini.",
+    fix: "Connect your own AI assistant (Use your own AI assistant), or write the content by hand (Working without Gemini).",
   },
   {
     symptom: "429 RATE_LIMITED on an AI button",
     meaning: "The daily generation cap is reached.",
-    fix: "It resets at local midnight. Enter content by hand meanwhile.",
+    fix: "It resets at local midnight. Meanwhile, use your own AI assistant or enter content by hand. Assistant drafts have their own, separate daily limit.",
   },
   {
     symptom: "Published, but a child cannot see it",

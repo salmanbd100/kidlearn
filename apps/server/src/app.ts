@@ -7,6 +7,7 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { docsRouter } from "./modules/docs/docs.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { apiRouter } from "./modules/index.js";
+import { mcpRouter } from "./modules/mcp/mcp.routes.js";
 import {
   errorHandler,
   notFoundHandler,
@@ -59,6 +60,11 @@ export function buildApp(): Express {
   }
 
   app.use("/api", apiRouter);
+
+  // Outside `/api`: an MCP client is configured with one URL, and `/api`'s per-IP limiter is not its guard.
+  if (env.MCP_ENABLED) {
+    app.use(mcpRouter);
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

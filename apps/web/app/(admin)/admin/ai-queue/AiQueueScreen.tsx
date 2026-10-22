@@ -19,7 +19,11 @@ import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
 import { Chip } from "@/features/admin/ui/StatusChip";
-import { AI_JOB_TYPE_LABELS, formatRelativeAge } from "./job-labels";
+import {
+  AI_JOB_TYPE_LABELS,
+  formatRelativeAge,
+  sourceLabel,
+} from "./job-labels";
 
 const PAGE_SIZE = 25;
 
@@ -242,6 +246,8 @@ function JobRow({ job }: { job: AiJobSummary }) {
       <span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
         {job.entityLabel ?? "Nothing was produced"}
       </span>
+
+      <span className="text-muted-foreground text-xs">{sourceLabel(job)}</span>
 
       {job.gradeLevels.length === 0 ? null : (
         <span className="text-muted-foreground text-xs">

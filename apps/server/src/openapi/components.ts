@@ -3,6 +3,9 @@ import {
   ActivityDefinitionSchema,
   ActivityEventResponseSchema,
   ActivityEventSchema,
+  AdminAccessTokenListResponseSchema,
+  AdminAccessTokenResponseSchema,
+  AdminAccessTokenSchema,
   AdminActivityListResponseSchema,
   AdminActivityResponseSchema,
   AdminActivitySchema,
@@ -30,6 +33,8 @@ import {
   AdminWorldListResponseSchema,
   AdminWorldResponseSchema,
   AdminWorldSchema,
+  AiCapabilitiesResponseSchema,
+  AiCapabilitiesSchema,
   AiJobAssetSchema,
   AiJobCountResponseSchema,
   AiJobCountSchema,
@@ -58,6 +63,9 @@ import {
   ChildStatsSchema,
   CompletionStreakSchema,
   ConsentRecordResponseSchema,
+  CreateAdminAccessTokenSchema,
+  CreatedAdminAccessTokenResponseSchema,
+  CreatedAdminAccessTokenSchema,
   DashboardActivityItemSchema,
   DashboardLearningMinutesSchema,
   DashboardSubjectProgressSchema,
@@ -86,6 +94,8 @@ import {
   LessonQuizQuestionSchema,
   LessonQuizSchema,
   LocalizedLabelSchema,
+  McpJsonRpcRequestSchema,
+  McpJsonRpcResponseSchema,
   MediaAssetListResponseSchema,
   MediaAssetResponseSchema,
   MediaAssetSchema,
@@ -396,6 +406,18 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AiJobCountResponse: AiJobCountResponseSchema,
   AiReviewResult: AiReviewResultSchema,
   AiReviewResultResponse: AiReviewResultResponseSchema,
+  AiCapabilities: AiCapabilitiesSchema,
+  AiCapabilitiesResponse: AiCapabilitiesResponseSchema,
+
+  // The secret appears in the create response alone; the listed shape has only its display prefix.
+  AdminAccessTokenCreateBody: CreateAdminAccessTokenSchema,
+  AdminAccessToken: AdminAccessTokenSchema,
+  AdminAccessTokenResponse: AdminAccessTokenResponseSchema,
+  AdminAccessTokenListResponse: AdminAccessTokenListResponseSchema,
+  CreatedAdminAccessToken: CreatedAdminAccessTokenSchema,
+  CreatedAdminAccessTokenResponse: CreatedAdminAccessTokenResponseSchema,
+  McpJsonRpcRequest: McpJsonRpcRequestSchema,
+  McpJsonRpcResponse: McpJsonRpcResponseSchema,
 
   ScreenTimeSetting: ScreenTimeSettingSchema,
   ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
@@ -435,6 +457,12 @@ export const SECURITY_SCHEMES = {
     scheme: "bearer",
     description:
       "`Authorization: Bearer <CRON_SECRET>`. A static shared secret from the server's environment, not a token anyone signs in for. **Try it out** in this page will not work for these operations unless you paste the secret yourself.",
+  },
+  adminAccessToken: {
+    type: "http",
+    scheme: "bearer",
+    description:
+      "`Authorization: Bearer klat_…`. An admin access token from `POST /api/admin/access-tokens`, accepted by `POST /mcp` and nowhere under `/api`. Draft-only by scope: it reads curriculum and creates drafts for review, and cannot approve or publish anything.",
   },
 } as const;
 
@@ -538,6 +566,11 @@ export const TAGS = [
       "AI content generation (files 34–37, FR-AI-01..08). An administrator describes what they want; a Gemini call writes it; the result lands in the review queue as **draft** rows and a job row, and stops there.\n\n**No endpoint on this surface can publish, and it is the schema rather than the code that guarantees it.** Every generated row takes the `draft` default on its `status` column, and status moves on one path only — `POST /api/admin/content/{resource}/{id}/transition`, behind which `published` is reachable from `approved` and nowhere else. A child therefore cannot see generated content until a person has read it (FR-AI-07).\n\n**Every generation is auditable.** The `AIGenerationJob` row keeps the exact system and user prompts the model saw, both verbatim attempts — a schema failure buys exactly one retry, with the validation errors fed back — and the tokens all of it cost, successful or not (FR-AI-08).\n\n**The model is never asked for prose.** It answers against a response schema generated from the same Zod objects the renderer draws from and the admin editors validate against, so there is no free text to parse and no second description of a payload shape to drift (FR-AI-03).\n\nGeneration is awaited inside the request: this deployment has no worker and no queue, so a background job would be a promise it could not keep. The reply is a job reference in any case, which is what makes a queue a later change nobody has to notice.",
   },
   {
+    name: "MCP",
+    description:
+      "Content authoring with an administrator's own AI assistant — Claude, ChatGPT, Cursor, VS Code and others — over the Model Context Protocol (file 41, FR-AI-10).\n\n**One endpoint, `POST /mcp`, outside `/api`**, because an MCP client is configured with a single URL. It speaks JSON-RPC: the assistant lists the tools, reads the curriculum and the authoring rules, writes a lesson, story or quiz on the admin's own subscription, and submits it. A valid submission is validated against the same content schemas the Gemini path uses and becomes an `AIGenerationJob` with `source: \"mcp\"` in `awaiting_review` — the same queue, the same reviewers, the same approve and reject.\n\n**No tool can approve, reject, publish, edit published content or read anything about a parent or child.** The human gate is unchanged (FR-AI-07).\n\nAuthenticated by an admin access token (`adminAccessToken` scheme), minted from a signed-in CMS session under `/api/admin/access-tokens`. Every request re-checks the token and the admin behind it. Mounted only when `MCP_ENABLED=true`.",
+  },
+  {
     name: "Jobs",
     description:
       "Work an external scheduler triggers, authenticated by a shared secret rather than a session — the caller is cron-job.org, which has nobody to sign in as (see the `cronSecret` scheme). Every job here only ever **recomputes** something the server already owns, and none of them read per-child data out: with a static credential sitting in a third party's configuration field, there is no human for a response to be scoped to.",
@@ -571,6 +604,7 @@ export const TAG_GROUPS = [
       "Admin CMS: Media",
       "Admin CMS: Characters",
       "Admin AI",
+      "MCP",
     ],
   },
   { name: "Automation", tags: ["Jobs"] },

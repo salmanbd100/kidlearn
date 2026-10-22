@@ -283,6 +283,7 @@ AI generates content at scale; humans gate everything before publication.
 | FR-AI-07 | **Human review gate:** all AI-generated content enters a review queue and must be approved by a human administrator before becoming visible to students. **No AI content is ever published automatically.**                                         | [MVP — hard requirement]                              |
 | FR-AI-08 | AI generation requests, outputs, and review decisions (approve / edit-then-approve / reject) are logged for auditability.                                                                                                                           | [MVP]                                                 |
 | FR-AI-09 | Character consistency: prompts and reference assets are managed so recurring characters look the same across lessons, stories, and worlds.                                                                                                          | [MVP]                                                 |
+| FR-AI-10 | An administrator may author AI content with an external AI assistant of their choosing (Claude, ChatGPT, Cursor, …), connected over the Model Context Protocol. Externally authored content is validated against the same content schemas, enters the same review queue (FR-AI-07), and is attributed to the administrator and the client that submitted it (FR-AI-08).| [MVP+]                                                |
 
 ### 5.14 Admin Content Management (FR-CMS)
 
@@ -418,7 +419,7 @@ High-level entities (Prisma schema to be derived from this list):
 - **ScreenTimeSetting** — child: daily limit minutes, access window start/end.
 - **SessionEvent / LearningTime** — server-recorded activity heartbeats per child (powers FR-TIME-06, FR-DASH-02).
 - **WeeklyReport** — child, week, aggregated metrics + note (FR-DASH-05).
-- **AIGenerationJob** — type (lesson | story | quiz | audio | image), inputs, raw output, status, reviewer, decision, timestamps (FR-AI-08).
+- **AIGenerationJob** — type (lesson | story | quiz | audio | image), source (gemini | mcp), requesting admin, self-reported MCP client, inputs, raw output, status, reviewer, decision, timestamps (FR-AI-08, FR-AI-10).
 - **MediaAsset** — host URL, kind, language (nullable), linked entity.
 - **AdminUser** — internal role for CMS access.
 

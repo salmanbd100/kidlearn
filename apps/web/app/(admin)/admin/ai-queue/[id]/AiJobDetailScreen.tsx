@@ -10,6 +10,7 @@ import {
   AI_JOB_TYPE_LABELS,
   decisionLabel,
   formatRelativeAge,
+  provenanceLabel,
 } from "@/app/(admin)/admin/ai-queue/job-labels";
 import {
   approveAiJob,
@@ -149,6 +150,8 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
             ? null
             : ` · ${job.languages.map((one) => LOCALE_LABELS[one]).join(", ")}`}
         </p>
+
+        <p className="text-muted-foreground text-xs">{provenanceLabel(job)}</p>
 
         {job.decision === null ? null : (
           <p className="text-muted-foreground text-xs">

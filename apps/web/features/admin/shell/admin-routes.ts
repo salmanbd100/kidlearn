@@ -9,6 +9,7 @@ export const ADMIN_ROUTES = {
   media: "/admin/media",
   badges: "/admin/badges",
   aiQueue: "/admin/ai-queue",
+  aiAssistants: "/admin/ai-assistants",
   guide: "/admin/guide",
 } as const;
 
@@ -34,6 +35,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: ADMIN_ROUTES.media, label: "Media", group: "content" },
   { href: ADMIN_ROUTES.badges, label: "Badges", group: "content" },
   { href: ADMIN_ROUTES.aiQueue, label: "AI Queue", group: "review" },
+  { href: ADMIN_ROUTES.aiAssistants, label: "AI assistants", group: "review" },
   { href: ADMIN_ROUTES.analytics, label: "Analytics", group: "insights" },
   { href: ADMIN_ROUTES.guide, label: "Curriculum guide", group: "help" },
 ];

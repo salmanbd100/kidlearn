@@ -145,7 +145,7 @@
     },
     "ai": {
       "title": "The AI pipeline",
-      "p1": "From the AI Queue you can ask for a draft lesson, story, set of quiz questions, narration or illustration. Text and images come from Google's Gemini models; narration comes from Google Cloud Text-to-Speech, with English and Bangla voices.",
+      "p1": "From the CMS you can ask for a draft lesson, story, set of quiz questions, narration or illustration. Text and images come from Google's Gemini models; narration comes from Google Cloud Text-to-Speech, with English and Bangla voices. Admins can also connect the AI assistant they already use — Claude, Cursor or VS Code — and let it write lessons, stories and quizzes on their own subscription.",
       "p2": "Every draft is checked against the same rules that hand-written content must pass, then saved as a <code>draft</code> waiting for review. Each kind of draft has a daily limit, so one busy day cannot use up the whole budget."
     },
     "review": {

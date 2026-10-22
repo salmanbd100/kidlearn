@@ -5,6 +5,7 @@ import { Button } from "@kidlearn/ui";
 import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { GeminiOrAssistantAction } from "@/app/(admin)/GeminiOrAssistantAction";
 import { fetchWorlds } from "@/features/admin/api/content-api";
 import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
@@ -64,17 +65,19 @@ export function StoriesScreen() {
         title="Stories"
         description="Generated stories are drafts. They are read and published from the AI Queue."
         actions={
-          <Button
-            type="button"
-            disabled={status === "loading"}
-            onClick={() => {
-              setNotice(undefined);
-              setIsGenerateOpen(true);
-            }}
-          >
-            <Sparkles aria-hidden="true" className="size-4!" />
-            Generate a story
-          </Button>
+          <GeminiOrAssistantAction>
+            <Button
+              type="button"
+              disabled={status === "loading"}
+              onClick={() => {
+                setNotice(undefined);
+                setIsGenerateOpen(true);
+              }}
+            >
+              <Sparkles aria-hidden="true" className="size-4!" />
+              Generate a story
+            </Button>
+          </GeminiOrAssistantAction>
         }
       />
 

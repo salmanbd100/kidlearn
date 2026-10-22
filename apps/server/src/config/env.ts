@@ -33,7 +33,7 @@ export function isLocalUrl(value: string): boolean {
   );
 }
 
-const EnvSchema = z
+export const EnvSchema = z
   .object({
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -63,7 +63,12 @@ const EnvSchema = z
     CLOUDINARY_CLOUD_NAME: z.string().min(1),
     CLOUDINARY_API_KEY: z.string().min(1),
     CLOUDINARY_API_SECRET: z.string().min(1),
-    GEMINI_API_KEY: z.string().min(1),
+    /** Optional since admins can author over MCP with their own assistant (FR-AI-10); without it `/generate/*` answers 503. */
+    // Empty counts as unset: `.env.example` ships the line blank, and a blank key must not reach Google as a credential.
+    GEMINI_API_KEY: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.string().min(1).optional(),
+    ),
     GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-3.6-flash"),
     GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-2.5-flash-image"),
     GOOGLE_TTS_API_KEY: z.string().min(1),
@@ -73,6 +78,16 @@ const EnvSchema = z
     AI_TEXT_JOBS_PER_DAY: z.coerce.number().int().positive().default(3),
     AI_AUDIO_JOBS_PER_DAY: z.coerce.number().int().positive().default(100),
     AI_IMAGE_JOBS_PER_DAY: z.coerce.number().int().positive().default(15),
+    /** Mounts `/mcp` and the access-token endpoints (FR-AI-10). */
+    MCP_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    /** The canonical URL clients are configured with; defaults to `${BETTER_AUTH_URL}/mcp`. */
+    MCP_RESOURCE_URL: z.string().url().optional(),
+    /** Per admin, per app-timezone day: this protects reviewers from a flooded queue, not a provider quota. */
+    MCP_DRAFTS_PER_DAY: z.coerce.number().int().positive().default(30),
+    MCP_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
     /** Per-IP requests a minute to `/api/*` — a flood guard; households share one IP behind NAT. */
     API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
     ENABLE_API_DOCS: z
@@ -93,7 +108,26 @@ const EnvSchema = z
         });
       }
     }
-  });
+
+    // An access token travels in a header on every call, so a plain-HTTP endpoint would leak it.
+    if (
+      config.MCP_ENABLED &&
+      new URL(config.MCP_RESOURCE_URL ?? config.BETTER_AUTH_URL).protocol !==
+        "https:"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MCP_RESOURCE_URL"],
+        message: "must be an https URL in production",
+      });
+    }
+  })
+  .transform((config) => ({
+    ...config,
+    MCP_RESOURCE_URL:
+      config.MCP_RESOURCE_URL ??
+      `${config.BETTER_AUTH_URL.replace(/\/+$/, "")}/mcp`,
+  }));
 
 export type Env = z.infer<typeof EnvSchema>;
 
@@ -111,6 +145,12 @@ if (!parsed.success) {
 }
 
 export const env: Readonly<Env> = Object.freeze(parsed.data);
+
+export function isGeminiConfigured(
+  config: Pick<Env, "GEMINI_API_KEY">,
+): boolean {
+  return config.GEMINI_API_KEY !== undefined;
+}
 
 export function isDocsEnabled(
   config: Pick<Env, "NODE_ENV" | "ENABLE_API_DOCS">,

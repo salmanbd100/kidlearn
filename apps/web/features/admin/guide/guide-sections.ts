@@ -12,6 +12,7 @@ export const GUIDE_SECTIONS = [
   { id: "build-a-lesson", title: "Build a lesson by hand" },
   { id: "activities-and-quizzes", title: "Activities and quizzes" },
   { id: "generating-with-ai", title: "Generating with AI" },
+  { id: "own-assistant", title: "Use your own AI assistant" },
   { id: "without-gemini", title: "Working without Gemini" },
   { id: "writing-for-kids", title: "Writing for ages 3–6" },
   { id: "troubleshooting", title: "Troubleshooting" },

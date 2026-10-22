@@ -15,6 +15,7 @@ import { GuideContents } from "@/features/admin/guide/GuideContents";
 import { GuideSection } from "@/features/admin/guide/GuideSection";
 import type { GuideSectionId } from "@/features/admin/guide/guide-sections";
 import { LessonStepper } from "@/features/admin/guide/LessonStepper";
+import { OwnAssistant } from "@/features/admin/guide/OwnAssistant";
 import { ScreenMap } from "@/features/admin/guide/ScreenMap";
 import { StatusSimulator } from "@/features/admin/guide/StatusSimulator";
 import { TroubleshootingFinder } from "@/features/admin/guide/TroubleshootingFinder";
@@ -40,8 +41,8 @@ const ROUTES_IN = [
   {
     icon: Unplug,
     title: "Gemini unavailable?",
-    body: "Section 8: write or paste content by hand and still publish.",
-    href: "#without-gemini",
+    body: "Section 8: connect your own AI assistant, or section 9 to write content by hand.",
+    href: "#own-assistant",
   },
 ] as const satisfies readonly {
   icon: LucideIcon;
@@ -181,6 +182,13 @@ export function CurriculumGuideScreen() {
             lead="The AI tools are a shortcut to a draft, and the server refuses to publish AI content without a recorded human approval. That approval is the publish: approving a job in the AI Queue sends its content live to children at once."
           >
             <AiFlow />
+          </GuideSection>
+
+          <GuideSection
+            id="own-assistant"
+            lead="Connect the AI assistant you already pay for — Claude, Cursor, VS Code — and let it write drafts for the AI Queue."
+          >
+            <OwnAssistant />
           </GuideSection>
 
           <GuideSection

@@ -2,6 +2,7 @@
 
 import { Button, Input, Label } from "@kidlearn/ui";
 import { useState } from "react";
+import { useAiCapabilities } from "@/app/(admin)/context/ai-capabilities";
 import { generateIllustrations } from "@/features/admin/api/ai-api";
 import { GenerateNarrationButton } from "@/features/admin/editors/GenerateNarrationButton";
 
@@ -9,6 +10,7 @@ import { GenerateNarrationButton } from "@/features/admin/editors/GenerateNarrat
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function StoryMediaPanel() {
+  const capabilities = useAiCapabilities();
   const [storyId, setStoryId] = useState("");
   const [isDrawing, setIsDrawing] = useState(false);
   const [notice, setNotice] = useState<string>();
@@ -101,14 +103,17 @@ export function StoryMediaPanel() {
             setError(message);
           }}
         />
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!isReady || isDrawing}
-          onClick={() => void handleIllustrate()}
-        >
-          {isDrawing ? "Drawing — this takes a while…" : "Generate pictures"}
-        </Button>
+        {/* No assistant link here: an assistant cannot draw either, so pictures are uploaded by hand. */}
+        {capabilities?.geminiImage === false ? null : (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!isReady || isDrawing}
+            onClick={() => void handleIllustrate()}
+          >
+            {isDrawing ? "Drawing — this takes a while…" : "Generate pictures"}
+          </Button>
+        )}
       </div>
 
       {notice ? (

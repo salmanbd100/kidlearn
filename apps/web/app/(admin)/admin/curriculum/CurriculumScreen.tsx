@@ -21,6 +21,7 @@ import {
 import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { GeminiOrAssistantAction } from "@/app/(admin)/GeminiOrAssistantAction";
 import {
   type ContentDraft,
   createContent,
@@ -244,17 +245,19 @@ export function CurriculumScreen() {
             >
               Refresh
             </Button>
-            <Button
-              type="button"
-              disabled={isBusy}
-              onClick={() => {
-                clearMessages();
-                setIsGenerateOpen(true);
-              }}
-            >
-              <Sparkles aria-hidden="true" className="size-4!" />
-              Generate lesson
-            </Button>
+            <GeminiOrAssistantAction>
+              <Button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  clearMessages();
+                  setIsGenerateOpen(true);
+                }}
+              >
+                <Sparkles aria-hidden="true" className="size-4!" />
+                Generate lesson
+              </Button>
+            </GeminiOrAssistantAction>
           </>
         }
       />

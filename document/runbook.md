@@ -317,11 +317,14 @@ this uses about 30.
 | `APP_TIMEZONE` | compose | `Asia/Dhaka` | `Asia/Dhaka` |
 | `CRON_SECRET` | SSM | `openssl rand -base64 32` | a different value; dev runs no cron |
 | `CLOUDINARY_*` | SSM | production cloud | **a separate free cloud** |
-| `GEMINI_API_KEY` | SSM | production AI Studio key | **a separate free key** |
+| `GEMINI_API_KEY` | SSM, **optional** (file 41) | production AI Studio key — omit it and the CMS falls back to admins' own assistants | **a separate free key** |
 | `GEMINI_TEXT_MODEL` / `_IMAGE_MODEL` | compose | `gemini-3.6-flash` / `gemini-2.5-flash-image` | same |
 | `GOOGLE_TTS_API_KEY` | SSM | Cloud TTS key, restricted to that API | **same key, shared** |
 | `GOOGLE_TTS_VOICE_EN` / `_BN` | compose | `en-US-Standard-C` / `bn-IN-Standard-A` | same |
 | `AI_TEXT_JOBS_PER_DAY` / `_AUDIO_` / `_IMAGE_` | compose | 8 / 100 / 15 | 4 / 20 / 5 |
+| `MCP_ENABLED` | SSM, optional | unset (= `false`) until turned on — mounts `/mcp` and the token endpoints | `true` to try it first |
+| `MCP_RESOURCE_URL` | unset | defaults to `${BETTER_AUTH_URL}/mcp`; must be `https` | same |
+| `MCP_DRAFTS_PER_DAY` / `MCP_RATE_LIMIT_PER_MINUTE` | SSM, optional | unset = 30 per admin per day / 60 per admin per minute | same |
 | `POSTGRES_PASSWORD` | SSM (dev only) | — | `openssl rand -base64 24` |
 | `BACKUP_S3_BUCKET` | SSM (prod only) | the backup bucket name, no `s3://` | — ; dev is never backed up |
 | `BACKUP_HEARTBEAT_URL` | SSM (prod only, optional) | a healthchecks.io-style check URL — see §8 | — |
@@ -716,7 +719,30 @@ buildable).
 | SSM Parameter Store Standard | 10,000 parameters, free — this uses ~35 | — |
 | AWS Budgets alarm | **$20/month** — thresholds in walkthrough A1 | ⬜ not yet created |
 | API flood guard | **300 requests/min per client IP** on `/api/*` — a `429 RATE_LIMITED`. Raise `API_RATE_LIMIT_PER_MINUTE` if a school or shared network trips it | 2026-10-05 |
-| API JSON body | **100 KB** — a `413`. An editor sends one activity or question at a time | 2026-10-05 |
+| API JSON body | **100 KB** — a `413`. An editor sends one activity or question at a time; an MCP submission is one lesson, story or quiz, a few KB | 2026-10-05 |
+| MCP drafts | **30 per admin per day** (`MCP_DRAFTS_PER_DAY`), separate from the Gemini caps — the tool answers with an error, the assistant tells the admin | 2026-10-22 |
+
+### AI assistants over MCP (file 41)
+
+`POST /mcp` lets an admin's own assistant (Claude, Cursor, VS Code…) write drafts.
+Caddy already proxies the whole API host, so nothing at the edge changes.
+
+- **Turn it on:** create the SSM parameter `/kidlearn/<env>/MCP_ENABLED` = `true`
+  and redeploy. Not in `compose.yml` on purpose: Compose's `environment:` beats
+  the SSM-written `app.env`, and `deploy.sh` rewrites `compose.env` on every
+  deploy, so neither could carry it. The CMS
+  shows **AI assistants** working once `GET /api/admin/ai/capabilities` reports it.
+- **Turn it off in a hurry:** set the parameter to `false` (or delete it) and redeploy. `/mcp` and the token
+  endpoints stop existing; tokens stay in the table and work again if it is turned
+  back on, so revoke them too if the reason is a leak.
+- **Revoke one token:** the admin does it on the AI assistants page. For someone
+  else's, `update "AdminAccessToken" set "revokedAt" = now() where prefix = 'klat_…';`
+  — the prefix is in the CMS list and in any screenshot of it.
+- **Revoke everything:** `update "AdminAccessToken" set "revokedAt" = now() where "revokedAt" is null;`
+- **Who wrote a draft:** `AIGenerationJob.source = 'mcp'`, `requestedById` and the
+  self-reported `client`; the AI Queue shows the same line.
+- **Gemini off:** omit `GEMINI_API_KEY`. The Gemini generate routes answer `503
+  AI_PROVIDER_NOT_CONFIGURED` and the CMS hides them; narration still works.
 
 Cost and sizing are file 38's "Costs, at steady state".
 

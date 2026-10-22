@@ -11,6 +11,8 @@ const api = vi.hoisted(() => ({
   adminSignOut: vi.fn(),
   // The shell polls this for the AI Queue badge.
   fetchAiJobCount: vi.fn(),
+  // Read once by the layout so screens can hide Generate buttons this deployment cannot serve.
+  fetchAiCapabilities: vi.fn(),
 }));
 
 let pathname: string = ADMIN_ROUTES.analytics;
@@ -48,6 +50,15 @@ beforeEach(() => {
   api.fetchAiJobCount.mockResolvedValue({
     ok: true,
     data: { awaitingReview: 0 },
+  });
+  api.fetchAiCapabilities.mockResolvedValue({
+    ok: true,
+    data: {
+      geminiText: true,
+      geminiImage: true,
+      narration: true,
+      mcp: { enabled: false, oauth: false, url: null, draftsPerDay: 30 },
+    },
   });
 });
 

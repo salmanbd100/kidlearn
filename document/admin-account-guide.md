@@ -119,7 +119,9 @@ Easier still: the API reference at **http://localhost:4000/docs** has a **Send**
 |---|---|
 | Change or reset a password | Re-run the same command with a new `ADMIN_PASSWORD`. **There is no self-service reset flow** — this is it. |
 | Add a second admin | Run it again with a different `ADMIN_EMAIL`. There is no limit and no invite flow. |
-| Remove an admin | Delete the `AdminUser` row (`pnpm db:studio`). They can still sign in but every admin path answers `403`. |
+| Remove an admin | Delete the `AdminUser` row (`pnpm db:studio`). They can still sign in but every admin path answers `403`. Their AI-assistant tokens are deleted with the row, so `/mcp` answers `401` on their next call. |
+| Connect an AI assistant | CMS → **AI assistants** → Create token, then paste the snippet for your client. Needs `MCP_ENABLED=true` on the API. Tokens last 7 days by default (30 at most) and only create drafts for review. |
+| Cut off an AI assistant | CMS → **AI assistants** → Revoke. Takes effect on the assistant's next call. |
 | Reset local content | `pnpm db:seed` seeds a dev parent and sample content. It deliberately creates **no admin** — a password in a committed seed file is one nobody ever rotates. |
 
 ---

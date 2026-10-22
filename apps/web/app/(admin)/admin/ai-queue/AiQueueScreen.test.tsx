@@ -12,6 +12,9 @@ const JOB: AiJobSummary = {
   type: "lesson",
   status: "awaiting_review",
   decision: null,
+  source: "mcp",
+  requestedBy: "Ayesha",
+  client: { name: "claude-code", version: "2.1.0" },
   gradeLevels: ["KG1"],
   languages: ["en", "bn"],
   entityLabel: "The letter A",
@@ -81,6 +84,36 @@ describe("AiQueueScreen", () => {
     expect(row).toHaveTextContent("KG-1");
     expect(row).toHaveTextContent("English, Bangla");
     expect(row).toHaveTextContent("Lesson");
+    expect(row).toHaveTextContent("AI assistant · claude-code");
+  });
+
+  it("marks an assistant-written row as such, whatever the client calls itself", async () => {
+    fetchAiJobs.mockResolvedValue({
+      ok: true,
+      data: {
+        jobs: [{ ...JOB, client: { name: "Gemini", version: null } }],
+        total: 1,
+      },
+    });
+    render(<AiQueueScreen />);
+    const row = await screen.findByRole("link", { name: /The letter A/ });
+
+    expect(row).toHaveTextContent("AI assistant · Gemini");
+  });
+
+  it("labels a Gemini row Gemini", async () => {
+    fetchAiJobs.mockResolvedValue({
+      ok: true,
+      data: {
+        jobs: [{ ...JOB, source: "gemini", client: null, requestedBy: null }],
+        total: 1,
+      },
+    });
+    render(<AiQueueScreen />);
+    const row = await screen.findByRole("link", { name: /The letter A/ });
+
+    expect(row).toHaveTextContent("Gemini");
+    expect(row).not.toHaveTextContent("AI assistant");
   });
 
   it("links each row at its detail page", async () => {

@@ -21,6 +21,7 @@ import {
   runGenerationJob,
 } from "../run-generation-job.js";
 import { failStaleJobs } from "../stale-jobs.js";
+import type { GenerationContext } from "../types.js";
 
 const NARRATION_TABLES = [
   "LessonTranslation",
@@ -54,6 +55,7 @@ const LIVE_JOB_STATUSES = [
 
 export async function generateNarrationBatch(
   input: GenerateNarrationInput,
+  context: GenerationContext = {},
 ): Promise<BatchGenerationRef> {
   // Before the in-flight read, so a crash-stranded job does not make a pair look "already coming" for good.
   await failStaleJobs();
@@ -77,7 +79,7 @@ export async function generateNarrationBatch(
   let failed = 0;
   for (const target of missing) {
     // runNarrationJob records provider failures on the job and resolves; counting is the only way the batch reports them.
-    const { jobId, status } = await runNarrationJob(input, target);
+    const { jobId, status } = await runNarrationJob(input, target, context);
     jobIds.push(jobId);
     if (status === "failed") failed += 1;
   }
@@ -94,9 +96,13 @@ function pairKey(
 function runNarrationJob(
   input: GenerateNarrationInput,
   target: NarrationTarget,
+  context: GenerationContext,
 ): Promise<GenerationJobResult> {
   return runGenerationJob<NarrationUpload>({
     type: "audio",
+    ...(context.requestedById === undefined
+      ? {}
+      : { requestedById: context.requestedById }),
     // The spoken text, not a reference: the source row may be edited later. charCount is what Google TTS bills.
     input: {
       entity: input.entity,

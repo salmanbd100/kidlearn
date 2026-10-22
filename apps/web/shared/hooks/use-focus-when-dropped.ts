@@ -10,7 +10,11 @@ import { useEffect, useRef } from "react";
 
 const NEVER = Symbol("never");
 
-export function useFocusWhenDropped<T extends HTMLElement>(key: unknown) {
+export function useFocusWhenDropped<T extends HTMLElement>(
+  key: unknown,
+  // For one of many siblings — list rows — where every row taking focus on arrival would strand it on the last.
+  { skipArrival = false }: { skipArrival?: boolean } = {},
+) {
   const ref = useRef<T>(null);
   const previous = useRef<unknown>(NEVER);
 
@@ -18,7 +22,9 @@ export function useFocusWhenDropped<T extends HTMLElement>(key: unknown) {
     // Compared by hand rather than left to the dependency array, so a remount
     // under Strict Mode's double effect does not count as a second change.
     if (Object.is(previous.current, key)) return;
+    const isArrival = previous.current === NEVER;
     previous.current = key;
+    if (isArrival && skipArrival) return;
 
     const active = document.activeElement;
     const isDropped =
@@ -27,7 +33,7 @@ export function useFocusWhenDropped<T extends HTMLElement>(key: unknown) {
       active.matches(":disabled");
     if (!isDropped) return;
     ref.current?.focus({ preventScroll: true });
-  }, [key]);
+  }, [key, skipArrival]);
 
   return ref;
 }
