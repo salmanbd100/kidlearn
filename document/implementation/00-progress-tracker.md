@@ -14,6 +14,7 @@
 | 10 — Launch | 38–38a | Vercel frontend + one AWS box for both environments' APIs, GitHub Actions CD |
 | 11 — Hardening | 39 | CI gates and branch protection |
 | 12 — Public site | 40 | Homepage at `/` and the parent, admin and engineering guides |
+| 13 — Bring-your-own AI | 41 | Content authoring over MCP from any AI assistant |
 
 ---
 
@@ -33,6 +34,8 @@ has the originals. Only unfinished work is listed below.
 | 38a | `38a-github-actions-continuous-deployment.md` | API deploys only (Vercel ships the frontend): `dev` → api.dev.kidlearn.net, `main` → api.kidlearn.net. Per-environment OIDC roles (no stored AWS keys), native arm64 build → ECR, `promotion-guard` on `main`, health-gated SSM rollout, rollback by env + image tag | §9 | 38 · provisioning, 39 | 3–4h | ⬜ Not started |
 | 39 | `39-ci-pipeline-and-branch-protection.md` | GitHub Actions gates (lint → build → typecheck → test), pnpm + Turbo caching, coverage reporting, `gates` required on `main` and `dev` | — (makes `general.md §6`'s `[CI]` tier real) | — | 2–3h | ✅ Done — pipeline (#45), `dev` triggers (#50), and on 2026-10-08 ruleset 17802318 widened to `main` + `dev` with `pull_request` and `required_status_checks: gates`; read back with all four rules, and `gates` reports `isRequired` and blocks the failing PR #61 |
 | 40 | `40-public-homepage-and-guides.md` | `(site)` route group: homepage at `/` (replaces the student redirect), `/guide/parents`, `/guide/admins`, `/guide/engineering`; editorial look on `kid` tokens, new `site` i18n namespace in en + bn | FR-SITE-01..03 | — | 6–8h | ✅ Done — merged in #58 with `gates` green; on 2026-10-21 the manual check (four pages at 375/768/1280px, `en` and `bn`, light and high-contrast — 48/48 without horizontal scroll) was recorded on #58 |
+
+| 41 | `41-mcp-content-authoring.md` | Admins author lessons, stories and quizzes with their own AI assistant (Claude, ChatGPT, Cursor…) over MCP at `/mcp`; submissions are schema-validated into the existing AI Queue. Job provenance columns, admin access tokens, then better-auth OAuth for ChatGPT/claude.ai; `GEMINI_API_KEY` becomes optional | FR-AI-01..03, FR-AI-07..10 | 37a, 39; Phase C also 38 · provisioning | 14–18h | ⬜ Not started |
 
 ### Open follow-up fixes
 
