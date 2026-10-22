@@ -26,6 +26,35 @@ export interface SeedAdminResult {
   isCreated: boolean;
 }
 
+// Sign-in checks whichever credential row it finds first, so a stale duplicate makes "Updated" a lie; re-read and
+// verify every row the way `sign-in/email` will, rather than trusting the writes.
+async function assertPasswordSignsIn(
+  email: string,
+  password: string,
+): Promise<void> {
+  const ctx = await auth.$context;
+  const stored = await ctx.internalAdapter.findUserByEmail(email, {
+    includeAccounts: true,
+  });
+  const credentials =
+    stored?.accounts.filter((account) => account.providerId === "credential") ??
+    [];
+  if (credentials.length === 0) {
+    throw new Error(`${email} has no credential account after seeding.`);
+  }
+  for (const account of credentials) {
+    const isMatch =
+      account.password !== null &&
+      account.password !== undefined &&
+      (await ctx.password.verify({ hash: account.password, password }));
+    if (!isMatch) {
+      throw new Error(
+        `${email} has a credential account that does not hold the new password, so sign-in would fail. See document/admin-account-guide.md §5.`,
+      );
+    }
+  }
+}
+
 export async function seedAdmin({
   email,
   password,
@@ -42,7 +71,10 @@ export async function seedAdmin({
   const normalisedEmail = email.toLowerCase();
   const hash = await ctx.password.hash(password);
 
-  const existing = await ctx.internalAdapter.findUserByEmail(normalisedEmail);
+  // Without `includeAccounts` better-auth returns `accounts: []`, so every re-run linked another credential row.
+  const existing = await ctx.internalAdapter.findUserByEmail(normalisedEmail, {
+    includeAccounts: true,
+  });
 
   let authUserId: string;
   if (existing) {
@@ -90,6 +122,8 @@ export async function seedAdmin({
       password: hash,
     });
   }
+
+  await assertPasswordSignsIn(normalisedEmail, password);
 
   const before = await prisma.adminUser.findUnique({
     where: { email: normalisedEmail },

@@ -79,6 +79,7 @@ Rules the script enforces:
 - **`ADMIN_PASSWORD` must be at least 12 characters.** These accounts have no second factor, so the floor is checked by both the script and better-auth.
 - **Email is lower-cased.** `You@Example.com` and `you@example.com` are the same admin.
 - **Running it twice is safe.** Re-running with the same email leaves exactly one of each row and *replaces the password*. The output says `Updated` instead of `Created`.
+- **Success is verified, not assumed.** Before printing `Created` or `Updated`, the script re-reads every `credential` row for the user and checks the password against each with better-auth's own `verify`. If any row would reject it, the script fails instead — sign-in checks whichever row it finds first, so one stale row is enough to lock you out.
 
 ### 2.3 Sign in
 
@@ -125,8 +126,6 @@ Easier still: the API reference at **http://localhost:4000/docs** has a **Send**
 
 ## 3. Part 2 — Create an admin on a deployed server
 
-> **Status note:** the deployment in §9 — Vercel frontend, both APIs on one AWS box — is specified in `implementation/38-deployment-aws-docker.md` but **not built yet** (file 38 in `implementation/00-progress-tracker.md`). Treat this section as the procedure to follow when that deployment lands; the principles and the command do not change.
-
 ### 3.1 The short version
 
 **You create a production admin from your own machine, pointed at the production database.** You do not log into the server, and you do not put the admin credentials into the deployment.
@@ -139,29 +138,17 @@ That sounds surprising, so here is why:
 
 ### 3.2 Step by step
 
-**1. Apply migrations first.** The tables must exist before the seed can write to them.
+The exact, copy-paste procedure is [Step 14 of the deployment guide](./deployment/05-aws-storage-secrets-images.md). In outline:
 
-```bash
-# DIRECT_URL = the session-mode connection (:5432), never the pooler
-pnpm --filter @kidlearn/db exec prisma migrate deploy
-```
+**1. Migrations are already applied.** The tables must exist before the seed can write to them; the first deploy's `--migrate` (or Step 8c) does this.
 
-Use `migrate deploy`, never `migrate dev`, against a real database.
+**2. Run the seed from your Mac with the production environment loaded from Parameter Store.** The block pulls every `/kidlearn/prod/*` value into a one-off bash process, prints the database host so you can check it is production, and runs `seed:admin`. The secrets live only in that process — no file to delete afterwards. Use `/kidlearn/dev/` for the dev environment.
 
-**2. Prepare a throwaway environment for the seed.** In a temporary copy of the server environment file, set `DATABASE_URL` to the **production** pooled connection string (`:6543`, `?pgbouncer=true` for Supabase). The other required variables only have to satisfy the schema — the seed writes nothing that uses them — so placeholders are acceptable and preferable to copying real production secrets onto a laptop.
+**3. Read the output.** `Created admin …` or `Updated admin …` is printed only after the script re-reads the account and verifies the password the way `sign-in/email` will, so it means the password works. Any other line is an error — see [Troubleshooting](#5-troubleshooting).
 
-**3. Create the admin.** Same command, real password:
+**4. Keep the password out of shell history.** The deployment guide's block starts with a space, which keeps it out of `zsh` history with `HIST_IGNORE_SPACE`; otherwise clear the entry afterwards. The password belongs only in your password manager.
 
-```bash
-ADMIN_EMAIL=admin@kidlearn.net \
-ADMIN_PASSWORD='<from your password manager, 12+ characters>' \
-ADMIN_NAME='Content Admin' \
-  pnpm --filter server seed:admin
-```
-
-**4. Delete the throwaway file**, and make sure the password exists only in your password manager. Shell history is a real leak here — a leading space (`  ADMIN_...`) keeps the line out of history in `zsh` with `HIST_IGNORE_SPACE`, or clear the entry afterwards.
-
-**5. Sign in and confirm.** Go to `https://kidlearn.net` (or `https://dev.kidlearn.net`) and choose **Admin sign-in**. You should land on the analytics page. If sign-in succeeds but every page bounces, see [Troubleshooting](#5-troubleshooting).
+**5. Sign in and confirm.** Go to `https://kidlearn.net` (or `https://dev.kidlearn.net`) and choose **Admin sign-in**, typing the password rather than letting the browser fill in an old one. You should land on the analytics page.
 
 ### 3.3 Rules that must hold in production
 
@@ -254,7 +241,10 @@ Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one cli
 |---|---|---|
 | `Cannot seed an admin. Fix these variables:` | One of the three `ADMIN_*` values is missing or invalid | The message names the offending field. Passwords under 12 characters fail here |
 | The seed fails naming `CRON_SECRET`, `CLOUDINARY_*`, `GEMINI_API_KEY`… | The whole server env schema is validated on import | Fill in the server environment file. Placeholders are fine for values the seed does not use |
-| Login says *"Those details did not match an administrator account"* | Wrong password, or no `user` row for that email | Re-run the seed with a known password. Remember the email is lower-cased |
+| Login says *"Those details did not match an administrator account"* | The dialog shows this for **every** failure — wrong password, but also a network, CORS or server error | Find the real one first: `curl` `POST /api/auth/sign-in/email` with the same email and password and an `Origin` header for the site ([deployment Step 14](./deployment/05-aws-storage-secrets-images.md) has the command). `200` means the account is fine — clear the browser's saved password. `401 INVALID_EMAIL_OR_PASSWORD` — read the API log, below |
+| API log (`docker logs prod-api`) says `[Better Auth]: User not found` | No `user` row for that email in the database the **API** uses | The seed wrote elsewhere. Compare the `Database:` line the seed printed with `DATABASE_URL` in `/opt/kidlearn/<env>/app.env` on the server; `app.env` is rewritten only on deploy, so a Parameter Store change needs `deploy.sh <env> <current tag>` |
+| API log says `[Better Auth]: Invalid password` | The `user` row exists but the stored hash does not match what you typed | Re-run the seed and type exactly that password. If the seed fails with *"does not hold the new password"*, see the next row |
+| Seed fails: *"…has a credential account that does not hold the new password, so sign-in would fail"* | The user has more than one `credential` account row. Seeds before October 2026 added a new row on every re-run instead of updating the old one, and sign-in kept checking the oldest | Delete the stale rows, then re-run the seed: `delete from account a using "user" u where a."userId" = u.id and u.email = '<email>' and a."providerId" = 'credential' and a."updatedAt" < now() - interval '1 minute';` — the re-run writes a fresh row if none is left |
 | Login works but the CMS bounces you back | A session exists but there is no matching `AdminUser` row — the API returns `403` | Re-run the seed; it re-asserts the link on every run. That is exactly what repairs it |
 | `401` from `/api/admin/*` | No session cookie reached the API, or the admin session is more than 12 hours old | Check `WEB_ORIGIN` matches the site origin exactly, and that `NEXT_PUBLIC_API_URL` points at the right API |
 | The admin exists but not in the database you expected | The seed used `DATABASE_URL` from the `apps/server` environment file | Point that file at the right database and run it again |
