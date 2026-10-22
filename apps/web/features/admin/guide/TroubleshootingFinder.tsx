@@ -65,6 +65,44 @@ const PROBLEMS: Problem[] = [
     fix: "It resets at local midnight. Meanwhile, use your own AI assistant or enter content by hand. Assistant drafts have their own, separate daily limit.",
   },
   {
+    symptom:
+      "Your assistant says “Access token is invalid, revoked or expired”",
+    meaning: "The token ran out or was revoked, or was pasted wrongly.",
+    fix: "Create a new token on the AI assistants page and replace the old one in the client's settings.",
+  },
+  {
+    symptom: "Your assistant says “Admin access required”",
+    meaning:
+      "The token's admin was removed, or Google sign-in was linked to that account.",
+    fix: "Ask whoever manages admin accounts. A token cannot outlive its admin's access.",
+  },
+  {
+    symptom: "“Daily MCP draft cap … reached”",
+    meaning: "You have submitted today's allowance of assistant drafts.",
+    fix: "It resets at local midnight. Review what is already queued in the meantime.",
+  },
+  {
+    symptom: "“Too many MCP requests — slow down”",
+    meaning:
+      "The assistant made too many calls in a minute, across all your tokens.",
+    fix: "Wait a minute; most assistants retry on their own.",
+  },
+  {
+    symptom: "“You already have 10 active access tokens”",
+    meaning: "The per-admin limit on live tokens.",
+    fix: "Revoke one you no longer use on the AI assistants page.",
+  },
+  {
+    symptom: "“Assistant access is switched off on this server”",
+    meaning: "The API is running without MCP_ENABLED=true.",
+    fix: "Ask whoever runs the deployment to turn it on.",
+  },
+  {
+    symptom: "Your assistant says “No image model is configured”",
+    meaning: "The server has no Gemini key, so it cannot draw.",
+    fix: "Upload the pictures in Media and attach them to the story by hand.",
+  },
+  {
     symptom: "Published, but a child cannot see it",
     meaning: "One of the four visibility conditions is not met.",
     fix: "Check the world, topic and subject are published, and the child's grade is ticked on all three levels.",

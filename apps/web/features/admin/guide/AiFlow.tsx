@@ -4,7 +4,7 @@ import { Fragment } from "react";
 const STAGES: { title: string; body: string; isHuman: boolean }[] = [
   {
     title: "Generate",
-    body: "A button sends a request to Gemini.",
+    body: "A button asks Gemini, or your own AI assistant submits a draft.",
     isHuman: false,
   },
   {
