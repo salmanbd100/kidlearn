@@ -4,6 +4,15 @@
 
 > An AI-powered early education platform built for children aged 3–6 — and, honestly, built for my two daughters.
 
+## Live
+
+| Environment | Website | API | Deploys from |
+|---|---|---|---|
+| **Production** | <https://kidlearn.net> | <https://api.kidlearn.net> | `main` |
+| **Dev** | <https://dev.kidlearn.net> | <https://api.dev.kidlearn.net> · [API reference](https://api.dev.kidlearn.net/docs) | `dev` |
+
+Dev runs unreviewed builds against its own database and is not listed by search engines. The API reference is served on dev only.
+
 ---
 
 ## The Story Behind It
