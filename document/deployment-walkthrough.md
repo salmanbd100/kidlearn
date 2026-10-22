@@ -950,11 +950,11 @@ with three differences:
 - **Settings → Git:** Production Branch = **`dev`**
 - **Domains:** `dev.kidlearn.net` only, with the `dev` CNAME from `runbook.md` §5
   for **this** project's `*.vercel-dns.com` target, **grey cloud**
-- **Environment Variables:** all five Vercel rows of `runbook.md` §4, development
-  column. `DEV_SITE_BASIC_AUTH` is `dev:<a password you choose>`; save it in your
-  password manager (its only home is this project — `runbook.md` §13).
+- **Environment Variables:** the four set Vercel rows of `runbook.md` §4,
+  development column. Leave `DEV_SITE_BASIC_AUTH` **unset** — the dev site is
+  open, and `SITE_NOINDEX` keeps it out of search results (`runbook.md` §13).
 
-- [ ] Dev project tracks `dev`, five variables set, domain live
+- [ ] Dev project tracks `dev`, four variables set, domain live
 
 ## B6 · 🌐 Extend the existing OAuth client
 
@@ -966,16 +966,15 @@ keep the localhost ones. Do not touch the production one you made in A15.
 
 ## B7 · Dev smoke test
 
-Run the dev lines of `runbook.md` §14 (`401` on the web host, `200` and noindex
+Run the dev lines of `runbook.md` §14 (`200` on the web host, `200` and noindex
 on the API host).
 
 Then in a browser:
 
-1. `https://dev.kidlearn.net` asks for a username and password.
-2. Your `DEV_SITE_BASIC_AUTH` credentials get you in.
-3. Sign in with Google — **and it does not ask again part-way through.** The
-   callback lands on the API host, which deliberately has no password gate.
-4. Reload — still signed in.
+1. `https://dev.kidlearn.net` opens the homepage — no password prompt.
+2. Sign in with Google. The callback lands on the API host, which must never
+   have a password gate, even if you later turn on the optional site password.
+3. Reload — still signed in.
 
 Then prove the two environments really are separate with the bundle check in
 `runbook.md` §4: the dev site must show nothing for the production API host. If
