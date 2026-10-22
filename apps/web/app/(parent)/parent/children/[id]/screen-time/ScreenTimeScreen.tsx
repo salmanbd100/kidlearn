@@ -11,6 +11,7 @@ import {
   getScreenTime,
   updateScreenTime,
 } from "@/features/screen-time/screen-time-api";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 export function ScreenTimeScreen({ childId }: { childId: string }) {
   const { t } = useTranslation(PARENT_NAMESPACE);
@@ -68,9 +69,7 @@ export function ScreenTimeScreen({ childId }: { childId: string }) {
           {t("errors.generic")}
         </p>
       ) : status === "loading" || setting === undefined ? (
-        <p className="text-muted-foreground text-sm">
-          {t("screenTime.loading")}
-        </p>
+        <LoadingState label={t("screenTime.loading")} />
       ) : (
         <>
           {isSaved ? (

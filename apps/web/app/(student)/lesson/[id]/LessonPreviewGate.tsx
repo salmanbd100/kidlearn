@@ -31,7 +31,7 @@ export function LessonPreviewGate({
 
   // Starting in either mode and switching would record a step the preview shouldn't have or drop one the child is owed.
   if (isAdmin === undefined) {
-    return <StudentStatus tone="status">{t("loading")}</StudentStatus>;
+    return <StudentStatus tone="loading">{t("loading")}</StudentStatus>;
   }
 
   if (isAdmin) {

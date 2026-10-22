@@ -2,6 +2,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "../lib/cn";
+import { Spinner } from "./spinner";
 
 /** Button — shadcn-style primitive; colours and radius come from semantic tokens, so it follows `[data-theme]`. */
 const buttonVariants = cva(
@@ -39,6 +40,8 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /** Disables the button and shows a spinner in front of its label, which stays put so the width does not jump. */
+  isLoading?: boolean;
 }
 
 export function Button({
@@ -46,14 +49,29 @@ export function Button({
   variant,
   size,
   asChild = false,
+  isLoading = false,
+  disabled,
+  children,
   ...props
 }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
   return (
     <Comp
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={disabled || isLoading}
+      aria-busy={isLoading || undefined}
       {...props}
-    />
+    >
+      {/* A Slot takes exactly one child, so a link styled as a button cannot carry the spinner. */}
+      {isLoading && !asChild ? (
+        <>
+          <Spinner />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </Comp>
   );
 }
 

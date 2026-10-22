@@ -108,12 +108,13 @@ export function DeleteChildDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={!isConfirmed || isDeleting}
+            disabled={!isConfirmed}
+            isLoading={isDeleting}
             onClick={() => {
               void handleConfirm();
             }}
           >
-            {isDeleting ? t("delete.deleting") : t("delete.confirm")}
+            {t("delete.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -277,8 +277,8 @@ function CreateTokenForm({
           ))}
         </Select>
       </div>
-      <Button type="submit" disabled={isSaving || name.trim() === ""}>
-        {isSaving ? "Creating…" : "Create token"}
+      <Button type="submit" disabled={name.trim() === ""} isLoading={isSaving}>
+        Create token
       </Button>
     </form>
   );

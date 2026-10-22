@@ -19,6 +19,7 @@ import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
 import { Chip } from "@/features/admin/ui/StatusChip";
+import { LoadingState } from "@/shared/components/LoadingState";
 import {
   AI_JOB_TYPE_LABELS,
   formatRelativeAge,
@@ -161,9 +162,11 @@ export function AiQueueScreen() {
 
       {state === "loading" ? (
         <div className="flex flex-col gap-2">
-          <p role="status" className="text-muted-foreground text-sm">
-            {isWaking ? "Waking the API up…" : "Loading…"}
-          </p>
+          <LoadingState
+            label={isWaking ? "Waking the API up…" : "Loading…"}
+            isLabelVisible={isWaking}
+            className="py-4"
+          />
           <RowSkeleton />
         </div>
       ) : state === "error" ? (

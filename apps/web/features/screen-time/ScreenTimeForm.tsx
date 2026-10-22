@@ -178,8 +178,8 @@ export function ScreenTimeForm({
             <Link href={cancelHref}>{t("form.cancel")}</Link>
           </Button>
         ) : null}
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? t("form.saving") : t("form.save")}
+        <Button type="submit" isLoading={isSaving}>
+          {t("form.save")}
         </Button>
       </div>
     </form>

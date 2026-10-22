@@ -65,7 +65,6 @@
     "avatarLockedHeading": "Still to earn",
     "create": "Create profile",
     "save": "Save changes",
-    "saving": "Saving…",
     "cancel": "Cancel",
     "errors": {
       "firstNameRequired": "Please enter your child's first name.",
@@ -93,7 +92,6 @@
     "warning": "This removes {{name}}'s profile and all of their progress, stars and badges. It cannot be undone.",
     "prompt": "Type {{name}} to confirm",
     "confirm": "Delete profile",
-    "deleting": "Deleting…",
     "cancel": "Keep profile",
     "close": "Close"
   },

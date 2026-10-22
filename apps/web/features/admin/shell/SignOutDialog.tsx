@@ -53,10 +53,10 @@ export function SignOutDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={isBusy}
+            isLoading={isBusy}
             onClick={onConfirm}
           >
-            {isBusy ? "Signing out…" : "Sign out"}
+            Sign out
           </Button>
         </DialogFooter>
       </DialogContent>

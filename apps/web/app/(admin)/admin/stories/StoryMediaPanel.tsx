@@ -108,7 +108,8 @@ export function StoryMediaPanel() {
           <Button
             type="button"
             variant="outline"
-            disabled={!isReady || isDrawing}
+            disabled={!isReady}
+            isLoading={isDrawing}
             onClick={() => void handleIllustrate()}
           >
             {isDrawing ? "Drawing — this takes a while…" : "Generate pictures"}

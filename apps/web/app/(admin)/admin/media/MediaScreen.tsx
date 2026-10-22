@@ -24,6 +24,7 @@ import { useMediaPages } from "@/features/admin/media/use-media-pages";
 import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
 import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
+import { LoadingState } from "@/shared/components/LoadingState";
 import { AttachDialog } from "./AttachDialog";
 import { CharactersTab } from "./CharactersTab";
 import { UploadDialog } from "./UploadDialog";
@@ -201,9 +202,7 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
 
       {status === "loading" ? (
         <div className="flex flex-col gap-3">
-          <p role="status" className="text-muted-foreground text-sm">
-            Loading…
-          </p>
+          <LoadingState label="Loading…" className="py-4" />
           <ul
             aria-hidden="true"
             className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
@@ -278,10 +277,10 @@ export function MediaScreen({ videoWorkflow }: { videoWorkflow?: ReactNode }) {
           type="button"
           variant="outline"
           className="self-center"
-          disabled={isLoadingMore}
+          isLoading={isLoadingMore}
           onClick={() => void loadMore()}
         >
-          {isLoadingMore ? "Loading…" : "Show older files"}
+          Show older files
         </Button>
       ) : null}
 
