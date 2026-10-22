@@ -30,6 +30,7 @@ const FURTHER_READING = [
   { key: "design", path: "design.md" },
   { key: "journeys", path: "user-journey-manual.md" },
   { key: "standards", path: "standards/general.md" },
+  { key: "deployment", path: "deployment/README.md" },
   { key: "runbook", path: "runbook.md" },
   { key: "mobile", path: "mobile-app-plan.md" },
 ] as const;
@@ -194,7 +195,7 @@ export const ENGINEERING_GUIDE_SECTIONS: readonly GuideSection[] = [
   {
     id: "shipping",
     titleKey: "engineering.shipping.title",
-    docPath: "runbook.md",
+    docPath: "deployment/README.md",
     content: (
       <>
         <GuideText i18nKey="engineering.shipping.p1" />

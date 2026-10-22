@@ -192,12 +192,12 @@
       "data": {
         "layer": "Data",
         "choice": "PostgreSQL through Prisma 6",
-        "why": "Relational data, with JSONB where content needs room to change. Production is planned to run on Supabase."
+        "why": "Relational data, with JSONB where content needs room to change. Row-level security is on for every table, so Supabase's public Data API cannot reach around the server. Production is planned to run on Supabase."
       },
       "auth": {
         "layer": "Auth",
         "choice": "better-auth: Google for parents, email and password for admins",
-        "why": "Parents never create a password, and nobody can sign up for an admin account."
+        "why": "Parents never create a password, and nobody can sign up for an admin account. An admin session ends 12 hours after sign-in, however active it is."
       },
       "ai": {
         "layer": "AI",
@@ -228,7 +228,7 @@
     "request": {
       "title": "A request, end to end",
       "p1": "Vercel serves the pages, but the browser calls the API itself; there is no proxy in between. The API sets an <code>httpOnly</code> session cookie on its own origin, and the browser sends it with every call.",
-      "p2": "Caddy handles TLS and is the only thing listening on the public ports. Inside Express, guards such as <code>requireParent</code> and <code>requireAdmin</code> check the session before a handler runs, and <code>requireConsent</code> holds back child data until a parent has agreed. Prisma is the only way into the database."
+      "p2": "Caddy handles TLS and is the only thing listening on the public ports. Express refuses any state-changing request from an origin other than the web app's. Guards such as <code>requireParent</code> and <code>requireAdmin</code> check the session before a handler runs, and <code>requireConsent</code> holds back child data until a parent has agreed. Prisma is the only way into the database."
     },
     "content": {
       "title": "Content is data",
@@ -237,7 +237,7 @@
     },
     "server": {
       "title": "The server is the authority",
-      "p1": "Stars, coins, streaks, badges, screen time and lesson completion are all worked out on the server. The app reports what happened, such as a finished step or a heartbeat while a lesson is open, and the server records it and decides what it means.",
+      "p1": "Stars, coins, streaks, badges, screen time and lesson completion are all worked out on the server. The app reports what happened, such as a finished step or a heartbeat while a lesson is open, and the server records it and decides what it means. It enforces step order, rate-limits reports, and pays nothing for a lesson until the steps that prove it are on record.",
       "p2": "Learning time is not kept as a running total. It is added up from the session events themselves, so there is no counter for a device to inflate."
     },
     "publishing": {
@@ -266,15 +266,15 @@
     },
     "quality": {
       "title": "Quality",
-      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,068 tests in 210 files, counted on 7 October 2026.",
+      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,103 tests in 221 files, counted on 22 October 2026.",
       "p2": "Every successful response in a route test is checked against its published schema with <code>assertContract</code>, and a coverage test walks the live Express routers and fails if any endpoint is missing from the OpenAPI document. What a stub cannot prove, such as cascades, unique constraints and the status check on related rows, runs against a real Postgres database in <code>*.db.test.ts</code> suites.",
       "p3": "On every pull request, one CI job, <code>gates</code>, runs lint, build, type-check, the tests with coverage, the real-database suites and the Docker image builds."
     },
     "shipping": {
       "title": "Shipping",
       "p1": "The design is deliberately small: Vercel's free tier for the web app, and one Graviton EC2 instance in Mumbai running the production and development APIs side by side behind Caddy. Supabase is planned for the production database, and Cloudinary holds the media.",
-      "p2": "The estimated running cost is about $13.73 a month for both environments (from the deployment plan, read on 7 October 2026), most of it the instance and its IP address. Cost is a design constraint, which is why there is no load balancer and no NAT gateway.",
-      "p3": "<strong>Where it stands on 7 October 2026:</strong> none of this is provisioned yet. Images are built and deployed with a script; a GitHub Actions deploy pipeline is specified but not yet built."
+      "p2": "The estimated running cost is about $14.08 a month for both environments (from the deployment guide, read on 22 October 2026), most of it the instance and its IP address. Cost is a design constraint, which is why there is no load balancer and no NAT gateway.",
+      "p3": "<strong>Where it stands on 22 October 2026:</strong> none of this is provisioned yet. Images are built and deployed with a script; a GitHub Actions deploy pipeline is specified but not yet built."
     },
     "further": {
       "title": "Read further",
@@ -283,6 +283,7 @@
       "design": "Design system",
       "journeys": "User journeys and manual",
       "standards": "Engineering standards",
+      "deployment": "Deployment guide",
       "runbook": "Operations runbook",
       "mobile": "Mobile app plan"
     }
