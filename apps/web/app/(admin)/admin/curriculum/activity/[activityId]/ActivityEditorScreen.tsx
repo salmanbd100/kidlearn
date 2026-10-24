@@ -18,6 +18,7 @@ import {
 import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
 import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { StatusChip } from "@/features/admin/ui/StatusChip";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 export function ActivityEditorScreen({ activityId }: { activityId: string }) {
   const [activity, setActivity] = useState<AdminActivity>();
@@ -45,7 +46,7 @@ export function ActivityEditorScreen({ activityId }: { activityId: string }) {
   }, [load]);
 
   if (status === "loading") {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <LoadingState label="Loading…" />;
   }
   if (status === "error" || activity === undefined || draft === undefined) {
     return (

@@ -457,7 +457,7 @@ A migration is the one change that cannot be reverted by reverting the commit.
   production cannot answer "what happened to this user".
 - **CI.** A step that widens secrets exposure to fork PRs, a removed gate, an unpinned action.
 - **Runbook.** A new operational step missing from `document/runbook.md` or
-  `document/deployment-walkthrough.md`.
+  `document/deployment/`.
 
 ### K — Maintainability
 

@@ -226,6 +226,7 @@ function mockSession(userId: string) {
 
 function seedLessonJob(overrides: Record<string, unknown> = {}): void {
   store.jobs.push({
+    source: "gemini",
     id: LESSON_JOB_ID,
     type: "lesson",
     status: "awaiting_review",
@@ -268,6 +269,7 @@ function seedLessonJob(overrides: Record<string, unknown> = {}): void {
 
 function seedAudioJob(): void {
   store.jobs.push({
+    source: "gemini",
     id: AUDIO_JOB_ID,
     type: "audio",
     status: "awaiting_review",
@@ -388,6 +390,7 @@ describe("GET /api/admin/ai/jobs", () => {
   it("defaults to the jobs awaiting review", async () => {
     seedLessonJob();
     store.jobs.push({
+      source: "gemini",
       id: "bbbbbbbb-0000-4000-8000-000000000001",
       type: "story",
       status: "approved",
@@ -425,6 +428,7 @@ describe("GET /api/admin/ai/jobs", () => {
     // The filter reads `input`, where the generator recorded its request; there is no column.
     seedLessonJob();
     store.jobs.push({
+      source: "gemini",
       id: "bbbbbbbb-0000-4000-8000-000000000002",
       type: "story",
       status: "awaiting_review",
@@ -449,6 +453,7 @@ describe("GET /api/admin/ai/jobs", () => {
   it("filters by grade level, matching a scalar or an array", async () => {
     seedLessonJob();
     store.jobs.push({
+      source: "gemini",
       id: "bbbbbbbb-0000-4000-8000-000000000003",
       type: "story",
       status: "awaiting_review",

@@ -28,6 +28,12 @@ type AccountRow = { providerId: string; password?: string };
 const store = vi.hoisted(() => ({
   admins: [] as AdminRow[],
   sessions: [] as { id: string; userId: string }[],
+  // Tokens carry their admin's `authUserId` so the stubbed `updateMany` can match on the relation.
+  accessTokens: [] as {
+    id: string;
+    authUserId: string;
+    revokedAt: Date | null;
+  }[],
   nextAdminId: 1,
 }));
 
@@ -35,12 +41,14 @@ const db = vi.hoisted(() => ({
   adminFindUnique: vi.fn(),
   adminUpsert: vi.fn(),
   sessionDeleteMany: vi.fn(),
+  accessTokenUpdateMany: vi.fn(),
 }));
 
 vi.mock("../config/prisma.js", () => ({
   prisma: {
     adminUser: { findUnique: db.adminFindUnique, upsert: db.adminUpsert },
     session: { deleteMany: db.sessionDeleteMany },
+    adminAccessToken: { updateMany: db.accessTokenUpdateMany },
   },
 }));
 
@@ -56,12 +64,31 @@ const identity = {
 beforeEach(() => {
   store.admins = [];
   store.sessions = [];
+  store.accessTokens = [];
   store.nextAdminId = 1;
   identity.users = [];
   identity.accounts = new Map();
   db.adminFindUnique.mockReset();
   db.adminUpsert.mockReset();
   db.sessionDeleteMany.mockReset();
+  db.accessTokenUpdateMany.mockReset();
+
+  db.accessTokenUpdateMany.mockImplementation(
+    async ({
+      where,
+      data,
+    }: {
+      where: { admin: { authUserId: string }; revokedAt: null };
+      data: { revokedAt: Date };
+    }) => {
+      const live = store.accessTokens.filter(
+        (row) =>
+          row.authUserId === where.admin.authUserId && row.revokedAt === null,
+      );
+      for (const row of live) row.revokedAt = data.revokedAt;
+      return { count: live.length };
+    },
+  );
 
   db.sessionDeleteMany.mockImplementation(
     async ({ where }: { where: { userId: string } }) => {
@@ -242,6 +269,28 @@ describe("seedAdmin", () => {
     ]);
   });
 
+  it("revokes the admin's AI assistant tokens when a re-run rotates the password", async () => {
+    await seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME });
+    store.accessTokens = [
+      { id: "token_admin_1", authUserId: AUTH_USER_ID, revokedAt: null },
+      { id: "token_other_1", authUserId: "user_admin_2", revokedAt: null },
+    ];
+
+    await seedAdmin({
+      email: EMAIL,
+      password: "a-different-long-password",
+      name: NAME,
+    });
+
+    // A token minted from a session the leaked password opened would otherwise outlive the rotation by up to 30 days.
+    expect(
+      store.accessTokens.map((row) => [row.id, row.revokedAt !== null]),
+    ).toEqual([
+      ["token_admin_1", true],
+      ["token_other_1", false],
+    ]);
+  });
+
   it("links a credential account to a user left without one", async () => {
     // An earlier run died between `createUser` and `linkAccount`: an identity that can never sign in.
     identity.users.push({ id: AUTH_USER_ID, email: EMAIL, name: NAME });
@@ -347,7 +396,7 @@ describe("what the stub cannot prove (general.md §5, rule 4)", () => {
       schema.indexOf("}", schema.indexOf("model AdminUser {")),
     );
     expect(model).toMatch(/email\s+String\s+@unique/);
-    expect(model).toMatch(/authUserId String\?\s+@unique/);
+    expect(model).toMatch(/authUserId\s+String\?\s+@unique/);
   });
 
   it("keeps a revoked admin's review history by setting the link null, not cascading", () => {

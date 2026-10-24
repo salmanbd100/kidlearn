@@ -1,5 +1,6 @@
 import type { Router } from "express";
 import { describe, expect, it } from "vitest";
+import { accessTokensRouter } from "../modules/admin/access-tokens/access-tokens.routes.js";
 import { adminRouter } from "../modules/admin/admin.routes.js";
 import { adminAiRouter } from "../modules/admin/ai/ai.routes.js";
 import { adminContentRouter } from "../modules/admin/content/content.routes.js";
@@ -14,6 +15,7 @@ import { eventsRouter } from "../modules/events/events.routes.js";
 import { healthRouter } from "../modules/health/health.routes.js";
 import { apiRouter } from "../modules/index.js";
 import { jobsRouter } from "../modules/jobs/jobs.routes.js";
+import { mcpRouter } from "../modules/mcp/mcp.routes.js";
 import { meRouter } from "../modules/me/me.routes.js";
 import { parentRouter } from "../modules/parent/parent.routes.js";
 import { progressRouter } from "../modules/progress/progress.routes.js";
@@ -78,10 +80,18 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     router: adminAiRouter,
     file: "paths/admin-ai.ts",
   },
+  // Mounted only when `MCP_ENABLED=true`, which `vitest.setup.ts` sets.
+  {
+    prefix: "/api/admin/access-tokens",
+    router: accessTokensRouter,
+    file: "paths/admin.ts",
+  },
+  // At the root, not under `/api`, so `EXPECTED_ROUTERS_UNDER_API` does not count it.
+  { prefix: "", router: mcpRouter, file: "paths/mcp.ts" },
 ];
 
 /** Routers reachable under `/api` at any depth, including those nested on `contentRouter` and `adminRouter`. */
-const EXPECTED_ROUTERS_UNDER_API = 15;
+const EXPECTED_ROUTERS_UNDER_API = 16;
 
 /** Declared structurally because `@types/express` omits `stack`; the canary test below fails loudly if the shape changes. */
 type RouteLayer = {

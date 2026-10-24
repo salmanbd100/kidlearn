@@ -11,13 +11,7 @@ import {
   Label,
   ThemeScope,
 } from "@kidlearn/ui";
-import {
-  CircleAlert,
-  Eye,
-  EyeOff,
-  LoaderCircle,
-  LockKeyhole,
-} from "lucide-react";
+import { CircleAlert, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useQueryDialog } from "@/shared/hooks/use-query-dialog";
@@ -159,17 +153,10 @@ export function AdminSignInDialog({
             <Button
               type="submit"
               size="lg"
-              disabled={isSubmitting}
+              isLoading={isSubmitting}
               className="mt-2 w-full"
             >
-              {isSubmitting ? (
-                <>
-                  <LoaderCircle aria-hidden="true" className="animate-spin" />
-                  Signing in…
-                </>
-              ) : (
-                "Sign in"
-              )}
+              Sign in
             </Button>
           </form>
           <p className="border-border border-t pt-5 text-center text-muted-foreground text-sm">

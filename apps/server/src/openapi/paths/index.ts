@@ -11,6 +11,7 @@ import { CONTENT_ROUTES } from "./content.js";
 import { EVENTS_ROUTES } from "./events.js";
 import { HEALTH_ROUTES } from "./health.js";
 import { JOBS_ROUTES } from "./jobs.js";
+import { MCP_ROUTES } from "./mcp.js";
 import { ME_ROUTES } from "./me.js";
 import { PARENT_ROUTES } from "./parent.js";
 import { PROGRESS_ROUTES } from "./progress.js";
@@ -35,6 +36,7 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...ADMIN_EDITOR_ROUTES,
   ...ADMIN_MEDIA_ROUTES,
   ...ADMIN_AI_ROUTES,
+  ...MCP_ROUTES,
 ];
 
 export const EXTERNAL_ROUTE_DOCS: RouteDoc[] = [...BETTER_AUTH_ROUTES];

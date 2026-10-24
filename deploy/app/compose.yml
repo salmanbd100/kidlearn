@@ -54,6 +54,11 @@ services:
       AI_TEXT_JOBS_PER_DAY: ${AI_TEXT_JOBS_PER_DAY:-8}
       AI_AUDIO_JOBS_PER_DAY: ${AI_AUDIO_JOBS_PER_DAY:-100}
       AI_IMAGE_JOBS_PER_DAY: ${AI_IMAGE_JOBS_PER_DAY:-15}
+      # File 41's MCP_ENABLED, MCP_DRAFTS_PER_DAY and MCP_RATE_LIMIT_PER_MINUTE
+      # are deliberately NOT listed here. `environment:` beats `env_file:`, and
+      # deploy.sh rewrites compose.env from a fixed list on every deploy, so a
+      # key named here could never be turned on. Set them as SSM parameters;
+      # unset, config/env.ts defaults to off / 30 / 60.
     networks:
       kidlearn-edge:
         # The alias the Caddyfile names. NOT the service name: both stacks call

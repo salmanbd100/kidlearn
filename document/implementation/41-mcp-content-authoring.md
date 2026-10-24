@@ -475,6 +475,31 @@ than reproducing screenshots.
     `runbook.md` (revoking tokens, disabling MCP); `database-design.md`; this tracker's Shared
     Technical Decisions "AI providers" bullet. Run `/sync-docs`.
 
+## Decisions taken during implementation
+
+Recorded so the next engineer can tell a choice from an accident. Where the code and the text above
+disagree, this list is the newer word.
+
+| # | Where the spec said | What was built, and why |
+| --- | --- | --- |
+| I1 | D3: `legacy: "reject"` | `legacy: "stateless"`. Rejecting 2025-era clients would lock out every assistant not yet on the 2026-07-28 revision; stateless serving keeps D3's "no session store". Their `clientInfo` arrives only at `initialize`, so `User-Agent` stands in for the provenance label |
+| I2 | Req. 6: capabilities `{ …, mcp: { enabled, oauth } }` | Also `mcp.url` and `mcp.draftsPerDay` — the AI assistants page needs the URL for its config snippets and shows the cap. `oauth` is hard-coded `false` and `MCP_OAUTH_ENABLED` does not exist yet: both arrive with Phase C |
+| I3 | Req. 4: `prefix` "first 8 chars" | 12: `klat_` plus seven secret characters. Eight would be `klat_` plus three, too few to tell tokens apart |
+| I4 | Req. 3: rate limit "keyed by principal" | Keyed by admin id, so several tokens share one allowance. Plus a ceiling of 10 active tokens per admin (`409` past it) |
+| I5 | Req. 3: `request_illustrations(storyId)` | Only for a story one of the caller's own MCP drafts created, and not once it is published. Without it a draft-only token could spend the shared image budget on any story |
+| I6 | Req. 1: "the Gemini routes start filling `requestedById`" | All five generate routes and both MCP media tools do. Media jobs an assistant triggers stay `source: gemini` (Gemini or Cloud TTS wrote them, and they must keep counting against those budgets) with `requestedById` set |
+| I7 | Req. 2: `rawOutput: { submitted, entities }` | `{ submitted, parsed, entities }`. `readParsedLesson` and `readCharacterDescriptions` read `parsed`, as they do for Gemini jobs |
+| I8 | Req. 2: duplicate `clientRequestId` returns the existing job | Checked before `prepare*`, so a retry is answered even after the quiz was published. An id already used for a *different* type is a tool error, not that job |
+| I9 | Testing: "Unit (Prisma stubbed, citing §5)" | Overridden by `general.md §5` ("No new stubbed suite is written"): the no-Gemini suite is `ai.routes.no-gemini.db.test.ts` |
+| I10 | AC: existing route suites pass "without edits to their assertions" | Five `toHaveBeenCalledWith` assertions in `ai.routes.test.ts` gained the `{ requestedById }` argument the routes now pass — the signature changed, the behaviour asserted did not. `seed-admin.test.ts` widened one whitespace match after Prisma re-aligned `AdminUser`'s columns |
+| I11 | Phase D 16: *replace* "Without Gemini" | Added "Use your own AI assistant" beside it. D2 keeps the Gemini path, so admins still using it keep its instructions |
+| I12 | Step 6: check boot cost | Measured during review: ~15 MB RSS and ~60 ms with the SDK imported eagerly; not large enough to lazy-load, so `app.ts` imports it statically |
+| I13 | Req. 8: `MCP_*` in `deploy/app/compose.yml` | SSM parameters instead. Compose's `environment:` overrides the SSM-written `env_file`, and `deploy.sh` rewrites `compose.env` on every deploy, so a key listed in compose could never be turned on (`runbook.md` "AI assistants over MCP") |
+| I14 | Req. 3: `request_narration(jobId)` | Only while the caller's draft is `awaiting_review`, and a quiz draft voices only the questions it added (`questionIds`). The audio cap is checked once across the lesson intro and its quiz. The I5 reasoning applied to narration: a draft-only token must not spend the shared audio budget on rejected, live or other people's content |
+| I15 | Sketch: submit tools `idempotentHint: true` | `false`. `clientRequestId` stays optional, so a client retrying a call sent without one on the strength of the hint would write a second draft |
+| I16 | Sketch: "`fromJsonSchema`'s AJV pass is a first filter" | Switched off for tools: the SDK answered a bad call before the handler ran, so Req. 9's invalid-submission log never saw it. The advertised JSON Schema is unchanged; `parseArgs` is the only check. Prompts keep the SDK's pass |
+| I17 | Req. 4: "a demoted or compromised admin loses MCP access on the next call" | Also on a password rotation: `seed:admin` revokes the admin's tokens with their sessions, since a token minted from a session the leaked password opened would otherwise outlive the rotation |
+
 ## Acceptance Criteria
 
 - [ ] `pnpm lint`, `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm --filter server test:db` green

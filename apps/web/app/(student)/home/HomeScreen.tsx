@@ -127,7 +127,7 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
           {t("status.error")}
         </StudentStatus>
       ) : status === "loading" ? (
-        <StudentStatus tone="status">
+        <StudentStatus tone="loading">
           {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
         </StudentStatus>
       ) : worlds.length === 0 ? (

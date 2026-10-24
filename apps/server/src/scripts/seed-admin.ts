@@ -8,6 +8,7 @@ import {
   revokeAllSessions,
 } from "../config/auth.js";
 import { prisma } from "../config/prisma.js";
+import { revokeAllAccessTokens } from "../modules/admin/access-tokens/access-tokens.service.js";
 
 const SeedEnvSchema = z.object({
   ADMIN_EMAIL: z.string().email(),
@@ -102,8 +103,10 @@ export async function seedAdmin({
         password: hash,
       });
     }
-    // A rotation is usually a response to a leaked password; a session signed in with the old one must not outlive it.
+    // A rotation is usually a response to a leaked password; neither a session signed in with the old one nor an AI
+    // assistant token minted from that session may outlive it.
     await revokeAllSessions(authUserId);
+    await revokeAllAccessTokens(authUserId);
   } else {
     const created = await ctx.internalAdapter.createUser(
       {

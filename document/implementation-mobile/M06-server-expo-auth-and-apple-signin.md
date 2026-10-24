@@ -88,7 +88,7 @@ What this file deliberately does **not** do: add a `?client=` parameter or a cal
    - The provisioning cases in requirement 5 (`parent.service` / `require-parent.middleware.test.ts`).
    - A Supertest request with **no** `Origin` header to a state-changing parent route (e.g. `POST /api/children/:id/activate`)
      is not refused by `rejectCrossOriginWrites` — the guarantee every native write depends on.
-10. **Provider setup, documented.** Add to `document/deployment-walkthrough.md` (the provider-console checklist used by
+10. **Provider setup, documented.** Add to `document/deployment/` (the provider-console steps used by
     web file 38 · provisioning): the Google OAuth client needs **no** new redirect URI for mobile (the callback still lands
     on `https://api.kidlearn.net/api/auth/callback/google`); Apple needs a Services ID, a signing key, the return URL
     `https://api.kidlearn.net/api/auth/callback/apple`, domain verification and the bundle ID `net.kidlearn.app`; and the
@@ -105,7 +105,7 @@ apps/server/src/config/env.ts                                # + MOBILE_APP_SCHE
 apps/server/src/modules/parent/parent.service.ts             # google OR apple account counts as a parent
 apps/server/src/modules/auth/auth.routes.test.ts             # wrapper-ignores-query regression
 apps/server/src/openapi/paths/auth.ts                        # expo-authorization-proxy, callback/apple, provider enum
-document/deployment-walkthrough.md, document/runbook.md      # provider checklist, Apple secret rotation
+document/deployment/, document/runbook.md                    # provider checklist, Apple secret rotation
 ```
 
 ```ts

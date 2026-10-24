@@ -23,6 +23,8 @@
     "@google/genai": "^2.27.0",
     "@kidlearn/db": "workspace:*",
     "@kidlearn/types": "workspace:*",
+    "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/server": "2.3.1",
     "@scalar/express-api-reference": "^0.10.26",
     "better-auth": "^1.7.7",
     "cloudinary": "^2",
@@ -37,6 +39,7 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",

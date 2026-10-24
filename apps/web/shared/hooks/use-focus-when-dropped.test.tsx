@@ -6,12 +6,14 @@ function Pager({
   page,
   withControl,
   isLast = false,
+  skipArrival = false,
 }: {
   page: number;
   withControl: boolean;
   isLast?: boolean;
+  skipArrival?: boolean;
 }) {
-  const ref = useFocusWhenDropped<HTMLHeadingElement>(page);
+  const ref = useFocusWhenDropped<HTMLHeadingElement>(page, { skipArrival });
   return (
     <div>
       <h1 ref={ref} tabIndex={-1}>
@@ -33,6 +35,21 @@ function Pager({
 describe("useFocusWhenDropped", () => {
   it("takes focus on arrival when nothing has it", () => {
     render(<Pager page={1} withControl={false} />);
+
+    expect(screen.getByRole("heading")).toHaveFocus();
+  });
+
+  it("leaves focus alone on arrival when told to skip it", () => {
+    render(<Pager page={1} withControl={false} skipArrival />);
+
+    expect(document.body).toHaveFocus();
+  });
+
+  it("still takes focus back on a later change when arrival was skipped", () => {
+    const { rerender } = render(<Pager page={1} withControl skipArrival />);
+    screen.getByRole("button", { name: "next" }).focus();
+
+    rerender(<Pager page={2} withControl skipArrival />);
 
     expect(screen.getByRole("heading")).toHaveFocus();
   });

@@ -40,7 +40,7 @@ export function StudentGuard({ children }: { children: ReactNode }) {
 
   if (status === "loading" || redirectTo !== undefined) {
     return (
-      <StudentStatus tone="status">
+      <StudentStatus tone="loading">
         {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
       </StudentStatus>
     );

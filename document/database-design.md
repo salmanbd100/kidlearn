@@ -96,7 +96,7 @@ flowchart TB
     ChildProfile --> D
     World --> Lesson & Story & CharacterSheet
     MediaAsset -.named FKs.-> B & C & Badge & Character
-    AdminUser -->|reviews| AIGenerationJob
+    AdminUser -->|reviews / requests| AIGenerationJob
     AIGenerationJob -.aiJobId back-ref.-> Lesson & Quiz & Story & Activity & MediaAsset
     ChildProfile -.avatar.-> Character
 ```
@@ -121,6 +121,7 @@ flowchart TB
 | `AIJobType` | `lesson`, `story`, `quiz`, `audio`, `image` | 06 | AIGenerationJob |
 | `AIJobStatus` | `pending`, `generating`, `awaiting_review`, `approved`, `rejected`, `failed` | 06 | AIGenerationJob |
 | `AIReviewDecision` | `approve`, `edit_then_approve`, `reject` | 06 | AIGenerationJob.decision |
+| `AIJobSource` | `gemini`, `mcp` | 41 | AIGenerationJob.source |
 
 > Adding a grade (Grade 1+) or language (Arabic/Hindi/Spanish) is a **one-line additive enum migration** + data — no code changes (FR-CURR-03, FR-I18N-04, NFR-SCALE-01).
 
@@ -601,6 +602,8 @@ erDiagram
 ```mermaid
 erDiagram
     AdminUser ||--o{ AIGenerationJob : "reviews"
+    AdminUser ||--o{ AIGenerationJob : "requests (file 41)"
+    AdminUser ||--o{ AdminAccessToken : "owns (file 41)"
     AIGenerationJob ||--o{ Lesson : "generated (aiJobId)"
     AIGenerationJob ||--o{ Quiz : "generated"
     AIGenerationJob ||--o{ QuizQuestion : "generated"
@@ -617,9 +620,25 @@ erDiagram
         string reviewerId FK "→ AdminUser"
         AIReviewDecision decision
         string reviewNote "file 37 · rejection reason"
+        AIJobSource source "file 41 · gemini | mcp"
+        string requestedById FK "file 41 · → AdminUser"
+        json client "file 41 · self-reported MCP client"
+        string clientRequestId "file 41 · idempotency key"
         datetime createdAt
         datetime updatedAt
         datetime reviewedAt
+    }
+
+    AdminAccessToken {
+        string id PK
+        string adminId FK "→ AdminUser (cascade)"
+        string name
+        string prefix "display only"
+        string tokenHash UK "SHA-256; the token is never stored"
+        string_array scopes "mcp:drafts"
+        datetime expiresAt
+        datetime lastUsedAt
+        datetime revokedAt
     }
 ```
 
@@ -641,7 +660,12 @@ flowchart TD
 **Notes**
 - **`rawOutput Json` is an opaque audit payload:** `{ attempts: [...], usage: { inputTokens, outputTokens }, parsed: <validated output>, entities: <created-row ids> }`. For audio/image jobs it also records the FK name to set on approval (e.g. `introAudioAssetId`). Generation retries **once** on a schema-validation failure (both attempts retained) before marking `failed`.
 - **Generated `MediaAsset`s stay unattached** until approval — they exist in the library with `aiJobId` set but no content row points at them, so they are unreachable by any student query.
-- **Daily job caps** (text/audio/image) are enforced in code per `APP_TIMEZONE` day; no rate-limit table.
+- **Daily job caps** (text/audio/image) are enforced in code per `APP_TIMEZONE` day; no rate-limit table. They count `source = gemini` jobs only.
+- **Two sources write jobs (file 41, FR-AI-10).** `source = gemini` is our server calling Gemini; `source = mcp` is an admin's own AI assistant submitting over `POST /mcp`. An MCP job is written in **one** transaction with its content rows, straight to `awaiting_review` — it never passes through `pending`/`generating`, and its `rawOutput` is `{ submitted, parsed, entities }` (the client's payload verbatim, the validated content that readers shared with the Gemini path read, then the rows written). MCP drafts have their own per-admin cap (`MCP_DRAFTS_PER_DAY`), counted on `(source, requestedById, createdAt)`.
+- **`requestedById` closes the FR-AI-08 gap for both sources:** Gemini routes fill it too. Rows written before file 41 hold `NULL` — who asked was never recorded. `ON DELETE SET NULL`, so removing an admin keeps their jobs' audit trail.
+- **`(requestedById, clientRequestId)` is unique.** A retried tool call carrying the same key returns the first job instead of creating a second; Postgres treats `NULL` as distinct, so Gemini jobs (no key) never collide.
+- **`client` is a label, never an identity.** It is what the MCP client said about itself, capped in length, shown to reviewers marked "self-reported".
+- **`AdminAccessToken`** is the bearer credential for `/mcp`. Only the SHA-256 is stored; `prefix` is enough to tell two apart in the UI. Revocation sets `revokedAt` rather than deleting, so the list still shows what was issued. Deleting the `AdminUser` cascades its tokens away.
 
 ### Entity reference — AIGenerationJob
 
@@ -655,7 +679,25 @@ flowchart TD
 | reviewerId | String? | FK → AdminUser | 06 |
 | decision | AIReviewDecision? | | 06 |
 | reviewNote | String? | rejection reason | 37 |
+| source | AIJobSource | @default(gemini); index `(source, requestedById, createdAt)` | 41 |
+| requestedById | String? | FK → AdminUser, `ON DELETE SET NULL` | 41 |
+| client | Json? | self-reported MCP client `{ name, version }` | 41 |
+| clientRequestId | String? | UK `(requestedById, clientRequestId)` | 41 |
 | createdAt / updatedAt / reviewedAt | DateTime / DateTime? | | 06 |
+
+### Entity reference — AdminAccessToken (file 41)
+
+| Field | Type | Key / Default |
+|---|---|---|
+| id | String | PK |
+| adminId | String | FK → AdminUser (cascade), indexed |
+| name | String | the admin's own label |
+| prefix | String | first characters, display only |
+| tokenHash | String | UK; SHA-256 of the full `klat_…` token |
+| scopes | String[] | `["mcp:drafts"]` |
+| expiresAt | DateTime | 7 days by default, 30 at most |
+| lastUsedAt / revokedAt | DateTime? | `lastUsedAt` written at most every five minutes |
+| createdAt | DateTime | @default(now()) |
 
 ---
 
@@ -670,6 +712,7 @@ flowchart TD
 | **Delete `Quiz`** | `QuizQuestion` → `QuizQuestionTranslation` | **Restricted** per question while any `QuizResponse` references it (the editor answers `409 QUESTION_HAS_RESPONSES` first) |
 | **Delete `Story`** | `StoryPage` → `StoryPageTranslation` | — |
 | **Delete `World`** | — | **Restricted**: fails if any `Lesson`/`Story` references it → archive instead |
+| **Delete `AdminUser`** (file 41) | `AdminAccessToken` — the admin's MCP tokens stop working with them | `AIGenerationJob.requestedById` and `reviewerId` are set to `NULL`; the jobs and every content row they created survive, as does the review history |
 
 > **GDPR / COPPA:** parent-account deletion is **synchronous and complete** (no soft-delete of child PII), satisfying NFR-SAFE-05/06 right-to-erasure. The compliance mapping is recorded in `document/implementation/notes/compliance-consent-deletion.md`.
 
@@ -709,6 +752,7 @@ The schema is built additively. Each migration is named and owned by one file:
 | 26 | `session_event_occurred_at_index` (31) | `SessionEvent(occurredAt)` for the admin "active today" count, which has no `childId` to lead with. |
 | 27 | `lesson_quiz_unique` (—) | `Lesson.quizId` becomes unique (`Quiz.lessons` → `Quiz.lesson`). The quiz-response route resolves the lesson from the quiz alone, so a shared quiz let a child's score land on the wrong lesson. The migration fails if a quiz is already shared. |
 | 28 | `lesson_progress_restrict_delete_and_quiz_response_question_index` (—) | `LessonProgress.lessonId` changes from `ON DELETE CASCADE` to `RESTRICT` (a content delete no longer erases progress); index `QuizResponse(questionId)` for the restrict check and the editor's response count. |
+| 29 | `ai_job_provenance` … `admin_access_token` (41) | Five migrations, split for `backend.md §3`: `AIJobSource`; `AIGenerationJob.source`, `requestedById` (FK `NOT VALID`, then validated), `client`, `clientRequestId`; index `(source, requestedById, createdAt)` and unique `(requestedById, clientRequestId)`, each `CONCURRENTLY` alone; the `AdminAccessToken` table with RLS. |
 
 > **Ordering note:** files 04–06 (core content/progress) are authored before the auth-detail and AI-pipeline files in implementation sequence, but several migrations interleave. The exact `prisma migrate` order is the file number order above; the **end state** is what this document describes. Confirm migration names when running `pnpm db:migrate`.
 

@@ -116,11 +116,19 @@ parameter**. For **each** row below:
 | `/kidlearn/prod/CLOUDINARY_CLOUD_NAME` | from [Step 9](04-database-and-services.md) |
 | `/kidlearn/prod/CLOUDINARY_API_KEY` | from [Step 9](04-database-and-services.md) |
 | `/kidlearn/prod/CLOUDINARY_API_SECRET` | from [Step 9](04-database-and-services.md) |
-| `/kidlearn/prod/GEMINI_API_KEY` | from [Step 10](04-database-and-services.md) |
+| `/kidlearn/prod/GEMINI_API_KEY` | from [Step 10](04-database-and-services.md) — optional since file 41; see below |
 | `/kidlearn/prod/GOOGLE_TTS_API_KEY` | from [Step 10](04-database-and-services.md) |
 | `/kidlearn/prod/BACKUP_S3_BUCKET` | bucket name only, **no** `s3://` |
 | `/kidlearn/prod/BACKUP_HEARTBEAT_URL` | backup ping URL from [Step 11](04-database-and-services.md) |
 | `/kidlearn/prod/WEEKLY_REPORTS_HEARTBEAT_URL` | weekly ping URL from [Step 11](04-database-and-services.md) |
+
+*Skipping Gemini?* Since file 41 the server boots without `GEMINI_API_KEY`:
+admins write content with their own AI assistant over MCP instead, and the CMS
+hides the Gemini Generate buttons. SSM will not store an empty value, so to skip
+Gemini leave the parameter out entirely and expect **15 names** in the check
+below rather than 16. Turning MCP on is one more parameter,
+`/kidlearn/prod/MCP_ENABLED` = `true`, which you can add later (`runbook.md`
+"AI assistants over MCP"); it adds one name to the check.
 
 *Why placeholders for Google?* The Google sign-in client needs the live
 website address to exist first. You come back and replace them in [Step 22](06-server.md).
@@ -135,11 +143,12 @@ list of every variable and its home is `runbook.md` §4.
 aws ssm get-parameters-by-path --path /kidlearn/prod/ --region ap-south-1 --query 'Parameters[].Name' --output text | tr '\t' '\n' | sort
 ```
 
-You see **exactly 16 names**, spelled as in the table. A typo here shows up much
+You see **exactly 16 names** (15 if you skipped Gemini; one more for each
+optional `MCP_*` parameter you added), spelled as in the table. A typo here shows up much
 later as "the server will not start", so look carefully now.
 
 > **Created them in the wrong region?** The check above prints nothing, or
-> fewer than 16 names. You do not have to type them again. 💻 on your Mac:
+> fewer names than the count above. You do not have to type them again. 💻 on your Mac:
 >
 > 1. Find the region you used:
 >

@@ -1,8 +1,8 @@
 # 38 — Deployment: Vercel Frontend, One EC2 Box for the APIs
 
 > **Estimated effort:** 8–9 hours — about two hours of repository work (done) plus the 6–8 hours of
-> provisioning in `document/deployment-walkthrough.md`. Natural checkpoint after production is live
-> (walkthrough A18); no dev-environment work is needed before it.
+> provisioning in `document/deployment/`. Natural checkpoint after production is live
+> (Step 28); no dev-environment work is needed before it.
 > **Depends on:** the web app and API MVP (complete)
 > **Requirement IDs:** spec §9, NFR-PERF-02, NFR-PERF-04
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
@@ -14,7 +14,7 @@
 >
 > **Where things live.** This file holds the goal, decisions and why, cost, acceptance criteria and
 > scope. The repository files under `deploy/`, `apps/*/Dockerfile` and `.github/workflows/ci.yml` are
-> the source of truth for what runs. `document/deployment-walkthrough.md` is the one-time
+> the source of truth for what runs. `document/deployment/` is the one-time
 > provisioning procedure. `document/runbook.md` is topology, every value's home, and steady-state
 > operations. Nothing below is repeated there.
 >
@@ -147,7 +147,7 @@ changes.
 
 ## Detailed Requirements
 
-Each requirement states the decision and the reason. Procedures are in the walkthrough; values,
+Each requirement states the decision and the reason. Procedures are in `document/deployment/`; values,
 tables and operations are in the runbook; running configuration is in the repository files named.
 
 1. **Production database — a new Supabase project in `ap-south-1` (Mumbai)**, so it sits beside the
@@ -158,7 +158,7 @@ tables and operations are in the runbook; running configuration is in the reposi
    inactivity pause, no PITR) are in `runbook.md` §12. Migrations are applied with
    `prisma migrate deploy` against `DIRECT_URL` and never `migrate dev`; the seed and the first
    `AdminUser` (`pnpm --filter server seed:admin`) are run once, from your own machine
-   (walkthrough A2, A6).
+   (`deployment/` Steps 8, 14).
 
 2. **Development database — a `postgres:16-alpine` container on the box**, on the dev Compose
    project's internal network only, with a named volume and **no published host port**. It is
@@ -244,7 +244,7 @@ tables and operations are in the runbook; running configuration is in the reposi
 9. **Networking, kept deliberately small.** Default VPC, one public subnet, one security group, an
    Elastic IP so the address survives a stop/start, and **no port 22 rule at all** — shell access is
    SSM Session Manager, which needs no inbound rule and leaves an audit trail (`runbook.md` §2;
-   rules in walkthrough A10).
+   rules in `deployment/` Step 18).
 
 10. **Memory limits on the dev stack only**, and the production API left uncapped. The point is not
     to save memory but to make the kernel's choice deterministic: under pressure the OOM killer
@@ -320,7 +320,7 @@ tables and operations are in the runbook; running configuration is in the reposi
     `t4g` instances default to **unlimited** CPU-credit mode, which silently bills surplus credits
     rather than throttling; that is the right default for a live site, but only with an alarm behind
     it. $20 sits comfortably above the $13.73 steady state and still catches a runaway within a day.
-    Thresholds are in walkthrough A1.
+    Thresholds are in `deployment/` Step 4.
 
 ## Technical Approach & Suggestions
 
@@ -392,7 +392,7 @@ network; the trap and its fix are `runbook.md` §1.
 
 The **instance role** needs `AmazonSSMManagedInstanceCore`, ECR pull, `ssm:GetParametersByPath` on
 the two parameter paths with `kms:Decrypt`, and S3 access on the backup bucket alone. Nothing wider.
-The policy is walkthrough A9. The **GitHub OIDC roles** are file 38a's; do not create them here.
+The policy is `deployment/` Step 17. The **GitHub OIDC roles** are file 38a's; do not create them here.
 Vercel needs no AWS credential at all — it builds and serves static and rendered output and never
 talks to AWS.
 
@@ -415,27 +415,27 @@ first thing the Vercel deployment does is talk to something that already works.
    `pnpm deploy`) — all cheap here and expensive on the box. Add the web-image build step to `gates`
    in the same commit. **"It boots" means `curl localhost:4000/health` returns the envelope from
    inside the container**, not that `docker run` printed a banner. (~75 min)
-3. Provisioning, as the walkthrough's steps (estimates are this file's):
+3. Provisioning, as `document/deployment/`'s steps (estimates are this file's):
 
-   | Walkthrough | Work | Estimate |
+   | Steps | Work | Estimate |
    |---|---|---|
-   | A1, A7, A8 | Budget alarm, ECR repositories, first image push | ~35 min |
-   | A2 | Production Supabase, migrate, seed | ~30 min |
-   | A3–A5 | Cloudinary, backup bucket, production SSM parameters | ~30 min |
-   | A9–A11 | IAM role, EC2, Elastic IP, shell, `deploy/` on the box | ~35 min |
-   | A12 | Cloudflare zone, nameservers, `api` records | ~25 min, mostly waiting |
-   | A13–A14 | Edge on ACME staging, then production; API deploy | ~35 min |
-   | A16 | Production Vercel project | ~40 min |
-   | A15, A17, A18 | OAuth, crons, smoke test — **checkpoint, production is live** | ~50 min |
-   | B1–B2 | Dev Gemini key, Cloudinary cloud, dev SSM parameters | ~30 min |
-   | B3–B4 | Dev API stack, restore the production dump into it | ~50 min |
-   | B5–B7 | Dev Vercel project, dev OAuth entries, dev smoke test | ~40 min |
+   | 4, 15, 16 | Budget alarm, ECR repositories, first image push | ~35 min |
+   | 8 | Production Supabase, migrate, seed | ~30 min |
+   | 9–13 | Cloudinary, backup bucket, production SSM parameters | ~30 min |
+   | 17, 18, 20 | IAM role, EC2, Elastic IP, shell, `deploy/` on the box | ~35 min |
+   | 6, 7, 19 | Cloudflare zone, nameservers, `api` records | ~25 min, mostly waiting |
+   | 21, 23 | Edge on ACME staging, then production; API deploy | ~35 min |
+   | 24–26 | Production Vercel project | ~40 min |
+   | 22, 27, 28 | OAuth, crons, smoke test — **checkpoint, production is live** | ~50 min |
+   | 29–30 | Dev Gemini key, Cloudinary cloud, dev SSM parameters | ~30 min |
+   | 31–33 | Dev API stack, restore the production dump into it | ~50 min |
+   | 34–36 | Dev Vercel project, dev OAuth entries, dev smoke test | ~40 min |
 
 4. Verify the isolation claims: dev cannot reach Supabase, production cannot reach the dev Postgres,
    each frontend calls only its own API host, and the dev wipe-and-reseed rebuilds dev from nothing.
    (~25 min)
 5. Full smoke test on a real phone against production (`runbook.md` §14), then the runbook
-   placeholders (walkthrough Part C), spec §9 and the tracker. (~45 min)
+   placeholders (`deployment/09-paperwork.md`), spec §9 and the tracker. (~45 min)
 
 ## Acceptance Criteria
 

@@ -7,6 +7,7 @@ export * from "./activity/parse.js";
 export * from "./activity/schemas.js";
 // HTTP contracts, shared with `apps/web` so the client never redeclares a response shape.
 export * from "./api/admin.js";
+export * from "./api/admin-access-tokens.js";
 export * from "./api/admin-ai.js";
 export * from "./api/admin-content.js";
 export * from "./api/admin-editors.js";
@@ -19,6 +20,7 @@ export * from "./api/envelope.js";
 export * from "./api/errors.js";
 export * from "./api/health.js";
 export * from "./api/learning-time.js";
+export * from "./api/mcp.js";
 export * from "./api/parent.js";
 export * from "./api/progress.js";
 export * from "./api/reports.js";

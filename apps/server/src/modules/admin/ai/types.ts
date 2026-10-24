@@ -12,3 +12,8 @@ export interface StructuredGeneration {
   stopReason: GenerationStopReason | null;
   refusal?: string;
 }
+
+/** Who asked for a job (FR-AI-08). Optional so a job started outside a request still runs; the routes always pass it. */
+export interface GenerationContext {
+  requestedById?: string;
+}

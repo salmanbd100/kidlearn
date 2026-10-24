@@ -271,6 +271,10 @@ export const AI_JOB_LIST_EXAMPLE = {
         type: "lesson",
         status: "awaiting_review",
         decision: null,
+        source: "mcp",
+        requestedBy: "Ayesha Rahman",
+        // Self-reported by the MCP client: a label for the reviewer, not an identity.
+        client: { name: "claude-code", version: "2.1.0" },
         gradeLevels: ["KG1"],
         languages: ["en", "bn"],
         entityLabel: "Count to Ten",
@@ -282,6 +286,9 @@ export const AI_JOB_LIST_EXAMPLE = {
         type: "image",
         status: "approved",
         decision: "edit_then_approve",
+        source: "gemini",
+        requestedBy: null,
+        client: null,
         gradeLevels: ["NURSERY", "KG1"],
         languages: ["en"],
         // Null where the generated row was deleted, or for a batch naming no single entity.

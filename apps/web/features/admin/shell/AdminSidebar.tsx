@@ -3,6 +3,7 @@ import { cva } from "class-variance-authority";
 import {
   Award,
   BookOpen,
+  Bot,
   ChartColumn,
   GraduationCap,
   Image,
@@ -34,6 +35,7 @@ const ICON_BY_HREF: Record<string, LucideIcon> = {
   [ADMIN_ROUTES.media]: Image,
   [ADMIN_ROUTES.badges]: Award,
   [ADMIN_ROUTES.aiQueue]: Sparkles,
+  [ADMIN_ROUTES.aiAssistants]: Bot,
   [ADMIN_ROUTES.analytics]: ChartColumn,
   [ADMIN_ROUTES.guide]: LifeBuoy,
 };

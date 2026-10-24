@@ -7,6 +7,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { fetchAiJobCount } from "@/features/admin/api/ai-api";
 import { AdminSidebar } from "@/features/admin/shell/AdminSidebar";
 import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { SignOutDialog } from "@/features/admin/shell/SignOutDialog";
 import { useAdminSession } from "./context/admin-session";
 
 const BADGE_POLL_MS = 60_000;
@@ -15,6 +16,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { admin, signOut } = useAdminSession();
   const [awaitingReview, setAwaitingReview] = useState(0);
+  const [isSignOutOpen, setIsSignOutOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [hasSignOutFailed, setHasSignOutFailed] = useState(false);
 
   useEffect(() => {
@@ -33,10 +36,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  function handleSignOutOpenChange(open: boolean) {
+    if (isSigningOut) return;
+    setIsSignOutOpen(open);
+    if (!open) setHasSignOutFailed(false);
+  }
+
   async function handleSignOut() {
     setHasSignOutFailed(false);
+    setIsSigningOut(true);
+    const isSignedOut = await signOut();
+    setIsSigningOut(false);
     // The cookie is still live on failure, so the sign-in dialog would bounce straight back in.
-    if (!(await signOut())) {
+    if (!isSignedOut) {
       setHasSignOutFailed(true);
       return;
     }
@@ -52,41 +64,34 @@ export function AdminShell({ children }: { children: ReactNode }) {
         pathname={pathname}
         badges={{ [ADMIN_ROUTES.aiQueue]: awaitingReview }}
         footer={
-          <div className="flex flex-col gap-2">
-            {hasSignOutFailed ? (
-              <p role="alert" className="text-destructive text-xs">
-                Could not sign out. Check your connection and try again.
-              </p>
-            ) : null}
-            <div className="flex items-center gap-2.5">
-              <span
-                aria-hidden="true"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground text-xs"
-              >
-                {initials(admin?.name)}
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground text-xs"
+            >
+              {initials(admin?.name)}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="truncate font-medium text-foreground text-sm">
+                {admin?.name ?? "—"}
               </span>
-              <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                <span className="truncate font-medium text-foreground text-sm">
-                  {admin?.name ?? "—"}
+              {admin === undefined ? null : (
+                <span className="truncate text-muted-foreground text-xs">
+                  {admin.email}
                 </span>
-                {admin === undefined ? null : (
-                  <span className="truncate text-muted-foreground text-xs">
-                    {admin.email}
-                  </span>
-                )}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="size-11 shrink-0 px-0 text-muted-foreground hover:text-foreground"
-                title="Sign out"
-                onClick={handleSignOut}
-              >
-                <LogOut aria-hidden="true" className="size-4!" />
-                <span className="sr-only">Sign out</span>
-              </Button>
-            </div>
+              )}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-11 shrink-0 px-0 text-muted-foreground hover:text-foreground"
+              title="Sign out"
+              onClick={() => setIsSignOutOpen(true)}
+            >
+              <LogOut aria-hidden="true" className="size-4!" />
+              <span className="sr-only">Sign out</span>
+            </Button>
           </div>
         }
       />
@@ -95,6 +100,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </main>
+      <SignOutDialog
+        isOpen={isSignOutOpen}
+        onOpenChange={handleSignOutOpenChange}
+        isBusy={isSigningOut}
+        hasFailed={hasSignOutFailed}
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 }

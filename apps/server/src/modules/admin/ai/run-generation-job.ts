@@ -22,6 +22,7 @@ export interface GenerationJobResult {
 export interface RunGenerationJobOptions<TParsed> {
   type: AIJobType;
   input: Prisma.JsonObject;
+  requestedById?: string;
   generate: (retryFeedback?: string) => Promise<{
     raw: unknown;
     usage: TokenUsage;
@@ -59,7 +60,14 @@ export async function runGenerationJob<TParsed>(
       async (tx) => {
         await assertWithinDailyCap(options.type, 1, tx);
         return tx.aIGenerationJob.create({
-          data: { type: options.type, input: options.input, status: "pending" },
+          data: {
+            type: options.type,
+            input: options.input,
+            status: "pending",
+            ...(options.requestedById === undefined
+              ? {}
+              : { requestedById: options.requestedById }),
+          },
           select: { id: true },
         });
       },
@@ -207,13 +215,13 @@ function totalUsage(attempts: Attempt[]): Prisma.InputJsonObject {
   };
 }
 
-function flatten(error: z.ZodError): string {
+export function flatten(error: z.ZodError): string {
   return error.issues
     .map((issue) => `- ${issue.path.join(".") || "<root>"}: ${issue.message}`)
     .join("\n");
 }
 
-function toJson(value: unknown): Prisma.InputJsonValue {
+export function toJson(value: unknown): Prisma.InputJsonValue {
   // JSONB column boundary: JSON by construction, `unknown` to the compiler.
   return (value ?? null) as Prisma.InputJsonValue;
 }

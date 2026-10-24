@@ -1,4 +1,4 @@
-import type { Prisma } from "@kidlearn/db";
+import type { GradeLevel, Prisma } from "@kidlearn/db";
 import {
   type Locale,
   type QuizQuestionType,
@@ -18,6 +18,7 @@ import {
   buildQuizGenerationOutputSchema,
   type QuizGenerationOutput,
 } from "../schemas/quiz.js";
+import type { GenerationContext } from "../types.js";
 
 export const DEFAULT_QUESTION_COUNT = 4;
 
@@ -35,9 +36,19 @@ export interface GenerateQuizResult {
   status: "awaiting_review" | "failed";
 }
 
-export async function generateQuiz(
+export interface PreparedQuiz {
+  lessonId: string;
+  lessonTitle: string;
+  gradeLevels: GradeLevel[];
+  existingQuizId?: string;
+  count: number;
+  lessonContext: string;
+  jobInput: Prisma.JsonObject;
+}
+
+export async function prepareQuiz(
   input: GenerateQuizInput,
-): Promise<GenerateQuizResult> {
+): Promise<PreparedQuiz> {
   const lesson = await prisma.lesson.findUnique({
     where: { id: input.lessonId },
     select: {
@@ -54,19 +65,63 @@ export async function generateQuiz(
   if (!lesson) throw ApiError.notFound("No such lesson");
 
   if (lesson.quiz?.status === "published") {
-    throw ApiError.conflict(PUBLISHED_QUIZ_MESSAGE, { code: "QUIZ_PUBLISHED" });
+    throw quizPublishedConflict();
   }
 
   const count = input.count ?? DEFAULT_QUESTION_COUNT;
   const lessonContext = await buildLessonContext(lesson);
 
+  return {
+    lessonId: lesson.id,
+    lessonTitle: lesson.title,
+    gradeLevels: lesson.gradeLevels,
+    ...(lesson.quiz === null ? {} : { existingQuizId: lesson.quiz.id }),
+    count,
+    lessonContext,
+    jobInput: {
+      lessonId: lesson.id,
+      lessonTitle: lesson.title,
+      quizId: lesson.quiz?.id ?? null,
+      count,
+      languages: input.languages,
+      lessonContext,
+    },
+  };
+}
+
+export function quizPublishedConflict(
+  details: Record<string, unknown> = {},
+): ApiError {
+  return ApiError.conflict(PUBLISHED_QUIZ_MESSAGE, {
+    code: "QUIZ_PUBLISHED",
+    ...details,
+  });
+}
+
+/** Thrown inside the write transaction; each caller maps it, because a Gemini job has already been billed and an MCP one has not. */
+export class QuizPublishedDuringWriteError extends Error {
+  constructor() {
+    super(
+      "The lesson's quiz was published while the questions were being written, so nothing was added.",
+    );
+    this.name = "QuizPublishedDuringWriteError";
+  }
+}
+
+export async function generateQuiz(
+  input: GenerateQuizInput,
+  context: GenerationContext = {},
+): Promise<GenerateQuizResult> {
+  const prepared = await prepareQuiz(input);
+  const { count } = prepared;
+
   const schema = buildQuizGenerationOutputSchema(count);
   const formats = planQuestionFormats(count);
   const buildPrompt = (format: QuizQuestionType, position: number) =>
     buildQuizUserPrompt({
-      lessonTitle: lesson.title,
-      gradeLevels: lesson.gradeLevels,
-      lessonContext,
+      lessonTitle: prepared.lessonTitle,
+      gradeLevels: prepared.gradeLevels,
+      lessonContext: prepared.lessonContext,
       languages: input.languages,
       format,
       position,
@@ -79,13 +134,11 @@ export async function generateQuiz(
 
   const result = await runGenerationJob<QuizGenerationOutput>({
     type: "quiz",
+    ...(context.requestedById === undefined
+      ? {}
+      : { requestedById: context.requestedById }),
     input: {
-      lessonId: lesson.id,
-      lessonTitle: lesson.title,
-      quizId: lesson.quiz?.id ?? null,
-      count,
-      languages: input.languages,
-      lessonContext,
+      ...prepared.jobInput,
       systemPrompt: KIDLEARN_SYSTEM_PROMPT,
       userPrompts: formats.map(buildPrompt),
     },
@@ -106,49 +159,57 @@ export async function generateQuiz(
       };
     },
     persist: async (parsed, jobId, tx) => {
-      if (await isPublished(tx, lesson.quiz?.id)) {
-        publishedMidGeneration = true;
-        throw new Error(
-          "The lesson's quiz was published while the questions were being written, so nothing was added.",
-        );
+      try {
+        return await persistQuiz({ prepared, parsed, jobId, tx });
+      } catch (error) {
+        if (error instanceof QuizPublishedDuringWriteError) {
+          publishedMidGeneration = true;
+        }
+        throw error;
       }
-
-      return persistQuestions({
-        parsed,
-        jobId,
-        tx,
-        lessonId: lesson.id,
-        lessonTitle: lesson.title,
-        existingQuizId: lesson.quiz?.id,
-      });
     },
   });
 
   if (publishedMidGeneration) {
-    throw ApiError.conflict(PUBLISHED_QUIZ_MESSAGE, {
-      code: "QUIZ_PUBLISHED",
-      jobId: result.jobId,
-    });
+    throw quizPublishedConflict({ jobId: result.jobId });
   }
 
   return result;
 }
 
-// The quiz's status as of this transaction, not the pre-flight check.
-async function isPublished(
-  tx: Prisma.TransactionClient,
-  quizId: string | undefined,
-): Promise<boolean> {
-  if (quizId === undefined) return false;
-
-  const quiz = await tx.quiz.findUnique({
-    where: { id: quizId },
-    select: { status: true },
+export async function persistQuiz({
+  prepared,
+  parsed,
+  jobId,
+  tx,
+}: {
+  prepared: Pick<PreparedQuiz, "lessonId" | "lessonTitle">;
+  parsed: QuizGenerationOutput;
+  jobId: string;
+  tx: Prisma.TransactionClient;
+}): Promise<Prisma.JsonObject> {
+  // The lesson's quiz as of this transaction, not the pre-flight read: another writer (a Gemini job mid-generation,
+  // a second MCP submission) may have created or published it since, and a stale "no quiz" would orphan one.
+  const lesson = await tx.lesson.findUnique({
+    where: { id: prepared.lessonId },
+    select: { quiz: { select: { id: true, status: true } } },
   });
-  return quiz?.status === "published";
+  if (!lesson) throw ApiError.notFound("No such lesson");
+  if (lesson.quiz?.status === "published") {
+    throw new QuizPublishedDuringWriteError();
+  }
+
+  return persistQuestions({
+    parsed,
+    jobId,
+    tx,
+    lessonId: prepared.lessonId,
+    lessonTitle: prepared.lessonTitle,
+    ...(lesson.quiz === null ? {} : { existingQuizId: lesson.quiz.id }),
+  });
 }
 
-async function buildLessonContext(lesson: {
+export async function buildLessonContext(lesson: {
   aiJobId: string | null;
   title: string;
   translations: Array<{ language: string; title: string; introScript: string }>;

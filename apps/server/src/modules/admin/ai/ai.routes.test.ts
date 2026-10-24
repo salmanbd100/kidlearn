@@ -12,6 +12,7 @@
  */
 
 import {
+  AiCapabilitiesResponseSchema,
   BatchGenerationRefResponseSchema,
   GenerationJobRefResponseSchema,
 } from "@kidlearn/types";
@@ -152,11 +153,15 @@ function illustrationsBody(overrides: Record<string, unknown> = {}) {
   return { storyId: STORY_ID, ...overrides };
 }
 
+const ADMIN_ID = "44444444-4444-4444-8444-444444444444";
+// FR-AI-08: the routes name the requesting admin, so the job row can record who asked.
+const REQUESTED_BY = { requestedById: ADMIN_ID };
+
 beforeEach(() => {
   store.jobs = [];
   store.admins = [
     {
-      id: "44444444-4444-4444-8444-444444444444",
+      id: ADMIN_ID,
       email: "reviewer@kidlearn.test",
       name: "Reviewer One",
       role: "admin",
@@ -273,14 +278,17 @@ describe("POST /api/admin/ai/generate/lesson", () => {
       .post(PATH)
       .send(body({ worldId: WORLD_ID }));
 
-    expect(service.generateLesson).toHaveBeenCalledWith({
-      gradeLevel: "KG1",
-      subjectId: SUBJECT_ID,
-      topicId: TOPIC_ID,
-      worldId: WORLD_ID,
-      lessonFocus: "The letter A",
-      languages: ["en", "bn"],
-    });
+    expect(service.generateLesson).toHaveBeenCalledWith(
+      {
+        gradeLevel: "KG1",
+        subjectId: SUBJECT_ID,
+        topicId: TOPIC_ID,
+        worldId: WORLD_ID,
+        lessonFocus: "The letter A",
+        languages: ["en", "bn"],
+      },
+      REQUESTED_BY,
+    );
   });
 
   it("400s on an unknown grade", async () => {
@@ -386,13 +394,16 @@ describe("POST /api/admin/ai/generate/story", () => {
       .post(STORY_PATH)
       .send(storyBody({ pageCount: 6 }));
 
-    expect(service.generateStory).toHaveBeenCalledWith({
-      gradeLevels: ["NURSERY", "KG1"],
-      theme: "Sharing with friends",
-      worldId: WORLD_ID,
-      languages: ["en", "bn"],
-      pageCount: 6,
-    });
+    expect(service.generateStory).toHaveBeenCalledWith(
+      {
+        gradeLevels: ["NURSERY", "KG1"],
+        theme: "Sharing with friends",
+        worldId: WORLD_ID,
+        languages: ["en", "bn"],
+        pageCount: 6,
+      },
+      REQUESTED_BY,
+    );
   });
 
   it("400s on a page count outside the 6–8 range a young child sits through", async () => {
@@ -474,10 +485,13 @@ describe("POST /api/admin/ai/generate/quiz", () => {
         languages: ["en"],
       });
 
-    expect(service.generateQuiz).toHaveBeenCalledWith({
-      lessonId: LESSON_ID,
-      languages: ["en"],
-    });
+    expect(service.generateQuiz).toHaveBeenCalledWith(
+      {
+        lessonId: LESSON_ID,
+        languages: ["en"],
+      },
+      REQUESTED_BY,
+    );
   });
 
   it("400s on a count outside the 3–5 range FR-QUIZ-01 sets", async () => {
@@ -580,10 +594,10 @@ describe("POST /api/admin/ai/generate/narration", () => {
       .post(NARRATION_PATH)
       .send(narrationBody({ entity: "quiz", id: QUIZ_ID }));
 
-    expect(service.generateNarrationBatch).toHaveBeenCalledWith({
-      entity: "quiz",
-      id: QUIZ_ID,
-    });
+    expect(service.generateNarrationBatch).toHaveBeenCalledWith(
+      { entity: "quiz", id: QUIZ_ID },
+      REQUESTED_BY,
+    );
   });
 
   it("400s on an entity that is not a lesson, story or quiz", async () => {
@@ -647,9 +661,10 @@ describe("POST /api/admin/ai/generate/illustrations", () => {
   it("passes the story id through unchanged", async () => {
     await request(app).post(ILLUSTRATIONS_PATH).send(illustrationsBody());
 
-    expect(service.generateIllustrationBatch).toHaveBeenCalledWith({
-      storyId: STORY_ID,
-    });
+    expect(service.generateIllustrationBatch).toHaveBeenCalledWith(
+      { storyId: STORY_ID },
+      REQUESTED_BY,
+    );
   });
 
   it("400s on a prompt the caller tried to supply", async () => {
@@ -757,5 +772,33 @@ describe("the daily generation caps", () => {
       .send(narrationBody({ entity: "activity" }));
 
     expect(res.status).toBe(429);
+  });
+});
+
+describe("GET /api/admin/ai/capabilities", () => {
+  it("reports Gemini and narration as configured when their keys are set", async () => {
+    const res = await request(app).get(`${BASE}/capabilities`);
+
+    expect(res.status).toBe(200);
+    assertContract(
+      AiCapabilitiesResponseSchema,
+      res.body,
+      "GET /api/admin/ai/capabilities",
+    );
+    expect(res.body.data).toMatchObject({
+      geminiText: true,
+      geminiImage: true,
+      narration: true,
+      // `vitest.setup.ts` turns MCP on; the URL defaults from BETTER_AUTH_URL.
+      mcp: { enabled: true, oauth: false, url: "http://localhost:4000/mcp" },
+    });
+  });
+
+  it("is admin-only", async () => {
+    mockSession(PARENT_USER_ID);
+
+    const res = await request(app).get(`${BASE}/capabilities`);
+
+    expect(res.status).toBe(403);
   });
 });
