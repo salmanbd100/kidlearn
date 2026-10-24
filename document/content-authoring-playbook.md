@@ -1,19 +1,32 @@
-# KidLearn — Content Authoring Playbook (Claude Desktop over MCP)
+# KidLearn — Content Authoring Playbook (AI assistants over MCP)
 
-How to fill KidLearn with lessons, quizzes and stories for Nursery, KG-1 and KG-2 using
-**only a Claude subscription**, through the MCP server from
-`implementation/41-mcp-content-authoring.md`. It covers what to set up once, what to write,
-the prompts to paste, and how to review it.
+How to fill KidLearn with lessons, quizzes and stories for Nursery, KG-1 and KG-2 using the
+**AI subscriptions you already pay for** — Claude and Google (Gemini, NotebookLM) — through the
+MCP server from `implementation/41-mcp-content-authoring.md`. No API key is needed for any of
+them. It covers what to set up once, what to write, the prompts to paste, and how to review it.
 
-Upload this file to the Claude Project (§2.3) as knowledge, so Claude can read the plan too.
+Each tool does the job it is best at:
+
+| Tool | Reaches `/mcp`? | Use it for |
+| --- | --- | --- |
+| **NotebookLM** | No | Research grounded in real sources — a lesson brief per topic (§6.0) |
+| **Claude Desktop** | Yes (§2.2) | Writing and submitting drafts |
+| **Gemini CLI** | Yes (§2.3) | Writing and submitting drafts — same tools, same queue |
+| **Gemini app** | No | Making the pictures (§6.7) |
+
+The Gemini *app* and NotebookLM have no MCP client, so they never submit anything — their
+output is pasted into Claude or Gemini CLI, which submit through the tools.
+
+Upload this file to the Claude Project (§2.4) and the NotebookLM notebooks (§2.5) as a source,
+so each tool can read the plan too. Gemini CLI reads it from `GEMINI.md` (§2.3).
 
 ---
 
-## 1. What Claude can and cannot do here
+## 1. What the assistant can and cannot do here
 
 Read this before planning a week of work. It decides where your hours go.
 
-| Claude writes over MCP | You do by hand in the CMS |
+| The assistant writes over MCP | You do by hand in the CMS |
 | --- | --- |
 | Lesson title, intro, narration script, learning objectives (en + bn) | Create **subjects and topics** — MCP cannot (§3) |
 | 3–5 quiz questions per lesson, or a quiz for an existing lesson | Replace **every quiz audio and image placeholder** — approval is blocked until you do |
@@ -22,19 +35,19 @@ Read this before planning a week of work. It decides where your hours go.
 | A production sheet: every recording and picture a draft needs | Approve / reject in the AI Queue |
 
 **The asset bottleneck.** Every quiz question has `promptAudio` in English *and* Bangla, and
-`picture_select` options need images. Claude writes placeholder URLs
+`picture_select` options need images. The assistant writes placeholder URLs
 (`https://placeholder.kidlearn.invalid/...`); the AI Queue refuses to approve a job while a
 question still points at one (`review/blockers.ts`). `request_narration` and
-`request_illustrations` need a Google TTS key and a Gemini key respectively — with only Claude,
-neither works, and narration never covers quiz prompts anyway.
+`request_illustrations` need a Google TTS key and a server-side `GEMINI_API_KEY` respectively —
+a Gemini app subscription is not that key, so without them neither works, and narration never covers quiz prompts anyway.
 
 So one 4-question lesson means roughly **8 short voice recordings + 4–12 pictures**. That is the
 real cost of a lesson, not the writing. The plan below is sized for it:
 
 - Record audio yourself (Voice Memos / QuickTime → `.m4a`, accepted). A real, warm voice is
   better for a 3-year-old than TTS anyway.
-- Make pictures with Claude (§6.7) and upload as **PNG** — the media library rejects SVG.
-- **Reuse pictures.** Every prompt below tells Claude to use one shared slug per object
+- Make pictures in the Gemini app (§6.7) and upload as **PNG** — the media library rejects SVG.
+- **Reuse pictures.** Every prompt below tells the assistant to use one shared slug per object
   (`image/shared/apple.png`), so an apple is drawn and uploaded once and picked from the media
   library in every lesson after that.
 
@@ -49,8 +62,10 @@ real cost of a lesson, not the writing. The plan below is sized for it:
 ### 2.1 Turn on MCP and get a token
 
 1. API env: `MCP_ENABLED=true` (production: the SSM parameter — `runbook.md` "AI assistants over MCP").
-2. CMS → **AI assistants** → create a token named `Claude Desktop — <machine>`, **30 days**
-   (the maximum). It is shown once — copy it straight into the config below.
+2. CMS → **AI assistants** → create one token per assistant, named after it
+   (`Claude Desktop — <machine>`, `Gemini CLI — <machine>`), **30 days** (the maximum). It is
+   shown once — copy it straight into the config below. Separate tokens let you revoke one
+   assistant without breaking the other.
 3. Note your daily cap on the same page (`MCP_DRAFTS_PER_DAY`, default 30). You will not get
    near it; your bottleneck is review and assets.
 
@@ -65,7 +80,51 @@ Test it: *"Call kidlearn get_authoring_guide and summarise the rules in five bul
 
 When the token expires, create a new one and replace it in the config. Revoke the old one.
 
-### 2.3 Create a Claude Project
+### 2.3 Connect Gemini CLI
+
+Gemini CLI runs on your Google account's Gemini plan — sign in with Google when it asks, and
+do **not** set `GEMINI_API_KEY` in that terminal, or it bills the API key instead.
+
+1. Install: `npm install -g @google/gemini-cli` (needs Node.js), then run `gemini` once and
+   choose **Sign in with Google**.
+2. Copy the **Gemini CLI** command from CMS → AI assistants and run it in a terminal. It has
+   this shape:
+
+   ```bash
+   gemini mcp add --scope user --transport http \
+     --header "Authorization: Bearer klat_YOUR_TOKEN" \
+     kidlearn https://api.kidlearn.net/mcp
+   ```
+
+   `--scope user` writes it to `~/.gemini/settings.json`, so it loads in every directory. The
+   result is the same as adding this by hand:
+
+   ```json
+   {
+     "mcpServers": {
+       "kidlearn": {
+         "httpUrl": "https://api.kidlearn.net/mcp",
+         "headers": { "Authorization": "Bearer klat_YOUR_TOKEN" }
+       }
+     }
+   }
+   ```
+
+   `httpUrl`, not `url` — Gemini CLI reads `url` as an SSE endpoint, which `/mcp` is not.
+   Leave `trust` off: Gemini CLI then asks before every tool call, which is your last look
+   at a submission before it lands in the queue.
+3. Check: `gemini mcp list` in the shell, or `/mcp` inside Gemini CLI — `kidlearn`, connected,
+   12 tools.
+4. Make a folder `~/kidlearn-content/`, put a copy of this file in it, and save §6.1 as
+   `GEMINI.md` there. Gemini CLI loads `GEMINI.md` from the folder it starts in — that is its
+   Claude Project. Always start it with `cd ~/kidlearn-content && gemini`.
+
+Test it: *"Call kidlearn get_authoring_guide and summarise the rules in five bullets."*
+
+Start a fresh session per lesson (`/clear`, or quit and restart), for the same reason as in
+Claude.
+
+### 2.4 Create a Claude Project
 
 Create a Project called **KidLearn Content Studio**. Paste §6.1 into its instructions and upload
 this file. Start **every** content chat inside this project — it keeps the rules loaded without
@@ -73,6 +132,26 @@ spending a message on them.
 
 Start a **new chat per lesson or story**. Long chats use your plan's usage allowance much
 faster, because every message re-reads the whole conversation.
+
+### 2.5 Set up NotebookLM and a Gemini Gem
+
+**NotebookLM — one notebook per subject** (Language, Mathematics, Science). Add as sources:
+this file, and the real material you want lessons to follow — the NCTB pre-primary textbooks
+(Bangla and English), early-years phonics or numeracy guides, and any lesson notes of your own.
+NotebookLM answers only from its sources and cites them, which is what makes its briefs
+trustworthy. Do not use its Audio Overviews for children — they are a two-host podcast, not
+narration.
+
+**Gemini app — a Gem called KidLearn Pictures.** Gemini → Gems → New Gem, and paste the style
+block from §6.7 as its instructions, so every picture comes out in the same style.
+
+### 2.6 Which assistant writes what
+
+Both Claude and Gemini CLI submit into the same AI Queue, and each job records which assistant
+sent it. Use whichever writes better for the piece in front of you — and keep score: for the
+first two weeks, write a few lessons with each and note which drafts you reject. Then settle
+on one per content type (for example, Bangla-heavy lessons with one, stories with the other)
+from what you saw, not from impressions.
 
 ---
 
@@ -172,9 +251,30 @@ picture pipeline (§6.7) is comfortable.
 
 ## 6. The prompts
 
-Replace `{{…}}`. Paste one prompt per new chat, inside the project.
+Replace `{{…}}`. Paste one prompt per new chat — inside the Claude Project, or in a fresh Gemini
+CLI session started in `~/kidlearn-content/`. §6.1–6.6 work unchanged in either assistant.
 
-### 6.1 Project instructions (paste once into the Claude Project)
+### 6.0 Lesson brief (NotebookLM)
+
+Optional, but it makes §6.3 far better. Run in the subject's notebook, then paste the answer
+into §6.3's `Brief:` line.
+
+```text
+Write a short lesson brief for KidLearn, ages 3–6, from these sources only.
+
+Topic: {{Shapes}}
+Grade: {{KG1}}
+Lesson focus: {{Triangle, rectangle and star}}
+
+Give me, in under 200 words:
+- the one thing the child should be able to do after the lesson;
+- the words to teach, in English and Bangla, as a Bangladeshi parent would say them;
+- three everyday examples a child in Bangladesh sees at home or outside;
+- one common mistake children this age make with it;
+- which source each point comes from.
+```
+
+### 6.1 Project instructions (paste once into the Claude Project, and save as `GEMINI.md`)
 
 ```text
 You are the content writer for KidLearn, a learning app for children aged 3–6 in Nursery,
@@ -234,6 +334,7 @@ Lesson focus: {{Triangle, rectangle and star}}
 World: {{Jungle}} (use its characters as the mascot's friends where it fits)
 Languages: en, bn
 clientRequestId: {{math-shapes-kg1-01}}
+Brief: {{paste the §6.0 NotebookLM brief, or delete this line}}
 
 Grade rules for {{KG-1}}:
 {{paste the KG-1 column from §4 "How the grades differ"}}
@@ -299,25 +400,38 @@ what you changed, then submit it with a new clientRequestId ({{old id}}-v2).
 
 ### 6.7 Make the pictures (PNG)
 
-Run in a separate chat in the same project. Needs Claude's file-creation / code-execution
-feature turned on (Settings → Capabilities).
+Use the **KidLearn Pictures** Gem in the Gemini app (§2.5). Its image model draws far better
+illustrations than an assistant writing SVG by hand. Paste this block as the Gem's instructions
+once:
 
 ```text
-Make PNG pictures for KidLearn, ages 3–6. Style for every picture, so they all match:
-flat cartoon, thick soft outlines, bright friendly colours, one object centred, plain
-light background, no text, no letters unless the picture IS a letter, 1024×1024.
-
-Make these, one PNG file each, named exactly as listed:
-{{paste the picture rows from a production sheet}}
-
-Draw them as SVG first, then convert each to PNG with code and give me the PNG files to
-download. Skip any picture name in this list I have already uploaded: {{apple, cat, …}}.
+You draw pictures for KidLearn, a learning app for children aged 3–6. Every picture, so
+they all match: flat cartoon, thick soft outlines, bright friendly colours, one object
+centred, plain light background, square, no text, no letters unless the picture IS a
+letter. Never scary, never branded. Draw exactly what the description says — the count,
+the colour and the object are what the child is being asked about.
 ```
+
+Then, in the Gem, one message per picture, straight from the production sheet's picture rows:
+
+```text
+{{three-bananas}}: {{three yellow bananas side by side}}
+```
+
+Check each picture against its row before downloading — a quiz about counting three bananas
+fails if four are drawn. Download it, rename it to the sheet's file name (`three-bananas.png`)
+and skip any name already uploaded. Before your first batch, check one download for a visible
+Gemini watermark; if your plan adds one, crop it out or use the fallback below.
+
+**Fallback — Claude.** For simple shapes, letters and numbers, where a vector drawing is exact
+(`red-circle`, `letter-a`), Claude can draw them: in the Claude Project, with file creation
+turned on (Settings → Capabilities), ask it to draw each row as SVG in the style above, convert
+each to a 1024×1024 PNG with code, and give you the files.
 
 Upload the PNGs in CMS → Media, then pick them in the question editor.
 
 Keep a running list of uploaded picture names (a note, or the media library's search) — it is
-what you paste into the last line above and what keeps you from drawing an apple twice.
+what keeps you from drawing an apple twice.
 
 ### 6.8 Record the audio
 
@@ -329,7 +443,7 @@ Record all English lines, then all Bangla lines; it is faster than switching.
 
 ## 7. Reviewing in the AI Queue
 
-Open the job and check, in this order. Reject with a specific reason — Claude reads it (§6.6).
+Open the job and check, in this order. Reject with a specific reason — the assistant reads it (§6.6).
 
 1. **Read it aloud.** Both languages. If you stumble, a child's parent will too.
 2. **Safety.** Nothing scary, sad, dangerous, religious, branded or tied to one festival.
@@ -359,8 +473,9 @@ Open the job and check, in this order. Reject with a specific reason — Claude 
 A sustainable day: **3 lessons written, reviewed and asset-complete.** Writing takes minutes;
 the recording and pictures take the hour.
 
-Claude plans have a usage allowance that resets every few hours. If you hit it, switch to
-recording and uploading assets — that work does not use Claude at all.
+Claude and Gemini plans both have usage allowances that reset over time. If you hit one,
+switch to the other assistant — the prompts are the same — or to recording and uploading
+assets, which uses neither.
 
 ### Watch for after launch
 

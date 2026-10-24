@@ -24,6 +24,16 @@ export function buildClientSetups(url: string, token: string): ClientSetup[] {
       docsUrl: "https://docs.claude.com/en/docs/claude-code/mcp",
     },
     {
+      id: "gemini-cli",
+      name: "Gemini CLI",
+      where:
+        "Run once in a terminal. Sign in to Gemini CLI with your Google account — no API key needed.",
+      // --scope user: the CLI defaults to project scope, which only loads in the directory it was run from.
+      snippet: `gemini mcp add --scope user --transport http --header "Authorization: ${header}" kidlearn ${url}`,
+      docsUrl:
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md",
+    },
+    {
       id: "claude-desktop",
       name: "Claude Desktop",
       where:
