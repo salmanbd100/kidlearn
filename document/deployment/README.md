@@ -64,7 +64,6 @@ explains what they check.
 ## Related documents
 
 - `document/runbook.md` — what you open *after* you are live, when something breaks.
-- `document/deployment-walkthrough.md` — the shorter, expert version of the same work.
 - `document/implementation/38-deployment-aws-docker.md` — the design decisions (why
   EC2 and not Fargate, why Mumbai, the cost table).
 - `document/implementation/38a-github-actions-continuous-deployment.md` — the
