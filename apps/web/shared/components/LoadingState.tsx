@@ -17,16 +17,18 @@ export function LoadingState({
         className,
       )}
     >
-      {isLabelVisible ? (
-        <>
-          <Spinner size="lg" tone="muted" />
-          <p role="status" className="text-muted-foreground text-sm">
-            {label}
-          </p>
-        </>
-      ) : (
-        <Spinner size="lg" tone="muted" label={label} />
-      )}
+      <Spinner size="lg" tone="muted" />
+      {/* One status element in both modes. Swapping it for another when the wait turns long would mount a live
+          region with its text already inside, which many screen readers never announce. */}
+      <p
+        role="status"
+        className={cn(
+          "text-muted-foreground text-sm",
+          !isLabelVisible && "sr-only",
+        )}
+      >
+        {label}
+      </p>
     </div>
   );
 }

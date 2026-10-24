@@ -97,6 +97,24 @@ describe("Button loading", () => {
     expect(button.querySelector("svg")).toBeInTheDocument();
   });
 
+  it('takes the loading label as its name, as the visible "Saving…" it replaces once did', () => {
+    render(
+      <Button isLoading loadingLabel="Saving…">
+        Save
+      </Button>,
+    );
+
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  });
+
+  it("keeps the label laid out under the spinner, so the button does not change width", () => {
+    render(<Button isLoading>Save</Button>);
+
+    const label = screen.getByText("Save");
+    expect(label).toHaveClass("opacity-0");
+    expect(label).toBeVisible();
+  });
+
   it("shows no spinner when idle", () => {
     render(<Button>Save</Button>);
 

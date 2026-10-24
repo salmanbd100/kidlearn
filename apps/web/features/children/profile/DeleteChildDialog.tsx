@@ -110,6 +110,7 @@ export function DeleteChildDialog({
             variant="destructive"
             disabled={!isConfirmed}
             isLoading={isDeleting}
+            loadingLabel={t("delete.deleting")}
             onClick={() => {
               void handleConfirm();
             }}

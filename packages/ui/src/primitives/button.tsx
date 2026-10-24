@@ -6,7 +6,7 @@ import { Spinner } from "./spinner";
 
 /** Button — shadcn-style primitive; colours and radius come from semantic tokens, so it follows `[data-theme]`. */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius)] font-body font-semibold transition-[color,background-color,opacity,box-shadow] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-5",
+  "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius)] font-body font-semibold transition-[color,background-color,opacity,box-shadow] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-5",
   {
     variants: {
       variant: {
@@ -40,8 +40,10 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
-  /** Disables the button and shows a spinner in front of its label, which stays put so the width does not jump. */
+  /** Disables the button and shows a spinner over its label, which stays in place so the width does not jump. */
   isLoading?: boolean;
+  /** What a screen reader hears while `isLoading` ("Saving…"); without it, the button keeps its label as its name. */
+  loadingLabel?: string;
 }
 
 export function Button({
@@ -50,6 +52,7 @@ export function Button({
   size,
   asChild = false,
   isLoading = false,
+  loadingLabel,
   disabled,
   children,
   ...props
@@ -65,8 +68,18 @@ export function Button({
       {/* A Slot takes exactly one child, so a link styled as a button cannot carry the spinner. */}
       {isLoading && !asChild ? (
         <>
-          <Spinner />
-          {children}
+          <span className="absolute inset-0 flex items-center justify-center">
+            <Spinner />
+          </span>
+          <span
+            className="inline-flex items-center gap-2 opacity-0"
+            aria-hidden={loadingLabel === undefined ? undefined : true}
+          >
+            {children}
+          </span>
+          {loadingLabel === undefined ? null : (
+            <span className="sr-only">{loadingLabel}</span>
+          )}
         </>
       ) : (
         children
