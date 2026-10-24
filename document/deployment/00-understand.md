@@ -88,35 +88,78 @@ One small computer runs everything server-side. You will build this up piece by
 piece in [Part 6](06-server.md); here is the finished picture.
 
 ```
-┌──────────────── EC2 t4g.small · Amazon Linux 2023 (Arm) · Elastic IP 13.x.x.x ───────────────┐
-│ Firewall (security group):  80/tcp  443/tcp  443/udp  open    ·    22 (SSH) CLOSED            │
-│                                                                                              │
-│  Docker                                                                                      │
-│  ┌───────────── project kidlearn-edge ─────────────┐                                        │
-│  │  kidlearn-caddy   ports 80, 443  (the ONLY one  │                                        │
-│  │                   that listens to the internet) │                                        │
-│  │  volume caddy_data = the HTTPS certificates     │                                        │
-│  └───────────────┬─────────────────────────────────┘                                        │
-│                  │ shared Docker network "kidlearn-edge"                                     │
-│                  │ reverse_proxy prod-api:4000                                               │
-│  ┌───────────────▼──────── project kidlearn-prod ──┐  ┌─── project kidlearn-dev (Part 11) ─┐  │
-│  │  prod-api       image kidlearn-api:<sha>        │  │  dev-api                          │  │
-│  │                 env from /opt/kidlearn/prod/... │  │  dev-postgres  (throw-away DB)    │  │
-│  │  prod-migrate   image kidlearn-migrate:<sha>    │  │  dev-migrate                      │  │
-│  │                 runs ONLY with --migrate        │  └───────────────────────────────────┘  │
-│  └─────────────────────────────────────────────────┘                                        │
-│                                                                                              │
-│  /opt/kidlearn/                         cron (the server's alarm clock)                      │
-│    deploy/   scripts, copied from Git     01:30 daily   backup.sh       → S3                 │
-│    prod/     app.env, compose.env,        02:00 Monday  weekly-reports.sh → API              │
-│              last-good-tag                weekly        docker image prune (keeps 4)          │
-│    edge/     caddy.env (your ACME email)                                                     │
-│    dev/      (Part 11)                                                                       │
-│                                                                                              │
-│  SSM agent ◄──── Session Manager: your terminal in the browser, no SSH                       │
-│  IAM role kidlearn-instance: may read secrets, pull images, write backups — nothing else      │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────── EC2 t4g.small · Amazon Linux 2023 (Arm) · Elastic IP 13.x.x.x ───────────────────────┐
+│ Firewall (security group):  80/tcp  443/tcp  443/udp  open    ·    22 (SSH) CLOSED                          │
+│                                                                                                             │
+│   from the internet ──►  :80 (HTTP)     :443/tcp (HTTPS)     :443/udp (HTTP/3)                              │
+│                             │                 │                    │      the ONLY host ports on the box —  │
+│                             └─────────────────┼────────────────────┘      `ss -tlnp` shows nothing else     │
+│  Docker                                       ▼                                                             │
+│  ┌──────────────────────────────── project kidlearn-edge ─────────────────────────────────┐                 │
+│  │  kidlearn-caddy   :80   answers Let's Encrypt's HTTP-01 challenge, redirects to :443   │                 │
+│  │                   :443  decrypts HTTPS, then routes by hostname (Caddyfile):           │                 │
+│  │                           api.kidlearn.net      ──► reverse_proxy prod-api:4000        │                 │
+│  │                           api.dev.kidlearn.net  ──► reverse_proxy dev-api:4000         │                 │
+│  │                                                     + X-Robots-Tag: noindex, nofollow  │                 │
+│  │  volume caddy_data = ACME account key + both certificates (never delete it)            │                 │
+│  └──────────────┬──────────────────────────────────────────────────────┬──────────────────┘                 │
+│                 │            shared Docker network "kidlearn-edge"     │                                    │
+│                 │       (created by the edge project; both API stacks  │                                    │
+│                 │        join it under an alias, not as "api")         │                                    │
+│                 ▼ prod-api:4000                                        ▼ dev-api:4000                       │
+│  ┌──────────── project kidlearn-prod ─────────────┐   ┌──────────── project kidlearn-dev (Part 11) ───────┐ │
+│  │  prod-api      :4000  (inside Docker only)     │   │  dev-api       :4000  (inside Docker only)        │ │
+│  │                image kidlearn-api:<sha>        │   │                image kidlearn-api:<sha>           │ │
+│  │                env /opt/kidlearn/prod/app.env  │   │                env /opt/kidlearn/dev/app.env      │ │
+│  │                                                │   │                mem_limit 400m · /docs ON          │ │
+│  │  prod-migrate  image kidlearn-migrate:<sha>    │   │  dev-migrate   image kidlearn-migrate:<sha>       │ │
+│  │                runs ONLY with --migrate        │   │                runs ONLY with --migrate           │ │
+│  │                                                │   │  dev-postgres  :5432  (inside Docker only)        │ │
+│  │  network kidlearn-prod_internal                │   │                postgres:16-alpine · 400m          │ │
+│  │                                                │   │                volume dev_pgdata — throw-away,    │ │
+│  │                                                │   │                never backed up                    │ │
+│  │                                                │   │  network kidlearn-dev_internal                    │ │
+│  │                                                │   │    dev-api, dev-migrate ──:5432──► dev-postgres   │ │
+│  └───────────────────────┬────────────────────────┘   └───────────────────────────────────────────────────┘ │
+│                          │ OUT of the box, to Supabase:                                                     │
+│                          │   prod-api      ──► :6543  (DATABASE_URL, pooled)                                │
+│                          │   prod-migrate  ──► :5432  (DIRECT_URL)                                          │
+│                          │ (both APIs also call Cloudinary and Google over HTTPS, outbound :443)            │
+│                                                                                                             │
+│  /opt/kidlearn/                                              cron (the server's alarm clock)                │
+│    deploy/        copied from Git (runbook §3)                 01:30 daily   backup.sh → S3  (prod only)    │
+│      app/         compose.yml, compose.dev.yml                 02:00 Monday  weekly-reports.sh              │
+│      edge/        compose.yml, Caddyfile                                     → https://api.kidlearn.net     │
+│      *.sh         deploy, bootstrap, backup, weekly-reports    weekly        docker image prune (keeps 4)   │
+│    prod/   0700   app.env, compose.env, last-good-tag                                                       │
+│    dev/    0700   app.env, compose.env, last-good-tag   (Part 11 — same three files, dev's values)          │
+│    edge/   0700   caddy.env (ACME_EMAIL, ACME_CA)                                                           │
+│                                                                                                             │
+│  SSM agent ◄──── Session Manager: your terminal in the browser, no SSH                                      │
+│  IAM role kidlearn-instance: may read secrets, pull images, write backups — nothing else                    │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Who listens on which port**
+
+| Port | Who listens | Reachable from | Notes |
+|---|---|---|---|
+| 80/tcp | `kidlearn-caddy` | the internet | Let's Encrypt's HTTP-01 challenge, and a redirect to 443 |
+| 443/tcp | `kidlearn-caddy` | the internet | HTTPS for `api.kidlearn.net` and `api.dev.kidlearn.net` |
+| 443/udp | `kidlearn-caddy` | the internet | HTTP/3 — same two hostnames |
+| 4000 | `prod-api` | Caddy only, over the `kidlearn-edge` network | Not published on the host |
+| 4000 | `dev-api` | Caddy only, over the `kidlearn-edge` network | Same number as prod — each container has its own, so they do not clash |
+| 5432 | `dev-postgres` | `dev-api` and `dev-migrate` only, over `kidlearn-dev_internal` | Not published; `prod-api` cannot even resolve the name |
+| 22 | nothing | — | Closed in the security group; Session Manager replaces SSH |
+
+Caddy tells the two APIs apart by **hostname**, not by port: both listen on
+4000 inside their own container, and Caddy reaches them by the network aliases
+`prod-api` and `dev-api`. The aliases matter — both stacks name their service
+`api`, and `reverse_proxy api:4000` would send traffic to whichever answered
+first, possibly putting dev requests on the production database.
+
+The web halves (`kidlearn.net`, `dev.kidlearn.net`) never reach this box at
+all: Vercel serves them and terminates their HTTPS itself.
 
 Three separate Docker Compose **projects** live on one box. They are separate so
 that redeploying the API never restarts Caddy (which holds the certificates), and
