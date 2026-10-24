@@ -184,7 +184,7 @@ function LessonPlayerContent({
 
   if (load.status === "loading") {
     return (
-      <StudentStatus tone="status">
+      <StudentStatus tone="loading">
         {isWakingUp ? t("waking") : t("loading")}
       </StudentStatus>
     );

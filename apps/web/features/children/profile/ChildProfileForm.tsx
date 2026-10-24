@@ -258,8 +258,12 @@ export function ChildProfileForm({
             <Link href={cancelHref}>{t("form.cancel")}</Link>
           </Button>
         ) : null}
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? t("form.saving") : submitLabel}
+        <Button
+          type="submit"
+          isLoading={isSaving}
+          loadingLabel={t("form.saving")}
+        >
+          {submitLabel}
         </Button>
       </div>
     </form>

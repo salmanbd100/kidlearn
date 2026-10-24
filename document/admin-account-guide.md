@@ -1,65 +1,30 @@
 # KidLearn — Admin Account Guide
 
-> **Who this is for:** anyone who needs an administrator account — to build curriculum, review AI content, or set one up on a deployed server. No prior knowledge of the auth code is assumed.
->
-> **Related:** [`user-journey-manual.md §6`](./user-journey-manual.md#6-admin-journey) is the full narrative of what an admin does. [`project-requirement-details.md §9`](./project-requirement-details.md#9-deployment-strategy-vercel-frontend--single-aws-box) is the deployment design Part 2 follows.
-
----
-
-## Table of contents
-
-1. [What an admin account actually is](#1-what-an-admin-account-actually-is)
-2. [Part 1 — Create an admin in local development](#2-part-1--create-an-admin-in-local-development)
-3. [Part 2 — Create an admin on a deployed server](#3-part-2--create-an-admin-on-a-deployed-server)
-4. [Part 3 — Using the admin account (the admin journey)](#4-part-3--using-the-admin-account-the-admin-journey)
-5. [Troubleshooting](#5-troubleshooting)
-6. [Where everything lives](#6-where-everything-lives)
+How to create an admin, reset a password, and what an admin does in the CMS.
+The full admin narrative is [`user-journey-manual.md §6`](./user-journey-manual.md#6-admin-journey).
 
 ---
 
 ## 1. What an admin account actually is
 
-There is **no sign-up page for admins**. Password registration is switched off for every caller (`emailAndPassword.disableSignUp: true` in `apps/server/src/config/auth.ts`), so the seed script is the only way an administrator comes into existence. That is deliberate: an admin can publish content to children, so the account cannot be self-served.
+There is **no admin sign-up page** and **no password-reset flow**. One script,
+`seed:admin`, creates an admin and resets a password. It is the only way to do
+either.
 
-One admin is **three rows in the database**, all written by one command:
-
-| Row | Table | What it holds |
-|---|---|---|
-| Identity | `user` | Email (always lower-cased), name, `emailVerified: true` |
-| Credential | `account` | `providerId: "credential"` plus the scrypt password hash — the only password anywhere in the product |
-| Authorisation | `AdminUser` | Email, name, `role: "admin"`, and `authUserId` pointing at the identity row |
-
-Both halves are needed. The `user` + `account` pair lets you **sign in**; the `AdminUser` row is what lets you **through the door**. A signed-in person with no `AdminUser` row — a parent, for instance — gets `403 Admin access required` from every `/api/admin/*` path.
-
-Parents are the mirror image: they sign in with Google and have no password. The two account types never overlap.
+The script writes three rows: `user` (identity), `account` (password hash) and
+`AdminUser` (permission). The first two let you sign in, and `AdminUser` lets you
+into `/api/admin/*`. Admins sign in with a password only. Parents sign in with
+Google only.
 
 ---
 
-## 2. Part 1 — Create an admin in local development
+## 2. Local development
 
-### 2.1 Before you start
+**Before you start:** run `pnpm install`, fill in `apps/server/.env` and
+`packages/db/.env` from their `.env.example` templates, then run
+`pnpm db:generate && pnpm --filter @kidlearn/db build && pnpm db:migrate`.
 
-You need the monorepo installed, the database reachable, and a complete server environment file.
-
-```bash
-pnpm install
-
-# Copy the two env templates and fill them in:
-#   apps/server/.env.example  →  apps/server/.env
-#   packages/db/.env.example  →  packages/db/.env
-
-pnpm db:generate
-pnpm --filter @kidlearn/db build   # the seed imports @kidlearn/db
-pnpm db:migrate                    # creates the tables; needs DIRECT_URL
-```
-
-**The one thing that surprises everybody:** the seed script imports the server's config, so the **entire** boot-time environment schema is validated before it does anything. A missing `CRON_SECRET`, `CLOUDINARY_*`, `GEMINI_API_KEY` or `GOOGLE_TTS_API_KEY` stops the seed even though it never uses them. If you only want to create an admin locally, any non-empty placeholder satisfies those; `DATABASE_URL` and `BETTER_AUTH_SECRET` (≥ 32 characters) are the two that must be real.
-
-**Which database gets the admin:** the one named by `DATABASE_URL` in the **`apps/server`** environment file. The script runs with `apps/server` as its working directory, so that is the file it loads — not the one in `packages/db`. If the two point at different databases, the admin lands in the server's one.
-
-### 2.2 Create the admin
-
-Pass the three values inline so the password never lands in a file:
+**Create an admin or reset a password** (the command is the same for both):
 
 ```bash
 ADMIN_EMAIL=you@example.com \
@@ -68,202 +33,132 @@ ADMIN_NAME='Your Name' \
   pnpm --filter server seed:admin
 ```
 
-Expected output:
+The output is `Created admin …` for a new email, or `Updated admin …` when it
+replaced the password of an existing one. Either line means the password has
+been verified and works. A reset also signs that admin out everywhere and
+revokes every AI-assistant token they hold, so a leaked password cannot keep
+working through a token minted with it.
 
-```
-Created admin you@example.com (3f0c…).
-```
+- The password must be **at least 12 characters**.
+- The admin is written to the database in **`apps/server/.env`** (`DATABASE_URL`),
+  not the one in `packages/db/.env`.
+- The script validates the whole server env, so every variable must be set.
+  Placeholders are fine for the ones it does not use (`CLOUDINARY_*`,
+  `GEMINI_API_KEY`, …).
 
-Rules the script enforces:
-
-- **`ADMIN_PASSWORD` must be at least 12 characters.** These accounts have no second factor, so the floor is checked by both the script and better-auth.
-- **Email is lower-cased.** `You@Example.com` and `you@example.com` are the same admin.
-- **Running it twice is safe.** Re-running with the same email leaves exactly one of each row and *replaces the password*. The output says `Updated` instead of `Created`.
-- **A reset signs that admin out everywhere and revokes every AI-assistant token they hold**, so a leaked password cannot keep working through a token minted with it.
-- **Success is verified, not assumed.** Before printing `Created` or `Updated`, the script re-reads every `credential` row for the user and checks the password against each with better-auth's own `verify`. If any row would reject it, the script fails instead — sign-in checks whichever row it finds first, so one stale row is enough to lock you out.
-
-### 2.3 Sign in
-
-```bash
-pnpm dev     # web on :3000, server on :4000
-```
-
-Open **http://localhost:3000**, choose **Admin sign-in**, and enter the email and password. (`/admin/login` still works: it redirects to that dialog.)
-
-What happens behind the scenes: the login screen posts to `http://localhost:4000/api/auth/sign-in/email`, the API sets an httpOnly session cookie, and you land on `/admin/analytics`. Locally you need no frontend environment variable — `NEXT_PUBLIC_API_URL` defaults to `http://localhost:4000`.
-
-The web and API origins must agree, or the browser will refuse the request: `WEB_ORIGIN` on the server has to be exactly `http://localhost:3000`.
-
-An admin sign-in lasts **12 hours from when you signed in**, however active you are — the 30-day sliding session parents get does not apply. After that every `/api/admin/*` path answers `401`, the session is revoked, and the CMS returns you to the login screen.
-
-### 2.4 Check it worked
-
-Without opening a browser:
-
-```bash
-curl -i -X POST http://localhost:4000/api/auth/sign-in/email \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.com","password":"a-long-local-password"}'
-```
-
-A `200` with a `Set-Cookie` header means the **credential** is good. Send that cookie to `GET /api/admin/me` to confirm the **authorisation** half:
-
-```bash
-curl -s http://localhost:4000/api/admin/me -b 'better-auth.session_token=<token from the cookie>'
-```
-
-Easier still: the API reference at **http://localhost:4000/docs** has a **Send** button that reuses your browser session, so there is no token to copy.
-
-### 2.5 Everyday variations
-
-| You want to… | Do this |
-|---|---|
-| Change or reset a password | Re-run the same command with a new `ADMIN_PASSWORD`. **There is no self-service reset flow** — this is it. |
-| Add a second admin | Run it again with a different `ADMIN_EMAIL`. There is no limit and no invite flow. |
-| Remove an admin | Delete the `AdminUser` row (`pnpm db:studio`). They can still sign in but every admin path answers `403`. Their AI-assistant tokens are deleted with the row, so `/mcp` answers `401` on their next call. |
-| Connect an AI assistant | CMS → **AI assistants** → Create token, then paste the snippet for your client. Needs `MCP_ENABLED=true` on the API. Tokens last 7 days by default (30 at most) and only create drafts for review. |
-| Cut off an AI assistant | CMS → **AI assistants** → Revoke. Takes effect on the assistant's next call. |
-| Reset local content | `pnpm db:seed` seeds a dev parent and sample content. It deliberately creates **no admin** — a password in a committed seed file is one nobody ever rotates. |
+**Sign in:** run `pnpm dev`, open http://localhost:3000 and choose **Admin sign-in**.
 
 ---
 
-## 3. Part 2 — Create an admin on a deployed server
+## 3. kidlearn.net and dev.kidlearn.net
 
-### 3.1 The short version
+Run the seed **from your Mac, inside the repo**, against the deployed database.
+You do not SSH to the server. Never store `ADMIN_*` in SSM, Vercel or `app.env`,
+because nothing in the running app reads them.
 
-**You create a production admin from your own machine, pointed at the production database.** You do not log into the server, and you do not put the admin credentials into the deployment.
+You need the AWS CLI signed in ([deployment Step 3](./deployment/02-accounts.md)).
+Paste the block below as one piece. The leading space keeps it out of zsh history:
 
-That sounds surprising, so here is why:
+```bash
+ cd ~/Documents/Me/kidlearn && bash <<'EOF'
+set -a
+eval "$(aws ssm get-parameters-by-path --path /kidlearn/prod/ --with-decryption \
+  --recursive --region ap-south-1 --query 'Parameters[].[Name,Value]' --output text \
+  | while IFS=$'\t' read -r n v; do printf '%s=%q\n' "${n##*/}" "$v"; done)"
+set +a
+[ -n "$DATABASE_URL" ] || { echo "No DATABASE_URL — is the AWS CLI signed in?"; exit 1; }
+echo "Database: $(echo "$DATABASE_URL" | sed -E 's#(//[^:]*):[^@]*@#\1:***@#')"
+ADMIN_EMAIL='you@example.com' \
+ADMIN_PASSWORD='<at least 12 characters>' \
+ADMIN_NAME='<your name>' \
+  pnpm --filter server seed:admin
+EOF
+```
 
-- The seed only writes database rows. It does not need to run where the API runs.
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_NAME` are therefore **never** stored in SSM Parameter Store, in Vercel project settings, in `/opt/kidlearn/<env>/app.env`, or in the repository. A password sitting in a deployment's environment is a credential nobody rotates — and the API does not read these three variables at all.
-- The password hash is scrypt with its own random salt. It does not depend on `BETTER_AUTH_SECRET`, so rotating that secret signs everyone out but leaves passwords working.
-
-### 3.2 Step by step
-
-The exact, copy-paste procedure is [Step 14 of the deployment guide](./deployment/05-aws-storage-secrets-images.md). In outline:
-
-**1. Migrations are already applied.** The tables must exist before the seed can write to them; the first deploy's `--migrate` (or Step 8c) does this.
-
-**2. Run the seed from your Mac with the production environment loaded from Parameter Store.** The block pulls every `/kidlearn/prod/*` value into a one-off bash process, prints the database host so you can check it is production, and runs `seed:admin`. The secrets live only in that process — no file to delete afterwards. Use `/kidlearn/dev/` for the dev environment.
-
-**3. Read the output.** `Created admin …` or `Updated admin …` is printed only after the script re-reads the account and verifies the password the way `sign-in/email` will, so it means the password works. Any other line is an error — see [Troubleshooting](#5-troubleshooting).
-
-**4. Keep the password out of shell history.** The deployment guide's block starts with a space, which keeps it out of `zsh` history with `HIST_IGNORE_SPACE`; otherwise clear the entry afterwards. The password belongs only in your password manager.
-
-**5. Sign in and confirm.** Go to `https://kidlearn.net` (or `https://dev.kidlearn.net`) and choose **Admin sign-in**, typing the password rather than letting the browser fill in an old one. You should land on the analytics page.
-
-### 3.3 Rules that must hold in production
-
-| Rule | Why |
+| Environment | `--path` |
 |---|---|
-| Each environment gets its own admin | Production and dev use separate databases with no shared credential. An admin created against dev does not exist in production. |
-| Never reuse a local password | Local passwords are typed in front of people and stored in shell history. |
-| `ENABLE_API_DOCS` stays `false` in production | `/docs` describes the whole API surface, and **Send** works off a live admin session. |
-| Admin credentials are not a deployment variable | Nothing in the running system reads `ADMIN_*`. Adding them to SSM or Vercel only creates a secret to leak. |
-| Rotating an admin password = re-running the seed | No reset email, no reset link. Document who holds the account. |
+| https://kidlearn.net | `/kidlearn/prod/` |
+| https://dev.kidlearn.net | `/kidlearn/dev/` |
+
+- Check that the printed `Database:` line is the environment you expect.
+- Each environment has its own database, so each one needs its own admin.
+- The password must not contain `'`.
+- Sign in on the site with **Admin sign-in**. Type the password; do not let the
+  browser fill in an old saved one.
+
+More detail is in [deployment Step 14](./deployment/05-aws-storage-secrets-images.md).
+
+### Other tasks
+
+| To… | Do this |
+|---|---|
+| Add another admin | Run the seed with a different email |
+| Remove an admin | Delete their `AdminUser` row (`pnpm db:studio`). Their AI-assistant tokens go with it |
+| Connect or revoke an AI assistant | CMS → **AI assistants**. Needs `MCP_ENABLED=true` on the API |
+
+An admin session lasts **12 hours** from sign-in and is not extended by activity.
 
 ---
 
-## 4. Part 3 — Using the admin account (the admin journey)
-
-> Full detail, with diagrams, is in [`user-journey-manual.md §6`](./user-journey-manual.md#6-admin-journey). This is the practical walkthrough.
+## 4. Using the CMS
 
 ### 4.1 The workspace
 
-Signing in lands you on **Analytics**. A fixed left sidebar (a top bar on narrow screens) holds seven sections, and **Sign out** is in the shell:
-
-| Section | Route | What you do there |
-|---|---|---|
-| **Curriculum** | `/admin/curriculum` | Build and reorder Subjects → Topics → Lessons; edit lessons per language; attach an activity and a quiz |
-| **Stories** | `/admin/stories` | Manage the story library — pages, translations, illustrations, narration |
-| **Media** | `/admin/media` | Upload video, audio and images; browse the asset library |
-| **Badges** | `/admin/badges` | Define badges — name, icon, and the rule that earns them |
-| **AI Queue** | `/admin/ai-queue` | Review everything the AI generated. The sidebar shows a live count of items waiting |
-| **Analytics** | `/admin/analytics` | The platform counters |
-| **Curriculum guide** | `/admin/guide` | How the CMS works and how to write content — read it before creating anything |
-
-The CMS is deliberately plain and desktop-first — the opposite of the child surface.
+Signing in lands you on **Analytics**. The sidebar has **Curriculum**,
+**Stories**, **Media**, **Badges**, **AI Queue**, **Analytics** and the
+**Curriculum guide** (`/admin/guide`). Read the guide before you create content.
 
 ### 4.2 The one rule behind every screen
 
-All content, whether a person or the AI wrote it, moves through one status machine:
-
 ```
 draft → in_review → approved → published
-              ↘ rejected → (back to draft to try again)
+              ↘ rejected → (back to draft)
 ```
 
-**Children only ever see `published` content.** Every student-facing query filters to it, so a draft cannot leak. There is no shortcut from `rejected` straight to `published` — rejected content has to earn approval again.
+Children only ever see `published` content.
 
-### 4.3 Flow A — authoring a lesson by hand
+### 4.3 Flow A — authoring by hand
 
-> The full field-by-field walkthrough — including publishing without Gemini — is in the CMS itself, at **Help → Curriculum guide** (`/admin/guide`).
-
-1. **Curriculum** → pick or create a Subject, then a Topic.
-2. Create a Lesson. Fill in the English and Bangla tabs: title, intro script, narration script, world, grade levels, video URLs.
-3. **Media** → upload the video or audio you need; attach the registered asset to the lesson. Files go straight from your browser to Cloudinary — no byte passes through our server.
-4. Build the **activity** and the **quiz** in their editors. Both validate as you type and show a **live preview using the exact component the child will see**.
-5. Walk the lesson through the statuses and **publish**. It is now visible to students in that grade.
+Create a Subject, then a Topic, then a Lesson. Fill in the English and Bangla
+tabs, attach media, build the activity and quiz (each with a live preview), then
+publish.
 
 ### 4.4 Flow B — reviewing AI content (the important one)
 
-This is the safety gate, and the main reason admin accounts are locked down.
+AI output is always saved as a **draft** and appears in the **AI Queue**. Open a
+job and choose:
 
-1. A generator is run (lesson, story, quiz, narration audio, or illustration). It saves the result as **draft** content and creates a job with status `awaiting_review`. **Nothing is ever auto-published.**
-2. **AI Queue** → filter by type, language or grade, and open a job. Read the text, listen to the audio, look at the images.
-3. Choose one of three outcomes:
-
-| Decision | What happens |
+| Decision | Result |
 |---|---|
-| **Approve** | The content is walked through to `published` and becomes visible to children |
-| **Edit, then approve** | The editor opens pre-filled; fix it, save, publish. Logged as `edit_then_approve` |
-| **Reject** | A reason of at least 10 characters is required. The content is marked `rejected` and never shown |
+| **Approve** | Published and visible to children |
+| **Edit, then approve** | Fix it in the editor, then publish |
+| **Reject** | Needs a reason of 10 or more characters. Never shown |
 
-4. Publishing is **blocked** while a story still holds placeholder images — you have to replace them first.
-
-**The hard invariant:** AI-originated content cannot reach `published` without a recorded human `approve` or `edit_then_approve` decision. It is enforced on the server and there is no bypass. Every decision records who made it, when, and why.
-
-Daily generation caps (`AI_TEXT_JOBS_PER_DAY` and friends) exist because one click can mean many provider calls. Hitting one returns `429 RATE_LIMITED` and the counter resets at local midnight in `APP_TIMEZONE`.
+AI content cannot be published without a recorded human decision. The server
+enforces this. Hitting a daily generation cap returns `429`, and the count
+resets at midnight in `APP_TIMEZONE`.
 
 ### 4.5 What an admin cannot do
 
-| Not possible | Why |
-|---|---|
-| See a child's personal data | The CMS has no parent or child records. Analytics are aggregate counters only |
-| Sign in with Google | Admins are password-only; parents are Google-only |
-| Create another admin from the UI | There is no invite flow. Only the seed script |
-| Reset their own password | No reset flow. Someone re-runs the seed |
-| Publish AI content without reviewing it | Blocked server-side |
+An admin cannot see any child's personal data, sign in with Google, create
+another admin from the UI, reset their own password, or publish AI content
+without reviewing it.
 
 ---
 
 ## 5. Troubleshooting
 
-| What you see | What it means | Fix |
-|---|---|---|
-| `Cannot seed an admin. Fix these variables:` | One of the three `ADMIN_*` values is missing or invalid | The message names the offending field. Passwords under 12 characters fail here |
-| The seed fails naming `CRON_SECRET`, `CLOUDINARY_*`, `GEMINI_API_KEY`… | The whole server env schema is validated on import | Fill in the server environment file. Placeholders are fine for values the seed does not use |
-| Login says *"Those details did not match an administrator account"* | The dialog shows this for **every** failure — wrong password, but also a network, CORS or server error | Find the real one first: `curl` `POST /api/auth/sign-in/email` with the same email and password and an `Origin` header for the site ([deployment Step 14](./deployment/05-aws-storage-secrets-images.md) has the command). `200` means the account is fine — clear the browser's saved password. `401 INVALID_EMAIL_OR_PASSWORD` — read the API log, below |
-| API log (`docker logs prod-api`) says `[Better Auth]: User not found` | No `user` row for that email in the database the **API** uses | The seed wrote elsewhere. Compare the `Database:` line the seed printed with `DATABASE_URL` in `/opt/kidlearn/<env>/app.env` on the server; `app.env` is rewritten only on deploy, so a Parameter Store change needs `deploy.sh <env> <current tag>` |
-| API log says `[Better Auth]: Invalid password` | The `user` row exists but the stored hash does not match what you typed | Re-run the seed and type exactly that password. If the seed fails with *"does not hold the new password"*, see the next row |
-| Seed fails: *"…has a credential account that does not hold the new password, so sign-in would fail"* | The user has more than one `credential` account row. Seeds before October 2026 added a new row on every re-run instead of updating the old one, and sign-in kept checking the oldest | Delete the stale rows, then re-run the seed: `delete from account a using "user" u where a."userId" = u.id and u.email = '<email>' and a."providerId" = 'credential' and a."updatedAt" < now() - interval '1 minute';` — the re-run writes a fresh row if none is left |
-| Login works but the CMS bounces you back | A session exists but there is no matching `AdminUser` row — the API returns `403` | Re-run the seed; it re-asserts the link on every run. That is exactly what repairs it |
-| `401` from `/api/admin/*` | No session cookie reached the API, or the admin session is more than 12 hours old | Check `WEB_ORIGIN` matches the site origin exactly, and that `NEXT_PUBLIC_API_URL` points at the right API |
-| The admin exists but not in the database you expected | The seed used `DATABASE_URL` from the `apps/server` environment file | Point that file at the right database and run it again |
-| `403` on `/api/admin/jobs/*` with a valid admin session | That path is not session-guarded — it authenticates with `CRON_SECRET` | Use the bearer token, not a login. It is the scheduler's endpoint, not an admin one |
-
----
-
-## 6. Where everything lives
-
-| File | Role |
+| Symptom | Fix |
 |---|---|
-| `apps/server/src/scripts/seed-admin.ts` | The seed script — the only way an admin is created |
-| `apps/server/package.json` | The `seed:admin` script entry |
-| `apps/server/src/config/auth.ts` | better-auth setup; password sign-up disabled; the 12-character floor |
-| `apps/server/src/shared/middleware/require-admin.ts` | The gate on every `/api/admin/*` route (`401` vs `403`) |
-| `apps/server/.env.example` | Every environment variable, with setup notes for each credential |
-| `apps/web/features/admin/shell/AdminSignInDialog.tsx` | The login form, a dialog on the homepage |
-| `apps/web/features/admin/shell/admin-routes.ts` | The CMS routing table and sidebar |
-| `packages/db/prisma/schema.prisma` | `AdminUser`, `user`, `account`, `session` models |
+| `Cannot seed an admin. Fix these variables:` | An `ADMIN_*` value is missing, or the password is under 12 characters |
+| Seed fails naming `CRON_SECRET`, `CLOUDINARY_*`, … | Set those variables in the server env. Placeholders are fine |
+| Login says *"Those details did not match…"* | This message appears for **every** failure. Test with the `curl` in [Step 14](./deployment/05-aws-storage-secrets-images.md). A `200` means the account is fine, so clear the browser's saved password |
+| API log: `User not found` | The seed wrote to a different database. Compare the `Database:` line with `DATABASE_URL` in `/opt/kidlearn/<env>/app.env` |
+| API log: `Invalid password` | Run the seed again and type exactly that password |
+| Seed fails: *"…does not hold the new password"* | The account has stale duplicate rows. Delete them, then run the seed again: `delete from account a using "user" u where a."userId" = u.id and u.email = '<email>' and a."providerId" = 'credential' and a."updatedAt" < now() - interval '1 minute';` |
+| Login works but the CMS bounces you out | The `AdminUser` row is missing. Running the seed again restores it |
+| `401` on `/api/admin/*` | The session is over 12 hours old, or `WEB_ORIGIN` / `NEXT_PUBLIC_API_URL` is wrong |
+
+**Key files:** `apps/server/src/scripts/seed-admin.ts` (the seed),
+`apps/server/src/config/auth.ts` (auth setup),
+`apps/server/src/shared/middleware/require-admin.ts` (the admin gate).

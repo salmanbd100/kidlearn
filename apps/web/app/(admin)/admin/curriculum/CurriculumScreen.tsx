@@ -41,6 +41,7 @@ import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { StatusChip } from "@/features/admin/ui/StatusChip";
+import { LoadingState } from "@/shared/components/LoadingState";
 import { type ColumnItem, ContentColumn } from "./_components/ContentColumn";
 import { ContentForm } from "./_components/ContentForm";
 import { GenerateLessonDialog } from "./_components/GenerateLessonDialog";
@@ -265,7 +266,7 @@ export function CurriculumScreen() {
       />
 
       {status === "waking" ? (
-        <p className="text-muted-foreground text-xs">Waking the API up…</p>
+        <LoadingState label="Waking the API up…" isLabelVisible />
       ) : null}
 
       {notice ? (

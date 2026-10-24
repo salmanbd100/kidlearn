@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { apiFetch } from "@/shared/api/api-client";
@@ -198,11 +204,25 @@ describe("AdminCmsLayout", () => {
     );
     vi.unstubAllGlobals();
   });
+  it("asks before signing out and does nothing when cancelled", async () => {
+    renderLayout();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    const dialog = await screen.findByRole("dialog", { name: "Sign out?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(api.adminSignOut).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
   it("signs the admin out and goes to the sign-in dialog when the cookie is revoked", async () => {
     api.adminSignOut.mockResolvedValue(true);
     renderLayout();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    await confirmSignOut();
 
     await waitFor(() =>
       expect(router.replace).toHaveBeenCalledWith(ADMIN_ROUTES.login),
@@ -214,7 +234,7 @@ describe("AdminCmsLayout", () => {
     api.adminSignOut.mockResolvedValue(false);
     renderLayout();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    await confirmSignOut();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /could not sign out/i,
@@ -224,3 +244,9 @@ describe("AdminCmsLayout", () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 });
+
+async function confirmSignOut() {
+  fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+  const dialog = await screen.findByRole("dialog", { name: "Sign out?" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
+}

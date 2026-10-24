@@ -51,6 +51,11 @@ export {
   selectMenuTriggerVariants,
 } from "./primitives/select-menu";
 export {
+  Spinner,
+  type SpinnerProps,
+  spinnerVariants,
+} from "./primitives/spinner";
+export {
   Textarea,
   type TextareaProps,
   textareaVariants,

@@ -10,6 +10,7 @@ import {
   updateCharacterSheet,
 } from "@/features/admin/api/ai-api";
 import { fetchWorlds } from "@/features/admin/api/content-api";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 type Draft = {
   name: string;
@@ -284,7 +285,7 @@ export function CharactersTab() {
       ) : null}
 
       {status === "loading" ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <LoadingState label="Loading…" />
       ) : sheets.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           No characters yet. Until there is one, every generated illustration is

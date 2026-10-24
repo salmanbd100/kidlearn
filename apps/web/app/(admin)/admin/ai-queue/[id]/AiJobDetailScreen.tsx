@@ -22,6 +22,7 @@ import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
 import { JsonInspector } from "@/features/admin/ui/JsonInspector";
 import { Chip, StatusChip } from "@/features/admin/ui/StatusChip";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   const [job, setJob] = useState<AiJobDetail>();
@@ -56,7 +57,7 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
   }, [load]);
 
   if (state === "loading") {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <LoadingState label="Loading…" />;
   }
 
   if (state === "error" || job === undefined) {
@@ -240,14 +241,13 @@ export function AiJobDetailScreen({ jobId }: { jobId: string }) {
         <div className="flex flex-wrap gap-2 border-border border-t pt-4">
           <Button
             type="button"
-            disabled={isBusy || isBlocked}
+            disabled={isBlocked}
+            isLoading={isBusy}
             onClick={() => void handleApprove()}
           >
-            {isBusy
-              ? "Working…"
-              : job.decision === "edit_then_approve"
-                ? "Publish edited content"
-                : "Approve and publish"}
+            {job.decision === "edit_then_approve"
+              ? "Publish edited content"
+              : "Approve and publish"}
           </Button>
           <Button
             type="button"

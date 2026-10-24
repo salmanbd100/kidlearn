@@ -64,7 +64,8 @@ export function GenerateQuizButton({
     <Button
       type="button"
       variant="outline"
-      disabled={isBusy || isGenerating}
+      disabled={isBusy}
+      isLoading={isGenerating}
       onClick={() => void handleClick()}
     >
       {isGenerating

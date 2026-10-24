@@ -9,6 +9,7 @@ import {
   SelectMenuItem,
   SelectMenuSeparator,
   SelectMenuTrigger,
+  Spinner,
 } from "@kidlearn/ui";
 import Image from "next/image";
 import { useMediaPages } from "@/features/admin/media/use-media-pages";
@@ -67,7 +68,11 @@ export function MediaPicker({
         />
         <SelectMenuContent>
           <SelectMenuItem value={NO_ASSET}>
-            {status === "loading" ? "Loading library…" : "Not set"}
+            {status === "loading" ? (
+              <Spinner size="sm" tone="muted" label="Loading library…" />
+            ) : (
+              "Not set"
+            )}
           </SelectMenuItem>
           {assets.length === 0 ? null : <SelectMenuSeparator />}
           {assets.map((asset) => (
@@ -94,10 +99,11 @@ export function MediaPicker({
           variant="outline"
           size="sm"
           className="self-start"
-          disabled={isDisabled || isLoadingMore}
+          disabled={isDisabled}
+          isLoading={isLoadingMore}
           onClick={() => void loadMore()}
         >
-          {isLoadingMore ? "Loading…" : "Show older files"}
+          Show older files
         </Button>
       ) : null}
 

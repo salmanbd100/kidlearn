@@ -7,9 +7,9 @@
 > and reference.
 >
 > **Bringing this into existence for the first time?** You want
-> `document/deployment-walkthrough.md`, not this file. It is the one-time,
-> sequential provisioning, with every command spelled out and the AWS vocabulary
-> explained, and it links back here for the reference tables. Come back here once
+> `document/deployment/`, not this file. It is the one-time, sequential
+> provisioning, with every command spelled out and the AWS vocabulary explained,
+> and it links back here for the reference tables. Come back here once
 > production is up.
 >
 > **Status:** the repository half of file 38 is implemented and verified locally.
@@ -122,7 +122,7 @@ it.
 
 Your IAM **user** needs `ssm:StartSession` on the instance and on
 `arn:aws:ssm:*::document/AWS-StartSSHSession`. An account administrator already
-has it; the instance role from the walkthrough's A9 covers the other end.
+has it; the instance role from `deployment/` Step 17 covers the other end.
 
 You land as `ec2-user`; `sudo su -` for root as usual.
 
@@ -456,7 +456,7 @@ ACME_CA=https://acme-v02.api.letsencrypt.org/directory   # omit for staging
 
 Never edit the Caddyfile on the box to change endpoint — every refresh of
 `deploy/` (§3) overwrites it, and a box on production would silently drop back to
-staging certificates. The first-run sequence is walkthrough A13. Changing endpoint
+staging certificates. The first-run sequence is `deployment/` Step 21. Changing endpoint
 later is editing `caddy.env` and
 `docker compose -p kidlearn-edge -f compose.yml up -d --force-recreate` from
 `/opt/kidlearn/deploy/edge`. A missing `caddy.env` is not an error: Caddy starts
@@ -494,7 +494,7 @@ restore) the latest production `pg_dump`, per §8.
 Supabase's free tier has **no point-in-time recovery**, so this is yours to own.
 
 `deploy/backup.sh` runs `pg_dump --schema=public` against production's `DIRECT_URL`, gzips it,
-and streams it to the backup bucket (settings: walkthrough A4). It reads both `DIRECT_URL` and
+and streams it to the backup bucket (settings: `deployment/` Step 12). It reads both `DIRECT_URL` and
 `BACKUP_S3_BUCKET` from SSM, dumps through the `postgres:<major>-alpine` image
 matching the server's major version — asked of the server on every run, because
 `pg_dump` refuses a server newer than itself and Supabase upgrades projects in
@@ -717,7 +717,7 @@ buildable).
 | Supabase free: PITR | **none** — see §8 | 2026-09-06 |
 | Let's Encrypt | 5 duplicate certificates per week | — |
 | SSM Parameter Store Standard | 10,000 parameters, free — this uses ~35 | — |
-| AWS Budgets alarm | **$20/month** — thresholds in walkthrough A1 | ⬜ not yet created |
+| AWS Budgets alarm | **$20/month** — thresholds in `deployment/` Step 4 | ⬜ not yet created |
 | API flood guard | **300 requests/min per client IP** on `/api/*` — a `429 RATE_LIMITED`. Raise `API_RATE_LIMIT_PER_MINUTE` if a school or shared network trips it | 2026-10-05 |
 | API JSON body | **100 KB** — a `413`. An editor sends one activity or question at a time; an MCP submission is one lesson, story or quiz, a few KB | 2026-10-05 |
 | MCP drafts | **30 per admin per day** (`MCP_DRAFTS_PER_DAY`), separate from the Gemini caps — the tool answers with an error, the assistant tells the admin | 2026-10-22 |

@@ -102,8 +102,13 @@ export function RejectDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" variant="destructive" disabled={!canSubmit}>
-              {isBusy ? "Rejecting…" : "Reject"}
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={remaining > 0}
+              isLoading={isBusy}
+            >
+              Reject
             </Button>
           </DialogFooter>
         </form>
