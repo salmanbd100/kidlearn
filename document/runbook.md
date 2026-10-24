@@ -333,7 +333,7 @@ this uses about 30.
 | `NEXT_PUBLIC_SITE_URL` | **Vercel**, build-time | `https://kidlearn.net` | `https://dev.kidlearn.net` |
 | `MEDIA_ASSET_HOSTS` | **Vercel**, build-time | `https://res.cloudinary.com` | `https://res.cloudinary.com` |
 | `SITE_NOINDEX` | **Vercel**, build-time | **unset** | `true` |
-| `DEV_SITE_BASIC_AUTH` | **Vercel**, runtime | **unset** | `dev:<password>` — **not** `NEXT_PUBLIC_` |
+| `DEV_SITE_BASIC_AUTH` | **Vercel**, runtime | **unset** | **unset** — optional `dev:<password>` turns on a password prompt; **not** `NEXT_PUBLIC_` |
 
 `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` are in neither deployment. They
 are read only by `seed:admin` and passed inline — a deployment must not need an
@@ -394,8 +394,8 @@ dashboard.** If the first command matches, the dev project was built with
 production's `NEXT_PUBLIC_API_URL`: fix the variable and **redeploy**.
 
 ```bash
-curl -s --user 'dev:<password>' https://dev.kidlearn.net | grep -o 'api\.kidlearn\.net'      # NOTHING
-curl -s --user 'dev:<password>' https://dev.kidlearn.net | grep -o 'api\.dev\.kidlearn\.net' # matches
+curl -s https://dev.kidlearn.net | grep -o 'api\.kidlearn\.net'      # NOTHING
+curl -s https://dev.kidlearn.net | grep -o 'api\.dev\.kidlearn\.net' # matches
 ```
 
 ---
@@ -697,7 +697,7 @@ buildable).
    You will need to create the `kidlearn-web` ECR repository — it does not exist.
 3. Add a `web` service to `deploy/app/compose.yml` with a `${ENV_NAME}-web`
    network alias, taking `DEV_SITE_BASIC_AUTH` as a runtime variable on the dev
-   stack.
+   stack if the optional dev password is on.
 4. Add the web hostnames to `deploy/edge/Caddyfile`, reverse-proxying to those
    aliases on port 4000.
 5. Repoint the `kidlearn.net`, `www` and `dev` Cloudflare records at the Elastic
@@ -763,10 +763,12 @@ Cost and sizing are file 38's "Costs, at steady state".
 Why two clients, why the cookie stays `SameSite=Lax`, and why there is no basic auth
 on `api.dev.kidlearn.net`: file 38 requirements 14, 4 and the Goal.
 
-**Dev basic-auth credential:** stored as `DEV_SITE_BASIC_AUTH` in the dev Vercel
-project's settings. That is its only home — it is deliberately not duplicated
-into SSM, which would give two places to forget to rotate. It is the one
-frontend value worth protecting; Vercel stores it encrypted.
+**Dev site password: off.** `dev.kidlearn.net` is open to anyone with the
+address; `SITE_NOINDEX` keeps it out of search results. To turn the optional
+prompt in `apps/web/proxy.ts` on, set `DEV_SITE_BASIC_AUTH` to `dev:<password>`
+in the dev Vercel project's settings and redeploy. That is the credential's
+only home — it is deliberately not duplicated into SSM, which would give two
+places to forget to rotate.
 
 ---
 
@@ -792,7 +794,7 @@ Plus, from anywhere:
 curl -s https://api.kidlearn.net/health          # {"data":{"status":"ok",…}}
 curl -si https://api.kidlearn.net/docs | head -1 # 404 — docs are off in production
 curl -si https://kidlearn.net | grep -i x-robots # nothing — noindex is dev-only
-curl -si https://dev.kidlearn.net | head -1      # 401
+curl -si https://dev.kidlearn.net | head -1      # 200 — no password on dev
 curl -si https://api.dev.kidlearn.net/health     # 200, X-Robots-Tag: noindex
 nmap <elastic-ip>                                # only 80 and 443 open
 ```

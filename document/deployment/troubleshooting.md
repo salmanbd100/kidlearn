@@ -43,7 +43,8 @@ Most likely first.
 | `deploy.sh dev`: "up but /ready failed" on the first deploy | You left out `--migrate` — the dev database has no tables yet |
 | Dev API: "password authentication failed" | `POSTGRES_PASSWORD` and the password inside the dev `DATABASE_URL` differ — or the password has a `/`, `+` or `=` (use `openssl rand -hex`). Fix both in SSM, then wipe and redeploy ([Step 33a](11-dev-environment.md)) — Postgres only reads the password when its volume is first created |
 | `dev.kidlearn.net` behaves like production, or shows "CORS" errors | The dev Vercel project was built with production's `NEXT_PUBLIC_API_URL`. Fix it, **redeploy**, re-run [Step 36b](11-dev-environment.md) |
-| `dev.kidlearn.net` has no password prompt | `DEV_SITE_BASIC_AUTH` not set for this deployment's environment (Production *and* Preview) — set it and redeploy |
+| `dev.kidlearn.net` asks for a username and password | `DEV_SITE_BASIC_AUTH` is set on the dev Vercel project. The dev site is open by default — remove the variable and redeploy, or use the credential if you turned it on deliberately |
+| Optional dev password set, but no prompt | `DEV_SITE_BASIC_AUTH` not set for this deployment's environment (Production *and* Preview) — set it and redeploy |
 | Dev sign-in asks for the dev password part-way through | Someone added a password to `api.dev` — the API host must stay open ([Step 36a](11-dev-environment.md)) |
 | Dev sign-in: "access blocked" / "app not verified" | The local client's consent screen is in **Testing** — add your Google account as a test user ([Step 35](11-dev-environment.md)) |
 | Restore stops at `CREATE TYPE … already exists` | The database was not empty — run [Step 33b](11-dev-environment.md) from the `DROP DATABASE` line again |

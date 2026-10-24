@@ -21,7 +21,7 @@ before parents see it.
    docs OFF, LOG_LEVEL info, no memory cap     docs ON, LOG_LEVEL debug, 400 MB cap each
            ▲                                          ▲
    Vercel project "kidlearn"  (branch main)    Vercel project "kidlearn-dev"  (branch dev)
-   kidlearn.net                                dev.kidlearn.net  (password-protected)
+   kidlearn.net                                dev.kidlearn.net  (open, noindex)
 ```
 
 **What is shared and what is not** (file 38, "The isolation this design does and
@@ -339,7 +339,7 @@ with production's API address by picking the wrong setting.
 - **Project name:** `kidlearn-dev`
 - **Framework, Root Directory, Build Command, Install Command:** exactly as
   [Step 24](07-website-vercel.md)
-- **Environment Variables** — five this time:
+- **Environment Variables** — four this time:
 
 | Key | Value |
 |---|---|
@@ -347,19 +347,20 @@ with production's API address by picking the wrong setting.
 | `NEXT_PUBLIC_SITE_URL` | `https://dev.kidlearn.net` |
 | `MEDIA_ASSET_HOSTS` | `https://res.cloudinary.com` |
 | `SITE_NOINDEX` | `true` |
-| `DEV_SITE_BASIC_AUTH` | `dev:<a password you choose>` |
 
-Apply each one to **Production and Preview**. Save the password in your sheet —
-its only home is this Vercel project (`runbook.md` §13).
+Apply each one to **Production and Preview**.
 
-*What the two new ones do:*
+*What the new one does:* `SITE_NOINDEX=true` makes the site send
+`X-Robots-Tag: noindex` so search engines never list an unreviewed build of a
+children's product. It is read **at build time**, so changing it needs a
+redeploy.
 
-- `SITE_NOINDEX=true` makes the site send `X-Robots-Tag: noindex` so search
-  engines never list an unreviewed build of a children's product. It is read
-  **at build time**, so changing it needs a redeploy.
-- `DEV_SITE_BASIC_AUTH` turns on the password prompt in `apps/web/proxy.ts`. It
-  deliberately has **no** `NEXT_PUBLIC_` prefix — that prefix would copy the
-  password into the JavaScript every visitor downloads.
+> **The dev site has no password.** Anyone with the address can open it; only
+> `noindex` keeps it out of search results. `apps/web/proxy.ts` still supports
+> an optional password prompt: set `DEV_SITE_BASIC_AUTH` to
+> `dev:<a password you choose>` on this project (Production and Preview) and
+> redeploy. It deliberately has **no** `NEXT_PUBLIC_` prefix — that prefix
+> would copy the password into the JavaScript every visitor downloads.
 
 Click **Deploy**. This first build is from `main`; that is fixed next.
 
@@ -385,8 +386,8 @@ shows a **CNAME** target. Cloudflare → **Add record**:
 |---|---|---|---|
 | CNAME | `dev` | the `…vercel-dns…` value **this** project shows | **grey cloud** |
 
-✅ **Check:** the domain turns **Valid Configuration**, and opening
-<https://dev.kidlearn.net> asks for a username and password.
+✅ **Check:** the domain turns **Valid Configuration**, and
+<https://dev.kidlearn.net> opens the homepage.
 
 Your Cloudflare DNS now has all **five** web/API records, every one grey (plus
 any `MX` / `TXT` records for email):
@@ -423,14 +424,13 @@ for a dev site — add yourself.
 **36a. From your Mac:**
 
 ```bash
-curl -si https://dev.kidlearn.net | head -1                         # HTTP/2 401
-curl -si https://dev.kidlearn.net | grep -i www-authenticate        # Basic realm="kidlearn dev"
-curl -si --user 'dev:<password>' https://dev.kidlearn.net | head -1 # HTTP/2 200
-curl -si --user 'dev:<password>' https://dev.kidlearn.net | grep -i x-robots   # noindex, nofollow
-curl -si https://api.dev.kidlearn.net/health | head -1              # 200 — NO password on the API
+curl -si https://dev.kidlearn.net | head -1                 # HTTP/2 200
+curl -si https://dev.kidlearn.net | grep -i x-robots        # noindex, nofollow
+curl -si https://api.dev.kidlearn.net/health | head -1      # 200
 ```
 
-*Why no password on the API?* Google's sign-in sends the browser back to
+*Never put a password on the API*, even if you turn on the optional site
+password. Google's sign-in sends the browser back to
 `api.dev.kidlearn.net/api/auth/callback/google`. A password prompt in the
 middle of that redirect breaks sign-in.
 
@@ -439,7 +439,7 @@ address is written into the site's JavaScript files when Vercel builds them, so
 check the files themselves, not the dashboard:
 
 ```bash
-curl -s --user 'dev:<password>' https://dev.kidlearn.net \
+curl -s https://dev.kidlearn.net \
   | grep -oE '/_next/static/[^"]+\.js' | sort -u \
   | while read -r f; do curl -s "https://dev.kidlearn.net$f"; done \
   | grep -oE 'api(\.dev)?\.kidlearn\.net' | sort | uniq -c
@@ -450,21 +450,17 @@ site was built with production's address — a dev build writing to the
 **production database**. It shows up as a "CORS error", which is misleading.
 Fix the variable in the `kidlearn-dev` project and **redeploy**.
 
-Do the same against <https://kidlearn.net> (no `--user`): expect **only**
-`api.kidlearn.net`. And confirm the password never reached the browser:
+Do the same against <https://kidlearn.net>: expect **only**
+`api.kidlearn.net`.
 
-```bash
-curl -s --user 'dev:<password>' https://dev.kidlearn.net \
-  | grep -oE '/_next/static/[^"]+\.js' | sort -u \
-  | while read -r f; do curl -s "https://dev.kidlearn.net$f"; done \
-  | grep -c '<password>'      # 0
-```
+If you turned on the optional site password, add `--user 'dev:<password>'` to
+the first `curl` above, and confirm the password never reached the browser by
+ending the same pipeline with `grep -c '<password>'` — it must print `0`.
 
 **36c. In a browser:**
 
-1. <https://dev.kidlearn.net> → the password prompt → your credentials.
-2. Sign in with Google — **it does not ask for the password again** part-way
-   through.
+1. Open <https://dev.kidlearn.net>.
+2. Sign in with Google.
 3. Reload — still signed in.
 4. A login from one environment does not work in the other: DevTools →
    **Application → Cookies** shows the session cookie on `api.dev.kidlearn.net`
