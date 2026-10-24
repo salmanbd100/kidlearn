@@ -15,6 +15,7 @@
     "@kidlearn/i18n": "workspace:*",
     "@kidlearn/types": "workspace:*",
     "@kidlearn/ui": "workspace:*",
+    "@vercel/analytics": "^2.0.1",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "catalog:",
     "i18next": "^26.4.2",
