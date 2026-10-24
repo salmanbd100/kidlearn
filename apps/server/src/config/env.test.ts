@@ -49,6 +49,19 @@ describe("MCP configuration", () => {
     expect(result.success).toBe(false);
   });
 
+  it("refuses a resource URL that does not name the /mcp mount, which the CMS would hand out as a dead link", () => {
+    const result = EnvSchema.safeParse({
+      ...BASE,
+      MCP_ENABLED: "true",
+      MCP_RESOURCE_URL: "https://api.kidlearn.example/",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("leaves MCP off unless it is switched on", () => {
+    expect(EnvSchema.parse(BASE).MCP_ENABLED).toBe(false);
+  });
+
   it("boots without a Gemini key, and treats an empty one as unset", () => {
     expect(EnvSchema.parse(BASE).GEMINI_API_KEY).toBeUndefined();
     expect(

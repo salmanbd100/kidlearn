@@ -22,7 +22,7 @@ import { Chip } from "@/features/admin/ui/StatusChip";
 import {
   AI_JOB_TYPE_LABELS,
   formatRelativeAge,
-  sourceLabel,
+  provenanceLabel,
 } from "./job-labels";
 
 const PAGE_SIZE = 25;
@@ -247,7 +247,9 @@ function JobRow({ job }: { job: AiJobSummary }) {
         {job.entityLabel ?? "Nothing was produced"}
       </span>
 
-      <span className="text-muted-foreground text-xs">{sourceLabel(job)}</span>
+      <span className="text-muted-foreground text-xs">
+        {provenanceLabel(job)}
+      </span>
 
       {job.gradeLevels.length === 0 ? null : (
         <span className="text-muted-foreground text-xs">

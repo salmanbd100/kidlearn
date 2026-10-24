@@ -1,14 +1,12 @@
 import type { AiCapabilities } from "@kidlearn/types";
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { GeminiOrAssistantAction } from "./GeminiOrAssistantAction";
 
-const capabilities = vi.hoisted(() => ({ value: undefined as unknown }));
-
-vi.mock("@/app/(admin)/context/ai-capabilities", () => ({
-  useAiCapabilities: () => capabilities.value,
-}));
+const capabilities: { value: AiCapabilities | undefined } = {
+  value: undefined,
+};
 
 const BASE: AiCapabilities = {
   geminiText: true,
@@ -24,7 +22,7 @@ const BASE: AiCapabilities = {
 
 function renderAction() {
   render(
-    <GeminiOrAssistantAction>
+    <GeminiOrAssistantAction capabilities={capabilities.value}>
       <button type="button">Generate lesson</button>
     </GeminiOrAssistantAction>,
   );

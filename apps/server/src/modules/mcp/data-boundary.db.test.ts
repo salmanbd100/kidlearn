@@ -136,7 +136,9 @@ describe("the MCP tools' data boundary", () => {
     const client = new Client({ name: "boundary", version: "1" });
     await client.connect(clientSide);
 
+    const called = new Set<string>();
     const call = async (name: string, args: Record<string, unknown>) => {
+      called.add(name);
       const result = await client.callTool({ name, arguments: args });
       expect(result.isError ?? false, name).toBe(false);
       // `structuredContent` is the tool's own object; only its id fields are read below.
@@ -188,7 +190,17 @@ describe("the MCP tools' data boundary", () => {
       name: "write_quiz",
       arguments: { lessonId: curriculum.lesson.id, languages: "en,bn" },
     });
+    // A tool registered later and never called above would cross the boundary unseen; this fails until it is added.
+    const listed = (await client.listTools()).tools.map((tool) => tool.name);
+    const prompts = (await client.listPrompts()).prompts.map((one) => one.name);
     await client.close();
+
+    expect([...called].sort()).toEqual([...listed].sort());
+    expect(prompts.sort()).toEqual([
+      "write_lesson",
+      "write_quiz",
+      "write_story",
+    ]);
 
     expect(touched.delegates).toContain("mediaAsset");
     expect(touched.relations).toContain("translations");

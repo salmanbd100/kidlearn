@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 /**
  * Restores focus when what the child last touched has gone, so assistive-tech users don't restart from `<body>`.
@@ -14,7 +14,7 @@ export function useFocusWhenDropped<T extends HTMLElement>(
   key: unknown,
   // For one of many siblings — list rows — where every row taking focus on arrival would strand it on the last.
   { skipArrival = false }: { skipArrival?: boolean } = {},
-) {
+): RefObject<T | null> {
   const ref = useRef<T>(null);
   const previous = useRef<unknown>(NEVER);
 

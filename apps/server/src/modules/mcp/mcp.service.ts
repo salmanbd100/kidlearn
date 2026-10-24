@@ -260,17 +260,26 @@ function toDraftStatus(
   };
 }
 
-/** What `persist*` recorded for one of the caller's own drafts — the rows narration can be recorded for. */
+/**
+ * What `persist*` recorded for one of the caller's own drafts — the rows narration can be recorded for. Only while the
+ * draft awaits review: a rejected draft's rows are refused content, and an approved one's are live, so neither may
+ * spend the shared audio budget from a draft-only token (the I5 rule for illustrations, applied to narration).
+ */
 export async function readOwnDraftOutput(
   adminId: string,
   jobId: string,
 ): Promise<{ type: AIJobType; rawOutput: Prisma.JsonValue | null }> {
   const job = await prisma.aIGenerationJob.findFirst({
     where: ownDraft(adminId, { id: jobId }),
-    select: { type: true, rawOutput: true },
+    select: { type: true, status: true, rawOutput: true },
   });
   if (!job) throw noSuchDraft();
-  return job;
+  if (job.status !== "awaiting_review") {
+    throw ApiError.conflict(
+      `That draft is ${job.status.replaceAll("_", " ")}, so its narration is changed in the CMS, not from an assistant.`,
+    );
+  }
+  return { type: job.type, rawOutput: job.rawOutput };
 }
 
 /**

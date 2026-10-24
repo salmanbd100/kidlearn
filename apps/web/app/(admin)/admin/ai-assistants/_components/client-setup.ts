@@ -11,7 +11,16 @@ export interface ClientSetup {
   docsUrl: string;
 }
 
-/** Every client here takes a bearer header. ChatGPT and claude.ai connectors need OAuth, which is not available yet. */
+/**
+ * Pinned, not `npx -y mcp-remote`: whatever is newest on npm at launch would otherwise receive the token. Bump it
+ * deliberately, after reading its changelog.
+ */
+const MCP_REMOTE = "mcp-remote@0.14.3";
+
+/**
+ * Every client here takes a bearer header. ChatGPT and claude.ai connectors need OAuth, which is not available yet.
+ * Each snippet points at a user-level config: a project's config file is one `git add .` away from publishing a token.
+ */
 export function buildClientSetups(url: string, token: string): ClientSetup[] {
   const header = `Bearer ${token}`;
 
@@ -38,6 +47,7 @@ export function buildClientSetups(url: string, token: string): ClientSetup[] {
       name: "Claude Desktop",
       where:
         "Settings → Developer → Edit Config, inside claude_desktop_config.json. Needs Node.js installed.",
+      // The header's value goes through `env`: on Windows, Claude Desktop splits an `args` entry at its space.
       snippet: JSON.stringify(
         {
           mcpServers: {
@@ -45,11 +55,13 @@ export function buildClientSetups(url: string, token: string): ClientSetup[] {
               command: "npx",
               args: [
                 "-y",
-                "mcp-remote",
+                MCP_REMOTE,
                 url,
                 "--header",
-                `Authorization:${header}`,
+                // biome-ignore lint/suspicious/noTemplateCurlyInString: mcp-remote expands `${AUTH_HEADER}` from `env` itself.
+                "Authorization:${AUTH_HEADER}",
               ],
+              env: { AUTH_HEADER: header },
             },
           },
         },
@@ -62,7 +74,8 @@ export function buildClientSetups(url: string, token: string): ClientSetup[] {
     {
       id: "cursor",
       name: "Cursor",
-      where: "~/.cursor/mcp.json, or .cursor/mcp.json in a project.",
+      where:
+        "~/.cursor/mcp.json, your user config. Not a project's .cursor/mcp.json, which is easily committed.",
       snippet: JSON.stringify(
         {
           mcpServers: {
@@ -77,11 +90,27 @@ export function buildClientSetups(url: string, token: string): ClientSetup[] {
     {
       id: "vscode",
       name: "VS Code",
-      where: ".vscode/mcp.json in a workspace, or the user-level mcp.json.",
+      where:
+        "The user-level mcp.json (MCP: Open User Configuration). VS Code asks for the token on first use and keeps it out of the file.",
       snippet: JSON.stringify(
         {
+          inputs: [
+            {
+              type: "promptString",
+              id: "kidlearn-token",
+              description: "KidLearn access token (klat_…)",
+              password: true,
+            },
+          ],
           servers: {
-            kidlearn: { type: "http", url, headers: { Authorization: header } },
+            kidlearn: {
+              type: "http",
+              url,
+              headers: {
+                // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code's own input variable, filled from the prompt above.
+                Authorization: "Bearer ${input:kidlearn-token}",
+              },
+            },
           },
         },
         null,

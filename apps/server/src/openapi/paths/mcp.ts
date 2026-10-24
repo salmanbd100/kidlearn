@@ -46,7 +46,15 @@ export const MCP_ROUTES: RouteDoc[] = [
           'The token is valid but its admin no longer qualifies (their sign-in was deleted, or a Google account is linked to it), or it lacks the `mcp:drafts` scope (then with `WWW-Authenticate: Bearer error="insufficient_scope"`).',
           ["FORBIDDEN"],
         ),
+        "406": errorResponse(
+          "The `Accept` header names neither `application/json` nor `text/event-stream`. The MCP SDK answers this with a JSON-RPC error object rather than our envelope.",
+          ["VALIDATION_FAILED"],
+        ),
         "413": errorResponse("The body is over 100 KB.", ["VALIDATION_FAILED"]),
+        "415": errorResponse(
+          "The `Content-Type` is not `application/json`. The MCP SDK answers this with a JSON-RPC error object rather than our envelope.",
+          ["VALIDATION_FAILED"],
+        ),
         "429": errorResponse(
           "Too many requests from this IP, or from this admin, in the last minute.",
           ["RATE_LIMITED"],

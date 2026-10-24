@@ -109,6 +109,19 @@ export const EnvSchema = z
       }
     }
 
+    // The router is mounted at `/mcp`; this URL only names it for the CMS's config snippets (and, in Phase C, the
+    // OAuth audience), so any other path hands admins a URL that serves nothing.
+    if (
+      config.MCP_RESOURCE_URL !== undefined &&
+      new URL(config.MCP_RESOURCE_URL).pathname.replace(/\/+$/, "") !== "/mcp"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MCP_RESOURCE_URL"],
+        message: "must end in /mcp, where the MCP endpoint is mounted",
+      });
+    }
+
     // An access token travels in a header on every call, so a plain-HTTP endpoint would leak it.
     if (
       config.MCP_ENABLED &&

@@ -9,6 +9,7 @@ import type { Client } from "@modelcontextprotocol/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app.js";
 import { auth } from "../../config/auth.js";
+import { env } from "../../config/env.js";
 import { prisma } from "../../config/prisma.js";
 import {
   type Curriculum,
@@ -426,16 +427,38 @@ describe("the human gate (FR-AI-07)", () => {
     expect(narration.jobIds).not.toEqual([]);
     expect(pictures.jobIds).not.toEqual([]);
 
+    // A client asking for a live row by name is refused, not obeyed: the content schemas are strict.
+    const args = lessonArgs();
+    const asksToPublish = await Promise.all([
+      client.callTool({
+        name: "submit_lesson_draft",
+        arguments: { ...args, lesson: { ...args.lesson, status: "published" } },
+      }),
+      client.callTool({
+        name: "submit_lesson_draft",
+        arguments: { ...args, status: "published" },
+      }),
+      client.callTool({
+        name: "submit_story_draft",
+        arguments: {
+          ...storyArgs(),
+          story: { ...storyArgs().story, status: "approved" },
+        },
+      }),
+      client.callTool({
+        name: "submit_quiz_questions",
+        arguments: quizArgs({
+          questions: [{ ...quizArgs().questions[0], status: "published" }],
+        }),
+      }),
+    ]);
+    for (const result of asksToPublish) expect(result.isError).toBe(true);
+
+    // Every row, not only the ones a job stamped: a tool must not flip the curriculum's own lesson or quiz either.
     const published = await Promise.all([
-      prisma.lesson.count({
-        where: { aiJobId: { not: null }, status: { not: "draft" } },
-      }),
-      prisma.quiz.count({
-        where: { aiJobId: { not: null }, status: { not: "draft" } },
-      }),
-      prisma.story.count({
-        where: { aiJobId: { not: null }, status: { not: "draft" } },
-      }),
+      prisma.lesson.count({ where: { status: { not: "draft" } } }),
+      prisma.quiz.count({ where: { status: { not: "draft" } } }),
+      prisma.story.count({ where: { status: { not: "draft" } } }),
       prisma.aIGenerationJob.count({
         where: { status: { not: "awaiting_review" } },
       }),
@@ -493,6 +516,100 @@ describe("media requested over MCP", () => {
     expect(errorText(result)).toBe("No such draft");
     expect(
       await prisma.aIGenerationJob.count({ where: { type: "audio" } }),
+    ).toBe(0);
+  });
+
+  it("refuses narration for a draft that is no longer awaiting review", async () => {
+    const client = await connect();
+    const lesson = structured(
+      await client.callTool({
+        name: "submit_lesson_draft",
+        arguments: lessonArgs(),
+      }),
+    );
+    await prisma.aIGenerationJob.update({
+      where: { id: String(lesson.jobId) },
+      data: { status: "rejected" },
+    });
+
+    const result = await client.callTool({
+      name: "request_narration",
+      arguments: { jobId: lesson.jobId },
+    });
+
+    expect(errorText(result)).toContain("rejected");
+    expect(
+      await prisma.aIGenerationJob.count({ where: { type: "audio" } }),
+    ).toBe(0);
+  });
+
+  it("narrates only the questions a quiz draft added, not the ones already in the quiz", async () => {
+    const client = await connect();
+    structured(
+      await client.callTool({
+        name: "submit_quiz_questions",
+        arguments: quizArgs(),
+      }),
+    );
+    const second = structured(
+      await client.callTool({
+        name: "submit_quiz_questions",
+        arguments: quizArgs(),
+      }),
+    );
+    const own = await prisma.quizQuestion.findMany({
+      where: { aiJobId: String(second.jobId) },
+      select: { id: true },
+    });
+
+    const batch = BatchGenerationRefSchema.parse(
+      structured(
+        await client.callTool({
+          name: "request_narration",
+          arguments: { jobId: second.jobId },
+        }),
+      ),
+    );
+
+    const targets = await prisma.aIGenerationJob.findMany({
+      where: { id: { in: batch.jobIds } },
+      select: { input: true },
+    });
+    expect(targets.length).toBeGreaterThan(0);
+    const ownIds = new Set(own.map((question) => question.id));
+    for (const { input } of targets) {
+      // JSONB: written by `runNarrationJob`, which always records `targetId`.
+      expect(ownIds.has((input as { targetId: string }).targetId)).toBe(true);
+    }
+  });
+
+  it("checks the audio cap once for the lesson and its quiz, so neither is billed when both do not fit", async () => {
+    const client = await connect();
+    const lesson = structured(
+      await client.callTool({
+        name: "submit_lesson_draft",
+        arguments: lessonArgs(),
+      }),
+    );
+    // Room for the two intro clips (en, bn) but not the six quiz-question clips after them.
+    await prisma.aIGenerationJob.createMany({
+      data: Array.from({ length: env.AI_AUDIO_JOBS_PER_DAY - 3 }, () => ({
+        type: "audio" as const,
+        status: "approved" as const,
+        input: {},
+      })),
+    });
+
+    const result = await client.callTool({
+      name: "request_narration",
+      arguments: { jobId: lesson.jobId },
+    });
+
+    expect(errorText(result)).toContain("cap");
+    expect(
+      await prisma.aIGenerationJob.count({
+        where: { type: "audio", requestedById: admin.id },
+      }),
     ).toBe(0);
   });
 
@@ -835,5 +952,6 @@ describe("who may call /mcp", () => {
 
     expect(res.status).toBe(405);
     expect(res.headers.allow).toBe("POST");
+    expect(res.body.error.code).toBe("METHOD_NOT_ALLOWED");
   });
 });

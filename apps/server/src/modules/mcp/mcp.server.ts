@@ -19,7 +19,7 @@ import { topicSubjectId } from "./mcp.service.js";
 import { registerCurriculumTools } from "./tools/curriculum.js";
 import { registerDraftTools } from "./tools/drafts.js";
 import { registerMediaTools } from "./tools/media.js";
-import { toToolInputSchema } from "./tools/schema.js";
+import { asPromptErrors, toPromptArgsSchema } from "./tools/schema.js";
 
 export interface McpCaller {
   principal: McpPrincipal;
@@ -40,7 +40,7 @@ export function buildMcpServer(caller: McpCaller): McpServer {
   registerCurriculumTools(server, caller);
   registerDraftTools(server, caller);
   registerMediaTools(server, caller);
-  registerAuthoringPrompts(server);
+  registerAuthoringPrompts(server, caller);
 
   return server;
 }
@@ -74,31 +74,32 @@ const WriteQuizPromptSchema = z.object({
 });
 
 // A convenience over the tools: every capability is also reachable through get_authoring_guide and the submit_* tools.
-function registerAuthoringPrompts(server: McpServer): void {
+function registerAuthoringPrompts(server: McpServer, caller: McpCaller): void {
   server.registerPrompt(
     "write_lesson",
     {
       title: "Write a KidLearn lesson",
       description:
         "The brief KidLearn's own generator uses for a lesson, filled in for one topic. `languages` is comma-separated, e.g. en,bn.",
-      argsSchema: toToolInputSchema(
+      argsSchema: toPromptArgsSchema(
         WriteLessonPromptSchema.extend({ languages: z.string() }),
       ),
     },
-    async (args) => {
-      const input = WriteLessonPromptSchema.parse(args);
-      const subjectId = await topicSubjectId(input.topicId);
-      const prepared = await prepareLesson({ ...input, subjectId });
-      return userMessage(
-        `${buildLessonUserPrompt({
-          gradeLevel: input.gradeLevel,
-          subjectName: prepared.subjectName,
-          topicName: prepared.topicName,
-          lessonFocus: input.lessonFocus,
-          languages: input.languages,
-        })}\n\nAlso write the quiz questions in the same submission. Submit with submit_lesson_draft (topicId ${prepared.topicId}, subjectId ${subjectId}).`,
-      );
-    },
+    async (args) =>
+      asPromptErrors(caller, "write_lesson", async () => {
+        const input = WriteLessonPromptSchema.parse(args);
+        const subjectId = await topicSubjectId(input.topicId);
+        const prepared = await prepareLesson({ ...input, subjectId });
+        return userMessage(
+          `${buildLessonUserPrompt({
+            gradeLevel: input.gradeLevel,
+            subjectName: prepared.subjectName,
+            topicName: prepared.topicName,
+            lessonFocus: input.lessonFocus,
+            languages: input.languages,
+          })}\n\nAlso write the quiz questions in the same submission. Submit with submit_lesson_draft (topicId ${prepared.topicId}, subjectId ${subjectId}).`,
+        );
+      }),
   );
 
   server.registerPrompt(
@@ -107,27 +108,28 @@ function registerAuthoringPrompts(server: McpServer): void {
       title: "Write a KidLearn story",
       description:
         "The brief KidLearn's own generator uses for an illustrated story in one world. `gradeLevels` and `languages` are comma-separated.",
-      argsSchema: toToolInputSchema(
+      argsSchema: toPromptArgsSchema(
         WriteStoryPromptSchema.extend({
           gradeLevels: z.string(),
           languages: z.string(),
         }),
       ),
     },
-    async (args) => {
-      const input = WriteStoryPromptSchema.parse(args);
-      const prepared = await prepareStory(input);
-      return userMessage(
-        `${buildStoryUserPrompt({
-          gradeLevels: input.gradeLevels,
-          theme: input.theme,
-          worldName: prepared.worldName,
-          worldSlug: prepared.worldSlug,
-          languages: input.languages,
-          pageCount: DEFAULT_PAGE_COUNT,
-        })}\n\nSubmit with submit_story_draft (worldId ${prepared.worldId}).`,
-      );
-    },
+    async (args) =>
+      asPromptErrors(caller, "write_story", async () => {
+        const input = WriteStoryPromptSchema.parse(args);
+        const prepared = await prepareStory(input);
+        return userMessage(
+          `${buildStoryUserPrompt({
+            gradeLevels: input.gradeLevels,
+            theme: input.theme,
+            worldName: prepared.worldName,
+            worldSlug: prepared.worldSlug,
+            languages: input.languages,
+            pageCount: DEFAULT_PAGE_COUNT,
+          })}\n\nSubmit with submit_story_draft (worldId ${prepared.worldId}).`,
+        );
+      }),
   );
 
   server.registerPrompt(
@@ -136,28 +138,30 @@ function registerAuthoringPrompts(server: McpServer): void {
       title: "Write quiz questions for a KidLearn lesson",
       description:
         "The brief KidLearn's own generator uses for one lesson's quiz. `languages` is comma-separated.",
-      argsSchema: toToolInputSchema(
+      argsSchema: toPromptArgsSchema(
         WriteQuizPromptSchema.extend({ languages: z.string() }),
       ),
     },
-    async (args) => {
-      const input = WriteQuizPromptSchema.parse(args);
-      const prepared = await prepareQuiz(input);
-      const briefs = planQuestionFormats(prepared.count).map((format, index) =>
-        buildQuizUserPrompt({
-          lessonTitle: prepared.lessonTitle,
-          gradeLevels: prepared.gradeLevels,
-          lessonContext: prepared.lessonContext,
-          languages: input.languages,
-          format,
-          position: index + 1,
-          total: prepared.count,
-        }),
-      );
-      return userMessage(
-        `${briefs.join("\n\n---\n\n")}\n\nSubmit all ${prepared.count} together with submit_quiz_questions (lessonId ${prepared.lessonId}).`,
-      );
-    },
+    async (args) =>
+      asPromptErrors(caller, "write_quiz", async () => {
+        const input = WriteQuizPromptSchema.parse(args);
+        const prepared = await prepareQuiz(input);
+        const briefs = planQuestionFormats(prepared.count).map(
+          (format, index) =>
+            buildQuizUserPrompt({
+              lessonTitle: prepared.lessonTitle,
+              gradeLevels: prepared.gradeLevels,
+              lessonContext: prepared.lessonContext,
+              languages: input.languages,
+              format,
+              position: index + 1,
+              total: prepared.count,
+            }),
+        );
+        return userMessage(
+          `${briefs.join("\n\n---\n\n")}\n\nSubmit all ${prepared.count} together with submit_quiz_questions (lessonId ${prepared.lessonId}).`,
+        );
+      }),
   );
 }
 

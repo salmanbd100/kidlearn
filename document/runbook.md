@@ -732,13 +732,18 @@ Caddy already proxies the whole API host, so nothing at the edge changes.
   the SSM-written `app.env`, and `deploy.sh` rewrites `compose.env` on every
   deploy, so neither could carry it. The CMS
   shows **AI assistants** working once `GET /api/admin/ai/capabilities` reports it.
-- **Turn it off in a hurry:** set the parameter to `false` (or delete it) and redeploy. `/mcp` and the token
-  endpoints stop existing; tokens stay in the table and work again if it is turned
-  back on, so revoke them too if the reason is a leak.
-- **Revoke one token:** the admin does it on the AI assistants page. For someone
-  else's, `update "AdminAccessToken" set "revokedAt" = now() where prefix = 'klat_…';`
-  — the prefix is in the CMS list and in any screenshot of it.
-- **Revoke everything:** `update "AdminAccessToken" set "revokedAt" = now() where "revokedAt" is null;`
+- **A token has leaked — stop it first:** revoking takes effect on the next call,
+  with no deploy. Everything: `update "AdminAccessToken" set "revokedAt" = now() where "revokedAt" is null;`.
+  One admin's: rotate their password with `seed:admin`, which revokes their tokens
+  and sessions together (`admin-account-guide.md`). One token:
+  `update "AdminAccessToken" set "revokedAt" = now() where prefix = 'klat_…';` — the
+  prefix is in the CMS list and in any screenshot of it. An admin revokes their own
+  on the AI assistants page.
+- **Then turn MCP off, if it should stay off:** set the parameter to `false` (or
+  delete it) and redeploy the running image, so nothing else changes:
+  `sudo /opt/kidlearn/deploy/deploy.sh <env> "$(cat /opt/kidlearn/<env>/last-good-tag)"`.
+  `/mcp` and the token endpoints stop existing; tokens stay in the table and work
+  again if it is turned back on, which is why revoking comes first.
 - **Who wrote a draft:** `AIGenerationJob.source = 'mcp'`, `requestedById` and the
   self-reported `client`; the AI Queue shows the same line.
 - **Gemini off:** omit `GEMINI_API_KEY`. The Gemini generate routes answer `503

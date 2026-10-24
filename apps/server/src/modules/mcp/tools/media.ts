@@ -1,10 +1,16 @@
-import type { AIJobType, Prisma } from "@kidlearn/db";
-import type { BatchGenerationRef, NarrationEntity } from "@kidlearn/types";
+import type { AIJobType } from "@kidlearn/db";
+import type { BatchGenerationRef } from "@kidlearn/types";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { env, isGeminiConfigured } from "../../../config/env.js";
+import { asRecord, readString } from "../../../shared/utils/json-record.js";
 import { generateIllustrationBatch } from "../../admin/ai/generators/illustration.js";
-import { generateNarrationBatch } from "../../admin/ai/generators/narration.js";
-import { asRecord, readString } from "../../admin/ai/review/job.js";
+import {
+  type GenerateNarrationInput,
+  type NarrationPlan,
+  planNarrationBatch,
+  runNarrationPlan,
+} from "../../admin/ai/generators/narration.js";
+import { assertWithinDailyCap } from "../../admin/ai/rate-guard.js";
 import { JobIdArgsSchema, StoryIdArgsSchema } from "../mcp.schema.js";
 import type { McpCaller } from "../mcp.server.js";
 import { assertOwnStoryDraft, readOwnDraftOutput } from "../mcp.service.js";
@@ -31,7 +37,7 @@ export function registerMediaTools(server: McpServer, caller: McpCaller): void {
     {
       title: "Record narration for one of your drafts",
       description:
-        "Records the spoken narration a draft is missing, in every language it has text for, with KidLearn's own text-to-speech. Each clip lands in the AI Queue for review like the draft itself. Counts against the daily audio budget.",
+        "Records the spoken narration a draft is missing, in every language it has text for, with KidLearn's own text-to-speech. Only drafts you submitted over MCP that are still awaiting review; for a quiz draft, only the questions it added. Each clip lands in the AI Queue for review like the draft itself. Counts against the daily audio budget.",
       inputSchema: toToolInputSchema(JobIdArgsSchema),
       annotations: STARTS_GENERATION,
     },
@@ -50,10 +56,20 @@ export function registerMediaTools(server: McpServer, caller: McpCaller): void {
           return toolError("That draft created nothing that can be narrated.");
         }
 
+        const plans: NarrationPlan[] = [];
+        for (const target of targets) {
+          plans.push(await planNarrationBatch(target));
+        }
+        // One check for every target: a cap that covers the lesson intro but not its quiz must refuse before either is billed.
+        await assertWithinDailyCap(
+          "audio",
+          plans.reduce((sum, plan) => sum + plan.missing.length, 0),
+        );
+
         const requester = { requestedById: caller.principal.adminId };
         const total: BatchGenerationRef = { jobIds: [], skipped: 0, failed: 0 };
-        for (const target of targets) {
-          const batch = await generateNarrationBatch(target, requester);
+        for (const plan of plans) {
+          const batch = await runNarrationPlan(plan, requester);
           total.jobIds.push(...batch.jobIds);
           total.skipped += batch.skipped;
           total.failed += batch.failed;
@@ -100,26 +116,39 @@ export function registerMediaTools(server: McpServer, caller: McpCaller): void {
   );
 }
 
-// `entities` is what `persist*` returned. A quiz job also names its lesson, whose intro it did not write.
+// `entities` is what `persist*` returned. A quiz job also names its lesson, whose intro it did not write, and a quiz
+// it may have appended to, so it narrates only the questions it added.
 function narrationTargets(
   type: AIJobType,
   rawOutput: Record<string, unknown>,
-): Array<{ entity: NarrationEntity; id: string }> {
-  // JSONB boundary: `asRecord` re-checks the shape.
-  const entities = asRecord((rawOutput.entities ?? null) as Prisma.JsonValue);
+): GenerateNarrationInput[] {
+  const entities = asRecord(rawOutput.entities);
   const lessonId = readString(entities, "lessonId");
   const storyId = readString(entities, "storyId");
   const quizId = readString(entities, "quizId");
 
-  const targets: Array<{ entity: NarrationEntity; id: string }> = [];
+  const targets: GenerateNarrationInput[] = [];
   if (type === "lesson" && lessonId !== undefined) {
     targets.push({ entity: "lesson", id: lessonId });
   }
   if (type === "story" && storyId !== undefined) {
     targets.push({ entity: "story", id: storyId });
   }
-  if ((type === "lesson" || type === "quiz") && quizId !== undefined) {
+  if (type === "lesson" && quizId !== undefined) {
     targets.push({ entity: "quiz", id: quizId });
   }
+  if (type === "quiz" && quizId !== undefined) {
+    targets.push({
+      entity: "quiz",
+      id: quizId,
+      questionIds: readStrings(entities.questionIds),
+    });
+  }
   return targets;
+}
+
+function readStrings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }

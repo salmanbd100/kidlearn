@@ -13,6 +13,11 @@ import {
   createSignedInAdmin,
 } from "../../../shared/testing/factories.js";
 import { connectMcp } from "../../../shared/testing/mcp-client.js";
+import {
+  mcpLessonArgs,
+  mcpQuizArgs,
+  mcpStoryArgs,
+} from "../../../shared/testing/mcp-fixtures.js";
 import request from "../../../shared/testing/request.js";
 import { createAccessToken } from "../access-tokens/access-tokens.service.js";
 
@@ -171,6 +176,33 @@ describe("without a Gemini key", () => {
         "uploaded by hand",
       );
       expect(generators.generateIllustrationBatch).not.toHaveBeenCalled();
+    } finally {
+      await session.close();
+    }
+  });
+
+  // The configuration FR-AI-10 exists for: authoring runs on the admin's own assistant, so no submit path may need the key.
+  it.each([
+    ["submit_lesson_draft", mcpLessonArgs],
+    ["submit_story_draft", mcpStoryArgs],
+    ["submit_quiz_questions", mcpQuizArgs],
+  ] as const)("accepts %s over MCP", async (name, args) => {
+    const { secret } = await createAccessToken(admin.id, {
+      name: "Claude Code",
+      expiresInDays: 7,
+    });
+    const session = await connectMcp(app, secret);
+
+    try {
+      const result = await session.client.callTool({
+        name,
+        arguments: args(curriculum),
+      });
+
+      expect(result.isError ?? false).toBe(false);
+      expect(result.structuredContent).toMatchObject({
+        status: "awaiting_review",
+      });
     } finally {
       await session.close();
     }

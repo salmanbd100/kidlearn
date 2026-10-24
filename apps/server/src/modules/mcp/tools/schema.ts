@@ -1,9 +1,11 @@
 import type {
   CallToolResult,
+  JsonSchemaValidatorResult,
+  jsonSchemaValidator,
   StandardSchemaWithJSON,
 } from "@modelcontextprotocol/server";
 import { fromJsonSchema } from "@modelcontextprotocol/server";
-import type { ZodTypeAny, z } from "zod";
+import { ZodError, type ZodTypeAny, type z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { ApiError } from "../../../shared/errors/errors.js";
 import { flatten } from "../../admin/ai/run-generation-job.js";
@@ -12,10 +14,34 @@ import type { McpCaller } from "../mcp.server.js";
 /**
  * The SDK takes Zod 4 or a JSON-Schema-backed standard schema; the workspace is on Zod 3 (file 41, fact 3), so
  * tools advertise the JSON Schema our own schemas convert to and the handler re-parses with the Zod 3 original.
+ * The SDK's own pass is switched off: it would answer a bad call before the handler runs, so the invalid submission
+ * would never be logged (Req. 9), and the model would read AJV's message instead of our path-level issues.
  */
 export function toToolInputSchema(
   schema: ZodTypeAny,
 ): StandardSchemaWithJSON<unknown, unknown> {
+  return fromJsonSchema(toObjectJsonSchema(schema), DEFER_TO_HANDLER);
+}
+
+/** Prompt handlers parse with `.parse()`, so a prompt keeps the SDK's validation in front of them. */
+export function toPromptArgsSchema(
+  schema: ZodTypeAny,
+): StandardSchemaWithJSON<unknown, unknown> {
+  return fromJsonSchema(toObjectJsonSchema(schema));
+}
+
+const DEFER_TO_HANDLER: jsonSchemaValidator = {
+  getValidator:
+    <T>() =>
+    (
+      input: unknown,
+    ): JsonSchemaValidatorResult<T> => // Not validated here by design: every tool handler's `parseArgs` is the authority and narrows it.
+    ({ valid: true, data: input as T, errorMessage: undefined }),
+};
+
+function toObjectJsonSchema(
+  schema: ZodTypeAny,
+): Parameters<typeof fromJsonSchema>[0] {
   const json = zodToJsonSchema(schema, {
     target: "jsonSchema7",
     $refStrategy: "none",
@@ -25,7 +51,7 @@ export function toToolInputSchema(
     string,
     unknown
   >;
-  return fromJsonSchema(objectSchema as Parameters<typeof fromJsonSchema>[0]);
+  return objectSchema as Parameters<typeof fromJsonSchema>[0];
 }
 
 export function toolError(text: string): CallToolResult {
@@ -88,3 +114,30 @@ export async function asToolErrors(
     return toolError(INTERNAL_TOOL_ERROR);
   }
 }
+
+/**
+ * `asToolErrors` for prompts, which answer with a JSON-RPC error rather than an `isError` result. A 4xx keeps its
+ * message for the model to act on; anything else is logged and replaced, so Prisma's text never reaches the client.
+ */
+export async function asPromptErrors<T>(
+  caller: McpCaller,
+  prompt: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof ApiError && error.statusCode < 500) {
+      throw new Error(error.message);
+    }
+    // The comma-separated arguments are split and checked after the SDK's own pass, so a bad grade lands here.
+    if (error instanceof ZodError) {
+      throw new Error(`Invalid arguments:\n${flatten(error)}`);
+    }
+    caller.log.error({ err: error, prompt }, "mcp prompt failed");
+    throw new Error(INTERNAL_PROMPT_ERROR);
+  }
+}
+
+export const INTERNAL_PROMPT_ERROR =
+  "KidLearn hit an internal error building this prompt. Try again, or call get_authoring_guide instead.";

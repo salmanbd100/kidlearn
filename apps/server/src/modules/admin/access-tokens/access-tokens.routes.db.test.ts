@@ -3,6 +3,7 @@ import {
   AdminAccessTokenListResponseSchema,
   AdminAccessTokenResponseSchema,
   CreatedAdminAccessTokenResponseSchema,
+  MAX_ACTIVE_ACCESS_TOKENS,
 } from "@kidlearn/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../../app.js";
@@ -15,8 +16,9 @@ import {
 } from "../../../shared/testing/factories.js";
 import request from "../../../shared/testing/request.js";
 import {
+  createAccessToken,
   hashAccessToken,
-  MAX_ACTIVE_ACCESS_TOKENS,
+  revokeAllAccessTokens,
 } from "./access-tokens.service.js";
 
 const BASE = "/api/admin/access-tokens";
@@ -110,6 +112,24 @@ describe("POST /api/admin/access-tokens", () => {
     expect(over.body.error.code).toBe("CONFLICT");
   });
 
+  it("holds the ceiling against parallel requests", async () => {
+    const results = await Promise.all(
+      Array.from({ length: MAX_ACTIVE_ACCESS_TOKENS + 5 }, (_, i) =>
+        request(app)
+          .post(BASE)
+          .send({ name: `Parallel ${i}` }),
+      ),
+    );
+
+    expect(results.filter((res) => res.status === 201)).toHaveLength(
+      MAX_ACTIVE_ACCESS_TOKENS,
+    );
+    expect(results.every((res) => [201, 409].includes(res.status))).toBe(true);
+    expect(
+      await prisma.adminAccessToken.count({ where: { adminId: admin.id } }),
+    ).toBe(MAX_ACTIVE_ACCESS_TOKENS);
+  });
+
   it("403s a parent session", async () => {
     const parent = await createParent();
     signedInAs(parent.userId);
@@ -189,5 +209,66 @@ describe("DELETE /api/admin/access-tokens/:id", () => {
         })
       ).revokedAt,
     ).toBeNull();
+  });
+});
+
+describe("an access token outside /mcp", () => {
+  // Req. 4 rests the 7–30-day lifetime on this: a token cannot reach `/api/admin/*`, so it cannot mint another token
+  // or approve a draft.
+  it("is not a session for /api/admin", async () => {
+    const { secret } = await createAccessToken(admin.id, {
+      name: "Claude Code",
+      expiresInDays: 7,
+    });
+    vi.restoreAllMocks();
+
+    const mint = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${secret}`)
+      .send({ name: "Minted from a token" });
+    const approve = await request(app)
+      .post("/api/admin/ai/jobs/66666666-6666-4666-8666-666666666666/approve")
+      .set("Authorization", `Bearer ${secret}`);
+
+    expect(mint.status).toBe(401);
+    expect(approve.status).toBe(401);
+    expect(await prisma.adminAccessToken.count()).toBe(1);
+  });
+});
+
+describe("revokeAllAccessTokens", () => {
+  it("revokes every live token of one identity and leaves other admins' and earlier revocations alone", async () => {
+    const other = await createSignedInAdmin();
+    const earlier = new Date(Date.now() - 86_400_000);
+    const row = (adminId: string, suffix: string, extra: object = {}) => ({
+      adminId,
+      name: suffix,
+      prefix: "klat_abcdefg",
+      tokenHash: suffix.padEnd(64, "0"),
+      scopes: ["mcp:drafts"],
+      expiresAt: new Date(Date.now() + 86_400_000),
+      ...extra,
+    });
+    await prisma.adminAccessToken.createMany({
+      data: [
+        row(admin.id, "mine1"),
+        row(admin.id, "mine2"),
+        row(admin.id, "gone", { revokedAt: earlier }),
+        row(other.id, "theirs"),
+      ],
+    });
+
+    expect(await revokeAllAccessTokens(admin.authUserId ?? "")).toBe(2);
+
+    const rows = await prisma.adminAccessToken.findMany({
+      select: { name: true, revokedAt: true },
+    });
+    const revokedAt = Object.fromEntries(
+      rows.map((r) => [r.name, r.revokedAt]),
+    );
+    expect(revokedAt.mine1).not.toBeNull();
+    expect(revokedAt.mine2).not.toBeNull();
+    expect(revokedAt.gone).toEqual(earlier);
+    expect(revokedAt.theirs).toBeNull();
   });
 });

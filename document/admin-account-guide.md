@@ -79,6 +79,7 @@ Rules the script enforces:
 - **`ADMIN_PASSWORD` must be at least 12 characters.** These accounts have no second factor, so the floor is checked by both the script and better-auth.
 - **Email is lower-cased.** `You@Example.com` and `you@example.com` are the same admin.
 - **Running it twice is safe.** Re-running with the same email leaves exactly one of each row and *replaces the password*. The output says `Updated` instead of `Created`.
+- **A reset signs that admin out everywhere and revokes every AI-assistant token they hold**, so a leaked password cannot keep working through a token minted with it.
 - **Success is verified, not assumed.** Before printing `Created` or `Updated`, the script re-reads every `credential` row for the user and checks the password against each with better-auth's own `verify`. If any row would reject it, the script fails instead — sign-in checks whichever row it finds first, so one stale row is enough to lock you out.
 
 ### 2.3 Sign in

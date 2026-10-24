@@ -21,7 +21,8 @@ import {
 import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GeminiOrAssistantAction } from "@/app/(admin)/GeminiOrAssistantAction";
+import { useAiCapabilities } from "@/app/(admin)/context/ai-capabilities";
+import { GeminiOrAssistantAction } from "@/features/admin/ai/GeminiOrAssistantAction";
 import {
   type ContentDraft,
   createContent,
@@ -74,6 +75,7 @@ export function CurriculumScreen() {
   const [dialog, setDialog] = useState<DialogState>({ kind: "closed" });
   // Not a `DialogState` variant: the generator has no row to edit, so folding it in would guard every `dialog.resource` read.
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+  const capabilities = useAiCapabilities();
 
   function clearMessages() {
     setNotice(undefined);
@@ -245,7 +247,7 @@ export function CurriculumScreen() {
             >
               Refresh
             </Button>
-            <GeminiOrAssistantAction>
+            <GeminiOrAssistantAction capabilities={capabilities}>
               <Button
                 type="button"
                 disabled={isBusy}

@@ -48,21 +48,9 @@ export function formatRelativeAge(
 }
 
 /**
- * Short form for a queue row. An MCP client names itself, so its name never stands alone: a client
- * calling itself "Gemini" must not read as a Gemini row.
- */
-export function sourceLabel(
-  job: Pick<AiJobSummary, "source" | "client">,
-): string {
-  if (job.source === "gemini") return "Gemini";
-  return job.client === null
-    ? "AI assistant"
-    : `AI assistant · ${job.client.name}`;
-}
-
-/**
- * The reviewer's provenance line (FR-AI-10). The client name is the assistant's own claim, so it is labelled
- * as such; what is not in doubt is which admin's token submitted it.
+ * The reviewer's provenance line (FR-AI-10), on the queue row and the detail page alike. The client name is the
+ * assistant's own claim, so it is labelled as such — a client calling itself "Gemini" never reads as a Gemini job;
+ * what is not in doubt is which admin's token submitted it.
  */
 export function provenanceLabel(
   job: Pick<AiJobSummary, "source" | "client" | "requestedBy">,

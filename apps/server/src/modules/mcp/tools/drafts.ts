@@ -57,11 +57,12 @@ import {
   toToolInputSchema,
 } from "./schema.js";
 
-// Creates a draft and nothing else; a retry carrying the same clientRequestId returns the same job.
+// Creates a draft and nothing else. Not `idempotentHint`: `clientRequestId` is optional, and a client that retries a
+// call sent without one on the strength of the hint would write a second draft.
 const WRITES_DRAFT = {
   readOnlyHint: false,
   destructiveHint: false,
-  idempotentHint: true,
+  idempotentHint: false,
   openWorldHint: false,
 } as const;
 

@@ -1,12 +1,17 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { AdminAccessToken as AdminAccessTokenRow } from "@kidlearn/db";
+import {
+  type AdminAccessToken as AdminAccessTokenRow,
+  Prisma,
+} from "@kidlearn/db";
 import {
   ACCESS_TOKEN_SCOPES,
   type AccessTokenScope,
   type AdminAccessToken,
+  MAX_ACTIVE_ACCESS_TOKENS,
 } from "@kidlearn/types";
 import { prisma } from "../../../config/prisma.js";
 import { ApiError } from "../../../shared/errors/errors.js";
+import { withSerializationRetry } from "../../../shared/utils/serializable-retry.js";
 
 export const ACCESS_TOKEN_PREFIX = "klat_";
 
@@ -14,9 +19,6 @@ export const ACCESS_TOKEN_PREFIX = "klat_";
 const DISPLAY_PREFIX_LENGTH = ACCESS_TOKEN_PREFIX.length + 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Enough for one per client on a few machines; a ceiling so a stolen session cannot mint credentials without limit. */
-export const MAX_ACTIVE_ACCESS_TOKENS = 10;
 
 // `Date` where the contract says ISO string; `res.json()` does the conversion.
 export type AdminAccessTokenDto = Omit<
@@ -33,8 +35,8 @@ export function hashAccessToken(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
 }
 
-export function isAccessTokenScope(value: string): value is AccessTokenScope {
-  return (ACCESS_TOKEN_SCOPES as readonly string[]).includes(value);
+function isAccessTokenScope(value: string): value is AccessTokenScope {
+  return ACCESS_TOKEN_SCOPES.some((scope) => scope === value);
 }
 
 function toDto(row: AdminAccessTokenRow): AdminAccessTokenDto {
@@ -65,28 +67,36 @@ export async function createAccessToken(
   input: { name: string; expiresInDays: number },
   now = new Date(),
 ): Promise<{ token: AdminAccessTokenDto; secret: string }> {
-  const active = await prisma.adminAccessToken.count({
-    where: { adminId, revokedAt: null, expiresAt: { gt: now } },
-  });
-  if (active >= MAX_ACTIVE_ACCESS_TOKENS) {
-    throw ApiError.conflict(
-      `You already have ${MAX_ACTIVE_ACCESS_TOKENS} active access tokens; revoke one before creating another`,
-    );
-  }
-
   // 32 random bytes: the token is the whole credential, so it carries its own entropy rather than relying on the hash.
   const secret = `${ACCESS_TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
 
-  const row = await prisma.adminAccessToken.create({
-    data: {
-      adminId,
-      name: input.name,
-      prefix: secret.slice(0, DISPLAY_PREFIX_LENGTH),
-      tokenHash: hashAccessToken(secret),
-      scopes: [...ACCESS_TOKEN_SCOPES],
-      expiresAt: new Date(now.getTime() + input.expiresInDays * DAY_MS),
-    },
-  });
+  // Count and insert in one Serializable transaction, so parallel requests cannot all read "under the ceiling".
+  const row = await withSerializationRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const active = await tx.adminAccessToken.count({
+          where: { adminId, revokedAt: null, expiresAt: { gt: now } },
+        });
+        if (active >= MAX_ACTIVE_ACCESS_TOKENS) {
+          throw ApiError.conflict(
+            `You already have ${MAX_ACTIVE_ACCESS_TOKENS} active access tokens; revoke one before creating another`,
+          );
+        }
+
+        return tx.adminAccessToken.create({
+          data: {
+            adminId,
+            name: input.name,
+            prefix: secret.slice(0, DISPLAY_PREFIX_LENGTH),
+            tokenHash: hashAccessToken(secret),
+            scopes: [...ACCESS_TOKEN_SCOPES],
+            expiresAt: new Date(now.getTime() + input.expiresInDays * DAY_MS),
+          },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
 
   return { token: toDto(row), secret };
 }
@@ -108,4 +118,16 @@ export async function revokeAccessToken(
     data: { revokedAt: now },
   });
   return toDto(revoked);
+}
+
+/** Every live token of one sign-in identity; a password rotation answers a leak, and a token minted with it must not outlive it. */
+export async function revokeAllAccessTokens(
+  authUserId: string,
+  now = new Date(),
+): Promise<number> {
+  const { count } = await prisma.adminAccessToken.updateMany({
+    where: { admin: { authUserId }, revokedAt: null },
+    data: { revokedAt: now },
+  });
+  return count;
 }

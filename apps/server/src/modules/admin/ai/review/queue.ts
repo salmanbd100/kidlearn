@@ -2,6 +2,7 @@ import type { Prisma } from "@kidlearn/db";
 import type { AiJobCount } from "@kidlearn/types";
 import { prisma } from "../../../../config/prisma.js";
 import { ApiError } from "../../../../shared/errors/errors.js";
+import { asRecord, readString } from "../../../../shared/utils/json-record.js";
 import type { AiJobListQuery } from "../../admin-ai.schema.js";
 import { readJobAssets } from "./attach.js";
 import { readBlockers } from "./blockers.js";
@@ -9,7 +10,6 @@ import {
   type AiJobDetailDto,
   type AiJobListDto,
   type AiJobSummaryDto,
-  asRecord,
   JOB_SELECT,
   type JobRow,
   type LinkedRow,
@@ -18,7 +18,6 @@ import {
   readClient,
   readGradeLevels,
   readLanguages,
-  readString,
   toEntity,
   UNTITLED_QUIZ,
 } from "./job.js";

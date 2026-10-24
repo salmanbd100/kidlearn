@@ -8,6 +8,9 @@ export type AccessTokenScope = z.infer<typeof AccessTokenScopeSchema>;
 
 export const ACCESS_TOKEN_LIFETIME_DAYS = { default: 7, max: 30 } as const;
 
+/** Enough for one per client on a few machines; a ceiling so a stolen session cannot mint credentials without limit. */
+export const MAX_ACTIVE_ACCESS_TOKENS = 10;
+
 /** A token as listed: never the secret, which exists only in the create response. */
 export const AdminAccessTokenSchema = z
   .object({

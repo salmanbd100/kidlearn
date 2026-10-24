@@ -9,6 +9,7 @@ import { env } from "../../config/env.js";
 import { logger } from "../../config/logger.js";
 import { ApiError } from "../../shared/errors/errors.js";
 import { apiRateLimit } from "../../shared/middleware/security.js";
+import { asRecord } from "../../shared/utils/json-record.js";
 import {
   MCP_DRAFTS_SCOPE,
   type McpPrincipal,
@@ -130,7 +131,11 @@ mcpRouter.post(
 // Stateless: no session to resume with GET or end with DELETE.
 mcpRouter.all("/mcp", (_req, res) => {
   res.setHeader("Allow", "POST");
-  res.status(405).end();
+  throw new ApiError(
+    405,
+    "METHOD_NOT_ALLOWED",
+    "The MCP endpoint is stateless; send each message as a POST",
+  );
 });
 
 function principalOf(locals: Record<string, unknown>): McpPrincipal {
@@ -156,15 +161,15 @@ export function readClientInfo(
   body: unknown,
   userAgent: string | undefined,
 ): Prisma.JsonObject | null {
-  const meta = readRecord(readRecord(readRecord(body)?.params)?._meta);
-  const info = readRecord(meta?.[CLIENT_INFO_META_KEY]);
+  const meta = asRecord(asRecord(asRecord(body).params)._meta);
+  const info = asRecord(meta[CLIENT_INFO_META_KEY]);
   const name =
-    typeof info?.name === "string" ? info.name.slice(0, 100) : undefined;
+    typeof info.name === "string" ? info.name.slice(0, 100) : undefined;
   if (name !== undefined) {
     return {
       name,
       version:
-        typeof info?.version === "string" ? info.version.slice(0, 50) : null,
+        typeof info.version === "string" ? info.version.slice(0, 50) : null,
     };
   }
 
@@ -175,11 +180,4 @@ export function readClientInfo(
     name: agentName.slice(0, 100),
     version: agentVersion?.slice(0, 50) ?? null,
   };
-}
-
-function readRecord(value: unknown): Record<string, unknown> | undefined {
-  // Parsed JSON: narrowed to "an object with unknown values", each read re-checked by the caller.
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
 }

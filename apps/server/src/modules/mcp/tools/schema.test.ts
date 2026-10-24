@@ -37,4 +37,12 @@ describe("toToolInputSchema", () => {
     expect(serialised).not.toContain("anyOf");
     expect(serialised.length).toBeLessThan(3000);
   });
+
+  it("lets every call through to the handler, whose Zod parse is the authority and logs a bad submission", async () => {
+    const result = await toToolInputSchema(SubmitLessonToolSchema)[
+      "~standard"
+    ].validate({ gradeLevel: "not-a-grade" });
+
+    expect(result).toEqual({ value: { gradeLevel: "not-a-grade" } });
+  });
 });

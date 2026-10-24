@@ -61,7 +61,8 @@ export function buildApp(): Express {
 
   app.use("/api", apiRouter);
 
-  // Outside `/api`: an MCP client is configured with one URL, and `/api`'s per-IP limiter is not its guard.
+  // Outside `/api`: an MCP client is configured with one URL. It carries its own per-IP and per-admin limiters,
+  // with counters separate from `/api`'s.
   if (env.MCP_ENABLED) {
     app.use(mcpRouter);
   }

@@ -12,6 +12,7 @@ import type {
 } from "@kidlearn/types";
 import { GRADE_LEVELS, LOCALES } from "@kidlearn/types";
 import type { prisma } from "../../../../config/prisma.js";
+import { asRecord, readString } from "../../../../shared/utils/json-record.js";
 import {
   type ContentsGuard,
   readActivityGuard,
@@ -265,17 +266,6 @@ export function toEntity(row: LinkedRow): AiJobEntity {
   };
 }
 
-// Both columns are JSONB (`JsonValue`); every field is re-checked so a job from before a prompt change still renders.
-export function asRecord(
-  value: Prisma.JsonValue | null,
-): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return {};
-  }
-  // JSONB boundary: the guards above verify "an object with unknown values".
-  return value as Record<string, unknown>;
-}
-
 // The lesson generator records `gradeLevel`, the story generator `gradeLevels`; folded into one array.
 export function readGradeLevels(
   input: Record<string, unknown>,
@@ -302,16 +292,6 @@ export function readClient(value: Prisma.JsonValue | null): AiJobClient | null {
   const name = readString(record, "name");
   if (name === undefined) return null;
   return { name, version: readString(record, "version") ?? null };
-}
-
-export function readString(
-  source: Record<string, unknown>,
-  key: string,
-): string | undefined {
-  const value = source[key];
-  return typeof value === "string" && value.trim() !== ""
-    ? value.trim()
-    : undefined;
 }
 
 export const JOB_SELECT = {
