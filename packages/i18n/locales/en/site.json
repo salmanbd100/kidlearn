@@ -80,8 +80,7 @@
     "parentsLead": "Sign in with Google and see how each child is getting on, without a single notification.",
     "parentsPoints": {
       "progress": "Learning time, strongest subject and what needs practice, one child at a time.",
-      "reports": "A weekly report: active days, new letters and words, lessons finished, badges earned.",
-      "limits": "Daily screen-time limits and opening hours, checked before a lesson starts, never in the middle."
+      "reports": "A weekly report: active days, new letters and words, lessons finished, badges earned."
     },
     "parentsGuide": "Read the parent guide",
     "preview": {
@@ -89,8 +88,7 @@
       "total": "142",
       "week": "This week",
       "minutes": "minutes",
-      "badge": "New badge",
-      "limit": "Daily limit 30 min"
+      "badge": "New badge"
     },
     "lead": "A playful learning app for children aged three to six, in English and Bangla, with a calm dashboard for their parents.",
     "startLearning": "Start learning",
@@ -144,7 +142,7 @@
       },
       "server": {
         "term": "Progress that cannot be gamed",
-        "detail": "Stars, streaks and screen time are worked out on the server from what the child actually did, not counted on the device."
+        "detail": "Stars and streaks are worked out on the server from what the child actually did, not counted on the device."
       }
     }
   },
@@ -162,7 +160,7 @@
     "child": {
       "title": "Adding a child",
       "p1": "Each child has a profile with a first name, an age from three to six, a grade, a language and an avatar from a starter set. You can change any of these later under <strong>Children</strong>.",
-      "p2": "You can add up to five children. To remove a child, you type their first name to confirm. Removing a child deletes all of their progress, rewards, screen-time settings and reports."
+      "p2": "You can add up to five children. To remove a child, you type their first name to confirm. Removing a child deletes all of their progress, rewards and reports."
     },
     "day": {
       "title": "Your child's day",
@@ -206,11 +204,6 @@
         "tab": "Weekly reports",
         "p1": "For every week from Monday to Sunday, each child gets a report under <strong>Weekly report</strong>. It shows the days they were active, the minutes they spent learning, the new letters, words and numbers they met, the lessons and stories they finished, how often they answered quiz questions right first time, and the badges they earned. Earlier weeks are listed below the latest one.",
         "p2": "Reports are shown in the app. They are not sent by email."
-      },
-      "screenTime": {
-        "tab": "Screen time",
-        "p1": "Open a child under <strong>Children</strong> and choose screen time. You can set a daily limit of 15, 30, 45, 60 or 90 minutes, or turn it off. You can also set the hours the app is open, for example from 4pm until 7pm.",
-        "p2": "Limits are checked when a lesson or story starts, so your child is never cut off halfway through one. When time is up, they see a gentle goodbye for the day, not a warning."
       }
     },
     "language": {
@@ -244,10 +237,6 @@
     },
     "questions": {
       "title": "Common questions",
-      "cutOff": {
-        "term": "Will my child be cut off in the middle of a lesson?",
-        "detail": "No. Screen-time limits are checked when a lesson or story starts, so whatever your child has begun, they can finish."
-      },
       "wrongAnswer": {
         "term": "What happens when my child gets an answer wrong?",
         "detail": "They try again. There is no buzzer, no score to lose and no way to fail a lesson."
@@ -391,10 +380,10 @@
       },
       "authority": {
         "tab": "Server authority",
-        "choice": "Stars, streaks, screen time and lesson completion are worked out on the server.",
+        "choice": "Stars, streaks, learning time and lesson completion are worked out on the server.",
         "why": "The app reports what happened, such as a finished step or a heartbeat while a lesson is open, and the server decides what it means. It enforces step order, rate-limits reports, and pays nothing for a lesson until the steps that prove it are on record. Learning time is added up from session events, so there is no counter for a device to inflate.",
         "tradeoff": "Every reward waits on a round trip, so the app shows the celebration while the server confirms it, and offline play cannot earn anything.",
-        "alternatives": "Counting on the device and syncing later (easy to cheat, and screen-time limits would only be as honest as the tablet's clock)."
+        "alternatives": "Counting on the device and syncing later (easy to cheat, and learning time would only be as honest as the tablet's clock)."
       }
     },
     "ai": {

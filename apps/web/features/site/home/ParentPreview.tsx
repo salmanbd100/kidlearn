@@ -1,7 +1,7 @@
 "use client";
 
 import { ThemeScope } from "@kidlearn/ui";
-import { Award, Check, Clock } from "lucide-react";
+import { Award, Check } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { SITE_ROUTES } from "../site-routes";
@@ -9,7 +9,7 @@ import { useIsMotionReducedAfterHydration } from "../use-is-motion-reduced-after
 import { useSiteTranslation } from "../use-site-translation";
 import { Reveal } from "./Reveal";
 
-const POINTS = ["progress", "reports", "limits"] as const;
+const POINTS = ["progress", "reports"] as const;
 
 /** Minutes per day for the sample week, Monday first; heights only, so no axis to translate. */
 const SAMPLE_WEEK = [18, 25, 12, 30, 22, 27, 8] as const;
@@ -116,10 +116,6 @@ function DashboardSketch() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 font-medium">
             <Award className="size-4" />
             {t("home.preview.badge")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 font-medium">
-            <Clock className="size-4" />
-            {t("home.preview.limit")}
           </span>
         </div>
       </ThemeScope>

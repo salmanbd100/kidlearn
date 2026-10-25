@@ -58,7 +58,6 @@ const CHILD_DAY_TABS: readonly GuideTab[] = [
 const PROGRESS_TABS: readonly GuideTab[] = [
   textTab("progress", "dashboard", `${MANUAL}#54-the-dashboard`),
   textTab("progress", "reports", `${MANUAL}#55-weekly-reports`),
-  textTab("progress", "screenTime", `${MANUAL}#56-screen-time-controls`),
 ];
 
 const SAFETY_TABS: readonly GuideTab[] = [
@@ -97,7 +96,7 @@ function tabbedSection(
   };
 }
 
-const QUESTIONS = ["cutOff", "wrongAnswer", "twoChildren", "seeAi", "offline"];
+const QUESTIONS = ["wrongAnswer", "twoChildren", "seeAi", "offline"];
 
 export const PARENT_GUIDE_SECTIONS: readonly GuideSection[] = [
   {
@@ -156,7 +155,7 @@ export const PARENT_GUIDE_SECTIONS: readonly GuideSection[] = [
   {
     id: "deleting-your-data",
     titleKey: "parents.delete.title",
-    docPath: `${MANUAL}#57-account--data-deletion`,
+    docPath: `${MANUAL}#56-account--data-deletion`,
     content: (
       <>
         <GuideText i18nKey="parents.delete.p1" />

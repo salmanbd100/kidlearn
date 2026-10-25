@@ -32,7 +32,6 @@ const db = vi.hoisted(() => ({
   topicFindFirst: vi.fn(),
   lessonFindMany: vi.fn(),
   lessonFindFirst: vi.fn(),
-  screenTimeFindUnique: vi.fn(),
   sessionEventFindMany: vi.fn(),
   lessonProgressFindUnique: vi.fn(),
 }));
@@ -46,7 +45,6 @@ vi.mock("../../config/prisma.js", () => ({
     subject: { findMany: db.subjectFindMany, findFirst: db.subjectFindFirst },
     topic: { findMany: db.topicFindMany, findFirst: db.topicFindFirst },
     lesson: { findMany: db.lessonFindMany, findFirst: db.lessonFindFirst },
-    screenTimeSetting: { findUnique: db.screenTimeFindUnique },
     sessionEvent: { findMany: db.sessionEventFindMany },
     lessonProgress: { findUnique: db.lessonProgressFindUnique },
   },
@@ -267,9 +265,6 @@ beforeEach(() => {
   db.subjectFindFirst.mockResolvedValue({ id: SUBJECT_ID });
   db.topicFindFirst.mockResolvedValue({ id: TOPIC_ID });
   db.lessonFindFirst.mockResolvedValue(null);
-  // `enforceScreenTime` fronts the detail route and reads the screen-time policy
-  // and presence log; both default to "no policy, no minutes". The gate is tested in `screen-time.routes.test.ts`.
-  db.screenTimeFindUnique.mockResolvedValue(null);
   db.sessionEventFindMany.mockResolvedValue([]);
   db.lessonProgressFindUnique.mockResolvedValue(null);
 });

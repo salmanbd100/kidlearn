@@ -21,8 +21,8 @@
 ## Progress Table
 
 Files **01–37a** (workspace and database packages, schemas, server, auth, profiles, content API,
-OpenAPI, web foundation, lesson/activity/quiz engines, rewards, stories, time and screen-time
-controls, parent dashboard, weekly reports, admin CMS, AI pipeline and the free-tier provider
+OpenAPI, web foundation, lesson/activity/quiz engines, rewards, stories, learning time,
+parent dashboard, weekly reports, admin CMS, AI pipeline and the free-tier provider
 migration) are ✅ Done. Their specs were deleted to keep this directory readable — the code,
 `/docs`, `database-design.md` and `standards/` are the record; `git log -- document/implementation`
 has the originals. Only unfinished work is listed below.
@@ -62,7 +62,7 @@ These are fixed across all implementation files so chunks stay consistent:
 - **AI providers (revised in file 37a — every one on a genuinely usable free tier):** text/quizzes and images both run on one Google AI Studio `GEMINI_API_KEY` — `gemini-2.5-flash` answering against a `responseJsonSchema` generated from the `packages/types` schemas, and `gemini-2.5-flash-image` drawing illustrations. Audio: Google Cloud Text-to-Speech, Standard voices, one voice per language (`GOOGLE_TTS_API_KEY`; its Cloud project needs a billing account attached even though free-tier usage bills $0). Video: partially manual at MVP (FR-AI-06 allowance). Claude and ElevenLabs are gone — no key for either is needed anywhere. The `AI_*_JOBS_PER_DAY` caps are sized to trip before Google's own free-tier quota does; Google no longer publishes per-model daily limits, so read aistudio.google.com/rate-limit before raising them. **File 41 adds a second source:** admins may write content with their own AI assistant over MCP (`POST /mcp`, admin access tokens, `MCP_ENABLED`), validated against the same schemas into the same AI Queue, so `GEMINI_API_KEY` is optional — without it the Gemini generate routes answer `503 AI_PROVIDER_NOT_CONFIGURED` and the CMS hides them. Jobs record `source` and `requestedById`; MCP drafts have their own per-admin cap (`MCP_DRAFTS_PER_DAY`). OAuth connectors for ChatGPT and claude.ai are file 41 Phase C, not yet built.
 - **Media:** Cloudinary free tier (images, audio, short video).
 - **Publishing rule:** every content row carries `status` (`draft → in_review → approved/rejected → published`); student-facing queries filter `status = published` — always, at the query layer.
-- **Server-authoritative:** rewards, streaks, screen time, completion are computed server-side; the client only reports events.
+- **Server-authoritative:** rewards, streaks, learning time, completion are computed server-side; the client only reports events.
 - **CI (from file 39):** `.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck` and `pnpm test:coverage` as one `gates` job on every PR and every push to either long-lived branch (`main`, `dev`). A PR is not done until it is green (`gh pr checks`). The test step is serialised (`TURBO_CONCURRENCY=1`) because five concurrent Vitest instances oversubscribe a 4-core runner — not as a flake fix. The Supertest socket flake is fixed: `apps/server/src/shared/testing/request.ts` shares one listener per app. `gates` is a required check on `main` and `dev` (ruleset 17802318; the admin bypass remains). Coverage is reported, never gated on a threshold.
 
 ## Working Agreement

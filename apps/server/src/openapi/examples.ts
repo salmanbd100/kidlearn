@@ -322,19 +322,6 @@ export const AUTH_ME_EXAMPLE = {
   },
 };
 
-export const SCREEN_TIME_STATUS_EXAMPLE = {
-  data: {
-    // `allowed: false` always carries a `reason`; `reason` is null whenever `allowed` is true.
-    allowed: false,
-    reason: "TIME_LIMIT_REACHED",
-    minutesToday: 45,
-    dailyLimitMinutes: 45,
-    // `HH:MM` in the household's local time; both null when no window is set, leaving only the daily limit.
-    windowStart: "16:00",
-    windowEnd: "19:30",
-  },
-};
-
 export const WORLD_LESSONS_EXAMPLE = {
   data: {
     topics: [

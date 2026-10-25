@@ -15,7 +15,6 @@ import { MCP_ROUTES } from "./mcp.js";
 import { ME_ROUTES } from "./me.js";
 import { PARENT_ROUTES } from "./parent.js";
 import { PROGRESS_ROUTES } from "./progress.js";
-import { SCREEN_TIME_ROUTES } from "./screen-time.js";
 import { STORIES_ROUTES } from "./stories.js";
 
 export const ROUTE_DOCS: RouteDoc[] = [
@@ -29,7 +28,6 @@ export const ROUTE_DOCS: RouteDoc[] = [
   ...PROGRESS_ROUTES,
   ...EVENTS_ROUTES,
   ...ME_ROUTES,
-  ...SCREEN_TIME_ROUTES,
   ...JOBS_ROUTES,
   ...ADMIN_ROUTES,
   ...ADMIN_CONTENT_ROUTES,

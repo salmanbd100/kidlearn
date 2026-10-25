@@ -41,7 +41,6 @@ Additionally, M06's server changes must be **deployed** to both environments, no
    - complete a full lesson through all five steps and see the reward;
    - read a story to the end;
    - check the dashboard's minutes reflect the session;
-   - set a screen-time limit, trip it, and see the lock;
    - sign out and back in;
    - delete a throwaway account and confirm it is gone.
    Anything that fails here is a release blocker, not a note for later.
@@ -144,7 +143,7 @@ Record the smoke test as a table with device model, OS version, pass/fail per st
 - [ ] CI `gates` is green on the commit every store build was made from.
 - [ ] An Android AAB is in Play **internal testing** and installs on a physical device; Play App Signing is enabled and the upload keystore's location is recorded.
 - [ ] An iOS build is in **TestFlight** and installs on a physical iPhone, with Sign in with Apple working.
-- [ ] The full production smoke test passes on both platforms — sign-in (both providers on iOS), consent, child creation, a complete lesson with reward, a story, dashboard minutes, a screen-time lock, sign-out/in, and account deletion — with results recorded per device.
+- [ ] The full production smoke test passes on both platforms — sign-in (both providers on iOS), consent, child creation, a complete lesson with reward, a story, dashboard minutes, sign-out/in, and account deletion — with results recorded per device.
 - [ ] Real first-request latency against the deployed API is measured and M29's escalation copy matches it.
 - [ ] `expo-updates` is configured with `preview` and `production` channels and a `fingerprint` `runtimeVersion` policy, and one OTA update has been shipped and verified on the internal build.
 - [ ] The OTA rule ("JS-only OTA; native, permission, SDK or config changes need a build") is written down.

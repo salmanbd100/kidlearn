@@ -62,7 +62,7 @@ describe("useHeartbeat", () => {
     expect(init.body).toBeUndefined();
   });
 
-  /** `/api/events/heartbeat` is never screen-time gated, so a caller beating through a lock screen would bill a child for sitting on "time's up". */
+  /** A disabled player (loading, previewing, or showing an error) is not learning time. */
   it("does not beat while disabled", async () => {
     renderHook(() => useHeartbeat({ enabled: false }));
 

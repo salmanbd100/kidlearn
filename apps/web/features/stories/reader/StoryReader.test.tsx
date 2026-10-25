@@ -32,7 +32,7 @@ const audio = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/features/content/content-api", () => content);
 vi.mock("@/shared/api/progress-api", () => progress);
-vi.mock("@/features/screen-time/use-heartbeat", () => heartbeat);
+vi.mock("@/features/events/use-heartbeat", () => heartbeat);
 vi.mock("@/shared/components/AudioProvider", () => ({
   useAudio: () => audio,
   AudioProvider: ({ children }: { children: ReactNode }) => children,
@@ -513,35 +513,6 @@ describe("stories that cannot be read", () => {
     );
 
     expect(await screen.findByText(/having a rest/i)).toBeInTheDocument();
-  });
-
-  /** A screen-time block opens the mascot screen, never a raw error. Every page arrives in one response, so only opening a story can be refused. */
-  it("shows the mascot screen on a 423, not an error", async () => {
-    content.getStory.mockResolvedValue({
-      ok: false,
-      error: {
-        code: "TIME_LIMIT_REACHED",
-        message: "limit reached",
-        status: 423,
-        details: {
-          minutesToday: 45,
-          dailyLimitMinutes: 30,
-          windowStart: null,
-          windowEnd: null,
-        },
-      },
-    });
-
-    render(
-      <Providers locale="en">
-        <StoryReader storyId={STORY_ID} />
-      </Providers>,
-    );
-
-    expect(
-      await screen.findByRole("heading", { name: "Time's up for today!" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/having a rest/i)).not.toBeInTheDocument();
   });
 
   it("shows a friendly line for a story with no pages", async () => {

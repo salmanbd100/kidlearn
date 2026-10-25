@@ -200,7 +200,7 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "",
         "**The parameter requests the mode; the session grants it.** Sent by a child, a parent, or nobody at all, it is ignored entirely and a draft lesson still answers `404`. Preview also takes `lang`, because there is no child row to read a locale from.",
         "",
-        "Nothing is written in preview. Every endpoint that records progress, an event or screen time is behind the parent and active-child guards, which an admin session cannot pass at all.",
+        "Nothing is written in preview. Every endpoint that records progress or an event is behind the parent and active-child guards, which an admin session cannot pass at all.",
       ].join("\n"),
       parameters: [
         CONTENT_ID_PARAM("lesson"),
@@ -233,10 +233,6 @@ export const CONTENT_ROUTES: RouteDoc[] = [
         "404": errorResponse(
           "No such lesson, **or** any one of its four gates is shut: the lesson's own `status` and grade tags, its world's `status`, its topic's `status` and grade tags, or that topic's subject's. All of them are the same `404`, for the reason every `404` in this tag gives — a `403` would confirm the row exists (spec §7.3.4).\n\n**The topic and subject gates are not redundant.** A lesson tagged for this child can sit under a topic tagged for another grade or a subject still in draft, and in both cases its curriculum position says it is not for this child — the same reasoning `/worlds/{id}/lessons` gives. They were missing here until file 40: withdrawing a topic to draft removed its lessons from every list and left a bookmarked lesson URL playing, recording progress and paying out against unreviewed curriculum. `POST /api/progress/lessons/{id}/*` applies the identical clause, because the two disagreeing is the failure mode.",
           ["NOT_FOUND"],
-        ),
-        "423": errorResponse(
-          "The parental screen-time gate is shut (FR-TIME-02..04). `TIME_LIMIT_REACHED` — today's allowance is used up; `OUTSIDE_WINDOW` — the clock is outside the access window the parent set, and `error.details.windowStart` is the time to come back at. `error.details` also carries `minutesToday` and `dailyLimitMinutes`.\n\n**A lesson already under way is exempt** (FR-TIME-03): if this child has a `LessonProgress` row for *this* lesson with no `completedAt` that was last written within the past 30 minutes, the gate is skipped and the lesson is served, even across a refresh. Replaying a lesson that was already finished counts as a new start and is gated like one, and so does resuming one abandoned longer ago than that — the exemption is for the child who is mid-lesson now, not a standing pass earned by half-starting something.\n\n`423` rather than `403` on purpose: the request is well-formed and the caller is who they say they are — the resource is unavailable for a reason that passes on its own, which no `403` code conveys. `POST /api/progress/lessons/{id}/step` is never gated, so a lesson in progress can always be finished.",
-          ["TIME_LIMIT_REACHED", "OUTSIDE_WINDOW"],
         ),
         "500": errorResponse(
           "Either an unexpected error, or a **published** activity or quiz question whose JSONB fails validation against `@kidlearn/types`. The latter is a server-side content bug rather than a client error, so it is logged with the offending row id and answered with a fixed message carrying no part of the payload.",

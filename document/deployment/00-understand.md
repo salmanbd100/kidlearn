@@ -401,7 +401,7 @@ processing, PDF generation) does not belong on this box at all.
 Only **API calls** reach this server. Vercel serves the web pages and Cloudinary
 serves pictures and audio, so a visitor costs the server far less than you
 might expect. While a child plays a lesson or reads a story, the app sends a
-heartbeat every 30 seconds (`features/screen-time/use-heartbeat.ts`) plus an
+heartbeat every 30 seconds (`features/events/use-heartbeat.ts`) plus an
 event for each step, roughly **one request every 5–10 seconds**. Parents
 browsing the dashboard send a few requests per page.
 

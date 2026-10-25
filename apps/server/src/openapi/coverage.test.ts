@@ -19,7 +19,6 @@ import { mcpRouter } from "../modules/mcp/mcp.routes.js";
 import { meRouter } from "../modules/me/me.routes.js";
 import { parentRouter } from "../modules/parent/parent.routes.js";
 import { progressRouter } from "../modules/progress/progress.routes.js";
-import { screenTimeRouter } from "../modules/screen-time/screen-time.routes.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
 
@@ -51,11 +50,6 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   },
   { prefix: "/api/events", router: eventsRouter, file: "paths/events.ts" },
   { prefix: "/api/me", router: meRouter, file: "paths/me.ts" },
-  {
-    prefix: "/api/screen-time",
-    router: screenTimeRouter,
-    file: "paths/screen-time.ts",
-  },
   { prefix: "/api/admin/jobs", router: jobsRouter, file: "paths/jobs.ts" },
   { prefix: "/api/admin", router: adminRouter, file: "paths/admin.ts" },
   // Nested inside `adminRouter` for its `requireAdmin` guard, listed separately for the same reason as `storiesRouter`.
@@ -91,7 +85,7 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
 ];
 
 /** Routers reachable under `/api` at any depth, including those nested on `contentRouter` and `adminRouter`. */
-const EXPECTED_ROUTERS_UNDER_API = 16;
+const EXPECTED_ROUTERS_UNDER_API = 15;
 
 /** Declared structurally because `@types/express` omits `stack`; the canary test below fails loudly if the shape changes. */
 type RouteLayer = {

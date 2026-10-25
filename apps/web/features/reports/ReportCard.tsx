@@ -15,8 +15,8 @@ import {
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { formatWeekRange } from "@/features/reports/week-range";
-import { formatMinutes } from "@/features/screen-time/duration";
 import { StatCard } from "@/shared/components/StatCard";
+import { formatMinutes } from "@/shared/lib/duration";
 
 export interface ReportCardProps {
   report: WeeklyReport;

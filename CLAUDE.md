@@ -134,7 +134,7 @@ Activities (drag-drop, trace, match, puzzle) and quizzes are stored as versioned
 
 ### Progress is server-authoritative
 
-Rewards, streaks, screen time, and lesson completion are computed server-side. The client reports events; the server records and validates them — it enforces step order, requires evidence before paying a lesson completion, rate-limits client events, and refuses progress and event writes without current parental consent.
+Rewards, streaks, learning time, and lesson completion are computed server-side. The client reports events; the server records and validates them — it enforces step order, requires evidence before paying a lesson completion, rate-limits client events, and refuses progress and event writes without current parental consent.
 
 ### Auth and sessions
 
