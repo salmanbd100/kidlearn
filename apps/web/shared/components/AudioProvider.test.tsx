@@ -47,6 +47,41 @@ function AudioHarness() {
   );
 }
 
+function ClipHarness({ options }: { options: PlayOptions }) {
+  const { play, stop } = useAudio();
+  return (
+    <div>
+      <button type="button" onClick={() => void play("/a.mp3", options)}>
+        play-a
+      </button>
+      <button type="button" onClick={() => void play("/b.mp3")}>
+        play-b
+      </button>
+      <button type="button" onClick={stop}>
+        stop-clip
+      </button>
+    </div>
+  );
+}
+
+function PlaysOnMount() {
+  const { play } = useAudio();
+  useEffect(() => {
+    void play("/audio/first-screen.mp3");
+  }, [play]);
+  return null;
+}
+
+function Capture({ seen }: { seen: Array<(url: string) => Promise<void>> }) {
+  const { play, setMuted, muted } = useAudio();
+  seen.push(play);
+  return (
+    <button type="button" onClick={() => setMuted(!muted)}>
+      toggle
+    </button>
+  );
+}
+
 function renderHarness() {
   return render(
     <AudioProvider>
@@ -151,23 +186,6 @@ describe("AudioProvider", () => {
   });
 
   describe("onFinished", () => {
-    function ClipHarness({ options }: { options: PlayOptions }) {
-      const { play, stop } = useAudio();
-      return (
-        <div>
-          <button type="button" onClick={() => void play("/a.mp3", options)}>
-            play-a
-          </button>
-          <button type="button" onClick={() => void play("/b.mp3")}>
-            play-b
-          </button>
-          <button type="button" onClick={stop}>
-            stop-clip
-          </button>
-        </div>
-      );
-    }
-
     function renderClip(options: PlayOptions) {
       return render(
         <AudioProvider>
@@ -260,13 +278,6 @@ describe("AudioProvider", () => {
 
   it("silences a clip a child effect started before the stored mute was read", async () => {
     window.localStorage.setItem("kidlearn_audio_muted", "true");
-    function PlaysOnMount() {
-      const { play } = useAudio();
-      useEffect(() => {
-        void play("/audio/first-screen.mp3");
-      }, [play]);
-      return null;
-    }
 
     render(
       <AudioProvider>
@@ -281,19 +292,10 @@ describe("AudioProvider", () => {
   it("keeps `play` stable when mute is toggled, so effects keyed on it do not re-run", () => {
     // Toggling mute used to change `play`'s identity, replaying narration and restarting timers.
     const seen: Array<(url: string) => Promise<void>> = [];
-    function Capture() {
-      const { play, setMuted, muted } = useAudio();
-      seen.push(play);
-      return (
-        <button type="button" onClick={() => setMuted(!muted)}>
-          toggle
-        </button>
-      );
-    }
 
     render(
       <AudioProvider>
-        <Capture />
+        <Capture seen={seen} />
       </AudioProvider>,
     );
     fireEvent.click(screen.getByText("toggle"));
