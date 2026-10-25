@@ -17,6 +17,8 @@ pnpm build            # turbo run build — caches .next/** and dist/**
 pnpm lint             # biome check . + prisma format --check — lint, format-check, import sort (no writes)
 pnpm format           # biome check --write . + prisma format — apply the fixes
 pnpm typecheck        # turbo run typecheck  — runs tsc --noEmit per package
+pnpm test:db          # the *.db.test.ts suites — needs local Postgres (see CI below)
+pnpm verify           # every CI gate in CI's order — run before opening a pull request
 ```
 
 Database (delegates to `packages/db`):
