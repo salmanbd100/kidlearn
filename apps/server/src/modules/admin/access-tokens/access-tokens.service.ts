@@ -70,10 +70,12 @@ export async function createAccessToken(
   // 32 random bytes: the token is the whole credential, so it carries its own entropy rather than relying on the hash.
   const secret = `${ACCESS_TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
 
-  // Count and insert in one Serializable transaction, so parallel requests cannot all read "under the ceiling".
+  // The admin's row lock queues parallel creates: each counts only after the one before it committed. A Serializable
+  // count aborted the losers instead, and a burst of fifteen outlasted the retries and answered 500.
   const row = await withSerializationRetry(() =>
     prisma.$transaction(
       async (tx) => {
+        await tx.$queryRaw`SELECT 1 FROM "AdminUser" WHERE id = ${adminId} FOR UPDATE`;
         const active = await tx.adminAccessToken.count({
           where: { adminId, revokedAt: null, expiresAt: { gt: now } },
         });
@@ -94,7 +96,7 @@ export async function createAccessToken(
           },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     ),
   );
 
