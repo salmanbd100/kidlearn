@@ -10,7 +10,8 @@
   },
   "footer": {
     "about": "KidLearn is an open-source learning app for young children, built in English and Bangla.",
-    "source": "Source on GitHub"
+    "source": "Source on GitHub",
+    "madeBy": "Made by Salman Rahman"
   },
   "guide": {
     "onThisPage": "On this page",

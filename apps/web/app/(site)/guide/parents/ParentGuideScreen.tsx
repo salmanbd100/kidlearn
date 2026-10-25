@@ -1,7 +1,6 @@
 "use client";
 
 import { siteResources } from "@kidlearn/i18n/site";
-import { GuideDocLink } from "@/features/site/guide/GuideDocLink";
 import { GuideFacts } from "@/features/site/guide/GuideFacts";
 import {
   GuideLayout,
@@ -10,8 +9,6 @@ import {
 import { GuideSteps } from "@/features/site/guide/GuideSteps";
 import { type GuideTab, GuideTabs } from "@/features/site/guide/GuideTabs";
 import { GuideText } from "@/features/site/guide/GuideText";
-
-const MANUAL = "user-journey-manual.md";
 
 /** `<prefix>.p1`, `.p2`, … in order, read from the English copy; the i18n parity test keeps Bangla in step. */
 function paragraphKeys(prefix: string): string[] {
@@ -32,50 +29,33 @@ function paragraphKeys(prefix: string): string[] {
 }
 
 /** A tab of plain paragraphs, read from `parents.<group>.<id>.tab` and every `.p<n>` beside it. */
-function textTab(group: string, id: string, docPath: string): GuideTab {
+function textTab(group: string, id: string): GuideTab {
   const prefix = `parents.${group}.${id}`;
   return {
     id,
     labelKey: `${prefix}.tab`,
-    content: (
-      <>
-        {paragraphKeys(prefix).map((key) => (
-          <GuideText key={key} i18nKey={key} />
-        ))}
-        <GuideDocLink docPath={docPath} />
-      </>
-    ),
+    content: paragraphKeys(prefix).map((key) => (
+      <GuideText key={key} i18nKey={key} />
+    )),
   };
 }
 
 const CHILD_DAY_TABS: readonly GuideTab[] = [
-  textTab("day", "lessons", `${MANUAL}#43-the-5-step-lesson-adventure`),
-  textTab("day", "quiz", `${MANUAL}#45-the-quiz--low-pressure-by-design`),
-  textTab("day", "stories", `${MANUAL}#48-story-library--reader`),
-  textTab("day", "rewards", `${MANUAL}#47-badges-characters--streaks`),
+  textTab("day", "lessons"),
+  textTab("day", "quiz"),
+  textTab("day", "stories"),
+  textTab("day", "rewards"),
 ];
 
 const PROGRESS_TABS: readonly GuideTab[] = [
-  textTab("progress", "dashboard", `${MANUAL}#54-the-dashboard`),
-  textTab("progress", "reports", `${MANUAL}#55-weekly-reports`),
+  textTab("progress", "dashboard"),
+  textTab("progress", "reports"),
 ];
 
 const SAFETY_TABS: readonly GuideTab[] = [
-  textTab(
-    "safety",
-    "data",
-    "project-requirement-details.md#62-safety--privacy-nfr-safe",
-  ),
-  textTab(
-    "safety",
-    "screens",
-    "project-requirement-details.md#62-safety--privacy-nfr-safe",
-  ),
-  textTab(
-    "safety",
-    "content",
-    `${MANUAL}#7-cross-cutting-how-content-reaches-a-child`,
-  ),
+  textTab("safety", "data"),
+  textTab("safety", "screens"),
+  textTab("safety", "content"),
 ];
 
 /** A section of an intro paragraph over tabs, labelled by the section heading. */
@@ -102,7 +82,6 @@ export const PARENT_GUIDE_SECTIONS: readonly GuideSection[] = [
   {
     id: "getting-started",
     titleKey: "parents.start.title",
-    docPath: `${MANUAL}#51-first-time-setup`,
     content: (
       <>
         <GuideText i18nKey="parents.start.p1" />
@@ -119,7 +98,6 @@ export const PARENT_GUIDE_SECTIONS: readonly GuideSection[] = [
   {
     id: "adding-a-child",
     titleKey: "parents.child.title",
-    docPath: `${MANUAL}#53-managing-child-profiles`,
     content: (
       <>
         <GuideText i18nKey="parents.child.p1" />
@@ -131,7 +109,6 @@ export const PARENT_GUIDE_SECTIONS: readonly GuideSection[] = [
   {
     id: "parent-area",
     titleKey: "parents.corner.title",
-    docPath: `${MANUAL}#52-reaching-the-parent-area`,
     content: (
       <>
         <GuideText i18nKey="parents.corner.p1" />
@@ -155,7 +132,6 @@ export const PARENT_GUIDE_SECTIONS: readonly GuideSection[] = [
   {
     id: "deleting-your-data",
     titleKey: "parents.delete.title",
-    docPath: `${MANUAL}#56-account--data-deletion`,
     content: (
       <>
         <GuideText i18nKey="parents.delete.p1" />
