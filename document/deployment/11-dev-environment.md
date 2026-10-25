@@ -253,6 +253,56 @@ docker exec prod-api getent hosts dev-postgres || echo "✔ production cannot re
 docker exec dev-api sh -c 'env | grep -ci supabase'  # 0 — dev holds no Supabase credential
 ```
 
+**32b. Add the starting structure** (worlds, subjects, characters, badges) — the
+dev equivalent of [Step 8d](04-database-and-services.md).
+
+*Why:* `--migrate` creates the tables and nothing else. Without this step the
+child-profile form says "No avatars are available right now" and no profile can
+be created, because the starter avatars come only from this seed.
+
+`dev-postgres` publishes no port, and its name only exists on dev's Docker
+network, so reach it through an SSH tunnel (one-time setup: `runbook.md` §2a).
+
+🖥️ On the server, find the container's address:
+
+```bash
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dev-postgres
+```
+
+💻 On your Mac, in one terminal — leave it open:
+
+```bash
+ssh -N -L 15432:<that address>:5432 kidlearn
+```
+
+💻 In a second terminal, from the repository root, with the `POSTGRES_PASSWORD`
+you stored in Step 30c:
+
+```bash
+DATABASE_URL='postgresql://kidlearn:<POSTGRES_PASSWORD>@localhost:15432/kidlearn' \
+DIRECT_URL='postgresql://kidlearn:<POSTGRES_PASSWORD>@localhost:15432/kidlearn' \
+pnpm --filter @kidlearn/db db:seed:reference
+```
+
+Then close the tunnel with Ctrl-C.
+
+> **Never run plain `db:seed` here either**, for the same reason as Step 8d: its
+> sample lessons point at files that exist only on a developer's Mac.
+
+It is safe to run again: it creates only the rows that are missing and leaves
+existing ones alone. Run it after every wipe in 33a too. A restore from
+production (33b) does not need it — the backup already holds these rows.
+
+✅ **Check** — 🖥️:
+
+```bash
+docker exec dev-postgres psql -U kidlearn -d kidlearn -c \
+  'SELECT count(*) FILTER (WHERE "isDefault") AS starter, count(*) AS characters FROM "Character"'
+```
+
+`starter` is 6 and `characters` is 9. On <https://dev.kidlearn.net>, the
+add-a-child form shows six avatars.
+
 ## Step 33 · 🖥️ Rehearse the two database procedures you hope never to need
 
 **Why:** file 38 is not done until the backup has been **restored** once. A
@@ -276,7 +326,8 @@ three times. `down -v` stops dev **and deletes its volume** (the database).
 tables. `-p kidlearn-dev` is what guarantees this never touches production.
 
 ✅ `docker ps` shows `dev-api` and `dev-postgres` up again, and
-`curl -s https://api.dev.kidlearn.net/health` is ok.
+`curl -s https://api.dev.kidlearn.net/health` is ok. The database is empty again,
+so repeat 32b before anyone adds a child.
 
 **33b. Restore last night's production backup into dev** (`runbook.md` §8).
 
