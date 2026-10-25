@@ -14,7 +14,12 @@
   },
   "guide": {
     "onThisPage": "On this page",
-    "readFull": "Read the full document"
+    "readFull": "Read the full document",
+    "decision": {
+      "why": "Why",
+      "tradeoff": "What it costs",
+      "alternatives": "What else was considered"
+    }
   },
   "home": {
     "eyebrow": "For ages 3 to 6 · English and বাংলা",
@@ -26,10 +31,22 @@
     },
     "factsLabel": "KidLearn at a glance",
     "facts": {
-      "ages": { "value": "3–6", "label": "years old, pre-school to year one" },
-      "languages": { "value": "2", "label": "languages on every screen" },
-      "ways": { "value": "6", "label": "ways to play and learn" },
-      "ads": { "value": "0", "label": "ads, chats or things to buy" }
+      "ages": {
+        "value": "3–6",
+        "label": "years old, pre-school to year one"
+      },
+      "languages": {
+        "value": "2",
+        "label": "languages on every screen"
+      },
+      "ways": {
+        "value": "6",
+        "label": "ways to play and learn"
+      },
+      "ads": {
+        "value": "0",
+        "label": "ads, chats or things to buy"
+      }
     },
     "playTitle": "Six ways to play",
     "playLead": "Every lesson is a short game, read aloud, with big pictures and nothing to read.",
@@ -234,77 +251,123 @@
   "engineering": {
     "reader": "For engineers and recruiters",
     "title": "How KidLearn is built",
-    "lead": "The architecture, the decisions that shape it, and how it is tested and shipped. Every claim here links to the document or code it comes from.",
-    "glance": {
-      "title": "At a glance",
-      "caption": "The stack, one row per layer, with the reason for each choice",
-      "layerHeading": "Layer",
-      "choiceHeading": "Choice and reason",
+    "lead": "The stack and the alternatives it beat, the architecture, how AI content is kept behind a human, and how it is tested and shipped. Every claim links to the document it comes from.",
+    "stack": {
+      "title": "The stack",
+      "intro": "One choice per layer. Each tab says what was picked, why, what it costs, and what it beat.",
       "web": {
-        "layer": "Web",
-        "choice": "Next.js 16, React 19, Tailwind CSS v4",
-        "why": "App Router pages built phone-first. Design tokens live in CSS variables, so two themes share one set of components."
+        "tab": "Web",
+        "choice": "Next.js 16 with the App Router, React 19 and Tailwind CSS v4.",
+        "why": "Phones and tablets come first, so pages are built mobile-first. Design tokens live in CSS variables, which lets the kid theme and the parent theme share one set of components and swap at runtime without a line of theme logic in JavaScript.",
+        "tradeoff": "Every route is rendered on demand, because the root layout reads the language cookie on the server. That trades static caching for a Bangla visitor never seeing a flash of English.",
+        "alternatives": "A plain Vite single-page app (no server rendering, so a slow phone sees a blank screen longer) and Remix (fewer people know it, and Vercel hosts Next.js with no configuration)."
       },
-      "server": {
-        "layer": "Server",
-        "choice": "Express 5, TypeScript (ESM)",
-        "why": "A small, explicit REST API. Every route that takes input checks it with Zod, and every route is documented in OpenAPI."
+      "api": {
+        "tab": "API",
+        "choice": "Express 5 in TypeScript (ESM), one module per domain.",
+        "why": "A small, explicit REST API that is easy to read top to bottom. Every route that takes input checks it with the same Zod schemas that generate its OpenAPI document, and a test fails if any live route is missing from that document.",
+        "tradeoff": "Express brings no structure of its own, so the conventions (routes, schema, service, middleware per module) are written down and enforced in review rather than by the framework.",
+        "alternatives": "NestJS (more ceremony than a two-person API needs), Next.js route handlers (would tie the API to the web host and leave nothing for the planned mobile app to call) and tRPC (TypeScript-only, so no contract for a non-TypeScript client)."
       },
-      "data": {
-        "layer": "Data",
-        "choice": "PostgreSQL through Prisma 6",
-        "why": "Relational data, with JSONB where content needs room to change. Row-level security is on for every table, so Supabase's public Data API cannot reach around the server. Production is planned to run on Supabase."
+      "database": {
+        "tab": "Database",
+        "choice": "PostgreSQL through Prisma 6, with JSONB for lesson content.",
+        "why": "The family, progress and publishing data is relational and needs transactions and foreign keys. Lesson and quiz payloads change shape as new activity types arrive, so they live in versioned JSONB columns checked by Zod. Row-level security is on for every table, so Supabase's public Data API cannot reach around the server.",
+        "tradeoff": "Prisma cannot type a JSONB column, so every payload is parsed at the edge of the service that reads it. Prisma's generated client also has to be built before the server type-checks.",
+        "alternatives": "MongoDB (would give up the transactions that award stars and delete a family in one step) and Drizzle (closer to SQL, but Prisma's migrations and schema file were the better fit for a schema that changes often)."
       },
       "auth": {
-        "layer": "Auth",
-        "choice": "better-auth: Google for parents, email and password for admins",
-        "why": "Parents never create a password, and nobody can sign up for an admin account. An admin session ends 12 hours after sign-in, however active it is."
-      },
-      "ai": {
-        "layer": "AI",
-        "choice": "Gemini for text and images, Google Cloud Text-to-Speech",
-        "why": "Drafts lessons, stories and narration in English and Bangla, and a person approves every one."
+        "tab": "Auth",
+        "choice": "better-auth: Google sign-in for parents, email and password for admins.",
+        "why": "Parents never create a password, and Google handles account recovery. Admins cannot sign up at all: the only way to create one is a seed script run on the server. An admin session ends 12 hours after sign-in however active it is, while a parent's slides for 30 days.",
+        "tradeoff": "Parents without a Google account cannot sign in. Account linking is switched off on purpose, so a Google sign-in on an admin's address can never inherit the admin account.",
+        "alternatives": "Auth.js (built around Next.js, but the sessions belong to the Express API) and a hosted service such as Clerk or Auth0 (a monthly bill and child-adjacent data held by a third party)."
       },
       "media": {
-        "layer": "Media",
-        "choice": "Cloudinary, uploaded from the browser",
-        "why": "Signed direct uploads, so no file passes through the API."
+        "tab": "Media",
+        "choice": "Cloudinary, uploaded straight from the browser with a signed request.",
+        "why": "The API signs an upload and the browser sends the file directly to Cloudinary, so no image or audio clip passes through the API's memory. Cloudinary resizes and serves images from its CDN, and the free plan covers the expected traffic.",
+        "tradeoff": "Another vendor with its own dashboard and keys, and a URL format the app depends on.",
+        "alternatives": "Amazon S3 with CloudFront (cheaper at scale, but image resizing would have to be built) and Supabase Storage (fewer vendors, but no on-the-fly transformations on the free tier)."
       },
       "hosting": {
-        "layer": "Hosting (planned)",
-        "choice": "Vercel for the web app; one EC2 instance running Docker Compose behind Caddy for the API",
-        "why": "No load balancer and no NAT gateway: each would cost more per month than the instance itself."
-      },
-      "ci": {
-        "layer": "CI",
-        "choice": "GitHub Actions, one job called gates",
-        "why": "Lint, build, type-check, tests and real-database tests on every pull request."
+        "tab": "Hosting",
+        "choice": "Vercel for the web app; one EC2 instance running Docker Compose behind Caddy for the API (planned).",
+        "why": "The production and development APIs run side by side on one Graviton instance in Mumbai, close to Bangladesh. Caddy handles TLS and is the only process listening on the public ports. The estimated cost for both environments is about $14.08 a month.",
+        "tradeoff": "One instance is one point of failure, and there is no autoscaling. That is accepted for now: rollback is one command, and the database lives elsewhere.",
+        "alternatives": "ECS or App Runner behind a load balancer (the load balancer alone would cost more each month than the instance) and running the API on Vercel too (long AI generation requests and the weekly report job do not fit serverless limits)."
       }
     },
-    "monorepo": {
-      "title": "The monorepo",
-      "p1": "One pnpm workspace, built with Turborepo: two apps and six packages. Shared code lives in packages, and dependencies point one way: apps import packages, never the reverse.",
-      "p2": "<code>packages/ui</code> is web-only by decision. Its Radix primitives need a browser DOM, so the planned Expo app will share tokens, types and strings with the web app, but not components."
+    "architecture": {
+      "title": "Architecture",
+      "intro": "The shape of the system: how the code is organised, how a request travels, and the rules that keep content and rewards honest.",
+      "monorepo": {
+        "tab": "Monorepo",
+        "choice": "One pnpm workspace built with Turborepo: two apps and six packages.",
+        "why": "Types, strings, design tokens and the database client are shared, so a change to an API contract breaks the web app's type-check in the same pull request. Dependencies point one way: apps import packages, never the reverse.",
+        "tradeoff": "One lockfile and one CI job for everything, so a slow test anywhere slows every pull request. <code>packages/ui</code> is web-only by decision, because its Radix primitives need a browser DOM.",
+        "alternatives": "Separate repositories for web and API (contracts would drift between releases) and Nx (more features than two apps need)."
+      },
+      "request": {
+        "tab": "A request",
+        "choice": "The browser calls the API directly, with an <code>httpOnly</code> session cookie on the API's own origin.",
+        "why": "There is no proxy in between. Express refuses any state-changing request from an origin other than the web app's, guards such as <code>requireParent</code> and <code>requireAdmin</code> check the session before a handler runs, and <code>requireConsent</code> holds back child data until a parent has agreed. Prisma is the only way into the database.",
+        "tradeoff": "The web app and the API need CORS and a cookie set up carefully across two hostnames, and the web app has exactly one allowed origin per environment.",
+        "alternatives": "Proxying every call through Next.js (one more hop and a second place to get auth wrong) and tokens in local storage (readable by any script on the page)."
+      },
+      "content": {
+        "tab": "Content as data",
+        "choice": "Activities and quizzes are versioned JSONB payloads, drawn by generic engines in the web app.",
+        "why": "Drag and drop, tracing, matching, puzzles and quiz questions are each described by a payload with a <code>schemaVersion</code>. One set of Zod schemas in <code>packages/types</code> checks a payload when an admin saves it, when an AI drafts it, and when the app reads it. A new lesson is data, not code, and goes live without a deploy.",
+        "tradeoff": "A new kind of activity still needs code: a schema and an engine. Older payloads have to be migrated as they are read, so every write can stay strict.",
+        "alternatives": "A React component per lesson (every lesson would need a deploy) and a headless CMS (no way to check that a lesson actually plays)."
+      },
+      "authority": {
+        "tab": "Server authority",
+        "choice": "Stars, streaks, screen time and lesson completion are worked out on the server.",
+        "why": "The app reports what happened, such as a finished step or a heartbeat while a lesson is open, and the server decides what it means. It enforces step order, rate-limits reports, and pays nothing for a lesson until the steps that prove it are on record. Learning time is added up from session events, so there is no counter for a device to inflate.",
+        "tradeoff": "Every reward waits on a round trip, so the app shows the celebration while the server confirms it, and offline play cannot earn anything.",
+        "alternatives": "Counting on the device and syncing later (easy to cheat, and screen-time limits would only be as honest as the tablet's clock)."
+      }
     },
-    "request": {
-      "title": "A request, end to end",
-      "p1": "Vercel serves the pages, but the browser calls the API itself; there is no proxy in between. The API sets an <code>httpOnly</code> session cookie on its own origin, and the browser sends it with every call.",
-      "p2": "Caddy handles TLS and is the only thing listening on the public ports. Express refuses any state-changing request from an origin other than the web app's. Guards such as <code>requireParent</code> and <code>requireAdmin</code> check the session before a handler runs, and <code>requireConsent</code> holds back child data until a parent has agreed. Prisma is the only way into the database."
-    },
-    "content": {
-      "title": "Content is data",
-      "p1": "Activities (drag and drop, tracing, matching, puzzles) and quiz questions are stored as JSONB, each with a <code>schemaVersion</code>. One set of Zod schemas in <code>packages/types</code> checks them when an admin saves them, when the AI drafts them, and when the app reads them.",
-      "p2": "The web app ships generic engines that render whatever a payload describes, so a new lesson is data, not code, and goes live without a deploy. Payloads carry a version so that older ones can be migrated as they are read, which keeps every write strict."
-    },
-    "server": {
-      "title": "The server is the authority",
-      "p1": "Stars, coins, streaks, badges, screen time and lesson completion are all worked out on the server. The app reports what happened, such as a finished step or a heartbeat while a lesson is open, and the server records it and decides what it means. It enforces step order, rate-limits reports, and pays nothing for a lesson until the steps that prove it are on record.",
-      "p2": "Learning time is not kept as a running total. It is added up from the session events themselves, so there is no counter for a device to inflate."
-    },
-    "publishing": {
-      "title": "Publishing and the human gate",
-      "p1": "Content moves through <code>draft</code>, <code>in_review</code>, <code>approved</code> or <code>rejected</code>, and <code>published</code>. Every query a child's screen makes asks for <code>published</code> content only.",
-      "p2": "The AI pipeline drafts text and pictures with Gemini and narration with Google Cloud Text-to-Speech. A generation job can only end as <code>awaiting_review</code> or <code>failed</code>. The only way to publish AI content is a reviewer's approve decision, and the server refuses to publish without one."
+    "ai": {
+      "title": "AI content",
+      "intro": "AI drafts lessons, stories, quizzes, narration and pictures. It reaches a child only after a person approves it.",
+      "overview": {
+        "tab": "Overview",
+        "choice": "Two doors in, one gate out.",
+        "why": "AI content enters through Gemini, run by KidLearn, or through an admin's own assistant over MCP. Both doors share the same prompts, the same Zod schemas and the same save path, and both end in the same review queue. Every generation keeps an audit trail: inputs, prompts, raw attempts, token use, who asked and who approved.",
+        "tradeoff": "Two code paths to keep consistent. Sharing the rule book, the schemas and the persistence keeps the difference to who writes the JSON.",
+        "alternatives": "Gemini only (admins with their own subscription would be limited to a small daily budget) and MCP only (admins without an AI subscription could not generate anything)."
+      },
+      "gemini": {
+        "tab": "Gemini",
+        "choice": "Door 1: a Generate button in the CMS that calls Gemini with KidLearn's key.",
+        "why": "Gemini returns structured JSON that is checked against the same Zod schema the game engines read. A first attempt that fails validation is retried once with the errors as feedback; a second failure ends the job. Daily budgets per kind of job keep the bill predictable.",
+        "tradeoff": "The admin waits while the model works, because jobs run in the request rather than on a queue. A busy day hits the budget and has to wait for tomorrow.",
+        "alternatives": "A job queue with workers (more infrastructure than three jobs a day need) and free-form text parsed afterwards (content the engines could not trust)."
+      },
+      "mcp": {
+        "tab": "MCP",
+        "choice": "Door 2: KidLearn is an MCP server, and an admin's own assistant writes the drafts.",
+        "why": "Admins already pay for Claude, Cursor or Gemini CLI, and in a chat they can ask for changes before submitting. The assistant runs the model on the admin's subscription, so KidLearn holds no text-model key for this door. An admin signs the assistant in with a personal token that can write drafts and nothing else: it can never approve, publish, edit or delete.",
+        "tradeoff": "KidLearn cannot configure an outside model's safety filters or its Bangla, so for this door the human reviewer is the only safety gate KidLearn controls.",
+        "alternatives": "OAuth for MCP clients (not yet supported by the desktop clients admins use) and one shared API key (no way to tell who submitted a draft or to revoke one person)."
+      },
+      "media": {
+        "tab": "Voice and pictures",
+        "choice": "Narration from Google Cloud Text-to-Speech, illustrations from Gemini's image model, both made on the server.",
+        "why": "One voice per language keeps narration consistent. Recurring characters keep their look through written character sheets added to every illustration prompt. Media is generated on the server even for MCP drafts, so the server never fetches an image from an address an outside model chose.",
+        "tradeoff": "Character sheets are text, so a character can still drift between pictures, and the reviewer catches it. Pictures need a Gemini key or a manual upload.",
+        "alternatives": "Accepting image URLs from MCP clients (opens the server to request forgery) and recording narration by hand (slow for two languages)."
+      },
+      "review": {
+        "tab": "Human review",
+        "choice": "Nothing an AI makes reaches a child until an admin approves it.",
+        "why": "Every generator writes <code>draft</code> rows, and a job can only end as <code>awaiting_review</code> or <code>failed</code>. Approving checks for blockers, then walks the content to <code>published</code>. The publish check itself refuses AI content without an approved job, even through the ordinary CMS. Child and parent data never reaches a model.",
+        "tradeoff": "Content arrives only as fast as people can review it.",
+        "alternatives": "Automatic publishing behind safety filters (for children aged three to six, a filter is not enough on its own)."
+      }
     },
     "safety": {
       "title": "Safety by design",
@@ -320,26 +383,52 @@
         "term": "Consent before profiles",
         "detail": "The server refuses to create a child profile or record progress until a parent has given consent."
       },
+      "aiData": {
+        "term": "No family data in AI prompts",
+        "detail": "Prompts carry curriculum text and the admin's request, nothing else. A test asserts that no MCP tool can read child, parent, progress or account data."
+      },
       "deletion": {
         "term": "Full deletion",
         "detail": "Deleting an account erases everything about the family in one database transaction. There is no soft delete and no grace period."
       }
     },
     "quality": {
-      "title": "Quality",
-      "p1": "Biome lints and formats the whole repository, and <code>tsc</code> type-checks every package in strict mode. Vitest runs in every package that has code to test: 3,103 tests in 221 files, counted on 22 October 2026.",
-      "p2": "Every successful response in a route test is checked against its published schema with <code>assertContract</code>, and a coverage test walks the live Express routers and fails if any endpoint is missing from the OpenAPI document. What a stub cannot prove, such as cascades, unique constraints and the status check on related rows, runs against a real Postgres database in <code>*.db.test.ts</code> suites.",
-      "p3": "On every pull request, one CI job, <code>gates</code>, runs lint, build, type-check, the tests with coverage, the real-database suites and the Docker image builds."
-    },
-    "shipping": {
-      "title": "Shipping",
-      "p1": "The design is deliberately small: Vercel's free tier for the web app, and one Graviton EC2 instance in Mumbai running the production and development APIs side by side behind Caddy. Supabase is planned for the production database, and Cloudinary holds the media.",
-      "p2": "The estimated running cost is about $14.08 a month for both environments (from the deployment guide, read on 22 October 2026), most of it the instance and its IP address. Cost is a design constraint, which is why there is no load balancer and no NAT gateway.",
-      "p3": "<strong>Where it stands on 22 October 2026:</strong> none of this is provisioned yet. Images are built and deployed with a script; a GitHub Actions deploy pipeline is specified but not yet built."
+      "title": "Quality and shipping",
+      "intro": "How a change is checked before it merges, and how it reaches production.",
+      "tooling": {
+        "tab": "Tooling",
+        "choice": "Biome for lint and formatting, TypeScript in strict mode everywhere.",
+        "why": "One fast tool lints, formats and sorts imports across the whole repository, so there is no ESLint and Prettier configuration to keep in step. <code>tsc</code> type-checks every package with no implicit any.",
+        "tradeoff": "Biome has fewer rules and plugins than ESLint, and it does not catch Tailwind class issues; the editor's Tailwind extension does.",
+        "alternatives": "ESLint with Prettier (two tools, two configurations, and several times slower on a monorepo)."
+      },
+      "tests": {
+        "tab": "Tests",
+        "choice": "Vitest in every package, contract checks on every route, and a real Postgres for what a stub cannot prove.",
+        "why": "Every successful response in a route test is checked against its published schema with <code>assertContract</code>. Cascades, unique constraints and the status check on related rows run against a real database in <code>*.db.test.ts</code> suites, which refuse any database not named <code>*_test</code>.",
+        "tradeoff": "Most server suites stub Prisma for speed, so they need care to stay honest; the rules for a new stubbed suite are written down.",
+        "alternatives": "Only end-to-end browser tests (slow and flaky as the main suite) and a mocked database everywhere (would miss the constraints the data depends on)."
+      },
+      "ci": {
+        "tab": "CI",
+        "choice": "GitHub Actions, one required job called <code>gates</code>.",
+        "why": "On every pull request and every push to <code>main</code> or <code>dev</code>: install from the lockfile, lint, build, type-check, the tests with coverage, and the real-database suites against a Postgres service. Both branches require a pull request and a green <code>gates</code>.",
+        "tradeoff": "Coverage is reported but deliberately not gated on a threshold, so it relies on review.",
+        "alternatives": "Several smaller jobs (more parallel, but more places to read when something fails) and a coverage gate (encourages tests written for the number)."
+      },
+      "releases": {
+        "tab": "Releases",
+        "choice": "Images tagged by commit, a deploy script with health gates, and migrations only on request.",
+        "why": "One image serves both environments, configured at runtime. <code>deploy.sh</code> waits for the healthcheck and a database read before it counts a deploy as good, and remembers the last good tag for rollback. Database migrations run only when the deploy asks for them, so a schema change is a decision, not a side effect of a restart.",
+        "tradeoff": "Deploys are run by hand for now; a GitHub Actions deploy pipeline is specified but not yet built.",
+        "alternatives": "Kubernetes (far more than one instance needs) and running migrations on every start (one bad restart could change the schema)."
+      }
     },
     "further": {
       "title": "Read further",
       "requirements": "Requirements and architecture",
+      "ai": "How AI is integrated",
+      "authoring": "Content authoring playbook",
       "database": "Database design",
       "design": "Design system",
       "journeys": "User journeys and manual",
