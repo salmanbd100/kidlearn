@@ -16,7 +16,6 @@ import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { ParentSignInDialog } from "@/features/parent/ParentSignInDialog";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { HangingSection, toNumeral } from "@/features/site/HangingSection";
-import { BuiltInTheOpen } from "@/features/site/home/BuiltInTheOpen";
 import { HeroHeadline } from "@/features/site/home/HeroHeadline";
 import { HeroScene } from "@/features/site/home/HeroScene";
 import { HomeFacts } from "@/features/site/home/HomeFacts";
@@ -183,16 +182,6 @@ export function HomeScreen() {
           ))}
         </ul>
       </HangingSection>
-
-      <section
-        aria-labelledby="built-title"
-        className="flex flex-col gap-8 rounded-[2rem] bg-grape/10 px-5 py-10 sm:px-10 md:py-14"
-      >
-        <HomeSectionTitle id="built-title" tone="sky">
-          {t("home.builtTitle")}
-        </HomeSectionTitle>
-        <BuiltInTheOpen />
-      </section>
 
       <HangingSection id="guides" title={t("home.guidesTitle")}>
         <ol className="flex flex-col">

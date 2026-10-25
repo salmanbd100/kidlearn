@@ -61,7 +61,6 @@ describe("HomeScreen", () => {
       "Six ways to play",
       "A calm dashboard for parents",
       "What makes it different",
-      "Built in the open",
       "Read the guides",
     ]) {
       expect(
@@ -97,17 +96,6 @@ describe("HomeScreen", () => {
       "aria-hidden",
       "true",
     );
-  });
-
-  it("links the open-source section to the engineering guide and the repository", () => {
-    renderHome();
-
-    expect(
-      screen.getByRole("link", { name: "How it is built" }),
-    ).toHaveAttribute("href", "/guide/engineering");
-    expect(
-      screen.getByRole("link", { name: /Read the code on GitHub/ }),
-    ).toHaveAttribute("href", "https://github.com/salmanbd100/kidlearn");
   });
 
   it("sends a signed-out child, a parent and an admin to the sign-in dialogs", () => {

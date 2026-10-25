@@ -92,10 +92,6 @@
       "badge": "New badge",
       "limit": "Daily limit 30 min"
     },
-    "builtTitle": "Built in the open",
-    "builtLead": "KidLearn is open source: a typed monorepo with a Next.js app, an Express API and a Postgres database, tested end to end. Every decision is written down.",
-    "builtGuide": "How it is built",
-    "builtSource": "Read the code on GitHub",
     "lead": "A playful learning app for children aged three to six, in English and Bangla, with a calm dashboard for their parents.",
     "startLearning": "Start learning",
     "parentSignIn": "Parent sign-in",
@@ -155,48 +151,119 @@
   "parents": {
     "reader": "For parents",
     "title": "A guide for parents",
-    "lead": "How to set KidLearn up for your family and keep an eye on how it is going, in about five minutes of reading.",
+    "lead": "How to set KidLearn up for your family, what your child will do in it, and how to keep an eye on how it is going.",
     "start": {
       "title": "Getting started",
       "p1": "You sign in with your Google account, so there is no separate password to remember. The first time, KidLearn asks for your permission before anything about your child is stored.",
       "step1": "Choose <strong>Parent sign-in</strong> on the homepage, then <strong>Continue with Google</strong>.",
       "step2": "Read what we keep and what we never do, then tick the box to confirm you are the child's parent or guardian.",
-      "step3": "Add your first child. When you are done, you land on your profiles page.",
-      "p2": "We keep each child's first name, age, grade and avatar (no surname, no photo), their lesson progress, and your Google name and email. There are no ads, we never sell data, and there is no chat and nothing to buy. If that wording ever changes, we ask you again."
+      "step3": "Add your first child. When you are done, you land on your profiles page."
     },
     "child": {
       "title": "Adding a child",
       "p1": "Each child has a profile with a first name, an age from three to six, a grade, a language and an avatar from a starter set. You can change any of these later under <strong>Children</strong>.",
       "p2": "You can add up to five children. To remove a child, you type their first name to confirm. Removing a child deletes all of their progress, rewards, screen-time settings and reports."
     },
+    "day": {
+      "title": "Your child's day",
+      "intro": "Your child taps their picture, picks a world and plays. Everything is spoken aloud, so a child who cannot read yet can still find their way.",
+      "lessons": {
+        "tab": "Lessons",
+        "p1": "Every lesson follows the same five steps in the same order: a friendly mascot says what it is about, a short video of one to three minutes, a hands-on activity such as tracing a letter or matching pairs, a short quiz, and a celebration.",
+        "p2": "Progress is saved after each step, so if the tablet runs out of battery your child picks up where they left off. The video has no controls to wander off with: no full screen, no download and no links."
+      },
+      "quiz": {
+        "tab": "Quizzes",
+        "p1": "Three to five questions, one at a time, each read aloud. A single tap answers.",
+        "p2": "A wrong answer fades gently and a warm voice encourages your child to try again. There is no buzzer, no red cross and no percentage, and the score screen always ends in praise."
+      },
+      "stories": {
+        "tab": "Stories",
+        "p1": "A library of read-along picture stories, separate from the lessons. Every page is narrated, and pages turn by themselves after the narration, so the youngest children can simply listen.",
+        "p2": "Finishing a story earns a small reward the first time. Reading it again is always allowed, because reading the same story again builds fluency."
+      },
+      "rewards": {
+        "tab": "Rewards",
+        "p1": "Your child earns stars for finishing lessons and coins for right answers, collects badges for milestones and unlocks new characters. A streak counts the days in a row they have learned.",
+        "p2": "Rewards are worked out on our server, not on the device, so they reflect real learning. Locked characters appear as friendly silhouettes: something to look forward to, never a punishment."
+      }
+    },
     "corner": {
       "title": "Reaching the parent area from your child's screen",
       "p1": "On your child's screens, a small button in the top corner leads to the parent area. On the screen where your child picks their profile, it shows your Google photo and name; everywhere else it is a plain lock. It is hidden during lessons and stories, so a child in the middle of one cannot tap out by accident.",
-      "p2": "There is no PIN: your Google sign-in is the lock. If your child uses a device you are signed in on, they can reach this area, so the actions that cannot be undone ask you to confirm first."
+      "p2": "There is no PIN: your Google sign-in is the lock. If your child uses a device you are signed in on, they can reach this area, so the actions that cannot be undone ask you to confirm first.",
+      "p3": "Inside the parent area, the account menu in the top bar takes you <strong>Back to kid mode</strong> or signs you out. Signing out also ends your child's session on that device."
     },
-    "dashboard": {
-      "title": "The dashboard",
-      "p1": "<strong>Progress</strong> shows one child at a time; switch between children with the tabs. You see their learning time today, this week and this month; their progress in each subject, with the subject they are strongest in and the one that needs practice; and their 20 most recent lessons, stories and badges."
-    },
-    "reports": {
-      "title": "Weekly reports",
-      "p1": "For every week from Monday to Sunday, each child gets a report under <strong>Weekly report</strong>. It shows the days they were active, the minutes they spent learning, the new letters, words and numbers they met, the lessons and stories they finished, how often they answered quiz questions right first time, and the badges they earned. Earlier weeks are listed below the latest one.",
-      "p2": "Reports are shown in the app. They are not sent by email."
-    },
-    "screenTime": {
-      "title": "Screen-time limits",
-      "p1": "Open a child under <strong>Children</strong> and choose screen time. You can set a daily limit of 15, 30, 45, 60 or 90 minutes, or turn it off. You can also set the hours the app is open, for example from 4pm until 7pm.",
-      "p2": "Limits are checked when a lesson or story starts, so your child is never cut off halfway through one. When time is up, they see a gentle goodbye for the day, not a warning."
+    "progress": {
+      "title": "Following their progress",
+      "intro": "What you can see about each child, and the limits you can set.",
+      "dashboard": {
+        "tab": "Dashboard",
+        "p2": "A child who is just starting sees a friendly message instead of a row of zeros, and the strongest and needs-practice labels appear only once there is something to compare.",
+        "p1": "<strong>Progress</strong> shows one child at a time; switch between children with the tabs. You see their learning time today, this week and this month; their progress in each subject, with the subject they are strongest in and the one that needs practice; and their 20 most recent lessons, stories and badges."
+      },
+      "reports": {
+        "tab": "Weekly reports",
+        "p1": "For every week from Monday to Sunday, each child gets a report under <strong>Weekly report</strong>. It shows the days they were active, the minutes they spent learning, the new letters, words and numbers they met, the lessons and stories they finished, how often they answered quiz questions right first time, and the badges they earned. Earlier weeks are listed below the latest one.",
+        "p2": "Reports are shown in the app. They are not sent by email."
+      },
+      "screenTime": {
+        "tab": "Screen time",
+        "p1": "Open a child under <strong>Children</strong> and choose screen time. You can set a daily limit of 15, 30, 45, 60 or 90 minutes, or turn it off. You can also set the hours the app is open, for example from 4pm until 7pm.",
+        "p2": "Limits are checked when a lesson or story starts, so your child is never cut off halfway through one. When time is up, they see a gentle goodbye for the day, not a warning."
+      }
     },
     "language": {
       "title": "Language",
       "p1": "KidLearn works in English and Bangla. To switch the language of your own screens, use the button at the top of the parent area. Your choice is remembered on that device.",
       "p2": "Each child also has their own language, set on their profile. On the child's screens, the child's language wins, so one child can learn in Bangla while a brother or sister learns in English on the same tablet."
     },
+    "safety": {
+      "title": "Safety and privacy",
+      "intro": "KidLearn is made for young children. The rules below are enforced by the software itself, not only promised.",
+      "data": {
+        "tab": "What we keep",
+        "p2": "Your child's profile and progress are visible only to you. Nothing about your child is shared with anyone else or used for advertising.",
+        "p1": "We keep each child's first name, age, grade and avatar (no surname, no photo), their lesson progress, and your Google name and email. There are no ads, we never sell data, and there is no chat and nothing to buy. If that wording ever changes, we ask you again."
+      },
+      "screens": {
+        "tab": "On your child's screens",
+        "p1": "There is no chat, no messages, no comments and no public profile, so nobody can contact your child.",
+        "p2": "Your child's screens contain no links to other websites and nothing to buy. A test in our code fails if a link ever appears, even inside a lesson title."
+      },
+      "content": {
+        "tab": "How lessons are made",
+        "p1": "Our team writes lessons, stories and quizzes with the help of AI tools, which draft the text, narration and pictures in English and Bangla. Nothing an AI drafts reaches your child until a person on our team has read it and approved it.",
+        "p2": "AI tools never see anything about your child or your family: they are given lesson topics and nothing else. Your child never talks to an AI in KidLearn."
+      }
+    },
     "delete": {
       "title": "Deleting your account and data",
       "p1": "Deleting your account erases everything: every child, all their progress and reports, your parent record and your sign-in. It happens in one step on our server, with no grace period and no copy kept, and it cannot be undone.",
       "p2": "To make sure it is really you, it takes two steps: a request, then a confirmation within 15 minutes. <strong>The page for this is not in the web app yet.</strong> Until it is, you can delete each child under <strong>Children</strong>, which removes all of that child's data straight away."
+    },
+    "questions": {
+      "title": "Common questions",
+      "cutOff": {
+        "term": "Will my child be cut off in the middle of a lesson?",
+        "detail": "No. Screen-time limits are checked when a lesson or story starts, so whatever your child has begun, they can finish."
+      },
+      "wrongAnswer": {
+        "term": "What happens when my child gets an answer wrong?",
+        "detail": "They try again. There is no buzzer, no score to lose and no way to fail a lesson."
+      },
+      "twoChildren": {
+        "term": "Can two children share one tablet?",
+        "detail": "Yes. Each child taps their own picture on the profile screen and keeps their own progress, rewards and language."
+      },
+      "seeAi": {
+        "term": "Will my child talk to an AI?",
+        "detail": "No. AI only helps our team draft lessons, a person approves every one, and nothing about your child is ever sent to an AI."
+      },
+      "offline": {
+        "term": "Does KidLearn work without the internet?",
+        "detail": "No. It needs a connection, because progress and rewards are recorded on our server. If the connection drops during a lesson, your child resumes from the last step they finished."
+      }
     }
   },
   "admins": {
