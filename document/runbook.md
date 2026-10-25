@@ -83,8 +83,19 @@ afterwards it is:
 ssh kidlearn                                   # a shell
 scp -r deploy/ kidlearn:/tmp/                  # copy files up
 rsync -az --delete deploy/ kidlearn:/tmp/deploy/
-ssh -L 5432:dev-postgres:5432 kidlearn         # tunnel a port to your machine
+ssh -N -L 15432:<dev-postgres address>:5432 kidlearn   # tunnel a port to your machine
 ```
+
+The tunnel's far end is resolved on the host, where the name `dev-postgres`
+does not exist — it is only on dev's Docker network, and the container
+publishes no port. Use the container's address instead, read on the server:
+
+```bash
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dev-postgres
+```
+
+Then connect to `localhost:15432` from your Mac. It changes when the container
+is recreated (a wipe in `deployment/` Step 33a), so read it again each time.
 
 ### 2a. One-time setup for SSH over Session Manager
 

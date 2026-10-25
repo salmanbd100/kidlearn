@@ -11,15 +11,17 @@ import {
 import { Button, Input, Label } from "@kidlearn/ui";
 import { Minus, Plus } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listAvatars, listChildCharacters } from "@/features/parent/parent-api";
 import {
   childWriteErrorKey,
   type FieldErrors,
+  generalErrorKey,
   toFieldErrors,
 } from "@/features/parent/parent-errors";
 import type { ApiFailure, ApiResult } from "@/shared/api/api-client";
+import { LoadingState } from "@/shared/components/LoadingState";
 import { SegmentedField } from "@/shared/components/SegmentedField";
 import { AvatarPicker, type AvatarPickerOption } from "./AvatarPicker";
 
@@ -87,28 +89,48 @@ export function ChildProfileForm({
   const [formError, setFormError] = useState<ApiFailure | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const [avatars, setAvatars] = useState<AvatarPickerOption[]>([]);
+  // Kept apart from `avatars`: an empty list must not read as "none exist" while loading or after a failure.
+  const [avatarLoad, setAvatarLoad] = useState<
+    | { status: "loading" }
+    | { status: "loaded" }
+    | { status: "failed"; failure: ApiFailure }
+  >({ status: "loading" });
   const childId = initial?.id;
+
+  const loadAvatars = useCallback(
+    (isCurrent: () => boolean) => {
+      setAvatarLoad({ status: "loading" });
+
+      // Creation reads the starter set; editing reads this child's own list, which includes earned and locked characters.
+      const load =
+        childId === undefined
+          ? listAvatars()
+          : listChildCharacters(childId).then((result) =>
+              result.ok
+                ? { ok: true as const, data: result.data.characters }
+                : result,
+            );
+
+      void load.then((result) => {
+        if (!isCurrent()) return;
+        if (result.ok) {
+          setAvatars(result.data);
+          setAvatarLoad({ status: "loaded" });
+        } else {
+          setAvatarLoad({ status: "failed", failure: result.error });
+        }
+      });
+    },
+    [childId],
+  );
 
   useEffect(() => {
     let isCurrent = true;
-
-    // Creation reads the starter set; editing reads this child's own list, which includes earned and locked characters.
-    const load =
-      childId === undefined
-        ? listAvatars()
-        : listChildCharacters(childId).then((result) =>
-            result.ok
-              ? { ok: true as const, data: result.data.characters }
-              : result,
-          );
-
-    void load.then((result) => {
-      if (isCurrent && result.ok) setAvatars(result.data);
-    });
+    loadAvatars(() => isCurrent);
     return () => {
       isCurrent = false;
     };
-  }, [childId]);
+  }, [loadAvatars]);
 
   /** Clears a field's error as soon as it changes, never adds one mid-typing. */
   const update = <TKey extends keyof FormValues>(
@@ -136,12 +158,14 @@ export function ChildProfileForm({
     setIsSaving(true);
     // `parsed.data`, not `values` — the trimmed, schema-shaped object.
     const result = await onSubmit(parsed.data);
-    setIsSaving(false);
 
     if (result.ok) {
+      // Still saving as far as the parent can tell: `onSaved` refreshes the session and navigates away, which takes a
+      // moment, and an idle button in that gap reads as "nothing happened".
       onSaved(result.data);
       return;
     }
+    setIsSaving(false);
     setFormError(result.error);
   };
 
@@ -222,17 +246,34 @@ export function ChildProfileForm({
         <span className="font-medium text-foreground text-sm">
           {t("form.avatar")}
         </span>
-        <AvatarPicker
-          options={avatars}
-          value={values.avatarCharacterId}
-          isInvalid={avatarError !== undefined}
-          describedById={
-            avatarError === undefined
-              ? `${fieldId}-avatar-hint`
-              : `${fieldId}-avatar-error`
-          }
-          onChange={(id) => update("avatarCharacterId", id)}
-        />
+        {avatarLoad.status === "loading" ? (
+          <LoadingState label={t("form.avatarLoading")} className="py-4" />
+        ) : avatarLoad.status === "failed" ? (
+          <div className="flex flex-col items-start gap-3">
+            <p role="alert" className="text-destructive text-sm">
+              {t(generalErrorKey(avatarLoad.failure))}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => loadAvatars(() => true)}
+            >
+              {t("errors.retry")}
+            </Button>
+          </div>
+        ) : (
+          <AvatarPicker
+            options={avatars}
+            value={values.avatarCharacterId}
+            isInvalid={avatarError !== undefined}
+            describedById={
+              avatarError === undefined
+                ? `${fieldId}-avatar-hint`
+                : `${fieldId}-avatar-error`
+            }
+            onChange={(id) => update("avatarCharacterId", id)}
+          />
+        )}
         {avatarError === undefined ? (
           <p
             id={`${fieldId}-avatar-hint`}

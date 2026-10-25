@@ -27,6 +27,7 @@ export function ActivityEditorScreen({ activityId }: { activityId: string }) {
     "loading",
   );
   const [isBusy, setIsBusy] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
 
@@ -69,6 +70,7 @@ export function ActivityEditorScreen({ activityId }: { activityId: string }) {
     definition: unknown;
   }) {
     setIsBusy(true);
+    setIsSaving(true);
     setNotice(undefined);
     setError(undefined);
 
@@ -76,12 +78,14 @@ export function ActivityEditorScreen({ activityId }: { activityId: string }) {
     if (!result.ok) {
       setError(result.error.message);
       setIsBusy(false);
+      setIsSaving(false);
       return;
     }
 
     await load();
     setNotice("Saved.");
     setIsBusy(false);
+    setIsSaving(false);
   }
 
   async function handleTransition(hops: AdminActivity["status"][]) {
@@ -148,6 +152,7 @@ export function ActivityEditorScreen({ activityId }: { activityId: string }) {
         key={activity.updatedAt}
         initial={draft}
         isBusy={isBusy || !isEditable}
+        isSaving={isSaving}
         error={error}
         onCancel={() => void load()}
         onSubmit={(payload) => void handleSubmit(payload)}

@@ -210,7 +210,7 @@ export function BadgeForm({
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isBusy}>
+        <Button type="submit" isLoading={isBusy}>
           {isEditing ? "Save" : "Create draft"}
         </Button>
       </DialogFooter>
