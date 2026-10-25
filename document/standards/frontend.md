@@ -114,11 +114,11 @@ The strings themselves are not here: they are `@kidlearn/i18n`
 (`packages/i18n/locales/{en,bn}/`), shared with the mobile app.
 
 A feature owns everything one domain needs: its components, its hooks, its pure
-helpers, its API client, and every suite that covers them. `features/screen-time/`
-holds the parent's limit form, the student's lock screen, the API client, the
-heartbeat hook and the duration formatter — the split by portal that used to
-scatter these across `components/parent`, `components/student` and `lib/` is the
-mistake this layout exists to prevent.
+helpers, its API client, and every suite that covers them. `features/children/`
+holds the parent's profile forms and dashboard, its API client, and the
+student's active-child provider — the split by portal that used to scatter these
+across `components/parent`, `components/student` and `lib/` is the mistake this
+layout exists to prevent.
 
 Rules:
 
@@ -184,7 +184,7 @@ three have resolved, because `StudentGuard` does not mount a screen without a
 child. That is one extra round trip, not two cold starts — the provider's
 requests wake the API, so the screen's find it awake. It stays serial on
 purpose: mounting a screen before the child is known starts its narration and
-screen-time gate with no child, and the alternative — a cross-screen prefetch
+heartbeat with no child, and the alternative — a cross-screen prefetch
 cache — is the kind of module-level state R-27 deleted from the lesson player
 for having no reader.
 

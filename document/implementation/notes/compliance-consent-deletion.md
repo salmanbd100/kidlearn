@@ -34,7 +34,7 @@ verified account holder, not an unauthenticated form submission.
 
 1. `childProfile.deleteMany({ parentId })` — each child row cascades to
    `LessonProgress`, `QuizResponse`, `RewardLedger`, `ChildCharacter`,
-   `Streak`, `ScreenTimeSetting`, `SessionEvent` and `WeeklyReport`.
+   `Streak`, `SessionEvent` and `WeeklyReport`.
 2. `parent.delete` — consent record, deletion token.
 3. `user.delete` — the better-auth identity, cascading `Session` and `Account`,
    which is what invalidates the caller's cookie.

@@ -46,7 +46,7 @@
 | **Content-as-data** | Activity/quiz payloads are opaque, **versioned `Json`** columns (`definition` + `schemaVersion Int`). The DB never interprets them; `packages/types` Zod schemas (file 07) own their shape. |
 | **Media linkage is explicit, never polymorphic** | `MediaAsset` is referenced by **named optional FKs from the owning side** (`World.mascotAssetId`, `LessonTranslation.videoAssetId`, …) — full referential integrity + Prisma type safety, no `entityType`+`entityId`. |
 | **Publishing workflow** | Every content root carries `status ContentStatus @default(draft)`. Student-facing queries **always** filter `status = published`. Transition legality is enforced in code (`ALLOWED_TRANSITIONS`, file 32), not a DB table. |
-| **Server-authoritative** | Rewards, streaks, screen-time, completion, and learning-time are **derived server-side** from append-only rows (`RewardLedger`, `SessionEvent`). Balances are `SUM(amount)` aggregates — never stored counters — so they can't be spoofed and have no purchase path (FR-GAM-08). |
+| **Server-authoritative** | Rewards, streaks, completion, and learning-time are **derived server-side** from append-only rows (`RewardLedger`, `SessionEvent`). Balances are `SUM(amount)` aggregates — never stored counters — so they can't be spoofed and have no purchase path (FR-GAM-08). |
 | **Ownership** | Every child-owned table FKs to `ChildProfile` with `onDelete: Cascade`. Owner-only visibility (FR-PROF-07) is enforced at the API layer by always filtering on `parentId` / session. |
 | **Auth boundary** | better-auth owns **credentials & sessions** (`User`/`Session`/`Account`/`Verification`). Our domain rows `Parent` and `AdminUser` own **domain data** and link to `User` via a unique FK (`Parent.userId`, `AdminUser.authUserId`). |
 
@@ -80,7 +80,6 @@ flowchart TB
         Badge
         Character
         Streak
-        ScreenTimeSetting
         SessionEvent
         WeeklyReport
     end
@@ -477,7 +476,6 @@ erDiagram
     ChildProfile ||--o{ RewardLedger : "earns"
     ChildProfile ||--o{ ChildCharacter : "unlocks"
     ChildProfile ||--o| Streak : "1:1"
-    ChildProfile ||--o| ScreenTimeSetting : "1:1"
     ChildProfile ||--o{ SessionEvent : "activity events"
     ChildProfile ||--o{ WeeklyReport : "weekly"
     Lesson ||--o{ LessonProgress : ""
@@ -546,13 +544,6 @@ erDiagram
         int longest
         date lastActivityDate
     }
-    ScreenTimeSetting {
-        string id PK
-        string childId UK
-        int dailyLimitMinutes "null = no limit"
-        time windowStart
-        time windowEnd
-    }
     SessionEvent {
         string id PK
         string childId FK
@@ -575,8 +566,8 @@ erDiagram
 
 **Notes**
 - **Balances are aggregates, not counters.** Stars/coins = `SUM(RewardLedger.amount)` filtered by `rewardType`. Rows are written only by server reward logic (file 23) — no purchase path exists (FR-GAM-08 satisfied by construction).
-- **Learning time = event-sourced.** There is **no `LearningTime` table**; minutes (today/week/month) are aggregated from `SessionEvent` rows server-side (file 27) in `APP_TIMEZONE`, so a client refresh can't bypass a limit (FR-TIME-06). This realizes spec §8's "SessionEvent / LearningTime" entity as events + aggregation. Raw events are **kept for 90 days**, then deleted by the weekly report job (R-25); nothing live reads further back than a month, and each week's aggregate outlives them in `WeeklyReport`.
-- **Date-only / time-only native types** keep math timezone-stable: `Streak.lastActivityDate @db.Date`, `WeeklyReport.weekStart @db.Date`, `ScreenTimeSetting.windowStart/windowEnd @db.Time(0)`.
+- **Learning time = event-sourced.** There is **no `LearningTime` table**; minutes (today/week/month) are aggregated from `SessionEvent` rows server-side (file 27) in `APP_TIMEZONE`, so a client refresh can't lower or inflate a minute (FR-TIME-06). This realizes spec §8's "SessionEvent / LearningTime" entity as events + aggregation. Raw events are **kept for 90 days**, then deleted by the weekly report job (R-25); nothing live reads further back than a month, and each week's aggregate outlives them in `WeeklyReport`.
+- **Date-only native types** keep math timezone-stable: `Streak.lastActivityDate @db.Date`, `WeeklyReport.weekStart @db.Date`.
 - **`WeeklyReport.metrics` carries the structured payload** (active days, minutes, new letters/words/numbers, lessons/stories completed, quiz accuracy **and the first-attempt count it averages** — `quizFirstAttempts`, added by file 30 so `selectNote`'s "≥90% over ≥10 questions" rule stays derivable from a stored row — badges, plus `noteKey`+`noteParams` for i18n). `note String?` is only the rendered **English fallback** (file 30) — there are no separate `noteKey`/`noteParams` columns.
 - **`Badge`/`Character` survive child deletion** — they are shared content; only the child-owned join/ledger rows cascade away.
 
@@ -589,7 +580,6 @@ erDiagram
 | RewardLedger | `(childId, rewardType, sourceType, sourceId)` — the idempotency guard, so a replay or a double-tap cannot grant twice (indexed `(childId, createdAt)`) | ✅ | 06, 23 |
 | ChildCharacter | `(childId, characterId)` | ✅ | 06 |
 | Streak | `childId` | ✅ | 06 |
-| ScreenTimeSetting | `childId` | ✅ | 06 |
 | SessionEvent | — (indexed `(childId, occurredAt)`) | ✅ | 06 |
 | WeeklyReport | `(childId, weekStart)` | ✅ | 06 |
 | Badge | `slug` | ❌ shared content | 06 |
@@ -706,7 +696,7 @@ flowchart TD
 | Trigger | Cascades to | Restricted / preserved |
 |---|---|---|
 | **Delete `Parent`** (account deletion, file 10) | all `ChildProfile`s → (all child-owned tables, see below); then the better-auth `User` → `Session`/`Account` | — |
-| **Delete `ChildProfile`** (file 11) | `LessonProgress`, `QuizResponse`, `RewardLedger`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`; `Session.activeChildProfileId` is set to `NULL` | `Badge`, `Character` (shared) survive |
+| **Delete `ChildProfile`** (file 11) | `LessonProgress`, `QuizResponse`, `RewardLedger`, `ChildCharacter`, `Streak`, `SessionEvent`, `WeeklyReport`; `Session.activeChildProfileId` is set to `NULL` | `Badge`, `Character` (shared) survive |
 | **Delete `Subject`** | `Topic` → `Lesson` → `LessonTranslation` | **Restricted** by any `LessonProgress` on a lesson beneath it — a content delete never erases a child's progress (no route deletes content today; this keeps it so) |
 | **Delete `Lesson`** | `LessonTranslation` | **Restricted** while any child has `LessonProgress` on it; `Activity`/`Quiz` survive (referenced, not owned) |
 | **Delete `Quiz`** | `QuizQuestion` → `QuizQuestionTranslation` | **Restricted** per question while any `QuizResponse` references it (the editor answers `409 QUESTION_HAS_RESPONSES` first) |
@@ -729,7 +719,7 @@ The schema is built additively. Each migration is named and owned by one file:
 | 3 | `parent_pin_consent_deletion` (10) | `Parent.pinFailedCount`, `pinLockedUntil`, `deleteToken`, `deleteTokenExpiresAt`; `Session.pinVerifiedUntil` |
 | 4 | `curriculum_world_schema` (04) | `ContentStatus`, `MediaKind`; `MediaAsset`, `World`, `Subject`, `Topic`, `Lesson`, `LessonTranslation` |
 | 5 | `activity_quiz_story_schema` (05) | `ActivityType`, `QuizQuestionFormat`; `Activity(+Translation)`, `Quiz`, `QuizQuestion(+Translation)`, `Story`, `StoryPage(+Translation)`; FK-upgrade `Lesson.activityId/quizId` |
-| 6 | `progress_gamification_schema` (06) | 7 enums; `LessonProgress`, `QuizResponse`, `Badge`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`, `AIGenerationJob`; `ChildProfile.avatarCharacterId` FK |
+| 6 | `progress_gamification_schema` (06) | 7 enums; `LessonProgress`, `QuizResponse`, `Badge`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`, `AIGenerationJob`; `ChildProfile.avatarCharacterId` FK. `ScreenTimeSetting` was later dropped (row 30). |
 | 7 | `session_event_step_complete` (16) | `SessionEventType.step_complete` — the per-step marker file 06's enum omitted |
 | 8 | `story_translations` (25) | `StoryTranslation` model — the child-facing story title, moral and title narration the `Story.title` note in §6 deferred to files 25–26 |
 | 9 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]`; index `LessonProgress(childId, completedAt)` — the weekly report selects one child's completions inside a seven-day window, which the `(childId, lessonId)` unique cannot serve |
@@ -742,7 +732,7 @@ The schema is built additively. Each migration is named and owned by one file:
 | 16 | `remove_parent_pin` (—) | **Drops** `Parent.pinHash`, `pinFailedCount`, `pinLockoutStrikes`, `pinLockedUntil` and `Session.pinVerifiedUntil`. The parental PIN gate was retired on 2026-09-09. Rows 1 and 3 above remain the record of what added `pinHash` and the first two counters; `pinLockoutStrikes` came from `parent_pin_lockout_strikes`, which this table never listed. |
 | 17 | `content_visibility_indexes_and_session_child_fk` (—) | Indexes on the `status`/`gradeLevels`/`sortOrder` columns every student query filters on; `session.activeChildProfileId` becomes a real foreign key to `ChildProfile` with `ON DELETE SET NULL` (it was a bare text column cleared by hand in `deleteChildProfile`). |
 | 18 | `quiz_response_restrict_question_delete` (—) | `QuizResponse.questionId` changes from `ON DELETE CASCADE` to `RESTRICT`. Deleting a quiz question in the CMS used to erase every child's answer to it, which silently changed badge counts and weekly-report accuracy; the editor now answers `409 QUESTION_HAS_RESPONSES` first. The `ChildProfile` cascade is unchanged, so account deletion still removes the answers. |
-| 19 | `lesson_progress_started_at` (—) | `LessonProgress.startedAt DateTime @default(now())`, written once. `updatedAt` moves on every step report, so the screen-time "lesson under way" grace measured from it could be held open indefinitely; `startedAt` bounds it (`LESSON_RESUME_CEILING_MS`). Existing rows take the migration time. |
+| 19 | `lesson_progress_started_at` (—) | `LessonProgress.startedAt DateTime @default(now())`, written once. `updatedAt` moves on every step report, so the screen-time "lesson under way" grace measured from it could be held open indefinitely; `startedAt` bounds it (`LESSON_RESUME_CEILING_MS`). Existing rows take the migration time. The grace went with screen-time controls (row 30); the column stays. |
 | 20 | `admin_list_and_analytics_indexes` (—) | `LessonProgress(completedAt)` for the admin analytics window count (the existing `(childId, completedAt)` leads with `childId` and cannot serve it); `MediaAsset(kind, createdAt)` for the media library list. |
 | 21 | `lesson_video_poster` (17) | `LessonTranslation.videoPosterAssetId String?` → `MediaAsset` (`ON DELETE SET NULL`), the still the player paints over the first seconds of buffering. |
 | 22 | `curriculum_name_translations` (—) | Child-facing names per locale for `World`, `Subject` and `Topic`; `LessonTranslation.title` (backfilled from `Lesson.title`). The internal `name`/`title` columns keep their meaning. |
@@ -753,6 +743,7 @@ The schema is built additively. Each migration is named and owned by one file:
 | 27 | `lesson_quiz_unique` (—) | `Lesson.quizId` becomes unique (`Quiz.lessons` → `Quiz.lesson`). The quiz-response route resolves the lesson from the quiz alone, so a shared quiz let a child's score land on the wrong lesson. The migration fails if a quiz is already shared. |
 | 28 | `lesson_progress_restrict_delete_and_quiz_response_question_index` (—) | `LessonProgress.lessonId` changes from `ON DELETE CASCADE` to `RESTRICT` (a content delete no longer erases progress); index `QuizResponse(questionId)` for the restrict check and the editor's response count. |
 | 29 | `ai_job_provenance` … `admin_access_token` (41) | Five migrations, split for `backend.md §3`: `AIJobSource`; `AIGenerationJob.source`, `requestedById` (FK `NOT VALID`, then validated), `client`, `clientRequestId`; index `(source, requestedById, createdAt)` and unique `(requestedById, clientRequestId)`, each `CONCURRENTLY` alone; the `AdminAccessToken` table with RLS. |
+| 30 | `drop_screen_time_setting` (—) | **Drops** `ScreenTimeSetting`. Parental screen-time controls — daily limits and access windows — were removed on 2026-10-25 and nothing replaces them. Learning time (`SessionEvent`) is unaffected. Row 6 remains the record of what added the table. |
 
 > **Ordering note:** files 04–06 (core content/progress) are authored before the auth-detail and AI-pipeline files in implementation sequence, but several migrations interleave. The exact `prisma migrate` order is the file number order above; the **end state** is what this document describes. Confirm migration names when running `pnpm db:migrate`.
 

@@ -45,7 +45,6 @@ const db = vi.hoisted(() => ({
   eventFindFirst: vi.fn(),
   eventFindMany: vi.fn(),
   eventCount: vi.fn(),
-  screenTimeSettingFindUnique: vi.fn(),
 }));
 
 vi.mock("../../config/prisma.js", () => ({
@@ -60,7 +59,6 @@ vi.mock("../../config/prisma.js", () => ({
       findMany: db.eventFindMany,
       count: db.eventCount,
     },
-    screenTimeSetting: { findUnique: db.screenTimeSettingFindUnique },
   },
 }));
 
@@ -207,9 +205,6 @@ beforeEach(() => {
           row.occurredAt >= where.occurredAt.gte,
       ).length,
   );
-
-  // No limit configured unless a test sets one, so the screen-time gate stays open.
-  db.screenTimeSettingFindUnique.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -442,23 +437,6 @@ describe("POST /api/events/activity", () => {
     const res = await postActivity({ type: "lesson_start", refId: LESSON_ID });
 
     expect(res.status).toBe(201);
-  });
-
-  it("refuses a story_start, and records nothing, while the screen-time gate is shut", async () => {
-    signInAs(childProfile());
-    db.screenTimeSettingFindUnique.mockResolvedValue({
-      id: "setting_1",
-      childId: CHILD_ID,
-      dailyLimitMinutes: 0,
-      windowStart: null,
-      windowEnd: null,
-    });
-
-    const res = await postActivity({ type: "story_start", refId: STORY_ID });
-
-    expect(res.status).toBe(423);
-    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
-    expect(store.events).toHaveLength(0);
   });
 
   it("rejects a type outside the five surface milestones", async () => {

@@ -5,7 +5,6 @@ import { cva, type VariantProps } from "class-variance-authority";
 const doodleVariants = cva("pointer-events-none shrink-0 fill-none", {
   variants: {
     kind: {
-      underline: "h-auto w-full",
       squiggle: "h-4 w-12",
     },
     tone: {
@@ -19,16 +18,7 @@ const doodleVariants = cva("pointer-events-none shrink-0 fill-none", {
   defaultVariants: { tone: "sunshine" },
 });
 
-// Two passes per mark, slightly off each other, so the stroke reads as drawn by hand rather than plotted.
 const PATHS = {
-  underline: {
-    viewBox: "0 0 300 24",
-    strokeWidth: 5,
-    d: [
-      "M4 15 C 52 7, 104 19, 158 12 S 252 7, 296 13",
-      "M22 19 C 86 13, 166 18, 276 15",
-    ],
-  },
   squiggle: {
     viewBox: "0 0 60 20",
     strokeWidth: 3,

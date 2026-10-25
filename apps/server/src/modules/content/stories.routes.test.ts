@@ -20,7 +20,6 @@ const db = vi.hoisted(() => ({
   storyFindFirst: vi.fn(),
   ledgerFindMany: vi.fn(),
   ledgerFindFirst: vi.fn(),
-  screenTimeFindUnique: vi.fn(),
   sessionEventFindMany: vi.fn(),
 }));
 
@@ -33,7 +32,6 @@ vi.mock("../../config/prisma.js", () => ({
       findMany: db.ledgerFindMany,
       findFirst: db.ledgerFindFirst,
     },
-    screenTimeSetting: { findUnique: db.screenTimeFindUnique },
     sessionEvent: { findMany: db.sessionEventFindMany },
   },
 }));
@@ -235,9 +233,6 @@ beforeEach(() => {
         queryLedger(where).map(() => ({ id: "ledger_1" }))[0] ?? null,
       ),
   );
-  // `enforceScreenTime` fronts the detail route and reads the screen-time policy
-  // and presence log; both default to "no policy, no minutes". The gate is tested in `screen-time.routes.test.ts`.
-  db.screenTimeFindUnique.mockResolvedValue(null);
   db.sessionEventFindMany.mockResolvedValue([]);
 });
 

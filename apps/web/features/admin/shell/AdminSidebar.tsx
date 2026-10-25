@@ -21,6 +21,7 @@ import {
   type AdminNavItem,
   activeAdminNavHref,
 } from "@/features/admin/shell/admin-routes";
+import { Logo } from "@/shared/components/Logo";
 
 export interface AdminSidebarProps {
   pathname: string;
@@ -72,10 +73,8 @@ export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
         <span className="flex size-8 items-center justify-center rounded-(--radius) bg-primary text-primary-foreground">
           <Shapes aria-hidden="true" className="size-4" />
         </span>
-        <span className="flex flex-col leading-tight">
-          <span className="font-semibold text-foreground text-sm">
-            kidlearn
-          </span>
+        <span className="flex flex-col gap-0.5 leading-tight">
+          <Logo className="h-5" />
           <span className="text-muted-foreground text-xs">Content studio</span>
         </span>
       </div>

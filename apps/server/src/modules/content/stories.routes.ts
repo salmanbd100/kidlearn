@@ -6,7 +6,6 @@ import { type Request, Router } from "express";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
 import { activeChild } from "../../shared/middleware/require-active-child.js";
 import { validate } from "../../shared/middleware/validate.js";
-import { enforceScreenTime } from "../screen-time/enforce-screen-time.middleware.js";
 import { ContentIdParamsSchema } from "./content.schema.js";
 import { getStoryForChild, listStoriesForChild } from "./story.service.js";
 
@@ -32,9 +31,6 @@ storiesRouter.get("/", async (req, res, next) => {
 storiesRouter.get(
   "/:id",
   validate({ params: ContentIdParamsSchema }),
-  // The story-start gate (FR-TIME-02, FR-TIME-04). No in-progress exemption is
-  // needed: the reader holds every page once loaded.
-  enforceScreenTime("story"),
   async (req, res, next) => {
     try {
       const story = await getStoryForChild(activeChild(req), idParam(req));

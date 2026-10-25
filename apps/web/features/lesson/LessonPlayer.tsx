@@ -6,7 +6,6 @@ import type {
   LessonDetailResponse,
   LessonStep,
   Locale,
-  ScreenTimeBlockCode,
 } from "@kidlearn/types";
 import { LESSON_STEPS, resumeLessonStep } from "@kidlearn/types";
 import { ArrowLeft } from "lucide-react";
@@ -14,12 +13,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getLesson } from "@/features/content/content-api";
-import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
-import {
-  isScreenTimeBlock,
-  windowStartFromError,
-} from "@/features/screen-time/screen-time-api";
-import { useHeartbeat } from "@/features/screen-time/use-heartbeat";
+import { useHeartbeat } from "@/features/events/use-heartbeat";
 import { getLessonProgress, sendSessionEvent } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { BigButton } from "@/shared/components/kid/BigButton";
@@ -61,15 +55,6 @@ type LoadState =
   | { status: "loading" }
   | { status: "ready"; lesson: LessonDetailResponse; resumeAt: LessonStep }
   | { status: "gone" }
-  /**
-   * A state of its own, not an error: a child must never see a raw failure for a rule their grown-
-   * up set (FR-TIME-02, FR-TIME-04). A lesson already under way is exempt server-side.
-   */
-  | {
-      status: "blocked";
-      reason: ScreenTimeBlockCode;
-      windowStart: string | null;
-    }
   | { status: "error" };
 
 export interface LessonPlayerProps {
@@ -122,14 +107,6 @@ function LessonPlayerContent({
       setIsWakingUp(false);
 
       if (!lessonResult.ok) {
-        if (isScreenTimeBlock(lessonResult.error)) {
-          setLoad({
-            status: "blocked",
-            reason: lessonResult.error.code,
-            windowStart: windowStartFromError(lessonResult.error) ?? null,
-          });
-          return;
-        }
         // A lesson unpublished mid-session is a `404`: a closed door, not a failure to apologise
         // for.
         setLoad({
@@ -191,11 +168,6 @@ function LessonPlayerContent({
   }
   if (load.status === "gone") {
     return <StudentStatus tone="status">{t("notFound")}</StudentStatus>;
-  }
-  if (load.status === "blocked") {
-    return (
-      <ScreenTimeLock reason={load.reason} windowStart={load.windowStart} />
-    );
   }
   if (load.status === "error") {
     return (

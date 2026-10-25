@@ -25,7 +25,7 @@
    - [5.9 Gamification & Rewards](#59-gamification--rewards-fr-gam)
    - [5.10 Multilingual Support](#510-multilingual-support-fr-i18n)
    - [5.11 Parent Dashboard & Reports](#511-parent-dashboard--reports-fr-dash)
-   - [5.12 Screen Time & Parental Controls](#512-screen-time--parental-controls-fr-time)
+   - [5.12 Learning Time](#512-learning-time-fr-time)
    - [5.13 AI Content Generation Pipeline](#513-ai-content-generation-pipeline-fr-ai)
    - [5.14 Admin Content Management](#514-admin-content-management-fr-cms)
    - [5.15 Public Site](#515-public-site-fr-site)
@@ -58,7 +58,7 @@ The platform:
 
 - Is **visual-first and voice-guided** — children who cannot read can use it independently.
 - Supports **multiple languages** natively (English and Bangla at launch).
-- Gives parents full visibility (progress, reports) and control (screen time, time windows).
+- Gives parents full visibility (progress, learning time, reports).
 - Uses a **generative-AI content pipeline** (lessons, stories, quizzes, narration, illustrations) with mandatory human review, so the curriculum can scale cheaply.
 - Launches on **low-cost hosting** — the frontend on Vercel's free tier and one small cloud instance running both environments' APIs, roughly $13.75/month (§9) — with an architecture that scales modularly to higher grades and more languages without rework.
 
@@ -77,7 +77,7 @@ A daily learning journey of 30–60 minutes composed of micro-activities (e.g. 1
 ### Pillar C — Dual-Portal System
 
 - **Student Portal:** immersive, distraction-free, gamified. No external links, no ads, no social features.
-- **Parent Dashboard:** reached from the signed-in Google session, for analytics, settings, language management, and screen-time limits.
+- **Parent Dashboard:** reached from the signed-in Google session, for analytics, settings, and language management.
 
 ### Pillar D — AI-Powered Content Pipeline
 
@@ -257,16 +257,13 @@ Quizzes end every lesson. They are low-pressure and encouraging — never test-l
 | FR-DASH-05 | **Weekly report** generated every week per child containing: total active days, total learning time, count of new letters/words/numbers encountered, lessons and stories completed, quiz accuracy percentage, badges earned, and an encouraging note about progress. | [MVP] |
 | FR-DASH-06 | Past weekly reports remain viewable in the dashboard.                                                                                                                                                                                                                | [MVP] |
 
-### 5.12 Screen Time & Parental Controls (FR-TIME)
+### 5.12 Learning Time (FR-TIME)
 
-| ID         | Requirement                                                                                                                        | Scope                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| FR-TIME-01 | A parent can set a **daily time limit** per child individually.                                                                    | [MVP]                 |
-| FR-TIME-02 | When the limit is reached, the mascot shows a friendly "time's up" message and the child cannot start a new lesson.                | [MVP]                 |
-| FR-TIME-03 | A lesson already in progress when the limit hits is allowed to finish before lockout.                                              | [MVP]                 |
-| FR-TIME-04 | A parent can set an **access time window** per child (e.g. 8am–8pm); outside the window the app shows a friendly locked screen.    | [MVP]                 |
-| FR-TIME-05 | All screen-time settings are editable by the parent at any time from settings.                                                     | [MVP]                 |
-| FR-TIME-06 | Learning time is measured server-side (activity heartbeats / session events) so limits can't be bypassed by refreshing the client. | [MVP — architectural] |
+FR-TIME-01..05 — per-child daily limits and access windows — were removed on 2026-10-25; nothing replaces them.
+
+| ID         | Requirement                                                                                                                            | Scope                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| FR-TIME-06 | Learning time is measured server-side (activity heartbeats / session events) so refreshing the client can't lower or inflate a minute. | [MVP — architectural] |
 
 ### 5.13 AI Content Generation Pipeline (FR-AI)
 
@@ -395,7 +392,7 @@ kidlearn/
 
 1. **Content as data.** Lessons, activities, quizzes, badges, worlds, and languages are database rows + JSON payloads + media URLs. The frontend ships generic engines (lesson player, activity engine, quiz engine) that render whatever the data describes.
 2. **Shared schemas.** JSON schemas / TypeScript types for activities and quizzes live in `packages/types`, shared by the frontend renderer, the backend validator, and the AI generation prompts — one definition, three consumers.
-3. **Server-authoritative progress.** Rewards, streaks, screen time, and completion are computed/recorded server-side; the client reports events.
+3. **Server-authoritative progress.** Rewards, streaks, learning time, and completion are computed/recorded server-side; the client reports events.
 4. **Review-gated publishing.** Content rows carry a status (`draft → in_review → approved/rejected → published`); student queries only ever see `published`.
 
 ---
@@ -416,7 +413,6 @@ High-level entities (Prisma schema to be derived from this list):
 - **Badge** — admin-defined milestone rules + icon.
 - **Character** — avatar characters + unlock criteria; **ChildCharacter** join for unlocks.
 - **Streak** — child, current count, longest, last activity date.
-- **ScreenTimeSetting** — child: daily limit minutes, access window start/end.
 - **SessionEvent / LearningTime** — server-recorded activity heartbeats per child (powers FR-TIME-06, FR-DASH-02).
 - **WeeklyReport** — child, week, aggregated metrics + note (FR-DASH-05).
 - **AIGenerationJob** — type (lesson | story | quiz | audio | image), source (gemini | mcp), requesting admin, self-reported MCP client, inputs, raw output, status, reviewer, decision, timestamps (FR-AI-08, FR-AI-10).
@@ -489,7 +485,7 @@ The first release validates the core product with real users before expanding.
 - Rewards: stars, coins, badges, streaks, character unlocks (FR-GAM)
 - Parent account + child profile management (FR-AUTH, FR-PROF)
 - Parent dashboard with progress + weekly reports (FR-DASH)
-- Screen time controls (FR-TIME)
+- Server-measured learning time (FR-TIME-06)
 - AI content pipeline with admin review queue (FR-AI, FR-CMS)
 
 **Explicitly out of MVP scope:** Grade 1+ content, KG-2, Arabic/Hindi/Spanish, teacher dashboards and classrooms, school administration, Space World content, and (potentially late) PDF worksheets / offline downloads / personalised AI stories.
@@ -514,7 +510,7 @@ Where the two source documents disagreed, this master document resolves as follo
 2. **Lint tooling:** key-description proposes shared ESLint config; the repo uses **Biome** repo-wide. **Resolution:** Biome (per `CLAUDE.md` and `biome.json`).
 3. **Package manager:** key-description says npm/yarn workspaces; the repo uses **pnpm 9**. **Resolution:** pnpm + Turborepo.
 4. **Shared packages:** repo currently has `packages/{ui,types,config}` placeholders (no `package.json` yet); key-description plans `packages/db` for Prisma. **Resolution:** target layout in §7.1 — each package must gain a `package.json` with `name` + `dev`/`build`/`typecheck` scripts before use.
-5. **Daily session length:** key-description's 30–60 minute daily journey is adopted as the design intent (Pillar B); the parent-set screen-time limit (FR-TIME-01) is the enforced bound and may be set below or above it.
+5. **Daily session length:** key-description's 30–60 minute daily journey is adopted as the design intent (Pillar B). It is not enforced: the parent-set limit that once bounded it (FR-TIME-01) was removed on 2026-10-25.
 6. **Parental gate:** the PIN gate from key-description was adopted as a hard requirement (FR-AUTH-04) even though the Functional Requirements doc didn't specify it. **Reversed 2026-09-09:** the gate is removed and FR-AUTH-04 retired, for simplicity — it was the most cross-cutting feature in the codebase relative to what it delivered (five columns, three endpoints, eight middleware mounts, a React context with a grant-expiry timer).
 
    **The cost is on the record.** The Google session persists on a shared family tablet, so the lock icon in the Student Portal is now a one-tap door into a dashboard that can edit and delete child profiles and request account deletion. Two things soften it, both deliberately retained: the exit stays visually dull — an anonymous lock on every screen a child is using, named only on `/select-profile`, where no child is playing yet — and account deletion stays two-step behind a single-use token that expires in 15 minutes. Nothing else asks twice. Re-introducing a parental gate is a product decision, not a bug fix; if it returns it should be designed against this note rather than restored from git history.

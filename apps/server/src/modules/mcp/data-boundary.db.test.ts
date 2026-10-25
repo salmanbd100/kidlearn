@@ -87,7 +87,6 @@ const HOUSEHOLD_DELEGATES = [
   "rewardLedger",
   "childCharacter",
   "streak",
-  "screenTimeSetting",
   "sessionEvent",
   "weeklyReport",
   "session",

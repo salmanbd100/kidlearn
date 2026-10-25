@@ -2,10 +2,9 @@
 
 import type { ReactNode } from "react";
 import { Doodle } from "../Doodle";
-import { ExternalLink } from "../ExternalLink";
 import { HangingSection, toNumeral } from "../HangingSection";
-import { REPO_DOC_URL } from "../site-routes";
 import { useSiteTranslation } from "../use-site-translation";
+import { GuideDocLink } from "./GuideDocLink";
 
 export interface GuideSection {
   id: string;
@@ -79,11 +78,7 @@ export function GuideLayout({
         >
           {section.content}
           {section.docPath !== undefined ? (
-            <p>
-              <ExternalLink href={REPO_DOC_URL(section.docPath)}>
-                {t("guide.readFull")}
-              </ExternalLink>
-            </p>
+            <GuideDocLink docPath={section.docPath} />
           ) : null}
         </HangingSection>
       ))}
