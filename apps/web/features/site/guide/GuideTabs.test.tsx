@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Providers } from "@/shared/components/Providers";
 import { resetI18nForTests } from "@/shared/lib/i18n";
@@ -78,6 +78,37 @@ describe("GuideTabs", () => {
 
     fireEvent.keyDown(database, { key: "Home" });
     expect(web).toHaveFocus();
+  });
+
+  it("leaves closed panels reachable by find-in-page", () => {
+    renderTabs();
+
+    expect(
+      screen.getByText("API body").closest('[role="tabpanel"]'),
+    ).toHaveAttribute("hidden", "until-found");
+    expect(
+      screen.getByText("Web body").closest('[role="tabpanel"]'),
+    ).not.toHaveAttribute("hidden");
+  });
+
+  it("opens the tab whose panel a find-in-page match reveals", () => {
+    renderTabs();
+
+    const panel = screen
+      .getByText("Database body")
+      .closest('[role="tabpanel"]');
+    act(() => {
+      panel?.dispatchEvent(new Event("beforematch"));
+    });
+
+    expect(screen.getByRole("tab", { name: "Database" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("Database body")).toBeVisible();
+    expect(
+      screen.getByText("Web body").closest('[role="tabpanel"]'),
+    ).toHaveAttribute("hidden", "until-found");
   });
 
   it("keeps only the selected tab in the tab order", () => {

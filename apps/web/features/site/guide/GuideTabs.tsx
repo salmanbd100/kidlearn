@@ -1,7 +1,13 @@
 "use client";
 
 import { cn } from "@kidlearn/ui";
-import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useSiteTranslation } from "../use-site-translation";
 
 export interface GuideTab {
@@ -20,7 +26,8 @@ const STEP: Partial<Record<string, (index: number, count: number) => number>> =
 
 /**
  * Related topics within one guide section, one shown at a time. Every panel stays in the DOM
- * (`hidden`, not unmounted) so the whole guide is in the page for search engines and find-in-page.
+ * (`hidden`, not unmounted) so the whole guide is in the page for search engines, and closed panels
+ * are `hidden="until-found"` so find-in-page still reaches them and opens the matching tab.
  */
 export function GuideTabs({
   id,
@@ -34,6 +41,22 @@ export function GuideTabs({
   const { t } = useSiteTranslation();
   const [selected, setSelected] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const panelRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // React 19 renders `hidden` only as a boolean and has no `onBeforeMatch`, so the server render
+  // ships plain `hidden` and the closed panels are upgraded here once hydrated.
+  useEffect(() => {
+    const cleanups = panelRefs.current.map((panel, index) => {
+      if (panel === null || index === selected) return undefined;
+      panel.setAttribute("hidden", "until-found");
+      const open = () => setSelected(index);
+      panel.addEventListener("beforematch", open);
+      return () => panel.removeEventListener("beforematch", open);
+    });
+    return () => {
+      for (const cleanup of cleanups) cleanup?.();
+    };
+  }, [selected]);
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const step = STEP[event.key];
@@ -84,6 +107,9 @@ export function GuideTabs({
       {tabs.map((tab, index) => (
         <div
           key={tab.id}
+          ref={(node) => {
+            panelRefs.current[index] = node;
+          }}
           role="tabpanel"
           id={`${id}-panel-${tab.id}`}
           aria-labelledby={`${id}-tab-${tab.id}`}

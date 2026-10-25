@@ -1,5 +1,6 @@
 "use client";
 
+import { siteResources } from "@kidlearn/i18n/site";
 import { GuideDocLink } from "@/features/site/guide/GuideDocLink";
 import { GuideFacts } from "@/features/site/guide/GuideFacts";
 import {
@@ -12,24 +13,33 @@ import { GuideText } from "@/features/site/guide/GuideText";
 
 const MANUAL = "user-journey-manual.md";
 
-/** A tab of plain paragraphs, read from `parents.<group>.<id>.tab` and `.p1`, `.p2`, …. */
-function textTab(
-  group: string,
-  id: string,
-  paragraphCount: number,
-  docPath: string,
-): GuideTab {
+/** `<prefix>.p1`, `.p2`, … in order, read from the English copy; the i18n parity test keeps Bangla in step. */
+function paragraphKeys(prefix: string): string[] {
+  let node: unknown = siteResources.en;
+  for (const part of prefix.split(".")) {
+    node =
+      typeof node === "object" && node !== null
+        ? Reflect.get(node, part)
+        : undefined;
+  }
+  if (typeof node !== "object" || node === null) {
+    throw new Error(`No site copy at ${prefix}`);
+  }
+  return Object.keys(node)
+    .filter((key) => /^p\d+$/.test(key))
+    .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+    .map((key) => `${prefix}.${key}`);
+}
+
+/** A tab of plain paragraphs, read from `parents.<group>.<id>.tab` and every `.p<n>` beside it. */
+function textTab(group: string, id: string, docPath: string): GuideTab {
   const prefix = `parents.${group}.${id}`;
-  const paragraphKeys = Array.from(
-    { length: paragraphCount },
-    (_, index) => `${prefix}.p${index + 1}`,
-  );
   return {
     id,
     labelKey: `${prefix}.tab`,
     content: (
       <>
-        {paragraphKeys.map((key) => (
+        {paragraphKeys(prefix).map((key) => (
           <GuideText key={key} i18nKey={key} />
         ))}
         <GuideDocLink docPath={docPath} />
@@ -39,35 +49,32 @@ function textTab(
 }
 
 const CHILD_DAY_TABS: readonly GuideTab[] = [
-  textTab("day", "lessons", 2, `${MANUAL}#43-the-5-step-lesson-adventure`),
-  textTab("day", "quiz", 2, `${MANUAL}#45-the-quiz--low-pressure-by-design`),
-  textTab("day", "stories", 2, `${MANUAL}#48-story-library--reader`),
-  textTab("day", "rewards", 2, `${MANUAL}#47-badges-characters--streaks`),
+  textTab("day", "lessons", `${MANUAL}#43-the-5-step-lesson-adventure`),
+  textTab("day", "quiz", `${MANUAL}#45-the-quiz--low-pressure-by-design`),
+  textTab("day", "stories", `${MANUAL}#48-story-library--reader`),
+  textTab("day", "rewards", `${MANUAL}#47-badges-characters--streaks`),
 ];
 
 const PROGRESS_TABS: readonly GuideTab[] = [
-  textTab("progress", "dashboard", 2, `${MANUAL}#54-the-dashboard`),
-  textTab("progress", "reports", 2, `${MANUAL}#55-weekly-reports`),
-  textTab("progress", "screenTime", 2, `${MANUAL}#56-screen-time-controls`),
+  textTab("progress", "dashboard", `${MANUAL}#54-the-dashboard`),
+  textTab("progress", "reports", `${MANUAL}#55-weekly-reports`),
+  textTab("progress", "screenTime", `${MANUAL}#56-screen-time-controls`),
 ];
 
 const SAFETY_TABS: readonly GuideTab[] = [
   textTab(
     "safety",
     "data",
-    2,
     "project-requirement-details.md#62-safety--privacy-nfr-safe",
   ),
   textTab(
     "safety",
     "screens",
-    2,
     "project-requirement-details.md#62-safety--privacy-nfr-safe",
   ),
   textTab(
     "safety",
     "content",
-    2,
     `${MANUAL}#7-cross-cutting-how-content-reaches-a-child`,
   ),
 ];
