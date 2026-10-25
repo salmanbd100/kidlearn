@@ -166,6 +166,14 @@ tier is on the box.
 Both images are environment-agnostic — configured entirely at runtime — so one
 bare `<sha>` tag serves both environments.
 
+**Build from the branch the environment tracks.** Production runs a `main`
+commit; dev runs a `dev` commit. `git switch dev && git pull` before building
+for dev, `main` before building for production. Any SHA you have built and
+pushed deploys to either environment, so nothing stops you deploying the wrong
+one. Rollback reads its own environment's record:
+`/opt/kidlearn/dev/last-good-tag` for dev, `/opt/kidlearn/prod/last-good-tag`
+for production.
+
 ```bash
 # On your own machine (arm64 Mac → native builds), from the repository root:
 aws ecr get-login-password --region ap-south-1 \

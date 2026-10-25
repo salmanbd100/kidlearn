@@ -37,7 +37,45 @@ does not give you"):
 **Cost:** $0 extra on AWS — same server, same IP. Every other account used here
 is free.
 
+## Once, or every time?
+
+Most of this part is **setup you do one time**. After that, putting new code on
+dev is a short routine — [Every time you update dev](#every-time-you-update-dev)
+at the end of this page. Each step below also starts with a **When** line.
+
+| Step | What | When |
+|---|---|---|
+| 29 | Dev accounts (Gemini, Cloudinary) | **Once.** Again only if you replace a key |
+| 30 | Dev secrets in Parameter Store | **Once.** Change one value later if a secret changes, then redeploy |
+| 31a | DNS record for `api.dev` | **Once** |
+| 31b | Caddy fetches the HTTPS certificate | **Once.** Caddy renews it by itself — never after a code change |
+| 32 | First start of the dev API and database | **Once** in this form. Later deploys use the routine at the end |
+| 32b | Starter data (avatars, worlds, badges) | **Once**, and again after every wipe (33a) |
+| 33 | Wipe / restore rehearsal | **Once** as a rehearsal. Later only when you need to undo a bad migration or want fresh data |
+| 34 | Dev website on Vercel | **Once.** Afterwards Vercel rebuilds it on every merge into `dev` |
+| 35 | Google sign-in for dev | **Once** |
+| 36 | Smoke test | **Once** in full. After each update, the short check in the routine |
+
+**Words used on this page, in one line each:**
+
+- **Image** — the API packed into one file, built on your Mac. It is the
+  *recipe*; it does not run by itself.
+- **Container** — a running copy of an image. `dev-api` and `dev-postgres` are
+  containers.
+- **ECR** — AWS's private shelf for images. Your Mac puts images there
+  (`docker push`); the server takes them from there (`docker pull`).
+- **SHA (tag)** — the short commit id, like `a1b2c3d`. Each image is named after
+  the commit it was built from, so the SHA says exactly which code runs.
+- **Compose project** — a named group of containers. `kidlearn-dev` and
+  `kidlearn-prod` are separate groups, so a command for one never touches the
+  other.
+- **Volume** — the disk space a container keeps its data in. `dev-postgres`
+  stores the dev database in a volume, so it survives a restart.
+
 ## Step 29 · 🌐 Separate free accounts for dev
+
+**When:** one time only. Do it again only if you replace the Gemini key or the
+Cloudinary account — then also update Step 30.
 
 **Why:** if dev used production's Gemini key, one afternoon of testing the AI
 queue would use up the daily allowance and leave the real admin unable to work.
@@ -57,6 +95,11 @@ queue would use up the daily allowance and leave the real admin unable to work.
 and the three Cloudinary values.
 
 ## Step 30 · 💻🌐 Dev secrets — Parameter Store
+
+**When:** one time only. If a value changes later (a new key, a new password),
+edit just that parameter in Parameter Store and **deploy dev again** — the
+server reads these values only while `deploy.sh` runs, so the change does
+nothing until the next deploy.
 
 **Cost:** $0 (Standard tier).
 
@@ -135,6 +178,24 @@ Five ✔ lines.
 
 ## Step 31 · 🌐🖥️ DNS and HTTPS for `api.dev.kidlearn.net`
 
+**When:** one time only — both 31a and 31b. **Do not repeat 31b after a code
+change.** Caddy (the program in front of both APIs that handles HTTPS) runs in
+its own group, `kidlearn-edge`, which deploying dev or production never
+restarts. It keeps the certificate in its `caddy_data` volume and renews it by
+itself before it expires.
+
+Repeat 31b only when one of these happens:
+
+1. `deploy/edge/Caddyfile` or `deploy/edge/compose.yml` changed (copy `deploy/`
+   to the server first, [Step 20c](06-server.md)).
+2. You changed `/opt/kidlearn/edge/caddy.env`.
+3. You added a new web address that Caddy must serve.
+4. The `caddy_data` volume was deleted.
+
+Restarting it more often is not harmless: Let's Encrypt allows only 5 identical
+certificates a week, and a lost certificate past that limit means a week
+without HTTPS.
+
 **31a. The DNS record** — Cloudflare → `kidlearn.net` → **DNS → Records → Add
 record**:
 
@@ -188,9 +249,14 @@ curl -sI https://api.dev.kidlearn.net/health | head -1
 
 ## Step 32 · 🖥️ Start the dev API and its database
 
-**Why:** the same image you deployed to production, with dev's configuration.
-Nothing is built for dev specifically — that is the point of an
-environment-agnostic image.
+**When:** one time only, exactly as written here. Every later dev deploy follows
+[Every time you update dev](#every-time-you-update-dev) instead.
+
+**Why production's SHA, this once:** right now the only images in ECR are the
+ones you built for production in [Step 16](05-aws-storage-secrets-images.md).
+They work for dev too — an image holds no secrets and no environment name; dev's
+settings are added when it starts. So the quickest first deploy reuses them.
+From the next deploy on, dev runs images built from the `dev` branch.
 
 If anything under `deploy/` changed on `main` since [Step 20c](06-server.md), repeat 20c first.
 Then:
@@ -200,6 +266,11 @@ sudo su -
 cat /opt/kidlearn/prod/last-good-tag                  # the SHA production runs
 /opt/kidlearn/deploy/deploy.sh dev <that SHA> --migrate
 ```
+
+*Where does `last-good-tag` come from?* `deploy.sh` writes it itself, at the end
+of every deploy that passed its health checks — it is simply "the SHA this
+environment last deployed successfully". The server never asks GitHub for
+anything, so this file is **not** the latest commit on `main`.
 
 **`--migrate` is required on the first dev deploy.** The dev database starts
 completely empty. Without tables, the API starts but `/ready` fails, and
@@ -256,6 +327,11 @@ docker exec dev-api sh -c 'env | grep -ci supabase'  # 0 — dev holds no Supaba
 **32b. Add the starting structure** (worlds, subjects, characters, badges) — the
 dev equivalent of [Step 8d](04-database-and-services.md).
 
+**When:** once, right after the first deploy above. Again after every wipe
+(33a), and after a release that adds new starter rows to
+`packages/db/prisma/seed.ts` (for example a new avatar or badge). Running it
+when nothing is missing does no harm.
+
 *Why:* `--migrate` creates the tables and nothing else. Without this step the
 child-profile form says "No avatars are available right now" and no profile can
 be created, because the starter avatars come only from this seed.
@@ -304,6 +380,10 @@ docker exec dev-postgres psql -U kidlearn -d kidlearn -c \
 add-a-child form shows six avatars.
 
 ## Step 33 · 🖥️ Rehearse the two database procedures you hope never to need
+
+**When:** one time as a rehearsal. Later, use 33a only when a migration broke
+the dev database and you want to start it again from empty, and 33b only when
+you want dev filled with a fresh copy of production's data.
 
 **Why:** file 38 is not done until the backup has been **restored** once. A
 backup nobody has restored is a hope, not a backup. Dev is the safe place to
@@ -380,6 +460,10 @@ Write today's date in your sheet as **restore rehearsed**.
 
 ## Step 34 · 🌐 The dev website — a second Vercel project
 
+**When:** one time only. After this, Vercel builds and publishes
+`dev.kidlearn.net` by itself on every merge into `dev` — the website needs no
+manual step. Only the **API** has to be deployed by hand.
+
 **Why a second project, not a second branch of the first?** Each project has
 its own environment variables. There is then no way for the dev site to be built
 with production's API address by picking the wrong setting.
@@ -454,6 +538,8 @@ any `MX` / `TXT` records for email):
 
 ## Step 35 · 🌐 Google sign-in for dev
 
+**When:** one time only.
+
 **Why:** dev uses your **existing** local Google client, not the production
 one. The production client's secret should never sit in a less protected
 environment.
@@ -471,6 +557,10 @@ accounts listed under **Audience → Test users** can sign in to dev. That is fi
 for a dev site — add yourself.
 
 ## Step 36 · 💻📱 Dev smoke test — and prove the two are separate
+
+**When:** the whole step one time. After each later update, the short check at
+the end of the routine below is enough. Repeat 36b in full if you ever change
+the `kidlearn-dev` project's environment variables on Vercel.
 
 **36a. From your Mac:**
 
@@ -530,6 +620,172 @@ ending the same pipeline with `grep -c '<password>'` — it must print `0`.
 - Then set the **38 · provisioning** row in
   `document/implementation/00-progress-tracker.md` to ✅ Done, through a pull
   request into `dev`.
+
+## Every time you update dev
+
+**When:** each time you want new `dev` code running on `api.dev.kidlearn.net`,
+usually after merging a pull request into `dev`. Until
+[Part 12](12-automatic-deploys.md) is set up, this is done by hand; after it,
+GitHub does steps 2–4 for you.
+
+The website (`dev.kidlearn.net`) already updated itself when you merged —
+Vercel did that. This routine is for the **API** only.
+
+```
+ 💻 your Mac                       ECR                     🖥️ server
+ 1. get the latest dev code
+ 2. build two images ──push──►  kidlearn-api:<SHA>     ◄──pull── 4. deploy.sh dev <SHA>
+                                kidlearn-migrate:<SHA>
+                                        3. (only if deploy/ changed) copy the scripts
+```
+
+**Before your first time:** Docker Desktop is open on your Mac (`docker version`
+shows a `Server:` section), and the AWS command line is signed in
+(`aws sts get-caller-identity` prints your account) — both from Parts 1–2.
+
+### 1. 💻 Get the exact code you want to ship
+
+From the repository root:
+
+```bash
+git switch dev
+git pull
+git status            # must say "nothing to commit, working tree clean"
+```
+
+*Why a clean tree?* The image is named after the commit. Unsaved edits would go
+into the image without being part of that commit, so the name would lie — and a
+later rollback to that SHA would not give you the same code back.
+
+### 2. 💻 Build the two images and upload them
+
+This is [Step 16](05-aws-storage-secrets-images.md) again, from `dev` instead of
+`main`:
+
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGISTRY="$ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com"
+SHA=$(git rev-parse --short HEAD)
+
+aws ecr get-login-password --region ap-south-1 \
+  | docker login --username AWS --password-stdin "$REGISTRY"
+
+docker build --platform linux/arm64 -f apps/server/Dockerfile --target runner \
+  -t "$REGISTRY/kidlearn-api:$SHA" .
+docker build --platform linux/arm64 -f apps/server/Dockerfile --target migrate \
+  -t "$REGISTRY/kidlearn-migrate:$SHA" .
+
+docker push "$REGISTRY/kidlearn-api:$SHA"
+docker push "$REGISTRY/kidlearn-migrate:$SHA"
+
+echo "IMAGE TAG = $SHA"      # write this down — step 4 needs it
+```
+
+*Reading it, line by line:*
+
+- `ACCOUNT_ID`, `REGISTRY`, `SHA` — work out your AWS account number, your ECR
+  address in Mumbai, and the commit id that becomes the image's name.
+- `aws ecr get-login-password … | docker login …` — lets Docker upload to your
+  ECR. The login lasts 12 hours; if a push later says *no basic auth
+  credentials*, run this line again.
+- The two `docker build` lines make two images from the same
+  `apps/server/Dockerfile`. `--target runner` is the API itself;
+  `--target migrate` is a small image that only updates database tables.
+  `--platform linux/arm64` matches the server's processor (your Apple-chip Mac
+  is arm64 too, so this is fast). The final `.` means "build from this folder".
+- The two `docker push` lines upload them. The first upload is about 0.4 GB;
+  later ones send only what changed, so they are much quicker unless
+  dependencies changed.
+
+**Skip step 2** if this exact SHA was already built and pushed before — for
+example, it is the same commit production runs. ECR → **Repositories** →
+`kidlearn-api` → **Images** lists every SHA that is there.
+
+✅ **Check:** ECR (region Mumbai) → both repositories show an image tagged with
+your SHA.
+
+### 3. 🖥️ Only if `deploy/` changed: copy the scripts to the server
+
+Most updates skip this. Check from your Mac:
+
+```bash
+git diff --stat <SHA dev ran before>..HEAD -- deploy/    # no output = skip step 3
+```
+
+(The SHA dev ran before is in `/opt/kidlearn/dev/last-good-tag` on the server.)
+
+If something under `deploy/` did change, copy it from `dev` — on the server:
+
+```bash
+sudo su -
+git clone --depth 1 -b dev https://github.com/salmanbd100/kidlearn.git /tmp/kidlearn
+cp -r /tmp/kidlearn/deploy/. /opt/kidlearn/deploy/ && rm -rf /tmp/kidlearn
+```
+
+> ⚠️ **The server has one `deploy/` folder for both environments.** After this
+> copy, the next **production** deploy runs `dev`'s scripts too. That is fine
+> when the change is on its way to `main` anyway; if it is experimental, copy
+> `main`'s `deploy/` back (Step 20c) before you deploy production.
+
+If the change was inside `deploy/edge/`, also repeat Step 31b above — that is one
+of the few reasons to restart Caddy.
+
+### 4. 🖥️ Deploy
+
+On the server:
+
+```bash
+sudo su -
+/opt/kidlearn/deploy/deploy.sh dev <SHA from step 2> --migrate
+```
+
+- **`--migrate`** applies any new database migrations to the **dev** database
+  before the new API starts. Include it whenever the new code might add
+  migrations — if there are none, it simply applies nothing. It never touches
+  production's database.
+- `deploy.sh` reads dev's secrets fresh from Parameter Store, downloads the two
+  images, starts them, and waits for the health checks.
+
+✅ **Check:** the last line is
+`[deploy:dev] healthy and database reachable — deploy complete at <your SHA>`.
+
+### 5. Only if the release adds starter data
+
+If the update added new rows to `packages/db/prisma/seed.ts` — a new avatar,
+badge or world — run Step 32b above again. Otherwise skip it.
+
+### 6. 💻 Quick check
+
+```bash
+curl -s https://api.dev.kidlearn.net/health      # {"data":{"status":"ok",…}}
+```
+
+Then open <https://dev.kidlearn.net>, sign in, and try the thing you changed.
+
+### If it went wrong — roll back
+
+`deploy.sh` prints the rollback command when a deploy fails. To do it yourself,
+deploy the last SHA that worked:
+
+```bash
+sudo su -
+cat /opt/kidlearn/dev/last-good-tag                 # dev's own record — never use prod's here
+/opt/kidlearn/deploy/deploy.sh dev <that SHA>
+```
+
+No `--migrate` on a rollback: migrations only go forward. If a migration broke
+the dev database, wipe it and start again (33a, then 32b).
+
+### Common errors
+
+| You see | It means | Fix |
+|---|---|---|
+| `Cannot connect to the Docker daemon` | Docker Desktop is closed | Open Docker Desktop, wait for it to start |
+| `Unable to locate credentials` | The AWS command line is not signed in | `aws configure` ([Part 2](02-accounts.md)) |
+| `no basic auth credentials` on push | The ECR login expired (12 hours) | Run the `aws ecr get-login-password …` line again |
+| `name unknown: The repository … does not exist` | Wrong region | Use `ap-south-1` (Mumbai) everywhere |
+| `manifest unknown` from `deploy.sh` | No image with that SHA in ECR | Finish step 2, and copy the SHA it printed exactly |
+| "No avatars are available right now" on the site | The dev database has no starter data | Run 32b |
 
 ---
 
