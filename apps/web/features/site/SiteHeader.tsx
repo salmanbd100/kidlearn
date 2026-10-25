@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
+import { Logo } from "@/shared/components/Logo";
 import { SITE_ROUTES } from "./site-routes";
 import { useSiteTranslation } from "./use-site-translation";
 
@@ -20,9 +21,9 @@ export function SiteHeader() {
     <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-8 sm:py-6">
       <Link
         href={SITE_ROUTES.home}
-        className="focus-ring mr-auto inline-flex min-h-11 items-center rounded-sm font-display text-2xl font-semibold"
+        className="focus-ring mr-auto inline-flex min-h-11 items-center rounded-sm"
       >
-        {t("brand")}
+        <Logo className="h-9" />
       </Link>
       <LanguageSwitch size="default" />
       <nav

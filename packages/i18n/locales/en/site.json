@@ -1,5 +1,4 @@
 {
-  "brand": "KidLearn",
   "nav": {
     "label": "Guides",
     "parents": "Parents",
@@ -18,6 +17,68 @@
     "readFull": "Read the full document"
   },
   "home": {
+    "eyebrow": "For ages 3 to 6 · English and বাংলা",
+    "headline": "Learn, play and grow.",
+    "headlineWords": {
+      "learn": "Learn",
+      "play": "play",
+      "grow": "grow"
+    },
+    "factsLabel": "KidLearn at a glance",
+    "facts": {
+      "ages": { "value": "3–6", "label": "years old, pre-school to year one" },
+      "languages": { "value": "2", "label": "languages on every screen" },
+      "ways": { "value": "6", "label": "ways to play and learn" },
+      "ads": { "value": "0", "label": "ads, chats or things to buy" }
+    },
+    "playTitle": "Six ways to play",
+    "playLead": "Every lesson is a short game, read aloud, with big pictures and nothing to read.",
+    "play": {
+      "trace": {
+        "title": "Trace",
+        "detail": "Follow the dotted line to draw a letter or a number."
+      },
+      "match": {
+        "title": "Match",
+        "detail": "Pair a picture with its word, its sound or its twin."
+      },
+      "drag": {
+        "title": "Drag and drop",
+        "detail": "Put each thing where it belongs, like fish into the sea."
+      },
+      "puzzle": {
+        "title": "Puzzles",
+        "detail": "Fit the pieces back together to finish the picture."
+      },
+      "quiz": {
+        "title": "Quizzes",
+        "detail": "Picture questions that say well done, or try again, kindly."
+      },
+      "story": {
+        "title": "Stories",
+        "detail": "Picture books read aloud, page by page, with a moral at the end."
+      }
+    },
+    "parentsTitle": "A calm dashboard for parents",
+    "parentsLead": "Sign in with Google and see how each child is getting on, without a single notification.",
+    "parentsPoints": {
+      "progress": "Learning time, strongest subject and what needs practice, one child at a time.",
+      "reports": "A weekly report: active days, new letters and words, lessons finished, badges earned.",
+      "limits": "Daily screen-time limits and opening hours, checked before a lesson starts, never in the middle."
+    },
+    "parentsGuide": "Read the parent guide",
+    "preview": {
+      "child": "Mira",
+      "total": "142",
+      "week": "This week",
+      "minutes": "minutes",
+      "badge": "New badge",
+      "limit": "Daily limit 30 min"
+    },
+    "builtTitle": "Built in the open",
+    "builtLead": "KidLearn is open source: a typed monorepo with a Next.js app, an Express API and a Postgres database, tested end to end. Every decision is written down.",
+    "builtGuide": "How it is built",
+    "builtSource": "Read the code on GitHub",
     "lead": "A playful learning app for children aged three to six, in English and Bangla, with a calm dashboard for their parents.",
     "startLearning": "Start learning",
     "parentSignIn": "Parent sign-in",
