@@ -31,6 +31,8 @@ const GRID_SIZES = [2, 3, 4] as const;
 export interface ActivityEditorProps {
   initial: ActivityDraft;
   isBusy: boolean;
+  /** Narrower than `isBusy`, which also covers the status transitions beside the editor. */
+  isSaving: boolean;
   error?: string;
   onSubmit: (payload: { type: ActivityType; definition: unknown }) => void;
   onCancel: () => void;
@@ -39,6 +41,7 @@ export interface ActivityEditorProps {
 export function ActivityEditor({
   initial,
   isBusy,
+  isSaving,
   error,
   onSubmit,
   onCancel,
@@ -333,7 +336,11 @@ export function ActivityEditor({
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isBusy || !parsed.success}>
+          <Button
+            type="submit"
+            disabled={isBusy || !parsed.success}
+            isLoading={isSaving}
+          >
             Save activity
           </Button>
         </div>
