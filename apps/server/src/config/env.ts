@@ -148,8 +148,11 @@ const parsed = EnvSchema.safeParse(process.env);
 
 if (!parsed.success) {
   const fieldErrors = parsed.error.flatten().fieldErrors;
+  // On the server the values come from SSM via deploy.sh, not a .env file.
   console.error(
-    "Invalid environment configuration. Fix these variables in apps/server/.env:",
+    process.env.NODE_ENV === "production"
+      ? "Invalid environment configuration. Fix these SSM parameters under /kidlearn/<env>/, then re-run deploy.sh:"
+      : "Invalid environment configuration. Fix these variables in apps/server/.env:",
   );
   for (const [key, messages] of Object.entries(fieldErrors)) {
     console.error(`  - ${key}: ${messages?.join(", ")}`);

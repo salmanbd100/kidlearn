@@ -56,10 +56,21 @@ Namecheap (roughly $10–15 for a `.net`).
 6. Back on Cloudflare, click **Check nameservers now**.
 
 ✅ **Check:** Cloudflare emails you "**kidlearn.net is now active**", and the
-domain shows **Active** on the Cloudflare dashboard. Until then, carry on with
-Parts 4–5; you need DNS only in [Step 19](06-server.md).
+domain shows **Active** on the Cloudflare dashboard. You can also ask from 💻
+your Mac (`dig` asks the internet's phone book a question; `NS` means "who runs
+your phone book?"):
 
-**Why grey cloud, not orange?** Orange means "Cloudflare's proxy": traffic goes
+```bash
+dig NS kidlearn.net +short
+# ada.ns.cloudflare.com.
+# bob.ns.cloudflare.com.      ← the two names from Step 6, not *.registrar-servers.com
+```
+
+Until then, carry on with Parts 4–5; you need DNS only in [Step 19](06-server.md),
+where you add the first record.
+
+**Why grey cloud, not orange?** (Golden rule 3 — it matters from
+[Step 19](06-server.md) on, when you add records.) Orange means "Cloudflare's proxy": traffic goes
 *through* Cloudflare, which then shows its own address instead of yours. That
 breaks two things here — Caddy cannot prove to Let's Encrypt that it owns
 `api.kidlearn.net`, and Vercel cannot issue its certificate. Grey means

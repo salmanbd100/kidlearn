@@ -8,15 +8,15 @@
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
 >
 > **Status.** The repository half is implemented and verified locally: both Dockerfiles, `deploy/`,
-> `apps/web/proxy.ts`, `trust proxy`, the `SITE_NOINDEX` headers and the CI image builds. **No AWS,
-> Vercel, Cloudflare or Supabase resource has been provisioned yet**, so everything about the running
-> system is a plan.
+> `apps/web/proxy.ts`, `trust proxy`, the `SITE_NOINDEX` headers and the CI image builds. Provisioning
+> is tracked in the **38 · provisioning** row of [`00-progress-tracker.md`](00-progress-tracker.md);
+> until its acceptance criteria below are ticked, statements about the running system are a plan.
 >
 > **Where things live.** This file holds the goal, decisions and why, cost, acceptance criteria and
 > scope. The repository files under `deploy/`, `apps/*/Dockerfile` and `.github/workflows/ci.yml` are
-> the source of truth for what runs. `document/deployment/` is the one-time
-> provisioning procedure. `document/runbook.md` is topology, every value's home, and steady-state
-> operations. Nothing below is repeated there.
+> the source of truth for what runs. [`document/deployment/`](../deployment/README.md) is the one-time
+> provisioning procedure. [`document/runbook.md`](../runbook.md) is topology, every value's home, and
+> steady-state operations. Nothing below is repeated there.
 >
 > **Settled 2026-09-10: there is no parental PIN gate.** The parent area is reached by Google sign-in
 > alone; account deletion keeps its single-use confirmation token, which is now the whole guard on it.
@@ -25,7 +25,7 @@
 
 Put KidLearn on **Vercel for the frontend and one `t4g.small` EC2 instance in `ap-south-1` for the
 two APIs**, for roughly **$13.73/month**, in two environments: production (`main`) and development
-(`dev`). The hostname and database for each are the topology table in `runbook.md` §1.
+(`dev`). The hostname and database for each are the topology table in [`runbook.md` §1](../runbook.md).
 
 Caddy fronts the two API hostnames with automatic Let's Encrypt certificates; Vercel terminates TLS
 for the three web hostnames itself. Media stays on Cloudinary. Every server secret lives in SSM
@@ -155,16 +155,16 @@ tables and operations are in the runbook; running configuration is in the reposi
    `aws-1-ap-southeast-1.pooler.supabase.com` project in `packages/db/.env.example` is your local
    development database and is untouched. This design uses one of the free tier's two project
    slots, because dev deliberately does not touch Supabase. The free-tier ceilings (size, egress,
-   inactivity pause, no PITR) are in `runbook.md` §12. Migrations are applied with
+   inactivity pause, no PITR) are in [`runbook.md` §12](../runbook.md). Migrations are applied with
    `prisma migrate deploy` against `DIRECT_URL` and never `migrate dev`; the seed and the first
    `AdminUser` (`pnpm --filter server seed:admin`) are run once, from your own machine
-   (`deployment/` Steps 8, 14).
+   ([`deployment/` Steps 8](../deployment/04-database-and-services.md) and [14](../deployment/05-aws-storage-secrets-images.md)).
 
 2. **Development database — a `postgres:16-alpine` container on the box**, on the dev Compose
    project's internal network only, with a named volume and **no published host port**. It is
    **deliberately disposable and never backed up**: dev is where a migration gets tried against a
-   real deploy, and a bad one is undone by wiping and reseeding (`runbook.md` §7). Its connection
-   string must not copy production's `pgbouncer`/`connection_limit` shape (`runbook.md` §4), and the
+   real deploy, and a bad one is undone by wiping and reseeding ([`runbook.md` §7](../runbook.md)). Its connection
+   string must not copy production's `pgbouncer`/`connection_limit` shape ([`runbook.md` §4](../runbook.md)), and the
    migrate job is gated on a `pg_isready` healthcheck (`deploy/app/compose.dev.yml`).
 
 3. **Frontend on Vercel — two Hobby projects from the same repository**, one tracking `main`, one
@@ -174,17 +174,22 @@ tables and operations are in the runbook; running configuration is in the reposi
    this design would rather not depend on. The cost is one extra project to configure, once.
    Project settings, the Turbo build command (a bare `next build` fails on the missing
    `@kidlearn/types` `dist`), build-time variable behaviour and the Hobby licence and
-   no-overage-billing facts are in `runbook.md` §4 and §10; the Hobby facts are what trigger
+   no-overage-billing facts are in [`runbook.md` §4](../runbook.md) and §10; the Hobby facts are what trigger
    requirement 5.
 
 4. **Gating the dev site: basic auth in `apps/web/proxy.ts`.** Caddy no longer sees
    `dev.kidlearn.net`, so its `basic_auth` cannot do this job, and Vercel's Password Protection is a
    paid feature. Next 16 renamed the `middleware` convention to `proxy`; read the docs under
    `node_modules/next/dist/docs/` before editing it, per `apps/web/AGENTS.md`. The gate is active only
-   where `DEV_SITE_BASIC_AUTH` is set (dev), and is deliberately not `NEXT_PUBLIC_` — that prefix
+   where `DEV_SITE_BASIC_AUTH` is set, and is deliberately not `NEXT_PUBLIC_` — that prefix
    would inline the credential into the client bundle. The comparison is not constant-time and does
    not need to be: this is a speed bump that keeps an unreviewed-content build out of casual reach,
    not a security boundary. The boundary is that dev holds no production data.
+
+   **Settled since: the gate is off by default.** `DEV_SITE_BASIC_AUTH` is unset in the dev Vercel
+   project, so `dev.kidlearn.net` is open to anyone with the address and `SITE_NOINDEX` keeps it out
+   of search results. The proxy stays so the prompt can be switched on with one variable and a
+   redeploy ([`runbook.md` §13](../runbook.md)).
 
    **No basic auth on `api.dev.kidlearn.net`.** The Google OAuth callback lands on the API host, and
    a prompt mid-redirect breaks the flow. After the callback, better-auth redirects back to
@@ -199,11 +204,11 @@ tables and operations are in the runbook; running configuration is in the reposi
 5. **Keep the web Dockerfile as an escape hatch — built, never deployed.** `apps/web/Dockerfile` and
    `output: "standalone"` in `next.config.ts` stay in the repository even though nothing deploys them.
    Two conditions would end the Vercel arrangement at short notice — a commercial trigger, or a
-   paused project on a ceiling (`runbook.md` §10) — and the cost of being ready is one file and about
+   paused project on a ceiling ([`runbook.md` §10](../runbook.md)) — and the cost of being ready is one file and about
    thirty minutes. **CI builds it** (the `gates` job in `.github/workflows/ci.yml`, on x86 and never
    pushed) so it cannot rot; that step belongs inside `gates`, whose name is the status-check
    context file 39's ruleset requires, and must not be renamed or split into a second job. No ECR
-   repository holds the image and no Compose file references it. The procedure is `runbook.md` §11,
+   repository holds the image and no Compose file references it. The procedure is [`runbook.md` §11](../runbook.md),
    and running it is a response to a trigger, not a task in this file.
 
 6. **Images: one Dockerfile, two targets, two ECR repositories**, all `linux/arm64` because `t4g` is
@@ -235,16 +240,16 @@ tables and operations are in the runbook; running configuration is in the reposi
 8. **Caddy as the only exposed process on the box,** in its own Compose project so that redeploying
    either API stack never restarts the thing holding the certificates (`deploy/edge/`). It obtains
    and renews both API certificates itself, and starts on the ACME staging endpoint so a DNS mistake
-   costs nothing (`runbook.md` §6). The endpoint and email are read from
+   costs nothing ([`runbook.md` §6](../runbook.md)). The endpoint and email are read from
    `/opt/kidlearn/edge/caddy.env` on the box, never edited into the tracked Caddyfile, which every
    refresh of `deploy/` overwrites. Application containers are reached by network alias, never by
-   service name — see `runbook.md` §1. No application container publishes a host port; only Caddy
+   service name — see [`runbook.md` §1](../runbook.md). No application container publishes a host port; only Caddy
    binds 80 and 443.
 
 9. **Networking, kept deliberately small.** Default VPC, one public subnet, one security group, an
    Elastic IP so the address survives a stop/start, and **no port 22 rule at all** — shell access is
-   SSM Session Manager, which needs no inbound rule and leaves an audit trail (`runbook.md` §2;
-   rules in `deployment/` Step 18).
+   SSM Session Manager, which needs no inbound rule and leaves an audit trail ([`runbook.md` §2](../runbook.md);
+   rules in [`deployment/` Step 18](../deployment/06-server.md)).
 
 10. **Memory limits on the dev stack only**, and the production API left uncapped. The point is not
     to save memory but to make the kernel's choice deterministic: under pressure the OOM killer
@@ -257,22 +262,22 @@ tables and operations are in the runbook; running configuration is in the reposi
     writes its own environment's parameters into a root-owned, mode `0600` file referenced by that
     stack's `env_file`. No secret is committed, baked into an image, or held by GitHub. The frontend's
     values are not secrets and live in each Vercel project's settings. The full variable inventory,
-    and where each lives, is `runbook.md` §4; `src/config/env.ts` is the enforcement for the API half.
+    and where each lives, is [`runbook.md` §4](../runbook.md); `src/config/env.ts` is the enforcement for the API half.
     `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` stay out of both deployments.
 
-12. **Environment variable matrix — now `runbook.md` §4.** The inventory of every variable, where
+12. **Environment variable matrix — now [`runbook.md` §4](../runbook.md).** The inventory of every variable, where
     it lives (SSM, Compose or Vercel) and its production and development values is kept there, and
     `src/config/env.ts` is its enforcement for the API half. It is one place, not two.
 
 13. **DNS on Cloudflare, free tier,** proxy off on every record. Route 53 would work identically and
     costs $0.50/month for the hosted zone; Cloudflare is the same job for nothing. `api.dev` is an
     ordinary four-label name that Let's Encrypt issues for with no wildcard and no DNS challenge. The
-    five records and why proxying is off are `runbook.md` §5.
+    five records and why proxying is off are [`runbook.md` §5](../runbook.md).
 
 14. **Two Google OAuth clients, not one.** Extend the existing client to serve local *and* dev;
     create a **new** client for production only. One client with four entries would work and is
     worse: the production client secret would then be the same string sitting in a dev environment
-    that is deliberately less locked down. Origins and redirect URIs are `runbook.md` §13.
+    that is deliberately less locked down. Origins and redirect URIs are [`runbook.md` §13](../runbook.md).
 
 15. **Separate third-party accounts where they are free, shared where they are not.** Dev exercising
     the AI Queue must not consume production's daily allowance — the caps are sized right at the
@@ -283,18 +288,18 @@ tables and operations are in the runbook; running configuration is in the reposi
       library, which the admin UI would otherwise show as real assets.
     - **Google Cloud TTS** — *shared*, because the key needs a billing account attached and a second
       one is friction for no isolation gain. Dev's daily job caps are lower to bound what it can
-      spend (`runbook.md` §4).
+      spend ([`runbook.md` §4](../runbook.md)).
 
 16. **Nightly database backup — production only.** Supabase's free tier has no point-in-time
     recovery, so the backup is yours to own: a cron entry on the box dumps production to a private
-    S3 bucket (`deploy/backup.sh`, `runbook.md` §8). **Restore it once, into the dev Postgres
+    S3 bucket (`deploy/backup.sh`, [`runbook.md` §8](../runbook.md)). **Restore it once, into the dev Postgres
     container, before declaring this file done** — which is also the fastest way to get realistic
     data into dev, and an unrehearsed backup is a guess. The dev database is not backed up.
 
 17. **Weekly reports cron — production only.** The weekly parent-report job
     (`POST /api/admin/jobs/weekly-reports`, authenticated with `CRON_SECRET`) is triggered from a
     cron entry on the box rather than cron-job.org: one fewer external account, and the secret stays
-    in SSM (`deploy/weekly-reports.sh`, `runbook.md` §9). Dev runs no scheduled jobs.
+    in SSM (`deploy/weekly-reports.sh`, [`runbook.md` §9](../runbook.md)). Dev runs no scheduled jobs.
 
 18. **Cold starts are gone; the UX is not.** An always-on instance does not sleep and Vercel serves
     the frontend from its edge network, so NFR-PERF-04's 30–60 second first request disappears along
@@ -320,7 +325,7 @@ tables and operations are in the runbook; running configuration is in the reposi
     `t4g` instances default to **unlimited** CPU-credit mode, which silently bills surplus credits
     rather than throttling; that is the right default for a live site, but only with an alarm behind
     it. $20 sits comfortably above the $13.73 steady state and still catches a runaway within a day.
-    Thresholds are in `deployment/` Step 4.
+    Thresholds are in [`deployment/` Step 4](../deployment/02-accounts.md).
 
 ## Technical Approach & Suggestions
 
@@ -355,19 +360,19 @@ document/project-requirement-details.md   # §9 — Vercel frontend, two environ
 
 ### Image builds
 
-Use `node:22-bookworm-slim` for every stage, **not Alpine**. Prisma's query engine and `argon2` both
-link against glibc and OpenSSL 3; musl means chasing
-`binaryTargets = ["linux-musl-arm64-openssl-3.0.x"]` and native rebuilds for no meaningful size win.
-Generating the Prisma client inside the same base image and architecture as the runtime makes `native`
-resolve correctly with no `binaryTargets` entry. `argon2` is a native module; its prebuilt binaries
-cover `linux/arm64`, and if the builder ever falls back to compiling it the stage needs
-`python3 make g++`.
+Use `node:22-bookworm-slim` (pinned by version and digest) for every stage, **not Alpine**. Prisma's
+query engine links against glibc and OpenSSL 3; musl means chasing
+`binaryTargets = ["linux-musl-arm64-openssl-3.0.x"]` for no meaningful size win. Generating the
+Prisma client inside the same base image and architecture as the runtime makes `native` resolve
+correctly with no `binaryTargets` entry.
 
 The shape of `apps/server/Dockerfile` is the file itself; the decisions behind it are:
 
-- **Every workspace `package.json` is copied** before `pnpm install --frozen-lockfile`, not just the
-  ones the server needs. `pnpm-workspace.yaml` globs `apps/*` and `packages/*`, so a missing manifest
-  is a missing lockfile importer and surfaces as `ERR_PNPM_OUTDATED_LOCKFILE`.
+- **`turbo prune server --docker`** reduces the repository to `server` and the workspaces it depends
+  on before `pnpm install --frozen-lockfile`, so the install layer survives every change that does
+  not touch one of their manifests. (The first version copied every workspace `package.json`
+  instead — a missing manifest is a missing lockfile importer, `ERR_PNPM_OUTDATED_LOCKFILE` — and
+  any `apps/web` change invalidated it.)
 - `pnpm deploy --filter=server --prod` runs with the **hoisted** node linker so the `@kidlearn/db`
   and `@kidlearn/types` workspace packages are injected into the output tree, followed by a
   `prisma generate` in that tree.
@@ -386,13 +391,13 @@ restart production and neither can restart Caddy. `deploy/app/compose.yml` descr
 API stacks share and `deploy/app/compose.dev.yml` describes exactly how dev differs — which is the
 property that stops the environments drifting apart. Production runs `-f compose.yml`; dev runs
 `-f compose.yml -f compose.dev.yml`. Both services are named `api`, which collides on the shared
-network; the trap and its fix are `runbook.md` §1.
+network; the trap and its fix are [`runbook.md` §1](../runbook.md).
 
 ### IAM
 
 The **instance role** needs `AmazonSSMManagedInstanceCore`, ECR pull, `ssm:GetParametersByPath` on
 the two parameter paths with `kms:Decrypt`, and S3 access on the backup bucket alone. Nothing wider.
-The policy is `deployment/` Step 17. The **GitHub OIDC roles** are file 38a's; do not create them here.
+The policy is [`deployment/` Step 17](../deployment/06-server.md). The **GitHub OIDC roles** are [file 38a](38a-github-actions-continuous-deployment.md)'s; do not create them here.
 Vercel needs no AWS credential at all — it builds and serves static and rendered output and never
 talks to AWS.
 
@@ -409,10 +414,8 @@ first thing the Vercel deployment does is talk to something that already works.
    `pnpm lint && pnpm typecheck && pnpm test` pass. (~50 min)
 2. Write both Dockerfiles and `.dockerignore`; build both for `linux/arm64` locally and run the
    server container against your local Postgres to prove it boots before AWS is involved. This is
-   where `pnpm deploy`, `argon2`, the workspace-manifest question and the `dist/server.js` entry
-   either work or need the documented fallbacks (`pnpm fetch` then `pnpm install --offline
-   --frozen-lockfile` for the manifests; `--legacy` or `inject-workspace-packages=true` for
-   `pnpm deploy`) — all cheap here and expensive on the box. Add the web-image build step to `gates`
+   where `pnpm deploy`, the workspace-manifest question and the `dist/server.js` entry either work
+   or need fixing — cheap here and expensive on the box. Add the web-image build step to `gates`
    in the same commit. **"It boots" means `curl localhost:4000/health` returns the envelope from
    inside the container**, not that `docker run` printed a banner. (~75 min)
 3. Provisioning, as `document/deployment/`'s steps (estimates are this file's):
@@ -434,8 +437,8 @@ first thing the Vercel deployment does is talk to something that already works.
 4. Verify the isolation claims: dev cannot reach Supabase, production cannot reach the dev Postgres,
    each frontend calls only its own API host, and the dev wipe-and-reseed rebuilds dev from nothing.
    (~25 min)
-5. Full smoke test on a real phone against production (`runbook.md` §14), then the runbook
-   placeholders (`deployment/09-paperwork.md`), spec §9 and the tracker. (~45 min)
+5. Full smoke test on a real phone against production ([`runbook.md` §14](../runbook.md)), then the runbook
+   placeholders ([`deployment/09-paperwork.md`](../deployment/09-paperwork.md)), spec §9 and the tracker. (~45 min)
 
 ## Acceptance Criteria
 
@@ -449,7 +452,7 @@ first thing the Vercel deployment does is talk to something that already works.
       `src/config/auth.ts` contains no `SameSite=None` override.
 - [ ] The same sign-in works in **Safari on iOS** with cross-site tracking prevention enabled.
 - [ ] A request with a forged `Origin` header gets no CORS allow header.
-- [ ] The smoke test in `runbook.md` §14 passes end-to-end on a phone. If a deployed build ever
+- [ ] The smoke test in [`runbook.md` §14](../runbook.md) passes end-to-end on a phone. If a deployed build ever
       asks for a PIN, it is running an image older than 2026-09-09 (FR-AUTH-04, retired).
 - [ ] `https://api.kidlearn.net/docs` returns **404** — `ENABLE_API_DOCS` is `false` in production.
 - [ ] `https://kidlearn.net` carries **no** `X-Robots-Tag` header — `SITE_NOINDEX` is unset there.
@@ -461,17 +464,20 @@ first thing the Vercel deployment does is talk to something that already works.
 
 **Development**
 
-- [ ] `https://dev.kidlearn.net` returns `401` with a `WWW-Authenticate` header, then serves the app on
-      valid credentials; `https://api.dev.kidlearn.net/health` returns the envelope with no prompt;
-      both carry `X-Robots-Tag: noindex`.
+- [ ] With `DEV_SITE_BASIC_AUTH` unset (the default, requirement 4), `https://dev.kidlearn.net` serves
+      the app with no prompt; set once as a test, it returns `401` with a `WWW-Authenticate` header and
+      serves the app on valid credentials. `https://api.dev.kidlearn.net/health` returns the envelope
+      with no prompt either way; both hosts carry `X-Robots-Tag: noindex`.
 - [ ] A parent signs in with Google on `https://dev.kidlearn.net` and the session survives a reload —
-      proving the OAuth callback works through the basic-auth boundary without a second prompt.
+      and, during the test with the password on, through the basic-auth boundary without a second
+      prompt.
 - [ ] `https://api.dev.kidlearn.net/docs` **loads** — `ENABLE_API_DOCS` is `true` in dev.
 - [ ] `DEV_SITE_BASIC_AUTH` does **not** appear anywhere in the deployed client bundle.
 - [ ] The dev API's `DATABASE_URL` points at `dev-postgres` and contains **no** `pgbouncer` or
       `connection_limit` parameter.
-- [ ] The dev wipe-and-reseed (`runbook.md` §7) rebuilds dev from nothing in one documented sequence.
-- [ ] The dev Postgres publishes **no** host port: `ss -tlnp` on the box shows only Caddy on 80/443.
+- [ ] The dev wipe-and-reseed ([`runbook.md` §7](../runbook.md)) rebuilds dev from nothing in one documented sequence.
+- [ ] The dev Postgres publishes **no** host port: `ss -tlnp` on the box shows only Caddy on 80/443
+      (plus `sshd` on 22, which the security group keeps closed from outside).
 
 **Both**
 
@@ -484,7 +490,7 @@ first thing the Vercel deployment does is talk to something that already works.
       Cloudinary clouds; a session cookie from one environment is rejected by the other.
 - [ ] Under a throttled network the web client's loader and retry appear and the request completes —
       never a raw error (NFR-PERF-04).
-- [ ] Rollback rehearsed once per environment, **both halves** (`runbook.md` §3).
+- [ ] Rollback rehearsed once per environment, **both halves** ([`runbook.md` §3](../runbook.md)).
 - [ ] `free -m` on the box under both stacks shows at least ~700 MB available, and the dev containers
       carry their `mem_limit` values (`docker stats`).
 - [ ] `apps/web/Dockerfile` builds green in CI even though nothing deploys it (requirement 5) —
@@ -492,7 +498,7 @@ first thing the Vercel deployment does is talk to something that already works.
       the runbook.
 - [ ] The AWS Budgets alarm exists at $20/month and the first full day's Cost Explorer figure is
       within ~10% of the table above.
-- [ ] Every variable in `runbook.md` §4 exists in the right SSM path, Compose file or Vercel project,
+- [ ] Every variable in [`runbook.md` §4](../runbook.md) exists in the right SSM path, Compose file or Vercel project,
       and both `.env.example` files match it.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass locally, and `gates` is green on the pull
       request (`gh pr checks`).
@@ -506,7 +512,7 @@ first thing the Vercel deployment does is talk to something that already works.
   once, deliberately: an automated pipeline for a deploy nobody has performed manually is a pipeline
   that fails on something the author never saw.
 - **HTTP hardening** — helmet, the per-IP flood guard and the body limit are in the API already
-  (`apps/server/src/shared/middleware/security.ts`); the limits are `runbook.md` §12. Anything
+  (`apps/server/src/shared/middleware/security.ts`); the limits are [`runbook.md` §12](../runbook.md). Anything
   further is a code change with its own tests, not a deployment step.
 - **Actually executing the escape hatch.** Requirement 5 keeps the frontend Dockerfile working and
   the runbook writes down the procedure.

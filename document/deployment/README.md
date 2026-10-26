@@ -10,7 +10,7 @@
 **Time:** about one full day for production, half a day for dev, half a day for
 automatic deploys. You can stop between any two steps.
 **Cost:** about **$14 per month** (AWS), plus your domain. Everything else is free —
-the service-by-service breakdown is [0.12](00-understand.md).
+the service-by-service breakdown is [0.12](00-understand.md#012-what-it-costs).
 
 ## The journey
 
@@ -39,34 +39,41 @@ means the same step whichever file mentions it.
 | | [Troubleshooting](troubleshooting.md) — what you see, what to check; and what costs money or locks you out | | | |
 
 Update the **Status** column as you go — it is the one place that says where you
-are. The CI gates (file 39) are already done; [Part 1.5](01-prepare-mac-and-github.md)
+are. The CI gates (file 39) are already done;
+[Part 1.5](01-prepare-mac-and-github.md#15--how-github-fits-in-read-nothing-to-do-yet)
 explains what they check.
 
 ## Where you work
 
-| Icon | Place | What you do there |
-|---|---|---|
-| 🌐 | A website (AWS, Vercel, Cloudflare, GitHub…) | Click buttons, fill forms |
-| 💻 | Terminal on **your Mac**, inside the `kidlearn` folder | Database setup, building images |
-| 🖥️ | Terminal **on the server** (opened in the browser) | Start Caddy and the API, set up cron |
-| 📱 | Your phone | Testing what a parent actually sees |
+Every command block is marked with one of these. **Look at the prompt before you
+paste** — a command run in the wrong terminal fails, or worse, half-works.
+
+| Icon | Place | What you do there | How to tell you are there |
+|---|---|---|---|
+| 🌐 | A website (AWS, Vercel, Cloudflare, GitHub…) | Click buttons, fill forms | — |
+| 💻 | Terminal on **your Mac**, inside the `kidlearn` folder | Database setup, building images | The prompt ends in `%`, e.g. `salman@MacBook kidlearn %` |
+| 🖥️ | Terminal **on the server** (Session Manager, in the browser — [Step 20a](06-server.md)) | Start Caddy and the API, set up cron | The prompt is `sh-5.2$`, or `[root@ip-172-31-…]#` after `sudo su -` |
+| 📱 | Your phone | Testing what a parent actually sees | — |
+
+Anything in `<angle brackets>` or marked "e.g." is a **placeholder**: replace
+it with your own value, and do not type the `< >` themselves.
 
 ## How to work through a file
 
 1. Read the box at the top: what you finish with, and what must be done first.
-2. Do one step at a time. Do not skip the **✅ Expect** checks — each one proves
+2. Do one step at a time. Do not skip the ✅ **Check** lines — each one proves
    the step worked before the next step builds on it.
-3. Write every value you create into your values sheet ([0.11](00-understand.md)).
+3. Write every value you create into your values sheet ([0.11](00-understand.md#011-your-values-sheet)).
 4. When something does not match, stop and open [Troubleshooting](troubleshooting.md)
    before trying anything clever.
-5. Re-read the golden rules ([0.10](00-understand.md)) before Parts 6, 11 and 12.
+5. Re-read the golden rules ([0.10](00-understand.md#010-golden-rules--read-these-twice)) before Parts 6, 11 and 12.
 
 ## Related documents
 
-- `document/runbook.md` — what you open *after* you are live, when something breaks.
-- `document/implementation/38-deployment-aws-docker.md` — the design decisions (why
-  EC2 and not Fargate, why Mumbai, the cost table).
-- `document/implementation/38a-github-actions-continuous-deployment.md` — the
-  automation Part 12 sets up.
+- [`runbook.md`](../runbook.md) — what you open *after* you are live, when something breaks.
+- [`38-deployment-aws-docker.md`](../implementation/38-deployment-aws-docker.md) — the
+  design decisions (why EC2 and not Fargate, why Mumbai, the cost table).
+- [`38a-github-actions-continuous-deployment.md`](../implementation/38a-github-actions-continuous-deployment.md)
+  — the automation [Part 12](12-automatic-deploys.md) sets up.
 
 You do not need any of them to follow this guide.

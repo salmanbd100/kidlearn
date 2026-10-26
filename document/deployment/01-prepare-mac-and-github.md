@@ -11,22 +11,25 @@
 **Why:** you build the server's Docker images and set up the database from your
 Mac, so these tools must be there.
 
-Open Terminal and run:
+Open Terminal (**Cmd-Space**, type `Terminal`, Enter). The prompt ends in
+`%`, e.g. `salman@MacBook ~ %` — that is your 💻 Mac. Run one line at a time
+(everything after `#` is a note, not part of the command):
 
 ```bash
-git --version      # any version
-node --version     # must start with v22
-pnpm --version     # must start with 9.
-docker version     # must show "Server:" — Docker Desktop must be OPEN
-aws --version      # aws-cli/2.something
+git --version      # e.g. git version 2.50.1
+node --version     # must start with v22, e.g. v22.20.0
+pnpm --version     # must start with 9., e.g. 9.15.0
+docker version     # must show a "Server:" section — Docker Desktop must be OPEN
+aws --version      # e.g. aws-cli/2.31.4 Python/3.13.7 Darwin/25.6.0
 ```
 
 If something is missing:
 
 - **Docker Desktop:** download from <https://docs.docker.com/desktop/>, install,
   then open it once (whale icon in the menu bar).
-- **AWS CLI:** `brew install awscli`
-- **Node 22:** `brew install node@22` (or use `nvm install 22`).
+- **AWS CLI:** `brew install awscli` (needs [Homebrew](https://brew.sh)).
+- **Node 22:** `nvm install` inside the repo reads `.nvmrc` (which says `22`);
+  or `brew install node@22`.
 - **pnpm:** `corepack enable` then `corepack prepare pnpm@9.15.0 --activate`
 
 ✅ **Check:** all five commands print a version, and `docker version` shows a
@@ -68,7 +71,8 @@ docker build  apps/server/Dockerfile --target runner  │ so a broken Dockerfile
 docker build  apps/server/Dockerfile --target migrate ┘ in the PR, not at deploy time
 ```
 
-Those Docker builds are **never uploaded** — CI builds them only to prove they
+The web image is a spare kept in working order in case the site ever has to
+leave Vercel. Those Docker builds are **never uploaded** — CI builds them only to prove they
 still work. The images that actually run on the server you build yourself in
 [Step 16](05-aws-storage-secrets-images.md) (until [Part 12](12-automatic-deploys.md) automates it).
 
@@ -106,18 +110,19 @@ website and the server gets old deploy scripts.
    (About 5 minutes. If it goes red, fix it on `dev` first — Part 1.5.)
 4. Click **Merge pull request**.
 
-Then on your Mac:
+Then 💻 on your Mac:
 
 ```bash
-cd ~/Documents/Me/kidlearn
-git checkout main
-git pull
-ls deploy          # must show: app  backup.sh  bootstrap.sh  deploy.sh  edge  weekly-reports.sh
-pnpm install
-pnpm db:generate
+cd ~/Documents/Me/kidlearn     # go into the repo
+git checkout main              # switch to the main branch
+git pull                       # download what you just merged
+ls deploy                      # list the deploy folder
+pnpm install                   # install dependencies
+pnpm db:generate               # generate the Prisma database client
 ```
 
-✅ **Check:** `ls deploy` shows the six items above.
+✅ **Check:** `git branch --show-current` prints `main`, and `ls deploy` prints
+`app  backup.sh  bootstrap.sh  deploy.sh  edge  weekly-reports.sh`.
 
 > From now on, when this guide says "on your Mac, in the repo", be on the
 > **`main`** branch.
@@ -125,7 +130,7 @@ pnpm db:generate
 ## 2.5 · What is in `deploy/` (read, nothing to do)
 
 These six items are the whole server side of the deployment. You will copy them
-onto the server in [Step 20](06-server.md).
+onto the server in [Step 20c](06-server.md).
 
 ```
 deploy/
@@ -141,7 +146,7 @@ deploy/
 │   ├── compose.yml     Describes the API container (and the migrate job) for
 │   │                   ANY environment — the environment name is a variable.
 │   └── compose.dev.yml Extra pieces only dev has: its own Postgres, memory caps.
-├── deploy.sh           The release button. "deploy.sh prod <sha>" — Part 6.
+├── deploy.sh           The release button. "deploy.sh prod <sha>" — Step 23.
 ├── backup.sh           Nightly database dump to S3 — Step 27.
 └── weekly-reports.sh   Monday trigger for parent reports — Step 27.
 ```

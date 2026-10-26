@@ -8,9 +8,10 @@
 
 ## Step 8 · 🌐💻 Production database — Supabase
 
-**Cost:** $0 — Supabase Free plan. The catches: a project with no use for 7
-days pauses, and there is no point-in-time restore ([Step 12](05-aws-storage-secrets-images.md) covers that). Pro is
-$25/month if you outgrow it.
+**Cost:** $0 — Supabase Free plan. The catches: it pauses after 7 idle days
+(see the end of this step), and there is no point-in-time restore
+([Step 12](05-aws-storage-secrets-images.md) covers that). Pro is $25/month if
+you outgrow it.
 
 **Why:** all KidLearn data (parents, children, lessons, progress) lives here.
 
@@ -28,18 +29,21 @@ $25/month if you outgrow it.
 **8b. Copy two connection strings**
 
 Click **Connect** (top of the project page). You need two strings. In each,
-replace `[YOUR-PASSWORD]` with your database password.
+replace `[YOUR-PASSWORD]` — **square brackets included** — with your database
+password: `…postgres.abcd1234:[YOUR-PASSWORD]@aws-…` becomes
+`…postgres.abcd1234:Xk3m9QpL2v7RtY8w@aws-…`.
 
 | Name in your sheet | Which one in Supabase | Port | Add to the end |
 |---|---|---|---|
 | `DATABASE_URL` | **Transaction pooler** | `6543` | `?pgbouncer=true&connection_limit=5` |
 | `DIRECT_URL` | **Session pooler** | `5432` | nothing |
 
-They look like this:
+They look like this (your project ref and host come from Supabase — copy
+them as shown; only the password and the ending are yours to change):
 
 ```
-DATABASE_URL = postgresql://postgres.abcd1234:PASSWORD@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5
-DIRECT_URL   = postgresql://postgres.abcd1234:PASSWORD@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
+DATABASE_URL = postgresql://postgres.abcd1234:Xk3m9QpL2v7RtY8w@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5
+DIRECT_URL   = postgresql://postgres.abcd1234:Xk3m9QpL2v7RtY8w@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
 ```
 
 *Why two?*
@@ -63,29 +67,39 @@ pooler** gives that.
 >
 > ⚠️ It must be `connection_limit=5`, **not** `=1` like many online guides say.
 
-**8c. Create the tables** — 💻 on your Mac, in the repo:
+**8c. Create the tables** — 💻 on your Mac, in the repo
+(`cd ~/Documents/Me/kidlearn`). Replace the two example strings with yours from
+8b, **keeping the single quotes** around each (the `?` and `&` in the URL would
+otherwise confuse the shell):
 
 ```bash
-DATABASE_URL='<your DATABASE_URL>' \
-DIRECT_URL='<your DIRECT_URL>' \
+DATABASE_URL='postgresql://postgres.abcd1234:Xk3m9QpL2v7RtY8w@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5' \
+DIRECT_URL='postgresql://postgres.abcd1234:Xk3m9QpL2v7RtY8w@aws-0-ap-south-1.pooler.supabase.com:5432/postgres' \
 pnpm --filter @kidlearn/db exec prisma migrate deploy
 ```
+
+*Reading it:* `NAME='value'` in front of a command sets that variable for that
+one command only. The `\` at a line end means "the command continues on the
+next line" — it must be the very last character. `pnpm --filter @kidlearn/db
+exec` runs `prisma` inside `packages/db`, where the database schema lives.
 
 *Why:* the empty database has no tables. `migrate deploy` creates them from the
 migration files in `packages/db/prisma/migrations/`, and records each one in a
 table called `_prisma_migrations` so it never runs twice. The values are typed
-in the command, so no secret is saved in a file.
+in the command, so no secret is saved in a file. Your local development
+settings do not interfere: values given on the command line win.
 
 ✅ **Check:** the last line says `All migrations have been successfully applied.`
 
 > **Never run `prisma migrate dev` against this database.** It can delete data.
 > `migrate deploy` is the only safe one.
 
-**8d. Add the starting structure** (worlds, subjects, characters, badges):
+**8d. Add the starting structure** (worlds, subjects, characters, badges) — 💻,
+the same two strings as 8c:
 
 ```bash
-DATABASE_URL='<your DATABASE_URL>' \
-DIRECT_URL='<your DIRECT_URL>' \
+DATABASE_URL='postgresql://postgres.abcd1234:Xk3m9QpL2v7RtY8w@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5' \
+DIRECT_URL='postgresql://postgres.abcd1234:Xk3m9QpL2v7RtY8w@aws-0-ap-south-1.pooler.supabase.com:5432/postgres' \
 pnpm --filter @kidlearn/db db:seed:reference
 ```
 
@@ -111,8 +125,11 @@ dashboard shows how much is used.
 **Why:** uploaded pictures and generated audio are stored here, not on your
 server, so the server's disk stays small.
 
-Cloudinary → **Dashboard** (or Settings → API Keys). Copy **Cloud name**,
-**API Key**, **API Secret** into your sheet.
+Cloudinary → **Dashboard** (or Settings → API Keys). Copy **Cloud name**
+(e.g. `dq7xkidln`), **API Key** (15 digits, e.g. `482915736204851`) and **API
+Secret** (e.g. `aB3dE5fG7hI9jK1lM3nO5pQ7rS9`) into your sheet.
+
+✅ **Check:** three values in your sheet, none of them blank.
 
 ## Step 10 · 🌐 Google keys — Gemini and Text-to-Speech
 
@@ -134,6 +151,9 @@ the lesson audio.
    **Cloud Text-to-Speech API** → Save. Save as `GOOGLE_TTS_API_KEY`.
    *Why restrict:* if the key ever leaks, it can only make speech, nothing else.
 
+✅ **Check:** two keys in your sheet. Both start with `AIza`, e.g.
+`AIzaSyD4x9…` — they look alike, so label them carefully.
+
 ## Step 11 · 🌐 Two backup monitors — healthchecks.io
 
 **Cost:** $0 — the free plan has far more checks than the two you need.
@@ -150,11 +170,15 @@ expects a "ping" every day/week and **emails you when it does not come**.
 ```
 
 1. healthchecks.io → **Add Check**. Name `kidlearn backup`. **Period: 1 day**,
-   **Grace: 2 hours**. Copy its **ping URL** (`https://hc-ping.com/…`).
+   **Grace: 2 hours**. Copy its **ping URL**, e.g.
+   `https://hc-ping.com/5b1f2c9e-8d4a-4e7b-9f3c-2a6d8e1b4c70`.
 2. **Add Check** again. Name `kidlearn weekly reports`. **Period: 7 days**,
    **Grace: 6 hours**. Copy its ping URL.
 
-Save both URLs in your sheet.
+✅ **Check:** both URLs are in your sheet, labelled — the backup one goes into
+`BACKUP_HEARTBEAT_URL` and the weekly one into `WEEKLY_REPORTS_HEARTBEAT_URL`
+in [Step 13](05-aws-storage-secrets-images.md). Both checks show as **new**
+(grey) until the server first pings them in [Step 27](08-backups-and-smoke-test.md).
 
 ---
 

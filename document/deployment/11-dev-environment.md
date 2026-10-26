@@ -24,15 +24,10 @@ before parents see it.
    kidlearn.net                                dev.kidlearn.net  (open, noindex)
 ```
 
-**What is shared and what is not** (file 38, "The isolation this design does and
-does not give you"):
-
-| | Isolated? | How |
-|---|---|---|
-| Data | ✅ Fully | Different database, different credentials, no network path between them |
-| Websites | ✅ Fully | Two Vercel projects, each with its own variables |
-| API processes | ⚠️ Softly | Separate containers and Compose projects, but **one kernel and one disk** — a dev container that fills the disk takes production down too |
-| Third-party keys | Mostly | Separate Gemini key and Cloudinary; the Text-to-Speech key is **shared**, and dev's daily job caps are lower so it cannot eat production's allowance |
+**What is shared:** data, websites and secrets are fully separate. The two
+APIs share **one disk and one memory** — a dev container that fills the disk
+takes production down too — and the Text-to-Speech key, which is why dev's
+daily AI job caps are lower.
 
 **Cost:** $0 extra on AWS — same server, same IP. Every other account used here
 is free.
@@ -57,21 +52,19 @@ at the end of this page. Each step below also starts with a **When** line.
 | 35 | Google sign-in for dev | **Once** |
 | 36 | Smoke test | **Once** in full. After each update, the short check in the routine |
 
-**Words used on this page, in one line each:**
+**Words used on this page** — *image*, *container*, *ECR* and *SHA* are in
+[0.8](00-understand.md). Three more:
 
-- **Image** — the API packed into one file, built on your Mac. It is the
-  *recipe*; it does not run by itself.
-- **Container** — a running copy of an image. `dev-api` and `dev-postgres` are
-  containers.
-- **ECR** — AWS's private shelf for images. Your Mac puts images there
-  (`docker push`); the server takes them from there (`docker pull`).
-- **SHA (tag)** — the short commit id, like `a1b2c3d`. Each image is named after
-  the commit it was built from, so the SHA says exactly which code runs.
-- **Compose project** — a named group of containers. `kidlearn-dev` and
-  `kidlearn-prod` are separate groups, so a command for one never touches the
-  other.
-- **Volume** — the disk space a container keeps its data in. `dev-postgres`
-  stores the dev database in a volume, so it survives a restart.
+- **Compose project** — a named group of containers (`-p kidlearn-dev`). A
+  command for one project never touches another, which is what keeps dev
+  commands away from production.
+- **Volume** — the disk space a container keeps its data in. The dev database
+  lives in one, so it survives a restart — and `down -v` deletes it.
+- **SSH tunnel** — a private pipe from a port on your Mac to a port on the
+  server (Step 32b).
+
+**Which terminal?** 💻 Mac prompt ends in `%`; 🖥️ server prompt ends in `#`
+after `sudo su -` (table in [Step 20a](06-server.md)).
 
 ## Step 29 · 🌐 Separate free accounts for dev
 
@@ -120,17 +113,21 @@ something else entirely. Hex is only `0-9a-f`, which is always safe there.
 *Why must the secrets differ?* `BETTER_AUTH_SECRET` signs login cookies. If dev
 and production shared it, a cookie made by dev would be accepted by production.
 
-**30b. Build the dev database URL** with your password in it:
+**30b. Build the dev database URL** — replace `<POSTGRES_PASSWORD>` (and the
+`<` `>`) with the hex value from 30a:
 
 ```
 postgresql://kidlearn:<POSTGRES_PASSWORD>@dev-postgres:5432/kidlearn
 ```
 
+Finished, it looks like
+`postgresql://kidlearn:3f9a0c1e…(48 characters)…7b2d@dev-postgres:5432/kidlearn`.
+
 `dev-postgres` is not an internet address — it is the name of the database
 container, which only the dev API can see on its private Docker network. Note
 what is **missing** compared to production: no `?pgbouncer=true` and no
 `connection_limit`. Those exist for Supabase's connection pooler; this is a plain
-Postgres (`runbook.md` §4 explains both).
+Postgres ([`runbook.md` §4](../runbook.md) explains both).
 
 **30c. Store fourteen parameters.** Region menu: **Mumbai**. Same form as Step
 13 (**SecureString**, Standard tier, `alias/aws/ssm`):
@@ -165,7 +162,7 @@ aws ssm get-parameters-by-path --path /kidlearn/dev/ --region ap-south-1 \
 ```
 
 Exactly **14 names**. Then prove the secrets really differ, without printing
-any of them:
+any of them — 💻:
 
 ```bash
 for n in BETTER_AUTH_SECRET CRON_SECRET GEMINI_API_KEY CLOUDINARY_CLOUD_NAME GOOGLE_CLIENT_ID; do
@@ -175,27 +172,16 @@ for n in BETTER_AUTH_SECRET CRON_SECRET GEMINI_API_KEY CLOUDINARY_CLOUD_NAME GOO
 done
 ```
 
-Five ✔ lines.
+Five ✔ lines. (*Reading it:* for each of five names, fetch the production
+value into `a` and the dev value into `b`, and print only whether they match.)
 
 ## Step 31 · 🌐🖥️ DNS and HTTPS for `api.dev.kidlearn.net`
 
 **When:** one time only — both 31a and 31b. **Do not repeat 31b after a code
-change.** Caddy (the program in front of both APIs that handles HTTPS) runs in
-its own group, `kidlearn-edge`, which deploying dev or production never
-restarts. It keeps the certificate in its `caddy_data` volume and renews it by
-itself before it expires.
-
-Repeat 31b only when one of these happens:
-
-1. `deploy/edge/Caddyfile` or `deploy/edge/compose.yml` changed (copy `deploy/`
-   to the server first, [Step 20c](06-server.md)).
-2. You changed `/opt/kidlearn/edge/caddy.env`.
-3. You added a new web address that Caddy must serve.
-4. The `caddy_data` volume was deleted.
-
-Restarting it more often is not harmless: Let's Encrypt allows only 5 identical
-certificates a week, and a lost certificate past that limit means a week
-without HTTPS.
+change:** deploying dev or production never restarts Caddy, and it renews the
+certificate by itself. Repeat 31b only when something under `deploy/edge/` or
+`/opt/kidlearn/edge/caddy.env` changed, or the `caddy_data` volume was lost —
+needless restarts spend Let's Encrypt's 5-certificates-a-week limit.
 
 **31a. The DNS record** — Cloudflare → `kidlearn.net` → **DNS → Records → Add
 record**:
@@ -214,7 +200,8 @@ dig +short api.dev.kidlearn.net    # exactly your Elastic IP — same as api.kid
 certificates now ([Step 21d](06-server.md)), so every failed attempt counts against Let's
 Encrypt's limits.
 
-**31b. Let Caddy fetch the certificate** — 🖥️ on the server:
+**31b. Let Caddy fetch the certificate** — 🖥️ on the server (open it as in
+[Step 20a](06-server.md)):
 
 ```bash
 sudo su -
@@ -260,12 +247,12 @@ settings are added when it starts. So the quickest first deploy reuses them.
 From the next deploy on, dev runs images built from the `dev` branch.
 
 If anything under `deploy/` changed on `main` since [Step 20c](06-server.md), repeat 20c first.
-Then:
+Then 🖥️ on the server:
 
 ```bash
 sudo su -
-cat /opt/kidlearn/prod/last-good-tag                  # the SHA production runs
-/opt/kidlearn/deploy/deploy.sh dev <that SHA> --migrate
+cat /opt/kidlearn/prod/last-good-tag                  # e.g. a1b2c3d — the SHA production runs
+/opt/kidlearn/deploy/deploy.sh dev a1b2c3d --migrate  # ← your SHA from the line above
 ```
 
 *Where does `last-good-tag` come from?* `deploy.sh` writes it itself, at the end
@@ -295,10 +282,8 @@ database has no tables".
 >  order:  dev-postgres healthy → migrate → dev-api up → health gate
 > ```
 >
-> *Why memory caps on dev only?* Not to save memory — to decide **in advance**
-> who dies first. If the server runs out of memory, Linux kills a process. Without
-> caps it guesses; with them, dev hits its limit long before production is at
-> risk.
+> The memory caps decide **in advance** that, if the server runs short, a dev
+> container is the one Linux stops — never production.
 
 ✅ **Check** — the last line is
 `[deploy:dev] healthy and database reachable — deploy complete at <sha>`. Then:
@@ -338,8 +323,9 @@ child-profile form says "No avatars are available right now" and no profile can
 be created, because the starter avatars come only from this seed.
 
 **Before you start:** `ssh kidlearn` must work from your Mac. If it says
-`Could not resolve hostname kidlearn`, do the one-time setup in `runbook.md`
-§2a first — `kidlearn` is a shortcut that setup creates, not a real address.
+`Could not resolve hostname kidlearn`, do the one-time setup in
+[`runbook.md` §2a](../runbook.md) first — `kidlearn` is a shortcut that setup
+creates, not a real address.
 
 *How the seed reaches the database.* The seed script runs on your Mac, but
 `dev-postgres` lives on the server, publishes no port, and its name exists only
@@ -366,7 +352,7 @@ Copying the Parameter Store URL as-is fails on the Mac with
 You need **three terminal moments**: one on the server, one Mac terminal for the
 tunnel, one Mac terminal for the seed.
 
-**1. 🖥️ Server — read the container's address.** From your Mac:
+**1. 🖥️ Server — read the container's address.** From a 💻 Mac terminal:
 
 ```bash
 ssh kidlearn
@@ -375,11 +361,11 @@ docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dev
 ```
 
 It prints something like `172.20.0.2`. Write it down, then `exit` twice to get
-back to your Mac prompt. The address changes whenever the container is
+back to your Mac prompt (ending in `%`). The address changes whenever the container is
 recreated (a wipe in 33a), so read it fresh each time.
 
-**2. 💻 Mac, terminal 1 — open the tunnel and leave it open.** Put in the address
-from 1:
+**2. 💻 Mac, terminal 1 — open the tunnel and leave it open.** Replace
+`172.20.0.2` with the address **you** read in 1:
 
 ```bash
 ssh -N -L 15432:172.20.0.2:5432 kidlearn
@@ -413,7 +399,7 @@ are normal.
 
 **4. 💻 Mac, terminal 1 — close the tunnel** with Ctrl-C.
 
-> **Never run plain `db:seed` here either**, for the same reason as Step 8d: its
+> **Never run plain `db:seed` here either**, for the same reason as [Step 8d](04-database-and-services.md): its
 > sample lessons point at files that exist only on a developer's Mac.
 
 It is safe to run again: it creates only the rows that are missing and leaves
@@ -436,7 +422,7 @@ add-a-child form shows six avatars.
 | `Can't reach database server at localhost:15432` | The tunnel is not open | Start 2 in its own terminal and leave it running |
 | `channel 2: open failed: connect failed` in terminal 1 | The container address in 2 is stale | Read it again (1) and reopen the tunnel |
 | `Authentication failed against database server` | Wrong password, or `PW` is empty | Run `echo ${#PW}` — it should print `48`. If `0`, the `aws ssm` line failed; run it alone to see why |
-| `Could not resolve hostname kidlearn` | The SSH shortcut is not set up on this Mac | `runbook.md` §2a |
+| `Could not resolve hostname kidlearn` | The SSH shortcut is not set up on this Mac | [`runbook.md` §2a](../runbook.md) |
 
 **32c. Create your dev admin account.**
 
@@ -450,12 +436,12 @@ admin sign-up page; the `seed:admin` script is the only way to make one.
 
 It runs on your Mac and writes through the **same tunnel as 32b**, so:
 
-**1. 💻 Mac, terminal 1 — open the tunnel** exactly as in 32b steps 1–2 (read
-the container address on the server, then `ssh -N -L 15432:<address>:5432 kidlearn`,
-and leave it running).
+**1. 💻 Mac, terminal 1 — the tunnel.** Still open from 32b? Use it. If not,
+open it again exactly as in 32b steps 1–2 and leave it running.
 
-**2. 💻 Mac, terminal 2 — run the seed.** Change the three `ADMIN_` lines first,
-then paste the whole block as one piece. Keep the **space before `cd`**: it
+**2. 💻 Mac, terminal 2 — run the seed.** Change the three `ADMIN_` lines first
+(e.g. `'salman@gmail.com'`, a new 12+ character password, `'Salman'`), and
+the `cd` path if your repo is elsewhere. Then paste the whole block as one piece. Keep the **space before `cd`**: it
 keeps the block, password included, out of your shell history.
 
 ```bash
@@ -525,8 +511,8 @@ you want dev filled with a fresh copy of production's data.
 backup nobody has restored is a hope, not a backup. Dev is the safe place to
 find out it works — and it fills dev with realistic data as a bonus.
 
-**33a. Wipe dev and rebuild it from nothing** (`runbook.md` §7). This is the
-"undo" for a bad migration on dev:
+**33a. Wipe dev and rebuild it from nothing** ([`runbook.md` §7](../runbook.md)).
+This is the "undo" for a bad migration on dev. 🖥️ on the server:
 
 ```bash
 sudo su -
@@ -545,12 +531,17 @@ tables. `-p kidlearn-dev` is what guarantees this never touches production.
 `curl -s https://api.dev.kidlearn.net/health` is ok. The database is empty again,
 so repeat 32b before anyone adds a child, and 32c before you sign in as admin.
 
-**33b. Restore last night's production backup into dev** (`runbook.md` §8).
+**33b. Restore last night's production backup into dev** ([`runbook.md` §8](../runbook.md)).
 
 > ⚠️ **This copies real children's data into dev**, which logs at `debug` level.
 > If you already have real families, decide whether that is acceptable. If not,
 > skip 33b, and instead rehearse it against a scratch Postgres container you
 > delete afterwards.
+
+🖥️ on the server, in the **same** terminal as 33a (a new terminal needs the
+`cd` and `dc() …` lines from 33a again first). Two values to put in: your
+bucket name (e.g. `kidlearn-backups-salman-2026`) and the newest file name
+that `aws s3 ls` prints (e.g. `2026-10-26T19-30-01Z.sql.gz`).
 
 ```bash
 # find the newest backup — a plain .sql.gz directly under prod/, never .partial/
@@ -565,13 +556,17 @@ docker exec dev-postgres psql -U kidlearn -d postgres -v ON_ERROR_STOP=1 \
 docker exec dev-postgres psql -U kidlearn -d kidlearn -v ON_ERROR_STOP=1 \
   -c 'DROP SCHEMA public'
 
-aws s3 cp s3://<BUCKET_NAME>/prod/<NEWEST FILE>.sql.gz - | gunzip \
+aws s3 cp s3://<BUCKET_NAME>/prod/<NEWEST FILE> - | gunzip \
   | sed '/^SET transaction_timeout = 0;$/d' \
   | docker exec -i dev-postgres psql -U kidlearn -d kidlearn \
       -v ON_ERROR_STOP=1 --single-transaction
 
 dc start api
 ```
+
+*Reading the restore line:* `aws s3 cp … -` downloads the backup to the
+screen instead of a file; `gunzip` unpacks it; `sed` deletes one line (below);
+`docker exec -i dev-postgres psql …` feeds the result into the dev database.
 
 *Why so strict?* Plain `psql` carries on after an error and still says it
 succeeded. `ON_ERROR_STOP` plus `--single-transaction` means: the first error
@@ -706,10 +701,9 @@ curl -si https://dev.kidlearn.net | grep -i x-robots        # noindex, nofollow
 curl -si https://api.dev.kidlearn.net/health | head -1      # 200
 ```
 
-*Never put a password on the API*, even if you turn on the optional site
-password. Google's sign-in sends the browser back to
-`api.dev.kidlearn.net/api/auth/callback/google`. A password prompt in the
-middle of that redirect breaks sign-in.
+*Never put a password on the API*, even with the optional site password on: a
+password prompt in the middle of Google's redirect back to `api.dev` breaks
+sign-in.
 
 **36b. The most important check: the dev site calls the dev API.** The API
 address is written into the site's JavaScript files when Vercel builds them, so
@@ -721,6 +715,9 @@ curl -s https://dev.kidlearn.net \
   | while read -r f; do curl -s "https://dev.kidlearn.net$f"; done \
   | grep -oE 'api(\.dev)?\.kidlearn\.net' | sort | uniq -c
 ```
+
+*Reading it:* download the homepage, pick out every JavaScript file it loads,
+download each one, and count every API hostname written inside them.
 
 Expect **only** `api.dev.kidlearn.net`. If `api.kidlearn.net` appears, the dev
 site was built with production's address — a dev build writing to the
@@ -745,7 +742,7 @@ ending the same pipeline with `grep -c '<password>'` — it must print `0`.
 
 **36d. Paperwork — file 38 is done when all of this is true:**
 
-- Fill every `<placeholder>` in `document/runbook.md`: registrar, Cloudflare
+- Fill every `<placeholder>` in [`document/runbook.md`](../runbook.md): registrar, Cloudflare
   account, Elastic IP, instance ID, bucket name, "ACME endpoint: production",
   Vercel's ceilings and the date, and the restore-rehearsal date. Remove the
   **⬜ not yet done** markers from the sections you have now done.
@@ -789,9 +786,8 @@ git pull
 git status            # must say "nothing to commit, working tree clean"
 ```
 
-*Why a clean tree?* The image is named after the commit. Unsaved edits would go
-into the image without being part of that commit, so the name would lie — and a
-later rollback to that SHA would not give you the same code back.
+*Why a clean tree?* The image is named after the commit; unsaved edits would
+make the name lie ([Step 16](05-aws-storage-secrets-images.md) explains).
 
 ### 2. 💻 Build the two images and upload them
 
@@ -829,9 +825,8 @@ echo "IMAGE TAG = $SHA"      # write this down — step 4 needs it
   `--target migrate` is a small image that only updates database tables.
   `--platform linux/arm64` matches the server's processor (your Apple-chip Mac
   is arm64 too, so this is fast). The final `.` means "build from this folder".
-- The two `docker push` lines upload them. The first upload is about 0.4 GB;
-  later ones send only what changed, so they are much quicker unless
-  dependencies changed.
+- The two `docker push` lines upload them. Only changed layers are sent, so
+  after the first upload (~0.4 GB) they are quick.
 
 **Skip step 2** if this exact SHA was already built and pushed before — for
 example, it is the same commit production runs. ECR → **Repositories** →
@@ -845,12 +840,13 @@ your SHA.
 Most updates skip this. Check from your Mac:
 
 ```bash
-git diff --stat <SHA dev ran before>..HEAD -- deploy/    # no output = skip step 3
+git diff --stat a1b2c3d..HEAD -- deploy/    # no output = skip step 3
 ```
 
-(The SHA dev ran before is in `/opt/kidlearn/dev/last-good-tag` on the server.)
+`a1b2c3d` stands for the SHA dev ran before — 🖥️
+`cat /opt/kidlearn/dev/last-good-tag` on the server prints it.
 
-If something under `deploy/` did change, copy it from `dev` — on the server:
+If something under `deploy/` did change, copy it from `dev` — 🖥️ on the server:
 
 ```bash
 sudo su -
@@ -861,18 +857,18 @@ cp -r /tmp/kidlearn/deploy/. /opt/kidlearn/deploy/ && rm -rf /tmp/kidlearn
 > ⚠️ **The server has one `deploy/` folder for both environments.** After this
 > copy, the next **production** deploy runs `dev`'s scripts too. That is fine
 > when the change is on its way to `main` anyway; if it is experimental, copy
-> `main`'s `deploy/` back (Step 20c) before you deploy production.
+> `main`'s `deploy/` back ([Step 20c](06-server.md)) before you deploy production.
 
 If the change was inside `deploy/edge/`, also repeat Step 31b above — that is one
 of the few reasons to restart Caddy.
 
 ### 4. 🖥️ Deploy
 
-On the server:
+🖥️ On the server, with the tag step 2 printed (`IMAGE TAG = b2c3d4e`):
 
 ```bash
 sudo su -
-/opt/kidlearn/deploy/deploy.sh dev <SHA from step 2> --migrate
+/opt/kidlearn/deploy/deploy.sh dev b2c3d4e --migrate
 ```
 
 - **`--migrate`** applies any new database migrations to the **dev** database
@@ -896,6 +892,8 @@ badge or world — run Step 32b above again. Otherwise skip it.
 curl -s https://api.dev.kidlearn.net/health      # {"data":{"status":"ok",…}}
 ```
 
+✅ `"status":"ok"`.
+
 Then open <https://dev.kidlearn.net>, sign in, and try the thing you changed.
 
 ### If it went wrong — roll back
@@ -903,11 +901,18 @@ Then open <https://dev.kidlearn.net>, sign in, and try the thing you changed.
 `deploy.sh` prints the rollback command when a deploy fails. To do it yourself,
 deploy the last SHA that worked:
 
+🖥️ On the server:
+
 ```bash
 sudo su -
-cat /opt/kidlearn/dev/last-good-tag                 # dev's own record — never use prod's here
-/opt/kidlearn/deploy/deploy.sh dev <that SHA>
+cat /opt/kidlearn/dev/last-good-tag                 # e.g. a1b2c3d — dev's own record, never prod's
+/opt/kidlearn/deploy/deploy.sh dev a1b2c3d          # ← the SHA from the line above
 ```
+
+That works when the deploy **failed**. If the deploy passed its health checks
+but the change itself is wrong, `last-good-tag` already names the bad release —
+`deploy.sh` wrote it on success. Find the one before it instead:
+[`runbook.md` → "Rollback — two independent halves"](../runbook.md#rollback--two-independent-halves).
 
 No `--migrate` on a rollback: migrations only go forward. If a migration broke
 the dev database, wipe it and start again (33a, then 32b and 32c).
@@ -922,7 +927,7 @@ the dev database, wipe it and start again (33a, then 32b and 32c).
 | `name unknown: The repository … does not exist` | Wrong region | Use `ap-south-1` (Mumbai) everywhere |
 | `manifest unknown` from `deploy.sh` | No image with that SHA in ECR | Finish step 2, and copy the SHA it printed exactly |
 | "No avatars are available right now" on the site | The dev database has no starter data | Run 32b |
-| `Could not resolve hostname kidlearn` in 32b | The SSH alias is not set up on this Mac | `runbook.md` §2a |
+| `Could not resolve hostname kidlearn` in 32b | The SSH alias is not set up on this Mac | [`runbook.md` §2a](../runbook.md) |
 
 ---
 

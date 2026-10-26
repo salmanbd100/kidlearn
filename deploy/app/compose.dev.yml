@@ -35,7 +35,8 @@ services:
       # deploy.sh. Must match the credentials inside the dev DATABASE_URL.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for the dev stack}
     # NO `ports:` — deliberately. Nothing outside this stack may reach it, and
-    # `ss -tlnp` on the box must show only Caddy on 80/443.
+    # `ss -tlnp` on the box must show no container port but Caddy's 80/443
+    # (sshd on 22 is the OS's own; the security group closes it).
     networks: [internal]
     volumes:
       - dev_pgdata:/var/lib/postgresql/data

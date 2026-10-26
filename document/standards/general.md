@@ -1,6 +1,8 @@
 # kidlearn — General Standards
 
-> **Load this document for every task.** It governs every file committed to this repository regardless of which layer you are working in.
+> **What this is:** the rules that apply to every file in the repository — where code lives, TypeScript and import conventions, naming, testing, what enforces each rule, and how a change travels from branch to `main`.
+>
+> **When to read it:** at the start of every task, whatever layer it touches. [`engineering-standards.md`](../engineering-standards.md) is the index across all three standards documents.
 >
 > **Role-specific companions — load only the ones your task touches:**
 > - [`standards/frontend.md`](./frontend.md) — `packages/ui`, `apps/web`, React, Next.js, components, styling
@@ -43,7 +45,7 @@ A new package in `packages/` is not a workspace package until:
 - [ ] Its consumer app lists it as a workspace dependency (`"@kidlearn/<name>": "workspace:*"`)
 - [ ] `turbo.json` has any required `dependsOn` wiring for the pipeline
 
-All four packages — `ui`, `db`, `types`, `config` — have completed this checklist and are active workspaces. `config` ships only shared tsconfig bases, so it has no `dev`/`build`/`typecheck` scripts of its own.
+All six packages — `ui`, `db`, `types`, `config`, `i18n`, `tokens` — have completed this checklist and are active workspaces. `config` ships only shared tsconfig bases (`packages/config/tsconfig/base.json`, `node.json`, `react-library.json`), so it has no `dev`/`build`/`typecheck` scripts of its own.
 
 ### Environment files
 
@@ -73,6 +75,8 @@ All four packages — `ui`, `db`, `types`, `config` — have completed this chec
 
 ### Strictness
 
+Both flags are set once, in `packages/config/tsconfig/base.json`, which every workspace's `tsconfig.json` extends (directly or through `node.json` / `react-library.json`).
+
 - `strict: true` in every `tsconfig.json`. No exceptions, no per-file overrides. **[TS]**
 - `noImplicitReturns: true` — every code path in a function that returns a value must explicitly return. **[TS]**
 
@@ -91,7 +95,7 @@ All four packages — `ui`, `db`, `types`, `config` — have completed this chec
 ### Cross-package types
 
 - Prisma model types (`Parent`, `Child`, Prisma namespace) are imported from `@kidlearn/db`. Never redeclare Prisma types in application code. **[REVIEW]**
-- Activity and quiz JSON payload types live in `packages/types` (once activated). One definition is consumed by the frontend renderer, the backend validator, and the AI generation prompts. **[REVIEW]**
+- Activity and quiz JSON payload types live in `packages/types` (`src/activity/`, `src/quiz/`; HTTP contracts in `src/api/`, shared vocabulary in `src/domain/`). One definition is consumed by the frontend renderer, the backend validator, and the AI generation prompts. **[REVIEW]**
 - Prefer `undefined` over `null` in application code. Use `null` only where a database column or external API mandates it. **[REVIEW]**
 
 ---
@@ -197,7 +201,7 @@ import { Button } from "@kidlearn/ui";
 
 ## 5. Testing Standards — Shared Rules
 
-> **Tooling is not yet configured.** Vitest is the chosen runner for `apps/server` and `packages/*`. React Testing Library is the chosen tool for component tests in `apps/web`. This section defines the standards that apply once tooling is added. The standards are not aspirational — they are required before any feature is considered production-ready.
+> **Tooling:** Vitest runs in every workspace that has code to test — `apps/web`, `apps/server`, and `packages/{ui,types,db,i18n,tokens}`, each with its own `vitest.config.*`. `apps/web` and `packages/ui` use React Testing Library for components. `pnpm test` (`turbo run test`) runs them all and needs no database; `apps/server/vitest.db.config.ts` runs the real-database suites separately (see the harness below).
 >
 > Layer-specific "what to test" guidance lives in [`frontend.md §5`](./frontend.md#5-frontend-testing) and [`backend.md §6`](./backend.md#6-backend-testing).
 
@@ -219,7 +223,9 @@ No separate `__tests__` directories. **[REVIEW]**
 
 ### No mocking `@kidlearn/db`
 
-Service tests and route integration tests run against a real test database. Do not mock Prisma. The lesson from `document/project-requirement-details.md §12` (assumption 8) applies: mock/real divergence masks broken migrations. The only permitted mocks are external network boundaries — AI generation APIs, text-to-speech APIs, media hosting APIs. **[REVIEW]**
+This is the target, and it is not yet where the codebase is: 35 `apps/server` test files still `vi.mock` the Prisma client (count as of 2026-10-26 — `grep -rlE "vi\.mock\([\"'][^\"']*(prisma|@kidlearn/db)" apps/server/src | wc -l`). They are covered by the recorded exception below. New work follows the rule.
+
+Service tests and route integration tests run against a real test database. Do not mock Prisma. The lesson from [`project-requirement-details.md §12`](../project-requirement-details.md#12-assumptions--resolved-conflicts) (assumption 8) applies: mock/real divergence masks broken migrations. The only permitted mocks are external network boundaries — AI generation APIs, text-to-speech APIs, media hosting APIs. **[REVIEW]**
 
 #### The test-database harness
 
@@ -237,8 +243,9 @@ database.
 `config/prisma.js` before the harness existed stay stubbed until they are next substantially
 changed; they cover routing, validation and response contracts, which a stub tests honestly.
 What a stub cannot prove — rows a status gate lets back, cascades, transaction isolation,
-unique constraints — lives in a `.db.test.ts` beside the stubbed suite (`content.service`,
-`story.service`, `child-profile.service`, `account-deletion.service`, `reward.service`). A
+unique constraints — lives in a `.db.test.ts` beside the stubbed suite — the first five were `content.service`,
+`story.service`, `child-profile.service`, `account-deletion.service` and `reward.service`;
+`find apps/server/src -name '*.db.test.ts'` lists them all. A
 change to one of those guarantees adds its proof there, not to the stub.
 
 #### Recorded exception — the stubbed suites still standing
@@ -294,10 +301,15 @@ Coverage is **reported, never gated**. CI runs `pnpm test:coverage` and publishe
 
 Biome runs on `pnpm lint` (read-only) and `pnpm format` (auto-fix). These violations block CI:
 
-- Import order and organisation (`organizeImports`)
-- Formatting: 2-space indent, double quotes, line length
-- Recommended lint rules: unused variables, no explicit `any`, unreachable code, and others from `linter.rules.recommended`
-- CSS formatting with Tailwind `@theme` / `@apply` directive awareness
+Configured in the root `biome.json`:
+
+- Import order and organisation (`assist.actions.source.organizeImports`)
+- Formatting: 2-space indent, double quotes, Biome's default 80-column line width
+- The `recommended` lint preset: unused variables, no explicit `any`, unreachable code, and the rest of that preset
+- CSS parsing with Tailwind directive awareness (`css.parser.tailwindDirectives`)
+- Markdown is neither formatted nor linted
+
+`pnpm lint` also runs `prisma format --check` on the schema (`pnpm --filter @kidlearn/db schema:check`), so an unformatted `schema.prisma` fails the same gate.
 
 ### Automatic — TypeScript `[TS]`
 
@@ -311,10 +323,16 @@ Checked by `pnpm typecheck` (blocks CI):
 
 `.github/workflows/ci.yml`, job `gates`, runs on every pull request and on every push to either long-lived branch (`main`, `dev`):
 
-- All tests pass, including explicit content-safety guard tests
-- `pnpm build` succeeds across all packages
-- `pnpm typecheck` passes across all packages
-- `pnpm lint` passes (Biome clean)
+In order:
+
+1. `pnpm lint` — Biome clean and the Prisma schema formatted
+2. `pnpm build` succeeds across all packages
+3. `pnpm typecheck` passes across all packages
+4. `pnpm test:coverage` — every Vitest suite passes, including the content-safety guard tests
+5. `pnpm --filter server test:db` — the `*.db.test.ts` suites against a `postgres:16-alpine` service container
+6. The web escape-hatch image and the server `runner` and `migrate` images build (`docker build`, never pushed)
+
+`pnpm verify` runs steps 1–5 locally in the same order.
 
 The repository ruleset "Protect Main Branch" (17802318) covers `main` and `dev`. On both it forbids deletion and force-pushes, requires changes to arrive as a pull request (no approval count — a solo maintainer approving their own PR is theatre), and requires `gates` to pass. It is not strict: a PR need not be rebased onto the branch tip before merging.
 
@@ -329,8 +347,8 @@ A reviewer is responsible for catching these. **They are mandatory — not optio
 | Semantic tokens only — no raw hex, brand hues, or Tailwind color literals in component code | frontend | CSS string values are not type-checked |
 | All user-facing strings via `i18next` — no hard-coded text | frontend | No static analysis for JSX string literals |
 | `'use client'` boundary placed as low as possible | frontend | Architectural judgment |
-| Component placed where `frontend.md §1` puts it — `packages/ui/src/primitives/` only when two surfaces render it and it depends on nothing app-owned | frontend | Requires understanding of surface assumptions |
-| Design rules: touch targets, motion, accessibility — see `document/design.md §7, §5, §11` | frontend | Visual and accessibility review |
+| Component placed where [`frontend.md §1`](./frontend.md#1-packagesui-component-architecture) puts it — `packages/ui/src/primitives/` only when two surfaces render it and it depends on nothing app-owned | frontend | Requires understanding of surface assumptions |
+| Design rules: touch targets, motion, accessibility — see [`design.md`](../design.md) §7, §5, §11 | frontend | Visual and accessibility review |
 | Service layer holds business logic; route handlers are thin | backend | Structural, not syntactic |
 | Zod validation present on every route that accepts user input | backend | Requires reading the full route |
 | `status: "published"` filter on every student-facing Prisma query | backend | Query logic, not type error |
@@ -369,8 +387,9 @@ Use the `/start-implementation <filename-without-extension>` skill. It will:
 Spec-driven work starts on its feature branch, and its branch name matches the implementation filename exactly. Ad-hoc work may begin in a `dev` working tree; it moves to its own branch before the first commit (`git checkout -b <name>` carries the uncommitted changes across). Nothing is committed directly to `dev` or `main` — the ruleset refuses the push anyway.
 
 **`dev` is the integration branch; `main` is the release branch.** Feature branches are cut from
-`dev` and merge back into `dev`. `main` accepts pull requests only from `dev`, enforced by a
-required check — see `project-requirement-details.md §9`. Changed 2026-09-06; before that, feature
+`dev` and merge back into `dev`. `main` accepts pull requests only from `dev` — by convention
+today; the `promotion-guard` check that will enforce it is planned in
+[file 38a](../implementation/38a-github-actions-continuous-deployment.md), not built. See [`project-requirement-details.md §9`](../project-requirement-details.md#9-deployment-strategy-vercel-frontend--single-aws-box). Changed 2026-09-06; before that, feature
 branches used `main` as their base, which is why older implementation files say so.
 
 ### Committing
@@ -410,7 +429,7 @@ Do not combine two implementation files into one branch, and do not fold ad-hoc 
 
 #### Recorded exception — a whole-codebase review pass ships as one branch
 
-**Status: active as of 2026-09-10 for `whole-codebase-review-remediation`. Delete this section once that branch merges.**
+**Status: active. First used 2026-09-10 for `whole-codebase-review-remediation`, which merged as PR #52; kept as the precedent for later review passes (see the exit condition below).**
 
 The two rules above assume a branch is *derived from* one implementation file. A review pass that reads the whole codebase at once is not: it finds defects wherever they are, and the seven it found belong to files 02, 11–12, 21–22, 23–26, 13–14 and 33. Splitting them into seven branches would mean seven PRs whose only relationship to their file numbers is where the defect happened to land — and two of the seven (`visibleLessonWhere`, the `evaluateAnswer` move) are single changes that no one file owns.
 

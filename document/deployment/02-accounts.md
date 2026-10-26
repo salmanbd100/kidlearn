@@ -65,15 +65,18 @@ The `aws` command on your Mac needs a key to act as `salman-admin`.
    confirmation → **Create**.
 2. You see **Access key** and **Secret access key**. **The secret is shown only
    once.** Keep the page open.
-3. On your Mac:
+3. 💻 On your Mac, type `aws configure` and press Enter. It asks four
+   questions, one at a time. Paste or type each answer, then press Enter:
 
-   ```bash
-   aws configure
-   # AWS Access Key ID:     <paste access key>
-   # AWS Secret Access Key: <paste secret key>
-   # Default region name:   ap-south-1
-   # Default output format: json
    ```
+   AWS Access Key ID [None]: AKIAIOSFODNN7EXAMPLE                         ← your Access key
+   AWS Secret Access Key [None]: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY ← your Secret access key
+   Default region name [None]: ap-south-1
+   Default output format [None]: json
+   ```
+
+   The text before each `:` is the question; the values after it are examples
+   — yours come from the AWS page you kept open. Do not type the `← …` notes.
 
    **Type `ap-south-1` at the region prompt — do not just press Enter.** If a
    default such as `[us-east-1]` is shown in brackets, Enter keeps it. Every
@@ -85,20 +88,21 @@ The `aws` command on your Mac needs a key to act as `salman-admin`.
 4. **Log out** of root. From now on, log in with the **console sign-in URL** as
    `salman-admin`.
 
-✅ **Check:**
+✅ **Check** — 💻:
 
 ```bash
 aws sts get-caller-identity
-# shows "Arn": "arn:aws:iam::<12 digits>:user/salman-admin"
+# "Arn": "arn:aws:iam::123456789012:user/salman-admin"   ← your 12-digit account ID
 
 aws configure get region
 # ap-south-1
 ```
 
 If the region line prints anything else, fix it with
-`aws configure set region ap-south-1`. Also check that
-`echo $AWS_REGION $AWS_DEFAULT_REGION` prints nothing: either variable overrides
-the setting. If one is set, remove it from `~/.zshrc` and open a new terminal.
+`aws configure set region ap-south-1`. Also run
+`echo $AWS_REGION $AWS_DEFAULT_REGION`: it must print an empty line, because
+either variable overrides the setting. If one is set, delete its `export` line
+from `~/.zshrc` and open a new Terminal window.
 
 Write the 12-digit number in your values sheet as **AWS account ID**.
 

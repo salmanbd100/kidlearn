@@ -4,10 +4,12 @@ A beginner-friendly tour of every place AI touches KidLearn: what problem it sol
 admin sees, how the code is built, and what we gave up to get there. Read it top to bottom once;
 afterwards use the [file map](#13-file-map) and the [glossary](#2-glossary) as a reference.
 
-> **Status.** This describes the code on branch `41-mcp-content-authoring` (October 2026).
-> The specs it summarises are `implementation/41-mcp-content-authoring.md` and the FR-AI rows
-> in `project-requirement-details.md §5.13`. If this guide and the code disagree, the code wins —
-> fix the guide.
+> **Status.** Describes the code on `dev` as of October 2026, after file 41 (MCP content
+> authoring) merged. The specs it summarises are
+> [`implementation/41-mcp-content-authoring.md`](./implementation/41-mcp-content-authoring.md)
+> and the FR-AI rows in
+> [`project-requirement-details.md §5.13`](./project-requirement-details.md#513-ai-content-generation-pipeline-fr-ai).
+> If this guide and the code disagree, the code wins — fix the guide.
 
 ---
 
@@ -193,7 +195,7 @@ The web app learns what is available from `GET /api/admin/ai/capabilities`
 (`capabilities.ts`) — it never guesses from environment variables of its own.
 
 For the step-by-step admin workflow (prompts to paste, NotebookLM for research, review tips),
-read `content-authoring-playbook.md`.
+read [`content-authoring-playbook.md`](./content-authoring-playbook.md).
 
 ---
 
@@ -287,30 +289,15 @@ export function localized(languages: readonly Locale[], description: string, max
 }
 ```
 
-```ts
-// apps/server/src/modules/admin/ai/gemini-text.ts (abridged)
-export async function generateStructured(options: GenerateStructuredOptions) {
-  const client = await getClient();
-  const response = await client.models.generateContent({
-    model: env.GEMINI_TEXT_MODEL,
-    contents: [{ role: "user", parts: options.messages.map(({ content }) => ({ text: content })) }],
-    config: {
-      systemInstruction: options.system,
-      responseMimeType: "application/json",
-      responseJsonSchema: toResponseJsonSchema(options.outputSchema), // Zod → JSON Schema
-      maxOutputTokens: MAX_OUTPUT_TOKENS,                              // 16 000 — runaway guard
-      safetySettings: CHILD_SAFETY_SETTINGS,                           // strictest on every category
-      thinkingConfig: { thinkingLevel: THINKING_LEVEL },               // "MINIMAL" — thinking is billed
-    },
-  });
+`generateStructured` (`gemini-text.ts`) is the single place a text model is called. It sends:
 
-  return {
-    raw: parseJson(response.text),        // malformed JSON → null, which then fails Zod and is retried
-    usage: { inputTokens: …, outputTokens: … },
-    stopReason: mapFinishReason(response).stopReason, // "stop" | "max_tokens" | "refusal"
-  };
-}
-```
+- the system prompt as `systemInstruction`, and the Zod schema converted to `responseJsonSchema`
+  with `responseMimeType: "application/json"`;
+- `maxOutputTokens: 16000` as a runaway guard, and thinking at `MINIMAL` because thinking is billed;
+- `CHILD_SAFETY_SETTINGS` — the strictest threshold on every category.
+
+It returns the parsed JSON (malformed JSON becomes `null`, which then fails Zod and is retried),
+token usage, and a stop reason of `stop`, `max_tokens` or `refusal`.
 
 Two non-obvious details:
 
@@ -534,25 +521,11 @@ flowchart LR
 It is **stateless**: `POST /mcp` only, JSON responses, no session store. Every request builds a
 fresh `McpServer` with the caller bound in, so a tool can never act for the wrong admin.
 
-```ts
-// apps/server/src/modules/mcp/mcp.routes.ts (abridged)
-mcpRouter.post(
-  "/mcp",
-  apiRateLimit(env.API_RATE_LIMIT_PER_MINUTE), // per IP first: no token-guessing at DB speed
-  authenticate,                                 // token → admin, re-checked every request
-  principalRateLimit,                           // per admin, shared across their tokens
-  async (req, res, next) => {
-    const principal = principalOf(res.locals);
-    const caller: McpCaller = {
-      principal,
-      client: readClientInfo(req.body, req.headers["user-agent"]), // "Claude Desktop 1.4" — a label, never trusted
-      log: req.log.child({ adminId: principal.adminId }),
-    };
-    const response = await mcpHandler.fetch(await toWebRequest(req, req.body), { authInfo: { …, extra: { caller } } });
-    // …pipe response back to Express
-  },
-);
-```
+`mcp.routes.ts` chains three middlewares before the handler: a per-IP rate limit (so tokens
+cannot be guessed at database speed), `authenticate` (token → admin, re-checked every request),
+and a per-admin rate limit shared across that admin's tokens. The handler then reads the
+self-reported client name (`"Claude Desktop 1.4"` — a label, never trusted) and hands the
+request to the MCP SDK with the caller attached.
 
 The router is mounted only when `MCP_ENABLED=true` (`app.ts`), outside `/api`, so an MCP client
 is configured with one plain URL.
@@ -571,26 +544,14 @@ a normal signed-in session.
 | Limit | 10 active tokens per admin |
 | Revocation | From the AI assistants page; also revoked when `seed:admin` rotates the password |
 
-```ts
-// apps/server/src/modules/mcp/mcp.auth.ts (abridged)
-export async function resolveMcpPrincipal(authorization: string | undefined, now = new Date()) {
-  const secret = bearerToken(authorization);
-  if (secret === undefined || !secret.startsWith(ACCESS_TOKEN_PREFIX)) throw ApiError.unauthorized(…);
+`resolveMcpPrincipal` (`apps/server/src/modules/mcp/mcp.auth.ts`) runs on every request:
 
-  const token = await prisma.adminAccessToken.findUnique({
-    where: { tokenHash: hashAccessToken(secret) }, include: { admin: true },
-  });
-  // One message for unknown, revoked and expired: which one it was is not the caller's to learn.
-  if (!token || token.revokedAt !== null || token.expiresAt <= now) throw ApiError.unauthorized(…);
-
-  // Same checks requireAdmin makes: a removed admin or one with a Google account loses access now.
-  if (token.admin.authUserId === null || (await hasNonCredentialAccount(token.admin.authUserId)))
-    throw ApiError.forbidden("Admin access required");
-
-  if (!token.scopes.includes(MCP_DRAFTS_SCOPE)) throw new ApiError(403, …);
-  return { adminId: token.admin.id, adminName: token.admin.name, tokenId: token.id, scopes: token.scopes };
-}
-```
+- The `Authorization: Bearer` value must start with `klat_`; its SHA-256 hash is looked up.
+- Unknown, revoked and expired tokens all get the same `401` — which one it was is not the
+  caller's to learn.
+- The admin behind it is re-checked the way `requireAdmin` checks a session: a removed admin, or
+  one who has a Google account linked, gets `403`.
+- The token must carry the `mcp:drafts` scope.
 
 Nothing is cached between requests: revoke a token and the very next call fails.
 
@@ -711,25 +672,15 @@ nothing above it can publish. The MCP token scope has no publish tool at all.
 
 ### Layer 2 — approval checks blockers, then walks the content to `published`
 
-```ts
-// apps/server/src/modules/admin/ai/review/decide.ts (abridged)
-export async function approveJob(jobId: string, reviewerId: string) {
-  return withSerializationRetry(() => prisma.$transaction(async (tx) => {
-    const job = await readDecidableJob(tx, jobId);     // must be awaiting_review
-    const linked = await linkedContentRows(jobId, tx); // every row with aiJobId = jobId
+`approveJob` (`apps/server/src/modules/admin/ai/review/decide.ts`) runs in one Serializable
+transaction, retried on a serialisation conflict:
 
-    const blockers = await readBlockers(job, linked, tx);
-    if (blockers.length > 0) throw ApiError.conflict("…cannot be approved yet", { code: "APPROVAL_BLOCKED", blockers });
-
-    await tx.aIGenerationJob.update({ where: { id: jobId },
-      data: { status: "approved", decision: job.decision ?? "approve", reviewerId, reviewedAt: new Date() } });
-
-    const published = await walkChain(tx, linked, "published", reviewerId);
-    const attachedAssetIds = await attachAssets(tx, jobId);  // link approved audio/images to their rows
-    return finish(tx, jobId, { publishedEntities: published, rejectedEntities: [], attachedAssetIds });
-  }, { isolationLevel: "Serializable" }));
-}
-```
+1. Read the job; it must be `awaiting_review`.
+2. Collect every content row stamped with this job's `aiJobId` (`linkedContentRows`).
+3. Check the blockers below; any blocker fails the call with `409 APPROVAL_BLOCKED` and the list.
+4. Mark the job `approved` with the reviewer's id and time.
+5. Walk each linked row through the status chain to `published` (`walkChain`).
+6. Attach the approved audio and images to the rows they belong to (`attachAssets`).
 
 `readBlockers` (`review/blockers.ts`) refuses approval when:
 
@@ -748,23 +699,10 @@ MCP assistant can read back through `get_draft_status` before its next attempt.
 Even the ordinary "publish" button in the CMS, which has nothing to do with the AI Queue, runs
 this check on every hop to `published`:
 
-```ts
-// apps/server/src/modules/content/content-status.service.ts
-export async function assertAiPublishable(jobIds: readonly (string | null)[], tx = prisma) {
-  const pending = [...new Set(jobIds.filter((id) => id !== null))];
-  if (pending.length === 0) return;                        // hand-written content: nothing to check
-
-  const jobs = await tx.aIGenerationJob.findMany({ where: { id: { in: pending } }, … });
-  for (const jobId of pending) {
-    const job = byId.get(jobId);
-    const isApproved = job?.status === "approved" &&
-      (job.decision === "approve" || job.decision === "edit_then_approve");
-    if (!isApproved) throw ApiError.conflict(
-      "AI-generated content requires an approved review decision before publishing (FR-AI-07)",
-      { code: "AI_REVIEW_REQUIRED", jobId, … });
-  }
-}
-```
+`assertAiPublishable` (`apps/server/src/modules/content/content-status.service.ts`) collects the
+`aiJobId` of every row being published. Hand-written rows have none and pass straight through.
+For each job it finds, the job must be `approved` with a decision of `approve` or
+`edit_then_approve`; anything else throws `409 AI_REVIEW_REQUIRED`.
 
 So the rule is enforced where status changes, not where the button lives. A new screen that
 forgets about AI still cannot publish unreviewed AI content.
@@ -887,7 +825,7 @@ erDiagram
 ```
 
 `AIGenerationJob` is the spine. Every content row an AI wrote points back at it through
-`aiJobId`, which is indexed on every table. Full schema notes: `database-design.md`.
+`aiJobId`, which is indexed on every table. Full schema notes: [`database-design.md §9`](./database-design.md#9-domain-e--ai-pipeline--media).
 
 ---
 
@@ -989,14 +927,14 @@ pnpm --filter server test                 # unit + route suites (no database)
 pnpm --filter server test:db:local        # *.db.test.ts against local Postgres on 5433
 ```
 
-Rules for stubbed vs real-database suites: `standards/general.md §5`.
+Rules for stubbed vs real-database suites: [`standards/general.md §5`](./standards/general.md#5-testing-standards--shared-rules).
 
 ---
 
 ## 16. Configuration
 
 All server-side, validated at boot by `apps/server/src/config/env.ts`. Production values live in
-SSM, not `compose.yml` (see `runbook.md` → "AI assistants over MCP").
+SSM, not `compose.yml` (see [`runbook.md` → "AI assistants over MCP"](./runbook.md#ai-assistants-over-mcp-file-41)).
 
 | Variable | Default | Effect |
 | --- | --- | --- |
@@ -1034,16 +972,16 @@ Days are counted in `APP_TIMEZONE`, not UTC.
 - **Giving an MCP tool more power "just this once".** No MCP tool approves, publishes, edits
   published content or deletes. Keep it that way; it is the cheapest security property we have.
 - **Sending user data to a model.** Prompts carry curriculum only. If you find yourself adding a
-  child's name to a prompt, stop and read `project-requirement-details.md` NFR-SAFE first.
+  child's name to a prompt, stop and read the NFR-SAFE rows in [`project-requirement-details.md §6`](./project-requirement-details.md#6-non-functional-requirements) first.
 
 ---
 
 ### Further reading
 
-- `implementation/41-mcp-content-authoring.md` — the MCP design, its decisions (D1–D8) and the
+- [`implementation/41-mcp-content-authoring.md`](./implementation/41-mcp-content-authoring.md) — the MCP design, its decisions (D1–D8) and the
   choices made during implementation (I1–I17)
-- `content-authoring-playbook.md` — the admin's day-to-day workflow with Claude, Gemini CLI and
+- [`content-authoring-playbook.md`](./content-authoring-playbook.md) — the admin's day-to-day workflow with Claude, Gemini CLI and
   NotebookLM
-- `admin-account-guide.md` — creating admin accounts
-- `project-requirement-details.md §5.13` — FR-AI-01 … FR-AI-10
-- `standards/backend.md §7` — API documentation rules every new route must follow
+- [`admin-account-guide.md`](./admin-account-guide.md) — creating admin accounts
+- [`project-requirement-details.md §5.13`](./project-requirement-details.md#513-ai-content-generation-pipeline-fr-ai) — FR-AI-01 … FR-AI-10
+- [`standards/backend.md §7`](./standards/backend.md#7-api-documentation--openapi) — API documentation rules every new route must follow

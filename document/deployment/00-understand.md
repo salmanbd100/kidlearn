@@ -225,7 +225,7 @@ manually fails on something its author never saw.
 | Job | Who does it | Where in this guide |
 |---|---|---|
 | Create accounts, buckets, repositories, the server | 🌐 **You**, in web consoles | Parts 2–6 |
-| Point the domain at Cloudflare, add DNS records | 🌐 **You** | Steps 6–7, 19, 26 |
+| Point the domain at Cloudflare, add DNS records | 🌐 **You** | Steps 6–7, 19, 26 (dev: 31, 34) |
 | Store secrets | 🌐 **You**, in Parameter Store | [Step 13](05-aws-storage-secrets-images.md) |
 | Create database tables | 💻 **You** run one Prisma command | [Step 8c](04-database-and-services.md) |
 | Build and upload the API images | 💻 **You** run `docker build` / `docker push` | [Step 16](05-aws-storage-secrets-images.md) |
@@ -271,11 +271,11 @@ manually fails on something its author never saw.
 
 ## 0.9 Three places you will work
 
-| Icon | Place | What you do there |
-|---|---|---|
-| 🌐 | A website (AWS, Vercel, Cloudflare, GitHub…) | Click buttons, fill forms |
-| 💻 | Terminal on **your Mac**, inside the `kidlearn` folder | Database setup, building images |
-| 🖥️ | Terminal **on the server** (opened in the browser) | Start Caddy and the API, set up cron |
+🌐 a website, 💻 your Mac's Terminal, 🖥️ the server's terminal. The
+[guide index](README.md#where-you-work) shows how to tell the two terminals
+apart by their prompt. They look alike, and the commands are not
+interchangeable: `pnpm` and your repo exist only on the Mac; `/opt/kidlearn`
+and `deploy.sh` exist only on the server.
 
 ## 0.10 Golden rules — read these twice
 
@@ -288,6 +288,9 @@ manually fails on something its author never saw.
    make. Orange breaks HTTPS for this project.
 4. **Never open port 22 (SSH)** on the server. You do not need it.
 5. **Write things down as you go.** Use the "Values sheet" below.
+6. **Check the prompt, then the placeholders, before you paste.** 💻 or 🖥️
+   must match the terminal you are in, and every `<…>` must already be
+   replaced with your real value (without the `< >`).
 
 ## 0.11 Your values sheet
 
@@ -351,9 +354,8 @@ alarm is set at $20, about 1.5× the expected total.
 ## 0.13 How much this server can handle
 
 **These are estimates, not measurements.** Nobody has load-tested this
-deployment yet. The numbers below come from the machine's specification, the
-memory figures in file 38, and how often the app sends requests. Treat them as
-a starting point, and measure (end of this section) before you rely on them.
+deployment yet. Treat them as a starting point, and measure (end of this
+section) before you rely on them.
 
 **What a `t4g.small` is**
 
@@ -389,48 +391,25 @@ but slow.**
 | `dev-api` + `dev-postgres` ([Part 11](11-dev-environment.md), later) | ~500 MB, capped at 400 MB each |
 | **Used** | **~1.1 GiB of 2 GiB** |
 
-**How many more Node.js apps fit?** About **one more** small Node.js service
-(~250–400 MB) and the server still has room for the nightly backup, an image
-download during a deploy, and a memory spike all at once. Two more is possible
-but tight: a spike then pushes the machine into swap, and everything slows
-down. Memory, not CPU, is the limit here. CPU-heavy work (image or video
-processing, PDF generation) does not belong on this box at all.
+Memory, not CPU, is the limit: there is room for about one more small Node.js
+service, and CPU-heavy work (image or video processing) does not belong on this
+box at all.
 
-**How many visitors?**
+**What will probably limit you first** — not the EC2 server. Only API calls
+reach it (Vercel serves the pages, Cloudinary the media), and a child playing
+sends roughly one request every 5–10 seconds, so a few hundred children at once
+sit well inside the CPU baseline. Before that:
 
-Only **API calls** reach this server. Vercel serves the web pages and Cloudinary
-serves pictures and audio, so a visitor costs the server far less than you
-might expect. While a child plays a lesson or reads a story, the app sends a
-heartbeat every 30 seconds (`features/events/use-heartbeat.ts`) plus an
-event for each step, roughly **one request every 5–10 seconds**. Parents
-browsing the dashboard send a few requests per page.
-
-| Level | Children playing **at the same moment** | Roughly per day* | How the server feels |
-|---|---|---|---|
-| Comfortable | up to ~200 | ~2,000 | Well inside the CPU baseline; no extra cost |
-| Busy peaks | ~500–1,000 for an hour or so | — | Spends saved credits; still fine |
-| Time to upgrade | 1,000+ for hours every day | 10,000+ | Credits run out, the CPU is held at its baseline, replies slow down |
-
-\* Assuming a child plays 15–20 minutes and families use the app at different
-times of day, so the busiest moment holds about one in ten of the day's
-children.
-
-**What will probably limit you first** — not the EC2 server:
-
-1. **The rate limit per IP address.** The API accepts **300 requests per minute
-   from one IP address** (`API_RATE_LIMIT_PER_MINUTE`, default 300). A school
-   classroom on one Wi-Fi, or many phones behind one mobile operator's shared
-   address (common in Bangladesh), all share one IP. Around **30–50 children
-   playing at once behind the same address** will start seeing "Too many
-   requests". To raise it, add a parameter
+1. **The rate limit per IP address** — 300 requests a minute
+   (`API_RATE_LIMIT_PER_MINUTE`). A classroom on one Wi-Fi, or many phones
+   behind one mobile operator's shared address (common in Bangladesh), share
+   one IP; around 30–50 children at once behind it start seeing "Too many
+   requests". To raise it, add the parameter
    `/kidlearn/prod/API_RATE_LIMIT_PER_MINUTE` (e.g. `1200`) in Parameter Store
-   and redeploy (`deploy.sh` copies every `/kidlearn/prod/*` value into the API).
-2. **Supabase Free plan.** It runs on a small shared database machine and holds
-   500 MB of data. The database will slow down before this server does. Moving
-   to Supabase Pro ($25/month) is the first upgrade to expect.
-3. **Database connections.** The API keeps at most 5 open at once
-   (`connection_limit=5`). Each request holds one for a few milliseconds, so
-   this is fine at the levels above; it matters only past them.
+   and redeploy — `deploy.sh` copies every `/kidlearn/prod/*` value into the API.
+2. **Supabase Free plan** — a small shared database machine and 500 MB of data.
+   It slows down before this server does; Supabase Pro ($25/month) is the
+   first upgrade to expect.
 
 **When to upgrade, and to what**
 

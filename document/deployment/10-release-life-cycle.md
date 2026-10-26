@@ -20,25 +20,36 @@ Everything above happens **once**. This part is what you do every week.
 ```
 
 1. **Website:** merge the `dev → main` pull request. Vercel deploys by itself.
-2. **API:**
-   1. 💻 `git checkout main && git pull`, then run [Step 16](05-aws-storage-secrets-images.md) again → a new `SHA`.
-   2. 🖥️ `/opt/kidlearn/deploy/deploy.sh prod <new SHA>` — add `--migrate` at
-      the end if the release adds files under
-      `packages/db/prisma/migrations/`. It applies them before restarting the API.
-3. **If `deploy/` files changed in this release:** repeat [Step 20c](06-server.md) **before**
-   step 2.
-4. 💻 `curl -s https://api.kidlearn.net/health` and click through the site.
+2. **API images:** 💻 `git checkout main && git pull`, then run
+   [Step 16](05-aws-storage-secrets-images.md) again. It ends with
+   `IMAGE TAG = b2c3d4e` — that is the new SHA.
+3. **Only if `deploy/` files changed in this release:** 🖥️ repeat
+   [Step 20c](06-server.md) now, so the server runs the new scripts.
+4. **API deploy:** 🖥️ as root, with the SHA from step 2:
+
+   ```bash
+   /opt/kidlearn/deploy/deploy.sh prod b2c3d4e
+   ```
+
+   Add ` --migrate` at the end if the release adds folders under
+   `packages/db/prisma/migrations/` (see below how to tell). It applies them
+   before restarting the API.
+5. ✅ The deploy ends `deploy complete at b2c3d4e`; then 💻
+   `curl -s https://api.kidlearn.net/health` prints `{"data":{"status":"ok",…}}`.
+   Click through the site.
 
 **Which half goes first?** Vercel finishes before you have built the images, so
 for a few minutes the **new website talks to the old API**. That is fine as long
 as every change keeps working against the version before it — the same rule as
 migrations, below.
 
-**How to know whether a release has migrations:**
+**How to know whether a release has migrations** — 💻 in the repo, with the
+SHA production runs now (`cat /opt/kidlearn/prod/last-good-tag` on the server,
+e.g. `a1b2c3d`) and the new one:
 
 ```bash
-git diff --name-only <previous SHA> <new SHA> -- packages/db/prisma/migrations/
-# prints anything → use --migrate
+git diff --name-only a1b2c3d b2c3d4e -- packages/db/prisma/migrations/
+# prints anything → use --migrate · prints nothing → leave it off
 ```
 
 ## 10.2 · Database changes safely — "expand, then contract"
@@ -55,14 +66,14 @@ database shape. So a migration must never break the version before it:
 
 Never edit a migration that has already run, and never `prisma migrate dev`
 against production. A bad migration is fixed by a *new* migration. Details:
-`runbook.md` §3.
+[`runbook.md` §3](../runbook.md).
 
 ## 10.3 · Undo a bad release
 
 Undo **both** halves — they are separate systems:
 
 ```
- API      🖥️ /opt/kidlearn/deploy/deploy.sh prod <previous SHA>
+ API      🖥️ /opt/kidlearn/deploy/deploy.sh prod a1b2c3d     ← the previous SHA
           (no --migrate: migrations only go forward)
  Website  🌐 Vercel → project → Deployments → the last good one → ⋯ → Instant Rollback
 ```
@@ -70,14 +81,15 @@ Undo **both** halves — they are separate systems:
 **Finding the previous SHA:** `cat /opt/kidlearn/prod/last-good-tag` *before*
 you deploy the new one, your values sheet, the ECR console (images sorted by
 date), or — after a failed deploy — the `ROLL BACK WITH:` line `deploy.sh`
-printed. The server keeps the 4 newest images; ECR keeps 10. Anything older
-cannot be rolled back to without rebuilding.
+printed. ECR keeps the newest 10 images per repository, **dev's builds
+included**; anything older has to be rebuilt from its commit before you can
+roll back to it.
 
 ## 10.4 · What keeps running without you
 
 | What | How often | Where to look if it stops |
 |---|---|---|
-| HTTPS renewal for `api.kidlearn.net` | ~every 60 days | `docker compose -p kidlearn-edge logs caddy` |
+| HTTPS renewal for `api.kidlearn.net` | ~every 60 days | 🖥️ `docker logs --tail 50 kidlearn-caddy` |
 | HTTPS for `kidlearn.net` | automatic | Vercel → Settings → Domains |
 | Database backup → S3 | daily 01:30 | healthchecks.io email; `/var/log/kidlearn-backup.log` |
 | Weekly parent reports | Monday 02:00 | healthchecks.io email; `/var/log/kidlearn-weekly-reports.log` |
@@ -94,7 +106,7 @@ quiet hour).
 
 ## 10.5 · Where this is going — automatic API deploys
 
-Today the API half of a release is three commands you type. [Part 12](12-automatic-deploys.md) (file 38a)
+Today the API half of a release is steps 2–4 above, by hand. [Part 12](12-automatic-deploys.md) (file 38a)
 turns them into a GitHub Actions job that runs the **same `deploy.sh`** — which
 is exactly why you do it by hand first. Until [Part 12](12-automatic-deploys.md) is done, keep the access
 key from [Step 3d](02-accounts.md): it is what pushes images.

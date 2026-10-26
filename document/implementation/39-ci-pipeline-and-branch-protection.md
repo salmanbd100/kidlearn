@@ -14,29 +14,25 @@
 > landing.
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
 >
-> **Re-verified 2026-09-10.** Requirements 1–5 and 7–9 have landed on `main` (#45, plus the
-> correction on `39-ci-pipeline-and-branch-protection-fix`); the pipeline has run green on every
-> pull request that reached it. Two things are outstanding, and the second is new:
-> **requirement 6** — ruleset 17802318 still carries only `deletion` and `non_fast_forward`, so
-> `gates` is still reported rather than required — and **requirement 10**, added on re-verification,
-> which is the urgent one. The repository adopted a `dev` integration branch on **2026-09-06**
-> (`general.md §7`), two days after this file was written, and the workflow still triggers on `main`
-> only. Three pull requests (#46, #47, #49) have merged into `dev` with **no CI run at all**.
->
-> **Requirement 10 was implemented on `39-ci-pipeline-and-branch-protection-fix-2`.** Its own pull
-> request against `dev` is the verification: if `gates` reports on it, the requirement is met, and
-> if it does not, the trigger list is still wrong. Nothing else about the branch proves it.
->
-> **Requirement 6 landed 2026-10-08.** Ruleset 17802318 now targets `refs/heads/main` and
-> `refs/heads/dev` with four rules — `deletion`, `non_fast_forward`, `pull_request`
-> (`required_approving_review_count: 0`) and `required_status_checks` (`gates`, not strict) — and
-> keeps the repository-admin bypass. Read back after the `PUT`; on PR #61 (Dependabot, into `dev`)
-> GitHub reports `gates` as `isRequired: true` and the PR as `BLOCKED` while it fails. File 38a adds
+> **Status: ✅ Done.** Requirements 1–5 and 7–9 landed in #45; requirement 10 (`dev` triggers) in
+> #50; requirement 6 on 2026-10-08 — ruleset 17802318 now targets `refs/heads/main` and
+> `refs/heads/dev` with `deletion`, `non_fast_forward`, `pull_request`
+> (`required_approving_review_count: 0`) and `required_status_checks` (`gates`, not strict), keeping
+> the repository-admin bypass. On PR #61 GitHub reported `gates` as `isRequired: true` and the PR as
+> `BLOCKED` while it failed. [File 38a](38a-github-actions-continuous-deployment.md) adds
 > `promotion-guard` on `main` to this same ruleset.
+>
+> **The workflow has grown since this file was written** — `.github/workflows/ci.yml` is the source
+> of truth. It now also runs the `*.db.test.ts` suites against a `postgres:16-alpine` service
+> container, builds the web escape-hatch image (file 38 requirement 5) and the server `runner` and
+> `migrate` images, reads Node from `.nvmrc`, and pins every action to a commit SHA that Dependabot
+> bumps. The Supertest flake that held requirement 6 back is fixed by one shared listener per app
+> (`apps/server/src/shared/testing/request.ts`). Where the text below says otherwise, it is the
+> record of the decision at the time.
 
 ## Goal
 
-`document/standards/general.md §6` defines four enforcement tiers, and one of them is a lie.
+[`document/standards/general.md §6`](../standards/general.md) defines four enforcement tiers, and one of them is a lie.
 **[BIOME]** is real (`pnpm lint` runs Biome). **[TS]** is real (`pnpm typecheck` runs `tsc`).
 **[REVIEW]** is honest about being a human's job. **[CI]** — "the pipeline blocks the merge" — has
 no pipeline behind it: there is no `.github/` directory in this repository. `backend.md §7` says
@@ -45,7 +41,7 @@ engineer remembering to run `pnpm --filter server test` before pushing.
 
 That has worked for 118 commits and one contributor. It works because the same person writes the
 code, reads the standards, and runs the four commands. It does not survive a tired Friday, and it
-will not survive `apps/mobile` (see `document/mobile-app-plan.md`) roughly doubling the number of
+will not survive `apps/mobile` (see [`document/mobile-app-plan.md`](../mobile-app-plan.md)) roughly doubling the number of
 workspaces that have to stay green.
 
 This file wires the four gates that already pass into a GitHub Actions workflow, makes that
@@ -94,11 +90,11 @@ correct, it ships three tsconfig files and nothing to check.
 
 ### What CI does *not* need — verified, not assumed
 
-- **No database.** Not one of the 162 test files opens a connection. `apps/server`'s 30
+- **No database.** Not one of the 162 test files opened a connection. `apps/server`'s 30
   Prisma-stubbing suites are the documented exception in `general.md §5`; `@kidlearn/db`'s suite
   reads `schema.prisma` as text. Standing up a Postgres service container in this workflow would
-  be pure cost. **File 42 is where that changes** — it adds the real harness, and it will add the
-  service container to this workflow as part of its own scope.
+  have been pure cost. (The test-database harness later added the `*.db.test.ts` suites and the
+  service container, as their own step — `pnpm test` itself still opens no connection.)
 - **No environment variables.** Three separate things could have needed them, and none does:
   - `apps/server/vitest.setup.ts` assigns every variable `src/config/env.ts` requires with `??=`, so
     the suite is self-sufficient by design. (That file was `lib/env.ts` when this was measured; #49
@@ -284,7 +280,8 @@ requirement 6's ordering now waits on the Supertest work rather than on file 14.
    repository declares no `engines` field and has no `.nvmrc`. Adding both is out of scope here;
    when they land, this workflow's `node-version: 22` should become
    `node-version-file: .nvmrc`. Add a comment on the line saying so, so the pin does not quietly
-   become a second, drifting source of truth in the meantime.
+   become a second, drifting source of truth in the meantime. **Since done:** `.nvmrc` and
+   `engines.node` exist and the workflow reads `node-version-file: .nvmrc`.
 
 3. **Cache the Turbo cache.** `actions/cache` on `.turbo/cache` (Turbo 2's local cache directory —
    already gitignored), `key: turbo-${{ runner.os }}-${{ github.sha }}` with
@@ -597,8 +594,9 @@ jobs:
           retention-days: 14
 ```
 
-The major versions above are the ones that actually landed, corrected from the first draft's guesses
-after the first run: `pnpm/action-setup@v6`, `actions/cache@v6` and `actions/upload-artifact@v7`
+The major versions above are the ones that first landed, corrected from the first draft's guesses
+after the first run. (Every action has since been pinned to a commit SHA and is bumped by
+Dependabot — the live versions are in `ci.yml`, not here.) At the time: `pnpm/action-setup@v6`, `actions/cache@v6` and `actions/upload-artifact@v7`
 were all a major ahead of what this file assumed. That is the expected outcome of the approach —
 guess, run, and let GitHub's unambiguous failure message pin the version down, rather than
 researching versions that will have moved again by the time anyone reads this.
@@ -744,11 +742,10 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
 
 ## Out of Scope
 
-- **A Postgres service container.** No test needs one today. The test-database
-  harness will add the service container to this workflow as part of its own change — that keeps
-  the container and the code that uses it in one reviewable diff.
-- **`engines.node` and `.nvmrc`.** Out of scope; when added, they should also replace this
-  workflow's inline `node-version: 22` with `node-version-file: .nvmrc`.
+- **A Postgres service container.** No test needed one then. The test-database harness added it to
+  `gates` in its own change, with the `*.db.test.ts` suites that use it.
+- **`engines.node` and `.nvmrc`.** Out of scope here; added later, and the workflow now reads
+  `node-version-file: .nvmrc`.
 - **The rest of `CLAUDE.md`'s stale claims, and `frontend.md §1`'s `packages/ui` layering
   fiction.** Out of scope.
 - **Coverage thresholds or a coverage gate.** Deliberately excluded: a percentage target optimises for the wrong thing in a repo with this many
@@ -761,9 +758,9 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
   file 38a. What has moved *out* of 38a and *into* this file is only the trigger list and `gates`
   being required on `dev` (requirement 10) — because those were sitting behind 8–9 hours of AWS
   work for no reason, and the standards already assume them.
-- **Dependabot, Renovate, CodeQL, or any other GitHub app.** Dependency upgrades are out of scope; the
-  `/upgrade-dependency` skill covers the mechanical part. Adding a bot that opens PRs before the pipeline has run a single week is how a new pipeline
-  gets ignored.
+- **Dependabot, Renovate, CodeQL, or any other GitHub app.** Out of scope while the pipeline was new
+  — a bot that opens PRs before the pipeline has run a single week is how it gets ignored.
+  Dependabot was added later (`.github/dependabot.yml`), with action SHA pinning.
 - **Matrix builds across Node versions or operating systems.** One target — the one the deployment
   runs — is the correct amount of matrix for a project with one deployment target.
 - **Splitting the gates into parallel jobs.** Measured cold cost is under 40 seconds; parallelism
@@ -775,6 +772,6 @@ for GitHub to match it. Step 6 of the plan orders it that way deliberately.
   Diagnosed here, fixed on `14-parent-onboarding-profile-ui-fix` — `general.md §7`'s one-branch
   rule, and the diff wants to sit next to the PIN-gate tests that own the behaviour.
 - **Reusing one Supertest listener per test file instead of one per request.** The structural fix
-  for flake family 1, across 64 files, and the thing that actually has to happen before `gates` can
-  be a required check. Files 42–43 rewrite much of that suite against a real database anyway, so it
-  belongs there. This file only measures the problem and says so out loud.
+  for flake family 1, and the thing that had to happen before `gates` could be a required check.
+  Done later in `apps/server/src/shared/testing/request.ts` (one listener per app). This file only
+  measured the problem and said so out loud.

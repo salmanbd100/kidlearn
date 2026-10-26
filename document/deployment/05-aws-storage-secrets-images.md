@@ -88,7 +88,11 @@ openssl rand -base64 32    # → BETTER_AUTH_SECRET (signs login cookies)
 openssl rand -base64 32    # → CRON_SECRET (protects the weekly-report job)
 ```
 
-Save both in your sheet.
+Each line prints a different random string such as
+`q3N8vXk2pR7tY1wZ5mB9cF4hJ6lD0sA2eG8iK3oU7yE=` (44 characters, often ending
+in `=`). Copy the whole string, `=` included.
+
+✅ **Check:** two different 44-character values in your sheet.
 
 **13b. Store all values** — 🌐 **first look at the region menu, top right: it
 must say Asia Pacific (Mumbai) ap-south-1.** Parameter Store has no region field
@@ -118,7 +122,7 @@ parameter**. For **each** row below:
 | `/kidlearn/prod/CLOUDINARY_API_SECRET` | from [Step 9](04-database-and-services.md) |
 | `/kidlearn/prod/GEMINI_API_KEY` | from [Step 10](04-database-and-services.md) — optional since file 41; see below |
 | `/kidlearn/prod/GOOGLE_TTS_API_KEY` | from [Step 10](04-database-and-services.md) |
-| `/kidlearn/prod/BACKUP_S3_BUCKET` | bucket name only, **no** `s3://` |
+| `/kidlearn/prod/BACKUP_S3_BUCKET` | bucket name only, **no** `s3://`, e.g. `kidlearn-backups-salman-2026` |
 | `/kidlearn/prod/BACKUP_HEARTBEAT_URL` | backup ping URL from [Step 11](04-database-and-services.md) |
 | `/kidlearn/prod/WEEKLY_REPORTS_HEARTBEAT_URL` | weekly ping URL from [Step 11](04-database-and-services.md) |
 
@@ -127,21 +131,28 @@ admins write content with their own AI assistant over MCP instead, and the CMS
 hides the Gemini Generate buttons. SSM will not store an empty value, so to skip
 Gemini leave the parameter out entirely and expect **15 names** in the check
 below rather than 16. Turning MCP on is one more parameter,
-`/kidlearn/prod/MCP_ENABLED` = `true`, which you can add later (`runbook.md`
-"AI assistants over MCP"); it adds one name to the check.
+`/kidlearn/prod/MCP_ENABLED` = `true`, which you can add later
+([runbook "AI assistants over MCP"](../runbook.md#ai-assistants-over-mcp-file-41));
+it adds one name to the check.
 
 *Why placeholders for Google?* The Google sign-in client needs the live
 website address to exist first. You come back and replace them in [Step 22](06-server.md).
 
-*What about `NODE_ENV`, `PORT`, `LOG_LEVEL`…?* Those are not secret and are the
-same on every deploy, so they live in `deploy/app/compose.yml` instead. The full
-list of every variable and its home is `runbook.md` §4.
+*What about `NODE_ENV`, `PORT`, `LOG_LEVEL`…?* Those are not secret, so they
+live in `deploy/app/compose.yml`, and the few that differ between prod and dev
+(`LOG_LEVEL`, `ENABLE_API_DOCS`) are set by `deploy.sh`. The full list of every
+variable and its home is [runbook §4](../runbook.md#4-where-every-value-lives).
 
 ✅ **Check:** 💻 on your Mac:
 
 ```bash
 aws ssm get-parameters-by-path --path /kidlearn/prod/ --region ap-south-1 --query 'Parameters[].Name' --output text | tr '\t' '\n' | sort
 ```
+
+*Reading it:* ask Parameter Store in Mumbai for every name under
+`/kidlearn/prod/` (names only, never values) → `tr` puts each name on its own
+line → `sort` puts them in A–Z order. The first lines look like
+`/kidlearn/prod/BACKUP_HEARTBEAT_URL`, `/kidlearn/prod/BACKUP_S3_BUCKET`, …
 
 You see **exactly 16 names** (15 if you skipped Gemini; one more for each
 optional `MCP_*` parameter you added), spelled as in the table. A typo here shows up much
@@ -161,23 +172,25 @@ later as "the server will not start", so look carefully now.
 >    done
 >    ```
 >
-> 2. Copy them into Mumbai. First type `bash` on its own and press Enter. Then
->    paste the block below, with `us-east-1` replaced by the region step 1
->    printed. The values go straight from one region to the other; only the
->    names are printed:
+> 2. Copy them into Mumbai. Paste the block below as one piece, with
+>    `us-east-1` replaced by the region step 1 printed (e.g. `us-east-1:
+>    16 parameters` → `FROM=us-east-1`). It runs in its own `bash` and ends by
+>    itself, like the block in Step 14 below. The
+>    values go straight from one region to the other; only the names are
+>    printed:
 >
 >    ```bash
->    FROM=us-east-1
+>    FROM=us-east-1 bash <<'EOF'
 >    aws ssm get-parameters-by-path --path /kidlearn/prod/ --with-decryption \
 >      --region "$FROM" --query 'Parameters[].[Name,Value]' --output text \
 >      | while IFS=$'\t' read -r n v; do
 >          aws ssm put-parameter --region ap-south-1 --name "$n" --value "$v" \
 >            --type SecureString --overwrite </dev/null >/dev/null && echo "copied $n"
 >        done
->    exit
+>    EOF
 >    ```
 >
-> 3. Run the ✅ check again. Once it shows all 16, delete the copies in the
+> 3. Run the ✅ check again. Once it shows every name, delete the copies in the
 >    wrong region, so you never edit the wrong ones by mistake later. (AWS
 >    deletes at most 10 names per call, hence `xargs -n 10`.)
 >
@@ -206,24 +219,33 @@ repo, `pnpm` fails with "No projects matched the filters". It also needs:
 | The AWS CLI signed in as `salman-admin` ([Step 3](02-accounts.md)) | The `eval` line reads `/kidlearn/prod/*` from Parameter Store |
 | An internet connection | The script connects straight to Supabase |
 
-Paste this into your normal Terminal prompt as **one block**. Keep the space
-before `cd`: it keeps the block, password included, out of zsh history.
+**First copy the block into a text editor** (TextEdit in plain-text mode, or
+VS Code) and change the three `ADMIN_` lines to your own email, password (at
+least 12 characters, no `'` in it) and name. The values shown are examples; the
+block refuses to run while the example email or password is still there. Then
+paste the whole edited block into your 💻 Mac Terminal as **one piece**.
 
 ```bash
  cd ~/Documents/Me/kidlearn && bash <<'EOF'
 set -a
+ADMIN_EMAIL='salman@example.com'
+ADMIN_PASSWORD='change-me-Mango-Rickshaw-42'
+ADMIN_NAME='Salman'
+case "$ADMIN_EMAIL $ADMIN_PASSWORD" in *example.com*|*change-me*) echo "Edit the three ADMIN_ lines first"; exit 1;; esac
 eval "$(aws ssm get-parameters-by-path --path /kidlearn/prod/ --with-decryption \
   --recursive --region ap-south-1 --query 'Parameters[].[Name,Value]' --output text \
   | while IFS=$'\t' read -r n v; do printf '%s=%q\n' "${n##*/}" "$v"; done)"
 set +a
 [ -n "$DATABASE_URL" ] || { echo "No DATABASE_URL — is the AWS CLI signed in?"; exit 1; }
 echo "Database: $(echo "$DATABASE_URL" | sed -E 's#(//[^:]*):[^@]*@#\1:***@#')"
-ADMIN_EMAIL='you@example.com' \
-ADMIN_PASSWORD='<at least 12 characters>' \
-ADMIN_NAME='<your name>' \
-  pnpm --filter server seed:admin
+pnpm --filter server seed:admin
 EOF
 ```
+
+The space before `cd` keeps the block, password included, out of your shell
+history — if zsh's `HIST_IGNORE_SPACE` option is on. Check with
+`setopt | grep histignorespace`; if that prints nothing, run
+`setopt HIST_IGNORE_SPACE` first.
 
 *Why a heredoc:* everything between `<<'EOF'` and `EOF` runs in a separate
 bash process that ends when the block does, so the production secrets vanish
@@ -232,14 +254,14 @@ separate lines instead: in zsh, a stray `exit` closes the Terminal window and
 the seed's output — including any error — goes with it.
 
 *What that block does, line by line:* `set -a` means "every variable I set from
-now on is exported". The long `eval` line asks Parameter Store for every
+now on is exported" (handed on to the programs this shell starts — here the
+seed script). The three `ADMIN_` lines and the `case` line that rejects the
+example values come next. The long `eval` line asks Parameter Store for every
 `/kidlearn/prod/*` value, turns `/kidlearn/prod/DATABASE_URL` into
 `DATABASE_URL=…`, and sets it in that bash process only. `set +a` stops
 exporting. The `Database:` line prints the host and project ref with the
 password hidden — check it is the production Supabase project before trusting
 the result. Then the seed script runs with those values.
-
-*Use a password with no `'` in it.* A single quote ends the quoted value early.
 
 > **Behind the scenes — how this works before any server exists**
 >
@@ -251,12 +273,12 @@ the result. Then the seed script runs with those values.
 >  your Mac                                           Supabase (Mumbai)
 >  pnpm --filter server seed:admin
 >    └─ tsx runs apps/server/src/scripts/seed-admin.ts
->         ├─ loads config/env.ts  ◄── the 16 values from Parameter Store
+>         ├─ loads config/env.ts  ◄── the values from Parameter Store
 >         ├─ hashes the password the way better-auth does
 >         └─ prisma ── DATABASE_URL, over the internet ──────►  admin row saved
->                                                                (tables exist since [Step 8c](04-database-and-services.md))
+>                                                                (tables exist since Step 8c)
 >
->  later, [Step 23](06-server.md):  EC2 → prod-api ── same DATABASE_URL ─────►  finds the admin row
+>  later, Step 23:  EC2 → prod-api ── same DATABASE_URL ─────►  finds the admin row
 > ```
 >
 > - **Supabase is reachable from anywhere,** including your Mac, so the
@@ -264,10 +286,10 @@ the result. Then the seed script runs with those values.
 > - **No build, no Docker.** `seed:admin` is `tsx src/scripts/seed-admin.ts`.
 >   It creates the admin through better-auth's own functions, so the password
 >   is stored in the exact format the deployed API checks at sign-in.
-> - **Why all 16 secrets:** the script imports `config/auth.ts`, which loads
+> - **Why all the secrets:** the script imports `config/auth.ts`, which loads
 >   `config/env.ts`, and that refuses to start unless every required variable
->   is set — even Cloudinary or Gemini, which the script never uses. The Google
->   `placeholder` values are fine here: only their presence is checked.
+>   is set — even Cloudinary or Text-to-Speech, which the script never uses.
+>   The Google `placeholder` values are fine here: only their presence is checked.
 > - **Order matters:** database ([Step 8](04-database-and-services.md)) → secrets (Step 13) → admin (this step)
 >   → server (Steps 17–23). Each step needs only what came before it.
 
@@ -277,16 +299,20 @@ password exactly the way sign-in will, so success here means the password works.
 Save email and password in your sheet. (Running it again with a new password is
 how you reset it.)
 
-Once the server is up ([Step 23](06-server.md)), you can confirm sign-in from
-the API itself, without the browser's saved passwords getting in the way (keep
-the leading space):
+**Later, once the server is up ([Step 23](06-server.md)),** you can confirm
+sign-in from the API itself, without the browser's saved passwords getting in
+the way. 💻 on your Mac, with your own email and password in place of the
+examples (keep the leading space):
 
 ```bash
  curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.kidlearn.net/api/auth/sign-in/email \
   -H 'Origin: https://kidlearn.net' -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.com","password":"<the password>"}'
+  -d '{"email":"salman@example.com","password":"Mango-Rickshaw-42"}'
 ```
 
+*Reading it:* `-X POST … /sign-in/email` is the same request the sign-in
+dialog sends; `-H` adds the headers the API checks; `-d` is the body; `-s -o
+/dev/null -w '%{http_code}'` hides the reply and prints only its status number.
 `200` means the account works. `401` — see [Troubleshooting](troubleshooting.md).
 
 ## Step 15 · 🌐 Image storage — ECR
@@ -353,15 +379,17 @@ Step 15.
 **Why:** this packs the API into images and uploads them to ECR. Your Mac is
 ARM (Apple chip) and the server is ARM too, so the build is fast.
 
-On your Mac, in the repo, on `main`, with Docker Desktop open:
+💻 On your Mac, in the repo, on `main`, with Docker Desktop open. Paste the
+block as it is — it has no placeholders; it works out your account and commit
+itself:
 
 ```bash
 git checkout main && git pull
 git status            # must say "nothing to commit, working tree clean"
 
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)   # e.g. 123456789012
 REGISTRY="$ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com"
-SHA=$(git rev-parse --short HEAD)
+SHA=$(git rev-parse --short HEAD)                                         # e.g. a1b2c3d
 
 aws ecr get-login-password --region ap-south-1 \
   | docker login --username AWS --password-stdin "$REGISTRY"
@@ -376,6 +404,13 @@ docker push "$REGISTRY/kidlearn-migrate:$SHA"
 
 echo "IMAGE TAG = $SHA"
 ```
+
+*Reading it:* `X=$(command)` saves a command's output in `X`, and `$X` uses it
+later. `get-login-password | docker login` lets Docker upload to your ECR.
+`--platform linux/arm64` builds for the server's chip; `--target` picks the
+image (below); `-t` names it `<registry>/<repository>:<commit>`. The last line
+prints e.g. `IMAGE TAG = a1b2c3d`. Each `docker build` takes a few minutes the
+first time; `docker push` ends with a line like `a1b2c3d: digest: sha256:…`.
 
 *Why the clean tree check?* The image is named after the commit (`SHA`). If you
 had unsaved changes, the image would not match the commit, and rolling back to

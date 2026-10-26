@@ -8,6 +8,8 @@ Most likely first.
 
 | What you see | What to check |
 |---|---|
+| `zsh: no such file or directory: paste`, `parse error near '>'`, or a value that is literally `<your …>` | A `<placeholder>` was pasted as it is. Replace it with your real value, without the `< >` |
+| `command not found: pnpm` / `sh: pnpm: command not found`, or `No such file or directory: /opt/kidlearn/…` | Wrong terminal. 💻 commands (`pnpm`, `git` in the repo, `docker build`) belong on your Mac; 🖥️ commands (`/opt/kidlearn/…`, `deploy.sh`) on the server. Check the prompt ([guide index](README.md#where-you-work)) |
 | Something you made in AWS has "disappeared" | The **region** menu (top right) — must be **Mumbai** |
 | Cloudflare never becomes Active | Namecheap: did you click the green ✓? Is DNSSEC off? |
 | `dig` shows `104.…` or `172.67.…` | The Cloudflare cloud is **orange** — make it grey |
@@ -58,10 +60,11 @@ Most likely first.
 | PRs into `dev` stuck on "promotion-guard — Expected" | The check is not being skipped-as-success; see [Step 45b](12-automatic-deploys.md) |
 | A deploy behaves like an older `deploy.sh` | The server's copy is stale — repeat [Step 20c](06-server.md); nothing updates it automatically |
 
-**Reading logs on the server:**
+**Reading logs on the server** — 🖥️, in a Session Manager terminal
+([Step 20a](06-server.md)):
 
 ```bash
-sudo su -
+sudo su -                                               # become root; the prompt ends in #
 docker compose -p kidlearn-prod logs --tail 100 api     # the API
 docker compose -p kidlearn-edge logs --tail 100 caddy   # HTTPS
 cat /var/log/kidlearn-backup.log                        # backups
@@ -85,7 +88,7 @@ free -m && df -h /                                      # memory and disk
 - Opening port 22.
 - Putting any secret in Git.
 - Bypassing the `gates` check as repository admin "just this once".
-- A second Elastic IP for dev — it needs none ([Step 21](06-server.md) note).
+- A second Elastic IP for dev — it needs none; `api.dev` uses the same one ([Step 31](11-dev-environment.md)).
 - Reusing a production secret in dev ([Step 30](11-dev-environment.md)), or putting the production
   Google client into dev ([Step 35](11-dev-environment.md)).
 - Pointing the dev Vercel project at `api.kidlearn.net` — dev testing would

@@ -1,10 +1,12 @@
 # KidLearn Mobile — High-Level Plan (React Native / Expo)
 
-> **Source specs:** `document/project-requirement-details.md` (master requirements),
-> `document/design.md` (design system), `document/database-design.md`,
-> `document/user-journey-manual.md` (§4 student, §5 parent),
-> `document/implementation/00-progress-tracker.md` (web/server build order).
-> **Status:** proposed — not started. **Last checked against the code:** 2026-10-08 (`0847cce`).
+> **Source specs:** [`project-requirement-details.md`](./project-requirement-details.md) (master requirements),
+> [`design.md`](./design.md) (design system), [`database-design.md`](./database-design.md),
+> [`user-journey-manual.md`](./user-journey-manual.md) (§4 student, §5 parent),
+> [`implementation/00-progress-tracker.md`](./implementation/00-progress-tracker.md) (web/server build order).
+> **Status:** proposed — the per-phase files are drafted in
+> [`implementation-mobile/`](./implementation-mobile/), but no `apps/mobile` code exists yet.
+> **Last checked against the code:** 2026-10-26 (`e50cf6c`).
 > **Audience:** the app is for **children and their parents only**. The Admin CMS, the AI review
 > pipeline and the public `(site)` homepage and guides stay on the web, permanently.
 > **Scope of this document:** the *high-level* plan only. Every phase below is later
@@ -78,7 +80,7 @@ Settled. Revisit only with a dated note appended to this section.
 | **Sign-in methods** | Google **and Sign in with Apple**, parents only | App Store Review Guideline 4.8 requires Sign in with Apple where social login is the only option. No password field — that is the admin's sign-in, and admins are not users of the app. §7. |
 | **Account linking** | **Stays off** | Turned off on purpose so a social sign-in on the seeded admin's address cannot inherit the admin user. Same email via a second provider is refused, not merged (§7.3). Guarded linking is open question 1. |
 | **Tests** | **`jest-expo` + `@testing-library/react-native`** for `apps/mobile`; Vitest everywhere else | React Native cannot run under the existing Vitest/jsdom setup. A documented, contained exception to "Vitest everywhere". The mobile suite runs inside CI `gates` like every other package (§10). |
-| **React version** | **Per app, not per repo** | `apps/web` pins `react@19.3.0`; the Expo SDK dictates its own React/React Native pair. Metro resolves React from `apps/mobile` only, and the shared packages (`types`, `tokens`, `i18n`) stay React-free. Two copies *inside one app* broke every hook in the web suite once (`51eaae6`) — the rule is one copy per bundle. |
+| **React version** | **Per app, not per repo** | `apps/web` pins `react@19.3.1`; the Expo SDK dictates its own React/React Native pair. Metro resolves React from `apps/mobile` only, and the shared packages (`types`, `tokens`, `i18n`) stay React-free. Two copies *inside one app* broke every hook in the web suite once (`51eaae6`) — the rule is one copy per bundle. |
 | **Build & submit** | **EAS Build / EAS Submit / EAS Update** | One command per platform, credentials managed for you, OTA fixes for JS-only bugs without a store review. |
 | **Offline mode** | **Out of scope at MVP** | The web app has none; adding it here would break "same functionality as it is" in the other direction and needs a sync design of its own. §3.2. |
 | **Admin CMS, AI review, public site** | **Web only, permanently** | Admin is an internal desktop surface; the public site links to GitHub, which NFR-SAFE-07 keeps away from children. The app imports no admin contract and no `site` strings (§4.2). |
@@ -129,7 +131,7 @@ Web/server files 01–37a have shipped and their specs were retired (the code an
 reference are the contract); 39 (CI gates) is done and 40 (public site) is web-only. What remains
 outside `apps/mobile`:
 
-| Dependency | State (2026-10-08) | Effect on this plan |
+| Dependency | State (2026-10-26) | Effect on this plan |
 | --- | --- | --- |
 | **Web 38 · provisioning** | ⬜ Not started — the *code* half of file 38 is done, but no AWS, Vercel, Cloudflare or Supabase resource exists | **Hard blocker for M31.** A store build cannot point at a LAN IP. Preview builds need `https://api.dev.kidlearn.net` and store builds `https://api.kidlearn.net`, both created by 38 · provisioning. Until then, preview builds run against a dev server on the LAN. 38a (API continuous deployment) is not a blocker. |
 | **Server changes for native auth** | ⬜ Owned by M06 | `expo()` plugin, `kidlearn://` trusted origin, Apple provider, Apple-aware parent provisioning. Nothing else on the server changes. |

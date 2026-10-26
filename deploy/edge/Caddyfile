@@ -28,7 +28,7 @@
 	# an untrusted (staging) certificate, THEN set
 	#   ACME_CA=https://acme-v02.api.letsencrypt.org/directory
 	# in caddy.env and `docker compose -p kidlearn-edge -f compose.yml up -d
-	# --force-recreate`. document/deployment/ Step 21; record the endpoint in runbook §6.
+	# --force-recreate`. document/deployment/06-server.md Step 21; record the endpoint in runbook §6.
 	acme_ca {$ACME_CA:https://acme-staging-v02.api.letsencrypt.org/directory}
 }
 

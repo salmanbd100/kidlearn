@@ -22,7 +22,7 @@ permissions:
 jobs:
   gates:
     # This name is the status check context that ruleset 17802318 will require
-    # on `main` and `dev` (pending — see the file 39 spec's requirement 6).
+    # on `main` and `dev` (ruleset 17802318 — see the file 39 spec's requirement 6).
     # Renaming the job after that lands silently un-gates both branches.
     name: gates
     runs-on: ubuntu-latest
