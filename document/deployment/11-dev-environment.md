@@ -51,6 +51,7 @@ at the end of this page. Each step below also starts with a **When** line.
 | 31b | Caddy fetches the HTTPS certificate | **Once.** Caddy renews it by itself — never after a code change |
 | 32 | First start of the dev API and database | **Once** in this form. Later deploys use the routine at the end |
 | 32b | Starter data (avatars, worlds, badges) | **Once**, and again after every wipe (33a) |
+| 32c | Dev admin account | **Once**, and again after every wipe (33a) |
 | 33 | Wipe / restore rehearsal | **Once** as a rehearsal. Later only when you need to undo a bad migration or want fresh data |
 | 34 | Dev website on Vercel | **Once.** Afterwards Vercel rebuilds it on every merge into `dev` |
 | 35 | Google sign-in for dev | **Once** |
@@ -336,34 +337,81 @@ when nothing is missing does no harm.
 child-profile form says "No avatars are available right now" and no profile can
 be created, because the starter avatars come only from this seed.
 
-`dev-postgres` publishes no port, and its name only exists on dev's Docker
-network, so reach it through an SSH tunnel. `kidlearn` below is an SSH alias,
-not a hostname: if `ssh kidlearn` says `Could not resolve hostname kidlearn`,
-do the one-time setup in `runbook.md` §2a first (session-manager-plugin, a key
-on the box, and the `Host kidlearn` block in `~/.ssh/config`).
+**Before you start:** `ssh kidlearn` must work from your Mac. If it says
+`Could not resolve hostname kidlearn`, do the one-time setup in `runbook.md`
+§2a first — `kidlearn` is a shortcut that setup creates, not a real address.
 
-🖥️ On the server, find the container's address:
+*How the seed reaches the database.* The seed script runs on your Mac, but
+`dev-postgres` lives on the server, publishes no port, and its name exists only
+inside dev's Docker network. An **SSH tunnel** bridges the gap: while it is
+open, anything your Mac sends to `localhost:15432` comes out on the server and
+goes to the container's port 5432.
+
+```
+ 💻 Mac                                  🖥️ server
+ seed ──► localhost:15432 ══ ssh tunnel ══► 172.20.0.x:5432 (dev-postgres)
+```
+
+So the same database has **two different addresses**, depending on where you
+stand:
+
+| Used from | Database URL host part |
+|---|---|
+| 🖥️ Inside Docker on the server (the dev API, Parameter Store's `DATABASE_URL`) | `@dev-postgres:5432` |
+| 💻 Your Mac, through the tunnel (this step) | `@localhost:15432` |
+
+Copying the Parameter Store URL as-is fails on the Mac with
+`Can't reach database server at dev-postgres:5432`.
+
+You need **three terminal moments**: one on the server, one Mac terminal for the
+tunnel, one Mac terminal for the seed.
+
+**1. 🖥️ Server — read the container's address.** From your Mac:
 
 ```bash
+ssh kidlearn
+sudo su -
 docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dev-postgres
 ```
 
-💻 On your Mac, in one terminal — leave it open:
+It prints something like `172.20.0.2`. Write it down, then `exit` twice to get
+back to your Mac prompt. The address changes whenever the container is
+recreated (a wipe in 33a), so read it fresh each time.
+
+**2. 💻 Mac, terminal 1 — open the tunnel and leave it open.** Put in the address
+from 1:
 
 ```bash
-ssh -N -L 15432:<that address>:5432 kidlearn
+ssh -N -L 15432:172.20.0.2:5432 kidlearn
 ```
 
-💻 In a second terminal, from the repository root, with the `POSTGRES_PASSWORD`
-you stored in Step 30c:
+It prints **nothing** and does not return to the prompt — that is correct. `-N`
+means "no shell, just the tunnel"; `-L 15432:<address>:5432` means "my port
+15432 leads to that address's port 5432". The tunnel lasts as long as this
+command runs.
+
+**3. 💻 Mac, terminal 2 — run the seed.** Open a second terminal in the
+repository folder and run:
 
 ```bash
-DATABASE_URL='postgresql://kidlearn:<POSTGRES_PASSWORD>@localhost:15432/kidlearn' \
-DIRECT_URL='postgresql://kidlearn:<POSTGRES_PASSWORD>@localhost:15432/kidlearn' \
+PW=$(aws ssm get-parameter --region ap-south-1 --name /kidlearn/dev/POSTGRES_PASSWORD \
+  --with-decryption --query Parameter.Value --output text)
+DATABASE_URL="postgresql://kidlearn:$PW@localhost:15432/kidlearn" \
+DIRECT_URL="postgresql://kidlearn:$PW@localhost:15432/kidlearn" \
 pnpm --filter @kidlearn/db db:seed:reference
 ```
 
-Then close the tunnel with Ctrl-C.
+*Reading it:* the first line fetches the dev database password from Parameter
+Store into a variable named `PW`, so you never copy or paste it (and it does not
+end up in a chat or a screenshot). The `"` quotes — not `'` — let the shell put
+the password where `$PW` is. Setting `DATABASE_URL` and `DIRECT_URL` on the same
+command overrides `packages/db/.env` for this one run only.
+
+It ends without an error. Lines such as `warn The configuration property
+package.json#prisma is deprecated` and `Environment variables loaded from .env`
+are normal.
+
+**4. 💻 Mac, terminal 1 — close the tunnel** with Ctrl-C.
 
 > **Never run plain `db:seed` here either**, for the same reason as Step 8d: its
 > sample lessons point at files that exist only on a developer's Mac.
@@ -372,7 +420,7 @@ It is safe to run again: it creates only the rows that are missing and leaves
 existing ones alone. Run it after every wipe in 33a too. A restore from
 production (33b) does not need it — the backup already holds these rows.
 
-✅ **Check** — 🖥️:
+✅ **Check** — 🖥️ on the server (`ssh kidlearn`, then `sudo su -`):
 
 ```bash
 docker exec dev-postgres psql -U kidlearn -d kidlearn -c \
@@ -381,6 +429,91 @@ docker exec dev-postgres psql -U kidlearn -d kidlearn -c \
 
 `starter` is 6 and `characters` is 9. On <https://dev.kidlearn.net>, the
 add-a-child form shows six avatars.
+
+| The seed says | What it means | Fix |
+|---|---|---|
+| `Can't reach database server at dev-postgres:5432` | The URL has the server-side host | Use `@localhost:15432`, as in 3 |
+| `Can't reach database server at localhost:15432` | The tunnel is not open | Start 2 in its own terminal and leave it running |
+| `channel 2: open failed: connect failed` in terminal 1 | The container address in 2 is stale | Read it again (1) and reopen the tunnel |
+| `Authentication failed against database server` | Wrong password, or `PW` is empty | Run `echo ${#PW}` — it should print `48`. If `0`, the `aws ssm` line failed; run it alone to see why |
+| `Could not resolve hostname kidlearn` | The SSH shortcut is not set up on this Mac | `runbook.md` §2a |
+
+**32c. Create your dev admin account.**
+
+**When:** once, after 32b. Again after every wipe (33a) — the admin lives in the
+database, so a wipe deletes it. After a restore from production (33b), dev has
+production's admins instead, with production's passwords.
+
+*Why:* dev has its own empty database, so the admin you made for production in
+[Step 14](05-aws-storage-secrets-images.md) does not exist here. There is no
+admin sign-up page; the `seed:admin` script is the only way to make one.
+
+It runs on your Mac and writes through the **same tunnel as 32b**, so:
+
+**1. 💻 Mac, terminal 1 — open the tunnel** exactly as in 32b steps 1–2 (read
+the container address on the server, then `ssh -N -L 15432:<address>:5432 kidlearn`,
+and leave it running).
+
+**2. 💻 Mac, terminal 2 — run the seed.** Change the three `ADMIN_` lines first,
+then paste the whole block as one piece. Keep the **space before `cd`**: it
+keeps the block, password included, out of your shell history.
+
+```bash
+ cd ~/Documents/Me/kidlearn && bash <<'EOF'
+set -a
+eval "$(aws ssm get-parameters-by-path --path /kidlearn/dev/ --with-decryption \
+  --recursive --region ap-south-1 --query 'Parameters[].[Name,Value]' --output text \
+  | while IFS=$'\t' read -r n v; do printf '%s=%q\n' "${n##*/}" "$v"; done)"
+[ -n "$POSTGRES_PASSWORD" ] || { echo "No POSTGRES_PASSWORD — is the AWS CLI signed in?"; exit 1; }
+DATABASE_URL="postgresql://kidlearn:$POSTGRES_PASSWORD@localhost:15432/kidlearn"
+DIRECT_URL="$DATABASE_URL"
+set +a
+echo "Database: $(echo "$DATABASE_URL" | sed -E 's#(//[^:]*):[^@]*@#\1:***@#')"
+ADMIN_EMAIL='you@example.com' \
+ADMIN_PASSWORD='at-least-12-characters' \
+ADMIN_NAME='Your Name' \
+  pnpm --filter server seed:admin
+EOF
+```
+
+*Reading it:*
+
+- `bash <<'EOF' … EOF` runs everything between the two `EOF` lines in a
+  separate, short-lived shell. The dev secrets it loads disappear when it ends;
+  your terminal stays as it was.
+- `set -a` … `set +a` — every variable set in between is handed on to the
+  commands that run after it.
+- The `eval` line fetches all fourteen `/kidlearn/dev/*` values from Parameter
+  Store and sets each one, e.g. `/kidlearn/dev/CRON_SECRET` becomes
+  `CRON_SECRET=…`. The script needs them all — it loads the server's settings,
+  which refuse to start if any required value is missing, even ones the script
+  never uses.
+- The two `DATABASE_URL` / `DIRECT_URL` lines **replace** the stored
+  `@dev-postgres:5432` address with the tunnel's `@localhost:15432`, the same
+  switch as in 32b.
+- The `Database:` line prints where it is about to write, with the password
+  hidden as `***`. It must say `localhost:15432`.
+- Use a password with **no `'`** in it — a single quote ends the value early.
+  It is a different password from production's admin; your password manager is
+  the right place for it.
+
+✅ The last line is `Created admin …` (or `Updated admin …` if that email already
+existed — the same command resets a forgotten password). The script prints that
+only after checking that the password really works.
+
+**3. 💻 Mac, terminal 1 — close the tunnel** with Ctrl-C.
+
+**4. 🌐 Sign in** once the dev site exists (Step 34): <https://dev.kidlearn.net>
+→ **Admin sign-in**. Type the password — do not let the browser fill in your
+saved production one.
+
+| The seed says | Fix |
+|---|---|
+| `Can't reach database server at localhost:15432` | The tunnel in terminal 1 is not running |
+| `Can't reach database server at dev-postgres:5432` | The two `DATABASE_URL` / `DIRECT_URL` lines were left out |
+| `No POSTGRES_PASSWORD — is the AWS CLI signed in?` | `aws sts get-caller-identity` to check; `aws configure` if it fails |
+| `Invalid environment configuration` listing a variable | That parameter is missing from `/kidlearn/dev/` — Step 30's check should list 14 names |
+| `ADMIN_PASSWORD must be at least …` | Use a longer password |
 
 ## Step 33 · 🖥️ Rehearse the two database procedures you hope never to need
 
@@ -410,7 +543,7 @@ tables. `-p kidlearn-dev` is what guarantees this never touches production.
 
 ✅ `docker ps` shows `dev-api` and `dev-postgres` up again, and
 `curl -s https://api.dev.kidlearn.net/health` is ok. The database is empty again,
-so repeat 32b before anyone adds a child.
+so repeat 32b before anyone adds a child, and 32c before you sign in as admin.
 
 **33b. Restore last night's production backup into dev** (`runbook.md` §8).
 
@@ -777,7 +910,7 @@ cat /opt/kidlearn/dev/last-good-tag                 # dev's own record — never
 ```
 
 No `--migrate` on a rollback: migrations only go forward. If a migration broke
-the dev database, wipe it and start again (33a, then 32b).
+the dev database, wipe it and start again (33a, then 32b and 32c).
 
 ### Common errors
 

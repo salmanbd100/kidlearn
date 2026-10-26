@@ -77,7 +77,7 @@ sudo su -
 **3. Real SSH from your own terminal — `ssh`, `scp`, `rsync`, `ssh -L`, VS Code
 Remote.** Still over Session Manager: the transport is the SSM tunnel, so there
 is no open port and the session is still audited. See §2a for the one-time setup;
-afterwards it is:
+afterwards it is, 💻 **on your Mac**:
 
 ```bash
 ssh kidlearn                                   # a shell
@@ -88,7 +88,8 @@ ssh -N -L 15432:<dev-postgres address>:5432 kidlearn   # tunnel a port to your m
 
 The tunnel's far end is resolved on the host, where the name `dev-postgres`
 does not exist — it is only on dev's Docker network, and the container
-publishes no port. Use the container's address instead, read on the server:
+publishes no port. Use the container's address instead, read 🖥️ **on the
+server** (`ssh kidlearn`, then `sudo su -`):
 
 ```bash
 docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dev-postgres
@@ -99,29 +100,70 @@ is recreated (a wipe in `deployment/` Step 33a), so read it again each time.
 
 ### 2a. One-time setup for SSH over Session Manager
 
-**On your Mac:**
+Do this once per Mac. Afterwards `ssh kidlearn` gives you a shell on the server,
+and the tunnel in `deployment/` Step 32b works.
+
+#### Where each command runs
+
+Every command below is marked with **where you type it**. Running one in the
+wrong place is the most common mistake here, and the error it gives does not say
+"wrong machine".
+
+| Mark | Where | How you know you are there |
+|---|---|---|
+| 💻 **Mac** | A normal Terminal window on your own computer | Your usual prompt, e.g. `❯` or `yourname@MacBook ~ %` |
+| 🖥️ **Server** | Inside a Session Manager session on the EC2 box | The prompt is `sh-5.2$`, or `[root@ip-172-31-…]#` after `sudo su -` |
+
+To get from the Mac **into** the server:
+`aws ssm start-session --target <instance-id> --region ap-south-1`.
+To get **back out** to the Mac: type `exit` (twice if you ran `sudo su -`), or
+press Ctrl-D, until you see `Exiting session with sessionId: …`.
+
+#### What you are building, in plain words
+
+- **SSH** is the standard way to log in to a Linux machine from a terminal. It
+  proves who you are with a **key pair** instead of a password.
+- A **key pair** is two files made together. The **private key**
+  (`~/.ssh/kidlearn`) never leaves your Mac — it is your identity. The **public
+  key** (`~/.ssh/kidlearn.pub`) is safe to share; you give a copy to the server.
+- **`authorized_keys`** is a file on the server listing the public keys allowed
+  to log in as a user. When you connect, the server checks that your Mac holds
+  the private key matching a line in it.
+- **Session Manager (SSM)** is AWS's way in to the server without opening port
+  22 to the internet. SSH normally needs that port; here SSH travels *inside* an
+  SSM connection instead, so the server stays closed.
+- **`~/.ssh/config`** is a file on your Mac that holds shortcuts. The
+  `Host kidlearn` block in it is what makes the word `kidlearn` mean "this
+  instance, this user, this key, through SSM". `kidlearn` is **not** a real
+  internet name — without that block, `ssh kidlearn` cannot find anything.
+
+```
+ 💻 Mac                                              🖥️ EC2 server
+ ~/.ssh/kidlearn      (private key, stays here)
+ ~/.ssh/kidlearn.pub  ──── copied once (step 3) ───► /home/ec2-user/.ssh/authorized_keys
+ ~/.ssh/config        (the "kidlearn" shortcut)
+        │
+        └── ssh kidlearn ══ SSM tunnel, no open port ══► sshd checks the key ► shell
+```
+
+`~` means your home folder: `/Users/<you>` on the Mac, `/home/ec2-user` for
+`ec2-user` on the server. A path starting `~/.ssh` is a different file on each
+machine.
+
+#### Step 1 · 💻 Mac — install the plugin and make the key pair
 
 ```bash
 brew install --cask session-manager-plugin
-session-manager-plugin                          # should print a version
+session-manager-plugin                          # prints a version — the plugin is installed
 
-ssh-keygen -t ed25519 -f ~/.ssh/kidlearn -C "kidlearn-ec2"   # no passphrase needed
+ssh-keygen -t ed25519 -f ~/.ssh/kidlearn -C "kidlearn-ec2"
 ```
 
-**Put the public key on the box**, once, using method 2 above:
+`ssh-keygen` asks for a passphrase — press Enter twice for none. It creates
+`~/.ssh/kidlearn` and `~/.ssh/kidlearn.pub`. If it says the file already
+exists, you made the key before: answer `n` and use the one you have.
 
-```bash
-aws ssm start-session --target <instance-id> --region ap-south-1
-sudo -u ec2-user bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh \
-  && echo "<paste the contents of ~/.ssh/kidlearn.pub>" >> ~/.ssh/authorized_keys \
-  && chmod 600 ~/.ssh/authorized_keys'
-```
-
-**Then add the `kidlearn` alias to `~/.ssh/config` on your Mac.** Without it,
-`ssh … kidlearn` fails with `Could not resolve hostname kidlearn` — `kidlearn`
-is a name only this file defines, not a DNS name.
-
-First find the instance ID:
+#### Step 2 · 💻 Mac — find the instance ID
 
 ```bash
 aws ec2 describe-instances --region ap-south-1 \
@@ -129,7 +171,63 @@ aws ec2 describe-instances --region ap-south-1 \
   --output table
 ```
 
-Then append the block, with `i-YOUR-ID` replaced by the running instance's ID:
+Write down the `i-…` value of the `running` instance. It is the server's name
+inside AWS — not its IP address, which SSH over SSM never uses.
+
+#### Step 3 · 💻 then 🖥️ — give the server your public key
+
+**💻 Mac** — copy the public key to the clipboard:
+
+```bash
+cat ~/.ssh/kidlearn.pub          # look at it: one line, "ssh-ed25519 AAAA… kidlearn-ec2"
+pbcopy < ~/.ssh/kidlearn.pub     # now it is on the clipboard
+```
+
+**💻 Mac** — open a session on the server:
+
+```bash
+aws ssm start-session --target <instance-id> --region ap-south-1
+```
+
+**🖥️ Server** — the prompt is now `sh-5.2$`. Type `echo '`, press **Cmd-V** to
+paste the key, then type the rest, so the whole line reads:
+
+```bash
+echo 'ssh-ed25519 AAAAC3Nza…your key… kidlearn-ec2' | sudo -u ec2-user tee -a /home/ec2-user/.ssh/authorized_keys
+```
+
+> ⚠️ **Paste the key itself, not a placeholder.** If what follows `echo '`
+> starts with `<`, it is placeholder text from a guide, not your key — the
+> server stores that text and still refuses you.
+
+*Reading it:* `echo '…'` prints the key; `|` hands it to the next command;
+`sudo -u ec2-user` runs that as the `ec2-user` account, the user you will log in
+as; `tee -a` **appends** the key to `authorized_keys`, keeping any keys already
+there (without `-a` it would replace the whole file).
+
+Then tighten the permissions — SSH ignores the file if other users can write to
+it — and look at the result:
+
+```bash
+sudo -u ec2-user chmod 700 /home/ec2-user/.ssh
+sudo -u ec2-user chmod 600 /home/ec2-user/.ssh/authorized_keys
+sudo cat /home/ec2-user/.ssh/authorized_keys
+```
+
+✅ Every line starts with `ssh-ed25519 AAAA` (or `ssh-rsa AAAA`), and none
+contains `<` or `>`. Delete any bad line with
+`sudo -u ec2-user nano /home/ec2-user/.ssh/authorized_keys` (Ctrl-O, Enter to
+save; Ctrl-X to leave).
+
+**🖥️ Server** — type `exit` until you are back at your Mac prompt.
+
+#### Step 4 · 💻 Mac — add the `kidlearn` shortcut to `~/.ssh/config`
+
+Check the prompt first — this **must not** run on the server. There the
+shortcut would try to open SSM from the server to itself, and fail with an
+`AccessDeniedException` naming `assumed-role/kidlearn-instance`.
+
+Replace `i-YOUR-ID` with the ID from step 2, then paste the whole block:
 
 ```bash
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -144,34 +242,48 @@ EOF
 chmod 600 ~/.ssh/config
 ```
 
-`>>` appends, so existing entries are kept; the file is created if it is
-missing. To use an editor instead, `nano ~/.ssh/config` and paste the five
-`Host kidlearn` lines. Do not add a `# comment` after a value — `ssh_config`
-only allows comments on their own line.
+*Reading it:* `cat >> file <<'EOF' … EOF` adds everything between the two `EOF`
+lines to the **end** of the file — entries already in it are kept, and the file
+is created if it does not exist. In the block, `HostName` is the instance ID,
+and `ProxyCommand` tells `ssh` to reach it through Session Manager instead of
+the internet (`ssh` fills in `%h` and `%p` with the host and port).
 
-`HostName` is the **instance ID**, not an address — there is no address involved.
-`ssh` runs the `ProxyCommand`, which opens an SSM tunnel and speaks SSH through
-it.
+To use an editor instead: `nano ~/.ssh/config`, paste the five `Host kidlearn`
+lines, then Ctrl-O, Enter, Ctrl-X. Do not put a `# comment` after a value on the
+same line — this file only allows comments on a line of their own.
+
+#### Step 5 · 💻 Mac — check
+
+```bash
+ssh -G kidlearn | grep -E '^(hostname|user|identityfile) '
+```
+
+It prints your `i-…` ID, `ec2-user` and `~/.ssh/kidlearn` — the shortcut is
+read correctly. Then:
+
+```bash
+ssh kidlearn
+```
+
+The prompt becomes `[ec2-user@ip-172-31-… ~]$` — you are on the server over
+SSH. `sudo su -` for root as usual; `exit` to come back.
 
 Your IAM **user** needs `ssm:StartSession` on the instance and on
 `arn:aws:ssm:*::document/AWS-StartSSHSession`. An account administrator already
-has it; the instance role from `deployment/` Step 17 covers the other end.
+has it; the instance role from `deployment/` Step 17 covers the server's side.
 
-✅ **Check:**
+#### When it does not work
 
-```bash
-ssh -G kidlearn | grep -E '^(hostname|user|identityfile) '   # your i-… ID, ec2-user, ~/.ssh/kidlearn
-ssh kidlearn                                                 # a shell on the box
-```
+| `ssh kidlearn` says | What it means | Fix |
+|---|---|---|
+| `Could not resolve hostname kidlearn` | This machine has no `Host kidlearn` block — step 4 was skipped, or done on the server instead of the Mac | Step 4, on the 💻 Mac |
+| `AccessDeniedException … assumed-role/kidlearn-instance/i-…` | You ran `ssh kidlearn` **on the server**. That role is the server's own, and it rightly cannot open sessions | `exit` to the Mac and run it there. On the server, remove what steps 1 and 4 created there by mistake: `/root/.ssh/config` and `/root/.ssh/kidlearn*` |
+| `AccessDeniedException … user/<your name>` | Your own IAM user lacks the permission above | Ask the account administrator to grant it |
+| `SessionManagerPlugin is not found` | Step 1's install has not happened on this Mac | `brew install --cask session-manager-plugin` |
+| `Permission denied (publickey,…)` | SSM worked, but the server does not know this Mac's key — it is missing from `authorized_keys`, or a placeholder was pasted instead of the key | Redo step 3 and check its ✅ |
 
-You land as `ec2-user`; `sudo su -` for root as usual.
-
-| `ssh kidlearn` says | Fix |
-|---|---|
-| `Could not resolve hostname kidlearn` | The `Host kidlearn` block is missing from `~/.ssh/config` |
-| `SessionManagerPlugin is not found` | `brew install --cask session-manager-plugin` |
-| `Permission denied (publickey)` | The public key is not in `ec2-user`'s `authorized_keys` — repeat the step above |
-| `AccessDeniedException` | Your IAM user lacks `ssm:StartSession` on `AWS-StartSSHSession` |
+For anything else, `ssh -v kidlearn 2>&1 | grep -iE 'offering|accepted|denied'`
+shows which key was tried and what the server answered.
 
 > Rotating or revoking access is `authorized_keys` on the box plus the IAM
 > permission — there is still nothing listening on port 22 to attack.

@@ -75,10 +75,15 @@ ADMIN_NAME='<your name>' \
 EOF
 ```
 
-| Environment | `--path` |
-|---|---|
-| https://kidlearn.net | `/kidlearn/prod/` |
-| https://dev.kidlearn.net | `/kidlearn/dev/` |
+That block is for **https://kidlearn.net**, whose Supabase database your Mac
+reaches directly.
+
+**For https://dev.kidlearn.net** changing `--path` to `/kidlearn/dev/` is not
+enough: dev's stored `DATABASE_URL` points at `dev-postgres`, a name that exists
+only inside Docker on the server. The seed needs an SSH tunnel and a
+`localhost:15432` URL instead — follow
+[deployment Step 32c](./deployment/11-dev-environment.md), which has the full
+block.
 
 - Check that the printed `Database:` line is the environment you expect.
 - Each environment has its own database, so each one needs its own admin.
