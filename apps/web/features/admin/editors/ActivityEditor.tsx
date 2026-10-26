@@ -2,7 +2,16 @@
 
 import type { ActivityType, Locale } from "@kidlearn/types";
 import { ACTIVITY_SCHEMAS, ACTIVITY_TYPES, LOCALES } from "@kidlearn/types";
-import { Button, Input, Label, Select, ThemeScope } from "@kidlearn/ui";
+import {
+  Button,
+  Input,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+  ThemeScope,
+} from "@kidlearn/ui";
 import { useMemo, useState } from "react";
 import { ActivityEngine } from "@/features/activities/ActivityEngine";
 import { LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
@@ -81,26 +90,22 @@ export function ActivityEditor({
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="activity-type">Activity type</Label>
-          <Select
-            id="activity-type"
+          <SelectMenu
             value={draft.type}
             disabled={isBusy}
-            onChange={(event) =>
-              update({
-                type: optionValue(
-                  ACTIVITY_TYPES,
-                  event.target.value,
-                  draft.type,
-                ),
-              })
+            onValueChange={(value) =>
+              update({ type: optionValue(ACTIVITY_TYPES, value, draft.type) })
             }
           >
-            {ACTIVITY_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {TYPE_LABELS[type]}
-              </option>
-            ))}
-          </Select>
+            <SelectMenuTrigger id="activity-type" size="sm" />
+            <SelectMenuContent>
+              {ACTIVITY_TYPES.map((type) => (
+                <SelectMenuItem key={type} value={type}>
+                  {TYPE_LABELS[type]}
+                </SelectMenuItem>
+              ))}
+            </SelectMenuContent>
+          </SelectMenu>
         </div>
 
         <Fieldset
@@ -211,20 +216,20 @@ export function ActivityEditor({
                   <Label htmlFor={`activity-${axis}`}>
                     {axis === "rows" ? "Rows" : "Columns"}
                   </Label>
-                  <Select
-                    id={`activity-${axis}`}
+                  <SelectMenu
                     value={String(draft[axis])}
                     disabled={isBusy}
-                    onChange={(event) =>
-                      update({ [axis]: Number(event.target.value) })
-                    }
+                    onValueChange={(value) => update({ [axis]: Number(value) })}
                   >
-                    {GRID_SIZES.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </Select>
+                    <SelectMenuTrigger id={`activity-${axis}`} size="sm" />
+                    <SelectMenuContent>
+                      {GRID_SIZES.map((size) => (
+                        <SelectMenuItem key={size} value={String(size)}>
+                          {size}
+                        </SelectMenuItem>
+                      ))}
+                    </SelectMenuContent>
+                  </SelectMenu>
                 </div>
               ))}
             </div>
@@ -288,27 +293,28 @@ export function ActivityEditor({
                   <Label htmlFor={`mapping-${item.id}`}>
                     {item.label.en || item.id} goes to
                   </Label>
-                  <Select
-                    id={`mapping-${item.id}`}
+                  <SelectMenu
                     value={draft.mapping[item.id] ?? ""}
                     disabled={isBusy}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       update({
-                        mapping: withMapping(
-                          draft.mapping,
-                          item.id,
-                          event.target.value,
-                        ),
+                        mapping: withMapping(draft.mapping, item.id, value),
                       })
                     }
                   >
-                    <option value="">Choose…</option>
-                    {draft.targets.map((target) => (
-                      <option key={target.id} value={target.id}>
-                        {target.label.en || target.id}
-                      </option>
-                    ))}
-                  </Select>
+                    <SelectMenuTrigger
+                      id={`mapping-${item.id}`}
+                      size="sm"
+                      placeholder="Choose…"
+                    />
+                    <SelectMenuContent>
+                      {draft.targets.map((target) => (
+                        <SelectMenuItem key={target.id} value={target.id}>
+                          {target.label.en || target.id}
+                        </SelectMenuItem>
+                      ))}
+                    </SelectMenuContent>
+                  </SelectMenu>
                 </div>
               ))}
             </Fieldset>

@@ -2,7 +2,15 @@
 
 import type { AdminAccessToken } from "@kidlearn/types";
 import { ACCESS_TOKEN_LIFETIME_DAYS } from "@kidlearn/types";
-import { Button, Input, Label, Select } from "@kidlearn/ui";
+import {
+  Button,
+  Input,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+} from "@kidlearn/ui";
 import { KeyRound, PlugZap, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
@@ -265,17 +273,19 @@ function CreateTokenForm({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="token-lifetime">Expires after</Label>
-        <Select
-          id="token-lifetime"
-          value={days}
-          onChange={(event) => setDays(Number(event.target.value))}
+        <SelectMenu
+          value={String(days)}
+          onValueChange={(value) => setDays(Number(value))}
         >
-          {LIFETIME_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option === 1 ? "1 day" : `${option} days`}
-            </option>
-          ))}
-        </Select>
+          <SelectMenuTrigger id="token-lifetime" size="sm" className="w-32" />
+          <SelectMenuContent>
+            {LIFETIME_OPTIONS.map((option) => (
+              <SelectMenuItem key={option} value={String(option)}>
+                {option === 1 ? "1 day" : `${option} days`}
+              </SelectMenuItem>
+            ))}
+          </SelectMenuContent>
+        </SelectMenu>
       </div>
       <Button type="submit" disabled={name.trim() === ""} isLoading={isSaving}>
         Create token

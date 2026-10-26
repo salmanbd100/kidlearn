@@ -138,6 +138,31 @@ describe("AiAssistantsScreen", () => {
     expect(screen.getByRole("heading", { name: "Your tokens" })).toHaveFocus();
   });
 
+  it("creates a token with the lifetime picked from the list", async () => {
+    api.createAccessToken.mockResolvedValue({
+      ok: true,
+      data: { token: { ...TOKEN, id: "new", name: "Laptop" }, secret: SECRET },
+    });
+    render(<AiAssistantsScreen />);
+    await screen.findByText("Cursor — desktop");
+
+    fireEvent.change(screen.getByLabelText("Token name"), {
+      target: { value: "Laptop" },
+    });
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Expires after" }), {
+      key: "Enter",
+    });
+    fireEvent.click(screen.getByRole("option", { name: "30 days" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create token" }));
+
+    await waitFor(() =>
+      expect(api.createAccessToken).toHaveBeenCalledWith({
+        name: "Laptop",
+        expiresInDays: 30,
+      }),
+    );
+  });
+
   it("revokes a token and stops offering to revoke it again", async () => {
     api.revokeAccessToken.mockResolvedValue({
       ok: true,

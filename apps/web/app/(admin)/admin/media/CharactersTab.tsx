@@ -1,7 +1,16 @@
 "use client";
 
 import type { AdminWorld, CharacterSheet } from "@kidlearn/types";
-import { Button, Input, Label, Select, Textarea } from "@kidlearn/ui";
+import {
+  Button,
+  Input,
+  Label,
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+  Textarea,
+} from "@kidlearn/ui";
 import { useCallback, useEffect, useState } from "react";
 import {
   createCharacterSheet,
@@ -19,6 +28,9 @@ type Draft = {
 };
 
 const EMPTY_DRAFT: Draft = { name: "", worldId: "", description: "" };
+
+// A listbox item cannot carry "", which is what `worldId` holds for every world.
+const EVERY_WORLD = "every-world";
 
 const DESCRIPTION_MIN = 20;
 
@@ -208,22 +220,30 @@ export function CharactersTab() {
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="character-world">World</Label>
-            <Select
-              id="character-world"
-              className="w-56"
-              value={draft.worldId}
-              aria-describedby="character-world-hint"
-              onChange={(event) =>
-                setDraft({ ...draft, worldId: event.target.value })
+            <SelectMenu
+              value={draft.worldId === "" ? EVERY_WORLD : draft.worldId}
+              onValueChange={(value) =>
+                setDraft({
+                  ...draft,
+                  worldId: value === EVERY_WORLD ? "" : value,
+                })
               }
             >
-              <option value="">Every world</option>
-              {worlds.map((world) => (
-                <option key={world.id} value={world.id}>
-                  {world.name}
-                </option>
-              ))}
-            </Select>
+              <SelectMenuTrigger
+                id="character-world"
+                size="sm"
+                className="w-56"
+                aria-describedby="character-world-hint"
+              />
+              <SelectMenuContent>
+                <SelectMenuItem value={EVERY_WORLD}>Every world</SelectMenuItem>
+                {worlds.map((world) => (
+                  <SelectMenuItem key={world.id} value={world.id}>
+                    {world.name}
+                  </SelectMenuItem>
+                ))}
+              </SelectMenuContent>
+            </SelectMenu>
             <p
               id="character-world-hint"
               className="text-muted-foreground text-xs"
