@@ -147,7 +147,24 @@ nothing to steal.
 
 - **IAM instance profile:** `kidlearn-instance`
 - **Credit specification:** **Standard** ← the default for `t4g` is Unlimited
+- **Metadata version:** **V2 only (token required)**
+- **Metadata response hop limit:** `1` ← the Amazon Linux 2023 default is `2`
 - **User data:** paste the whole `bootstrap.sh` from 18a
+
+*Why hop limit 1?* The server's role (Step 17) can read every prod and dev
+secret and every database backup. AWS hands that role's keys to anything that
+asks the address `169.254.169.254`. With hop limit `2`, a Docker container can
+ask too, so a bug in the API that lets an attacker make the server fetch a URL
+would give them those keys. With `1`, only the server itself gets an answer;
+the containers do not need it, because `deploy.sh` reads the secrets on the
+host and passes them in. To fix a server that is already running, from your
+laptop 💻 (example instance ID — use yours):
+
+```bash
+aws ec2 modify-instance-metadata-options --region ap-south-1 \
+  --instance-id i-0abc1234def567890 \
+  --http-tokens required --http-put-response-hop-limit 1
+```
 
 *Why Standard?* In Unlimited mode a server that stays busy after its CPU
 credits run out keeps running at full speed, and AWS bills the extra. Anyone

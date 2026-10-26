@@ -29,6 +29,11 @@ if [[ -z "${IMAGE_TAG}" ]]; then
   echo "usage: $0 ${ENV_NAME} <image-tag> [--migrate]   (the bare commit SHA)" >&2
   exit 64
 fi
+# The tag is written into compose.env, so anything beyond a hex SHA could inject Compose variables.
+if [[ ! "${IMAGE_TAG}" =~ ^[0-9a-f]{7,40}$ ]]; then
+  echo "invalid image tag: expected a bare commit SHA (7–40 lowercase hex characters)" >&2
+  exit 64
+fi
 if [[ -n "${MIGRATE_FLAG}" && "${MIGRATE_FLAG}" != "--migrate" ]]; then
   echo "usage: $0 ${ENV_NAME} ${IMAGE_TAG} [--migrate]   (unknown option: ${MIGRATE_FLAG})" >&2
   exit 64

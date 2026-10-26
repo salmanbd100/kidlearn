@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { createAuthMiddleware } from "better-auth/api";
 import { env } from "./env.js";
 import { prisma } from "./prisma.js";
 
@@ -57,6 +58,8 @@ export const auth = betterAuth({
   // would otherwise be linked onto the admin user and hand out an admin session without the password.
   account: {
     accountLinking: { enabled: false },
+    // Encrypted at rest with BETTER_AUTH_SECRET, so a leaked dump or backup does not hand out live Google tokens.
+    encryptOAuthTokens: true,
   },
   session: {
     expiresIn: SESSION_EXPIRES_IN_SECONDS,
@@ -73,8 +76,30 @@ export const auth = betterAuth({
       },
     },
   },
+  hooks: {
+    // A password change must sign out whoever else holds the old password, so the opt-in is forced on: better-auth then
+    // deletes every session and issues the caller a fresh one.
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/change-password") return;
+      return {
+        context: { body: { ...ctx.body, revokeOtherSessions: true } },
+      };
+    }),
+  },
   // The cap lives on the row itself so better-auth's own `/api/auth/*` endpoints honour it, not just `requireAdmin`.
   databaseHooks: {
+    account: {
+      update: {
+        // MCP access tokens are minted on the strength of the password, so they must not outlive it.
+        after: async (account) => {
+          if (account.providerId !== "credential" || !account.password) return;
+          await prisma.adminAccessToken.updateMany({
+            where: { admin: { authUserId: account.userId }, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        },
+      },
+    },
     session: {
       create: {
         before: async (session) => {
