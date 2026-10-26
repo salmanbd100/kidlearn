@@ -117,15 +117,37 @@ sudo -u ec2-user bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh \
   && chmod 600 ~/.ssh/authorized_keys'
 ```
 
-**Then add to `~/.ssh/config` on your Mac:**
+**Then add the `kidlearn` alias to `~/.ssh/config` on your Mac.** Without it,
+`ssh … kidlearn` fails with `Could not resolve hostname kidlearn` — `kidlearn`
+is a name only this file defines, not a DNS name.
 
-```sshconfig
+First find the instance ID:
+
+```bash
+aws ec2 describe-instances --region ap-south-1 \
+  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`].Value|[0],State.Name]' \
+  --output table
+```
+
+Then append the block, with `i-YOUR-ID` replaced by the running instance's ID:
+
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+cat >> ~/.ssh/config <<'EOF'
+
 Host kidlearn
-  HostName <instance-id>          # i-0abc…, NOT the Elastic IP
+  HostName i-YOUR-ID
   User ec2-user
   IdentityFile ~/.ssh/kidlearn
   ProxyCommand sh -c "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p' --region ap-south-1"
+EOF
+chmod 600 ~/.ssh/config
 ```
+
+`>>` appends, so existing entries are kept; the file is created if it is
+missing. To use an editor instead, `nano ~/.ssh/config` and paste the five
+`Host kidlearn` lines. Do not add a `# comment` after a value — `ssh_config`
+only allows comments on their own line.
 
 `HostName` is the **instance ID**, not an address — there is no address involved.
 `ssh` runs the `ProxyCommand`, which opens an SSM tunnel and speaks SSH through
@@ -135,7 +157,21 @@ Your IAM **user** needs `ssm:StartSession` on the instance and on
 `arn:aws:ssm:*::document/AWS-StartSSHSession`. An account administrator already
 has it; the instance role from `deployment/` Step 17 covers the other end.
 
+✅ **Check:**
+
+```bash
+ssh -G kidlearn | grep -E '^(hostname|user|identityfile) '   # your i-… ID, ec2-user, ~/.ssh/kidlearn
+ssh kidlearn                                                 # a shell on the box
+```
+
 You land as `ec2-user`; `sudo su -` for root as usual.
+
+| `ssh kidlearn` says | Fix |
+|---|---|
+| `Could not resolve hostname kidlearn` | The `Host kidlearn` block is missing from `~/.ssh/config` |
+| `SessionManagerPlugin is not found` | `brew install --cask session-manager-plugin` |
+| `Permission denied (publickey)` | The public key is not in `ec2-user`'s `authorized_keys` — repeat the step above |
+| `AccessDeniedException` | Your IAM user lacks `ssm:StartSession` on `AWS-StartSSHSession` |
 
 > Rotating or revoking access is `authorized_keys` on the box plus the IAM
 > permission — there is still nothing listening on port 22 to attack.

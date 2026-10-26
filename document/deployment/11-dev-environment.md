@@ -337,7 +337,10 @@ child-profile form says "No avatars are available right now" and no profile can
 be created, because the starter avatars come only from this seed.
 
 `dev-postgres` publishes no port, and its name only exists on dev's Docker
-network, so reach it through an SSH tunnel (one-time setup: `runbook.md` §2a).
+network, so reach it through an SSH tunnel. `kidlearn` below is an SSH alias,
+not a hostname: if `ssh kidlearn` says `Could not resolve hostname kidlearn`,
+do the one-time setup in `runbook.md` §2a first (session-manager-plugin, a key
+on the box, and the `Host kidlearn` block in `~/.ssh/config`).
 
 🖥️ On the server, find the container's address:
 
@@ -786,6 +789,7 @@ the dev database, wipe it and start again (33a, then 32b).
 | `name unknown: The repository … does not exist` | Wrong region | Use `ap-south-1` (Mumbai) everywhere |
 | `manifest unknown` from `deploy.sh` | No image with that SHA in ECR | Finish step 2, and copy the SHA it printed exactly |
 | "No avatars are available right now" on the site | The dev database has no starter data | Run 32b |
+| `Could not resolve hostname kidlearn` in 32b | The SSH alias is not set up on this Mac | `runbook.md` §2a |
 
 ---
 
