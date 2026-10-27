@@ -49,10 +49,19 @@ function mediaRemotePatterns(): RemotePatterns {
 const siteHeaders: NonNullable<NextConfig["headers"]> = async () => {
   const headers = [
     // The dashboard edits child profiles on tablets where the Google session persists, so no page may be framed.
-    { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+    {
+      key: "Content-Security-Policy",
+      value:
+        "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+    },
     { key: "X-Content-Type-Options", value: "nosniff" },
     // `?child=<id>` is in dashboard URLs; keep it out of any outbound Referer.
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    // No surface uses a device sensor; denying them stops any embedded third-party script asking a child for one.
+    {
+      key: "Permissions-Policy",
+      value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    },
   ];
   if (process.env.SITE_NOINDEX === "true") {
     headers.push({ key: "X-Robots-Tag", value: "noindex, nofollow" });

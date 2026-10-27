@@ -27,3 +27,17 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+
+  # The runtime images and the Caddy edge are digest-pinned; without these
+  # entries Node, OpenSSL and Debian CVE fixes never arrive as a PR.
+  - package-ecosystem: docker
+    directories: ["/apps/server", "/apps/web"]
+    target-branch: dev
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: /deploy/edge
+    target-branch: dev
+    schedule:
+      interval: weekly
