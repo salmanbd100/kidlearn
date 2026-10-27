@@ -1,8 +1,19 @@
 # KidLearn
 
 [![CI](https://github.com/salmanbd100/kidlearn/actions/workflows/ci.yml/badge.svg)](https://github.com/salmanbd100/kidlearn/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-000?logo=nextdotjs)
+![Express 5](https://img.shields.io/badge/Express-5-000?logo=express)
 
-> An AI-powered early education platform built for children aged 3–6 — and, honestly, built for my two daughters.
+> A bilingual (English/Bangla) learning platform for children aged 3–6, with a parent dashboard, an admin CMS and an AI content pipeline that never publishes without human review. I built it for my two daughters.
+
+**[kidlearn.net](https://kidlearn.net)** · [API reference](https://api.dev.kidlearn.net/docs) · [Engineering guide](https://kidlearn.net/guide/engineering)
+
+<p align="center">
+  <img src="document/assets/readme/homepage-en.jpg" alt="KidLearn homepage in English" width="49%">
+  <img src="document/assets/readme/homepage-bn.jpg" alt="KidLearn homepage in Bangla" width="49%">
+</p>
 
 ## Live
 
@@ -15,13 +26,45 @@ Dev runs unreviewed builds against its own database and is not listed by search 
 
 ---
 
+## Engineering highlights
+
+- **One schema, three uses.** Every request and response is a Zod schema in [`packages/types`](packages/types/src/api/). The API validates with it, the web app types against it, and the OpenAPI document at `/docs` is generated from it, so there is no hand-written spec to drift.
+- **The docs can't fall behind the code.** [`coverage.test.ts`](apps/server/src/openapi/coverage.test.ts) walks the live Express routers and fails the build if any route is undocumented. Every successful response in a route test passes through [`assertContract`](apps/server/src/openapi/assert-contract.ts) against its published schema.
+- **The server owns progress.** Stars, streaks, learning time and lesson completion are computed server-side. The server enforces lesson step order, needs evidence before it pays a completion, rate-limits client events and [refuses writes without current parental consent](apps/server/src/shared/middleware/require-consent.ts).
+- **Content is data, not code.** Activities and quizzes are versioned JSONB payloads ([`activity`](packages/types/src/activity/), [`quiz`](packages/types/src/quiz/)) rendered by generic engines. A new lesson needs no deploy.
+- **AI output is drafted, never published.** Gemini generates lessons, stories, quizzes, narration and illustrations into a review queue. An [MCP server](apps/server/src/modules/mcp/) lets AI assistants author drafts too, scoped so they cannot publish. Only an admin moves content to `published`.
+- **Child safety is enforced by tests.** The student portal has no ads, no external links and no social features. [`no-external-links.test.tsx`](<apps/web/app/(student)/no-external-links.test.tsx>) fails if any student screen links off-site. Postgres [row-level security](packages/db/prisma/migrations/20261010120000_enable_row_level_security/migration.sql) is [tested against a real database](apps/server/src/shared/testing/row-level-security.db.test.ts).
+- **One gate for every change.** A single CI job runs lint, build, typecheck, 240+ test files with coverage, the real-Postgres suites and three Docker builds. It is a required check on `main` and `dev`, which only accept pull requests.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  child([Child]) --> web
+  parent([Parent]) --> web
+  admin([Admin]) --> web
+  subgraph Vercel
+    web["Next.js 16 web app<br/>student portal · parent dashboard · admin CMS"]
+  end
+  subgraph EC2["AWS EC2 · Docker"]
+    caddy[Caddy] --> api["Express 5 API<br/>better-auth · OpenAPI /docs"]
+    jobs["Weekly reports · backups"]
+  end
+  web -- "REST + session cookie" --> caddy
+  api --> db[("Supabase Postgres<br/>JSONB content · RLS")]
+  jobs --> db
+  api -- "generate drafts" --> ai["Gemini text + image<br/>Google Cloud TTS"]
+  assistant([AI assistant]) -- "MCP · drafts only" --> caddy
+  admin -.->|"review → publish"| api
+```
+
+---
+
 ## The Story Behind It
 
-I am a developer and a father. Watching my daughters learn, I noticed that the best educational apps were either too expensive, not available in our language (Bangla), or built without real care for how young children actually learn. So I decided to build one myself.
+I am a developer and a father. The best educational apps I found for my daughters were too expensive, not available in Bangla, or not built around how young children actually learn. So I built one.
 
-**KidLearn** ("Learning Adventure") is a safe, gamified, voice-guided web platform for early learners (Nursery, KG-1, KG-2). It delivers bite-sized lessons across Language, Mathematics, Science, and Social Skills — with animated characters, interactive activities, stories, and quizzes — all designed for a focused 30-to-60 minute daily session.
-
-Every design decision traces back to two real users: my daughters.
+**KidLearn** ("Learning Adventure") is a safe, gamified, voice-guided web platform for early learners (Nursery, KG-1, KG-2). Lessons are short and cover Language, Mathematics, Science and Social Skills, with animated characters, interactive activities, stories and quizzes, in a focused 30-to-60-minute daily session.
 
 ---
 
@@ -47,14 +90,15 @@ Every design decision traces back to two real users: my daughters.
 | Backend | Express 5 + TypeScript (ESM) |
 | Database | PostgreSQL — Supabase in deployment, a local Docker container for development. Relational data + `JSONB` for quiz/activity schemas |
 | ORM | Prisma (`packages/db`) |
-| API docs | OpenAPI 3.0 generated from Zod schemas → Scalar API reference at [`/docs`](http://localhost:4000/docs) |
+| API docs | OpenAPI 3.0 generated from Zod schemas → Scalar API reference at [`/docs`](https://api.dev.kidlearn.net/docs) |
 | Validation | Zod — one schema per contract, shared between the API and the web app (`packages/types`) |
 | Testing | Vitest — Supertest for API routes, React Testing Library for components |
 | i18n | i18next on frontend + per-language asset refs in DB |
 | AI — text & quizzes | Gemini text models (free tier) → typed JSON payloads validated against shared schemas |
 | AI — audio | Google Cloud Text-to-Speech (Standard voices, one per language) |
 | AI — images | Gemini image models (free tier) |
-| AI — video | Google Veo / Runway Gen-3 |
+| AI — video | Made outside the app in Google Veo or Runway Gen-3 from the generated narration script, then uploaded through the CMS |
+| AI — authoring | MCP server — AI assistants create drafts that go through the same review queue |
 | Auth | better-auth — Google sign-in for parents, password for seeded admins |
 | Linting & formatting | Biome (repo-wide, replaces ESLint + Prettier) |
 | Hosting | Vercel (web) + one AWS EC2 box running the API in Docker behind Caddy |
@@ -81,180 +125,17 @@ kidlearn/
 
 ---
 
-## Running Locally
+## Running locally
 
-### Prerequisites
+Node 22, pnpm 9 and Docker. In short: `pnpm install`, `docker compose up -d postgres`, copy the two example env files, `pnpm db:migrate`, seed, then `pnpm dev`. That gives you the web app on `:3000`, the API on `:4000` and the API reference on `:4000/docs`.
 
-- [Node.js](https://nodejs.org) 22 — the major in `.nvmrc` (`nvm use` picks it up); pnpm warns on any other, from `engines` in `package.json`
-- [pnpm](https://pnpm.io) 9+ — install with `npm install -g pnpm`
-- [Docker Desktop](https://docs.docker.com/desktop/) — runs the local PostgreSQL. You can point at a hosted Supabase instance instead, but Docker is the shortest path to a working checkout.
+The exact commands, env values, port conflicts, admin accounts and everything else are in **[CONTRIBUTING.md](CONTRIBUTING.md)**. Deployment is in [`document/deployment/`](document/deployment/README.md) and day-two operations are in [`runbook.md`](document/runbook.md).
 
-### 1. Clone and install
+---
 
-```bash
-git clone https://github.com/salmanbd100/kidlearn.git
-cd kidlearn
-pnpm install
-```
+## How I use AI to build this
 
-### 2. Start the database
-
-```bash
-docker compose up -d postgres
-docker compose ps          # wait for STATUS = (healthy)
-```
-
-`docker-compose.yml` runs `postgres:16-alpine` on `localhost:5432` with a named volume, so your data survives restarts. On first boot it also creates `kidlearn_test` alongside `kidlearn` — the database the Vitest suite expects.
-
-If `5432` is already taken on your machine, do not edit the committed compose file — create a gitignored `docker-compose.override.yml`, which Compose loads automatically on top of it:
-
-```yaml
-services:
-  postgres:
-    ports: !override
-      - "127.0.0.1:5433:5432"
-```
-
-`!override` is load-bearing: Compose merges sequences by default, so a plain `ports:` list adds the new mapping while keeping `5432` — binding the container to both and shadowing whatever already held that port. Whichever host port you land on has to appear in **all three** connection strings in step 3.
-
-### 3. Configure environment
-
-```bash
-cp packages/db/.env.example packages/db/.env
-cp apps/server/.env.example apps/server/.env
-```
-
-**`packages/db/.env`** — Prisma reads this for migrations and Studio. Point both variables at the container. Drop the `?pgbouncer=true` suffix from the example: that flag is for the Supabase pooler, and there is no pooler in front of a local container, so the runtime/migration split collapses to one URL.
-
-```
-DATABASE_URL="postgresql://postgres:password@localhost:5432/kidlearn"
-DIRECT_URL="postgresql://postgres:password@localhost:5432/kidlearn"
-```
-
-**`apps/server/.env`** — the API runs as its own process and needs the connection string in its own environment. Every variable here is validated by `src/config/env.ts` at boot; a missing or malformed value stops the process and names the offending field.
-
-```
-DATABASE_URL="postgresql://postgres:password@localhost:5432/kidlearn"
-BETTER_AUTH_SECRET=      # generate: openssl rand -base64 32  (min 32 chars)
-GOOGLE_CLIENT_ID=        # see .env.example for the Google Cloud console steps
-GOOGLE_CLIENT_SECRET=
-```
-
-The two Google variables reject blank values but are not otherwise checked at boot, so placeholders like `local-dev-client-id` are enough to get the server running. Everything except Google sign-in works with them — the routes behind `requireParent` return `401` until you supply real credentials.
-
-**`apps/web/.env.local`** — optional, and there is no error at boot to tell you it is missing. Copy `apps/web/.env.local.example` if you want it.
-
-```
-MEDIA_ASSET_HOSTS=https://cdn.kidlearn.test
-```
-
-`next.config.ts` turns this comma-separated list of origins into `images.remotePatterns`, and `next/image` **throws** on any host not listed — an `Invalid src prop` error that takes down the whole screen rather than showing one broken image. The seeded activity and quiz payloads come from the canonical fixtures in `packages/types/src/__fixtures__/`, which reference `https://cdn.kidlearn.test`, so without this variable the first lesson containing a drag-and-drop step crashes. Asset urls inside a payload cannot dodge this the way `MediaAsset.url` can: `AssetRefSchema` requires an absolute `https://` url (`packages/types/src/primitives.ts`), so a relative `/dev/…` path is invalid content.
-
-Listing that host stops the crash but does not produce pictures — `.test` is a reserved TLD that never resolves, so each image logs an optimiser warning and renders as a gap. The activities stay playable, because every item and drop target also carries a localised text label. Real artwork arrives by admin upload (file 33) and the AI pipeline (file 36); attaching it is a data change, which is the reason this host list is configuration rather than code.
-
-**Keep all three URLs on the same port.** The server connects with its own `DATABASE_URL` from `apps/server/.env`; the Prisma CLI uses `DIRECT_URL` from `packages/db/.env`. Letting those diverge produces the least helpful failure in the project: `pnpm db:migrate` and `prisma migrate status` report a healthy, fully-migrated database while every request the API makes dies with `PrismaClientInitializationError`, because the CLI and the server are talking to different servers. If sign-in 500s on a checkout where migrations pass, check the ports before anything else.
-
-### 4. Migrate and seed
-
-```bash
-pnpm db:migrate                        # create the schema
-pnpm --filter @kidlearn/db db:seed     # dev parent, child profile, sample curriculum
-```
-
-The seed upserts on fixed ids, so re-running it is safe.
-
-To use the admin CMS, create an admin — there is no sign-up page, so this script is the only way one exists ([`admin-account-guide.md`](document/admin-account-guide.md)):
-
-```bash
-ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='a-long-local-password' ADMIN_NAME='Your Name' \
-  pnpm --filter server seed:admin
-```
-
-Then sign in from the homepage (**Admin sign-in**, or `http://localhost:3000/?signin=admin`). Admin sessions last 12 hours and do not extend with activity.
-
-### 5. Run everything
-
-```bash
-pnpm dev
-```
-
-Turborepo starts all apps in parallel:
-
-| App | URL |
-|---|---|
-| Web (Next.js) — homepage | http://localhost:3000 |
-| Guides (parents / admins / engineering) | http://localhost:3000/guide/parents |
-| API (Express) | http://localhost:4000 |
-| **API docs (Scalar)** | **http://localhost:4000/docs** |
-| OpenAPI spec (raw JSON) | http://localhost:4000/docs.json |
-| Health check | http://localhost:4000/health |
-
-**Start at [`/docs`](http://localhost:4000/docs) before writing any client code against the API.** It documents every endpoint — request and response schemas, every status code, and which of the session / consent / active-child gates each route sits behind. Because the reference is served from the same origin the session cookie belongs to, signing in once at [`/api/auth/google`](http://localhost:4000/api/auth/google) makes **Send** work on every authenticated endpoint, with no token to copy around.
-
-The page is generated from the code at boot, not maintained by hand: request schemas are the same Zod objects the routes validate with, and response schemas are shared with the web app via `packages/types/src/api/`. A test fails if an endpoint is missing from it. It is always available outside production; in production it requires `ENABLE_API_DOCS=true`.
-
-### Run a single app
-
-```bash
-cd apps/web && pnpm dev      # Next.js only
-cd apps/server && pnpm dev   # Express only (with hot reload)
-```
-
-### Other commands
-
-```bash
-pnpm build        # Production build of every app
-pnpm lint         # Lint + format check + import sort (Biome, no writes)
-pnpm format       # Apply Biome fixes
-pnpm typecheck    # tsc --noEmit per package
-pnpm test         # Vitest across every package
-pnpm test:coverage # ...with a coverage report per package (what CI runs)
-pnpm --filter server test:db  # *.db.test.ts against Postgres (needs docker compose up -d postgres)
-pnpm --filter server test:db:local  # ...against a local Postgres on port 5433
-pnpm db:generate  # Regenerate Prisma client
-pnpm db:migrate   # Run DB migrations
-pnpm db:studio    # Open Prisma Studio (DB browser)
-
-pnpm --filter @kidlearn/db db:seed   # Reseed dev fixtures (idempotent)
-
-# Write the OpenAPI spec to apps/server/openapi.json — for Postman or a client
-# generator. The server already serves it live at /docs.json, so this is optional.
-pnpm --filter server openapi:write
-```
-
-### Managing the database container
-
-```bash
-docker compose up -d postgres   # Start it (safe to re-run — a no-op if already up)
-docker compose stop             # Pause it, keep the data
-docker compose start            # Resume
-docker compose down             # Remove the container, keep the data (named volume)
-docker compose down -v          # Wipe the data — re-run step 4 afterwards
-docker compose logs -f postgres
-docker compose ps               # Which host port it actually landed on
-```
-
-`docker compose ps` is the answer to "is the database even running" — it prints the live host→container port mapping, which is what the connection strings have to match. A `PrismaClientInitializationError` from the API when that mapping and `apps/server/.env` disagree looks identical to the database being down.
-
-Port conflicts belong in `docker-compose.override.yml` — see step 2.
-
-### CI
-
-`.github/workflows/ci.yml` runs `pnpm lint`, `pnpm build`, `pnpm typecheck`, `pnpm test:coverage` and `pnpm --filter server test:db` as one `gates` job on every pull request and every push to `main` or `dev`. It needs no secrets; the database tests run against a `postgres:16-alpine` service container, and every other step opens no database connection. Coverage is reported — in the run summary and as a downloadable artifact — and deliberately not gated on a threshold.
-
-### Production build
-
-```bash
-# Web
-cd apps/web && pnpm build && pnpm start
-
-# Server
-cd apps/server && pnpm build && pnpm start   # compiles to dist/, runs node dist/index.js
-```
-
-### Deployment
-
-The web app deploys to Vercel; the API, the weekly-report job and backups run on one AWS EC2 box in Docker behind Caddy (`deploy/`, `apps/*/Dockerfile`). Start with [`deployment/`](document/deployment/README.md) for a first deploy and [`runbook.md`](document/runbook.md) for day-two operations.
+The product uses AI to draft content, and I use it to help write code. In both cases a human gate decides what ships. Claude Code works in this repo with project skills I wrote ([`.claude/skills/`](.claude/skills/)), such as spec-driven implementation, code review and dependency upgrades. Its commits are co-authored, so it shows up as a contributor. Every change still goes through a reviewed pull request and the same `gates` CI job, and it works from specs I write ([`document/implementation/`](document/implementation/)).
 
 ---
 
@@ -301,5 +182,9 @@ Detailed specs live in `document/`:
 The running app also carries short, translated guides for parents, admins and engineers at `/guide/parents`, `/guide/admins` and `/guide/engineering`.
 
 ---
+
+## Licence
+
+[MIT](LICENSE) © Salman Rahman
 
 *Built with love — for two little girls who deserve the best start.*
