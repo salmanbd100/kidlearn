@@ -12,6 +12,7 @@ import { ChildSwitcher } from "@/features/children/ChildSwitcher";
 import { DashboardSummary } from "@/features/children/dashboard/DashboardSummary";
 import { getDashboard } from "@/features/children/dashboard/dashboard-api";
 import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 export function DashboardScreen({
   selectedChildId,
@@ -63,11 +64,7 @@ export function DashboardScreen({
 
   // The guard ensures a profile exists; this shows briefly after deleting the last one, before the redirect.
   if (profiles === undefined || child === undefined) {
-    return (
-      <p role="status" className="text-muted-foreground text-sm">
-        {t("children.loading")}
-      </p>
-    );
+    return <LoadingState label={t("children.loading")} />;
   }
 
   return (
@@ -88,9 +85,12 @@ export function DashboardScreen({
           {t("errors.generic")}
         </p>
       ) : loaded === undefined ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {status === "waking" ? t("dashboard.waking") : t("dashboard.loading")}
-        </p>
+        <LoadingState
+          label={
+            status === "waking" ? t("dashboard.waking") : t("dashboard.loading")
+          }
+          isLabelVisible={status === "waking"}
+        />
       ) : (
         <DashboardSummary
           data={loaded.data}

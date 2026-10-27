@@ -21,7 +21,7 @@
 | M5 — Quiz | M19–M20 | Engine + four formats, scoring |
 | M6 — Gamification | M21 | Rewards, badges, characters, streaks |
 | M7 — Stories | M22–M23 | Library, narrated reader |
-| M8 — Time & parent dashboard | M24–M27 | Heartbeats, screen-time, dashboard, reports |
+| M8 — Time & parent dashboard | M24, M26–M27 | Heartbeats, dashboard, reports |
 | M9 — Hardening & release | M28–M32 | A11y, performance, store assets, builds, launch |
 
 ---
@@ -33,7 +33,7 @@
 | M01 | `M01-expo-scaffold-and-monorepo-wiring.md` | `apps/mobile` Expo + expo-router + Metro for pnpm + Turbo/Biome wiring + dev client on a device | §7.1, NFR-SCALE-03 | — | 3–4h | ⬜ Not started |
 | M02 | `M02-tokens-package-theming-and-fonts.md` | Native scales added to the existing `@kidlearn/tokens` (spacing, elevation, phone/tablet font sizes), NativeWind v4, `ThemeProvider` (kid/parent), Fredoka/Nunito/Inter, type scale | design.md §2–4 | M01 | 3–4h | ⬜ Not started |
 | M03 | `M03-i18n-package-and-locale-detection.md` | i18next + `expo-localization` over the existing `@kidlearn/i18n`, `Intl` check for `bn` on Android, `format.ts` | FR-I18N-01..03 | M01 | 2–3h | ⬜ Not started |
-| M04 | `M04-api-client-and-network-states.md` | `lib/api-client.ts` over `@kidlearn/types`, envelope, cross-cutting handlers (401, `CONSENT_REQUIRED`, no active child, 423, 429), retry, offline detection | plan §4.3, §7.5, NFR-PERF-04 | M01 | 3–4h | ⬜ Not started |
+| M04 | `M04-api-client-and-network-states.md` | `lib/api-client.ts` over `@kidlearn/types`, envelope, cross-cutting handlers (401, `CONSENT_REQUIRED`, no active child, 429), retry, offline detection | plan §4.3, §7.5, NFR-PERF-04 | M01 | 3–4h | ⬜ Not started |
 | M05 | `M05-native-primitives-and-a11y.md` | `BigButton`, `IconTile`, `Card`, `Sheet`, safe-area screen, reduced-motion hook, a11y conventions | NFR-A11Y-01..06 | M02 | 2–3h | ⬜ Not started |
 | M06 | `M06-server-expo-auth-and-apple-signin.md` | **Server**: `expo()` plugin, `kidlearn://` trusted origin, Sign in with Apple, Apple-aware parent provisioning, account linking kept off, OpenAPI update | FR-AUTH-02, FR-AUTH-06, guideline 4.8 | M04 | 3–4h | ⬜ Not started |
 | M07 | `M07-mobile-auth-client-and-session.md` | `expoClient` + SecureStore, Google + Apple sign-in, session bootstrap behind splash, admin refusal, sign-out | FR-AUTH-02, FR-AUTH-06, FR-AUTH-07 | M06 | 3–4h | ⬜ Not started |
@@ -41,7 +41,7 @@
 | M09 | `M09-child-profile-management.md` | Child profile CRUD (max 5), avatar picker, activate-child | FR-PROF-01..07 | M08 | 3–4h | ⬜ Not started |
 | M10 | `M10-profile-picker-and-active-child.md` | Profile picker + `ActiveChildProvider` | FR-AUTH-06, FR-PROF-03 | M09 | 3–4h | ⬜ Not started |
 | M11 | `M11-student-home-and-streak.md` | World-themed home, thumb-zone waypoints, streak display, both orientations | FR-WORLD-01..03, FR-GAM-06 | M10 | 3–4h | ⬜ Not started |
-| M12 | `M12-world-and-lesson-browsing.md` | World screen + topic/lesson tiles, lesson start with 423 branch | FR-CURR-02, FR-WORLD-04..05 | M11 | 2–3h | ⬜ Not started |
+| M12 | `M12-world-and-lesson-browsing.md` | World screen + topic/lesson tiles, lesson start | FR-CURR-02, FR-WORLD-04..05 | M11 | 2–3h | ⬜ Not started |
 | M13 | `M13-lesson-player-shell.md` | Lesson machine + serialised step reports lifted from web, resume, step-order resync, back/exit guard | FR-LSN-01..07 | M12 | 3–4h | ⬜ Not started |
 | M14 | `M14-audio-layer-and-narration.md` | `expo-audio`: narration, UI + feedback sounds, mute, ducking, screen narration | FR-LSN-02, FR-I18N-05 | M13 | 3–4h | ⬜ Not started |
 | M15 | `M15-intro-and-video-steps.md` | Intro step + `expo-video` step, orientation policy, next-step preload | FR-LSN-01..02, NFR-PERF-02 | M14 | 3–4h | ⬜ Not started |
@@ -54,7 +54,6 @@
 | M22 | `M22-story-library.md` | Story library browsing | FR-STORY-01, 04..05, 08 | M12 | 3–4h | ⬜ Not started |
 | M23 | `M23-story-reader.md` | Page-turn gestures, narration sync, completion reward | FR-STORY-02..03, 06..07 | M21, M22 | 3–4h | ⬜ Not started |
 | M24 | `M24-learning-time-heartbeat.md` | Heartbeats driven by `AppState` (30 s, consent-gated) | FR-TIME-06, FR-LSN-07 | M13 | 3–4h | ⬜ Not started |
-| M25 | `M25-screen-time-gate-and-lockout.md` | Limits, access windows, friendly lockout, foreground re-check | FR-TIME-01..05 | M24 | 3–4h | ⬜ Not started |
 | M26 | `M26-parent-dashboard.md` | Child switcher, minute cards, subject bars, activity timeline, empty states; parent tabs + account menu (back to kid mode, sign out) | FR-DASH-01..04, FR-AUTH-07 | M08, M09, M10, M24 | 4–5h | ⬜ Not started |
 | M27 | `M27-weekly-reports.md` | Weekly report list + detail (`GET /api/children/:id/reports`, shipped) | FR-DASH-05..06 | M26 | 3–4h | ⬜ Not started |
 | M28 | `M28-accessibility-and-device-pass.md` | TalkBack/VoiceOver, target sizes, contrast, reduced motion, tablet + low-end Android, orientations | NFR-A11Y-*, NFR-PERF-01..03 | M21, M26 | 3–4h | ⬜ Not started |
@@ -87,7 +86,7 @@ Fixed across all mobile files so chunks stay consistent:
 - **Lift, don't copy:** platform-free logic still in `apps/web` moves into a shared package in the mobile file that first needs it, with `apps/web` re-pointed in the same change — `duration.ts` and `relative-time.ts` into `@kidlearn/i18n` (M03), `parent-redirect.ts` (M08), the avatar table (M09), world gradient colours (M11), `lesson-machine.ts` / `step-reports.ts` / `pending-writes.ts` / `asset-fallback.ts` (M13), activity `evaluate.ts` (M16), trace maths (M17), the quiz session reducer (M19), the story reader machine (M23). Quiz grading (`evaluateAnswer`) is already shared.
 - **App identity:** scheme `kidlearn`, iOS bundle ID and Android package `net.kidlearn.app`. Both are permanent after first submission.
 - **API base URL:** `EXPO_PUBLIC_API_URL`. Never a secret in an `EXPO_PUBLIC_*` variable — those are readable in the shipped bundle.
-- **Server-authoritative:** unchanged from the web app. The mobile client reports events and renders answers; it never computes rewards, minutes, streaks or lockouts.
+- **Server-authoritative:** unchanged from the web app. The mobile client reports events and renders answers; it never computes rewards, minutes or streaks.
 - **Parent area access:** the signed-in Google/Apple session alone (FR-AUTH-04, the PIN, is retired). Because a child can reach it through the lock, the parent area has no external links either; Apple's Kids Category adult-verification challenge is a single item owned by M30, needed only once an external link, purchase or browser sheet ships (`mobile-app-plan.md` §12.2).
 - **Server changes:** only M06 changes `apps/server` behaviour. Lifting web logic into a shared package touches `apps/web` imports, never its behaviour. Any other file that thinks it needs a server change must add the requirement to `document/project-requirement-details.md` first, then to a numbered file.
 

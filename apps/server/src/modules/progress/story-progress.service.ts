@@ -4,12 +4,9 @@ import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../shared/errors/errors.js";
 import { requireVisibleStoryId } from "../content/story.service.js";
 import { grantStoryCompletion } from "../rewards/reward.service.js";
-import {
-  evaluateStartForChild,
-  LESSON_RESUME_CEILING_MS,
-  LESSON_RESUME_GRACE_MS,
-  screenTimeBlockedError,
-} from "../screen-time/screen-time.service.js";
+
+/** How old a `story_start` may be and still count as the opening of the reading being completed. */
+const STORY_START_CEILING_MS = 3 * 60 * 60_000;
 
 export async function completeStory(
   child: ChildProfile,
@@ -22,11 +19,7 @@ export async function completeStory(
   return grantStoryCompletion(child, visibleStoryId);
 }
 
-/**
- * The `story_start` the reader posts on opening is the evidence a completion is paid against; the same ceiling as a lesson's resume
- * bounds how old it may be. One started within the resume grace is a reading under way and exempt from the screen-time gate, as a lesson
- * is; an older one is a new sitting and meets the gate `GET /stories/:id` applies.
- */
+/** The `story_start` the reader posts on opening is the evidence a completion is paid against. */
 async function assertStoryWasRead(
   childId: string,
   storyId: string,
@@ -37,19 +30,14 @@ async function assertStoryWasRead(
       childId,
       type: "story_start",
       payload: { path: ["refId"], equals: storyId },
-      occurredAt: { gte: new Date(now - LESSON_RESUME_CEILING_MS) },
+      occurredAt: { gte: new Date(now - STORY_START_CEILING_MS) },
     },
     orderBy: { occurredAt: "desc" },
-    select: { occurredAt: true },
+    select: { id: true },
   });
   if (start === null) {
     throw ApiError.conflict("Story has not been opened", {
       code: "STORY_NOT_STARTED",
     });
   }
-
-  if (now - start.occurredAt.getTime() <= LESSON_RESUME_GRACE_MS) return;
-
-  const decision = await evaluateStartForChild(childId, undefined);
-  if (!decision.allowed) throw screenTimeBlockedError(decision);
 }

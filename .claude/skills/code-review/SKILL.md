@@ -283,7 +283,7 @@ Backend:
 - **Zod at the boundary** on every route taking a body, params or query (`backend.md §2`).
 - **`new PrismaClient()`** anywhere in `apps/server`; raw SQL (`backend.md §3`).
 - **Errors thrown, not sent**; semantic status codes, never `200` with an error body.
-- **Server-authoritative progress** — rewards, streaks, screen time or completion computed client
+- **Server-authoritative progress** — rewards, streaks, learning time or completion computed client
   side (`backend.md §8`).
 
 ### D — API contract and types
@@ -457,7 +457,7 @@ A migration is the one change that cannot be reverted by reverting the commit.
   production cannot answer "what happened to this user".
 - **CI.** A step that widens secrets exposure to fork PRs, a removed gate, an unpinned action.
 - **Runbook.** A new operational step missing from `document/runbook.md` or
-  `document/deployment-walkthrough.md`.
+  `document/deployment/`.
 
 ### K — Maintainability
 

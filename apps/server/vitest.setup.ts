@@ -13,5 +13,7 @@ process.env.CLOUDINARY_API_KEY ??= "test-api-key";
 process.env.CLOUDINARY_API_SECRET ??= "test-api-secret";
 process.env.GEMINI_API_KEY ??= "test-gemini-key";
 process.env.GOOGLE_TTS_API_KEY ??= "test-google-tts-key";
+// On, so the MCP router and the access-token routes exist for the coverage walk and their suites.
+process.env.MCP_ENABLED ??= "true";
 // Supertest calls share one limiter and one address, so the production default would 429 a long suite.
 process.env.API_RATE_LIMIT_PER_MINUTE ??= "1000000";

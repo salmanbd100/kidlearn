@@ -11,7 +11,7 @@ Turn the app into signed store builds pointing at the **deployed** API, get them
 
 ## Blocking dependency
 
-**Web 38 · provisioning must be ✅ Done.** File 38 has two halves: its *code* (Dockerfiles, `deploy/`, Caddy config, proxy settings) is done; its *provisioning* — the AWS EC2 box and S3, Vercel, Cloudflare DNS, the Supabase production database, SSM secrets, the Google OAuth client — **has not started; no resource exists**. `document/go-live-guide.md` is the walkthrough that does it; `document/runbook.md` and `document/deployment-walkthrough.md` cover day two. A store build cannot point at `localhost` or a LAN IP: it needs `https://api.kidlearn.net`. Preview builds use `https://api.dev.kidlearn.net`, also from 38 · provisioning; until it exists they point at a LAN dev server. Provisioning also sets `WEB_ORIGIN`, `BETTER_AUTH_URL` (SSM), the production Google OAuth redirect URI and the database — every one of which mobile sign-in depends on. The hostnames are fixed, so there is no platform-assigned URL that could change and force an OAuth reconfiguration and a rebuild. Web 38a (API CD) is **not** a blocker; until it lands, the API is deployed by hand (`deploy/deploy.sh`, runbook §3).
+**Web 38 · provisioning must be ✅ Done.** File 38 has two halves: its *code* (Dockerfiles, `deploy/`, Caddy config, proxy settings) is done; its *provisioning* — the AWS EC2 box and S3, Vercel, Cloudflare DNS, the Supabase production database, SSM secrets, the Google OAuth client — **has not started; no resource exists**. `document/deployment/` is the walkthrough that does it; `document/runbook.md` covers day two. A store build cannot point at `localhost` or a LAN IP: it needs `https://api.kidlearn.net`. Preview builds use `https://api.dev.kidlearn.net`, also from 38 · provisioning; until it exists they point at a LAN dev server. Provisioning also sets `WEB_ORIGIN`, `BETTER_AUTH_URL` (SSM), the production Google OAuth redirect URI and the database — every one of which mobile sign-in depends on. The hostnames are fixed, so there is no platform-assigned URL that could change and force an OAuth reconfiguration and a rebuild. Web 38a (API CD) is **not** a blocker; until it lands, the API is deployed by hand (`deploy/deploy.sh`, runbook §3).
 
 Additionally, M06's server changes must be **deployed** to both environments, not merely merged: `plugins: [expo()]`, `kidlearn://` in `trustedOrigins`, the Apple provider, and `GET /api/auth/expo-authorization-proxy` (D2). The web-only `GET /api/auth/google` wrapper is unchanged and plays no part in native sign-in.
 
@@ -41,7 +41,6 @@ Additionally, M06's server changes must be **deployed** to both environments, no
    - complete a full lesson through all five steps and see the reward;
    - read a story to the end;
    - check the dashboard's minutes reflect the session;
-   - set a screen-time limit, trip it, and see the lock;
    - sign out and back in;
    - delete a throwaway account and confirm it is gone.
    Anything that fails here is a release blocker, not a note for later.
@@ -144,7 +143,7 @@ Record the smoke test as a table with device model, OS version, pass/fail per st
 - [ ] CI `gates` is green on the commit every store build was made from.
 - [ ] An Android AAB is in Play **internal testing** and installs on a physical device; Play App Signing is enabled and the upload keystore's location is recorded.
 - [ ] An iOS build is in **TestFlight** and installs on a physical iPhone, with Sign in with Apple working.
-- [ ] The full production smoke test passes on both platforms — sign-in (both providers on iOS), consent, child creation, a complete lesson with reward, a story, dashboard minutes, a screen-time lock, sign-out/in, and account deletion — with results recorded per device.
+- [ ] The full production smoke test passes on both platforms — sign-in (both providers on iOS), consent, child creation, a complete lesson with reward, a story, dashboard minutes, sign-out/in, and account deletion — with results recorded per device.
 - [ ] Real first-request latency against the deployed API is measured and M29's escalation copy matches it.
 - [ ] `expo-updates` is configured with `preview` and `production` channels and a `fingerprint` `runtimeVersion` policy, and one OTA update has been shipped and verified on the internal build.
 - [ ] The OTA rule ("JS-only OTA; native, permission, SDK or config changes need a build") is written down.

@@ -28,7 +28,6 @@ const db = vi.hoisted(() => ({
   accountFindFirst: vi.fn(),
   childFindFirst: vi.fn(),
   lessonFindFirst: vi.fn(),
-  screenTimeFindUnique: vi.fn(),
   sessionEventFindMany: vi.fn(),
   lessonProgressFindUnique: vi.fn(),
 }));
@@ -40,7 +39,6 @@ vi.mock("../../config/prisma.js", () => ({
     account: { findFirst: db.accountFindFirst },
     childProfile: { findFirst: db.childFindFirst },
     lesson: { findFirst: db.lessonFindFirst },
-    screenTimeSetting: { findUnique: db.screenTimeFindUnique },
     // Reads only: with no `create`/`update`/`upsert` on these, a preview that wrote
     // progress would fail with `not a function` (rule 4).
     sessionEvent: { findMany: db.sessionEventFindMany },
@@ -203,7 +201,6 @@ beforeEach(() => {
   db.lessonFindFirst.mockImplementation(async (args) =>
     findFirstAgainstTheDraft(args),
   );
-  db.screenTimeFindUnique.mockResolvedValue(null);
   db.sessionEventFindMany.mockResolvedValue([]);
   db.lessonProgressFindUnique.mockResolvedValue(null);
 });

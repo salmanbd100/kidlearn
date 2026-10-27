@@ -38,39 +38,59 @@ model Parent {
 }
 
 model AdminUser {
-  id         String            @id @default(uuid())
-  email      String            @unique
+  id           String             @id @default(uuid())
+  email        String             @unique
+  name         String
+  role         String             @default("admin")
+  authUserId   String?            @unique
+  authUser     User?              @relation(fields: [authUserId], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  aiReviews    AIGenerationJob[]  @relation("AIJobReviewer")
+  aiRequests   AIGenerationJob[]  @relation("AIJobRequester")
+  accessTokens AdminAccessToken[]
+}
+
+/// A bearer credential for the MCP endpoint (FR-AI-10). Draft-only by scope: it reaches `/mcp` and nothing under `/api`.
+model AdminAccessToken {
+  id         String    @id @default(uuid())
+  adminId    String
+  admin      AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
   name       String
-  role       String            @default("admin")
-  authUserId String?           @unique
-  authUser   User?             @relation(fields: [authUserId], references: [id], onDelete: SetNull)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-  aiReviews  AIGenerationJob[]
+  /// First characters of the token, shown so an admin can tell two apart; not enough to use.
+  prefix     String
+  /// SHA-256 of the full token. The token itself is never stored.
+  tokenHash  String    @unique
+  scopes     String[]
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([adminId])
 }
 
 model ChildProfile {
-  id                String             @id @default(uuid())
+  id                String           @id @default(uuid())
   firstName         String
   age               Int
   gradeLevel        GradeLevel
-  preferredLanguage Language           @default(en)
+  preferredLanguage Language         @default(en)
   avatarCharacterId String?
-  avatarCharacter   Character?         @relation(fields: [avatarCharacterId], references: [id])
+  avatarCharacter   Character?       @relation(fields: [avatarCharacterId], references: [id])
   parentId          String
-  parent            Parent             @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  parent            Parent           @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   lessonProgress    LessonProgress[]
   quizResponses     QuizResponse[]
   rewards           RewardLedger[]
   characters        ChildCharacter[]
   streak            Streak?
-  screenTime        ScreenTimeSetting?
   sessionEvents     SessionEvent[]
   weeklyReports     WeeklyReport[]
   /// Sessions currently acting as this child (FR-AUTH-06).
-  activeInSessions  Session[]          @relation("SessionActiveChild")
+  activeInSessions  Session[]        @relation("SessionActiveChild")
 
   @@index([parentId])
 }
@@ -443,6 +463,11 @@ enum AIJobType {
   image
 }
 
+enum AIJobSource {
+  gemini
+  mcp
+}
+
 enum AIJobStatus {
   pending
   generating
@@ -553,16 +578,6 @@ model Streak {
   lastActivityDate DateTime?    @db.Date
 }
 
-model ScreenTimeSetting {
-  id                String       @id @default(uuid())
-  childId           String       @unique
-  child             ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
-  dailyLimitMinutes Int?
-  windowStart       DateTime?    @db.Time(0)
-  windowEnd         DateTime?    @db.Time(0)
-  updatedAt         DateTime     @updatedAt
-}
-
 model SessionEvent {
   id         String           @id @default(uuid())
   childId    String
@@ -588,18 +603,25 @@ model WeeklyReport {
 }
 
 model AIGenerationJob {
-  id         String            @id @default(uuid())
-  type       AIJobType
-  input      Json
-  rawOutput  Json?
-  status     AIJobStatus       @default(pending)
-  reviewerId String?
-  reviewer   AdminUser?        @relation(fields: [reviewerId], references: [id])
-  decision   AIReviewDecision?
-  reviewNote String?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-  reviewedAt DateTime?
+  id              String            @id @default(uuid())
+  type            AIJobType
+  input           Json
+  rawOutput       Json?
+  status          AIJobStatus       @default(pending)
+  reviewerId      String?
+  reviewer        AdminUser?        @relation("AIJobReviewer", fields: [reviewerId], references: [id])
+  decision        AIReviewDecision?
+  source          AIJobSource       @default(gemini)
+  requestedById   String?
+  requestedBy     AdminUser?        @relation("AIJobRequester", fields: [requestedById], references: [id])
+  /// MCP `initialize` clientInfo — self-reported by the client, shown to reviewers, never trusted.
+  client          Json?
+  /// Client-chosen idempotency key; a retried tool call must not create a second draft.
+  clientRequestId String?
+  reviewNote      String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  reviewedAt      DateTime?
 
   lessons       Lesson[]
   quizzes       Quiz[]
@@ -608,7 +630,9 @@ model AIGenerationJob {
   activities    Activity[]
   mediaAssets   MediaAsset[]
 
+  @@unique([requestedById, clientRequestId])
   @@index([status, createdAt])
+  @@index([source, requestedById, createdAt])
 }
 
 model CharacterSheet {

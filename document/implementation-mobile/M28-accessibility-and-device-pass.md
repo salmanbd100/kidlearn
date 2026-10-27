@@ -26,13 +26,13 @@ Verify the finished app against the accessibility and device rules the whole pla
    - every interactive element announces a role, a meaningful label and its state;
    - card-shaped rows (child cards, story covers, activity timeline rows) are grouped with `accessible` so they read as one item;
    - sheets and modals set `accessibilityViewIsModal` and cannot be swiped behind;
-   - no element announces a raw key, a slug, an enum value (`KG1`, `TIME_LIMIT_REACHED`) or an untranslated string;
+   - no element announces a raw key, a slug, an enum value (`KG1`, `STORY_NOT_STARTED`) or an untranslated string;
    - the drag-drop and puzzle tap fallbacks (M16/M18) are reachable and complete a lesson end to end;
    - tracing (M17) announces its skip.
    Fix every failure; where a screen genuinely cannot be made screen-reader-operable, provide a way past it and record why.
 3. **Touch-target audit.** Measure, do not eyeball: add a temporary dev overlay (or use the OS layout-bounds tool on Android) that outlines every pressable and flags any under the threshold. Kid surfaces ≥64px, parent ≥44px, including the `ParentCorner` lock counterpart (the student→parent door; no PIN, D10), speaker buttons, page-turn controls, quiz options and every icon-only control.
 4. **Font scaling.** Set the OS text size to its largest supported value and walk the app. Kid screens must not clip or truncate their ≤4-word copy; parent screens may wrap but must not lose controls off-screen. Decide per component whether to allow scaling or cap it with `maxFontSizeMultiplier` — **cap rather than clip**, and never disable scaling outright on the parent surface, where an older reader may need it most.
-5. **Contrast audit.** Check every real composed pairing (not just the token table) against §2.3 with a contrast tool, including: kid text on world gradients, disabled states, chips on cards, the lock screen, and both themes. Fix by changing the composition, never by adding an off-token colour.
+5. **Contrast audit.** Check every real composed pairing (not just the token table) against §2.3 with a contrast tool, including: kid text on world gradients, disabled states, chips on cards, and both themes. Fix by changing the composition, never by adding an off-token colour.
 6. **Colour-independence audit.** Screenshot every state-carrying screen in greyscale and confirm meaning survives: quiz correct/incorrect, matched pairs, locked worlds, read stories, progress states, dashboard chips.
 7. **Orientation and layout audit.** Every kid screen works in both orientations; no horizontal page scroll anywhere; safe areas clear notches and home indicators in both orientations; the keyboard does not cover the field being typed into on the child-name and sign-in screens; a 360px-wide phone shows the maximum-size activity, quiz and match layouts with targets intact.
 8. **Reduced motion audit.** Turn the OS setting on and walk every animated surface: activity feedback, quiz feedback, the reward celebration (M21's static summary), the world map auto-scroll, sheets, page turns. Every one must still convey what happened.

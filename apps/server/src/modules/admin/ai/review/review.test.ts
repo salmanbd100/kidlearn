@@ -240,6 +240,7 @@ function seedLessonJob(
   } = {},
 ): string {
   store.jobs.push({
+    source: "gemini",
     id: "job-lesson",
     type: "lesson",
     status: overrides.jobStatus ?? "awaiting_review",
@@ -285,6 +286,7 @@ function seedLessonJob(
 
 function seedNarrationJob(): string {
   store.jobs.push({
+    source: "gemini",
     id: "job-audio",
     type: "audio",
     status: "awaiting_review",
@@ -382,6 +384,7 @@ describe("approveJob", () => {
   it("publishes the parent quiz of generated questions even when the quiz predates the job", async () => {
     // Quiz questions have no status, so approving them means publishing their quiz, or they go live invisibly.
     store.jobs.push({
+      source: "gemini",
       id: "job-quiz",
       type: "quiz",
       status: "awaiting_review",
@@ -501,6 +504,7 @@ describe("approveJob", () => {
   it("creates the quiz question translation row when the clip's target has none", async () => {
     // A `QuizQuestionTranslation` exists only once a question gains audio, hence upsert.
     store.jobs.push({
+      source: "gemini",
       id: "job-quiz-audio",
       type: "audio",
       status: "awaiting_review",
@@ -777,6 +781,7 @@ describe("countAwaitingReview", () => {
     seedLessonJob();
     seedNarrationJob();
     store.jobs.push({
+      source: "gemini",
       id: "job-done",
       type: "lesson",
       status: "approved",

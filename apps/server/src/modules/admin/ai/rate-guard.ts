@@ -66,6 +66,8 @@ export async function readDailyBudget(
   const used = await client.aIGenerationJob.count({
     where: {
       type: { in: TYPES_BY_BUCKET[bucket] },
+      // MCP drafts are written on the admin's own subscription and have their own cap (`assertWithinMcpDraftCap`).
+      source: "gemini",
       createdAt: { gte: startOfTodayInAppTz(now) },
       // A job that failed before its first call spent nothing; counting it would let an outage
       // burn the day's budget and lock the admin out of retrying. Failures after a call were billed.
@@ -92,6 +94,46 @@ export async function assertWithinDailyCap(
       "RATE_LIMITED",
       `Daily ${budget.bucket} generation cap (${budget.cap}) reached`,
       { bucket: budget.bucket, cap: budget.cap, used: budget.used, pending },
+    );
+  }
+}
+
+type McpBudgetReader = Pick<typeof prisma, "aIGenerationJob">;
+
+export interface McpDraftBudget {
+  cap: number;
+  used: number;
+  remaining: number;
+}
+
+export async function readMcpDraftBudget(
+  adminId: string,
+  client: McpBudgetReader = prisma,
+  now?: Date,
+): Promise<McpDraftBudget> {
+  const cap = env.MCP_DRAFTS_PER_DAY;
+  const used = await client.aIGenerationJob.count({
+    where: {
+      source: "mcp",
+      requestedById: adminId,
+      createdAt: { gte: startOfTodayInAppTz(now) },
+    },
+  });
+  return { cap, used, remaining: Math.max(cap - used, 0) };
+}
+
+/** Per admin, unlike the Gemini buckets: what it protects is the reviewers' queue, and one admin's assistant can fill it. */
+export async function assertWithinMcpDraftCap(
+  adminId: string,
+  client: McpBudgetReader = prisma,
+): Promise<void> {
+  const budget = await readMcpDraftBudget(adminId, client);
+  if (budget.used >= budget.cap) {
+    throw new ApiError(
+      429,
+      "RATE_LIMITED",
+      `Daily MCP draft cap (${budget.cap}) reached`,
+      { bucket: "mcp", cap: budget.cap, used: budget.used, pending: 1 },
     );
   }
 }

@@ -5,8 +5,14 @@
 > wrong, fix it here first — then change the code. Do not hard-code values that
 > exist as tokens below.
 >
-> Companion docs: [`document/key-description.md`](./key-description.md) (product brief),
-> [`.claude/skills/create-component`](../.claude/skills/create-component/SKILL.md) (how to build a component).
+> **Read it** before building or restyling any UI, and when reviewing a UI pull request (§11 is
+> the checklist). The two surfaces it keeps referring to are the **kid** theme (the Student
+> Portal and the public site) and the **parent** theme (the Parent Dashboard and the admin CMS).
+>
+> Companion docs: [`project-requirement-details.md`](./project-requirement-details.md) (what the
+> product must do), [`standards/frontend.md`](./standards/frontend.md) (where components live and
+> how they are written), [`.claude/skills/create-component`](../.claude/skills/create-component/SKILL.md)
+> and [`.claude/skills/responsive-design`](../.claude/skills/responsive-design/SKILL.md) (step-by-step procedures).
 
 ---
 
@@ -49,9 +55,12 @@ These are settled. Revisit only with a deliberate ADR-style note appended to thi
 
 ## 2. Color
 
-Every value in §2–§5 is also `packages/tokens/src/index.ts` — the machine-readable copy the
-web's `tokens.css` is generated from and the mobile app reads directly. A test fails when a
-value this document states exactly differs from it, so change both together.
+Every value in §2–§5 is also [`packages/tokens/src/index.ts`](../packages/tokens/src/index.ts) — the
+machine-readable copy that [`packages/ui/src/styles/tokens.css`](../packages/ui/src/styles/tokens.css) is
+generated from and the mobile app reads directly. `packages/tokens/src/design.test.ts` fails when a
+value this document states exactly (a hex, a radius, a duration) differs from it, so change both
+together: edit the TypeScript, run `pnpm --filter @kidlearn/ui tokens:generate`, then update the
+table here.
 
 Colors are defined as CSS variables and consumed through the shadcn semantic contract
 (`--primary`, `--background`, …) plus a kidlearn brand palette. **Both themes implement
@@ -73,7 +82,9 @@ for decorative/game art.
 | `--brand-ink` | Ink | `oklch(0.27 0.05 280)` · `#2B2A4A` | Friendly near-black text |
 | `--brand-cream` | Cream | `oklch(0.99 0.01 95)` · `#FFFDF7` | Warm kid background |
 
-Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.css`.
+In CSS the brand hues are Tailwind colours named without the prefix — `--color-sky`, so
+`bg-sky`, `text-grape`. There are no generated `-50` … `-900` scales; a tint is written with an
+opacity modifier (`bg-sky/10`).
 
 ### 2.2 Semantic tokens (the contract every component uses)
 
@@ -81,24 +92,27 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 | --- | --- | --- | --- |
 | `--background` | cream `#FFFDF7` | slate-50 `#F8FAFC` | App canvas |
 | `--foreground` | ink `#2B2A4A` | slate-900 `#0F172A` | Primary text |
-| `--card` | white | white | Surfaces / panels |
+| `--card` | white `#FFFFFF` | white `#FFFFFF` | Surfaces / panels |
 | `--card-foreground` | ink | slate-900 | Text on cards |
 | `--popover` / `--popover-foreground` | white / ink | white / slate-900 | Menus, tooltips |
 | `--primary` | sky `#36B3F5` | indigo-600 `#4F46E5` | Primary actions |
 | `--primary-foreground` | ink | white | Text on primary (kid: white on sky is 2.35:1, so ink) |
-| `--secondary` | grape `#8B5CF6` | slate-100 | Secondary actions |
+| `--secondary` | grape `#8B5CF6` | slate-100 `#F1F5F9` | Secondary actions |
 | `--secondary-foreground` | white | slate-900 | Text on secondary |
-| `--accent` | sunshine `#FFC93C` | slate-100 | Highlights / hover |
+| `--accent` | sunshine `#FFC93C` | slate-100 `#F1F5F9` | Highlights / hover |
 | `--accent-foreground` | ink | slate-900 | Text on accent |
-| `--muted` | sky-50 | slate-100 | Subdued surfaces |
-| `--muted-foreground` | slate-600 | slate-600 | Captions, hints (slate-500 is 4.3:1 on `--muted`) |
-| `--success` | mint `#34D399` (ink text) | emerald-700 | Correct / done |
-| `--warning` | sunshine `#FFC93C` | amber-500 | Caution |
-| `--destructive` | coral `#FF6B6B` (ink text) | red-600 | Errors, delete |
-| `--border` | sky-100 | slate-200 | Hairlines |
-| `--input` | sky-100 | slate-200 | Field borders |
-| `--ring` | sky `#36B3F5` | indigo-500 | Focus ring |
+| `--muted` | pale sky `#EAF7FE` | slate-100 `#F1F5F9` | Subdued surfaces |
+| `--muted-foreground` | slate-600 `#475569` | slate-600 `#475569` | Captions, hints (slate-500 is 4.3:1 on `--muted`) |
+| `--success` | mint `#34D399` (ink text) | emerald-700 `#047857` (white text) | Correct / done |
+| `--warning` | sunshine `#FFC93C` (ink text) | amber-500 `#F59E0B` (slate-900 text) | Caution |
+| `--destructive` | coral `#FF6B6B` (ink text) | red-600 `#DC2626` (white text) | Errors, delete |
+| `--border` | light sky `#D6EEFC` | slate-200 `#E2E8F0` | Hairlines |
+| `--input` | light sky `#D6EEFC` | slate-200 `#E2E8F0` | Field borders |
+| `--ring` | sky `#36B3F5` | indigo-500 `#6366F1` | Focus ring |
 | `--shine` | white 65% | white 55% | Decorative sweep across a surface (puzzle tile) |
+
+`--success`, `--warning` and `--destructive` each have a `-foreground` partner holding the text
+colour given in brackets.
 
 > **Rule:** components reference semantic tokens (`bg-primary`, `text-foreground`,
 > `border-border`). They must never reference brand or raw hues directly. Decorative
@@ -117,8 +131,11 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 - Feedback must survive reduced motion. A wrong attempt's shake is `motion-safe:` only, so
   every shake is paired with a static have-another-go mark that outlives it (1.2s) — never
   a ✗ (FR-ACT-05).
-- Dark mode: **parent theme only** for MVP. The kid theme stays light (predictable,
-  print-bright). Keep the dark token block scaffolded but ship parent-only.
+- **No dark mode ships**, on either theme — there is no dark token block. The kid theme stays
+  light by design (predictable, print-bright); a parent dark theme would be a new block in
+  `@kidlearn/tokens`, not a component change.
+- **High contrast** (NFR-A11Y-03) is an in-app setting, not a theme: the `.high-contrast` class on
+  `<html>` overrides every semantic colour with ≥7:1 pairs (`apps/web/app/globals.css`).
 
 ---
 
@@ -131,14 +148,21 @@ Brand scales (`-50` … `-900`) are generated for each hue and live in `globals.
 | **Kid display / headings** | **Fredoka** (variable) | `--font-display` | Rounded, friendly, high personality. Headings & big numbers in the Student Portal. |
 | **Body (shared)** | **Nunito** (variable) | `--font-body` | Rounded humanist sans, excellent legibility, wide language coverage. Default for all reading text. |
 | **UI / dense data (parent & admin)** | **Inter** (variable) | `--font-ui` | Tight, neutral, great at small sizes and in tables/forms. |
-| **Mono** | **JetBrains Mono** | `--font-mono` | Code, IDs, debug surfaces. |
+| **Mono** | **JetBrains Mono** | `--font-mono` | Code, IDs, debug surfaces. Loaded by the `(admin)` layout only; elsewhere `--font-mono` falls back to the system mono stack. |
+| **Bangla (all roles)** | **Noto Sans Bengali** | — | Fredoka, Nunito and Inter have no Bengali glyphs, so under `lang="bn"` every family above is prefixed with it (`globals.css`). |
+| **Dyslexia-friendly** | **OpenDyslexic** | — | An in-app setting (NFR-A11Y-04): `.dyslexia-font` on `<html>` swaps the display, body and UI families. The font files go in `apps/web/public/fonts/`; until they are there, the chain falls through to Comic Sans MS. |
 
-Load via `next/font` (self-hosted, no layout shift). Always declare a system fallback
-stack. Latin + extended ranges now; subset per-locale as i18n grows.
+Load via `next/font` (self-hosted, no layout shift) in `apps/web/app/layout.tsx`. Always declare a
+system fallback stack.
 
 ### 3.2 Type scale
 
 Modular scale, ratio ~1.25 (major third). Sizes in `rem` (root = 16px).
+
+Only `text-lg` is a token: it is raised from Tailwind's 18px to 20px so the kid minimum is a
+single utility. The `text-display` and `text-h1`–`text-h3` rows are the **target sizes**, not
+utilities that exist — write them with Tailwind's scale or `clamp()` (§6), and `text-base` /
+`text-sm` / `text-xs` are Tailwind's own.
 
 | Token | Size | Line height | Weight | Typical use |
 | --- | --- | --- | --- | --- |
@@ -207,7 +231,7 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 | Token | Value | Use |
 | --- | --- | --- |
 | `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Most transitions |
-| `--ease-bounce` | spring `{ stiffness: 400, damping: 15 }` | Kid press, reward pops |
+| `--ease-bounce` | spring `{ stiffness: 400, damping: 15 }` | Kid press, reward pops. A Motion `transition`, not a CSS variable — written inline as `{ type: "spring", stiffness: 400, damping: 15 }` |
 | `--dur-fast` | 120ms | Hover, focus, taps |
 | `--dur-base` | 220ms | Enter/exit, page chrome |
 | `--dur-slow` | 400ms | Celebrations, scene transitions |
@@ -215,7 +239,9 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 ### 5.2 Rules
 
 - **Always honor `prefers-reduced-motion`.** Provide a non-animated equivalent; replace
-  large movement with a fade/opacity change. Motion's `useReducedMotion()` is the hook.
+  large movement with a fade/opacity change. Use `useIsMotionReduced()` from `@kidlearn/ui` —
+  it combines the OS preference with the in-app reduced-motion setting, which Motion's own
+  `useReducedMotion()` cannot see.
 - Kid feedback uses `--ease-bounce` (springy, alive). Parent UI uses `--ease-standard`
   (crisp, professional).
 - Reward/celebration animations cap at `--dur-slow` and must be skippable (a tap dismisses).
@@ -223,7 +249,7 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 - **Public homepage exception (2026-10-07):** its decorative SVG pictures may play a one-time
   entrance when scrolled into view and react to a tap, to show how the app works. They still never
   loop, and render settled under reduced motion. The tracing picture may also animate an SVG stroke's
-  `pathLength`, a one-off draw-in on a small path. See `implementation/40-public-homepage-and-guides.md §8`.
+  `pathLength`, a one-off draw-in on a small path. Covers `features/site/home/` only.
 
 ---
 
@@ -268,8 +294,8 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
   > specified "drawer nav on phones, sidebar + content from `lg`". The parent area has **three**
   > destinations. A drawer that hides three short labels behind a tap costs a tap and buys nothing,
   > and a `lg` sidebar spends horizontal space that a phone — the primary device, per the heading of
-  > this section — does not have. The pattern is reserved for the `(admin)` CMS, which has six
-  > sections and is desktop-first by design; `AdminSidebar` is where it lives.
+  > this section — does not have. The pattern is reserved for the `(admin)` CMS, which has eight
+  > sections in four groups and is desktop-first by design; `AdminSidebar` is where it lives.
   >
   > Recorded after the fact: `ParentTopBar` shipped before this paragraph was written, against this
   > document's own "fix this file first" rule. The order was wrong; the decision stands.
@@ -292,10 +318,10 @@ Powered by **Motion**. Motion always communicates state; it is never idle decora
 - Semantic HTML + ARIA only where semantics fall short. Radix (via shadcn) gives correct roles —
   don't override them.
 - Decorative images `alt=""`; meaningful images get real localized alt text.
-- Respect `prefers-reduced-motion` and `prefers-color-scheme` (parent theme).
+- Respect `prefers-reduced-motion`. The in-app accessibility settings — high contrast, dyslexia
+  font, reduced motion — are classes on `<html>` written by `@kidlearn/ui`'s `a11y-prefs` store.
 
-> **Recorded exception — lesson videos have no captions.** *Recorded 2026-10-05 (improvement
-> plan R-32).* WCAG 1.2.2 (Captions, prerecorded) is Level A, so the AA target in §1 requires
+> **Recorded exception — lesson videos have no captions.** *Recorded 2026-10-05.* WCAG 1.2.2 (Captions, prerecorded) is Level A, so the AA target in §1 requires
 > them, and `VideoStep` ships none — file 17 put captions out of scope and the master spec does
 > not ask for them. The decision is to defer, not to drop: the audience is three to five and
 > mostly cannot read a caption, but a deaf or hard-of-hearing child still gets no way into the
@@ -332,8 +358,9 @@ apps/web/
 - Theme is applied by `<ThemeScope theme="kid" | "parent">` on a layout boundary, which sets
   `data-theme` and makes dialogs and menus portal inside it rather than into `<body>`; token
   values cascade. Components never branch on theme in JS — they read tokens.
-- Quiz and activity engines in `apps/web/features/` map JSON payloads (see brief §B) to
-  components.
+- Quiz and activity engines (`apps/web/features/quiz/`, `features/activities/`) map JSON payloads
+  to components — the content-as-data principle in
+  [`project-requirement-details.md §7.3`](./project-requirement-details.md#73-architectural-principles).
 
 ### Variants & styling
 
@@ -348,8 +375,9 @@ apps/web/
 
 - **Icons:** [Lucide](https://lucide.dev) (ships with shadcn) for parent/UI. Consistent
   stroke width, sized via `size` prop, colored via `currentColor`.
-- **Kid illustrations & mascot:** AI-generated per the content pipeline (brief §B). Keep a
-  consistent character sheet; export as SVG/optimized WebP via Cloudinary.
+- **Kid illustrations & mascot:** AI-generated by the content pipeline (FR-AI-05) and kept
+  consistent by `CharacterSheet` rows (FR-AI-09, [`database-design.md §6`](./database-design.md#6-domain-b--curriculum--worlds));
+  served optimised from Cloudinary.
 - Never mix icon families on one surface.
 
 ---

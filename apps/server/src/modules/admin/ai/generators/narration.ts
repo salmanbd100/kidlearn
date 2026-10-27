@@ -21,6 +21,7 @@ import {
   runGenerationJob,
 } from "../run-generation-job.js";
 import { failStaleJobs } from "../stale-jobs.js";
+import type { GenerationContext } from "../types.js";
 
 const NARRATION_TABLES = [
   "LessonTranslation",
@@ -39,6 +40,8 @@ interface NarrationTarget {
 export interface GenerateNarrationInput {
   entity: NarrationEntity;
   id: string;
+  /** Quiz only: voice just these questions. An MCP quiz draft appends to a quiz other people's questions are in. */
+  questionIds?: readonly string[];
 }
 
 const NarrationUploadSchema = z.object({ url: z.string().url() }).strict();
@@ -54,7 +57,27 @@ const LIVE_JOB_STATUSES = [
 
 export async function generateNarrationBatch(
   input: GenerateNarrationInput,
+  context: GenerationContext = {},
 ): Promise<BatchGenerationRef> {
+  const plan = await planNarrationBatch(input);
+  // Checked for the whole batch before any provider call: per-clip checks could narrate part of a story and stop.
+  await assertWithinDailyCap("audio", plan.missing.length);
+  return runNarrationPlan(plan, context);
+}
+
+export interface NarrationPlan {
+  input: GenerateNarrationInput;
+  missing: NarrationTarget[];
+  skipped: number;
+}
+
+/**
+ * The clips a batch would record, with no provider call and no cap check, so a caller narrating several entities
+ * (an MCP lesson draft's intro and its quiz) can check the audio cap once for all of them.
+ */
+export async function planNarrationBatch(
+  input: GenerateNarrationInput,
+): Promise<NarrationPlan> {
   // Before the in-flight read, so a crash-stranded job does not make a pair look "already coming" for good.
   await failStaleJobs();
 
@@ -70,19 +93,28 @@ export async function generateNarrationBatch(
       : [],
   );
 
-  // Checked for the whole batch before any provider call: per-clip checks could narrate part of a story and stop.
-  await assertWithinDailyCap("audio", missing.length);
+  return { input, missing, skipped: candidates.length - missing.length };
+}
 
+/** Runs a plan whose cap the caller has already checked. */
+export async function runNarrationPlan(
+  plan: NarrationPlan,
+  context: GenerationContext = {},
+): Promise<BatchGenerationRef> {
   const jobIds: string[] = [];
   let failed = 0;
-  for (const target of missing) {
+  for (const target of plan.missing) {
     // runNarrationJob records provider failures on the job and resolves; counting is the only way the batch reports them.
-    const { jobId, status } = await runNarrationJob(input, target);
+    const { jobId, status } = await runNarrationJob(
+      plan.input,
+      target,
+      context,
+    );
     jobIds.push(jobId);
     if (status === "failed") failed += 1;
   }
 
-  return { jobIds, skipped: candidates.length - missing.length, failed };
+  return { jobIds, skipped: plan.skipped, failed };
 }
 
 function pairKey(
@@ -94,9 +126,13 @@ function pairKey(
 function runNarrationJob(
   input: GenerateNarrationInput,
   target: NarrationTarget,
+  context: GenerationContext,
 ): Promise<GenerationJobResult> {
   return runGenerationJob<NarrationUpload>({
     type: "audio",
+    ...(context.requestedById === undefined
+      ? {}
+      : { requestedById: context.requestedById }),
     // The spoken text, not a reference: the source row may be edited later. charCount is what Google TTS bills.
     input: {
       entity: input.entity,
@@ -157,7 +193,7 @@ async function readNarrationCandidates(
     case "story":
       return readStoryCandidates(input.id);
     case "quiz":
-      return readQuizCandidates(input.id);
+      return readQuizCandidates(input.id, input.questionIds);
   }
 }
 
@@ -235,11 +271,15 @@ async function readStoryCandidates(
 
 async function readQuizCandidates(
   quizId: string,
+  questionIds: readonly string[] | undefined,
 ): Promise<NarrationCandidate[]> {
   const quiz = await prisma.quiz.findUnique({
     where: { id: quizId },
     select: {
       questions: {
+        ...(questionIds === undefined
+          ? {}
+          : { where: { id: { in: [...questionIds] } } }),
         orderBy: { sortOrder: "asc" },
         select: {
           id: true,

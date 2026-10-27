@@ -23,17 +23,17 @@ const PARENT = {
 
 type Session = ReturnType<typeof useParentSession>;
 
+function Probe({ seen }: { seen: Session[] }) {
+  seen.push(useParentSession());
+  return null;
+}
+
 function renderSession(): Session[] {
   const seen: Session[] = [];
 
-  function Probe() {
-    seen.push(useParentSession());
-    return null;
-  }
-
   render(
     <ParentSessionProvider>
-      <Probe />
+      <Probe seen={seen} />
     </ParentSessionProvider>,
   );
 

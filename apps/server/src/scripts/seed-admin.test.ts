@@ -28,6 +28,12 @@ type AccountRow = { providerId: string; password?: string };
 const store = vi.hoisted(() => ({
   admins: [] as AdminRow[],
   sessions: [] as { id: string; userId: string }[],
+  // Tokens carry their admin's `authUserId` so the stubbed `updateMany` can match on the relation.
+  accessTokens: [] as {
+    id: string;
+    authUserId: string;
+    revokedAt: Date | null;
+  }[],
   nextAdminId: 1,
 }));
 
@@ -35,12 +41,14 @@ const db = vi.hoisted(() => ({
   adminFindUnique: vi.fn(),
   adminUpsert: vi.fn(),
   sessionDeleteMany: vi.fn(),
+  accessTokenUpdateMany: vi.fn(),
 }));
 
 vi.mock("../config/prisma.js", () => ({
   prisma: {
     adminUser: { findUnique: db.adminFindUnique, upsert: db.adminUpsert },
     session: { deleteMany: db.sessionDeleteMany },
+    adminAccessToken: { updateMany: db.accessTokenUpdateMany },
   },
 }));
 
@@ -56,12 +64,31 @@ const identity = {
 beforeEach(() => {
   store.admins = [];
   store.sessions = [];
+  store.accessTokens = [];
   store.nextAdminId = 1;
   identity.users = [];
   identity.accounts = new Map();
   db.adminFindUnique.mockReset();
   db.adminUpsert.mockReset();
   db.sessionDeleteMany.mockReset();
+  db.accessTokenUpdateMany.mockReset();
+
+  db.accessTokenUpdateMany.mockImplementation(
+    async ({
+      where,
+      data,
+    }: {
+      where: { admin: { authUserId: string }; revokedAt: null };
+      data: { revokedAt: Date };
+    }) => {
+      const live = store.accessTokens.filter(
+        (row) =>
+          row.authUserId === where.admin.authUserId && row.revokedAt === null,
+      );
+      for (const row of live) row.revokedAt = data.revokedAt;
+      return { count: live.length };
+    },
+  );
 
   db.sessionDeleteMany.mockImplementation(
     async ({ where }: { where: { userId: string } }) => {
@@ -110,13 +137,21 @@ beforeEach(() => {
   vi.spyOn(context.password, "hash").mockImplementation(
     async (plain: string) => `hashed:${plain}`,
   );
+  vi.spyOn(context.password, "verify").mockImplementation(
+    async ({ hash, password }: { hash: string; password: string }) =>
+      hash === `hashed:${password}`,
+  );
 
   vi.spyOn(context.internalAdapter, "findUserByEmail").mockImplementation(
     // The fake supplies only the fields `seedAdmin` reads, so it is narrowed at this boundary.
-    (async (email: string) => {
+    (async (email: string, options?: { includeAccounts?: boolean }) => {
       const user = identity.users.find((row) => row.email === email);
       if (!user) return null;
-      return { user, accounts: identity.accounts.get(user.id) ?? [] };
+      // better-auth joins accounts only when asked; without the flag they come back empty.
+      const accounts = options?.includeAccounts
+        ? (identity.accounts.get(user.id) ?? [])
+        : [];
+      return { user, accounts };
     }) as unknown as typeof context.internalAdapter.findUserByEmail,
   );
 
@@ -234,6 +269,28 @@ describe("seedAdmin", () => {
     ]);
   });
 
+  it("revokes the admin's AI assistant tokens when a re-run rotates the password", async () => {
+    await seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME });
+    store.accessTokens = [
+      { id: "token_admin_1", authUserId: AUTH_USER_ID, revokedAt: null },
+      { id: "token_other_1", authUserId: "user_admin_2", revokedAt: null },
+    ];
+
+    await seedAdmin({
+      email: EMAIL,
+      password: "a-different-long-password",
+      name: NAME,
+    });
+
+    // A token minted from a session the leaked password opened would otherwise outlive the rotation by up to 30 days.
+    expect(
+      store.accessTokens.map((row) => [row.id, row.revokedAt !== null]),
+    ).toEqual([
+      ["token_admin_1", true],
+      ["token_other_1", false],
+    ]);
+  });
+
   it("links a credential account to a user left without one", async () => {
     // An earlier run died between `createUser` and `linkAccount`: an identity that can never sign in.
     identity.users.push({ id: AUTH_USER_ID, email: EMAIL, name: NAME });
@@ -244,6 +301,26 @@ describe("seedAdmin", () => {
     expect(identity.accounts.get(AUTH_USER_ID)).toEqual([
       { providerId: "credential", password: `hashed:${PASSWORD}` },
     ]);
+  });
+
+  it("fails instead of reporting success when a credential row did not take the new password", async () => {
+    // What an earlier seed left in production: a second credential row that sign-in can pick ahead of the updated one.
+    identity.users.push({ id: AUTH_USER_ID, email: EMAIL, name: NAME });
+    identity.accounts.set(AUTH_USER_ID, [
+      { providerId: "credential", password: "hashed:an-old-password" },
+      { providerId: "credential", password: "hashed:an-old-password" },
+    ]);
+    vi.mocked(context.internalAdapter.updatePassword).mockImplementationOnce(
+      async (userId: string, password: string) => {
+        const [first] = identity.accounts.get(userId) ?? [];
+        first.password = password;
+      },
+    );
+
+    await expect(
+      seedAdmin({ email: EMAIL, password: PASSWORD, name: NAME }),
+    ).rejects.toThrow(/sign-in would fail/);
+    expect(db.adminUpsert).not.toHaveBeenCalled();
   });
 
   it("re-asserts the link on an AdminUser row whose identity was cleared", async () => {
@@ -319,7 +396,7 @@ describe("what the stub cannot prove (general.md §5, rule 4)", () => {
       schema.indexOf("}", schema.indexOf("model AdminUser {")),
     );
     expect(model).toMatch(/email\s+String\s+@unique/);
-    expect(model).toMatch(/authUserId String\?\s+@unique/);
+    expect(model).toMatch(/authUserId\s+String\?\s+@unique/);
   });
 
   it("keeps a revoked admin's review history by setting the link null, not cascading", () => {

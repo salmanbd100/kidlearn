@@ -2,7 +2,7 @@
 
 > **Authority:** These standards govern every file committed to this repository. They apply to all engineers at all times.
 >
-> **This file is an index.** The standards themselves were split into role-scoped documents under `document/standards/` so that a task loads only what it needs. Nothing was dropped — every rule from the previous single-file version lives in exactly one of the documents below.
+> **This file is an index — it holds no rules of its own.** The standards live in three role-scoped documents under `document/standards/` so that a task loads only what it needs. If you are new, read `general.md` end to end once, then whichever of the other two matches your first task.
 
 ---
 
@@ -27,7 +27,10 @@ A full-stack task loads all three. A task that is purely schema or API work does
 | [`project-requirement-details.md`](./project-requirement-details.md) | Product requirements and feature scope. |
 | [`user-journey-manual.md`](./user-journey-manual.md) | End-to-end user flows across both portals. |
 | [`admin-account-guide.md`](./admin-account-guide.md) | How to create an administrator locally and on a deployed server, and what an admin does in the CMS. |
-| [`implementation/`](./implementation/) | Per-feature implementation specs; `00-progress-tracker.md` is the source of truth for status. |
+| [`implementation/`](./implementation/) | Per-feature implementation specs; [`00-progress-tracker.md`](./implementation/00-progress-tracker.md) is the source of truth for status. "File 31" in the standards means `implementation/31-*.md`. |
+| [`ai-integration-guide.md`](./ai-integration-guide.md) | How AI-generated content is produced, reviewed and published. |
+| [`content-authoring-playbook.md`](./content-authoring-playbook.md) | How an admin authors a lesson end to end. |
+| [`mobile-app-plan.md`](./mobile-app-plan.md) | What is and is not shared between the web app and the planned mobile app. |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: pr
-description: Commit, push and open a GitHub pull request for the current kidlearn branch in one pass. Invoke as /pr. Targets dev, never main. Runs the same four gates CI runs and refuses to claim any it did not run. Use when a branch is finished and ready for review.
+description: Commit, push and open a GitHub pull request for the current kidlearn branch in one pass. Invoke as /pr. Targets dev, never main. Runs CI's core gates (lint, build, typecheck, test) and refuses to claim any it did not run. Use when a branch is finished and ready for review.
 model: sonnet
 ---
 
@@ -48,7 +48,9 @@ Stop and tell the user, without doing anything else, if:
 ## Step 1 — Run the gates
 
 CI runs these, in this order, and a PR is not done until `gates` is green
-(`CLAUDE.md` → CI). Run them here so the PR opens with the answer already known:
+(`CLAUDE.md` → CI). Run them here so the PR opens with the answer already known. CI also runs
+`test:db` and three Docker image builds; those need Postgres and Docker, so run them only when
+the branch touches the database or a Dockerfile, and say in the PR which you skipped:
 
 ```bash
 pnpm lint

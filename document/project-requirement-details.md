@@ -1,9 +1,10 @@
 # KidLearn — Project Requirement Details (Master Document)
 
-> **Document Type:** Master Requirements Specification
-> **Version:** 1.0 | **Date:** June 2026
-> **Status:** Authoritative — all design, architecture, and implementation decisions in this repository derive from this document.
-> **Sources:** Learning Adventure Functional Requirements v1.0 + `document/key-description.md` (Next-Gen International Educational Platform).
+> **What this is:** the master list of what KidLearn must do — every `FR-*` (functional) and `NFR-*` (non-functional) requirement ID that code, commits and other documents cite. **Read it** first when joining, and whenever you need to know whether a behaviour is required, out of scope, or retired.
+>
+> **Status:** authoritative for *what* the product does. *How* it is built lives elsewhere: [`design.md`](./design.md) (visual system), [`database-design.md`](./database-design.md) (schema), [`user-journey-manual.md`](./user-journey-manual.md) (screens and flows), [`standards/`](./standards/) (code rules), [`runbook.md`](./runbook.md) (operations).
+>
+> **Sources:** Learning Adventure Functional Requirements v1.0, and the original product brief (`key-description.md`, since removed from the repository — `git log --all -- document/key-description.md` finds it). §12 records where the two disagreed.
 
 ---
 
@@ -25,14 +26,14 @@
    - [5.9 Gamification & Rewards](#59-gamification--rewards-fr-gam)
    - [5.10 Multilingual Support](#510-multilingual-support-fr-i18n)
    - [5.11 Parent Dashboard & Reports](#511-parent-dashboard--reports-fr-dash)
-   - [5.12 Screen Time & Parental Controls](#512-screen-time--parental-controls-fr-time)
+   - [5.12 Learning Time](#512-learning-time-fr-time)
    - [5.13 AI Content Generation Pipeline](#513-ai-content-generation-pipeline-fr-ai)
    - [5.14 Admin Content Management](#514-admin-content-management-fr-cms)
    - [5.15 Public Site](#515-public-site-fr-site)
 6. [Non-Functional Requirements](#6-non-functional-requirements)
 7. [Technical Architecture](#7-technical-architecture)
 8. [Data Model Overview](#8-data-model-overview)
-9. [Deployment Strategy (Single-Box AWS)](#9-deployment-strategy-single-box-aws)
+9. [Deployment Strategy (Vercel Frontend + Single AWS Box)](#9-deployment-strategy-vercel-frontend--single-aws-box)
 10. [MVP Scope](#10-mvp-scope)
 11. [Phased Roadmap](#11-phased-roadmap)
 12. [Assumptions & Resolved Conflicts](#12-assumptions--resolved-conflicts)
@@ -46,7 +47,9 @@ This is the **single master document** for the KidLearn platform ("Learning Adve
 - Requirement IDs follow the pattern `FR-<MODULE>-<NN>` (functional) and `NFR-<MODULE>-<NN>` (non-functional).
 - When implementing, reference the ID in plans, PRs, and commits (e.g. `feat: lesson player step flow (FR-LSN-01..05)`).
 - If a new requirement emerges, **add it here first**, then implement.
-- MVP-scoped requirements are marked **[MVP]**. Unmarked requirements are post-MVP unless stated otherwise.
+- MVP-scoped requirements are marked **[MVP]**; **[MVP — architectural]** means the MVP must not rule it out, even if nothing user-visible ships. Unmarked requirements are post-MVP unless stated otherwise.
+- **IDs are never renumbered or reused.** A dropped requirement is struck through and marked *Retired* with a date (FR-AUTH-04), or noted above its table (FR-TIME-01..05); gaps such as FR-AUTH-01 and FR-GAM-03 are requirements removed before this document's first version.
+- **Glossary:** a *world* is a themed setting (Jungle, Ocean, Space) that lessons and stories live in (§5.4); the *review queue* is the admin screen where AI-generated drafts wait for a human decision (§5.13); *grade levels* are Nursery, KG-1 and KG-2 (§5.3).
 
 ---
 
@@ -58,7 +61,7 @@ The platform:
 
 - Is **visual-first and voice-guided** — children who cannot read can use it independently.
 - Supports **multiple languages** natively (English and Bangla at launch).
-- Gives parents full visibility (progress, reports) and control (screen time, time windows).
+- Gives parents full visibility (progress, learning time, reports).
 - Uses a **generative-AI content pipeline** (lessons, stories, quizzes, narration, illustrations) with mandatory human review, so the curriculum can scale cheaply.
 - Launches on **low-cost hosting** — the frontend on Vercel's free tier and one small cloud instance running both environments' APIs, roughly $13.75/month (§9) — with an architecture that scales modularly to higher grades and more languages without rework.
 
@@ -77,7 +80,7 @@ A daily learning journey of 30–60 minutes composed of micro-activities (e.g. 1
 ### Pillar C — Dual-Portal System
 
 - **Student Portal:** immersive, distraction-free, gamified. No external links, no ads, no social features.
-- **Parent Dashboard:** reached from the signed-in Google session, for analytics, settings, language management, and screen-time limits.
+- **Parent Dashboard:** reached from the signed-in Google session, for analytics, settings, and language management.
 
 ### Pillar D — AI-Powered Content Pipeline
 
@@ -103,7 +106,7 @@ Students never register themselves — profiles are always created and managed b
 - Listen to and read stories
 - Switch the display language between available options
 
-A student **cannot**: contact other users or see content outside their grade level. Parent settings are a separate surface, but nothing prevents a child who taps the exit from reaching it (see §9 resolution 6).
+A student **cannot**: contact other users or see content outside their grade level. Parent settings are a separate surface, but nothing prevents a child who taps the exit from reaching it (see [§12 resolution 6](#12-assumptions--resolved-conflicts)).
 
 ### 4.2 Parent
 
@@ -131,7 +134,7 @@ An adult who registers and manages up to 5 child profiles. A parent can:
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | FR-AUTH-02 | Parents can register/sign in with Google OAuth.                                                                                                               | [MVP] |
 | FR-AUTH-03 | Parent consent is required before any child profile can be created (COPPA).                                                                                   | [MVP] |
-| ~~FR-AUTH-04~~ | ~~The parent dashboard and all settings are protected by a parental gate (PIN code) so a child using the device cannot enter parent areas.~~ **Retired 2026-09-09** — the PIN gate was removed for simplicity. A signed-in Google session is now the only barrier to the parent area. See resolution 6 in §9. | ~~[MVP]~~ |
+| ~~FR-AUTH-04~~ | ~~The parent dashboard and all settings are protected by a parental gate (PIN code) so a child using the device cannot enter parent areas.~~ **Retired 2026-09-09** — the PIN gate was removed for simplicity. A signed-in Google session is now the only barrier to the parent area. See resolution 6 in §12. | ~~[MVP]~~ |
 | FR-AUTH-05 | Parents can request deletion of their account and all associated data; deletion removes all child profiles, progress, and personal data.                      | [MVP] |
 | FR-AUTH-06 | Sessions for the student portal are profile-scoped: switching child profiles does not require parent re-authentication. | [MVP] |
 | FR-AUTH-07 | A parent can sign out from the parent dashboard. Signing out revokes the session, which also ends the active child profile — the device returns to the sign-in screen for everyone using it. Added 2026-09-06, after the control shipped; recorded here so the requirement is not inferred from the code. | [MVP] |
@@ -257,16 +260,13 @@ Quizzes end every lesson. They are low-pressure and encouraging — never test-l
 | FR-DASH-05 | **Weekly report** generated every week per child containing: total active days, total learning time, count of new letters/words/numbers encountered, lessons and stories completed, quiz accuracy percentage, badges earned, and an encouraging note about progress. | [MVP] |
 | FR-DASH-06 | Past weekly reports remain viewable in the dashboard.                                                                                                                                                                                                                | [MVP] |
 
-### 5.12 Screen Time & Parental Controls (FR-TIME)
+### 5.12 Learning Time (FR-TIME)
 
-| ID         | Requirement                                                                                                                        | Scope                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| FR-TIME-01 | A parent can set a **daily time limit** per child individually.                                                                    | [MVP]                 |
-| FR-TIME-02 | When the limit is reached, the mascot shows a friendly "time's up" message and the child cannot start a new lesson.                | [MVP]                 |
-| FR-TIME-03 | A lesson already in progress when the limit hits is allowed to finish before lockout.                                              | [MVP]                 |
-| FR-TIME-04 | A parent can set an **access time window** per child (e.g. 8am–8pm); outside the window the app shows a friendly locked screen.    | [MVP]                 |
-| FR-TIME-05 | All screen-time settings are editable by the parent at any time from settings.                                                     | [MVP]                 |
-| FR-TIME-06 | Learning time is measured server-side (activity heartbeats / session events) so limits can't be bypassed by refreshing the client. | [MVP — architectural] |
+FR-TIME-01..05 — per-child daily limits and access windows — were removed on 2026-10-25; nothing replaces them.
+
+| ID         | Requirement                                                                                                                            | Scope                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| FR-TIME-06 | Learning time is measured server-side (activity heartbeats / session events) so refreshing the client can't lower or inflate a minute. | [MVP — architectural] |
 
 ### 5.13 AI Content Generation Pipeline (FR-AI)
 
@@ -283,6 +283,7 @@ AI generates content at scale; humans gate everything before publication.
 | FR-AI-07 | **Human review gate:** all AI-generated content enters a review queue and must be approved by a human administrator before becoming visible to students. **No AI content is ever published automatically.**                                         | [MVP — hard requirement]                              |
 | FR-AI-08 | AI generation requests, outputs, and review decisions (approve / edit-then-approve / reject) are logged for auditability.                                                                                                                           | [MVP]                                                 |
 | FR-AI-09 | Character consistency: prompts and reference assets are managed so recurring characters look the same across lessons, stories, and worlds.                                                                                                          | [MVP]                                                 |
+| FR-AI-10 | An administrator may author AI content with an external AI assistant of their choosing (Claude, ChatGPT, Cursor, …), connected over the Model Context Protocol. Externally authored content is validated against the same content schemas, enters the same review queue (FR-AI-07), and is attributed to the administrator and the client that submitted it (FR-AI-08).| [MVP+]                                                |
 
 ### 5.14 Admin Content Management (FR-CMS)
 
@@ -352,39 +353,21 @@ AI generates content at scale; humans gate everything before publication.
 
 ## 7. Technical Architecture
 
-### 7.1 Monorepo Layout (current + target)
+### 7.1 Monorepo Layout
 
-The repo is a **pnpm + Turborepo** monorepo (pnpm 9, workspace globs `apps/*`, `packages/*`):
-
-```
-kidlearn/
-├── apps/
-│   ├── web/        # Next.js 16 (App Router) + React 19 + Tailwind CSS v4 — student portal, parent dashboard, admin CMS
-│   └── server/     # Express 5 + TypeScript (ESM, tsx dev) — REST API: progress, quiz responses, localized asset paths, AI pipeline
-├── packages/
-│   ├── ui/         # Shared React component library (placeholder — needs package.json before use)
-│   ├── types/      # Shared TypeScript types / JSON schemas (placeholder — needs package.json before use)
-│   ├── db/         # PLANNED: Prisma schema + client (Supabase/PostgreSQL)
-│   └── config/     # Shared TS configs (placeholder — needs package.json before use)
-├── document/       # This document, key-description.md, design.md
-├── biome.json      # Biome = lint + format (repo-wide; NOT ESLint/Prettier)
-├── turbo.json
-└── pnpm-workspace.yaml
-```
-
-> Note: `key-description.md` mentions shared ESLint config; this repo standardised on **Biome** instead. Biome runs repo-wide from the root (`pnpm lint` / `pnpm format`).
+The repo is a **pnpm + Turborepo** monorepo: `apps/web` (Next.js — student portal, parent dashboard, admin CMS and public site), `apps/server` (Express REST API, AI pipeline, MCP endpoint) and six shared packages (`ui`, `db`, `types`, `config`, `i18n`, `tokens`). The annotated layout, with what each directory may contain, is in the root [`CLAUDE.md`](../CLAUDE.md#layout--current-state); folder rules are in [`standards/frontend.md`](./standards/frontend.md) and [`standards/backend.md`](./standards/backend.md). Lint and format are **Biome**, repo-wide — there is no ESLint.
 
 ### 7.2 Stack Summary
 
 | Layer             | Technology                                         | Notes                                                                       |
 | ----------------- | -------------------------------------------------- | --------------------------------------------------------------------------- |
-| Monorepo tooling  | Turborepo + pnpm workspaces                        | `pnpm dev` runs web + server together                                       |
+| Monorepo tooling  | Turborepo + pnpm 9 workspaces                      | `pnpm dev` runs web + server together                                       |
 | Frontend          | Next.js 16 (App Router), React 19, Tailwind CSS v4 | Responsive; phones/tablets primary                                          |
 | Backend           | Express 5 + TypeScript (ESM)                       | `apps/server`, port 4000 default, `tsx` in dev                              |
-| Database          | Supabase (PostgreSQL, free tier)                   | Single source of truth; relational data + `JSONB` for quiz/activity schemas |
-| ORM / migrations  | Prisma                                             | Lives in `packages/db`, consumed by `apps/server`                           |
+| Database          | PostgreSQL — Supabase free tier in production      | Single source of truth; relational data + `JSONB` for quiz/activity schemas |
+| ORM / migrations  | Prisma 6                                           | Lives in `packages/db`, consumed by `apps/server`                           |
 | i18n              | i18next (frontend) + per-language asset refs (DB)  | FR-I18N-03                                                                  |
-| AI — text/quizzes | Gemini text models (free tier) → JSON payloads     | Validated against shared schemas in `packages/types`                        |
+| AI — text/quizzes | Gemini text models (free tier) → JSON payloads, or the admin's own assistant over MCP | Validated against shared schemas in `packages/types`; see [`ai-integration-guide.md`](./ai-integration-guide.md) |
 | AI — images       | Gemini image models (free tier)                    | FR-AI-05                                                                    |
 | AI — video        | Google Veo / Runway Gen-3 / Mootion                | FR-AI-06                                                                    |
 | AI — audio        | Google Cloud Text-to-Speech (Standard, free tier)  | FR-AI-04                                                                    |
@@ -394,35 +377,22 @@ kidlearn/
 
 1. **Content as data.** Lessons, activities, quizzes, badges, worlds, and languages are database rows + JSON payloads + media URLs. The frontend ships generic engines (lesson player, activity engine, quiz engine) that render whatever the data describes.
 2. **Shared schemas.** JSON schemas / TypeScript types for activities and quizzes live in `packages/types`, shared by the frontend renderer, the backend validator, and the AI generation prompts — one definition, three consumers.
-3. **Server-authoritative progress.** Rewards, streaks, screen time, and completion are computed/recorded server-side; the client reports events.
+3. **Server-authoritative progress.** Rewards, streaks, learning time, and completion are computed/recorded server-side; the client reports events.
 4. **Review-gated publishing.** Content rows carry a status (`draft → in_review → approved/rejected → published`); student queries only ever see `published`.
 
 ---
 
 ## 8. Data Model Overview
 
-High-level entities (Prisma schema to be derived from this list):
+The schema, its relations and its cascade rules are in [`database-design.md`](./database-design.md); [`packages/db/prisma/schema.prisma`](../packages/db/prisma/schema.prisma) is the source of truth. In outline:
 
-- **Parent** — auth identity, email, consent record.
-- **ChildProfile** — name, age, grade level, language preference, avatar/character, belongs to Parent (≤5 per parent).
-- **Subject / Topic / Lesson** — curriculum hierarchy; Lesson carries world tag, grade tags, status, and ordered step content (intro script, video asset refs per language, activity ref, quiz ref).
-- **Activity** — type (drag-drop | trace | match | puzzle) + `JSONB` definition + per-language audio/asset refs.
-- **Quiz / QuizQuestion** — format (mcq | match-pair | drag-answer | picture-select) + `JSONB` definition + per-language audio.
-- **Story / StoryPage** — theme, world, grade tags; per-page illustration + per-language text and narration audio.
-- **LessonProgress** — child × lesson: current step, completed_at, score, time spent.
-- **QuizResponse** — child × question: answer, correct?, timestamp.
-- **RewardLedger** — child, reward type (star | coin | badge), source event, timestamp.
-- **Badge** — admin-defined milestone rules + icon.
-- **Character** — avatar characters + unlock criteria; **ChildCharacter** join for unlocks.
-- **Streak** — child, current count, longest, last activity date.
-- **ScreenTimeSetting** — child: daily limit minutes, access window start/end.
-- **SessionEvent / LearningTime** — server-recorded activity heartbeats per child (powers FR-TIME-06, FR-DASH-02).
-- **WeeklyReport** — child, week, aggregated metrics + note (FR-DASH-05).
-- **AIGenerationJob** — type (lesson | story | quiz | audio | image), inputs, raw output, status, reviewer, decision, timestamps (FR-AI-08).
-- **MediaAsset** — host URL, kind, language (nullable), linked entity.
-- **AdminUser** — internal role for CMS access.
+- **Identity** — `Parent` (Google sign-in, consent record), `ChildProfile` (≤5 per parent), `AdminUser`; credentials and sessions belong to better-auth.
+- **Curriculum** — `World`, `Subject → Topic → Lesson`, each with per-language `*Translation` rows.
+- **Content engines** — `Activity`, `Quiz → QuizQuestion`, `Story → StoryPage`: versioned `JSONB` definitions plus per-language text and audio.
+- **Progress & rewards** — `LessonProgress`, `QuizResponse`, `RewardLedger` (balances are sums, never stored counters), `Badge`, `Character` / `ChildCharacter`, `Streak`, `SessionEvent` (learning time is aggregated from these events — there is no `LearningTime` table), `WeeklyReport`.
+- **AI pipeline & media** — `AIGenerationJob` (FR-AI-08, FR-AI-10), `AdminAccessToken`, `CharacterSheet`, `MediaAsset` (linked from the owning row by a named foreign key).
 
-All content entities carry `status` (publishing workflow) and language-scoped child records or asset maps (i18n).
+All content roots carry `status` (the publishing workflow in §7.3).
 
 ---
 
@@ -461,7 +431,7 @@ Per-app configuration follows each app's own template file; deployed values live
 
 **`document/runbook.md` is the operational companion to this section.** It holds the full per-environment variable inventory, both deploy and rollback procedures, the DNS records, the backup and restore steps, and the escape-hatch procedure — everything this section states as a decision, it states as a command.
 
-**`document/deployment-walkthrough.md` is the one-time provisioning guide** — the same work in order, written for a first AWS deployment, with every command spelled out. The runbook is for when something is wrong; the walkthrough is for when nothing exists yet.
+**`document/deployment/` is the one-time provisioning guide** — the same work in order, written for a first AWS deployment, with every command spelled out. The runbook is for when something is wrong; `deployment/` is for when nothing exists yet.
 
 ---
 
@@ -488,7 +458,7 @@ The first release validates the core product with real users before expanding.
 - Rewards: stars, coins, badges, streaks, character unlocks (FR-GAM)
 - Parent account + child profile management (FR-AUTH, FR-PROF)
 - Parent dashboard with progress + weekly reports (FR-DASH)
-- Screen time controls (FR-TIME)
+- Server-measured learning time (FR-TIME-06)
 - AI content pipeline with admin review queue (FR-AI, FR-CMS)
 
 **Explicitly out of MVP scope:** Grade 1+ content, KG-2, Arabic/Hindi/Spanish, teacher dashboards and classrooms, school administration, Space World content, and (potentially late) PDF worksheets / offline downloads / personalised AI stories.
@@ -512,13 +482,13 @@ Where the two source documents disagreed, this master document resolves as follo
 1. **Age range:** Functional Requirements say ages 3–6 (Nursery/KG-1/KG-2); key-description says 3–5. **Resolution:** the platform targets ages **3–6** overall; the **MVP targets 3–5** (Nursery + KG-1), with KG-2 in Phase 2.
 2. **Lint tooling:** key-description proposes shared ESLint config; the repo uses **Biome** repo-wide. **Resolution:** Biome (per `CLAUDE.md` and `biome.json`).
 3. **Package manager:** key-description says npm/yarn workspaces; the repo uses **pnpm 9**. **Resolution:** pnpm + Turborepo.
-4. **Shared packages:** repo currently has `packages/{ui,types,config}` placeholders (no `package.json` yet); key-description plans `packages/db` for Prisma. **Resolution:** target layout in §7.1 — each package must gain a `package.json` with `name` + `dev`/`build`/`typecheck` scripts before use.
-5. **Daily session length:** key-description's 30–60 minute daily journey is adopted as the design intent (Pillar B); the parent-set screen-time limit (FR-TIME-01) is the enforced bound and may be set below or above it.
+4. **Shared packages:** key-description planned `packages/db` for Prisma alongside `ui`, `types` and `config`. **Resolution:** adopted, and since joined by `i18n` and `tokens` (§7.1).
+5. **Daily session length:** key-description's 30–60 minute daily journey is adopted as the design intent (Pillar B). It is not enforced: the parent-set limit that once bounded it (FR-TIME-01) was removed on 2026-10-25.
 6. **Parental gate:** the PIN gate from key-description was adopted as a hard requirement (FR-AUTH-04) even though the Functional Requirements doc didn't specify it. **Reversed 2026-09-09:** the gate is removed and FR-AUTH-04 retired, for simplicity — it was the most cross-cutting feature in the codebase relative to what it delivered (five columns, three endpoints, eight middleware mounts, a React context with a grant-expiry timer).
 
    **The cost is on the record.** The Google session persists on a shared family tablet, so the lock icon in the Student Portal is now a one-tap door into a dashboard that can edit and delete child profiles and request account deletion. Two things soften it, both deliberately retained: the exit stays visually dull — an anonymous lock on every screen a child is using, named only on `/select-profile`, where no child is playing yet — and account deletion stays two-step behind a single-use token that expires in 15 minutes. Nothing else asks twice. Re-introducing a parental gate is a product decision, not a bug fix; if it returns it should be designed against this note rather than restored from git history.
 7. **Quiz/activity storage:** key-description's "LLM → JSON → Postgres `JSONB` → dynamic frontend modules" pattern is adopted as the architectural foundation for both activities and quizzes (FR-ACT-06, FR-QUIZ-07).
-8. **Testing:** no test runner exists in the repo yet; one must be added before feature work begins in earnest (assumption: Vitest for both apps — confirm before setup).
+8. **Testing:** key-description named no test runner. **Resolution:** Vitest in every package with code to test; CI rules are in [`standards/general.md §5`](./standards/general.md).
 
 ---
 

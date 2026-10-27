@@ -12,7 +12,6 @@ import { meRouter } from "./me/me.routes.js";
 import { parentRouter } from "./parent/parent.routes.js";
 import { requireParent } from "./parent/require-parent.middleware.js";
 import { progressRouter } from "./progress/progress.routes.js";
-import { screenTimeRouter } from "./screen-time/screen-time.routes.js";
 
 export const apiRouter = Router();
 
@@ -35,7 +34,7 @@ apiRouter.use(
 
 // Progress belongs to the active child resolved server-side, so no request body names whose. Consent is checked on
 // every request, not just at profile creation: these writes grow the child's record, and a bumped `CONSENT_VERSION`
-// must stop that until the parent accepts the new text (FR-AUTH-03). `/content`, `/me` and `/screen-time` stay
+// must stop that until the parent accepts the new text (FR-AUTH-03). `/content` and `/me` stay
 // ungated: they only read what is already held, and blocking them would strand a child mid-session for no gain.
 apiRouter.use(
   "/progress",
@@ -56,14 +55,6 @@ apiRouter.use(
 
 // Same guards: "me" is the session's child, so no path names whose rewards are read.
 apiRouter.use("/me", requireParent, requireActiveChild, meRouter);
-
-// Student-surface read behind the same guards; the home screen checks it before every tile tap.
-apiRouter.use(
-  "/screen-time",
-  requireParent,
-  requireActiveChild,
-  screenTimeRouter,
-);
 
 // Authenticates with a shared secret because its caller (cron-job.org) holds no session; see `shared/middleware/require-cron-secret.ts`.
 apiRouter.use("/admin/jobs", jobsRouter);

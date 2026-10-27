@@ -12,8 +12,6 @@ import { useTranslation } from "react-i18next";
 import { useActiveChild } from "@/features/children/active-child";
 import { listWorlds } from "@/features/content/content-api";
 import { WorldCard } from "@/features/content/WorldCard";
-import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
-import { useScreenTimeGate } from "@/features/screen-time/use-screen-time-gate";
 import { StoryTimeCard } from "@/features/stories/StoryTimeCard";
 import { RewardStrip } from "@/features/student/RewardStrip";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
@@ -41,7 +39,6 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
   const [isWakingUp, setIsWakingUp] = useState(false);
 
   useScreenNarration("home");
-  const screenTime = useScreenTimeGate();
 
   useEffect(() => {
     let isCurrent = true;
@@ -70,16 +67,6 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
 
   // Covers the frame between a profile switch and the guard's redirect.
   if (child === undefined) return null;
-
-  // First: the mascot screen replaces the home screen, so no lesson board is left to tap behind it.
-  if (screenTime.block != null) {
-    return (
-      <ScreenTimeLock
-        reason={screenTime.block}
-        windowStart={screenTime.windowStart}
-      />
-    );
-  }
 
   const stats =
     rewards === undefined
@@ -117,9 +104,7 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
           curriculum read must not hide it. */}
       <StoryTimeCard
         label={t("stories.title")}
-        onPress={() => {
-          void screenTime.guardStart(() => router.push("/stories"));
-        }}
+        onPress={() => router.push("/stories")}
       />
 
       {status === "error" ? (
@@ -127,7 +112,7 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
           {t("status.error")}
         </StudentStatus>
       ) : status === "loading" ? (
-        <StudentStatus tone="status">
+        <StudentStatus tone="loading">
           {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
         </StudentStatus>
       ) : worlds.length === 0 ? (
@@ -143,11 +128,7 @@ function HomeContent({ onRetry }: { onRetry: () => void }) {
               <li key={world.id} className="contents">
                 <WorldCard
                   world={world}
-                  onPress={() => {
-                    void screenTime.guardStart(() =>
-                      router.push(`/world/${world.id}`),
-                    );
-                  }}
+                  onPress={() => router.push(`/world/${world.id}`)}
                 />
               </li>
             ))}

@@ -124,6 +124,17 @@ export const AI_REVIEW_DECISIONS = [
 export const AiReviewDecisionSchema = z.enum(AI_REVIEW_DECISIONS);
 export type AiReviewDecision = z.infer<typeof AiReviewDecisionSchema>;
 
+/** Who wrote a job's content: our Gemini call, or an admin's own assistant over MCP (FR-AI-10). */
+export const AI_JOB_SOURCES = ["gemini", "mcp"] as const;
+export const AiJobSourceSchema = z.enum(AI_JOB_SOURCES);
+export type AiJobSource = z.infer<typeof AiJobSourceSchema>;
+
+/** The MCP client's `initialize` clientInfo. Self-reported: a label for reviewers, never an identity. */
+export const AiJobClientSchema = z
+  .object({ name: z.string(), version: z.string().nullable() })
+  .strict();
+export type AiJobClient = z.infer<typeof AiJobClientSchema>;
+
 /** One row in the queue list. */
 export const AiJobSummarySchema = z
   .object({
@@ -131,6 +142,10 @@ export const AiJobSummarySchema = z
     type: AiJobTypeSchema,
     status: AiJobStatusSchema,
     decision: AiReviewDecisionSchema.nullable(),
+    source: AiJobSourceSchema,
+    /** The requesting admin's name; null for jobs written before it was recorded, or whose admin was removed. */
+    requestedBy: z.string().nullable(),
+    client: AiJobClientSchema.nullable(),
     gradeLevels: z.array(GradeLevelSchema),
     languages: z.array(LocaleSchema),
     entityLabel: z.string().nullable(),
@@ -228,3 +243,26 @@ export const AiJobListResponseSchema = ok(AiJobListSchema);
 export const AiJobDetailResponseSchema = ok(AiJobDetailSchema);
 export const AiJobCountResponseSchema = ok(AiJobCountSchema);
 export const AiReviewResultResponseSchema = ok(AiReviewResultSchema);
+
+/** What this deployment can generate, so the CMS can hide what would only answer 503 (FR-AI-10). */
+export const AiCapabilitiesSchema = z
+  .object({
+    geminiText: z.boolean(),
+    geminiImage: z.boolean(),
+    narration: z.boolean(),
+    mcp: z
+      .object({
+        enabled: z.boolean(),
+        /** Connector sign-in for ChatGPT and claude.ai; false until it ships. */
+        oauth: z.boolean(),
+        /** The URL to configure a client with; null when MCP is off. */
+        url: z.string().nullable(),
+        draftsPerDay: z.number().int().positive(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type AiCapabilities = z.infer<typeof AiCapabilitiesSchema>;
+
+export const AiCapabilitiesResponseSchema = ok(AiCapabilitiesSchema);

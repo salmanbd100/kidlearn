@@ -3,7 +3,12 @@
 > Source of truth for how kidlearn satisfies COPPA verifiable parental consent
 > and the GDPR right to erasure. Written for file 10; update it whenever the
 > consent text, the consent record, or the deletion path changes.
-> Requirements: FR-AUTH-03, FR-AUTH-05, NFR-SAFE-03, NFR-SAFE-05, NFR-SAFE-06.
+> Requirements: FR-AUTH-03, FR-AUTH-05, NFR-SAFE-03, NFR-SAFE-05, NFR-SAFE-06
+> ([`project-requirement-details.md`](../../project-requirement-details.md) §5 and §6).
+>
+> **Read it when** you touch the consent text, `requireConsent`, the `Parent` consent columns,
+> any table that hangs off `ChildProfile`, or the account-deletion flow. **COPPA** is the US
+> children's online privacy law; **GDPR** the EU data-protection regulation.
 
 ## What the consent record stores
 
@@ -13,15 +18,20 @@
 | `Parent.consentVersion` | **What** — the version string of the consent text that was on screen, e.g. `2026-06-v1`. |
 | `Parent.userId` → `User` | **Who** — the Google-verified identity that agreed (email, name). |
 
-The current text version is the server constant `CONSENT_VERSION` in
-`apps/server/src/lib/consent.ts`. Posting any other version to
+The current text version is the constant `CONSENT_VERSION` in
+`packages/types/src/api/parent.ts`, shared by the server and the web app; `hasCurrentConsent`
+beside it is the one definition of "consented to the current text". Posting any other version to
 `POST /api/parent/consent` is a `409 CONFLICT`, so a client can never record
 agreement to text the parent did not see. Re-consenting is idempotent: it
 refreshes the timestamp and version rather than creating a second row.
 
-Consent is enforced server-side by `requireConsent`, which returns
-`403 CONSENT_REQUIRED` while `consentGivenAt` is null. File 11 mounts it on
-`POST /api/children`, so **no child record can exist before consent**. A
+Consent is enforced server-side by `requireConsent`
+(`apps/server/src/shared/middleware/require-consent.ts`), which returns
+`403 CONSENT_REQUIRED` while `consentGivenAt` is null **or** `consentVersion` is not the
+current `CONSENT_VERSION` — bumping the version stops data collection until the parent accepts
+the new text. It is mounted on `POST /api/children` (file 11), so **no child record can exist
+before consent**, and on every `/api/progress` and `/api/events` route, so a child's record
+cannot grow without it either. `/api/content` and `/api/me` stay ungated: they only read. A
 checkbox the frontend could skip would not be verifiable consent; the guard is.
 
 Identity is established by Google OAuth (FR-AUTH-02) — the consenting adult is a
@@ -30,18 +40,19 @@ verified account holder, not an unauthenticated form submission.
 ## Deletion is synchronous and complete
 
 `DELETE /api/parent/account` runs one transaction
-(`apps/server/src/services/accountDeletionService.ts`):
+(`apps/server/src/modules/parent/account-deletion.service.ts`; proven against a real database
+by `account-deletion.service.db.test.ts`):
 
 1. `childProfile.deleteMany({ parentId })` — each child row cascades to
    `LessonProgress`, `QuizResponse`, `RewardLedger`, `ChildCharacter`,
-   `Streak`, `ScreenTimeSetting`, `SessionEvent` and `WeeklyReport`.
+   `Streak`, `SessionEvent` and `WeeklyReport`.
 2. `parent.delete` — consent record, deletion token.
 3. `user.delete` — the better-auth identity, cascading `Session` and `Account`,
    which is what invalidates the caller's cookie.
 
 There is **no soft-delete, no tombstone and no archive** of child PII. Nothing
 is queued for later; when the request returns, the data is gone. Deletion is
-gated by a two-step flow — an authenticated `POST /account/delete-request` issues
+gated by a two-step flow — an authenticated `POST /api/parent/account/delete-request` issues
 a single-use 32-byte token valid for 15 minutes, compared with
 `timingSafeEqual` — so it cannot be triggered by a stray click or a CSRF-style
 request.

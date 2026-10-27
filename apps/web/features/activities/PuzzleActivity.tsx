@@ -68,7 +68,7 @@ function cropStyle(
   slot: PuzzleSlot,
 ): CSSProperties {
   return {
-    backgroundImage: `url(${imageUrl})`,
+    backgroundImage: `url(${JSON.stringify(imageUrl)})`,
     backgroundSize: `${grid.cols * 100}% ${grid.rows * 100}%`,
     backgroundPosition: `${(slot.col / (grid.cols - 1)) * 100}% ${
       (slot.row / (grid.rows - 1)) * 100
@@ -204,7 +204,7 @@ export function PuzzleActivity({
             aria-hidden="true"
             className="absolute inset-0 opacity-20"
             style={{
-              backgroundImage: `url(${definition.image.url})`,
+              backgroundImage: `url(${JSON.stringify(definition.image.url)})`,
               backgroundSize: "100% 100%",
             }}
           />

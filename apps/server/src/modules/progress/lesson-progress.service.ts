@@ -22,10 +22,6 @@ import {
   grantLessonCompletion,
 } from "../rewards/reward.service.js";
 import {
-  evaluateStartForChild,
-  screenTimeBlockedError,
-} from "../screen-time/screen-time.service.js";
-import {
   assertWithinClientEventBudget,
   recordServerObservedBeat,
 } from "./session-event.service.js";
@@ -103,7 +99,6 @@ async function writeLessonStep(
 ): Promise<LessonProgress> {
   const visibleLessonId = await requireVisibleLessonId(child, lessonId);
 
-  await assertMayOpenLesson(child.id, visibleLessonId);
   await recordServerObservedBeat(
     child.id,
     advance === "completion" ? "lesson_complete" : "lesson_step",
@@ -112,24 +107,6 @@ async function writeLessonStep(
   return withSerializationRetry(() =>
     reportLessonStepOnce(child.id, visibleLessonId, report, advance),
   );
-}
-
-/**
- * The first step report creates the progress row, and a row under the resume grace makes the content read allow the lesson even when
- * the day's limit is spent, so a report that would create the row is held to the same decision; continuing a lesson is not.
- */
-async function assertMayOpenLesson(
-  childId: string,
-  lessonId: string,
-): Promise<void> {
-  const existing = await prisma.lessonProgress.findUnique({
-    where: { childId_lessonId: { childId, lessonId } },
-    select: { id: true },
-  });
-  if (existing !== null) return;
-
-  const decision = await evaluateStartForChild(childId, undefined);
-  if (!decision.allowed) throw screenTimeBlockedError(decision);
 }
 
 function reportLessonStepOnce(
@@ -273,8 +250,6 @@ export async function recordQuizResponses(
     throw ApiError.notFound("Quiz not found");
   }
 
-  // Recording responses creates the progress row, so it is held to the same gate as the first step report.
-  await assertMayOpenLesson(child.id, lesson.id);
   await assertWithinQuizResponseBudget(child.id);
 
   const questions = new Map(

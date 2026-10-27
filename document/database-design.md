@@ -1,9 +1,10 @@
 # KidLearn — Database Design
 
-> **Document Type:** Database Design Reference (consolidated schema + ERDs)
-> **Version:** 1.0 | **Date:** June 2026
-> **Status:** Authoritative consolidated view. The per-file Prisma schema is built incrementally across implementation files **02–06** (core) with additive migrations in **09, 10, 30, 31, 32, 34, 35, 36, 37**. This document shows the **final shape** all those files converge on. Where a field/model is introduced after the core schema, the introducing file is noted.
-> **Engine:** PostgreSQL (Supabase free tier) via **Prisma 6**. Auth tables (`User`/`Session`/`Account`/`Verification`) are managed by **better-auth**.
+> **What this is:** the human-readable map of kidlearn's database — every model, how they relate, what cascades, and why. Read it before you add a model, a column, a relation or a delete path, and when a query result surprises you.
+>
+> **Source of truth:** [`packages/db/prisma/schema.prisma`](../packages/db/prisma/schema.prisma) and the migrations in [`packages/db/prisma/migrations/`](../packages/db/prisma/migrations/). If this document and the schema disagree, the schema wins — fix this document in the same change. Migration rules (one `CONCURRENTLY` per migration, `NOT VALID` then validate) are in [`standards/backend.md §3`](./standards/backend.md).
+>
+> **Engine:** PostgreSQL (Supabase in production, a Postgres container in dev) via **Prisma 6**. Auth tables (`User`/`Session`/`Account`/`Verification`) are managed by **better-auth**.
 
 ---
 
@@ -20,7 +21,6 @@
 9. [Domain E — AI pipeline & Media](#9-domain-e--ai-pipeline--media)
 10. [Cascade & deletion rules](#10-cascade--deletion-rules)
 11. [Schema evolution timeline (migrations)](#11-schema-evolution-timeline-migrations)
-12. [Alignment decisions resolved](#12-alignment-decisions-resolved)
 
 ---
 
@@ -28,8 +28,9 @@
 
 - **ER diagrams are Mermaid `erDiagram`** blocks, grouped by domain so each stays readable. They render in GitHub/VS Code. Cross-domain foreign keys are noted in prose under each diagram.
 - ERDs show **key attributes** (PK / FK / UK + a few defining columns). The **full field list** for every model is in the entity-reference table under each domain.
-- A field tagged **(file NN)** is added by that implementation file after the core schema; everything else lands in files 03–06.
-- **`§` references** point to `document/project-requirement-details.md`; **`FR-*`** are requirement IDs.
+- **"File NN"** is the implementation spec that introduced a field (the *File* columns and *(file NN)* tags). Specs 01–37a have shipped and were deleted from `document/implementation/` — `git log -- document/implementation` has them — so treat the number as provenance, not a link. Untagged fields arrived with the core schema (files 03–06).
+- **`FR-*` / `NFR-*`** are requirement IDs from [`project-requirement-details.md`](./project-requirement-details.md); "spec §N" means a section of that document.
+- **Terms used throughout:** a *content root* is a row an admin publishes (`World`, `Subject`, `Topic`, `Lesson`, `Activity`, `Quiz`, `Story`, `Badge`, `Character`); a *child-owned* row hangs off a `ChildProfile` and dies with it; a *translation row* (`*Translation`) holds one language's copy of a content row.
 
 ---
 
@@ -46,7 +47,7 @@
 | **Content-as-data** | Activity/quiz payloads are opaque, **versioned `Json`** columns (`definition` + `schemaVersion Int`). The DB never interprets them; `packages/types` Zod schemas (file 07) own their shape. |
 | **Media linkage is explicit, never polymorphic** | `MediaAsset` is referenced by **named optional FKs from the owning side** (`World.mascotAssetId`, `LessonTranslation.videoAssetId`, …) — full referential integrity + Prisma type safety, no `entityType`+`entityId`. |
 | **Publishing workflow** | Every content root carries `status ContentStatus @default(draft)`. Student-facing queries **always** filter `status = published`. Transition legality is enforced in code (`ALLOWED_TRANSITIONS`, file 32), not a DB table. |
-| **Server-authoritative** | Rewards, streaks, screen-time, completion, and learning-time are **derived server-side** from append-only rows (`RewardLedger`, `SessionEvent`). Balances are `SUM(amount)` aggregates — never stored counters — so they can't be spoofed and have no purchase path (FR-GAM-08). |
+| **Server-authoritative** | Rewards, streaks, completion, and learning-time are **derived server-side** from append-only rows (`RewardLedger`, `SessionEvent`). Balances are `SUM(amount)` aggregates — never stored counters — so they can't be spoofed and have no purchase path (FR-GAM-08). |
 | **Ownership** | Every child-owned table FKs to `ChildProfile` with `onDelete: Cascade`. Owner-only visibility (FR-PROF-07) is enforced at the API layer by always filtering on `parentId` / session. |
 | **Auth boundary** | better-auth owns **credentials & sessions** (`User`/`Session`/`Account`/`Verification`). Our domain rows `Parent` and `AdminUser` own **domain data** and link to `User` via a unique FK (`Parent.userId`, `AdminUser.authUserId`). |
 
@@ -80,7 +81,6 @@ flowchart TB
         Badge
         Character
         Streak
-        ScreenTimeSetting
         SessionEvent
         WeeklyReport
     end
@@ -96,7 +96,7 @@ flowchart TB
     ChildProfile --> D
     World --> Lesson & Story & CharacterSheet
     MediaAsset -.named FKs.-> B & C & Badge & Character
-    AdminUser -->|reviews| AIGenerationJob
+    AdminUser -->|reviews / requests| AIGenerationJob
     AIGenerationJob -.aiJobId back-ref.-> Lesson & Quiz & Story & Activity & MediaAsset
     ChildProfile -.avatar.-> Character
 ```
@@ -121,6 +121,7 @@ flowchart TB
 | `AIJobType` | `lesson`, `story`, `quiz`, `audio`, `image` | 06 | AIGenerationJob |
 | `AIJobStatus` | `pending`, `generating`, `awaiting_review`, `approved`, `rejected`, `failed` | 06 | AIGenerationJob |
 | `AIReviewDecision` | `approve`, `edit_then_approve`, `reject` | 06 | AIGenerationJob.decision |
+| `AIJobSource` | `gemini`, `mcp` | 41 | AIGenerationJob.source |
 
 > Adding a grade (Grade 1+) or language (Arabic/Hindi/Spanish) is a **one-line additive enum migration** + data — no code changes (FR-CURR-03, FR-I18N-04, NFR-SCALE-01).
 
@@ -275,6 +276,7 @@ erDiagram
         string introScript "TTS source"
         string introAudioAssetId FK
         string videoAssetId FK
+        string videoPosterAssetId FK "file 17"
         string uniq "(lessonId, language)"
     }
     CharacterSheet {
@@ -292,8 +294,8 @@ erDiagram
 - **`World` is delete-restricted** (Prisma default for the required `Lesson.worldId`/`Story.worldId`): you cannot delete a world that still hosts lessons or stories — archive it (`status: archived`) instead.
 - **Grade tags are native enum arrays** (`GradeLevel[]`) on Subject/Topic/Lesson/Story — query with `gradeLevels: { has: child.gradeLevel }`. Chosen over a join table for simpler queries and additive new grades.
 - **A published lesson is only servable in a language if a matching `LessonTranslation` row exists.** The read API (file 12) joins by the child's `preferredLanguage` and falls back to `en`.
-- **Curriculum display names are translated too** (`WorldTranslation`, `SubjectTranslation`, `TopicTranslation`, and `LessonTranslation.title`). This was corrected after review: the read API's response contract already promised a single resolved string picked from the child's language, but the schema only had the untranslated column to give it, so a `bn` learner got English on every tile while the narration inside the lesson was Bangla. The resolution order is `preferredLanguage → en → the row's own name/title`; the last step is what keeps content authored before a translation existed servable instead of nameless.
-- **`Story.title` is translated too**, by `StoryTranslation` — added by file 25 when the story read API landed, following the pattern this note asked for. Same split and same resolution order as the curriculum names: `Story.title`/`Story.theme` stay as the admin label and the authoring label for the moral, and the child reads `StoryTranslation.title`/`.moral`. `moral` is nullable and does **not** fall back to `theme` — an admin note is not a sentence to read to a child.
+- **Curriculum display names are translated too** (`WorldTranslation`, `SubjectTranslation`, `TopicTranslation`, and `LessonTranslation.title`), so a `bn` learner reads Bangla on every tile, not only inside the lesson. The resolution order is `preferredLanguage → en → the row's own name/title`; the last step keeps content authored before a translation existed servable instead of nameless.
+- **`Story.title` is translated too**, by `StoryTranslation` (file 25). Same split and same resolution order as the curriculum names: `Story.title`/`Story.theme` stay as the admin label and the authoring label for the moral, and the child reads `StoryTranslation.title`/`.moral`. `moral` is nullable and does **not** fall back to `theme` — an admin note is not a sentence to read to a child.
 - **`sortOrder` has no composite-unique** — reordering would collide mid-transaction; the admin API renumbers (file 32). It is indexed for ordered reads.
 - **`CharacterSheet`** (file 36) is reference data for the AI image generator (FR-AI-09) — it keeps recurring characters visually consistent. It is not student-facing content and has no `status`.
 
@@ -311,6 +313,7 @@ erDiagram
 | | palette | Json | theme tokens (FR-WORLD-05) | 04 |
 | | mascotAssetId | String? | FK → MediaAsset | 04 |
 | | status | ContentStatus | @default(draft) | 04 |
+| | updatedBy | String? | acting admin id (also on `Subject`, `Topic`, `Lesson`) | 32 |
 | **WorldTranslation** | id | String | PK | 04 |
 | | worldId | String | FK → World (cascade) | 04 |
 | | language | Language | UK `(worldId, language)` | 04 |
@@ -346,8 +349,9 @@ erDiagram
 | | title | String | child-facing lesson title | 04 |
 | | introScript | String | step-1 spoken greeting (FR-LSN-01) | 04 |
 | | introAudioAssetId / videoAssetId | String? | FK → MediaAsset | 04 |
+| | videoPosterAssetId | String? | FK → MediaAsset (`ON DELETE SET NULL`) — the still shown while the video buffers | 17 |
 | **CharacterSheet** | id / slug / name | String | slug UK | 36 |
-| | worldId | String? | FK → World | 36 |
+| | worldId | String? | FK → World (`SET NULL`), indexed | 36 |
 | | description | String | stable visual description | 36 |
 | | createdAt / updatedAt | DateTime | | 36 |
 
@@ -419,6 +423,7 @@ erDiagram
         string title "child-facing"
         string moral "child-facing, nullable"
         string titleAudioAssetId FK "file 36"
+        string moralAudioAssetId FK "file 26"
         string uniq "(storyId, language)"
     }
     StoryPage {
@@ -434,6 +439,7 @@ erDiagram
         Language language
         string text
         string narrationAudioAssetId FK
+        json narrationTimings "file 26 · follow-along spans"
         string uniq "(storyPageId, language)"
     }
 ```
@@ -444,7 +450,7 @@ erDiagram
 - **`definition Json` is opaque & versioned.** The DB stores it verbatim with a sibling `schemaVersion Int @default(1)`; writes are validated strictly at the current version; reads go through `readActivityDefinition` / `readQuizQuestion`, which migrate an older payload up to `SCHEMA_VERSION` and drop keys the reading code does not know, so a rollback or an older client still plays the step (NFR-SCALE-02). Stored rows are never rewritten in place. Shapes and the versioning rule are owned by `packages/types` (file 07; rule in `src/primitives.ts`).
 - **Quiz questions have a collision-free `@@unique([quizId, sortOrder])`** — a quiz is a fixed 3–5 sequence (FR-LSN-04), never admin-reordered like lessons, so a composite unique is safe here.
 - **`StoryPage.illustrationPrompt`** (file 35) is the prompt the AI image generator (file 36) consumes; the resulting asset is attached to `illustrationAssetId` only after human approval (file 37).
-- **Placeholder asset convention (revised in file 35):** every asset URL an AI generator writes points at the reserved host `https://placeholder.kidlearn.invalid` (RFC 2606 `.invalid`, so it can never resolve), path preserved — `https://placeholder.kidlearn.invalid/images/en/red-apple.png`. Approval is blocked (409) while any such URL remains (file 37). This is a payload convention, not a column. **It supersedes the `pending://image` spelling** that files 05 and 35 first described: `AssetRefSchema.url` is `z.string().url()` **plus** a `startsWith("https://")` refinement (file 07, no mixed content on a child's device), so a `pending://` URL cannot be stored in `QuizQuestion.definition` at all — it fails the payload contract the row is validated against. File 34 established the `.invalid` host for the same purpose and files 36–37 read that one spelling.
+- **Placeholder asset convention (revised in file 35):** every asset URL an AI generator writes points at the reserved host `https://placeholder.kidlearn.invalid` (RFC 2606 `.invalid`, so it can never resolve), path preserved — `https://placeholder.kidlearn.invalid/images/en/red-apple.png`. Approval is blocked (409) while any such URL remains (file 37). This is a payload convention, not a column. It has to be an `https://` URL because `AssetRefSchema.url` refuses anything else (no mixed content on a child's device) — so an older `pending://image` spelling, if you meet it in git history, cannot be stored.
 
 ### Entity reference — Domain C
 
@@ -459,11 +465,13 @@ erDiagram
 | | `aiJobId String?` | FK → AIGenerationJob | 34 |
 | **QuizQuestionTranslation** | `questionId`, `language`, `audioAssetId?` | UK `(questionId, language)`, cascade on QuizQuestion | 05 |
 | **Story** | `slug UK`, `title`, `theme`, `worldId`, `gradeLevels[]`, `coverAssetId?`, `status` | worldId restrict | 05 |
-| **StoryTranslation** | `storyId`, `language`, `title`, `moral?`, `titleAudioAssetId?` | UK `(storyId, language)`, cascade on Story | 25 |
 | | `aiJobId String?` | FK → AIGenerationJob | 34 |
+| **StoryTranslation** | `storyId`, `language`, `title`, `moral?`, `titleAudioAssetId?` | UK `(storyId, language)`, cascade on Story | 25 |
+| | `moralAudioAssetId?` | FK → MediaAsset — the moral read aloud on the finish screen | 26 |
 | **StoryPage** | `storyId`, `sortOrder`, `illustrationAssetId?` | UK `(storyId, sortOrder)`, cascade on Story | 05 |
 | | `illustrationPrompt String?` | AI image prompt | 35 |
 | **StoryPageTranslation** | `storyPageId`, `language`, `text`, `narrationAudioAssetId?` | UK `(storyPageId, language)`, cascade on StoryPage | 05 |
+| | `narrationTimings Json?` | character-offset spans into *this row's* `text` for follow-along highlighting; `NULL` until the voice pipeline produces them | 26 |
 
 ---
 
@@ -476,7 +484,6 @@ erDiagram
     ChildProfile ||--o{ RewardLedger : "earns"
     ChildProfile ||--o{ ChildCharacter : "unlocks"
     ChildProfile ||--o| Streak : "1:1"
-    ChildProfile ||--o| ScreenTimeSetting : "1:1"
     ChildProfile ||--o{ SessionEvent : "activity events"
     ChildProfile ||--o{ WeeklyReport : "weekly"
     Lesson ||--o{ LessonProgress : ""
@@ -517,6 +524,7 @@ erDiagram
         string id PK
         string slug UK
         string name
+        string description "nullable"
         string ruleType
         json rule "params"
         string iconAssetId FK
@@ -545,13 +553,6 @@ erDiagram
         int longest
         date lastActivityDate
     }
-    ScreenTimeSetting {
-        string id PK
-        string childId UK
-        int dailyLimitMinutes "null = no limit"
-        time windowStart
-        time windowEnd
-    }
     SessionEvent {
         string id PK
         string childId FK
@@ -574,8 +575,8 @@ erDiagram
 
 **Notes**
 - **Balances are aggregates, not counters.** Stars/coins = `SUM(RewardLedger.amount)` filtered by `rewardType`. Rows are written only by server reward logic (file 23) — no purchase path exists (FR-GAM-08 satisfied by construction).
-- **Learning time = event-sourced.** There is **no `LearningTime` table**; minutes (today/week/month) are aggregated from `SessionEvent` rows server-side (file 27) in `APP_TIMEZONE`, so a client refresh can't bypass a limit (FR-TIME-06). This realizes spec §8's "SessionEvent / LearningTime" entity as events + aggregation. Raw events are **kept for 90 days**, then deleted by the weekly report job (R-25); nothing live reads further back than a month, and each week's aggregate outlives them in `WeeklyReport`.
-- **Date-only / time-only native types** keep math timezone-stable: `Streak.lastActivityDate @db.Date`, `WeeklyReport.weekStart @db.Date`, `ScreenTimeSetting.windowStart/windowEnd @db.Time(0)`.
+- **Learning time = event-sourced.** There is **no `LearningTime` table**; minutes (today/week/month) are aggregated from `SessionEvent` rows server-side (file 27) in `APP_TIMEZONE`, so a client refresh can't lower or inflate a minute (FR-TIME-06). This realizes spec §8's "SessionEvent / LearningTime" entity as events + aggregation. Raw events are **kept for 90 days**, then deleted by the weekly report job (`SESSION_EVENT_RETENTION_DAYS`); nothing live reads further back than a month, and each week's aggregate outlives them in `WeeklyReport`.
+- **Date-only native types** keep math timezone-stable: `Streak.lastActivityDate @db.Date`, `WeeklyReport.weekStart @db.Date`.
 - **`WeeklyReport.metrics` carries the structured payload** (active days, minutes, new letters/words/numbers, lessons/stories completed, quiz accuracy **and the first-attempt count it averages** — `quizFirstAttempts`, added by file 30 so `selectNote`'s "≥90% over ≥10 questions" rule stays derivable from a stored row — badges, plus `noteKey`+`noteParams` for i18n). `note String?` is only the rendered **English fallback** (file 30) — there are no separate `noteKey`/`noteParams` columns.
 - **`Badge`/`Character` survive child deletion** — they are shared content; only the child-owned join/ledger rows cascade away.
 
@@ -585,10 +586,9 @@ erDiagram
 |---|---|---|---|
 | LessonProgress | `(childId, lessonId)` (indexed `(childId, completedAt)`, `(completedAt)`) | ✅ | 06, 30 |
 | QuizResponse | — (indexed `(childId, answeredAt)`, `(questionId)`); `attempts Int` = taps a question took | ✅ | 06, 22 |
-| RewardLedger | `(childId, rewardType, sourceType, sourceId)` — the idempotency guard, so a replay or a double-tap cannot grant twice (indexed `(childId, createdAt)`) | ✅ | 06, 23 |
-| ChildCharacter | `(childId, characterId)` | ✅ | 06 |
+| RewardLedger | `(childId, rewardType, sourceType, sourceId)` — the idempotency guard, so a replay or a double-tap cannot grant twice (indexed `(childId, createdAt)`). `sourceId` is `NOT NULL`, because Postgres treats `NULL`s as distinct in a unique index | ✅ | 06, 23 |
+| ChildCharacter | `(childId, characterId)` — also cascades when the `Character` is deleted | ✅ | 06 |
 | Streak | `childId` | ✅ | 06 |
-| ScreenTimeSetting | `childId` | ✅ | 06 |
 | SessionEvent | — (indexed `(childId, occurredAt)`) | ✅ | 06 |
 | WeeklyReport | `(childId, weekStart)` | ✅ | 06 |
 | Badge | `slug` | ❌ shared content | 06 |
@@ -601,6 +601,8 @@ erDiagram
 ```mermaid
 erDiagram
     AdminUser ||--o{ AIGenerationJob : "reviews"
+    AdminUser ||--o{ AIGenerationJob : "requests (file 41)"
+    AdminUser ||--o{ AdminAccessToken : "owns (file 41)"
     AIGenerationJob ||--o{ Lesson : "generated (aiJobId)"
     AIGenerationJob ||--o{ Quiz : "generated"
     AIGenerationJob ||--o{ QuizQuestion : "generated"
@@ -617,9 +619,25 @@ erDiagram
         string reviewerId FK "→ AdminUser"
         AIReviewDecision decision
         string reviewNote "file 37 · rejection reason"
+        AIJobSource source "file 41 · gemini | mcp"
+        string requestedById FK "file 41 · → AdminUser"
+        json client "file 41 · self-reported MCP client"
+        string clientRequestId "file 41 · idempotency key"
         datetime createdAt
         datetime updatedAt
         datetime reviewedAt
+    }
+
+    AdminAccessToken {
+        string id PK
+        string adminId FK "→ AdminUser (cascade)"
+        string name
+        string prefix "display only"
+        string tokenHash UK "SHA-256; the token is never stored"
+        string_array scopes "mcp:drafts"
+        datetime expiresAt
+        datetime lastUsedAt
+        datetime revokedAt
     }
 ```
 
@@ -641,7 +659,12 @@ flowchart TD
 **Notes**
 - **`rawOutput Json` is an opaque audit payload:** `{ attempts: [...], usage: { inputTokens, outputTokens }, parsed: <validated output>, entities: <created-row ids> }`. For audio/image jobs it also records the FK name to set on approval (e.g. `introAudioAssetId`). Generation retries **once** on a schema-validation failure (both attempts retained) before marking `failed`.
 - **Generated `MediaAsset`s stay unattached** until approval — they exist in the library with `aiJobId` set but no content row points at them, so they are unreachable by any student query.
-- **Daily job caps** (text/audio/image) are enforced in code per `APP_TIMEZONE` day; no rate-limit table.
+- **Daily job caps** (text/audio/image) are enforced in code per `APP_TIMEZONE` day; no rate-limit table. They count `source = gemini` jobs only.
+- **Two sources write jobs (file 41, FR-AI-10).** `source = gemini` is our server calling Gemini; `source = mcp` is an admin's own AI assistant submitting over `POST /mcp`. An MCP job is written in **one** transaction with its content rows, straight to `awaiting_review` — it never passes through `pending`/`generating`, and its `rawOutput` is `{ submitted, parsed, entities }` (the client's payload verbatim, the validated content that readers shared with the Gemini path read, then the rows written). MCP drafts have their own per-admin cap (`MCP_DRAFTS_PER_DAY`), counted on `(source, requestedById, createdAt)`.
+- **`requestedById` closes the FR-AI-08 gap for both sources:** Gemini routes fill it too. Rows written before file 41 hold `NULL` — who asked was never recorded. `ON DELETE SET NULL`, so removing an admin keeps their jobs' audit trail.
+- **`(requestedById, clientRequestId)` is unique.** A retried tool call carrying the same key returns the first job instead of creating a second; Postgres treats `NULL` as distinct, so Gemini jobs (no key) never collide.
+- **`client` is a label, never an identity.** It is what the MCP client said about itself, capped in length, shown to reviewers marked "self-reported".
+- **`AdminAccessToken`** is the bearer credential for `/mcp`. Only the SHA-256 is stored; `prefix` is enough to tell two apart in the UI. Revocation sets `revokedAt` rather than deleting, so the list still shows what was issued. Deleting the `AdminUser` cascades its tokens away.
 
 ### Entity reference — AIGenerationJob
 
@@ -655,7 +678,25 @@ flowchart TD
 | reviewerId | String? | FK → AdminUser | 06 |
 | decision | AIReviewDecision? | | 06 |
 | reviewNote | String? | rejection reason | 37 |
+| source | AIJobSource | @default(gemini); index `(source, requestedById, createdAt)` | 41 |
+| requestedById | String? | FK → AdminUser, `ON DELETE SET NULL` | 41 |
+| client | Json? | self-reported MCP client `{ name, version }` | 41 |
+| clientRequestId | String? | UK `(requestedById, clientRequestId)` | 41 |
 | createdAt / updatedAt / reviewedAt | DateTime / DateTime? | | 06 |
+
+### Entity reference — AdminAccessToken (file 41)
+
+| Field | Type | Key / Default |
+|---|---|---|
+| id | String | PK |
+| adminId | String | FK → AdminUser (cascade), indexed |
+| name | String | the admin's own label |
+| prefix | String | first characters, display only |
+| tokenHash | String | UK; SHA-256 of the full `klat_…` token |
+| scopes | String[] | `["mcp:drafts"]` |
+| expiresAt | DateTime | 7 days by default, 30 at most |
+| lastUsedAt / revokedAt | DateTime? | `lastUsedAt` written at most every five minutes |
+| createdAt | DateTime | @default(now()) |
 
 ---
 
@@ -663,21 +704,22 @@ flowchart TD
 
 | Trigger | Cascades to | Restricted / preserved |
 |---|---|---|
-| **Delete `Parent`** (account deletion, file 10) | all `ChildProfile`s → (all child-owned tables, see below); then the better-auth `User` → `Session`/`Account` | — |
-| **Delete `ChildProfile`** (file 11) | `LessonProgress`, `QuizResponse`, `RewardLedger`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`; `Session.activeChildProfileId` is set to `NULL` | `Badge`, `Character` (shared) survive |
+| **Delete `Parent`** (account deletion, file 10) | all `ChildProfile`s → (all child-owned tables, see below); then the better-auth `User` → `Session`/`Account`. The FK runs `Parent.userId → User` with cascade, so `account-deletion.service.ts` deletes the `User` explicitly, in the same transaction | — |
+| **Delete `ChildProfile`** (file 11) | `LessonProgress`, `QuizResponse`, `RewardLedger`, `ChildCharacter`, `Streak`, `SessionEvent`, `WeeklyReport`; `Session.activeChildProfileId` is set to `NULL` | `Badge`, `Character` (shared) survive |
 | **Delete `Subject`** | `Topic` → `Lesson` → `LessonTranslation` | **Restricted** by any `LessonProgress` on a lesson beneath it — a content delete never erases a child's progress (no route deletes content today; this keeps it so) |
 | **Delete `Lesson`** | `LessonTranslation` | **Restricted** while any child has `LessonProgress` on it; `Activity`/`Quiz` survive (referenced, not owned) |
 | **Delete `Quiz`** | `QuizQuestion` → `QuizQuestionTranslation` | **Restricted** per question while any `QuizResponse` references it (the editor answers `409 QUESTION_HAS_RESPONSES` first) |
 | **Delete `Story`** | `StoryPage` → `StoryPageTranslation` | — |
 | **Delete `World`** | — | **Restricted**: fails if any `Lesson`/`Story` references it → archive instead |
+| **Delete `AdminUser`** (file 41) | `AdminAccessToken` — the admin's MCP tokens stop working with them | `AIGenerationJob.requestedById` and `reviewerId` are set to `NULL`; the jobs and every content row they created survive, as does the review history |
 
-> **GDPR / COPPA:** parent-account deletion is **synchronous and complete** (no soft-delete of child PII), satisfying NFR-SAFE-05/06 right-to-erasure. The compliance mapping is recorded in `document/implementation/notes/compliance-consent-deletion.md`.
+> **GDPR / COPPA:** parent-account deletion is **synchronous and complete** (no soft-delete of child PII), satisfying NFR-SAFE-05/06 right-to-erasure. The compliance mapping is recorded in [`implementation/notes/compliance-consent-deletion.md`](./implementation/notes/compliance-consent-deletion.md).
 
 ---
 
 ## 11. Schema evolution timeline (migrations)
 
-The schema is built additively. Each migration is named and owned by one file:
+The schema is built additively. This table explains *why* each migration exists; the directory names in [`packages/db/prisma/migrations/`](../packages/db/prisma/migrations/) carry the timestamp prefix and are the authoritative list. "—" in brackets means a fix that had no spec of its own.
 
 | Order | Migration (file) | Adds |
 |---|---|---|
@@ -686,7 +728,7 @@ The schema is built additively. Each migration is named and owned by one file:
 | 3 | `parent_pin_consent_deletion` (10) | `Parent.pinFailedCount`, `pinLockedUntil`, `deleteToken`, `deleteTokenExpiresAt`; `Session.pinVerifiedUntil` |
 | 4 | `curriculum_world_schema` (04) | `ContentStatus`, `MediaKind`; `MediaAsset`, `World`, `Subject`, `Topic`, `Lesson`, `LessonTranslation` |
 | 5 | `activity_quiz_story_schema` (05) | `ActivityType`, `QuizQuestionFormat`; `Activity(+Translation)`, `Quiz`, `QuizQuestion(+Translation)`, `Story`, `StoryPage(+Translation)`; FK-upgrade `Lesson.activityId/quizId` |
-| 6 | `progress_gamification_schema` (06) | 7 enums; `LessonProgress`, `QuizResponse`, `Badge`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`, `AIGenerationJob`; `ChildProfile.avatarCharacterId` FK |
+| 6 | `progress_gamification_schema` (06) | 7 enums; `LessonProgress`, `QuizResponse`, `Badge`, `RewardLedger`, `Character`, `ChildCharacter`, `Streak`, `ScreenTimeSetting`, `SessionEvent`, `WeeklyReport`, `AIGenerationJob`; `ChildProfile.avatarCharacterId` FK. `ScreenTimeSetting` was later dropped (row 30). |
 | 7 | `session_event_step_complete` (16) | `SessionEventType.step_complete` — the per-step marker file 06's enum omitted |
 | 8 | `story_translations` (25) | `StoryTranslation` model — the child-facing story title, moral and title narration the `Story.title` note in §6 deferred to files 25–26 |
 | 9 | `weekly_report_concepts` (30) | `Lesson.conceptsIntroduced String[]`; index `LessonProgress(childId, completedAt)` — the weekly report selects one child's completions inside a seven-day window, which the `(childId, lessonId)` unique cannot serve |
@@ -699,7 +741,7 @@ The schema is built additively. Each migration is named and owned by one file:
 | 16 | `remove_parent_pin` (—) | **Drops** `Parent.pinHash`, `pinFailedCount`, `pinLockoutStrikes`, `pinLockedUntil` and `Session.pinVerifiedUntil`. The parental PIN gate was retired on 2026-09-09. Rows 1 and 3 above remain the record of what added `pinHash` and the first two counters; `pinLockoutStrikes` came from `parent_pin_lockout_strikes`, which this table never listed. |
 | 17 | `content_visibility_indexes_and_session_child_fk` (—) | Indexes on the `status`/`gradeLevels`/`sortOrder` columns every student query filters on; `session.activeChildProfileId` becomes a real foreign key to `ChildProfile` with `ON DELETE SET NULL` (it was a bare text column cleared by hand in `deleteChildProfile`). |
 | 18 | `quiz_response_restrict_question_delete` (—) | `QuizResponse.questionId` changes from `ON DELETE CASCADE` to `RESTRICT`. Deleting a quiz question in the CMS used to erase every child's answer to it, which silently changed badge counts and weekly-report accuracy; the editor now answers `409 QUESTION_HAS_RESPONSES` first. The `ChildProfile` cascade is unchanged, so account deletion still removes the answers. |
-| 19 | `lesson_progress_started_at` (—) | `LessonProgress.startedAt DateTime @default(now())`, written once. `updatedAt` moves on every step report, so the screen-time "lesson under way" grace measured from it could be held open indefinitely; `startedAt` bounds it (`LESSON_RESUME_CEILING_MS`). Existing rows take the migration time. |
+| 19 | `lesson_progress_started_at` (—) | `LessonProgress.startedAt DateTime @default(now())`, written once. `updatedAt` moves on every step report, so the screen-time "lesson under way" grace measured from it could be held open indefinitely; `startedAt` bounds it (`LESSON_RESUME_CEILING_MS`). Existing rows take the migration time. The grace went with screen-time controls (row 30); the column stays. |
 | 20 | `admin_list_and_analytics_indexes` (—) | `LessonProgress(completedAt)` for the admin analytics window count (the existing `(childId, completedAt)` leads with `childId` and cannot serve it); `MediaAsset(kind, createdAt)` for the media library list. |
 | 21 | `lesson_video_poster` (17) | `LessonTranslation.videoPosterAssetId String?` → `MediaAsset` (`ON DELETE SET NULL`), the still the player paints over the first seconds of buffering. |
 | 22 | `curriculum_name_translations` (—) | Child-facing names per locale for `World`, `Subject` and `Topic`; `LessonTranslation.title` (backfilled from `Lesson.title`). The internal `name`/`title` columns keep their meaning. |
@@ -709,28 +751,14 @@ The schema is built additively. Each migration is named and owned by one file:
 | 26 | `session_event_occurred_at_index` (31) | `SessionEvent(occurredAt)` for the admin "active today" count, which has no `childId` to lead with. |
 | 27 | `lesson_quiz_unique` (—) | `Lesson.quizId` becomes unique (`Quiz.lessons` → `Quiz.lesson`). The quiz-response route resolves the lesson from the quiz alone, so a shared quiz let a child's score land on the wrong lesson. The migration fails if a quiz is already shared. |
 | 28 | `lesson_progress_restrict_delete_and_quiz_response_question_index` (—) | `LessonProgress.lessonId` changes from `ON DELETE CASCADE` to `RESTRICT` (a content delete no longer erases progress); index `QuizResponse(questionId)` for the restrict check and the editor's response count. |
+| 29 | `ai_job_provenance` … `admin_access_token` (41) | Five migrations, split for `backend.md §3`: `AIJobSource`; `AIGenerationJob.source`, `requestedById` (FK `NOT VALID`, then validated), `client`, `clientRequestId`; index `(source, requestedById, createdAt)` and unique `(requestedById, clientRequestId)`, each `CONCURRENTLY` alone; the `AdminAccessToken` table with RLS. |
+| 30 | `drop_screen_time_setting` (—) | **Drops** `ScreenTimeSetting`. Parental screen-time controls — daily limits and access windows — were removed on 2026-10-25 and nothing replaces them. Learning time (`SessionEvent`) is unaffected. Row 6 remains the record of what added the table. |
+| 31 | `parent_pin_lockout_strikes` (—) | `Parent.pinLockoutStrikes` — escalating PIN lockouts. Dropped again by row 16. |
+| 32 | `media_asset_url_index` … `story_ai_job_index` (—) | Seven single-index migrations (`CONCURRENTLY`, so one per file): `MediaAsset(url)` for the publish guards' `url IN (…)` lookup, and `aiJobId` on `MediaAsset`, `Lesson`, `Activity`, `Quiz`, `QuizQuestion`, `Story`. |
+| 33 | `reward_ledger_source_id_check` → `_validate` → `_not_null` (—) | `RewardLedger.sourceId` becomes `NOT NULL` in three lock-friendly steps — a `NULL` would escape the row-24 unique, because Postgres treats `NULL`s as distinct. |
+| 34 | `enable_row_level_security` (—) | RLS on every table, with no policies. Supabase's Data API serves `public` to anyone holding the (public) anon key; RLS without policies refuses every role but the owner, and Prisma connects as the owner. **A new table needs the same `ENABLE ROW LEVEL SECURITY` line.** |
 
-> **Ordering note:** files 04–06 (core content/progress) are authored before the auth-detail and AI-pipeline files in implementation sequence, but several migrations interleave. The exact `prisma migrate` order is the file number order above; the **end state** is what this document describes. Confirm migration names when running `pnpm db:migrate`.
-
----
-
-## 12. Alignment decisions resolved
-
-While consolidating this design, two genuine cross-document conflicts and several "incomplete-canonical" gaps were found and fixed so all docs agree (this is what keeps multiple developers on the same track):
-
-| # | Issue | Where it diverged | Resolution |
-|---|---|---|---|
-| 1 | **Consent column name** | doc 03 = `consentGivenAt`; docs 09 & 10 used `consentAt` (doc 10 even hedged "if file 03 named them differently, adapt") | **Canonical = `consentGivenAt`.** Docs 09 & 10 updated to use it; the hedge removed. |
-| 2 | **Admin credentials** | doc 03 = `AdminUser.passwordHash`; doc 31 = better-auth credential + `AdminUser.authUserId`, no passwordHash | **better-auth wins** (doc 31 is the authoritative admin-auth design). `passwordHash` removed from doc 03; `authUserId` added by file 31. |
-| 3 | `aiJobId` on content rows | assumed by files 34/35/37, absent from canonical 04/05 | Documented as a file-34 additive migration; forward-ref notes added to docs 04 & 05. |
-| 4 | `AIGenerationJob.reviewNote` | added by file 37, absent from canonical 06 | Documented as a file-37 migration; forward-ref note added to doc 06. |
-| 5 | `StoryPage.illustrationPrompt` | added by file 35 | Forward-ref note added to doc 05. |
-| 6 | `Lesson.conceptsIntroduced` | added by file 30 | Forward-ref note added to doc 04. |
-| 7 | `CharacterSheet` model | added by file 36 | Forward-ref note added to doc 04. |
-| 8 | `updatedBy` audit field | added by file 32 | Forward-ref note added to doc 06. |
-| 9 | `WeeklyReport` note storage | `noteKey`/`noteParams` could read as columns | Clarified: they live **inside `metrics Json`**; `note String?` is the English fallback. |
-
-Each canonical schema doc (03–06) now ends with a **"Schema additions in later files"** section pointing here, so a developer reading any one doc sees the full trajectory.
+> **Ordering note:** rows are numbered in the order this table grew, not the order Prisma applies them. Prisma applies migrations by the timestamp prefix of their directory names — `auth_profile_schema` (2026-06-17) runs before `curriculum_world_schema` (2026-07-03), which runs before `add_better_auth_tables` (2026-08-04). The **end state** is what the sections above describe.
 
 ---
 

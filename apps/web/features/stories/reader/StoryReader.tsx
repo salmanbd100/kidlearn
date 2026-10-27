@@ -2,7 +2,6 @@
 
 import { STUDENT_NAMESPACE } from "@kidlearn/i18n";
 import type {
-  ScreenTimeBlockCode,
   StoryCompletionResponse,
   StoryDetailResponse,
 } from "@kidlearn/types";
@@ -18,12 +17,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { getStory } from "@/features/content/content-api";
-import { ScreenTimeLock } from "@/features/screen-time/ScreenTimeLock";
-import {
-  isScreenTimeBlock,
-  windowStartFromError,
-} from "@/features/screen-time/screen-time-api";
-import { trackEvent, useHeartbeat } from "@/features/screen-time/use-heartbeat";
+import { trackEvent, useHeartbeat } from "@/features/events/use-heartbeat";
 import { completeStory } from "@/shared/api/progress-api";
 import { useAudio } from "@/shared/components/AudioProvider";
 import { IconControl } from "@/shared/components/kid/IconControl";
@@ -60,12 +54,6 @@ type LoadState =
   | { status: "loading" }
   | { status: "ready"; story: StoryDetailResponse }
   | { status: "gone" }
-  /** The screen-time gate refused this start. Only opening a story can land here; every page arrives in one response. */
-  | {
-      status: "blocked";
-      reason: ScreenTimeBlockCode;
-      windowStart: string | null;
-    }
   | { status: "error" };
 
 export function StoryReader({ storyId }: { storyId: string }) {
@@ -98,14 +86,6 @@ function StoryLoader({
       if (!isCurrent) return;
       setIsWakingUp(false);
       if (!result.ok) {
-        if (isScreenTimeBlock(result.error)) {
-          setLoad({
-            status: "blocked",
-            reason: result.error.code,
-            windowStart: windowStartFromError(result.error) ?? null,
-          });
-          return;
-        }
         // A story unpublished while the child was on the library screen is a
         // `404` — a book that was put away, not a failure to apologise for.
         setLoad({
@@ -123,18 +103,13 @@ function StoryLoader({
 
   if (load.status === "loading") {
     return (
-      <StudentStatus tone="status">
+      <StudentStatus tone="loading">
         {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
       </StudentStatus>
     );
   }
   if (load.status === "gone") {
     return <StudentStatus tone="status">{t("reader.notFound")}</StudentStatus>;
-  }
-  if (load.status === "blocked") {
-    return (
-      <ScreenTimeLock reason={load.reason} windowStart={load.windowStart} />
-    );
   }
   if (load.status === "error") {
     return (

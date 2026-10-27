@@ -271,6 +271,10 @@ export const AI_JOB_LIST_EXAMPLE = {
         type: "lesson",
         status: "awaiting_review",
         decision: null,
+        source: "mcp",
+        requestedBy: "Ayesha Rahman",
+        // Self-reported by the MCP client: a label for the reviewer, not an identity.
+        client: { name: "claude-code", version: "2.1.0" },
         gradeLevels: ["KG1"],
         languages: ["en", "bn"],
         entityLabel: "Count to Ten",
@@ -282,6 +286,9 @@ export const AI_JOB_LIST_EXAMPLE = {
         type: "image",
         status: "approved",
         decision: "edit_then_approve",
+        source: "gemini",
+        requestedBy: null,
+        client: null,
         gradeLevels: ["NURSERY", "KG1"],
         languages: ["en"],
         // Null where the generated row was deleted, or for a batch naming no single entity.
@@ -312,19 +319,6 @@ export const AUTH_ME_EXAMPLE = {
     },
     // Null until `POST /api/children/{id}/activate`; `/api/content/*` answers 403 while it is.
     activeChildProfileId: CHILD_ID,
-  },
-};
-
-export const SCREEN_TIME_STATUS_EXAMPLE = {
-  data: {
-    // `allowed: false` always carries a `reason`; `reason` is null whenever `allowed` is true.
-    allowed: false,
-    reason: "TIME_LIMIT_REACHED",
-    minutesToday: 45,
-    dailyLimitMinutes: 45,
-    // `HH:MM` in the household's local time; both null when no window is set, leaving only the daily limit.
-    windowStart: "16:00",
-    windowEnd: "19:30",
   },
 };
 

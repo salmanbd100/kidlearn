@@ -4,6 +4,7 @@ import type { Locale } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 import { Button } from "@kidlearn/ui";
 import { useState } from "react";
+import { useAiCapabilities } from "@/app/(admin)/context/ai-capabilities";
 import { generateQuiz } from "@/features/admin/api/ai-api";
 
 /** Both locales, always: a stored question requires both (FR-I18N-01). */
@@ -25,6 +26,8 @@ export function GenerateQuizButton({
   onError,
 }: GenerateQuizButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  // An assistant writes quiz questions with submit_quiz_questions; the page header links there.
+  const isGeminiOff = useAiCapabilities()?.geminiText === false;
 
   async function handleClick() {
     setIsGenerating(true);
@@ -55,11 +58,14 @@ export function GenerateQuizButton({
     );
   }
 
+  if (isGeminiOff) return null;
+
   return (
     <Button
       type="button"
       variant="outline"
-      disabled={isBusy || isGenerating}
+      disabled={isBusy}
+      isLoading={isGenerating}
       onClick={() => void handleClick()}
     >
       {isGenerating
