@@ -2,8 +2,14 @@
 
 How to fill KidLearn with lessons, quizzes and stories for Nursery, KG-1 and KG-2 using the
 **AI subscriptions you already pay for** — Claude and Google (Gemini, NotebookLM) — through the
-MCP server from `implementation/41-mcp-content-authoring.md`. No API key is needed for any of
+MCP server from [`implementation/41-mcp-content-authoring.md`](./implementation/41-mcp-content-authoring.md). No API key is needed for any of
 them. It covers what to set up once, what to write, the prompts to paste, and how to review it.
+
+**Who it is for:** an admin who writes content. An engineer changing the AI or MCP code wants
+[`ai-integration-guide.md`](./ai-integration-guide.md) instead. Two terms used throughout:
+**MCP** is the protocol that lets an AI assistant call KidLearn's tools at `/mcp`, and the
+**AI Queue** (`/admin/ai-queue`) is the CMS screen where every AI-written draft waits for a human
+to approve or reject it — nothing reaches a child without that.
 
 Each tool does the job it is best at:
 
@@ -38,8 +44,11 @@ Read this before planning a week of work. It decides where your hours go.
 `picture_select` options need images. The assistant writes placeholder URLs
 (`https://placeholder.kidlearn.invalid/...`); the AI Queue refuses to approve a job while a
 question still points at one (`review/blockers.ts`). `request_narration` and
-`request_illustrations` need a Google TTS key and a server-side `GEMINI_API_KEY` respectively —
-a Gemini app subscription is not that key, so without them neither works, and narration never covers quiz prompts anyway.
+`request_illustrations` run on the server's own `GOOGLE_TTS_API_KEY` and `GEMINI_API_KEY` —
+a Gemini app subscription is not either key, so without them neither works. Narration covers
+lesson intros, story pages and quiz question prompts, but a generated quiz clip is stored on the
+question's translation and does not rewrite the placeholder URL inside the question, so the
+approval blocker still needs that URL replaced by hand.
 
 So one 4-question lesson means roughly **8 short voice recordings + 4–12 pictures**. That is the
 real cost of a lesson, not the writing. The plan below is sized for it:
@@ -52,8 +61,8 @@ real cost of a lesson, not the writing. The plan below is sized for it:
   library in every lesson after that.
 
 > If you ever want to cut the manual work: Google Cloud Text-to-Speech has a free monthly tier
-> and would narrate lesson intros and story pages from the CMS button. It does not cover quiz
-> prompts. Optional — nothing below depends on it.
+> and would narrate lesson intros, story pages and quiz prompts (`request_narration`). Quiz
+> placeholders still need replacing by hand (above). Optional — nothing below depends on it.
 
 ---
 
@@ -61,7 +70,7 @@ real cost of a lesson, not the writing. The plan below is sized for it:
 
 ### 2.1 Turn on MCP and get a token
 
-1. API env: `MCP_ENABLED=true` (production: the SSM parameter — `runbook.md` "AI assistants over MCP").
+1. API env: `MCP_ENABLED=true` (production: the SSM parameter — [`runbook.md` "AI assistants over MCP"](./runbook.md#ai-assistants-over-mcp-file-41)).
 2. CMS → **AI assistants** → create one token per assistant, named after it
    (`Claude Desktop — <machine>`, `Gemini CLI — <machine>`), **30 days** (the maximum). It is
    shown once — copy it straight into the config below. Separate tokens let you revoke one

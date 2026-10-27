@@ -1,6 +1,10 @@
 # kidlearn — Frontend Standards
 
+> **What this is:** where frontend code goes and the rules it follows — the `packages/ui` primitive layer, the `apps/web` feature layout, Server vs. Client Components, the four route groups, strings and assets, and what to test.
+>
 > **Load this document when the task touches `packages/ui`, `apps/web`, React, Next.js, styling, or anything a user looks at.**
+>
+> **Reading the history notes:** "file 31" means the implementation spec `document/implementation/31-*.md`; a **recorded exception** is a deliberate, dated deviation from a rule, with the reason and the condition under which it is removed.
 >
 > **Always load alongside it:** [`standards/general.md`](./general.md) — monorepo layout, TypeScript, imports, naming, testing, GitHub flow.
 >
@@ -70,7 +74,7 @@ If it matches more than one row, use the first.
 
 - All variant APIs use `cva` (class-variance-authority) combined with `cn()` from `@kidlearn/ui/lib/cn`. No ad-hoc `className` string concatenation anywhere else. **[REVIEW]**
 - Components expose `variant`, `size`, and `tone` props. Callers do not pass long `className` strings to fundamentally restyle a component. If a caller needs a visual treatment that no variant covers, add the variant — do not make the caller responsible for styling internals. **[REVIEW]**
-- All color, radius, shadow, and spacing values come from semantic tokens (CSS variables). Components never reference raw hex values, brand hue names, or Tailwind color literals directly. See `document/design.md §2` for the full token contract. **[REVIEW]**
+- All color, radius, shadow, and spacing values come from semantic tokens (CSS variables). Components never reference raw hex values, brand hue names, or Tailwind color literals directly. See [`design.md §2`](../design.md#2-color) for the full token contract. **[REVIEW]**
 
 #### Recorded exception — third-party brand marks
 
@@ -93,7 +97,7 @@ new mark is added to this list by name. The hex values stay inside the mark's ow
 
 **Exports**
 
-Everything public is exported from `src/index.ts`. Individual `primitives/*` are additionally available via the `exports` map in `package.json` for consumers that want to tree-shake. If you add a new public component, add it to both `src/index.ts` and the `exports` map.
+Everything public is exported from `src/index.ts`. The `exports` map in `package.json` also exposes `./primitives/*`, `./hooks/*` and `./lib/*` as wildcards, so a new file in one of those folders is importable by path (`@kidlearn/ui/primitives/button`) without touching the map. A new public component only needs adding to `src/index.ts`.
 
 ---
 
@@ -226,14 +230,14 @@ Parent and admin sign-in are dialogs on the homepage, opened by `?signin=parent`
 
 - All images use `next/image`. No raw `<img>` tags. **[REVIEW]**
 - All fonts use `next/font` (self-hosted, no layout shift). No external font `<link>` tags. **[REVIEW]**
-- Every user-facing string is routed through `i18next`. No hard-coded text in components, not even in development stubs. See `document/design.md §10` for copy voice guidelines. **[REVIEW]**
+- Every user-facing string is routed through `i18next`. No hard-coded text in components, not even in development stubs. The strings live in `@kidlearn/i18n` — `packages/i18n/locales/{en,bn}/<namespace>.json`, with five namespaces: `common`, `student`, `parent`, `lesson`, `site`. A key added to one locale must be added to the other, or the package's parity test fails. See [`design.md §10`](../design.md#10-content--voice) for copy voice guidelines. **[REVIEW]**
 
 #### Recorded exception — the `(admin)` CMS is English-only
 
 **Status: active as of 2026-08-22 (file 31).** It also covers `features/admin/shell/AdminSignInDialog.tsx`, which renders on the homepage but belongs to the CMS. FR-I18N covers the child and parent
 surfaces, which are the ones a family reads. The CMS is an internal tool used by
 the team, so strings in `app/(admin)/` and `features/admin/`
-(including `features/admin/shell/admin-routes.ts`) stay hard-coded English rather than wiring a fourth i18next
+(including `features/admin/shell/admin-routes.ts`) stay hard-coded English rather than wiring a sixth i18next
 namespace — the alternative is a Bangla translation of "AI Queue" that nobody has
 asked for.
 
@@ -269,11 +273,11 @@ Before considering frontend work complete:
 - [ ] Semantic tokens only — no raw hex, brand hue names, or Tailwind color literals
 - [ ] No theme branching in JavaScript — `ThemeScope` on the layout boundary only
 - [ ] `'use client'` placed as low in the tree as possible; no data fetching in Client Components (except where the session cookie forces it — see §3)
-- [ ] All user-facing strings via `i18next` (except the `(admin)` CMS — see §3)
+- [ ] All user-facing strings via `i18next` (except the `(admin)` CMS — see §4)
 - [ ] Images via `next/image`, fonts via `next/font`
-- [ ] Touch targets: ≥64px on kid surfaces, ≥44px on parent surfaces (`document/design.md §7`)
-- [ ] Motion respects `prefers-reduced-motion`; animates only `transform` and `opacity` (`document/design.md §5`)
-- [ ] New public components exported from both `src/index.ts` and the `package.json` `exports` map
+- [ ] Touch targets: ≥64px on kid surfaces, ≥44px on parent surfaces ([`design.md §7`](../design.md#7-accessibility-non-negotiable))
+- [ ] Motion respects `prefers-reduced-motion`; animates only `transform` and `opacity` ([`design.md §5`](../design.md#5-motion))
+- [ ] New public `packages/ui` components exported from `src/index.ts` (the `exports` map's wildcards cover deep imports)
 - [ ] `pnpm typecheck` and `pnpm lint` pass
 
 ---

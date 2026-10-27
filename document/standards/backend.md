@@ -1,6 +1,10 @@
 # kidlearn — Backend & Database Standards
 
+> **What this is:** how the API server is laid out and the rules every route, service, query and migration follows — including the two that protect children (the `status: "published"` guard, §4) and the one that keeps `/docs` honest (OpenAPI registration, §7).
+>
 > **Load this document when the task touches `apps/server`, `packages/db`, `packages/types`, Express, Prisma, API routes, or database schema.**
+>
+> **Terms used below:** `FR-…` / `NFR-SAFE-…` are requirement IDs from [`project-requirement-details.md`](../project-requirement-details.md) (§5 and §6); "file 38" means the spec `document/implementation/38-*.md`.
 >
 > **Always load alongside it:** [`standards/general.md`](./general.md) — monorepo layout, TypeScript, imports, naming, testing, GitHub flow.
 >
@@ -32,14 +36,17 @@ apps/server/src/
 │   ├── index.ts    # The `/api` aggregator: every resource router is mounted here
 │   ├── children/   # children.routes.ts, children.schema.ts, dashboard.service.ts, …
 │   ├── rewards/    # services only — no routes of its own
-│   └── admin/      # plus a directory per sub-surface (ai/, media/, content/)
+│   ├── mcp/        # the MCP endpoint admins author content through (file 41)
+│   └── admin/      # plus a directory per sub-surface (ai/, media/, content/, content-editors/, access-tokens/)
 ├── openapi/        # The OpenAPI document — see §7
 ├── shared/
 │   ├── middleware/ # Middleware that reaches no further than config/ and errors/
 │   ├── errors/     # `ApiError`, the envelopes, `ERROR_CODES`
 │   ├── utils/      # Pure utility functions
+│   ├── testing/    # The real-database test harness and row factories (general.md §5)
 │   └── types/      # Ambient declarations (`express.d.ts`)
 ├── config/         # Configured singletons: env, prisma, auth, logger
+├── scripts/        # One-off CLIs run with tsx — `seed-admin.ts`
 ├── app.ts          # Express wiring — middleware order and mounts, no port binding
 └── server.ts       # Bootstrap only: listen, and drain on SIGINT/SIGTERM
 ```
@@ -114,7 +121,7 @@ Service functions are plain async functions and must not import or reference Exp
 
 ## 3. Database Access
 
-- The `prisma` singleton from `@kidlearn/db` is the only Prisma client in `apps/server`. Never instantiate `new PrismaClient()`. **[REVIEW]**
+- The `prisma` singleton from `@kidlearn/db` is the only Prisma client in `apps/server`; `config/prisma.ts` re-exports it, and that re-export is what the stubbed test suites mock. Never instantiate `new PrismaClient()`. **[REVIEW]**
 - No raw SQL. Use Prisma's query API exclusively. **[REVIEW]**
 - Prisma model types (`Parent`, `Child`, Prisma namespace) are imported from `@kidlearn/db` — never redeclared in application code. **[REVIEW]**
 - `packages/db` owns both `DATABASE_URL` (pooled, port 6543, runtime) and `DIRECT_URL` (direct, port 5432, migrations). Apps never hold database credentials themselves.
@@ -189,11 +196,14 @@ Content moves through `draft → in_review → approved/rejected → published`.
 | `403` | Authenticated but forbidden |
 | `404` | Resource not found |
 | `409` | Conflict (duplicate, state mismatch) |
+| `413` | Request body over the size limit (error handler) |
+| `429` | Rate limit or AI budget exhausted (`security.ts`, `rate-guard.ts`, the progress services) |
 | `500` | Unhandled server error (caught by error handler) |
+| `503` | A configured dependency is absent — `/generate/*` without a Gemini key (`require-gemini.middleware.ts`) |
 
 ### Environment validation
 
-Required environment variables are validated at startup. The server must fail fast at boot with a clear error message if a required variable is missing — never discover a missing variable deep inside a request handler. **[REVIEW]**
+Required environment variables are validated at startup by the Zod schema in `config/env.ts`. The server must fail fast at boot with a clear error message if a required variable is missing — never discover a missing variable deep inside a request handler. **[REVIEW]**
 
 ---
 
@@ -203,8 +213,8 @@ Required environment variables are validated at startup. The server must fail fa
 
 | Layer | What to test | How |
 |---|---|---|
-| `packages/db` | Schema constraints, cascade deletes, index correctness | Vitest against a real test DB |
-| `apps/server` — services | All business logic paths, edge cases, error conditions | Vitest unit with real test DB |
+| `packages/db` | Schema constraints, cascade deletes, index correctness, the migration-locking rule (§3) | Vitest reading `schema.prisma` and the migration SQL (`schema.test.ts`, `migrations.test.ts`); the database itself is exercised by the server's `*.db.test.ts` suites |
+| `apps/server` — services | All business logic paths, edge cases, error conditions | Vitest; anything that rests on the database is a `*.db.test.ts` against the harness ([`general.md §5`](./general.md#the-test-database-harness)) |
 | `apps/server` — routes | Request validation, correct status codes, auth guards | Vitest + supertest integration tests |
 | Activity/quiz JSON validators | Every activity type, every quiz format, malformed and edge-case payloads | Vitest unit — content-safety critical |
 
@@ -249,7 +259,7 @@ Both halves are converted to JSON Schema by `src/openapi/to-json-schema.ts`. Not
 
 - **Timestamps are `IsoDateTimeSchema`, never `z.date()`.** The services type these as `Date`, but `res.json()` sends an ISO string. A schema mirroring the TypeScript type is wrong about every timestamp in the API.
 - **They document and test; they never police.** No route parses or strips an outgoing body at runtime. Drift is caught by the route tests, not by rejecting a response in front of a user.
-- **Every successful response is asserted in its route test** with `assertContract(Schema, res.body, "<operation>")`. Because the schemas are `.strict()`, this also catches an accidentally-leaked field — which is a content-safety failure (§4, NFR-SAFE-02), not just an inaccurate document.
+- **Every successful response is asserted in its route test** with `assertContract(Schema, res.body, "<operation>")` from `src/openapi/assert-contract.ts`. Because the schemas are `.strict()`, this also catches an accidentally-leaked field — which is a content-safety failure (§4, NFR-SAFE-02), not just an inaccurate document.
 - `packages/types` must not depend on `@kidlearn/db`, so Prisma enums are mirrored there by hand. Any mirror needs a compile-time assertion on the server side that it still matches — see `src/openapi/paths/children.ts` for the pattern.
 
 ### What a new operation must document

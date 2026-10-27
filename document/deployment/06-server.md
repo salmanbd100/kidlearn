@@ -33,7 +33,11 @@ the wrapper EC2 needs to attach a role to a server — you will pick it in Step
 5. Open `kidlearn-instance` → **Add permissions → Create inline policy** →
    **JSON** tab.
 6. Delete what is in the box. Paste the JSON below. Replace **every**
-   `<ACCOUNT_ID>` (your 12 digits) and **every** `<BUCKET_NAME>` (from [Step 12](05-aws-storage-secrets-images.md)).
+   `<ACCOUNT_ID>` with your 12 digits (e.g. `123456789012`) and **every**
+   `<BUCKET_NAME>` with your bucket from [Step 12](05-aws-storage-secrets-images.md)
+   (e.g. `kidlearn-backups-salman-2026`). Remove the `<` `>` too — after the
+   edit a line reads `…:123456789012:repository/kidlearn-api`, not
+   `…:<123456789012>:…`.
 7. Next → policy name `kidlearn-runtime` → **Create policy**.
 
 ```json
@@ -141,6 +145,9 @@ nothing to steal.
 | HTTPS | TCP | `443` | All real traffic |
 | Custom UDP | UDP | `443` | HTTP/3 (faster on phones) |
 
+*Security group* = the server's firewall, kept by AWS outside the server. Only
+the ports listed here can be reached from the internet.
+
 **Configure storage:** `20` GiB, **gp3**.
 
 **Advanced details** (click to open — it is closed by default):
@@ -215,7 +222,8 @@ then point at nothing. An Elastic IP never changes.
 **Details** tab → **Credit specification** says **standard**. If it says
 **unlimited**, fix it without a restart: **Actions → Instance settings →
 Change credit specification** → untick **Unlimited** → **Save**. Write the
-**Instance ID** (`i-0…`) and the **Elastic IP** in your sheet.
+**Instance ID** (looks like `i-0a1b2c3d4e5f67890`) and the **Elastic IP**
+(looks like `13.234.56.78`) in your sheet.
 
 ## Step 19 · 🌐 DNS record for the API — Cloudflare
 
@@ -232,13 +240,15 @@ Wait until Cloudflare says **Active** ([Step 7](03-dns-cloudflare.md)). Then Clo
 
 Click the orange cloud until it turns **grey** before you save.
 
-✅ **Check** from your Mac (wait a minute or two first):
+✅ **Check** — 💻 on your Mac (wait a minute or two first):
 
 ```bash
 dig +short api.kidlearn.net
+# 13.234.56.78      ← your own Elastic IP, nothing else
 ```
 
-It must print **exactly your Elastic IP**. If it prints something starting with
+It must print **exactly your Elastic IP**. Nothing at all means the record is
+not there yet — wait another minute. If it prints something starting with
 `104.` or `172.67.`, the cloud is orange — edit the record, make it grey.
 
 ## Step 20 · 🖥️ Open the server terminal and copy the deploy files
@@ -253,6 +263,21 @@ Connect.**
 
 A black terminal opens in your browser. You are now on the server.
 
+> **Which terminal am I in? Look at the end of the prompt** — the text before
+> your cursor. From here on, every command block says 💻 or 🖥️; run it only
+> at the matching prompt.
+>
+> | Prompt looks like | You are… | Run |
+> |---|---|---|
+> | `salman@MacBook-Pro kidlearn %` (ends in **`%`**) | 💻 on your Mac | 💻 blocks |
+> | `sh-5.2$` (ends in **`$`**) | 🖥️ on the server, not yet root | `sudo su -` first |
+> | `[root@ip-172-31-5-10 ~]#` (ends in **`#`**, says `root@ip-…`) | 🖥️ on the server, as root | 🖥️ blocks |
+>
+> A Mac command pasted on the server (or the other way round) fails, or worse,
+> does something you did not mean. `aws ssm …`, `dig`, `docker build` and
+> `git commit` are 💻; `/opt/kidlearn/…`, `docker compose -p kidlearn-…` and
+> `crontab` are 🖥️.
+
 ```
  Your browser ──HTTPS──► AWS Systems Manager ◄──outbound── SSM agent on the server
                          (checks your IAM user)             (the server dials OUT,
@@ -264,10 +289,10 @@ A black terminal opens in your browser. You are now on the server.
 > Never "fix" this by opening port 22.
 
 (Later, if you prefer your Mac's own terminal: `aws ssm start-session --target
-<instance-id>` does the same. `runbook.md` §2 also shows real `ssh`/`scp` *through*
-Session Manager, still with port 22 closed.)
+i-0a1b2c3d4e5f67890` (your instance ID) does the same. [`runbook.md` §2a](../runbook.md)
+sets up a `ssh kidlearn` shortcut *through* Session Manager, still with port 22 closed.)
 
-**20b. Check the setup script worked**
+**20b. Check the setup script worked** — 🖥️ on the server:
 
 ```bash
 sudo su -
@@ -277,8 +302,9 @@ ls /opt/kidlearn               # deploy  dev  edge  prod
 free -m                        # a "Swap" line of about 2000
 ```
 
-*`sudo su -`* makes you the admin user (root). You need it for everything on the
-server — **run it every time you open a new terminal**.
+*`sudo su -`* makes you the admin user (root) — the prompt changes from `$` to
+`#`. You need it for everything on the server — **run it every time you open a
+new terminal**.
 
 If something is wrong, read the setup log: `cat /var/log/cloud-init-output.log`.
 
@@ -287,7 +313,7 @@ If something is wrong, read the setup log: `cat /var/log/cloud-init-output.log`.
 *Why:* the setup script made an empty `/opt/kidlearn/deploy` folder. The scripts
 that start the API live in the repository, so we copy them over. The repo is
 public, so the server can download it straight from GitHub (`main` branch — this
-is why [Step 2](01-prepare-mac-and-github.md) mattered).
+is why [Step 2](01-prepare-mac-and-github.md) mattered). 🖥️ on the server, as root:
 
 ```bash
 dnf install -y git
@@ -297,6 +323,11 @@ rm -rf /tmp/kidlearn
 chmod +x /opt/kidlearn/deploy/*.sh
 ls /opt/kidlearn/deploy
 ```
+
+*Reading it:* install `git`; download the repository into a scratch folder
+`/tmp/kidlearn`; copy only its `deploy/` folder (the `/.` means "the contents")
+into `/opt/kidlearn/deploy/`; delete the scratch copy; make the `.sh` files
+runnable (`chmod +x`); list the result.
 
 ✅ **Check:** the last command shows `app  backup.sh  bootstrap.sh  deploy.sh
 edge  weekly-reports.sh`.
@@ -331,24 +362,34 @@ when that works do we switch to the real one.
 **21a. Set your email**
 
 The Caddyfile in `deploy/` is overwritten every time you repeat 20c, so your
-settings live in a separate file on the server that the copy never touches:
+settings live in a separate file on the server that the copy never touches.
+🖥️ on the server — change `you@example.com` to your real email (e.g.
+`salman@gmail.com`) **before** pasting:
 
 ```bash
 install -d -m 0700 /opt/kidlearn/edge
 printf 'ACME_EMAIL=%s\n' 'you@example.com' > /opt/kidlearn/edge/caddy.env
 chmod 600 /opt/kidlearn/edge/caddy.env
+cat /opt/kidlearn/edge/caddy.env      # ACME_EMAIL=salman@gmail.com
 ```
 
-Put **your real email** in place of `you@example.com`. Do **not** add an
-`ACME_CA` line yet — without one, Caddy uses the staging service.
+Let's Encrypt emails this address if a certificate is about to expire. Do
+**not** add an `ACME_CA` line yet — without one, Caddy uses the staging service.
 
-**21b. Start Caddy on staging**
+**21b. Start Caddy on staging** — 🖥️:
 
 ```bash
 cd /opt/kidlearn/deploy/edge
 docker compose -p kidlearn-edge -f compose.yml up -d
 docker compose -p kidlearn-edge logs --tail 40 caddy
 ```
+
+*Reading it:* `-p kidlearn-edge` names this group of containers (a Compose
+"project"), `-f compose.yml` says which file describes them, `up -d` starts
+them in the background. `logs --tail 40` shows Caddy's last 40 lines.
+
+✅ In the log, look for `certificate obtained successfully` next to
+`api.kidlearn.net`. It can take a minute; run the `logs` line again.
 
 > **Behind the scenes — `deploy/edge/compose.yml`**
 >
@@ -389,7 +430,8 @@ docker volume ls | grep caddy_data         # where certificates are kept
 **21c. Test** — 💻 from your Mac:
 
 ```bash
-curl -sI https://api.kidlearn.net/health
+curl -sI https://api.kidlearn.net/health; echo "exit code $?"
+# exit code 60     ← curl's number for "certificate not trusted"
 ```
 
 👉 **A certificate error here is GOOD.** Practice certificates are not trusted by
@@ -397,7 +439,11 @@ design. The error proves Caddy got one.
 
 ```bash
 curl -skI https://api.kidlearn.net/health | head -1
+# HTTP/2 502
 ```
+
+(`-k` tells curl to accept the untrusted practice certificate; `-I` asks for
+the headers only; `| head -1` keeps just the first line.)
 
 👉 `HTTP/2 502` is also **GOOD**. It means "HTTPS works, but the API is not
 running yet" — which is true; you start it in Step 23. (502 = "Bad Gateway":
@@ -414,6 +460,10 @@ cat /opt/kidlearn/edge/caddy.env     # ACME_EMAIL and ACME_CA, one line each
 cd /opt/kidlearn/deploy/edge
 docker compose -p kidlearn-edge -f compose.yml up -d --force-recreate
 ```
+
+(`>>` **adds** a line to the file; a single `>` would replace the whole file
+and lose your email. `--force-recreate` restarts Caddy so it reads the file
+again.)
 
 Do **not** edit `Caddyfile` itself for this — the next 20c would undo it and
 put production back on practice certificates without telling you.
@@ -453,6 +503,10 @@ other two hostname settings.)
    `/kidlearn/prod/GOOGLE_CLIENT_ID` → **Edit** → paste the real value → **Save
    changes**. Do the same for `/kidlearn/prod/GOOGLE_CLIENT_SECRET`.
 
+✅ **Check:** the client ID you pasted ends in `.apps.googleusercontent.com`
+(e.g. `123456789012-abc123def456.apps.googleusercontent.com`), the secret
+starts with `GOCSPX-`, and neither parameter still says `placeholder`.
+
 The API reads secrets only when `deploy.sh` runs, so this change takes effect in
 the next step. (Later, every time you change a parameter, run `deploy.sh` again
 with the **same** tag to pick it up.)
@@ -465,10 +519,12 @@ with the **same** tag to pick it up.)
 `deploy.sh` reads the secrets, downloads the image, starts it, and checks it is
 healthy *and* can reach the database.
 
-On the server terminal (`sudo su -` first if it is a new window):
+🖥️ On the server terminal (`sudo su -` first if it is a new window). Put the
+**Image tag** from your sheet ([Step 16](05-aws-storage-secrets-images.md))
+in place of `a1b2c3d` — seven letters and digits, no `<` `>`:
 
 ```bash
-/opt/kidlearn/deploy/deploy.sh prod <IMAGE TAG from Step 16>
+/opt/kidlearn/deploy/deploy.sh prod a1b2c3d
 ```
 
 > **Behind the scenes — what `deploy.sh prod a1b2c3d [--migrate]` does**
@@ -513,20 +569,21 @@ On the server terminal (`sudo su -` first if it is a new window):
 ✅ **Check:** the last line is:
 
 ```
-[deploy:prod] healthy and database reachable — deploy complete at <sha>
+[deploy:prod] healthy and database reachable — deploy complete at a1b2c3d
 ```
 
 Now test the database-update path once, while nothing depends on it. You will
-use this exact command for every future release with database changes:
+use this exact command, with that release's tag, for every future release with
+database changes — 🖥️:
 
 ```bash
-/opt/kidlearn/deploy/deploy.sh prod <IMAGE TAG from Step 16> --migrate
+/opt/kidlearn/deploy/deploy.sh prod a1b2c3d --migrate
 ```
 
 ✅ Expect `No pending migrations to apply.` (you already applied them in [Step 8](04-database-and-services.md)),
 then the same "deploy complete" line as above.
 
-💻 From your Mac:
+💻 From your Mac (not the server — this proves the internet can reach it):
 
 ```bash
 curl -s https://api.kidlearn.net/health

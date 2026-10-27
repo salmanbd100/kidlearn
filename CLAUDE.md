@@ -67,6 +67,7 @@ pnpm build            # ^build is required before typecheck and test resolve
 pnpm typecheck
 pnpm test:coverage    # same suite as pnpm test, plus a coverage report
 pnpm --filter server test:db   # *.db.test.ts against the Postgres service
+docker build ×3       # web escape-hatch, server runner, server migrate — built, never pushed
 ```
 
 **A PR is not done until `gates` is green** — `gh pr checks` says whether it is. Coverage is reported in the run summary and as an artifact; it is deliberately not gated on a threshold (see `document/standards/general.md §5`).

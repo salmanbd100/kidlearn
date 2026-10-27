@@ -60,20 +60,45 @@ rights instead.
 
 The `aws` command on your Mac needs a key to act as `salman-admin`.
 
-1. Still on the `salman-admin` user → **Security credentials** → **Create
-   access key** → choose **Command Line Interface (CLI)** → tick the
-   confirmation → **Create**.
-2. You see **Access key** and **Secret access key**. **The secret is shown only
-   once.** Keep the page open.
-3. On your Mac:
+1. Open the `salman-admin` user. If you are still on its page from 3c, skip to
+   the next sentence. Otherwise sign in at <https://console.aws.amazon.com>,
+   type **IAM** in the top search bar → open it → **Users** on the left → click
+   **`salman-admin`**.
 
-   ```bash
-   aws configure
-   # AWS Access Key ID:     <paste access key>
-   # AWS Secret Access Key: <paste secret key>
-   # Default region name:   ap-south-1
-   # Default output format: json
+   Open the **Security credentials** tab → scroll down to **Access keys** →
+   **Create access key** → choose **Command Line Interface (CLI)** → tick the
+   confirmation at the bottom → **Next**. Leave the description tag empty (or
+   type `my-mac`) → **Create access key**.
+2. The next page shows two values:
+
+   | On the AWS page | Looks like | `aws configure` asks for it as |
+   |---|---|---|
+   | **Access key** | starts with `AKIA`, 20 characters | `AWS Access Key ID` |
+   | **Secret access key** | hidden — click **Show**; 40 characters | `AWS Secret Access Key` |
+
+   **The secret is shown only once.** Keep the page open until step 3 works.
+   **Download .csv file** saves both as a backup: keep it outside this repo and
+   delete it once `aws configure` works.
+3. 💻 On your Mac, type `aws configure` and press Enter. It asks four
+   questions, one at a time. Paste or type each answer, then press Enter:
+
    ```
+   AWS Access Key ID [None]: <paste the "Access key" from step 2>
+   AWS Secret Access Key [None]: <paste the "Secret access key" from step 2>
+   Default region name [None]: ap-south-1
+   Default output format [None]: json
+   ```
+
+   The text before each `:` is the question. For the first two, copy the value
+   from the AWS page you kept open in step 2 (the table shows which is which).
+   Use the copy icon next to each value instead of selecting it by hand. Type
+   the last two answers exactly as shown.
+
+   Never paste either key into a file in this repo, a chat, a screenshot or a
+   GitHub secret. If one leaks, open **IAM → Users → `salman-admin` → Security
+   credentials**, **Deactivate** and **Delete** that key, and create a new one.
+   If you closed the page before copying the secret, do the same: delete the
+   key and create a new one, because AWS never shows the secret again.
 
    **Type `ap-south-1` at the region prompt — do not just press Enter.** If a
    default such as `[us-east-1]` is shown in brackets, Enter keeps it. Every
@@ -85,20 +110,21 @@ The `aws` command on your Mac needs a key to act as `salman-admin`.
 4. **Log out** of root. From now on, log in with the **console sign-in URL** as
    `salman-admin`.
 
-✅ **Check:**
+✅ **Check** — 💻:
 
 ```bash
 aws sts get-caller-identity
-# shows "Arn": "arn:aws:iam::<12 digits>:user/salman-admin"
+# "Arn": "arn:aws:iam::123456789012:user/salman-admin"   ← your 12-digit account ID
 
 aws configure get region
 # ap-south-1
 ```
 
 If the region line prints anything else, fix it with
-`aws configure set region ap-south-1`. Also check that
-`echo $AWS_REGION $AWS_DEFAULT_REGION` prints nothing: either variable overrides
-the setting. If one is set, remove it from `~/.zshrc` and open a new terminal.
+`aws configure set region ap-south-1`. Also run
+`echo $AWS_REGION $AWS_DEFAULT_REGION`: it must print an empty line, because
+either variable overrides the setting. If one is set, delete its `export` line
+from `~/.zshrc` and open a new Terminal window.
 
 Write the 12-digit number in your values sheet as **AWS account ID**.
 

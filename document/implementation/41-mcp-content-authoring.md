@@ -8,7 +8,13 @@
 > working agreement.
 > **Source:** the request to author learning content with ChatGPT, Claude or any other AI tool
 > through MCP instead of a server-held Gemini API key.
-> **Status tracking:** update `00-progress-tracker.md` when starting/finishing
+> **Status tracking:** update [`00-progress-tracker.md`](./00-progress-tracker.md) when starting/finishing
+> **Where it stands (2026-10-26):** Phases A, B and D merged to `dev` (PR #74). Phase C (OAuth for
+> ChatGPT and claude.ai) is not built — `capabilities.mcp.oauth` is hard-coded `false`. Where the
+> body below and the code disagree, [Decisions taken during implementation](#decisions-taken-during-implementation)
+> is the newer word. For how the built system works, read
+> [`ai-integration-guide.md`](../ai-integration-guide.md); for the admin's workflow,
+> [`content-authoring-playbook.md`](../content-authoring-playbook.md).
 
 ## Goal
 
@@ -525,7 +531,7 @@ disagree, this list is the newer word.
 
 ## Testing
 
-- **Unit (Prisma stubbed, citing `general.md §5`):** principal resolution, each submit tool's
+- **Unit (Prisma stubbed, citing [`general.md §5`](../standards/general.md#5-testing-standards--shared-rules) — superseded by I9):** principal resolution, each submit tool's
   validation → error mapping, `toToolInputSchema` output, capability flags.
 - **`*.db.test.ts`:** `recordSubmittedDraft` rollback when `persist` throws; idempotency unique;
   token revocation takes effect on the next call; per-admin cap under concurrent submissions.

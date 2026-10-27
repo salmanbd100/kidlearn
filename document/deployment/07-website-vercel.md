@@ -4,7 +4,7 @@
 
 > **Where you work:** 🌐 Vercel and Cloudflare. Steps 24–26.  
 > **You finish with:** `https://kidlearn.net` served by Vercel and talking to your API.  
-> **Before you start:** Step 23 — the API is healthy.
+> **Before you start:** [Step 23](06-server.md) — the API is healthy.
 
 **How Vercel works, in one picture:**
 
@@ -63,8 +63,8 @@ website's JavaScript when it is built. If you change one later, nothing happens
 until you **redeploy**.
 
 > **Do not add `SITE_NOINDEX` or `DEV_SITE_BASIC_AUTH`.** Those are only for the
-> dev site. On production they would hide your site from Google or lock it with
-> a password.
+> dev site ([Step 34](11-dev-environment.md)). On production they would hide
+> your site from Google or lock it with a password.
 
 ✅ **Check:** the deploy finishes. Open the build log and confirm you see
 `@kidlearn/types` build **before** `web`.
@@ -90,6 +90,9 @@ In the project → **Settings**:
 
 After changing settings, go to **Deployments** → the latest one → **⋯ →
 Redeploy** so they take effect.
+
+✅ **Check:** the redeploy finishes with **Ready**, and its row in
+**Deployments** says **Production** and branch `main`.
 
 > **About preview links.** Pushes to `dev` and feature branches still get a
 > preview at a `…vercel.app` address. Those previews load, but **sign-in and data
@@ -133,6 +136,13 @@ gave, set it to grey, and save. Touch only that row — leave `api`, and any
 Certificate" for a few minutes. Once that clears, open <https://kidlearn.net> —
 the site loads with a padlock — and <https://www.kidlearn.net> lands on
 `kidlearn.net`.
+
+💻 The same from your Mac's Terminal:
+
+```bash
+curl -sI https://kidlearn.net | head -1                       # HTTP/2 200
+curl -sI https://www.kidlearn.net | grep -i '^location'       # location: https://kidlearn.net/
+```
 
 Your Cloudflare DNS should now have these records, all grey (plus any `MX` /
 `TXT` records you set up for email):

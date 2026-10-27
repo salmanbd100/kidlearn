@@ -6,15 +6,17 @@
 > **You finish with:** merges into `dev` and `main` deploying the API by themselves, with rollback one click away.  
 > **Before you start:** Part 11 — dev is live and you have deployed by hand a few times.
 
+> ⚠️ **Not built yet.** `.github/workflows/ci.yml` has only the `gates` job today — no
+> `deploy`, `rollback` or `promotion-guard`. And the `deploy.sh` this part describes
+> (migrating on every deploy, reverting itself on a failed health check) is the
+> [file 38a](../implementation/38a-github-actions-continuous-deployment.md)
+> plan; today's script needs `--migrate` and does not revert.
+> Steps 37–40 work today; Step 41 is the pull request that adds them.
+
 Today, shipping the API is: build two images on your Mac, push them, open the
 server terminal, run `deploy.sh`. Part 12 makes GitHub do those steps itself,
-after `gates` passes, for both branches:
-
-```
- feature/x ──PR──► dev ──gates ✅──► deploy job ──► api.dev.kidlearn.net
-                    │
-                    └──PR (dev only)──► main ──gates ✅──► deploy job ──► api.kidlearn.net
-```
+after `gates` passes — a merge into `dev` deploys `api.dev.kidlearn.net`, a
+merge into `main` deploys `api.kidlearn.net`:
 
 ```
  TODAY (by hand)                                    AFTER PART 12
@@ -38,14 +40,8 @@ after `gates` passes, for both branches:
 **The website is not part of this** — Vercel already deploys both sites on
 every push. This job only ships the API.
 
-**Who does what in Part 12:**
-
-| | Steps |
-|---|---|
-| 🌐 You, in AWS IAM and GitHub settings | 37, 38, 40, 45 |
-| 💻 You, from your Mac, to learn the mechanism | 39 |
-| 💻 Code — a pull request for file 38a (`ci.yml` jobs, a hardened `deploy.sh`) | 41 |
-| 🌐 You, proving it works — and proving it fails safely | 42, 43, 44, 46 |
+**The order:** AWS and GitHub settings (37–40), the code change (41), then
+proving it works and fails safely (42–46).
 
 **Before you start:** [Part 11](11-dev-environment.md) is done, and you have run `deploy.sh` by hand for
 both environments, more than once. *An automated pipeline for a deploy nobody
@@ -58,7 +54,9 @@ minutes are free; IAM and OIDC are free.
 
 **Why:** GitHub Actions needs to act in your AWS account. The old way is to
 paste an access key into GitHub as a secret — a key that never expires and
-works from anywhere if it leaks. OIDC replaces it:
+works from anywhere if it leaks. **OIDC** (OpenID Connect) replaces it: GitHub
+vouches for each job with a short-lived signed token, and AWS swaps that for
+temporary credentials:
 
 ```
  GitHub Actions job                         AWS
@@ -87,7 +85,8 @@ Nothing in GitHub can be stolen and reused later, because nothing is stored.
 ## Step 38 · 🌐 Two deploy roles — one per environment
 
 **Why two:** the dev pipeline should not be able to act as the production one.
-Each role trusts tokens from **one GitHub Environment only**, so a workflow job
+Each role trusts tokens from **one GitHub Environment only** (a named set of
+settings a job opts into — you create them in Step 40), so a workflow job
 that is not running in the `production` environment cannot get production's
 credentials at all.
 
@@ -100,7 +99,8 @@ credentials at all.
    **empty** → Next.
 4. Skip permissions → Next → Role name `kidlearn-deploy-dev` → **Create role**.
 5. Open the role → **Trust relationships → Edit trust policy** → replace
-   everything with this (your 12-digit account ID in `<ACCOUNT_ID>`):
+   everything with this. Replace `<ACCOUNT_ID>`, brackets included, with your
+   12 digits — e.g. `arn:aws:iam::123456789012:oidc-provider/…`:
 
 ```json
 {
@@ -130,8 +130,9 @@ because the job must declare `environment: development` to get a token that
 matches.
 
 6. **Permissions → Add permissions → Create inline policy → JSON** → paste the
-   policy below, replacing `<ACCOUNT_ID>` and `<INSTANCE_ID>` (the `i-0…` from
-   your sheet) → name `kidlearn-deploy` → **Create policy**.
+   policy below, replacing `<ACCOUNT_ID>` (e.g. `123456789012`) and
+   `<INSTANCE_ID>` (from your sheet, e.g. `i-0a1b2c3d4e5f67890`), brackets
+   included → name `kidlearn-deploy` → **Create policy**.
 
 ```json
 {
@@ -188,8 +189,9 @@ In plain words:
 
 ✅ **Check:** two roles. In each, **Trust relationships** names its **own**
 environment (`development` / `production`) — a swap here is the one mistake
-that silently undoes the separation. Copy both **ARNs**
-(`arn:aws:iam::<ACCOUNT_ID>:role/kidlearn-deploy-…`) into your sheet.
+that silently undoes the separation. Copy both **ARNs** (Amazon Resource Name —
+AWS's full address for a thing, shown at the top of the role's page, e.g.
+`arn:aws:iam::123456789012:role/kidlearn-deploy-dev`) into your sheet.
 
 ## Step 39 · 💻 Do by hand what the pipeline will do
 
@@ -197,10 +199,18 @@ that silently undoes the separation. Copy both **ARNs**
 to it" — is `aws ssm send-command`. Do it yourself once from your Mac (with your
 own access key) and the job log will never be a mystery.
 
-```bash
-INSTANCE_ID=i-0...      # from your sheet
-SHA=...                 # the SHA dev runs now: cat /opt/kidlearn/dev/last-good-tag on the box
+💻 On your Mac. First set two values — yours, not these examples. The SHA is
+what dev runs now: 🖥️ `cat /opt/kidlearn/dev/last-good-tag` on the server
+prints it.
 
+```bash
+INSTANCE_ID=i-0a1b2c3d4e5f67890      # from your sheet
+SHA=a1b2c3d                          # dev's current SHA
+```
+
+Then paste this block unchanged:
+
+```bash
 CMD_ID=$(aws ssm send-command --region ap-south-1 \
   --instance-ids "$INSTANCE_ID" \
   --document-name AWS-RunShellScript \
@@ -218,11 +228,15 @@ aws ssm get-command-invocation --region ap-south-1 \
   --query '{Status:Status,Output:StandardOutputContent,Errors:StandardErrorContent}'
 ```
 
+*Reading it:* `send-command` asks SSM to run `deploy.sh` on the server and
+hands back a command ID; `wait command-executed` waits until it finishes;
+`get-command-invocation` prints what it said.
+
 ✅ **Check:** `Status` is `Success` and `Output` ends with `deploy complete at
 <sha>`. The same run appears in 🌐 **Systems Manager → Run Command → Command
 history**, with the full output.
 
-Now watch it fail, safely (dev only):
+Now watch it fail, safely (dev only) — 💻, same terminal:
 
 ```bash
 CMD_ID=$(aws ssm send-command --region ap-south-1 --instance-ids "$INSTANCE_ID" \
@@ -336,7 +350,7 @@ Two things to watch when merging it:
   proven it.
 - **`deploy.sh` runs from the server's copy, not from GitHub.** After the PR is
   merged into `dev`, put the new `deploy.sh` on the box — [Step 20c](06-server.md), cloning the
-  `dev` branch this one time:
+  `dev` branch this one time. 🖥️ on the server, after `sudo su -`:
 
   ```bash
   git clone --branch dev https://github.com/salmanbd100/kidlearn.git /tmp/kidlearn
@@ -349,10 +363,11 @@ Two things to watch when merging it:
 
 ## Step 42 · 🌐 The first automated deploy — started by hand, against dev
 
-🖥️ First, note what production is running, so you can prove it was not touched:
+🖥️ First, note what production is running, so you can prove it was not touched
+(as root on the server):
 
 ```bash
-docker compose -p kidlearn-prod images      # note the TAG column
+docker inspect -f '{{.Config.Image}}' prod-api   # …/kidlearn-api:a1b2c3d — note the tag after ":"
 ```
 
 🌐 GitHub → **Actions → CI → Run workflow** → branch `dev`, job `deploy`,
@@ -373,11 +388,14 @@ and find:
 ✅ **Check:**
 
 ```bash
-# 🖥️
-docker compose -p kidlearn-dev images       # the new SHA
-docker compose -p kidlearn-prod images      # UNCHANGED from before
-# 💻
-curl -s https://api.dev.kidlearn.net/health
+# 🖥️ on the server
+docker inspect -f '{{.Config.Image}}' dev-api    # ends in the new 40-character SHA
+docker inspect -f '{{.Config.Image}}' prod-api   # UNCHANGED from before
+```
+
+```bash
+# 💻 on your Mac
+curl -s https://api.dev.kidlearn.net/health      # {"data":{"status":"ok",…}}
 ```
 
 ## Step 43 · 🌐 Break it on purpose — dev only
@@ -407,14 +425,14 @@ start command, which no test executes.
 ✅ `gates` passes (the image builds fine), `deploy` goes **red**, its log shows
 `Cannot find module …/dist/does-not-exist.js` from the SSM output, and
 `deploy.sh` has put `last-good-tag` back by itself: 🖥️
-`docker compose -p kidlearn-dev images` shows the good SHA again, and 💻
+`docker inspect -f '{{.Config.Image}}' dev-api` shows the good SHA again, and 💻
 `curl -s https://api.dev.kidlearn.net/health` is ok.
 
 **43c. A migration that fails.** A failed migration must stop the deploy
 **before** any container restarts. The failure has to happen on dev's data but
 not on CI's empty test database, or `gates` would stop it first:
 
-1. 💻 On another throwaway branch from `dev`, add
+1. 💻 `git checkout -b 38a-rehearse-failed-migration dev`, then add
    `packages/db/prisma/migrations/29990101000000_rehearse_failure/migration.sql`:
 
    ```sql
@@ -432,21 +450,33 @@ not on CI's empty test database, or `gates` would stop it first:
 **never restarted** — 🖥️ `docker ps` shows its "Up" time from before the run.
 
 Clean up: dev's database now records a failed migration, which blocks every
-later dev deploy. Re-run **[Step 33](11-dev-environment.md)** (wipe, then restore) — exactly the
-procedure dev exists for. Then delete both throwaway branches:
+later dev deploy. Wipe it — but **not** with [Step 33a](11-dev-environment.md)'s last line: that
+migrates from the image `compose.env` names, which is now the throwaway
+branch's, and would record the rehearsal migration as applied. 🖥️ instead:
 
 ```bash
-git push origin --delete 38a-rehearse-broken-start <the migration branch>
+cd /opt/kidlearn/deploy/app
+docker compose --env-file /opt/kidlearn/dev/compose.env \
+  -p kidlearn-dev -f compose.yml -f compose.dev.yml down -v
+/opt/kidlearn/deploy/deploy.sh dev <good SHA> --migrate    # e.g. the 40-character SHA from Step 42
+```
+
+Then refill dev: [Step 32b and 32c](11-dev-environment.md), or a restore
+([Step 33b](11-dev-environment.md)). Finally, 💻 delete both throwaway branches:
+
+```bash
+git push origin --delete 38a-rehearse-broken-start 38a-rehearse-failed-migration
 ```
 
 ## Step 44 · 🌐 Roll back from GitHub
 
-1. Find the previous SHA: the title of an older green `deploy` run in
-   **Actions**, or 🖥️ `docker images | grep kidlearn-api`.
-2. **Run workflow** → job `rollback`, environment `dev`, image_tag `<that SHA>`.
+1. Find the previous SHA: the commit shown on an older green `deploy` run in
+   **Actions**, or 🖥️ `docker images | grep kidlearn-api` (the TAG column).
+2. **Run workflow** → job `rollback`, environment `dev`, image_tag = that SHA,
+   pasted exactly (no `<` `>`).
 
-✅ The job is green and 🖥️ `docker compose -p kidlearn-dev images` shows that
-SHA. Roll forward again the same way with the newest SHA.
+✅ The job is green and 🖥️ `docker inspect -f '{{.Config.Image}}' dev-api` ends
+in that SHA. Roll forward again the same way with the newest SHA.
 
 > **Rolling back the API does not roll back the website.** That is Vercel's
 > **Instant Rollback**, in a different dashboard ([Step 28c](08-backups-and-smoke-test.md)). Under stress nobody
@@ -459,15 +489,16 @@ production change ran on dev first. GitHub rulesets cannot restrict the
 *source* branch of a pull request, so the `promotion-guard` job does it — and
 it only blocks anything once it is **required**.
 
-**45a. Prove it works first** — 💻:
+**45a. Prove it works first** — 💻 in the repo:
 
 ```bash
 git checkout -b 38a-guard-test dev
 git commit --allow-empty -m "test: promotion-guard (do not merge)"
 git push -u origin 38a-guard-test
 gh pr create --base main --head 38a-guard-test --title "promotion-guard test — do not merge" --body "Closes immediately."
-gh pr checks          # promotion-guard: fail — "main accepts pull requests from dev only"
+gh pr checks --watch  # waits; promotion-guard: fail — "main accepts pull requests from dev only"
 gh pr close --delete-branch
+git switch dev
 ```
 
 The next real `dev → main` pull request shows `promotion-guard` **passing**.
@@ -500,8 +531,8 @@ would block every unrelated pull request.
 
 1. A small pull request into `dev` that switches on the `main` push path in
    `deploy` (file 38a step 9). Merge it — that push deploys dev by itself.
-2. 🖥️ Note `docker compose -p kidlearn-dev images` and
-   `docker compose -p kidlearn-prod images`.
+2. 🖥️ Note what each runs:
+   `docker inspect -f '{{.Config.Image}}' dev-api prod-api`.
 3. Open the `dev → main` pull request. `gates` ✅ and `promotion-guard` ✅ →
    **Merge**.
 4. Watch Actions: `gates`, then `deploy` with `ENV_NAME=prod`, assuming
@@ -518,8 +549,9 @@ would block every unrelated pull request.
   in **Systems Manager → Run Command → Command history**, the second one's
   output starts only after the first one's ended — that is `deploy.sh`'s lock.
 
-**What changes in your weekly routine ([Part 10.1](10-release-life-cycle.md)):** steps 2's `docker build`,
-`docker push` and `deploy.sh` disappear. Merging the `dev → main` pull request
+**What changes in your weekly routine ([Part 10.1](10-release-life-cycle.md)):** its steps 2 and 4 —
+`docker build`, `docker push` and `deploy.sh` — disappear, and so does the
+dev routine at the end of [Part 11](11-dev-environment.md). Merging the `dev → main` pull request
 **is** the release — Vercel ships the website, the `deploy` job ships the API.
 You still repeat [Step 20c](06-server.md) by hand when anything under `deploy/` changes.
 
@@ -528,11 +560,9 @@ You still repeat [Step 20c](06-server.md) by hand when anything under `deploy/` 
 in IAM and re-activate it when you need it — a deactivated key cannot leak
 anything.
 
-**Paperwork:** the runbook sections file 38a adds (branch flow, manual deploy,
-rollback, reading SSM output, the backward-compatible-migration rule) are part
-of its pull request. Tick file 38a's **Acceptance Criteria**, update file 39's
-requirement 6 to name both required checks on `main`, and set the 38a row in the
-progress tracker to ✅ Done.
+**Paperwork:** tick file 38a's **Acceptance Criteria**, make file 39's
+requirement 6 name both required checks on `main`, and set the 38a row in
+`document/implementation/00-progress-tracker.md` to ✅ Done.
 
 ---
 
