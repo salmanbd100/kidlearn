@@ -13,6 +13,7 @@
 <p align="center">
   <img src="document/assets/readme/homepage-en.jpg" alt="KidLearn homepage in English" width="49%">
   <img src="document/assets/readme/homepage-bn.jpg" alt="KidLearn homepage in Bangla" width="49%">
+  <img src="document/assets/readme/how-it-works.jpg" alt="How it works: pick your picture, play a lesson, earn stars" width="98%">
 </p>
 
 ## Live
