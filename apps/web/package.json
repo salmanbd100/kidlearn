@@ -18,7 +18,7 @@
     "@vercel/analytics": "^2.0.1",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "catalog:",
-    "i18next": "^26.5.11",
+    "i18next": "^26.5.12",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "next": "16.4.3",
