@@ -7,7 +7,7 @@
 
 ## Goal
 
-Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwraps the `{ data } | { error }` envelope into a discriminated `ApiResult`, retries a cold or flaky backend with backoff and signals it to the UI, distinguishes "no internet" from "server waking up", raises the session-wide outcomes (401, 403 `CONSENT_REQUIRED`, other 403s, 423, 429) to one listener each instead of leaving every screen to rediscover them, and types every response from `@kidlearn/types` rather than a hand-written interface. This is the file every later screen depends on, so it ships with tests and a real device check against a running server — not a mock.
+Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwraps the `{ data } | { error }` envelope into a discriminated `ApiResult`, retries a cold or flaky backend with backoff and signals it to the UI, distinguishes "no internet" from "server waking up", raises the session-wide outcomes (401, 403 `CONSENT_REQUIRED`, other 403s, 429) to one listener each instead of leaving every screen to rediscover them, and types every response from `@kidlearn/types` rather than a hand-written interface. This is the file every later screen depends on, so it ships with tests and a real device check against a running server — not a mock.
 
 ## Context & Current State
 
@@ -15,19 +15,18 @@ Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwr
   - `ApiResult<T>` = `{ ok: true; data: T } | { ok: false; error: ApiFailure }`.
   - `ApiFailure` = `{ code: ApiErrorCode; message: string; status?: number; details?: unknown }`.
   - `CLIENT_ERROR_CODES = ["NETWORK_ERROR", "MALFORMED_RESPONSE"]`, kept disjoint from the server's `ErrorCode` so "the API said no" is never confused with "the API did not answer".
-  - `RETRY_BACKOFF_MS = [1500, 4000]`, two retries by default; **5xx and connection failures retry, every 4xx settles immediately** — 401, 403, 409, 423 and 429 included (a 4xx is a decision, not a hiccup; a 429 retried in a loop only extends the ban). Only `GET`/`HEAD`/`PUT`/`DELETE` retry; a `POST` — even on a connection failure or 5xx — settles unless the caller passes `isIdempotent: true`. `POST /api/children` creates a row; `POST /api/progress/lessons/:id/step` is an upsert and opts in.
+  - `RETRY_BACKOFF_MS = [1500, 4000]`, two retries by default; **5xx and connection failures retry, every 4xx settles immediately** — 401, 403, 409 and 429 included (a 4xx is a decision, not a hiccup; a 429 retried in a loop only extends the ban). Only `GET`/`HEAD`/`PUT`/`DELETE` retry; a `POST` — even on a connection failure or 5xx — settles unless the caller passes `isIdempotent: true`. `POST /api/children` creates a row; `POST /api/progress/lessons/:id/step` is an upsert and opts in.
   - A per-attempt timeout (`DEFAULT_TIMEOUT_MS = 20_000`, `timeoutMs` per call) on its own `AbortController`, with the caller's `signal` forwarded onto it.
   - `204` short-circuits to `{ ok: true, data: undefined }` — there is no envelope to unwrap.
   - `onColdStart` fires once, before the first retry, so the UI can show the "mascot waking up" state (NFR-PERF-04).
   - Two module-level listener sets: `onUnauthorized` (any `401`) and `onConsentRequired` (`403 CONSENT_REQUIRED` — the consent version moved under a live session). Each returns its unsubscribe.
   - A non-envelope error body (proxy or CDN page) falls back to a code from the status (`400/401/403/404/409`, else `INTERNAL`).
-- Every server route answers that envelope (`apps/server/src/shared/errors/errors.ts`). The envelope's own schemas are `ok(schema)` and `ErrorEnvelopeSchema` in `packages/types/src/api/envelope.ts` — `{ error: { code, message, details? } }`, with `details` deliberately `unknown` (a client must not depend on it except where a contract below names its shape). Response shapes live in `packages/types/src/api/` and are asserted in the route tests with `assertContract`. The mobile client therefore does not need runtime validation of every field — but see requirement 6 for where it does.
-- Error codes are the contract, messages are developer hints. `ERROR_CODES` in `packages/types/src/api/errors.ts` is the vocabulary: `VALIDATION_FAILED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INTERNAL`, `CONSENT_REQUIRED`, `TIME_LIMIT_REACHED` (423), `OUTSIDE_WINDOW` (423) and `RATE_LIMITED` (429). Branch on the code, never the message.
+- Every server route answers that envelope (`apps/server/src/shared/errors/errors.ts`). The envelope's own schemas are `ok(schema)` and `ErrorEnvelopeSchema` in `packages/types/src/api/envelope.ts` — `{ error: { code, message, details? } }`, with `details` deliberately `unknown` (a client must not depend on it). Response shapes live in `packages/types/src/api/` and are asserted in the route tests with `assertContract`. The mobile client therefore does not need runtime validation of every field — but see requirement 6 for where it does.
+- Error codes are the contract, messages are developer hints. `ERROR_CODES` in `packages/types/src/api/errors.ts` is the vocabulary: `VALIDATION_FAILED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INTERNAL`, `CONSENT_REQUIRED` and `RATE_LIMITED` (429). Branch on the code, never the message.
 - The outcomes every screen can hit, and what they carry:
   - `401 UNAUTHORIZED` — no or expired session.
-  - `403 CONSENT_REQUIRED` — `requireConsent` guards `POST /api/children`, all of `/api/progress/*` and all of `/api/events/*` (heartbeat included). Content reads, `/api/me/*` and `/api/screen-time/*` are not consent-gated.
+  - `403 CONSENT_REQUIRED` — `requireConsent` guards `POST /api/children`, all of `/api/progress/*` and all of `/api/events/*` (heartbeat included). Content reads and `/api/me/*` are not consent-gated.
   - `403 FORBIDDEN` with three causes that share one code: **no active child** ("No active child profile", `requireActiveChild` — also when the active profile was deleted or belongs to another parent); **an admin account** on `GET /api/auth/me` ("Admin accounts cannot access the parent dashboard", `apps/server/src/modules/parent/parent.service.ts`); and a cross-origin write (below). The code cannot tell them apart and the message must not be branched on, so the client re-reads `GET /api/auth/me` and lets the session state decide (requirement 2).
-  - `423 TIME_LIMIT_REACHED | OUTSIDE_WINDOW` — `details: { minutesToday, dailyLimitMinutes, windowStart, windowEnd }` (`screen-time.service.ts`), on `GET /api/content/lessons/:id`, `GET /api/content/stories/:id`, the first progress write that opens a lesson, `story_start`, and story completion > 30 min after its start.
   - `429 RATE_LIMITED` — the per-IP flood guard (300/min on `/api/*`, no `details`, a `RateLimit` header) and the per-child limits (30 client events/min across `/api/progress/events` + `/api/events/activity`; 30 quiz responses/min).
 - **`rejectCrossOriginWrites`** (`apps/server/src/shared/middleware/security.ts`, mounted app-wide before the routers) refuses a `POST`/`PUT`/`PATCH`/`DELETE` whose `Origin` header is present and is neither `WEB_ORIGIN` nor `BETTER_AUTH_URL`; it passes when `Origin` is **absent**, the method is safe, or the path is under `/api/auth/`. React Native's `fetch` sends no `Origin`, so native writes should pass — but that is an assumption about two HTTP stacks (OkHttp, `NSURLSession`), so this file proves it on a physical device. A setup that does send one (Expo web, a WebView, a header the M07 provider adds) gets `403 FORBIDDEN "Cross-origin request refused"` on every write.
 - **The one real difference from web:** `credentials: "include"` does nothing on React Native. The session cookie lives in SecureStore and is attached by the better-auth Expo client (M07). This file is written so that M07 can inject that behaviour without any screen changing.
@@ -40,7 +39,6 @@ Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwr
    - `onUnauthorized` — any `401`. M07's `AuthProvider` flips to `signedOut` and routes to the login screen.
    - `onConsentRequired` — `403 CONSENT_REQUIRED`. M07/M08 mark the session "needs consent" (`hasCurrentConsent: false`) and route to the consent screen; the failed write is not replayed.
    - `onForbidden` — any other `403 FORBIDDEN`. M07 re-reads `GET /api/auth/me`: a `403` there is an admin (or otherwise non-parent) account → localised "this app is for parents" copy and sign-out; `activeChildProfileId: null` → the guard sends the student surface to the profile picker (M10). Nothing branches on the message.
-   - `onScreenTimeLocked(details)` — `423`, with the typed `details`. M25 shows the lock screen.
    - `onRateLimited` — `429`. A calm toast; the request is not retried, and nothing re-sends automatically.
 3. **Pluggable auth header.** A module-level `setAuthHeaderProvider(fn: () => Promise<Record<string, string>>)` that `apiFetch` awaits on every request and merges into headers. M07 registers the better-auth cookie provider here. Default is a provider returning `{}` so this file is testable and usable before auth exists.
 4. **Timeouts.** Ported from web as-is (`DEFAULT_TIMEOUT_MS`, per-call `timeoutMs`, per attempt). Use `AbortController` + `setTimeout`, not `AbortSignal.timeout`/`any` (web's file explains the gap; Hermes has the same one). A phone on a bad network must never hang a screen indefinitely.
@@ -51,7 +49,7 @@ Build `apps/mobile`'s single door to `apps/server`: a typed `apiFetch` that unwr
 8. **No `/api/admin/*` path, ever.** The client has no admin helpers; M01's import-boundaries test fails on the string.
 9. **A hook, so screens are not full of `useEffect`.** `lib/use-api.ts` exporting `useApi<T>(fetcher, deps)` returning `{ data, error, isLoading, isColdStart, refetch }`. Every list and detail screen from M09 onwards uses it, which is what keeps cold-start and offline handling consistent instead of per-screen.
 10. **No secrets, no PII in logs.** `console` calls are stripped from this file entirely (`document/standards/general.md`); errors surface through `ApiResult`, not logs. A child's name must never reach a log line (NFR-SAFE-02).
-11. **Tests** (`lib/api-client.test.ts`, `lib/use-api.test.tsx`) with `global.fetch` mocked: success unwrap; 4xx settles with the server's `code` and does not retry; 429 settles with no retry and fires `onRateLimited` once; 5xx on a `GET` retries twice then fails, firing `onColdStart` exactly once; 5xx and connection failure on a `POST` settle without retry unless `isIdempotent`; `204` returns `undefined`; malformed body yields `MALFORMED_RESPONSE`; each of 401, 403 `CONSENT_REQUIRED`, 403 `FORBIDDEN` and 423 fires exactly its own listener (and 423 passes `details`); the auth-header provider's headers are sent and no `Origin` header is; a timeout produces `NETWORK_ERROR`; `parseWith` failure yields `MALFORMED_RESPONSE`; `useApi` exposes `isColdStart` and `refetch` re-runs.
+11. **Tests** (`lib/api-client.test.ts`, `lib/use-api.test.tsx`) with `global.fetch` mocked: success unwrap; 4xx settles with the server's `code` and does not retry; 429 settles with no retry and fires `onRateLimited` once; 5xx on a `GET` retries twice then fails, firing `onColdStart` exactly once; 5xx and connection failure on a `POST` settle without retry unless `isIdempotent`; `204` returns `undefined`; malformed body yields `MALFORMED_RESPONSE`; each of 401, 403 `CONSENT_REQUIRED` and 403 `FORBIDDEN` fires exactly its own listener; the auth-header provider's headers are sent and no `Origin` header is; a timeout produces `NETWORK_ERROR`; `parseWith` failure yields `MALFORMED_RESPONSE`; `useApi` exposes `isColdStart` and `refetch` re-runs.
 
 ## Technical Approach & Suggestions
 
@@ -90,14 +88,11 @@ export interface ApiFetchInit extends RequestInit {
   parseWith?: { safeParse: (value: unknown) => { success: boolean } };
 }
 
-// 4. Three more listener sets beside web's onUnauthorized / onConsentRequired,
+// 4. Two more listener sets beside web's onUnauthorized / onConsentRequired,
 //    dispatched from the same place once a response settles.
 export function onForbidden(listener: () => void): () => void { /* … */ }
-export function onScreenTimeLocked(listener: (details: ScreenTimeLockDetails) => void): () => void { /* … */ }
 export function onRateLimited(listener: () => void): () => void { /* … */ }
 ```
-
-`ScreenTimeLockDetails` is `{ minutesToday, dailyLimitMinutes, windowStart, windowEnd }`. `details` is `unknown` on the wire, so parse it with a small Zod schema (add it to `packages/types/src/api/screen-time.ts` if no exported schema covers it yet) — a 423 decides what the child sees, which makes it a gate decision under requirement 6.
 
 The request itself, with the two additions folded in:
 
@@ -155,7 +150,7 @@ Test the retry timing with Jest's fake timers rather than real 1.5s/4s waits, or
 
 1. Read `apps/web/shared/api/api-client.ts` end to end. Copy it into `apps/mobile/lib/api-client.ts` and get `pnpm --filter mobile typecheck` green with no behaviour changes. (~25 min)
 2. Write the failing tests for the ported behaviour (success, 4xx/429 no-retry, 5xx retry + single `onColdStart`, `POST` no-retry, `204`, malformed body, `onUnauthorized`/`onConsentRequired`) and make them pass. (~40 min)
-2a. Add `onForbidden`, `onScreenTimeLocked` (with the `details` schema) and `onRateLimited`; test each fires alone. (~30 min)
+2a. Add `onForbidden` and `onRateLimited`; test each fires alone. (~30 min)
 3. Add `setAuthHeaderProvider` and the header merge; test that provided headers are sent and that the default provider changes nothing. (~20 min)
 4. Confirm the ported timeout works on Hermes (no `AbortSignal.timeout`/`any`); test that a never-resolving fetch produces `NETWORK_ERROR` under fake timers. (~15 min)
 5. Add `lib/network.ts` (NetInfo) and make the offline message branch; test both messages. (~25 min)
@@ -169,7 +164,7 @@ Test the retry timing with Jest's fake timers rather than real 1.5s/4s waits, or
 
 - [ ] `apiFetch` returns the same `ApiResult` shape and the same `ApiFailure` codes as `apps/web/shared/api/api-client.ts` for equivalent inputs — including `NETWORK_ERROR` and `MALFORMED_RESPONSE` as client-only codes.
 - [ ] 5xx and connection failures on idempotent requests retry with `[1500, 4000]` backoff and fire `onColdStart` exactly once; a `POST` never retries without `isIdempotent`; no 4xx retries, 429 included.
-- [ ] 401, 403 `CONSENT_REQUIRED`, other 403s, 423 (with typed `details`) and 429 each reach exactly one global listener; no screen handles them itself.
+- [ ] 401, 403 `CONSENT_REQUIRED`, other 403s and 429 each reach exactly one global listener; no screen handles them itself.
 - [ ] On a physical Android **and** iOS device, an unauthenticated write returns `401`, not the cross-origin `403` — native requests carry no `Origin`.
 - [ ] A `204` response yields `{ ok: true, data: undefined }`; a non-envelope body yields `MALFORMED_RESPONSE`.
 - [ ] A request that never answers aborts at the timeout and surfaces `NETWORK_ERROR` — no screen can hang indefinitely.
@@ -182,7 +177,7 @@ Test the retry timing with Jest's fake timers rather than real 1.5s/4s waits, or
 
 ## Out of Scope
 
-- Attaching the actual session cookie — M07 registers the provider this file defines. Wiring the listeners to navigation — M07 (401, 403s), M08 (consent), M25 (423).
+- Attaching the actual session cookie — M07 registers the provider this file defines. Wiring the listeners to navigation — M07 (401, 403s), M08 (consent).
 - Per-resource API modules (`children-api`, `content-api`, …). Each arrives with the screen that needs it, mirroring how the per-feature `*-api.ts` files under `apps/web/features/` grew.
 - Request caching, deduplication or a data-fetching library (React Query / SWR). `useApi` plus the server's own caching is enough at MVP; adding a cache layer before there is a measured problem buys complexity, not speed.
 - Offline queueing of writes. Out of scope for the whole project per `document/mobile-app-plan.md` §3.2.

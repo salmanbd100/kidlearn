@@ -4,7 +4,10 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { auth } from "../../config/auth.js";
 import { prisma } from "../../config/prisma.js";
 import type { SuccessEnvelope } from "../../shared/errors/errors.js";
-import { isAdminSessionExpired } from "../../shared/middleware/require-admin.js";
+import {
+  hasNonCredentialAccount,
+  isAdminSessionExpired,
+} from "../../shared/middleware/require-admin.js";
 import { ContentIdParamsSchema } from "./content.schema.js";
 import { getLessonForPreview, type LessonDetail } from "./content.service.js";
 
@@ -52,6 +55,8 @@ async function findAdminForSession(req: Request) {
   if (!authenticated || isAdminSessionExpired(authenticated.session)) {
     return null;
   }
+  // Same rule as `requireAdmin`: a linked Google account means the password was not needed to get here.
+  if (await hasNonCredentialAccount(authenticated.user.id)) return null;
 
   return prisma.adminUser.findUnique({
     where: { authUserId: authenticated.user.id },

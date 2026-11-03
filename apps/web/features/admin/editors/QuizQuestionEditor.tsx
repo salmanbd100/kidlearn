@@ -310,7 +310,7 @@ export function QuizQuestionEditor({
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isBusy || !parsed.success}>
+          <Button type="submit" disabled={!parsed.success} isLoading={isBusy}>
             Save question
           </Button>
         </div>

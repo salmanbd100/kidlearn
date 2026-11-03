@@ -74,7 +74,8 @@ export function GenerateNarrationButton({
     <Button
       type="button"
       variant="outline"
-      disabled={isBusy || isGenerating}
+      disabled={isBusy}
+      isLoading={isGenerating}
       onClick={() => void handleClick()}
     >
       {isGenerating ? "Recording — this takes a while…" : "Generate narration"}

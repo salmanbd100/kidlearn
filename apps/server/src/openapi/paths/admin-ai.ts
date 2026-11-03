@@ -1,7 +1,13 @@
-import type { AIJobStatus, AIJobType, AIReviewDecision } from "@kidlearn/db";
+import type {
+  AIJobSource,
+  AIJobStatus,
+  AIJobType,
+  AIReviewDecision,
+} from "@kidlearn/db";
 import {
   AI_JOB_STATUSES,
   AI_JOB_TYPES,
+  type AiJobSource,
   type AiJobStatus,
   type AiJobType,
   type AiReviewDecision,
@@ -26,7 +32,11 @@ type _JobEnumsAgree = AIJobType extends AiJobType
       ? AiJobStatus extends AIJobStatus
         ? AIReviewDecision extends AiReviewDecision
           ? AiReviewDecision extends AIReviewDecision
-            ? true
+            ? AIJobSource extends AiJobSource
+              ? AiJobSource extends AIJobSource
+                ? true
+                : never
+              : never
             : never
           : never
         : never
@@ -117,9 +127,15 @@ const RATE_LIMITED_RESPONSE = errorResponse(
     "",
     "**A batch is refused whole rather than started and truncated.** Sixteen clips with three left in the budget is not thirteen clips of progress; it is a story narrated on five pages and silent on three, which has already been paid for and still has to be finished tomorrow.",
     "",
-    "Counted deployment-wide, not per administrator: the free tier being protected is shared.",
+    "Counted deployment-wide, not per administrator: the free tier being protected is shared. Drafts an admin's own assistant submits over `POST /mcp` are not counted here — they spend no Gemini quota and have their own per-admin cap, `MCP_DRAFTS_PER_DAY`.",
   ].join("\n"),
   ["RATE_LIMITED"],
+);
+
+/** The `503` the four Gemini-backed operations share; narration runs on Cloud TTS and never answers it. */
+const PROVIDER_NOT_CONFIGURED_RESPONSE = errorResponse(
+  "`GEMINI_API_KEY` is not set on this deployment, so there is no model to call (FR-AI-10). Checked before the daily cap, so it never spends one. Author the content with your own AI assistant over MCP instead — `GET /api/admin/ai/capabilities` says whether that is enabled.",
+  ["AI_PROVIDER_NOT_CONFIGURED"],
 );
 
 const GENERATE_LESSON_DESCRIPTION = [
@@ -218,6 +234,31 @@ const GENERATE_ILLUSTRATIONS_DESCRIPTION = [
 
 export const ADMIN_AI_ROUTES: RouteDoc[] = [
   {
+    method: "get",
+    path: "/api/admin/ai/capabilities",
+    operation: {
+      operationId: "getAiCapabilities",
+      tags: ["Admin AI"],
+      summary: "What this deployment can generate",
+      description: [
+        "Which generation paths are configured, so the CMS hides a Generate button that would only answer `503` (FR-AI-10).",
+        "",
+        "**`geminiText` and `geminiImage` both follow `GEMINI_API_KEY`**; they are separate fields because a deployment may one day keep the key for illustrations alone. **`narration` follows Cloud TTS's own key**, not Gemini's. **`mcp`** says whether `/mcp` is mounted, the URL to configure an assistant with, and the per-admin daily draft cap; `oauth` stays `false` until connector sign-in for ChatGPT and claude.ai ships.",
+        "",
+        "Reads configuration only — no database, no provider call.",
+      ].join("\n"),
+      responses: {
+        "200": jsonResponse(
+          "The configured generation paths.",
+          "AiCapabilitiesResponse",
+        ),
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ADMIN_FORBIDDEN_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
     method: "post",
     path: "/api/admin/ai/generate/lesson",
     operation: {
@@ -243,6 +284,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
           ["CONFLICT"],
         ),
         "429": RATE_LIMITED_RESPONSE,
+        "503": PROVIDER_NOT_CONFIGURED_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -266,6 +308,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
         "403": ADMIN_FORBIDDEN_RESPONSE,
         "404": errorResponse("No such world.", ["NOT_FOUND"]),
         "429": RATE_LIMITED_RESPONSE,
+        "503": PROVIDER_NOT_CONFIGURED_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -293,6 +336,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
           ["CONFLICT"],
         ),
         "429": RATE_LIMITED_RESPONSE,
+        "503": PROVIDER_NOT_CONFIGURED_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },
@@ -341,6 +385,7 @@ export const ADMIN_AI_ROUTES: RouteDoc[] = [
         "403": ADMIN_FORBIDDEN_RESPONSE,
         "404": errorResponse("No story with that id.", ["NOT_FOUND"]),
         "429": RATE_LIMITED_RESPONSE,
+        "503": PROVIDER_NOT_CONFIGURED_RESPONSE,
         "500": INTERNAL_RESPONSE,
       },
     },

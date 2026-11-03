@@ -68,7 +68,7 @@ function StoriesContent({ onRetry }: { onRetry: () => void }) {
       </h1>
 
       {status === "loading" ? (
-        <StudentStatus tone="status">
+        <StudentStatus tone="loading">
           {isWakingUp ? t("status.waking") : t("selectProfile.loading")}
         </StudentStatus>
       ) : status === "error" ? (

@@ -1,6 +1,7 @@
 import { Check, Image, Mic, Video } from "lucide-react";
 import { CopyBlock } from "./CopyBlock";
 import { GuideCallout } from "./GuideCallout";
+import { type GuideStep, GuideSteps } from "./GuideSteps";
 
 const COMPARISON: { task: string; withGemini: string; without: string }[] = [
   {
@@ -26,7 +27,7 @@ const COMPARISON: { task: string; withGemini: string; without: string }[] = [
   },
 ];
 
-const STEPS: { title: string; body: string }[] = [
+const STEPS: GuideStep[] = [
   {
     title: "Ask your tool for the CMS's shape",
     body: "ChatGPT, Claude, a teacher's worksheet, a textbook you have rights to — anything. The prompt below maps straight onto the forms.",
@@ -150,25 +151,7 @@ export function WithoutGemini() {
         <h3 className="font-semibold text-base text-foreground">
           Using content written elsewhere
         </h3>
-        <ol className="flex flex-col gap-3">
-          {STEPS.map((step, index) => (
-            <li key={step.title}>
-              <div className="flex gap-3">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground text-xs">
-                  {index + 1}
-                </span>
-                <span className="flex flex-col gap-0.5 pt-0.5">
-                  <span className="font-medium text-foreground text-sm">
-                    {step.title}
-                  </span>
-                  <span className="max-w-prose text-muted-foreground text-sm">
-                    {step.body}
-                  </span>
-                </span>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <GuideSteps steps={STEPS} />
       </div>
 
       <CopyBlock label="Prompt for an external AI tool" text={PROMPT} />

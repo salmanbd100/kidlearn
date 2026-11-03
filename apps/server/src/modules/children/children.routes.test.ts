@@ -1301,7 +1301,7 @@ describe("cascade-delete contract", () => {
       .split("\n")
       .filter((line) => /^\s*child\s+ChildProfile\b/.test(line));
 
-    expect(relations).toHaveLength(8);
+    expect(relations).toHaveLength(7);
     for (const relation of relations) {
       expect(relation).toContain("onDelete: Cascade");
     }

@@ -1,9 +1,11 @@
 import type {
+  AiCapabilities,
   AiJobCount,
   BatchGenerationRef,
   GenerationJobRef,
 } from "@kidlearn/types";
 import { type Request, Router } from "express";
+import { env } from "../../../config/env.js";
 import type { SuccessEnvelope } from "../../../shared/errors/errors.js";
 import { adminContext } from "../../../shared/middleware/require-admin.js";
 import {
@@ -21,11 +23,13 @@ import {
   GenerateStorySchema,
   RejectJobSchema,
 } from "../admin-ai.schema.js";
+import { readCapabilities } from "./capabilities.js";
 import { generateIllustrationBatch } from "./generators/illustration.js";
 import { generateLesson } from "./generators/lesson.js";
 import { generateNarrationBatch } from "./generators/narration.js";
 import { generateQuiz } from "./generators/quiz.js";
 import { generateStory } from "./generators/story.js";
+import { requireGemini } from "./require-gemini.middleware.js";
 import { requireGenerationBudget } from "./require-generation-budget.middleware.js";
 import { approveJob, rejectJob } from "./review/decide.js";
 import type {
@@ -37,13 +41,23 @@ import { countAwaitingReview, getJob, listJobs } from "./review/queue.js";
 
 export const adminAiRouter = Router();
 
+adminAiRouter.get("/capabilities", (_req, res) => {
+  const payload: SuccessEnvelope<AiCapabilities> = {
+    data: readCapabilities(env),
+  };
+  res.json(payload);
+});
+
 adminAiRouter.post(
   "/generate/lesson",
+  requireGemini,
   requireGenerationBudget("lesson"),
   validate({ body: GenerateLessonSchema }),
   async (req, res, next) => {
     try {
-      const result = await generateLesson(req.body);
+      const result = await generateLesson(req.body, {
+        requestedById: adminContext(req).id,
+      });
 
       const payload: SuccessEnvelope<GenerationJobRef> = { data: result };
       res.status(202).json(payload);
@@ -55,11 +69,14 @@ adminAiRouter.post(
 
 adminAiRouter.post(
   "/generate/story",
+  requireGemini,
   requireGenerationBudget("story"),
   validate({ body: GenerateStorySchema }),
   async (req, res, next) => {
     try {
-      const result = await generateStory(req.body);
+      const result = await generateStory(req.body, {
+        requestedById: adminContext(req).id,
+      });
 
       const payload: SuccessEnvelope<GenerationJobRef> = { data: result };
       res.status(202).json(payload);
@@ -71,11 +88,14 @@ adminAiRouter.post(
 
 adminAiRouter.post(
   "/generate/quiz",
+  requireGemini,
   requireGenerationBudget("quiz"),
   validate({ body: GenerateQuizSchema }),
   async (req, res, next) => {
     try {
-      const result = await generateQuiz(req.body);
+      const result = await generateQuiz(req.body, {
+        requestedById: adminContext(req).id,
+      });
 
       const payload: SuccessEnvelope<GenerationJobRef> = { data: result };
       res.status(202).json(payload);
@@ -91,7 +111,9 @@ adminAiRouter.post(
   validate({ body: GenerateNarrationSchema }),
   async (req, res, next) => {
     try {
-      const result = await generateNarrationBatch(req.body);
+      const result = await generateNarrationBatch(req.body, {
+        requestedById: adminContext(req).id,
+      });
 
       const payload: SuccessEnvelope<BatchGenerationRef> = { data: result };
       res.status(202).json(payload);
@@ -103,11 +125,14 @@ adminAiRouter.post(
 
 adminAiRouter.post(
   "/generate/illustrations",
+  requireGemini,
   requireGenerationBudget("image"),
   validate({ body: GenerateIllustrationsSchema }),
   async (req, res, next) => {
     try {
-      const result = await generateIllustrationBatch(req.body);
+      const result = await generateIllustrationBatch(req.body, {
+        requestedById: adminContext(req).id,
+      });
 
       const payload: SuccessEnvelope<BatchGenerationRef> = { data: result };
       res.status(202).json(payload);

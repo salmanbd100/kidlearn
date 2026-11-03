@@ -15,7 +15,7 @@ const REGIONS: { id: RegionId; title: string; body: string }[] = [
   {
     id: "header",
     title: "Header actions",
-    body: "How this works opens this guide. Show archived reveals retired rows. Refresh reloads the tree when someone else is editing. Generate lesson asks Gemini for a draft.",
+    body: "How this works opens this guide. Show archived reveals retired rows. Refresh reloads the tree when someone else is editing. Generate lesson asks Gemini for a draft; on a server without the Gemini key it becomes Write with your AI assistant.",
   },
   {
     id: "cascade",

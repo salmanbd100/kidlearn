@@ -1,5 +1,6 @@
 import type { GoogleGenAI, SafetySetting } from "@google/genai";
 import { env } from "../../../config/env.js";
+import { geminiNotConfigured } from "./require-gemini.middleware.js";
 
 // Bound a provider call: a hung connection holds the admin's request and job row open until the proxy
 // gives up and the admin retries into a second job.
@@ -20,11 +21,15 @@ export const CHILD_SAFETY_SETTINGS = [
 let clientPromise: Promise<GoogleGenAI> | undefined;
 
 export function getClient(): Promise<GoogleGenAI> {
+  const apiKey = env.GEMINI_API_KEY;
+  // The routes refuse first; this catches a caller that reaches the provider some other way.
+  if (apiKey === undefined) return Promise.reject(geminiNotConfigured());
+
   clientPromise ??= import("@google/genai")
     .then(
       ({ GoogleGenAI }) =>
         new GoogleGenAI({
-          apiKey: env.GEMINI_API_KEY,
+          apiKey,
           httpOptions: { timeout: PROVIDER_TIMEOUT_MS },
         }),
     )

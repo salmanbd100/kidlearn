@@ -178,9 +178,8 @@ export function ContentForm({
         </Button>
         <Button
           type="submit"
-          disabled={
-            isBusy || (HAS_GRADES[resource] && gradeLevels.length === 0)
-          }
+          disabled={HAS_GRADES[resource] && gradeLevels.length === 0}
+          isLoading={isBusy}
         >
           {isEditing ? "Save" : "Create draft"}
         </Button>

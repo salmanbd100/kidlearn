@@ -5,6 +5,7 @@ import { Fredoka, Inter, Noto_Sans_Bengali, Nunito } from "next/font/google";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { Providers } from "@/shared/components/Providers";
+import { WebAnalytics } from "@/shared/components/WebAnalytics";
 import { LOCALE_COOKIE_NAME } from "@/shared/lib/locale";
 import "./globals.css";
 
@@ -83,6 +84,7 @@ export default async function RootLayout({
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a fixed, build-time string with no interpolated input — the only way to run before paint. */}
         <script dangerouslySetInnerHTML={{ __html: A11Y_BOOTSTRAP_SCRIPT }} />
         <Providers locale={locale}>{children}</Providers>
+        <WebAnalytics />
       </body>
     </html>
   );

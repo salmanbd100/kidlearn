@@ -13,7 +13,6 @@ const STUDENT_SURFACES = [
   "features/activities",
   "features/lesson",
   "features/quiz",
-  "features/screen-time",
   "features/stories",
   "features/student",
 ];

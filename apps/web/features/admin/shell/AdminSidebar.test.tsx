@@ -4,7 +4,7 @@ import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { AdminSidebar } from "./AdminSidebar";
 
 describe("AdminSidebar", () => {
-  it("renders exactly the seven CMS sections, in order", () => {
+  it("renders exactly the eight CMS sections, in order", () => {
     render(<AdminSidebar pathname={ADMIN_ROUTES.analytics} />);
 
     const links = screen.getAllByRole("link");
@@ -14,6 +14,7 @@ describe("AdminSidebar", () => {
       "Media",
       "Badges",
       "AI Queue",
+      "AI assistants",
       "Analytics",
       "Curriculum guide",
     ]);

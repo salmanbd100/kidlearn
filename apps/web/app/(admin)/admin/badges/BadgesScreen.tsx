@@ -23,6 +23,7 @@ import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
 import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { StatusChip } from "@/features/admin/ui/StatusChip";
+import { LoadingState } from "@/shared/components/LoadingState";
 import { BadgeForm } from "./BadgeForm";
 
 type DialogState =
@@ -181,7 +182,7 @@ export function BadgesScreen() {
       ) : null}
 
       {status === "loading" ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <LoadingState label="Loading…" />
       ) : badges.length === 0 ? (
         <AdminEmptyState
           icon={Award}

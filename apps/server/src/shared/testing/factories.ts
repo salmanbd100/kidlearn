@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
+  AdminUser,
   ChildProfile,
   ContentStatus,
   Lesson,
@@ -126,4 +127,30 @@ export async function createCurriculum(
     },
   });
   return { world, subject, topic, lesson };
+}
+
+/** An `AdminUser` row with no better-auth user behind it: enough for anything keyed by admin id. */
+export async function createAdmin(
+  overrides: Partial<Prisma.AdminUserUncheckedCreateInput> = {},
+): Promise<AdminUser> {
+  const suffix = unique();
+  return prisma.adminUser.create({
+    data: {
+      email: `admin-${suffix}@example.test`,
+      name: "Test Admin",
+      ...overrides,
+    },
+  });
+}
+
+/** An admin who can sign in: a better-auth user behind the `AdminUser`, with no Google account linked. */
+export async function createSignedInAdmin(
+  overrides: Partial<Prisma.AdminUserUncheckedCreateInput> = {},
+): Promise<AdminUser> {
+  const suffix = unique();
+  const email = overrides.email ?? `admin-${suffix}@example.test`;
+  const user = await prisma.user.create({
+    data: { id: `admin-user-${suffix}`, name: "Test Admin", email },
+  });
+  return createAdmin({ email, ...overrides, authUserId: user.id });
 }

@@ -16,7 +16,8 @@
 # they differ. That is the property that stops them drifting apart.
 #
 # NOTHING HERE PUBLISHES A HOST PORT. Only Caddy binds 80 and 443 — `ss -tlnp` on
-# the box should show nothing else.
+# the box should show no other container port (sshd on 22 is the OS's own, and
+# the security group closes it).
 
 services:
   api:
@@ -51,9 +52,16 @@ services:
       # Dev must not be able to spend production's share of the SHARED Google
       # Cloud TTS allowance — the one third-party account the two environments
       # have in common (file 38 req 15).
+      # Production's ceilings; deploy.sh writes lower ones for dev. env.ts's own
+      # defaults (3 / 100 / 15) are for a laptop and never apply here.
       AI_TEXT_JOBS_PER_DAY: ${AI_TEXT_JOBS_PER_DAY:-8}
       AI_AUDIO_JOBS_PER_DAY: ${AI_AUDIO_JOBS_PER_DAY:-100}
       AI_IMAGE_JOBS_PER_DAY: ${AI_IMAGE_JOBS_PER_DAY:-15}
+      # File 41's MCP_ENABLED, MCP_DRAFTS_PER_DAY and MCP_RATE_LIMIT_PER_MINUTE
+      # are deliberately NOT listed here. `environment:` beats `env_file:`, and
+      # deploy.sh rewrites compose.env from a fixed list on every deploy, so a
+      # key named here could never be turned on. Set them as SSM parameters;
+      # unset, config/env.ts defaults to off / 30 / 60.
     networks:
       kidlearn-edge:
         # The alias the Caddyfile names. NOT the service name: both stacks call

@@ -11,6 +11,7 @@ import {
   buildStoryGenerationOutputSchema,
   type StoryGenerationOutput,
 } from "../schemas/story.js";
+import type { GenerationContext } from "../types.js";
 
 export const DEFAULT_PAGE_COUNT = 7;
 
@@ -27,9 +28,17 @@ export interface GenerateStoryResult {
   status: "awaiting_review" | "failed";
 }
 
-export async function generateStory(
+export interface PreparedStory {
+  worldId: string;
+  worldName: string;
+  worldSlug: string;
+  pageCount: number;
+  jobInput: Prisma.JsonObject;
+}
+
+export async function prepareStory(
   input: GenerateStoryInput,
-): Promise<GenerateStoryResult> {
+): Promise<PreparedStory> {
   const world = await prisma.world.findUnique({
     where: { id: input.worldId },
     select: { id: true, name: true, slug: true },
@@ -37,29 +46,50 @@ export async function generateStory(
   if (!world) throw ApiError.notFound("No such world");
 
   const pageCount = input.pageCount ?? DEFAULT_PAGE_COUNT;
-  const schema = buildStoryGenerationOutputSchema({
-    languages: input.languages,
-    pageCount,
-  });
-  const userPrompt = buildStoryUserPrompt({
-    gradeLevels: input.gradeLevels,
-    theme: input.theme,
+
+  return {
+    worldId: world.id,
     worldName: world.name,
     worldSlug: world.slug,
-    languages: input.languages,
     pageCount,
-  });
-
-  return runGenerationJob<StoryGenerationOutput>({
-    type: "story",
-    // Params and resolved prompt: the prompt builder will have changed by the time a reviewer reads this.
-    input: {
+    jobInput: {
       gradeLevels: input.gradeLevels,
       theme: input.theme,
       worldId: world.id,
       worldName: world.name,
       languages: input.languages,
       pageCount,
+    },
+  };
+}
+
+export async function generateStory(
+  input: GenerateStoryInput,
+  context: GenerationContext = {},
+): Promise<GenerateStoryResult> {
+  const prepared = await prepareStory(input);
+
+  const schema = buildStoryGenerationOutputSchema({
+    languages: input.languages,
+    pageCount: prepared.pageCount,
+  });
+  const userPrompt = buildStoryUserPrompt({
+    gradeLevels: input.gradeLevels,
+    theme: input.theme,
+    worldName: prepared.worldName,
+    worldSlug: prepared.worldSlug,
+    languages: input.languages,
+    pageCount: prepared.pageCount,
+  });
+
+  return runGenerationJob<StoryGenerationOutput>({
+    type: "story",
+    ...(context.requestedById === undefined
+      ? {}
+      : { requestedById: context.requestedById }),
+    // Params and resolved prompt: the prompt builder will have changed by the time a reviewer reads this.
+    input: {
+      ...prepared.jobInput,
       systemPrompt: KIDLEARN_SYSTEM_PROMPT,
       userPrompt,
     },
@@ -78,11 +108,11 @@ export async function generateStory(
         outputSchema: schema,
       }),
     persist: (parsed, jobId, tx) =>
-      persistStory({ input, parsed, jobId, tx, worldId: world.id }),
+      persistStory({ input, parsed, jobId, tx, worldId: prepared.worldId }),
   });
 }
 
-async function persistStory({
+export async function persistStory({
   input,
   parsed,
   jobId,

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
+import { LoadingState } from "@/shared/components/LoadingState";
 import { useAdminSession } from "./context/admin-session";
 
 export function AdminGuard({ children }: { children: ReactNode }) {
@@ -18,11 +19,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   }, [shouldRedirect, router]);
 
   if (status === "loading") {
-    return (
-      <p role="status" className="p-6 text-muted-foreground text-sm">
-        Loading…
-      </p>
-    );
+    return <LoadingState label="Loading…" />;
   }
 
   if (status === "error") {

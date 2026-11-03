@@ -179,11 +179,12 @@ export function UploadDialog({
       <DialogFooter className="border-border border-t pt-4">
         <Button
           type="button"
-          disabled={file === undefined || isBusy}
+          disabled={file === undefined}
+          isLoading={isBusy}
           onClick={() => void handleUpload()}
         >
-          <Upload aria-hidden="true" className="size-4!" />
-          {isBusy ? "Uploading…" : "Upload"}
+          {isBusy ? null : <Upload aria-hidden="true" className="size-4!" />}
+          Upload
         </Button>
       </DialogFooter>
     </div>

@@ -11,7 +11,7 @@ Cross from the parent side into the child side: a big, wordless-enough profile p
 
 ## Context & Current State
 
-- `POST /api/children/:id/activate` sets `activeChildProfileId` on the session. It is the **only** writer of that field (`input: false` in `apps/server/src/config/auth.ts`), and `requireActiveChild` gates every student-facing route (`/api/content/*`, `/api/progress/*`, `/api/events/*`, `/api/me/*`, `/api/screen-time/*`; mounted in `apps/server/src/modules/index.ts`). Without one they answer `403 FORBIDDEN` "No active child profile" — also when the active profile was deleted or belongs to another parent. The guard exists to make that unreachable; M04's `onForbidden` is the backstop (re-read `/api/auth/me`, and the guard routes to the picker).
+- `POST /api/children/:id/activate` sets `activeChildProfileId` on the session. It is the **only** writer of that field (`input: false` in `apps/server/src/config/auth.ts`), and `requireActiveChild` gates every student-facing route (`/api/content/*`, `/api/progress/*`, `/api/events/*`, `/api/me/*`; mounted in `apps/server/src/modules/index.ts`). Without one they answer `403 FORBIDDEN` "No active child profile" — also when the active profile was deleted or belongs to another parent. The guard exists to make that unreachable; M04's `onForbidden` is the backstop (re-read `/api/auth/me`, and the guard routes to the picker).
 - Activation itself is not consent-gated, but `/api/progress/*` and `/api/events/*` are, so a child playing without current consent fails on the first write. That is why the guard checks consent **before** the picker.
 - `GET /api/children` returns the list, so the picker works on the signed-in session alone. Switching children is a child-initiated action; nothing sits in front of profile selection.
 - `apps/web/features/children/active-child.tsx` and `apps/web/app/(student)/select-profile/SelectProfileScreen.tsx` are the references: statuses `"loading" | "ready" | "signedOut" | "error"`, provider + `useActiveChild()` exposing `{ status, parent, profiles, avatars, child, isWakingUp, activate, refresh }`. `status: "ready"` means *loaded*, not *has a child* — `child` is `undefined` until one is picked. The web provider subscribes to `onUnauthorized` and `onConsentRequired` (the latter flips `parent.hasCurrentConsent` to `false`). Reuse the vocabulary; M07's `AuthProvider` already does.
@@ -135,7 +135,6 @@ Place the grid in the lower two-thirds of the screen (design.md §6, thumb zone)
 
 - The home screen itself — M11.
 - Voice-over narration of the picker's copy — M14 (the translation keys are in place for it).
-- Screen-time gating of the picker. The gate belongs on *starting content* (`enforceScreenTime` is mounted on the lesson and story detail reads only — `GET /api/content/lessons/:id`, `GET /api/content/stories/:id`). M25 adds the friendly lock screen where it belongs.
 - Child-switching restrictions. Not in the spec.
 - A PIN or any adult gate on `ParentCorner` — FR-AUTH-04 is retired. The Apple Kids Category parental gate is M30's single adult-verification item, needed only once an external link or purchase ships.
 - Avatar animation. M21 owns kid delight; the picker stays calm and fast.

@@ -8,6 +8,8 @@ export const SITE_ROUTES = {
 
 export const REPO_URL = "https://github.com/salmanbd100/kidlearn";
 
+export const CREATOR_URL = "https://www.salmanrahman.com/";
+
 /** `path` is relative to `document/`, optionally with a `#anchor`. */
 export function REPO_DOC_URL(path: string): string {
   return `${REPO_URL}/blob/main/document/${path}`;

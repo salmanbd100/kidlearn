@@ -99,7 +99,13 @@ export function ConsentScreen() {
           </p>
         ) : null}
 
-        <Button type="submit" size="lg" disabled={!isAccepted || isSubmitting}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={!isAccepted}
+          isLoading={isSubmitting}
+          loadingLabel={t("form.saving")}
+        >
           {t("consent.submit")}
         </Button>
       </form>

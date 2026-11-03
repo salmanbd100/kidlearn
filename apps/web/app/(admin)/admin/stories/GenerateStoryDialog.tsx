@@ -295,8 +295,10 @@ export function GenerateStoryDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isBusy || !canSubmit}>
-              <Sparkles aria-hidden="true" className="size-4!" />
+            <Button type="submit" disabled={!canSubmit} isLoading={isBusy}>
+              {isBusy ? null : (
+                <Sparkles aria-hidden="true" className="size-4!" />
+              )}
               {isBusy ? "Writing — this takes a moment…" : "Generate draft"}
             </Button>
           </DialogFooter>

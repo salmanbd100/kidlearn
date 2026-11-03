@@ -1,10 +1,20 @@
 import {
   errorResponse,
   INTERNAL_RESPONSE,
+  jsonRequestBody,
   jsonResponse,
   UNAUTHORIZED_RESPONSE,
+  VALIDATION_RESPONSE,
 } from "../components.js";
-import type { RouteDoc } from "../route-doc.js";
+import { pathParam, type RouteDoc } from "../route-doc.js";
+
+const ACCESS_TOKEN_FORBIDDEN_RESPONSE = errorResponse(
+  "Authenticated, but not as an administrator — or as one with a linked Google account. Tokens are minted from a password session only.",
+  ["FORBIDDEN"],
+);
+
+const ACCESS_TOKENS_INTRO =
+  "Admin access tokens are the credential an AI assistant uses for `POST /mcp` (file 41, FR-AI-10). Mounted only when `MCP_ENABLED=true`. Each admin sees and revokes only their own.";
 
 export const ADMIN_ROUTES: RouteDoc[] = [
   {
@@ -66,6 +76,86 @@ export const ADMIN_ROUTES: RouteDoc[] = [
         "403": errorResponse(
           "Authenticated, but not an administrator. See `GET /api/admin/me`.",
           ["FORBIDDEN"],
+        ),
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/admin/access-tokens",
+    operation: {
+      operationId: "listAdminAccessTokens",
+      tags: ["MCP"],
+      summary: "List your access tokens",
+      description: [
+        ACCESS_TOKENS_INTRO,
+        "",
+        "Newest first, revoked and expired ones included so the history of what was issued stays visible. Never the secret: `prefix` is the first characters of it, enough to tell two tokens apart. `lastUsedAt` is updated at most every five minutes.",
+      ].join("\n"),
+      responses: {
+        "200": jsonResponse(
+          "The caller's tokens.",
+          "AdminAccessTokenListResponse",
+        ),
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ACCESS_TOKEN_FORBIDDEN_RESPONSE,
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/admin/access-tokens",
+    operation: {
+      operationId: "createAdminAccessToken",
+      tags: ["MCP"],
+      summary: "Create an access token",
+      description: [
+        ACCESS_TOKENS_INTRO,
+        "",
+        "**The response carries the secret once.** Only its SHA-256 is stored, so it cannot be shown again — lose it and create another. Sent with `Cache-Control: no-store`.",
+        "",
+        "**Lifetime: 7 days by default, 30 at most — longer than the 12-hour admin session, deliberately.** An assistant's configuration is pasted once, and a token can do far less than a session: read curriculum names and create drafts for review, nothing under `/api`, no approval, no publishing, no parent or child data. Every `/mcp` call re-checks that the token is unrevoked and unexpired and that its admin still exists and has no linked Google account.",
+      ].join("\n"),
+      requestBody: jsonRequestBody("AdminAccessTokenCreateBody"),
+      responses: {
+        "201": jsonResponse(
+          "The token, and its secret in `secret` — the only time the secret is sent.",
+          "CreatedAdminAccessTokenResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ACCESS_TOKEN_FORBIDDEN_RESPONSE,
+        "409": errorResponse(
+          "The caller already holds `MAX_ACTIVE_ACCESS_TOKENS` (10) unrevoked, unexpired tokens. Revoke one first.",
+          ["CONFLICT"],
+        ),
+        "500": INTERNAL_RESPONSE,
+      },
+    },
+  },
+  {
+    method: "delete",
+    path: "/api/admin/access-tokens/{id}",
+    operation: {
+      operationId: "revokeAdminAccessToken",
+      tags: ["MCP"],
+      summary: "Revoke an access token",
+      description:
+        "Stops the token working on the next `/mcp` call. The row is kept with `revokedAt` set, so the list still shows what was issued. Revoking a revoked token answers `200` with it unchanged.",
+      parameters: [pathParam("id", "`AdminAccessToken.id`.")],
+      responses: {
+        "200": jsonResponse(
+          "The token as it now stands.",
+          "AdminAccessTokenResponse",
+        ),
+        "400": VALIDATION_RESPONSE,
+        "401": UNAUTHORIZED_RESPONSE,
+        "403": ACCESS_TOKEN_FORBIDDEN_RESPONSE,
+        "404": errorResponse(
+          "No token with that id belongs to the caller. Another admin's token is a `404` too: whether a credential id exists is not something to confirm to anyone else.",
+          ["NOT_FOUND"],
         ),
         "500": INTERNAL_RESPONSE,
       },

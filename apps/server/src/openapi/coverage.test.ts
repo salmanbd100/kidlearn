@@ -1,5 +1,6 @@
 import type { Router } from "express";
 import { describe, expect, it } from "vitest";
+import { accessTokensRouter } from "../modules/admin/access-tokens/access-tokens.routes.js";
 import { adminRouter } from "../modules/admin/admin.routes.js";
 import { adminAiRouter } from "../modules/admin/ai/ai.routes.js";
 import { adminContentRouter } from "../modules/admin/content/content.routes.js";
@@ -14,10 +15,10 @@ import { eventsRouter } from "../modules/events/events.routes.js";
 import { healthRouter } from "../modules/health/health.routes.js";
 import { apiRouter } from "../modules/index.js";
 import { jobsRouter } from "../modules/jobs/jobs.routes.js";
+import { mcpRouter } from "../modules/mcp/mcp.routes.js";
 import { meRouter } from "../modules/me/me.routes.js";
 import { parentRouter } from "../modules/parent/parent.routes.js";
 import { progressRouter } from "../modules/progress/progress.routes.js";
-import { screenTimeRouter } from "../modules/screen-time/screen-time.routes.js";
 import { ROUTE_DOCS } from "./paths/index.js";
 import { toOpenApiPath } from "./route-doc.js";
 
@@ -49,11 +50,6 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
   },
   { prefix: "/api/events", router: eventsRouter, file: "paths/events.ts" },
   { prefix: "/api/me", router: meRouter, file: "paths/me.ts" },
-  {
-    prefix: "/api/screen-time",
-    router: screenTimeRouter,
-    file: "paths/screen-time.ts",
-  },
   { prefix: "/api/admin/jobs", router: jobsRouter, file: "paths/jobs.ts" },
   { prefix: "/api/admin", router: adminRouter, file: "paths/admin.ts" },
   // Nested inside `adminRouter` for its `requireAdmin` guard, listed separately for the same reason as `storiesRouter`.
@@ -78,6 +74,14 @@ const MOUNTS: Array<{ prefix: string; router: Router; file: string }> = [
     router: adminAiRouter,
     file: "paths/admin-ai.ts",
   },
+  // Mounted only when `MCP_ENABLED=true`, which `vitest.setup.ts` sets.
+  {
+    prefix: "/api/admin/access-tokens",
+    router: accessTokensRouter,
+    file: "paths/admin.ts",
+  },
+  // At the root, not under `/api`, so `EXPECTED_ROUTERS_UNDER_API` does not count it.
+  { prefix: "", router: mcpRouter, file: "paths/mcp.ts" },
 ];
 
 /** Routers reachable under `/api` at any depth, including those nested on `contentRouter` and `adminRouter`. */

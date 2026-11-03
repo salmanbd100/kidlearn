@@ -1,9 +1,8 @@
 # KidLearn — User Journey & User Manual
 
-> **Document Type:** User Journey Maps + User Manual (UX foundation)
-> **Version:** 1.0 | **Date:** June 2026
-> **Audience:** Product, design, and engineering teams.
-> **Purpose:** Describe — screen by screen, tap by tap — how the three users (Student, Parent, Admin) actually experience KidLearn. This is the reference for crafting and refining UX. The flows here are grounded in `document/project-requirement-details.md` and the `document/implementation/` specs.
+> **What this is:** screen by screen, tap by tap, how the three users — Student, Parent, Admin — experience KidLearn, with the route each screen lives at. **Read it** before changing a screen or a flow, so the change keeps the journey intact; and as a newcomer, to learn what the product does before reading its code.
+>
+> **Related:** *what* the product must do is in [`project-requirement-details.md`](./project-requirement-details.md) (the `FR-*` IDs below); *how it looks* is in [`design.md`](./design.md); route-group rules are in [`standards/frontend.md §3`](./standards/frontend.md). If a flow here and the code disagree, the code is the fact — fix this file.
 >
 > **The north star:** For the **student**, every moment must feel like play, never like a test. A 3-year-old who cannot read must be able to use the app alone, guided by voice, and *want* to come back tomorrow. This document treats the child's emotional journey as a first-class requirement, not an afterthought.
 
@@ -23,16 +22,14 @@
    - 4.6 [The reward celebration](#46-the-reward-celebration)
    - 4.7 [Badges, characters & streaks](#47-badges-characters--streaks)
    - 4.8 [Story library & reader](#48-story-library--reader)
-   - 4.9 [When time is up — kind boundaries](#49-when-time-is-up--kind-boundaries)
-   - 4.10 [Kid-UX golden rules](#410-kid-ux-golden-rules)
+   - 4.9 [Kid-UX golden rules](#49-kid-ux-golden-rules)
 5. [Parent journey](#5-parent-journey)
    - 5.1 [First-time setup](#51-first-time-setup)
    - 5.2 [Reaching the parent area](#52-reaching-the-parent-area)
    - 5.3 [Managing child profiles](#53-managing-child-profiles)
    - 5.4 [The dashboard](#54-the-dashboard)
    - 5.5 [Weekly reports](#55-weekly-reports)
-   - 5.6 [Screen-time controls](#56-screen-time-controls)
-   - 5.7 [Account & data deletion](#57-account--data-deletion)
+   - 5.6 [Account & data deletion](#56-account--data-deletion)
 6. [Admin journey](#6-admin-journey)
    - 6.1 [Login & workspace](#61-login--workspace)
    - 6.2 [Building the curriculum](#62-building-the-curriculum)
@@ -59,24 +56,27 @@
 
 | | 👧 Student (3–6) | 👩 Parent | 🛠️ Admin (internal) |
 |---|---|---|---|
-| **Goal** | Play, learn, feel proud | Watch progress, set safe limits | Produce & approve content |
+| **Goal** | Play, learn, feel proud | Watch progress, manage profiles | Produce & approve content |
 | **Reading required?** | **None** — voice-first | Yes | Yes |
 | **Enters via** | Tapping their avatar | Google sign-in | Email + password |
 | **Surface** | Immersive, gamified, world-themed | Clean dashboard behind a Google sign-in | Plain desktop CMS |
 | **Can they leave the app?** | No external links, no ads, no chat | — | — |
-| **Theme** | `data-theme="kid"` | `data-theme="parent"` | `data-theme="parent"` |
+| **Route group** | `(student)` — `/select-profile`, `/home`, `/world/…`, `/lesson/…`, `/stories/…` | `(parent)` — `/parent/…` | `(admin)` — `/admin/…` |
+| **Theme** | `kid` | `parent` | `parent` |
 
 ```mermaid
 flowchart TD
     Device([Shared family device]) --> Login{Who is using it?}
     Login -->|Child taps avatar| Student[👧 Student Portal<br/>immersive & gamified]
-    Login -->|Parent signs in| Parent[👩 Parent Dashboard<br/>progress & controls]
+    Login -->|Parent signs in| Parent[👩 Parent Dashboard<br/>progress & profiles]
     Admin[🛠️ Admin] -->|separate login| CMS[Content Management<br/>+ AI pipeline]
     CMS -.published content.-> Student
-    Parent -.creates profiles<br/>sets limits.-> Student
+    Parent -.creates profiles<br/>sets grade & language.-> Student
 ```
 
-> **Key relationship:** the parent *enables and bounds* the child's experience; the admin *fills it with content*; the child *lives in it*. The child never sees the machinery — only the adventure.
+A fourth surface, the **public site** — the homepage at `/` and the guides at `/guide/*` — is where parents and admins sign in. It is not part of the Student Portal and no student screen links to it, because it carries external links (NFR-SAFE-07).
+
+> **Key relationship:** the parent *enables and shapes* the child's experience; the admin *fills it with content*; the child *lives in it*. The child never sees the machinery — only the adventure.
 
 ---
 
@@ -97,9 +97,7 @@ flowchart LR
     PUB -->|grade + language filtered| SP
 
     PD -->|create up to 5 profiles| PROF[(Child Profiles)]
-    PD -->|daily limit + time window| LIMITS[(Screen-time rules)]
     PROF --> SP
-    LIMITS -->|gates new lessons| SP
 
     SP -->|reports events| SRV[(Server: progress,<br/>streaks, rewards,<br/>learning time)]
     SRV -->|metrics + weekly report| PD
@@ -107,7 +105,7 @@ flowchart LR
 
 **Three architectural truths that shape every journey:**
 
-1. **Server-authoritative progress.** Stars, coins, streaks, completion, and minutes are computed and validated server-side. The client only *reports* events — so a child cannot cheat and a refresh cannot bypass a time limit.
+1. **Server-authoritative progress.** Stars, coins, streaks, completion, and minutes are computed and validated server-side. The client only *reports* events — so a child cannot cheat.
 2. **Content-as-data.** Lessons, activities, quizzes, and stories are JSON payloads rendered by generic engines. New content is data, not code — which is why the admin's job is *authoring*, not *programming*.
 3. **Review-gated publishing.** Nothing reaches a child until a human approves it. The student query only ever sees `status = "published"`.
 
@@ -155,29 +153,32 @@ flowchart TD
     EN --> Home["🏠 Home screen"]
 
     Home --> Strip["Top: ⭐ stars · 🪙 coins · 🔥 streak chip"]
+    Home --> Switch["👥 Switch profile<br/>→ /select-profile"]
     Home --> Worlds["Big world cards:<br/>🌴 Jungle · 🌊 Ocean"]
-    Home --> Stories["📚 Stories tile"]
+    Home --> Stories["📚 Story time card"]
     Home --> Lock["🔒 tiny lock icon<br/>(corner, out of thumb reach)<br/>→ Parent area"]
 
-    Worlds -->|tap a world| Browse["Lesson tiles<br/>(big pictures + names)"]
-    Browse -->|tap a lesson| Lesson([5-step lesson])
+    Worlds -->|tap a world| Browse["World screen /world/:worldId<br/>lesson tiles grouped by topic"]
+    Browse -->|tap a lesson| Lesson([5-step lesson<br/>/lesson/:id])
     Stories -->|tap| Library([Story library])
 ```
 
 **Screen-by-screen:**
 
 - **Profile picker (`/select-profile`)** — Full-screen, large avatar cards (≥120px). On load, a voice asks *"Who's learning today?"* The child taps their face. Switching between siblings is friction-free by design (FR-AUTH-06).
-  - **👤 Parent chip** in the top corner: the signed-in grown-up's Google photo and first name (initials when Google supplied no photo; *"Grown-ups"* when it supplied no name either). This is the same door as the lock icon elsewhere — only named. It is named **here and nowhere else**, deliberately: this is the hand-off screen, before any child is playing, and the person looking for the way into the parent area is an adult who should be able to find it. On a screen a child is *using*, a photo of their own parent is the most tappable thing on the page, so every other student screen keeps the anonymous lock (Pillar C). Since the PIN gate was removed (§5.2), that dullness is the only thing discouraging the tap.
+  - **👤 Parent chip** in the top corner: the signed-in grown-up's Google photo and first name (initials when Google supplied no photo; *"Grown-ups"* when it supplied no name either). This is the same door as the lock icon elsewhere — only named. It is named **here and nowhere else**, deliberately: this is the hand-off screen, before any child is playing, and the person looking for the way into the parent area is an adult who should be able to find it. On a screen a child is *using*, a photo of their own parent is the most tappable thing on the page, so every other student screen keeps the anonymous lock ([Pillar C](./project-requirement-details.md#pillar-c--dual-portal-system)). Since the PIN gate was removed (§5.2), that dullness is the only thing discouraging the tap.
 - **Home (`/home`)** — Immersive and world-themed:
   - **Reward strip** at top: star count, coin count, and a **streak chip** shown as `🔥 3`. 🎈 For a brand-new child the flame is dimmed with *"Start a streak!"* — the goal is always visible, never hidden.
-  - **World cards** — large gradient cards with the world's mascot and name. Tapping one opens that world's lessons; 🎈 the lesson/world name *plays aloud* on tap so pre-readers navigate by ear.
-  - **Lesson tiles** — big picture thumbnails with names (≥20px). One tap = open.
-  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the parent area. Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ. Not shown inside a lesson or an open story: those screens put their own exit button in that corner, and a grown-up leaves through it.
+  - **Switch profile** — a big button back to the profile picker, so siblings can hand over.
+  - **World cards** — large gradient cards with the world's mascot and name. Tapping one opens that world's lessons; 🎈 the world name *plays aloud* on tap so pre-readers navigate by ear.
+  - **Story time card** — opens the story library (§4.8).
+  - **🔒 Lock icon** — pinned to a top corner, deliberately *outside the thumb zone* so a child won't tap it by accident. It leads to the parent area (`/parent/children`). Unnamed and unillustrated on every screen except the profile picker — see §4.2's parent-chip note for why the two differ. Not shown inside a lesson or an open story: those screens put their own exit button in that corner, and a grown-up leaves through it.
+- **World (`/world/[worldId]`)** — the world's lessons as big picture tiles with names (≥20px), grouped by topic. One tap opens the lesson; 🎈 names play aloud.
 - **Orientation:** portrait stacks cards vertically (lessons 2-up); landscape places them side-by-side (lessons 3–4-up). Never any horizontal scrolling.
 
 ### 4.3 The 5-step lesson adventure
 
-Every single lesson follows the **same five steps in the same order**, so the child always knows what comes next. Predictability is comfort. Five progress dots at the top show where they are.
+The lesson player lives at `/lesson/[id]`. Every single lesson follows the **same five steps in the same order**, so the child always knows what comes next. Predictability is comfort. Five progress dots at the top show where they are.
 
 ```mermaid
 flowchart LR
@@ -362,10 +363,10 @@ flowchart TD
     Home[🏠 Home] -->|tap 📚 Stories| Lib["Story library (/stories)<br/>grid of cover cards"]
     Lib --> Card["Each card: cover · world accent ·<br/>title · ✓ if completed"]
     Card -->|1st tap| Speak[🗣️ Title reads aloud + card selects]
-    Speak -->|2nd tap| Reader
+    Speak -->|2nd tap| Reader["📖 Reader /stories/:id"]
     Card -->|tap different card| Speak
 
-    Reader["📖 Full-screen reader<br/>one page at a time"] --> Page[Illustration + large text]
+    Reader --> Page["Full screen, one page at a time:<br/>illustration + large text"]
     Page --> Narr[🗣️ Page narration auto-plays<br/>🔊 replay button]
     Narr --> Nav{Navigate}
     Nav -->|Next / swipe| Page
@@ -380,23 +381,7 @@ flowchart TD
 - **Orientation:** portrait = illustration on top, text below; landscape = illustration left, text + controls right.
 - **Auto-advance** (on by default) turns each page ~1.5s after narration ends — a hands-free read-along for the youngest users. Manual navigation cancels it.
 
-### 4.9 When time is up — kind boundaries
-
-Screen-time limits (set by the parent) must feel like a caring character saying goodnight, **never** a punishment or error.
-
-```mermaid
-flowchart TD
-    Tap[Child taps a new lesson/story] --> Check{Allowed right now?}
-    Check -->|Yes| Open[Open content ✅]
-    Check -->|Daily limit reached| TU["🌙 Time's-up screen<br/>mascot + 'Time's up for today!'<br/>🗣️ 'Great learning! Rest up for tomorrow!'<br/>→ Back button"]
-    Check -->|Outside allowed hours| OW["⏰ 'See you at 8:00!'<br/>mascot + localized time<br/>🗣️ 'Learning hours coming soon!'<br/>→ Back button"]
-
-    InProgress[Child already mid-lesson] -.always allowed to finish 🔒.-> Open
-```
-
-🎈 **Tone is everything:** no harsh red, no countdown timer, no "you're not allowed." Just the mascot, a warm voice, and a single friendly **Back** button. 🔒 A lesson already in progress is *always* allowed to finish — the child is never cut off mid-activity.
-
-### 4.10 Kid-UX golden rules
+### 4.9 Kid-UX golden rules
 
 These are the non-negotiable rules that protect the child's joy. Every new screen must pass all ten.
 
@@ -430,9 +415,7 @@ flowchart TD
 
     Dash --> D1[Per-child progress]
     Dash --> D2[Weekly reports]
-    Dash --> D3[Screen-time settings]
     Dash --> D4[Manage profiles]
-    Dash --> D5[Delete account]
     Dash --> D6["👤 Account menu:<br/>back to kid mode · sign out"]
     D6 -->|Sign out 🔒| Home["🏠 Homepage /"]
 ```
@@ -445,12 +428,12 @@ A mandatory, ordered onboarding the very first time a parent signs in:
 flowchart LR
     L["1 · Continue with Google"] --> Co["2 · COPPA consent<br/>(unchecked box must be ticked)"]
     Co --> Ch["3 · First child profile<br/>name · age · grade · language · avatar"]
-    Ch --> Done([Lands on profiles page])
+    Ch --> Done([Parent area])
 ```
 
 - **Google only** — there is no email/password field anywhere. One "Continue with Google" button, in the **Parent sign-in** dialog. On the homepage it opens from **Parent sign-in** (`/?signin=parent`), and from **Start learning** when nobody is signed in; a signed-out visit to a `/parent/*` page lands there too. A signed-out session on the child's screens gets the same dialog in place, with no close button, rather than being sent to the homepage — the homepage carries external links and a child must not reach it (NFR-SAFE-07).
-- 🔒 **Consent before any child** — no child-profile UI is reachable until consent is recorded (COPPA). The button stays disabled until the box is ticked.
-- **First child** — name (1–30 chars), age (3–6), grade (Nursery / KG-1), language (English / Bangla), and an avatar from a starter grid.
+- 🔒 **Consent before any child** (`/parent/onboarding/consent`) — no child-profile UI is reachable until consent is recorded (COPPA). The button stays disabled until the box is ticked.
+- **First child** (`/parent/onboarding/child`) — first name (1–50 characters), age (3–6), grade (Nursery / KG-1 — KG-2 is not offered at MVP), language (English / Bangla), and an avatar from a starter grid.
 
 ### 5.2 Reaching the parent area
 
@@ -485,15 +468,15 @@ flowchart TD
     Add -->|Yes| Create["+ Add child<br/>name · age · grade · language · avatar"]
     Add -->|No| Hidden["'Add' hidden<br/>'Maximum of 5 children reached'"]
     List --> Edit[✏️ Edit any field anytime]
-    List --> ST[⏱️ Screen-time settings]
     List --> Del["🗑️ Delete<br/>(type child's exact name to confirm)"]
     Del --> Cascade[Removes ALL that child's data:<br/>progress, rewards, streaks, reports 🔒]
     Create --> List
 ```
 
+- **Routes:** the list is `/parent/children`, adding is `/parent/children/new`, editing is `/parent/children/[id]/edit`.
 - **Up to 5 profiles** per account; the Add button disappears at the limit.
 - **Edit anything, anytime** — name, age, grade, language, avatar.
-- 🔒 **Delete is guarded** — the parent must type the child's exact first name before the delete button enables, preventing accidental one-tap loss. Deletion cascades: all of that child's progress, quiz responses, rewards, streaks, screen-time settings, and reports are removed.
+- 🔒 **Delete is guarded** — the parent must type the child's exact first name before the delete button enables, preventing accidental one-tap loss. Deletion cascades: all of that child's progress, quiz responses, rewards, streaks, and reports are removed.
 
 ### 5.4 The dashboard
 
@@ -514,7 +497,7 @@ flowchart LR
 - 🔒 **Sign out** revokes the session server-side (FR-AUTH-07), which ends the active child profile with it, and returns to the homepage (`/`).
 - **The bar is absent during onboarding** (consent, first child). There is nowhere to navigate to yet, and a sign-out control mid-consent is a dead end rather than an escape.
 
-The parent sees a per-child summary. A child-switcher (tabs) sits below the bar; the selected child persists in the URL.
+**Progress** (`/parent`) is a per-child summary. A child-switcher (tabs) sits below the bar; the selected child persists in the URL as `?child=<id>`.
 
 ```mermaid
 flowchart TD
@@ -534,7 +517,7 @@ flowchart TD
 
 ### 5.5 Weekly reports
 
-A digest generated per child, per week (Monday–Sunday), viewable anytime.
+A digest generated per child, per week (Monday–Sunday), viewable anytime at `/parent/reports`.
 
 ```mermaid
 flowchart TD
@@ -549,22 +532,7 @@ flowchart TD
 - The note is chosen from deterministic, localized templates (e.g., *"Amazing! You learned every single day this week!"* for a 7-day week; *"Every little bit counts!"* as a gentle fallback) — positive in every case.
 - Reports are generated lazily on first view and/or by a weekly cron, and are idempotent (re-running never duplicates).
 
-### 5.6 Screen-time controls
-
-```mermaid
-flowchart TD
-    ST["⏱️ Screen-time (per child)"] --> Limit["Daily limit:<br/>Off / 15 / 30 / 45 / 60 / 90 min"]
-    ST --> Window["Access window toggle:<br/>start & end time pickers<br/>(e.g. 08:00–18:00)"]
-    Limit --> Save[Save → 'Settings saved' toast]
-    Window --> Save
-    Save --> Enforce[Server enforces on<br/>lesson/story START only 🔒]
-    Enforce --> InProg[In-progress lessons always finish]
-```
-
-- **Daily limit** and an optional **access-time window** (which may wrap past midnight, e.g., 20:00–07:00).
-- 🔒 Enforcement is **server-side and applies only when starting new content** — so a child can always finish what they're in, and a page refresh can't buy extra minutes.
-
-### 5.7 Account & data deletion
+### 5.6 Account & data deletion
 
 ```mermaid
 flowchart LR
@@ -576,6 +544,8 @@ flowchart LR
 
 A two-step, intentional flow: request → confirm. On confirmation, **everything** is permanently erased in one transaction — all child profiles and their data, the parent record, and the auth account. No soft-delete (GDPR right-to-erasure).
 
+> **Not in the web app yet.** The flow exists as API only — `POST /api/parent/account/delete-request` then the confirming `DELETE` (see `/docs`). No parent screen calls it today, so a parent cannot start it from the dashboard (FR-AUTH-05).
+
 ---
 
 ## 6. Admin journey
@@ -584,33 +554,31 @@ The admin is the **content factory and the safety gate**. Their interface is a p
 
 ```mermaid
 flowchart TD
-    Login["🔐 Admin sign-in dialog on /<br/>email + password"] --> CMS["CMS workspace<br/>(sidebar nav)"]
-    CMS --> Curr[📚 Curriculum]
-    CMS --> Stories[📖 Stories]
-    CMS --> Media[🎬 Media]
-    CMS --> Badges[🏅 Badges]
-    CMS --> Queue["🤖 AI Queue<br/>(badge = pending count)"]
-    CMS --> Analytics[📊 Analytics]
+    Login["🔐 Admin sign-in dialog on /<br/>email + password"] --> CMS["CMS workspace /admin<br/>(sidebar nav)"]
+    CMS --> Content["Content<br/>📚 Curriculum · 📖 Stories · 🎬 Media · 🏅 Badges"]
+    CMS --> Review["Review<br/>🤖 AI Queue (badge = pending count) · 🔑 AI assistants"]
+    CMS --> Insights["Insights<br/>📊 Analytics"]
+    CMS --> Help["Help<br/>📘 Curriculum guide"]
 ```
 
 ### 6.1 Login & workspace
 
 - **Admin sign-in** — a dialog on the homepage (`/?signin=admin`, opened by the *Admin sign-in* link), plain email + password (no signup, no password reset link at MVP). `/admin/login` only redirects to it; a signed-out visit to any `/admin/*` page lands on it, and so does signing out. Admins are seeded internally; parent Google accounts are rejected from admin routes, and vice-versa.
-- **Workspace** — a fixed left sidebar (collapses to a top bar under 768px) with six sections. The AI Queue item shows a live count badge of items awaiting review.
+- **Workspace** — a fixed left sidebar (collapses to a scrolling top bar under 768px) with eight sections in four groups, each at `/admin/<section>` (`/admin/ai-queue`, `/admin/ai-assistants`, …). The AI Queue item shows a live count badge of items awaiting review. *AI assistants* is where an admin issues the access tokens their own AI assistant uses (§6.4).
 
 ### 6.2 Building the curriculum
 
-A three-pane tree: **Subjects → Topics → Lessons**, each draggable to reorder.
+At `/admin/curriculum`: a three-pane tree, **Subjects → Topics → Lessons**, each draggable to reorder (keyboard reordering works too).
 
 ```mermaid
 flowchart LR
     Subjects["Subjects pane<br/>create · reorder · archive"] -->|select| Topics["Topics pane<br/>create · reorder · status"]
     Topics -->|select| Lessons["Lessons pane<br/>create · reorder · preview · transition"]
     Lessons -->|click| Form["Lesson edit dialog<br/>(en / bn tabs)"]
-    Form --> Fields["Title · intro script · narration script ·<br/>world · grade levels · video URLs ·<br/>activity ref · quiz ref"]
+    Form --> Fields["Per language: title · intro script · video asset<br/>Shared: world · grade levels ·<br/>activity id · quiz id · concepts introduced"]
 ```
 
-Lessons are authored per-locale (English/Bangla tabs) with title, intro script, narration script, world, grade levels, video URLs, and references to an activity and a quiz.
+Lessons are authored per-locale (English/Bangla tabs) — a title, the intro script the mascot speaks, and a video asset — plus shared fields: world, grade levels, the activity and quiz they use, and the concepts they introduce (`letter:A`, `number:7`; these feed the weekly report's "new letters/words/numbers").
 
 ### 6.3 Media & content editors
 
@@ -621,7 +589,7 @@ flowchart TD
     Cloud --> Register[Register asset → appears in grid]
     Register --> Attach["Attach to: lesson video ·<br/>story illustration · quiz audio/image ·<br/>world mascot · badge icon"]
 
-    Editors["Content editors"] --> QE["Quiz question editor<br/>format → fields → LIVE validation<br/>→ live preview (real renderer)"]
+    Editors["Content editors<br/>/admin/curriculum/quiz/:id · /activity/:id"] --> QE["Quiz question editor<br/>format → fields → LIVE validation<br/>→ live preview (real renderer)"]
     Editors --> AE["Activity editor<br/>type → fields → live preview"]
     Editors --> BE["Badge editor<br/>name · icon · rule type + params"]
 ```
@@ -631,7 +599,10 @@ flowchart TD
 
 ### 6.4 The AI generation pipeline
 
-AI produces content at scale; **a human always reviews before publication.**
+AI produces content at scale; **a human always reviews before publication.** There are two ways in, and both land in the same review queue — the full walkthrough is [`ai-integration-guide.md`](./ai-integration-guide.md):
+
+- **Gemini, inside the CMS** — the admin picks a generator below and the server calls the model.
+- **The admin's own AI assistant** (Claude, ChatGPT, Cursor, …) over MCP (FR-AI-10) — the admin issues a token at *AI assistants*, and the assistant submits drafts that are validated against the same schemas.
 
 ```mermaid
 flowchart TD
@@ -705,16 +676,15 @@ Tying the three journeys together — the full lifecycle of one lesson, from ide
 flowchart LR
     A1["🛠️ Admin generates/authors lesson"] --> A2["🤖 Review queue"]
     A2 -->|human approves| A3["✅ Published"]
-    P1["👩 Parent creates child profile<br/>(grade + language)"] --> P2["Sets daily limit + window"]
+    P1["👩 Parent creates child profile<br/>(grade + language)"] -.sets the filter.-> C1
     A3 -->|filtered by grade+language| C1["👧 Child sees the lesson tile"]
-    P2 -.gates start.-> C1
     C1 --> C2["Plays 5-step lesson"]
     C2 --> C3["🎉 Earns stars/coins/badges"]
     C3 --> S1["Server records progress + minutes"]
     S1 --> R1["📈 Parent sees it in dashboard<br/>+ weekly report"]
 ```
 
-> **The loop closes:** the admin's approved content, bounded by the parent's settings, becomes the child's joyful adventure — and the child's joyful effort becomes the parent's weekly report. Three journeys, one virtuous circle.
+> **The loop closes:** the admin's approved content, filtered to the child's grade and language, becomes the child's joyful adventure — and the child's joyful effort becomes the parent's weekly report. Three journeys, one virtuous circle.
 
 ---
 
@@ -725,7 +695,7 @@ flowchart LR
 - Predictable structure (same 5 steps) creates safety; celebration creates the pull to return tomorrow.
 
 **For the parent:**
-- Trust through transparency (clear progress, honest reports) and control (screen-time limits) — with minimal friction for the things they do often (switching kids) and deliberate friction for the rare, dangerous things (deleting data).
+- Trust through transparency (clear progress, honest reports) — with minimal friction for the things they do often (switching kids) and deliberate friction for the rare, dangerous things (deleting data).
 
 **For the admin:**
 - Efficiency through AI, safety through the mandatory human gate, and confidence through live previews and a complete audit trail.

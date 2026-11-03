@@ -311,7 +311,8 @@ export function LessonForm({
         </Button>
         <Button
           type="submit"
-          disabled={isBusy || gradeLevels.length === 0 || worldId === ""}
+          disabled={gradeLevels.length === 0 || worldId === ""}
+          isLoading={isBusy}
         >
           {isEditing ? "Save" : "Create draft"}
         </Button>

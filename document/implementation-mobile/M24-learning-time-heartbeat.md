@@ -11,18 +11,18 @@ Report presence honestly. Port the web app's heartbeat to native, with `AppState
 
 ## Context & Current State
 
-- `apps/web/features/screen-time/use-heartbeat.ts` is the reference (no docstring any more — the rules below are what it does):
+- `apps/web/features/events/use-heartbeat.ts` is the reference (no docstring any more — the rules below are what it does):
   - **It measures nothing.** No timer whose elapsed value it reports, no accumulator, no stored total. It posts "I am here" every 30 seconds and reads back what the server says, so refreshing, clearing storage or editing state cannot lower a figure that was never held on the client.
   - **Cadence:** `HEARTBEAT_INTERVAL_MS = 30_000`, matching the server's 30s tail credit. One beat fires immediately on mount and again on becoming visible, so a short visit is worth its interval instead of nothing. Beats run only while visible.
   - **Mount on learning surfaces only** — `LessonPlayer.tsx` (`useHeartbeat({ enabled: load.status === "ready" && !isPreview })`) and `StoryReader.tsx` (`useHeartbeat()` inside `ReadingSurface`, so the loading and "put away" states are not reading time). Never the profile picker, home screen, or a parent layout: a dashboard left open would bill an adult's afternoon to the child.
-  - **`enabled` is the same rule one level up**: a screen showing a loader or the screen-time lock has no child learning in front of it, and the heartbeat endpoint is not screen-time gated — a caller that mounts the hook above its own ready state would bill a child for staring at "time's up".
+  - **`enabled` is the same rule one level up**: a screen showing a loader or an error state has no child learning in front of it — a caller that mounts the hook above its own ready state would bill a child for staring at a spinner.
   - **No retries:** `retries: 0`. A failed beat is superseded by the next tick, and stale retries would report the timeline out of order. `minutesToday` keeps its previous value until a beat lands; `null` until the first one does.
 - `POST /api/events/heartbeat` takes **no body** and answers `200` with `HeartbeatResponse` = `{ recorded, minutesToday }` (whole minutes in the deployment's `APP_TIMEZONE` day). The server drops a beat that lands within `HEARTBEAT_MIN_INTERVAL_MS = 20_000` of the previous one from either source (`recorded: false`, `minutesToday` still honest) — `apps/server/src/modules/progress/session-event.service.ts`.
 - **The route is consent-gated.** `/api/events/*` sits behind `requireParent → requireConsent → requireActiveChild` (`apps/server/src/modules/index.ts`). After a `CONSENT_VERSION` bump a beat gets `403 CONSENT_REQUIRED`; M04's global handler (the native `onConsentRequired`, as `apps/web/shared/api/api-client.ts`) routes to consent. The hook does nothing special with it — `retries: 0` already means no loop.
 - **Minutes are derived, not counted.** `computeLearningMinutes` (`modules/progress/learning-time.service.ts`) sorts every `sessionEvent` timestamp in the window: a gap over `LEARNING_TIME_GAP_MS = 90_000` starts a new sitting and each sitting earns `LEARNING_TIME_TAIL_MS = 30_000` after its last event. Every step or completion write on a lesson also records a **server-observed beat** (`recordServerObservedBeat`, payload `{ source: "server", activity }`), so a client that never beats is still billed for the lesson it plays — the heartbeat fills gaps, it is not the only source.
-- `POST /api/events/activity` records one milestone: `ACTIVITY_EVENT_TYPES` = `["lesson_start", "step_complete", "lesson_complete", "story_start", "story_complete"]` plus `refId`. `201` on success. It counts towards `CLIENT_EVENTS_PER_MINUTE = 30` per child (shared with `/api/progress/events`; heartbeats excluded) → `429 RATE_LIMITED`. `story_start` is screen-time gated (`423`), because a recent one exempts the story's completion from the gate, and it is the evidence `POST /api/progress/stories/:id/complete` needs (`409 STORY_NOT_STARTED` without one in the last 3h).
+- `POST /api/events/activity` records one milestone: `ACTIVITY_EVENT_TYPES` = `["lesson_start", "step_complete", "lesson_complete", "story_start", "story_complete"]` plus `refId`. `201` on success. It counts towards `CLIENT_EVENTS_PER_MINUTE = 30` per child (shared with `/api/progress/events`; heartbeats excluded) → `429 RATE_LIMITED`. `story_start` is the evidence `POST /api/progress/stories/:id/complete` needs (`409 STORY_NOT_STARTED` without one in the last 3h).
 - `GET /api/children/:id/learning-time?range=today|week|month` (parent session, ownership-checked) returns `{ range, minutes, from, to }` — the dashboard's source in M26, not this file's.
-- **The native difference:** there is no `document.visibilityState`. `AppState` reports `active | background | inactive` (iOS reports `inactive` during app-switcher transitions, the notification shade and incoming calls). Backgrounding must stop the beat, exactly as a hidden tab does — otherwise a phone left face-down mid-lesson bills an afternoon, and M25's limit locks a child out of a device they had not been using.
+- **The native difference:** there is no `document.visibilityState`. `AppState` reports `active | background | inactive` (iOS reports `inactive` during app-switcher transitions, the notification shade and incoming calls). Backgrounding must stop the beat, exactly as a hidden tab does — otherwise a phone left face-down mid-lesson bills an afternoon to the parent's dashboard.
 - M13's lesson player and M23's story reader are the two mount sites, both already built with the call site left ready.
 
 ## Detailed Requirements
@@ -33,10 +33,10 @@ Report presence honestly. Port the web app's heartbeat to native, with `AppState
 4. **Immediate first beat.** One beat on becoming active-and-focused, then the 30s interval — same as the web hook, so a two-minute story earns its minutes.
 5. **`lib/track-event.ts`** — `trackEvent(type: ActivityEventType, refId: string): void`, fire-and-forget, `retries: 0`, no `await` at any call site. Ported from the web app's `trackEvent`, failure logging included (M29 routes console output into crash reporting for production builds). A failed milestone is a precision loss, never a user-facing error. M23 may land first and create this file for `story_start`; if it exists, extend it rather than recreate it.
 6. **Call sites, and only these:**
-   - lesson player (M13): `useHeartbeat({ enabled: ready })` — a `423` on the lesson read means it never reaches `ready`, and mobile has no admin preview, so web's `!isPreview` has no counterpart. **No `trackEvent` here** — the web lesson player reports `lesson_start` / `step_complete` / `lesson_complete` solely through `POST /api/progress/events` (M13), and sending them to both surfaces would double-count milestones;
+   - lesson player (M13): `useHeartbeat({ enabled: ready })` — a failed lesson read means it never reaches `ready`, and mobile has no admin preview, so web's `!isPreview` has no counterpart. **No `trackEvent` here** — the web lesson player reports `lesson_start` / `step_complete` / `lesson_complete` solely through `POST /api/progress/events` (M13), and sending them to both surfaces would double-count milestones;
    - story reader (M23): `useHeartbeat({ enabled: ready })`, `trackEvent("story_start", storyId)` once per mount, `trackEvent("story_complete", storyId)` when completion is requested (as `StoryReader.tsx` does). A lost `story_start` surfaces later as `409 STORY_NOT_STARTED` on completion, which M23 already treats as non-fatal to the child.
    Nothing else in the app mounts the heartbeat. Add a comment at both call sites naming the rule, because the next person's instinct will be to hoist it into a layout.
-7. **Error codes need no local handling.** `403 CONSENT_REQUIRED` goes to M04's global consent handler; `429 RATE_LIMITED` and `423` on `story_start` are dropped like any other failure. Never retry, never loop.
+7. **Error codes need no local handling.** `403 CONSENT_REQUIRED` goes to M04's global consent handler; `429 RATE_LIMITED` is dropped like any other failure. Never retry, never loop.
 8. **`minutesToday` display.** Where a student surface shows today's minutes, it shows what the server returned and nothing else — no local increment between beats. `null` renders as no figure, never as `0`.
 9. **Backgrounding during a lesson does not lose progress.** The beat stops; the lesson state stays; resuming restarts the beat with an immediate tick. Verify the whole cycle on a device, including a long background (10+ minutes) to confirm the server's minutes do not include the gap.
 10. **Tests** (`lib/use-heartbeat.test.tsx`, `lib/track-event.test.ts`) with fake timers and mocked `apiFetch`/`AppState`: a beat fires immediately on mount; further beats at 30s intervals; backgrounding stops the beats and returning fires one immediately; `inactive` also stops; losing screen focus stops even while `active`; `enabled: false` never beats; a failed beat is not retried and `minutesToday` keeps its previous value; `minutesToday` starts `null`; a `403 CONSENT_REQUIRED` beat is not retried and the interval keeps its cadence; `trackEvent` posts once with `retries: 0` and never throws to the caller.
@@ -146,7 +146,7 @@ The long-background check cannot be faked — do it on a device with the server 
 
 ## Step-by-Step Plan
 
-1. Read `apps/web/features/screen-time/use-heartbeat.ts` in full, plus `session-event.service.ts` and `computeLearningMinutes` on the server. (~15 min)
+1. Read `apps/web/features/events/use-heartbeat.ts` in full, plus `session-event.service.ts` and `computeLearningMinutes` on the server. (~15 min)
 2. Write the failing hook tests (immediate beat, interval, background stop, `inactive` stop, focus loss, `enabled: false`, no retry, `null` start). (~45 min)
 3. Implement `lib/use-heartbeat.ts` with the combined `AppState` + focus gate until green. (~35 min)
 4. Write `lib/track-event.ts` + its test. (~20 min)
@@ -162,7 +162,7 @@ The long-background check cannot be faked — do it on a device with the server 
 - [ ] A beat fires immediately on becoming active-and-focused, then every 30 seconds.
 - [ ] Backgrounding **and** `inactive` both stop the beats; returning to `active` fires one immediately.
 - [ ] Losing screen focus stops the beats even while the app is `active`.
-- [ ] `enabled: false` never beats — a loading screen or a lock screen bills nothing.
+- [ ] `enabled: false` never beats — a loading or error screen bills nothing.
 - [ ] A failed beat (including `403 CONSENT_REQUIRED`) is not retried and does not lower or clear `minutesToday`; a consent `403` reaches the global handler.
 - [ ] A 10-minute background during a lesson is **not** billed, verified against `GET /api/children/:id/learning-time` on a real device.
 - [ ] The heartbeat is mounted in exactly two places: the lesson player and the story reader, each with the rule stated in a comment.
@@ -171,7 +171,6 @@ The long-background check cannot be faked — do it on a device with the server 
 
 ## Out of Scope
 
-- Screen-time enforcement — M25 consumes the minutes this file's beats produce.
 - The parent dashboard's minute cards — M26.
 - Any client-side computation of elapsed time. Deliberately impossible here, and that is the anti-tamper design.
 - Background beats. A backgrounded app must be silent; keeping a timer alive would be both a battery cost and a false record.

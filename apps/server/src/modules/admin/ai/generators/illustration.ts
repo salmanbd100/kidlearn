@@ -19,6 +19,7 @@ import {
   runGenerationJob,
 } from "../run-generation-job.js";
 import { failStaleJobs } from "../stale-jobs.js";
+import type { GenerationContext } from "../types.js";
 
 export interface GenerateIllustrationsInput {
   storyId: string;
@@ -36,6 +37,7 @@ const LIVE_JOB_STATUSES = [
 
 export async function generateIllustrationBatch(
   input: GenerateIllustrationsInput,
+  context: GenerationContext = {},
 ): Promise<BatchGenerationRef> {
   const story = await prisma.story.findUnique({
     where: { id: input.storyId },
@@ -83,6 +85,7 @@ export async function generateIllustrationBatch(
       sortOrder: page.sortOrder,
       prompt: page.illustrationPrompt,
       sheets,
+      context,
     });
     jobIds.push(jobId);
     if (status === "failed") failed += 1;
@@ -107,11 +110,15 @@ function runIllustrationJob(args: {
   sortOrder: number;
   prompt: string;
   sheets: CharacterSheetRef[];
+  context: GenerationContext;
 }): Promise<GenerationJobResult> {
   const resolvedPrompt = buildIllustrationPrompt(args.prompt, args.sheets);
 
   return runGenerationJob<IllustrationUpload>({
     type: "image",
+    ...(args.context.requestedById === undefined
+      ? {}
+      : { requestedById: args.context.requestedById }),
     // The resolved prompt verbatim: the sheet may be edited later, and a reviewer needs the words the model saw.
     input: {
       entity: "story",

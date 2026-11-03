@@ -1,6 +1,7 @@
 import type { ContentStatus, Prisma } from "@kidlearn/db";
 import type {
   AiEntityResource,
+  AiJobClient,
   AiJobDetail,
   AiJobEntity,
   AiJobList,
@@ -11,6 +12,7 @@ import type {
 } from "@kidlearn/types";
 import { GRADE_LEVELS, LOCALES } from "@kidlearn/types";
 import type { prisma } from "../../../../config/prisma.js";
+import { asRecord, readString } from "../../../../shared/utils/json-record.js";
 import {
   type ContentsGuard,
   readActivityGuard,
@@ -147,6 +149,110 @@ export async function linkedContentRows(
   return rows;
 }
 
+/**
+ * The entities `linkedContentRows` would list for each job, for a page of jobs in five reads rather than five per
+ * job. Labels and statuses only: no publish guard, so it serves a listing, never a decision.
+ */
+export async function linkedEntitiesByJob(
+  jobIds: string[],
+  client: Pick<
+    ReviewWriter,
+    "lesson" | "quiz" | "activity" | "story" | "quizQuestion"
+  >,
+): Promise<Map<string, AiJobEntity[]>> {
+  const byJob = new Map<string, AiJobEntity[]>(jobIds.map((id) => [id, []]));
+  if (jobIds.length === 0) return byJob;
+
+  const where = { aiJobId: { in: jobIds } };
+  const order = { createdAt: "asc" } as const;
+  const [lessons, quizzes, activities, stories, questions] = await Promise.all([
+    client.lesson.findMany({
+      where,
+      select: { id: true, title: true, status: true, aiJobId: true },
+      orderBy: order,
+    }),
+    client.quiz.findMany({
+      where,
+      select: { id: true, title: true, status: true, aiJobId: true },
+      orderBy: order,
+    }),
+    client.activity.findMany({
+      where,
+      select: { id: true, type: true, status: true, aiJobId: true },
+      orderBy: order,
+    }),
+    client.story.findMany({
+      where,
+      select: { id: true, title: true, status: true, aiJobId: true },
+      orderBy: order,
+    }),
+    client.quizQuestion.findMany({
+      where,
+      select: {
+        aiJobId: true,
+        quiz: { select: { id: true, title: true, status: true } },
+      },
+    }),
+  ]);
+
+  const add = (jobId: string | null, entity: AiJobEntity): void => {
+    if (jobId === null) return;
+    const list = byJob.get(jobId);
+    if (list === undefined) return;
+    if (
+      list.some(
+        (one) => one.resource === entity.resource && one.id === entity.id,
+      )
+    ) {
+      return;
+    }
+    list.push(entity);
+  };
+
+  for (const row of lessons) {
+    add(row.aiJobId, {
+      resource: "lessons",
+      id: row.id,
+      label: row.title,
+      status: row.status,
+    });
+  }
+  for (const row of quizzes) {
+    add(row.aiJobId, {
+      resource: "quizzes",
+      id: row.id,
+      label: row.title ?? UNTITLED_QUIZ,
+      status: row.status,
+    });
+  }
+  for (const row of activities) {
+    add(row.aiJobId, {
+      resource: "activities",
+      id: row.id,
+      label: row.type,
+      status: row.status,
+    });
+  }
+  for (const row of stories) {
+    add(row.aiJobId, {
+      resource: "stories",
+      id: row.id,
+      label: row.title,
+      status: row.status,
+    });
+  }
+  for (const row of questions) {
+    add(row.aiJobId, {
+      resource: "quizzes",
+      id: row.quiz.id,
+      label: row.quiz.title ?? UNTITLED_QUIZ,
+      status: row.quiz.status,
+    });
+  }
+
+  return byJob;
+}
+
 function idList(id: string | null): string[] {
   return id === null ? [] : [id];
 }
@@ -158,17 +264,6 @@ export function toEntity(row: LinkedRow): AiJobEntity {
     label: row.label,
     status: row.status,
   };
-}
-
-// Both columns are JSONB (`JsonValue`); every field is re-checked so a job from before a prompt change still renders.
-export function asRecord(
-  value: Prisma.JsonValue | null,
-): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return {};
-  }
-  // JSONB boundary: the guards above verify "an object with unknown values".
-  return value as Record<string, unknown>;
 }
 
 // The lesson generator records `gradeLevel`, the story generator `gradeLevels`; folded into one array.
@@ -191,14 +286,12 @@ export function readLanguages(input: Record<string, unknown>): Locale[] {
   return LOCALES.filter((locale) => values.includes(locale));
 }
 
-export function readString(
-  source: Record<string, unknown>,
-  key: string,
-): string | undefined {
-  const value = source[key];
-  return typeof value === "string" && value.trim() !== ""
-    ? value.trim()
-    : undefined;
+/** `client` is whatever the MCP client said about itself; only a string name survives into the label. */
+export function readClient(value: Prisma.JsonValue | null): AiJobClient | null {
+  const record = asRecord(value);
+  const name = readString(record, "name");
+  if (name === undefined) return null;
+  return { name, version: readString(record, "version") ?? null };
 }
 
 export const JOB_SELECT = {
@@ -213,6 +306,9 @@ export const JOB_SELECT = {
   createdAt: true,
   updatedAt: true,
   reviewedAt: true,
+  source: true,
+  client: true,
+  requestedBy: { select: { name: true } },
 } satisfies Prisma.AIGenerationJobSelect;
 
 export type JobRow = Prisma.AIGenerationJobGetPayload<{

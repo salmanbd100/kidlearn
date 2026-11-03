@@ -13,6 +13,7 @@ import { PARENT_ROUTES } from "@/features/parent/parent-redirect";
 import { ReportCard } from "@/features/reports/ReportCard";
 import { ReportHistoryList } from "@/features/reports/ReportHistoryList";
 import { getWeeklyReports } from "@/features/reports/reports-api";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 export function ReportsScreen({
   selectedChildId,
@@ -66,11 +67,7 @@ export function ReportsScreen({
 
   // The guard ensures a profile exists; this shows briefly after deleting the last one, before the redirect.
   if (profiles === undefined || child === undefined) {
-    return (
-      <p role="status" className="text-muted-foreground text-sm">
-        {t("children.loading")}
-      </p>
-    );
+    return <LoadingState label={t("children.loading")} />;
   }
 
   const selected =
@@ -99,9 +96,12 @@ export function ReportsScreen({
           {t("errors.generic")}
         </p>
       ) : reports === undefined ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {status === "waking" ? t("reports.waking") : t("reports.loading")}
-        </p>
+        <LoadingState
+          label={
+            status === "waking" ? t("reports.waking") : t("reports.loading")
+          }
+          isLabelVisible={status === "waking"}
+        />
       ) : selected === undefined ? (
         <p className="text-muted-foreground text-sm">
           {t("reports.empty", { name: child.firstName })}

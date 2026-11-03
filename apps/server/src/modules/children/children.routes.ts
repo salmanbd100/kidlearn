@@ -2,7 +2,6 @@ import type {
   CharacterUnlockResponse,
   DashboardData,
   LearningTimeResponse,
-  ScreenTimeSettingResponse,
   WeeklyReportList,
 } from "@kidlearn/types";
 import { Router } from "express";
@@ -19,15 +18,6 @@ import {
 } from "../parent/require-parent.middleware.js";
 import { getLearningMinutes } from "../progress/learning-time.service.js";
 import { listCharactersForChild } from "../rewards/achievement.service.js";
-import {
-  type ScreenTimeBody,
-  ScreenTimeBodySchema,
-} from "../screen-time/screen-time.schema.js";
-import {
-  getScreenTimeSetting,
-  saveScreenTimeSetting,
-  toScreenTimeSettingResponse,
-} from "../screen-time/screen-time.service.js";
 import {
   activateChildProfile,
   type ChildProfileDto,
@@ -173,43 +163,6 @@ childrenRouter.get(
       const reports = await getWeeklyReports(ownedChild(req));
 
       const payload: SuccessEnvelope<WeeklyReportList> = { data: reports };
-      res.json(payload);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-childrenRouter.get(
-  "/:id/screen-time",
-  validate({ params: ChildIdParamsSchema }),
-  loadOwnedChild,
-  async (req, res, next) => {
-    try {
-      const setting = await getScreenTimeSetting(ownedChild(req).id);
-
-      const payload: SuccessEnvelope<ScreenTimeSettingResponse> = {
-        data: toScreenTimeSettingResponse(setting),
-      };
-      res.json(payload);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-childrenRouter.patch(
-  "/:id/screen-time",
-  validate({ params: ChildIdParamsSchema, body: ScreenTimeBodySchema }),
-  loadOwnedChild,
-  async (req, res, next) => {
-    try {
-      const body: ScreenTimeBody = req.body;
-      const setting = await saveScreenTimeSetting(ownedChild(req).id, body);
-
-      const payload: SuccessEnvelope<ScreenTimeSettingResponse> = {
-        data: setting,
-      };
       res.json(payload);
     } catch (error) {
       next(error);

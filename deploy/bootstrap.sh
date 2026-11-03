@@ -82,8 +82,8 @@ cat >/etc/cron.weekly/kidlearn-docker-prune <<'CRON'
 # `docker image prune -f` alone only removes dangling layers: every deploy leaves
 # the previous SHA-tagged image tagged, so releases would pile up until the disk
 # fills. `-a --filter until=` is no better — it keys on build time, so after a
-# quiet spell it can delete the very image `IMAGE_TAG=<previous-sha> docker
-# compose up -d` needs. Keep the newest KEEP per repository instead; `docker rmi`
+# quiet spell it can delete the very image a rollback (`deploy.sh <env>
+# <previous-sha>`) would otherwise find already on the box. Keep the newest KEEP per repository instead; `docker rmi`
 # refuses an image a running container uses, so the live release is never lost.
 KEEP=4
 docker container prune -f

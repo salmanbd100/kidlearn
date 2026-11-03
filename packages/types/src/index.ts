@@ -7,6 +7,7 @@ export * from "./activity/parse.js";
 export * from "./activity/schemas.js";
 // HTTP contracts, shared with `apps/web` so the client never redeclares a response shape.
 export * from "./api/admin.js";
+export * from "./api/admin-access-tokens.js";
 export * from "./api/admin-ai.js";
 export * from "./api/admin-content.js";
 export * from "./api/admin-editors.js";
@@ -19,11 +20,11 @@ export * from "./api/envelope.js";
 export * from "./api/errors.js";
 export * from "./api/health.js";
 export * from "./api/learning-time.js";
+export * from "./api/mcp.js";
 export * from "./api/parent.js";
 export * from "./api/progress.js";
 export * from "./api/reports.js";
 export * from "./api/rewards.js";
-export * from "./api/screen-time.js";
 export * from "./api/stories.js";
 export * from "./domain/badges.js";
 export * from "./domain/children.js";
@@ -32,7 +33,6 @@ export * from "./domain/learning-time.js";
 export * from "./domain/locale.js";
 // Shared because the reducer in `apps/web` and the monotonic guard in `apps/server` must walk the same step array.
 export * from "./domain/progress.js";
-export * from "./domain/screen-time.js";
 export * from "./primitives.js";
 export * from "./quiz/evaluate.js";
 export * from "./quiz/parse.js";

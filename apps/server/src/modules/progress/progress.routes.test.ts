@@ -150,30 +150,6 @@ const db = vi.hoisted(() => ({
   transaction: vi.fn(),
 }));
 
-const gate = vi.hoisted(() => ({ isShut: false }));
-
-// The screen-time gate is `screen-time.routes.test.ts`'s subject; every child here is within their limit unless `gate.isShut`.
-vi.mock("../screen-time/screen-time.service.js", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../screen-time/screen-time.service.js")
-  >()),
-  evaluateStartForChild: async () =>
-    gate.isShut
-      ? {
-          allowed: false,
-          code: "TIME_LIMIT_REACHED",
-          details: {
-            allowed: false,
-            reason: "TIME_LIMIT_REACHED",
-            minutesToday: 30,
-            dailyLimitMinutes: 30,
-            windowStart: null,
-            windowEnd: null,
-          },
-        }
-      : { allowed: true },
-}));
-
 vi.mock("../../config/prisma.js", () => ({
   prisma: {
     parent: { findUnique: db.parentFindUnique },
@@ -313,7 +289,6 @@ beforeEach(() => {
   store.badges = [];
   store.characters = [];
   store.childCharacters = [];
-  gate.isShut = false;
   for (const fn of Object.values(db)) fn.mockReset();
 
   // Visible unless a test says otherwise; `quiz` is what the quiz-submission query selects.
@@ -2223,28 +2198,6 @@ describe("POST /api/progress/stories/:id/complete", () => {
         }),
       }),
     );
-  });
-
-  it("finishes a reading under way even when the screen-time gate has shut", async () => {
-    signInAs(childProfile());
-    openStory(STORY_ID, 10);
-    gate.isShut = true;
-
-    const res = await finishUnopened();
-
-    expect(res.status).toBe(200);
-  });
-
-  it("answers 423 for a start older than the resume grace while the gate is shut", async () => {
-    signInAs(childProfile());
-    openStory(STORY_ID, 60);
-    gate.isShut = true;
-
-    const res = await finishUnopened();
-
-    expect(res.status).toBe(423);
-    expect(res.body.error.code).toBe("TIME_LIMIT_REACHED");
-    expect(ledger()).toHaveLength(0);
   });
 
   it("grants 1 star and 5 coins the first time a story is finished (FR-STORY-07)", async () => {

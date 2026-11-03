@@ -1,6 +1,6 @@
 # The edge stack — Caddy, and the network both API stacks attach to.
 #
-#   docker compose -p kidlearn-edge -f deploy/edge/compose.yml up -d
+#   cd /opt/kidlearn/deploy/edge && docker compose -p kidlearn-edge -f compose.yml up -d
 #
 # Its own Compose project so that redeploying either API stack never restarts the
 # process holding the certificates. Three projects on one box: kidlearn-edge,

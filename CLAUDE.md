@@ -17,6 +17,8 @@ pnpm build            # turbo run build — caches .next/** and dist/**
 pnpm lint             # biome check . + prisma format --check — lint, format-check, import sort (no writes)
 pnpm format           # biome check --write . + prisma format — apply the fixes
 pnpm typecheck        # turbo run typecheck  — runs tsc --noEmit per package
+pnpm test:db          # the *.db.test.ts suites — needs local Postgres (see CI below)
+pnpm verify           # every CI gate in CI's order — run before opening a pull request
 ```
 
 Database (delegates to `packages/db`):
@@ -65,6 +67,7 @@ pnpm build            # ^build is required before typecheck and test resolve
 pnpm typecheck
 pnpm test:coverage    # same suite as pnpm test, plus a coverage report
 pnpm --filter server test:db   # *.db.test.ts against the Postgres service
+docker build ×3       # web escape-hatch, server runner, server migrate — built, never pushed
 ```
 
 **A PR is not done until `gates` is green** — `gh pr checks` says whether it is. Coverage is reported in the run summary and as an artifact; it is deliberately not gated on a threshold (see `document/standards/general.md §5`).
@@ -81,7 +84,7 @@ CI needs no secrets. `apps/server/vitest.setup.ts` supplies everything `config/e
 
 ## Where decisions live
 
-- **Deployment** — web on Vercel, API + jobs on one AWS EC2 box behind Caddy (`deploy/`). `document/go-live-guide.md` is the first-time walkthrough, `document/runbook.md` the day-two operations.
+- **Deployment** — web on Vercel, API + jobs on one AWS EC2 box behind Caddy (`deploy/`). `document/deployment/` is the first-time walkthrough, one file per stage, `document/runbook.md` the day-two operations.
 - **`document/mobile-app-plan.md`** is the architecture of record for what is and is not shared between web and mobile. `packages/ui` is web-only by design (§4.2) — do not hoist `apps/web` components into it without a second consumer.
 
 ## Layout & current state
@@ -134,7 +137,7 @@ Activities (drag-drop, trace, match, puzzle) and quizzes are stored as versioned
 
 ### Progress is server-authoritative
 
-Rewards, streaks, screen time, and lesson completion are computed server-side. The client reports events; the server records and validates them — it enforces step order, requires evidence before paying a lesson completion, rate-limits client events, and refuses progress and event writes without current parental consent.
+Rewards, streaks, learning time, and lesson completion are computed server-side. The client reports events; the server records and validates them — it enforces step order, requires evidence before paying a lesson completion, rate-limits client events, and refuses progress and event writes without current parental consent.
 
 ### Auth and sessions
 

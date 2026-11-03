@@ -21,6 +21,7 @@ import {
   LESSON_QUESTION_COUNT,
   type LessonGenerationOutput,
 } from "../schemas/lesson.js";
+import type { GenerationContext } from "../types.js";
 
 export interface GenerateLessonInput {
   gradeLevel: GradeLevel;
@@ -36,9 +37,19 @@ export interface GenerateLessonResult {
   status: "awaiting_review" | "failed";
 }
 
-export async function generateLesson(
+export interface PreparedLesson {
+  topicId: string;
+  topicName: string;
+  subjectName: string;
+  worldId: string;
+  /** The job's `input` before any prompt is added: what both sources record. */
+  jobInput: Prisma.JsonObject;
+}
+
+/** Lookups and conflicts shared by the Gemini and MCP paths; nothing here calls a model. */
+export async function prepareLesson(
   input: GenerateLessonInput,
-): Promise<GenerateLessonResult> {
+): Promise<PreparedLesson> {
   const topic = await prisma.topic.findUnique({
     where: { id: input.topicId },
     select: {
@@ -55,22 +66,12 @@ export async function generateLesson(
 
   const worldId = await resolveWorldId(input);
 
-  const schema = buildLessonGenerationOutputSchema(input.languages);
-  const bodySchema = buildLessonBodyOutputSchema(input.languages);
-  const promptInput = {
-    gradeLevel: input.gradeLevel,
-    subjectName: topic.subject.name,
+  return {
+    topicId: topic.id,
     topicName: topic.name,
-    lessonFocus: input.lessonFocus,
-    languages: input.languages,
-  };
-  const userPrompt = buildLessonUserPrompt(promptInput);
-  const formats = planQuestionFormats(LESSON_QUESTION_COUNT);
-
-  return runGenerationJob<LessonGenerationOutput>({
-    type: "lesson",
-    // Params and resolved prompt: the prompt builder will have changed by the time a reviewer reads this.
-    input: {
+    subjectName: topic.subject.name,
+    worldId,
+    jobInput: {
       gradeLevel: input.gradeLevel,
       subjectId: input.subjectId,
       subjectName: topic.subject.name,
@@ -79,6 +80,36 @@ export async function generateLesson(
       worldId,
       lessonFocus: input.lessonFocus,
       languages: input.languages,
+    },
+  };
+}
+
+export async function generateLesson(
+  input: GenerateLessonInput,
+  context: GenerationContext = {},
+): Promise<GenerateLessonResult> {
+  const prepared = await prepareLesson(input);
+
+  const schema = buildLessonGenerationOutputSchema(input.languages);
+  const bodySchema = buildLessonBodyOutputSchema(input.languages);
+  const promptInput = {
+    gradeLevel: input.gradeLevel,
+    subjectName: prepared.subjectName,
+    topicName: prepared.topicName,
+    lessonFocus: input.lessonFocus,
+    languages: input.languages,
+  };
+  const userPrompt = buildLessonUserPrompt(promptInput);
+  const formats = planQuestionFormats(LESSON_QUESTION_COUNT);
+
+  return runGenerationJob<LessonGenerationOutput>({
+    type: "lesson",
+    ...(context.requestedById === undefined
+      ? {}
+      : { requestedById: context.requestedById }),
+    // Params and resolved prompt: the prompt builder will have changed by the time a reviewer reads this.
+    input: {
+      ...prepared.jobInput,
       systemPrompt: KIDLEARN_SYSTEM_PROMPT,
       userPrompt,
       questionPrompts: formats.map((format, index) =>
@@ -134,7 +165,14 @@ export async function generateLesson(
       };
     },
     persist: (parsed, jobId, tx) =>
-      persistLesson({ input, parsed, jobId, tx, topicId: topic.id, worldId }),
+      persistLesson({
+        input,
+        parsed,
+        jobId,
+        tx,
+        topicId: prepared.topicId,
+        worldId: prepared.worldId,
+      }),
   });
 }
 
@@ -169,7 +207,7 @@ async function resolveWorldId(input: GenerateLessonInput): Promise<string> {
   return sibling.worldId;
 }
 
-async function persistLesson({
+export async function persistLesson({
   input,
   parsed,
   jobId,

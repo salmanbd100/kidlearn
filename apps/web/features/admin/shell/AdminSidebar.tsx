@@ -3,6 +3,7 @@ import { cva } from "class-variance-authority";
 import {
   Award,
   BookOpen,
+  Bot,
   ChartColumn,
   GraduationCap,
   Image,
@@ -20,6 +21,7 @@ import {
   type AdminNavItem,
   activeAdminNavHref,
 } from "@/features/admin/shell/admin-routes";
+import { Logo } from "@/shared/components/Logo";
 
 export interface AdminSidebarProps {
   pathname: string;
@@ -34,6 +36,7 @@ const ICON_BY_HREF: Record<string, LucideIcon> = {
   [ADMIN_ROUTES.media]: Image,
   [ADMIN_ROUTES.badges]: Award,
   [ADMIN_ROUTES.aiQueue]: Sparkles,
+  [ADMIN_ROUTES.aiAssistants]: Bot,
   [ADMIN_ROUTES.analytics]: ChartColumn,
   [ADMIN_ROUTES.guide]: LifeBuoy,
 };
@@ -70,10 +73,8 @@ export function AdminSidebar({ pathname, badges, footer }: AdminSidebarProps) {
         <span className="flex size-8 items-center justify-center rounded-(--radius) bg-primary text-primary-foreground">
           <Shapes aria-hidden="true" className="size-4" />
         </span>
-        <span className="flex flex-col leading-tight">
-          <span className="font-semibold text-foreground text-sm">
-            kidlearn
-          </span>
+        <span className="flex flex-col gap-0.5 leading-tight">
+          <Logo className="h-5" />
           <span className="text-muted-foreground text-xs">Content studio</span>
         </span>
       </div>

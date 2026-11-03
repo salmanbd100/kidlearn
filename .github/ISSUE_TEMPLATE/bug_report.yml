@@ -1,0 +1,28 @@
+name: Bug report
+description: Something on KidLearn does not work as it should
+labels: [bug]
+body:
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options:
+        [Student portal, Parent dashboard, Admin CMS, Homepage / guides, API]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Sign in as a parent\n2. …"
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "kidlearn.net or dev.kidlearn.net · device · browser"

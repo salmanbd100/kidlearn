@@ -19,7 +19,12 @@ import { AdminFilterChip } from "@/features/admin/ui/AdminFilterChip";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { GRADE_LABELS, LOCALE_LABELS } from "@/features/admin/ui/admin-labels";
 import { Chip } from "@/features/admin/ui/StatusChip";
-import { AI_JOB_TYPE_LABELS, formatRelativeAge } from "./job-labels";
+import { LoadingState } from "@/shared/components/LoadingState";
+import {
+  AI_JOB_TYPE_LABELS,
+  formatRelativeAge,
+  provenanceLabel,
+} from "./job-labels";
 
 const PAGE_SIZE = 25;
 
@@ -157,9 +162,11 @@ export function AiQueueScreen() {
 
       {state === "loading" ? (
         <div className="flex flex-col gap-2">
-          <p role="status" className="text-muted-foreground text-sm">
-            {isWaking ? "Waking the API up…" : "Loading…"}
-          </p>
+          <LoadingState
+            label={isWaking ? "Waking the API up…" : "Loading…"}
+            isLabelVisible={isWaking}
+            className="py-4"
+          />
           <RowSkeleton />
         </div>
       ) : state === "error" ? (
@@ -241,6 +248,10 @@ function JobRow({ job }: { job: AiJobSummary }) {
 
       <span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
         {job.entityLabel ?? "Nothing was produced"}
+      </span>
+
+      <span className="text-muted-foreground text-xs">
+        {provenanceLabel(job)}
       </span>
 
       {job.gradeLevels.length === 0 ? null : (

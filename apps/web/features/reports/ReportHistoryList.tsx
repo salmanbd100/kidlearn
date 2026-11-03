@@ -7,7 +7,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { formatWeekRange } from "@/features/reports/week-range";
-import { formatMinutes } from "@/features/screen-time/duration";
+import { formatMinutes } from "@/shared/lib/duration";
 
 export interface ReportHistoryListProps {
   reports: readonly WeeklyReport[];

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveParentRedirect } from "@/features/parent/parent-redirect";
+import { LoadingState } from "@/shared/components/LoadingState";
 import { useParentSession } from "./context/parent-session";
 
 export function ParentGuard({ children }: { children: ReactNode }) {
@@ -28,11 +29,7 @@ export function ParentGuard({ children }: { children: ReactNode }) {
   }, [redirectTo, router]);
 
   if (status === "loading") {
-    return (
-      <p role="status" className="text-muted-foreground text-sm">
-        {t("children.loading")}
-      </p>
-    );
+    return <LoadingState label={t("children.loading")} />;
   }
 
   if (status === "error") {

@@ -51,6 +51,8 @@ export function NewActivityScreen() {
       <ActivityEditor
         initial={emptyActivityDraft("drag_drop")}
         isBusy={isBusy}
+        // Saving is the only thing this screen does, and `isBusy` stays on through the redirect.
+        isSaving={isBusy}
         error={error}
         onCancel={() => router.push(ADMIN_ROUTES.curriculum)}
         onSubmit={(payload) => void handleSubmit(payload)}

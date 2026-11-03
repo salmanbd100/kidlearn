@@ -3,6 +3,9 @@ import {
   ActivityDefinitionSchema,
   ActivityEventResponseSchema,
   ActivityEventSchema,
+  AdminAccessTokenListResponseSchema,
+  AdminAccessTokenResponseSchema,
+  AdminAccessTokenSchema,
   AdminActivityListResponseSchema,
   AdminActivityResponseSchema,
   AdminActivitySchema,
@@ -30,6 +33,8 @@ import {
   AdminWorldListResponseSchema,
   AdminWorldResponseSchema,
   AdminWorldSchema,
+  AiCapabilitiesResponseSchema,
+  AiCapabilitiesSchema,
   AiJobAssetSchema,
   AiJobCountResponseSchema,
   AiJobCountSchema,
@@ -58,6 +63,9 @@ import {
   ChildStatsSchema,
   CompletionStreakSchema,
   ConsentRecordResponseSchema,
+  CreateAdminAccessTokenSchema,
+  CreatedAdminAccessTokenResponseSchema,
+  CreatedAdminAccessTokenSchema,
   DashboardActivityItemSchema,
   DashboardLearningMinutesSchema,
   DashboardSubjectProgressSchema,
@@ -86,6 +94,8 @@ import {
   LessonQuizQuestionSchema,
   LessonQuizSchema,
   LocalizedLabelSchema,
+  McpJsonRpcRequestSchema,
+  McpJsonRpcResponseSchema,
   MediaAssetListResponseSchema,
   MediaAssetResponseSchema,
   MediaAssetSchema,
@@ -108,10 +118,6 @@ import {
   RewardSummaryResponseSchema,
   RewardSummarySchema,
   RewardTotalsSchema,
-  ScreenTimeSettingResponseSchema,
-  ScreenTimeSettingSchema,
-  ScreenTimeStatusResponseSchema,
-  ScreenTimeStatusSchema,
   ServiceIdentityResponseSchema,
   SessionEventRecordSchema,
   SessionEventResponseSchema,
@@ -193,7 +199,6 @@ import {
   QuizResponsesBodySchema,
   SessionEventBodySchema,
 } from "../modules/progress/progress.schema.js";
-import { ScreenTimeBodySchema } from "../modules/screen-time/screen-time.schema.js";
 import {
   buildComponentSchemas,
   type JsonSchemaObject,
@@ -213,7 +218,6 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   ActivityEventBody: ActivityEventBodySchema,
   SessionEventBody: SessionEventBodySchema,
   QuizResponsesBody: QuizResponsesBodySchema,
-  ScreenTimeBody: ScreenTimeBodySchema,
 
   ServiceIdentityResponse: ServiceIdentityResponseSchema,
   HealthResponse: HealthResponseSchema,
@@ -396,11 +400,18 @@ export const SCHEMA_DEFINITIONS: Record<string, ZodTypeAny> = {
   AiJobCountResponse: AiJobCountResponseSchema,
   AiReviewResult: AiReviewResultSchema,
   AiReviewResultResponse: AiReviewResultResponseSchema,
+  AiCapabilities: AiCapabilitiesSchema,
+  AiCapabilitiesResponse: AiCapabilitiesResponseSchema,
 
-  ScreenTimeSetting: ScreenTimeSettingSchema,
-  ScreenTimeSettingResponse: ScreenTimeSettingResponseSchema,
-  ScreenTimeStatus: ScreenTimeStatusSchema,
-  ScreenTimeStatusResponse: ScreenTimeStatusResponseSchema,
+  // The secret appears in the create response alone; the listed shape has only its display prefix.
+  AdminAccessTokenCreateBody: CreateAdminAccessTokenSchema,
+  AdminAccessToken: AdminAccessTokenSchema,
+  AdminAccessTokenResponse: AdminAccessTokenResponseSchema,
+  AdminAccessTokenListResponse: AdminAccessTokenListResponseSchema,
+  CreatedAdminAccessToken: CreatedAdminAccessTokenSchema,
+  CreatedAdminAccessTokenResponse: CreatedAdminAccessTokenResponseSchema,
+  McpJsonRpcRequest: McpJsonRpcRequestSchema,
+  McpJsonRpcResponse: McpJsonRpcResponseSchema,
 
   // Response shapes only: no endpoint accepts a reward amount or type.
   RewardTotals: RewardTotalsSchema,
@@ -436,6 +447,12 @@ export const SECURITY_SCHEMES = {
     description:
       "`Authorization: Bearer <CRON_SECRET>`. A static shared secret from the server's environment, not a token anyone signs in for. **Try it out** in this page will not work for these operations unless you paste the secret yourself.",
   },
+  adminAccessToken: {
+    type: "http",
+    scheme: "bearer",
+    description:
+      "`Authorization: Bearer klat_…`. An admin access token from `POST /api/admin/access-tokens`, accepted by `POST /mcp` and nowhere under `/api`. Draft-only by scope: it reads curriculum and creates drafts for review, and cannot approve or publish anything.",
+  },
 } as const;
 
 /** Applied to every operation; public ones override it with `security: []`. */
@@ -468,14 +485,9 @@ export const TAGS = [
       "Avatar characters. `GET /api/characters` lists the published starter set a brand-new profile picks from; the per-child lists additionally carry the characters that must be *earned*, flagged with whether that child has unlocked them yet (FR-GAM-05). Unlock rules are `Character.unlockRule` JSONB read against the child's ledger totals — nothing about an unlock is decided or reported by a client.",
   },
   {
-    name: "Screen Time",
-    description:
-      "Parental limits on *starting* new content (FR-TIME-01..05): a daily allowance and an access window, both per child and both owned by the parent. The policy is written on `/api/children/{id}/screen-time`, which only the parent's own session reaches; the student surface reads its own verdict from `/api/screen-time/status`, scoped to the session's active child.\n\n**Enforcement is server-side and happens at the start of content, not during it.** `GET /api/content/lessons/{id}` and `GET /api/content/stories/{id}` answer `423 Locked` when the gate is shut; a lesson's later step reports and its completion never do, so a lesson already under way can always be finished (FR-TIME-03); a story's completion is exempt for 30 minutes after its `story_start` and its time keeps being recorded (FR-TIME-06). A lesson with an incomplete `LessonProgress` row written in the past 30 minutes is exempt from its own gate — resuming is not starting — while replaying a finished one is a new start and is gated, as is picking up one abandoned longer ago than that.\n\nThe minutes a limit is compared against are the same server-derived figure the parent dashboard shows, from one shared function, so a limit and a dashboard can never disagree about how long a child has been learning.",
-  },
-  {
     name: "Dashboard",
     description:
-      "What the parent dashboard renders for one child (FR-DASH-01..04): learning minutes for three windows, per-subject completion, and the recent-activity feed — all in one request, because the screen reads them together and four calls would be four chances to leave half a dashboard on screen.\n\nEvery figure is the server's. Minutes come from the same `getLearningMinutes` a screen-time limit is checked against, so a dashboard and a limit can never disagree; completion comes from `LessonProgress`; the feed from `LessonProgress` and `RewardLedger`. Nothing a client sends contributes to any of them (FR-TIME-06, spec §7).\n\n**Titles arrive in both locales**, unlike every other localised response in this API. The reader is the parent, their dashboard language is an i18next choice the server never sees, and there is no parent language column — so resolving to the *child's* language here would show an English-reading parent Bangla lesson titles inside English chrome.",
+      "What the parent dashboard renders for one child (FR-DASH-01..04): learning minutes for three windows, per-subject completion, and the recent-activity feed — all in one request, because the screen reads them together and four calls would be four chances to leave half a dashboard on screen.\n\nEvery figure is the server's. Minutes come from `getLearningMinutes`; completion comes from `LessonProgress`; the feed from `LessonProgress` and `RewardLedger`. Nothing a client sends contributes to any of them (FR-TIME-06, spec §7).\n\n**Titles arrive in both locales**, unlike every other localised response in this API. The reader is the parent, their dashboard language is an i18next choice the server never sees, and there is no parent language column — so resolving to the *child's* language here would show an English-reading parent Bangla lesson titles inside English chrome.",
   },
   {
     name: "Reports",
@@ -500,7 +512,7 @@ export const TAGS = [
   {
     name: "Learning Time",
     description:
-      "Where time comes from, and what it adds up to (FR-TIME-06, FR-DASH-02). The student surfaces post a heartbeat every 30 seconds while their tab is visible plus a milestone event now and then; nothing they send carries a timestamp, a duration or a total. The server stamps every row, drops a beat arriving under 20 seconds after the last, and derives minutes from the density of what it stored — so a refresh, a closed tab, cleared storage or an edited client state cannot lower a recorded minute. Aggregation is one service function shared by the heartbeat's own `minutesToday`, the parent dashboard and the weekly report, so a screen-time limit and a dashboard can never disagree about how long a child has been learning.",
+      "Where time comes from, and what it adds up to (FR-TIME-06, FR-DASH-02). The student surfaces post a heartbeat every 30 seconds while their tab is visible plus a milestone event now and then; nothing they send carries a timestamp, a duration or a total. The server stamps every row, drops a beat arriving under 20 seconds after the last, and derives minutes from the density of what it stored — so a refresh, a closed tab, cleared storage or an edited client state cannot lower a recorded minute. Aggregation is one service function shared by the heartbeat's own `minutesToday`, the parent dashboard and the weekly report, so no two of them can disagree about how long a child has been learning.",
   },
   {
     name: "Rewards",
@@ -538,6 +550,11 @@ export const TAGS = [
       "AI content generation (files 34–37, FR-AI-01..08). An administrator describes what they want; a Gemini call writes it; the result lands in the review queue as **draft** rows and a job row, and stops there.\n\n**No endpoint on this surface can publish, and it is the schema rather than the code that guarantees it.** Every generated row takes the `draft` default on its `status` column, and status moves on one path only — `POST /api/admin/content/{resource}/{id}/transition`, behind which `published` is reachable from `approved` and nowhere else. A child therefore cannot see generated content until a person has read it (FR-AI-07).\n\n**Every generation is auditable.** The `AIGenerationJob` row keeps the exact system and user prompts the model saw, both verbatim attempts — a schema failure buys exactly one retry, with the validation errors fed back — and the tokens all of it cost, successful or not (FR-AI-08).\n\n**The model is never asked for prose.** It answers against a response schema generated from the same Zod objects the renderer draws from and the admin editors validate against, so there is no free text to parse and no second description of a payload shape to drift (FR-AI-03).\n\nGeneration is awaited inside the request: this deployment has no worker and no queue, so a background job would be a promise it could not keep. The reply is a job reference in any case, which is what makes a queue a later change nobody has to notice.",
   },
   {
+    name: "MCP",
+    description:
+      "Content authoring with an administrator's own AI assistant — Claude, Cursor, VS Code, Gemini CLI and others that take a bearer token; ChatGPT and claude.ai connectors need OAuth, which is not built yet — over the Model Context Protocol (file 41, FR-AI-10).\n\n**One endpoint, `POST /mcp`, outside `/api`**, because an MCP client is configured with a single URL. It speaks JSON-RPC: the assistant lists the tools, reads the curriculum and the authoring rules, writes a lesson, story or quiz on the admin's own subscription, and submits it. A valid submission is validated against the same content schemas the Gemini path uses and becomes an `AIGenerationJob` with `source: \"mcp\"` in `awaiting_review` — the same queue, the same reviewers, the same approve and reject.\n\n**No tool can approve, reject, publish, edit published content or read anything about a parent or child.** The human gate is unchanged (FR-AI-07).\n\nAuthenticated by an admin access token (`adminAccessToken` scheme), minted from a signed-in CMS session under `/api/admin/access-tokens`. Every request re-checks the token and the admin behind it. Mounted only when `MCP_ENABLED=true`.",
+  },
+  {
     name: "Jobs",
     description:
       "Work an external scheduler triggers, authenticated by a shared secret rather than a session — the caller is cron-job.org, which has nobody to sign in as (see the `cronSecret` scheme). Every job here only ever **recomputes** something the server already owns, and none of them read per-child data out: with a static credential sitting in a third party's configuration field, there is no human for a response to be scoped to.",
@@ -549,14 +566,7 @@ export const TAG_GROUPS = [
   { name: "Getting started", tags: ["Health", "Auth"] },
   {
     name: "Parent & household",
-    tags: [
-      "Parent Account",
-      "Children",
-      "Characters",
-      "Screen Time",
-      "Dashboard",
-      "Reports",
-    ],
+    tags: ["Parent Account", "Children", "Characters", "Dashboard", "Reports"],
   },
   {
     name: "Student experience",
@@ -571,6 +581,7 @@ export const TAG_GROUPS = [
       "Admin CMS: Media",
       "Admin CMS: Characters",
       "Admin AI",
+      "MCP",
     ],
   },
   { name: "Automation", tags: ["Jobs"] },

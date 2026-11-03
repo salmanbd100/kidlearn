@@ -382,6 +382,38 @@ describe("ChildProfileForm", () => {
     );
   });
 
+  it("stays busy after a successful save, until the caller navigates away", async () => {
+    const { onSaved } = await renderForm();
+
+    typeName("Ayaan");
+    chooseAvatar("Leo the Lion");
+    submit();
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Saving…" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+  });
+
+  it("is ready to submit again after a failed save", async () => {
+    await renderForm({
+      onSubmit: vi.fn(async () => ({
+        ok: false as const,
+        error: { code: "INTERNAL", message: "boom", status: 500 },
+      })),
+    });
+
+    typeName("Ayaan");
+    chooseAvatar("Leo the Lion");
+    submit();
+
+    await screen.findByRole("alert");
+    expect(
+      screen.getByRole("button", { name: "Create profile" }),
+    ).not.toHaveAttribute("aria-busy");
+  });
+
   it("says so plainly when no avatar is available to choose", async () => {
     api.listAvatars.mockResolvedValue({ ok: true, data: [] });
     render(
@@ -401,6 +433,40 @@ describe("ChildProfileForm", () => {
         ),
       ).toBeInTheDocument(),
     );
+  });
+
+  it("reports a failed avatar load as an error, not as no avatars, and retries", async () => {
+    api.listAvatars
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "INTERNAL", message: "boom", status: 500 },
+      })
+      .mockResolvedValueOnce({ ok: true, data: AVATARS });
+    render(
+      <Providers locale="en">
+        <ChildProfileForm
+          onSubmit={async () => created()}
+          onSaved={vi.fn()}
+          submitLabel="Create profile"
+        />
+      </Providers>,
+    );
+
+    expect(
+      await screen.findByText("Something went wrong. Please try again."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "No avatars are available right now. Please try again in a moment.",
+      ),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      await screen.findByRole("radio", { name: "Choose Leo the Lion" }),
+    ).toBeInTheDocument();
+    expect(api.listAvatars).toHaveBeenCalledTimes(2);
   });
 
   it("keeps every control at the 44px parent touch minimum", async () => {

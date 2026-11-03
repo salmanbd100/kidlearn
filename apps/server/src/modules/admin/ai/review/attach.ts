@@ -4,13 +4,8 @@ import { Prisma } from "@kidlearn/db";
 import type { AiJobAsset, Locale } from "@kidlearn/types";
 import { LOCALES } from "@kidlearn/types";
 import { ApiError } from "../../../../shared/errors/errors.js";
-import {
-  asRecord,
-  JOB_SELECT,
-  type JobRow,
-  type ReviewWriter,
-  readString,
-} from "./job.js";
+import { asRecord, readString } from "../../../../shared/utils/json-record.js";
+import { JOB_SELECT, type JobRow, type ReviewWriter } from "./job.js";
 
 // The attach target is read from the job's `input`, not the asset row, which doesn't record which row it belongs to.
 // `isAttached` checks the live foreign key so a re-opened approved job shows the attachment.

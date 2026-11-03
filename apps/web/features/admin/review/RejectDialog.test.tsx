@@ -83,7 +83,9 @@ describe("RejectDialog", () => {
     fireEvent.change(screen.getByLabelText("What was wrong with it?"), {
       target: { value: "The Bangla reads as a translation." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Rejecting…" }));
+    const reject = screen.getByRole("button", { name: "Reject" });
+    expect(reject).toHaveAttribute("aria-busy", "true");
+    fireEvent.click(reject);
 
     expect(onConfirm).not.toHaveBeenCalled();
   });

@@ -17,12 +17,6 @@ export function childWriteErrorKey(failure: ApiFailure): ParentMessageKey {
   }
 }
 
-export function screenTimeErrorKey(failure: ApiFailure): ParentMessageKey {
-  return failure.code === "NOT_FOUND"
-    ? "errors.notFound"
-    : generalErrorKey(failure);
-}
-
 /** The fallback message for any failure with no screen-specific meaning. */
 export function generalErrorKey(failure: ApiFailure): ParentMessageKey {
   return failure.code === "NETWORK_ERROR" ? "errors.network" : "errors.generic";

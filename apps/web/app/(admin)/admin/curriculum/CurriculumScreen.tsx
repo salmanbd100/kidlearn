@@ -21,6 +21,8 @@ import {
 import { Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAiCapabilities } from "@/app/(admin)/context/ai-capabilities";
+import { GeminiOrAssistantAction } from "@/features/admin/ai/GeminiOrAssistantAction";
 import {
   type ContentDraft,
   createContent,
@@ -39,6 +41,7 @@ import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { StatusChip } from "@/features/admin/ui/StatusChip";
+import { LoadingState } from "@/shared/components/LoadingState";
 import { type ColumnItem, ContentColumn } from "./_components/ContentColumn";
 import { ContentForm } from "./_components/ContentForm";
 import { GenerateLessonDialog } from "./_components/GenerateLessonDialog";
@@ -73,6 +76,7 @@ export function CurriculumScreen() {
   const [dialog, setDialog] = useState<DialogState>({ kind: "closed" });
   // Not a `DialogState` variant: the generator has no row to edit, so folding it in would guard every `dialog.resource` read.
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+  const capabilities = useAiCapabilities();
 
   function clearMessages() {
     setNotice(undefined);
@@ -244,23 +248,25 @@ export function CurriculumScreen() {
             >
               Refresh
             </Button>
-            <Button
-              type="button"
-              disabled={isBusy}
-              onClick={() => {
-                clearMessages();
-                setIsGenerateOpen(true);
-              }}
-            >
-              <Sparkles aria-hidden="true" className="size-4!" />
-              Generate lesson
-            </Button>
+            <GeminiOrAssistantAction capabilities={capabilities}>
+              <Button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  clearMessages();
+                  setIsGenerateOpen(true);
+                }}
+              >
+                <Sparkles aria-hidden="true" className="size-4!" />
+                Generate lesson
+              </Button>
+            </GeminiOrAssistantAction>
           </>
         }
       />
 
       {status === "waking" ? (
-        <p className="text-muted-foreground text-xs">Waking the API up…</p>
+        <LoadingState label="Waking the API up…" isLabelVisible />
       ) : null}
 
       {notice ? (

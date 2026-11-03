@@ -32,10 +32,6 @@ ssm() {
     --region "${AWS_REGION}" --query Parameter.Value --output text
 }
 
-# DIRECT_URL (:5432, unpooled), not DATABASE_URL: pg_dump opens one long
-# connection and holds it, which is exactly what PgBouncer's transaction pooling
-# is not for — through the pooler a large dump fails partway with a closed
-# connection.
 # Optional. Read first so a failure fetching the two required values below is
 # still reported. Unset means no alerting, which is said out loud on every run.
 HEARTBEAT_URL="$(ssm /kidlearn/prod/BACKUP_HEARTBEAT_URL 2>/dev/null || true)"

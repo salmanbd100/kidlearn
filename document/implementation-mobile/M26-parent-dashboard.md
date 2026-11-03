@@ -18,7 +18,7 @@ The parent's landing screen: a child switcher, learning minutes for today / this
   - `recentActivity[]` — newest first, up to `RECENT_ACTIVITY_LIMIT` (20) items `{ type, refId, title: { en, bn | null }, occurredAt }` of `DASHBOARD_ACTIVITY_TYPES` (`lesson_completed`, `story_completed`, `badge_earned`) (FR-DASH-04).
   - Every schema is `.strict()`.
 - `GET /api/children/:id/learning-time?range=today|week|month` → `{ range, minutes, from, to }` (`packages/types/src/api/learning-time.ts`) uses the same server function (`getLearningMinutesForRanges`), so the dashboard's three figures equal it by construction. The dashboard does not call it; it is the cross-check in the device pass. Weeks start Monday in `APP_TIMEZONE`.
-- The web implementation is `apps/web/app/(parent)/parent/page.tsx` + `DashboardScreen.tsx`, with the pieces in `apps/web/features/children/` (`DashboardSummary`, `ChildSwitcher`, `SubjectProgressCard`, `ActivityTimeline`, `dashboard-api.ts`, `localized-label.ts`) and `shared/components/StatCard.tsx`. Its decisions to carry over: one call per child, **no chart library** (pure layout bars), `Intl.RelativeTimeFormat` for dates via a tested helper (`shared/lib/relative-time.ts`), minutes through `features/screen-time/duration.ts` (`formatMinutes`), a presentational summary component fed fixtures so the test needs no network, and an "Open report" button that carries the selected child to `/parent/reports?child=<id>`. Web's `getDashboard` does not parse the response; mobile does (requirement 1).
+- The web implementation is `apps/web/app/(parent)/parent/page.tsx` + `DashboardScreen.tsx`, with the pieces in `apps/web/features/children/` (`DashboardSummary`, `ChildSwitcher`, `SubjectProgressCard`, `ActivityTimeline`, `dashboard-api.ts`, `localized-label.ts`) and `shared/components/StatCard.tsx`. Its decisions to carry over: one call per child, **no chart library** (pure layout bars), `Intl.RelativeTimeFormat` for dates via a tested helper (`shared/lib/relative-time.ts`), minutes through `shared/lib/duration.ts` (`formatMinutes`), a presentational summary component fed fixtures so the test needs no network, and an "Open report" button that carries the selected child to `/parent/reports?child=<id>`. Web's `getDashboard` does not parse the response; mobile does (requirement 1).
 - **Web's parent navigation** is `apps/web/app/(parent)/ParentTopBar.tsx`: wordmark, nav links Dashboard / Children / Reports (`nav.dashboard`, `nav.children`, `nav.reports`), a "Back to kid mode" button (→ `/select-profile`, on the bar because nobody found it in the menu), `LanguageSwitch`, and an avatar menu (name, email, Sign out). It renders nothing during onboarding. Sign-out failure keeps the parent where they are with `nav.signOutFailed`, rather than navigating as if it had worked. `document/mobile-app-plan.md` §8 ("parent top bar") maps this to a `Stack.Screen` header plus a bottom tab or segmented control, and an ActionSheet for the account menu. There is **no admin entry** on mobile (D1).
 - A 404 on a child route means "not yours or not there" (`loadOwnedChild`) — never distinguish them.
 - The parent area is reached from the signed-in Google/Apple session only (M07); M09 provides the child list and `ChildCard`; M03 provides `lib/format.ts` (`formatRelative`, `formatMinutes`, the latter matching web's `duration.ts` — lift it rather than copy if it is not shared yet, D6) — already verified for Bengali on Android. M07 provides `signOut()`; M08 provides the settings screen (language, sign-out, account deletion) that the account menu opens.
@@ -109,7 +109,7 @@ function selectChild(id: string) {
 }
 ```
 
-Minute formatting must come from `lib/format.ts` (M03) and must agree with `apps/web/features/screen-time/duration.ts` — spot-check the five values in the test rather than trusting two implementations to have drifted the same way.
+Minute formatting must come from `lib/format.ts` (M03) and must agree with `apps/web/shared/lib/duration.ts` — spot-check the five values in the test rather than trusting two implementations to have drifted the same way.
 
 For the timeline icons, map `DASHBOARD_ACTIVITY_TYPES` to a `lucide-react-native` icon in one record, and give each row a text label as well: an icon-only timeline is unreadable to a screen reader and ambiguous to everyone else.
 
@@ -147,7 +147,6 @@ For the timeline icons, map `DASHBOARD_ACTIVITY_TYPES` to a `lucide-react-native
 ## Out of Scope
 
 - Weekly reports — M27.
-- Screen-time settings — M25, though the child cards link there.
 - Charts, per-topic drill-downs and quiz-level analytics. The web plan defers these to Phase 2; mobile does not get ahead of it.
 - Exporting or sharing a child's progress. Sharing a child's data needs a privacy decision, not a share sheet.
 - Comparison between children or against other families. Against the product's tone and a privacy risk.

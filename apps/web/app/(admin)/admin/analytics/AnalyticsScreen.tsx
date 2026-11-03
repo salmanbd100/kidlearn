@@ -19,6 +19,7 @@ import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { AdminEmptyState } from "@/features/admin/ui/AdminEmptyState";
 import { AdminPageHeader } from "@/features/admin/ui/AdminPageHeader";
 import { AdminStatCard } from "@/features/admin/ui/AdminStatCard";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 const CARDS: ReadonlyArray<{
   key: keyof Omit<PlatformOverview, "generatedAt">;
@@ -94,9 +95,7 @@ export function AnalyticsScreen() {
       />
 
       {status === "waking" ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          Waking the API up…
-        </p>
+        <LoadingState label="Waking the API up…" isLabelVisible />
       ) : null}
 
       {status === "error" ? (

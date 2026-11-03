@@ -6,17 +6,15 @@
 > file 38 established, on the same footing as file 39.
 > **Status tracking:** update `00-progress-tracker.md` when starting/finishing
 >
-> **Re-verified 2026-09-10.** Of the two dependencies, **38's repository half is implemented**
-> (`apps/server/Dockerfile`, `deploy/`) but no AWS resources exist yet, so nothing here can be
-> exercised — and **39 has landed, ruleset amendment included (2026-10-08)**. Two things changed under this
-> file since it was written, and both narrow its scope:
+> **Status (re-read 2026-10-26).** [File 39](39-ci-pipeline-and-branch-protection.md) has landed in
+> full: `ci.yml` triggers on `main` and `dev`, and ruleset 17802318 requires `gates` on both. File 38's
+> repository half is implemented; this file waits on its **provisioning** (tracker row "38 ·
+> provisioning"), because nothing here can be exercised without the box. The operator's walk-through
+> of this file is [`deployment/12-automatic-deploys.md`](../deployment/12-automatic-deploys.md).
 >
-> - **`dev` exists** (created 2026-09-06) and is already the integration branch. Step 1's "create
->   `dev`" is done, and `general.md §7` documents the flow.
-> - **Requirement 1 (extending `ci.yml`'s triggers to `dev`) has moved to file 39**, as its new
->   requirement 10. It was blocking on 8–9 hours of AWS work for no reason, and three pull requests
->   merged into `dev` unchecked while it waited. `gates` being *required* on `dev` moved with it.
->   What remains here is only what genuinely depends on deployment.
+> **`deploy/deploy.sh` has moved on since requirement 9 was written** — read the note under that
+> requirement before implementing it. Three of its behaviours were decided the other way while file
+> 38 was being built by hand, and the pull request for this file has to choose deliberately.
 
 ## Goal
 
@@ -45,37 +43,34 @@ Every production change has been live on `dev` first, because `main` accepts pul
 
 ## Context & Current State
 
-File 38 left both environments working and a `deploy/deploy.sh` that already does the work — pull
-images, run migrations, restart, poll health, revert on failure. It takes the environment as its
-first argument. This file's job is to *invoke* it safely from CI, not to reimplement it.
+File 38 left a `deploy/deploy.sh` that already does the work — fetch secrets, pull, migrate (with
+`--migrate`), restart, gate on `/health` and `/ready`, record `last-good-tag`. It takes the
+environment as its first argument. This file's job is to *invoke* it safely from CI, not to
+reimplement it.
 
-`.github/workflows/ci.yml` (file 39) runs one job, `gates`, on pull requests to and pushes on the
-long-lived branches: install → `pnpm lint` → `pnpm build` → `pnpm typecheck` → `pnpm test:coverage`,
-with pnpm and Turbo caching and a coverage artefact. A run takes ~3m15s, almost all of it install
-and setup. Its `concurrency` block evaluates `cancel-in-progress` to `false` for any push, so a
-superseded push still gets a verdict — the behaviour a deploy needs. **File 39 requirement 10 is
-what extends those triggers to `dev`**; confirm it has landed before starting here, or the `deploy`
-job will never fire on a `dev` push.
+`.github/workflows/ci.yml` (file 39) runs one job, `gates`, on pull requests to and pushes on `main`
+and `dev`: install → `pnpm lint` → `pnpm build` → `pnpm typecheck` → `pnpm test:coverage` →
+`pnpm --filter server test:db` against a Postgres service container → `docker build` of the web
+escape-hatch image and the server `runner` and `migrate` images (x86, never pushed). Its
+`concurrency` block evaluates `cancel-in-progress` to `false` for any push, so a superseded push still
+gets a verdict — the behaviour a deploy needs. Every action is pinned to a commit SHA and bumped by
+Dependabot; the `deploy` job's actions must be pinned the same way, because it is the first job that
+holds AWS credentials.
 
-**`gates` is the status-check context file 39's branch ruleset requires.** Renaming that job silently
-un-gates the branch. Nothing here renames it.
+**`gates` is the status-check context ruleset 17802318 requires on both branches.** Renaming that
+job silently un-gates them. Nothing here renames it.
 
-**`dev` now exists**, created from `main` on 2026-09-06 — before this file, not by it. Feature
-branches are already cut from `dev` and merged back into it (`general.md §7`), the `/pr`,
-`/code-review` and `/start-implementation` skills all target it, and pull requests #46, #47 and #49
-have already gone that way. The `NN-feature` branch naming stays.
-
-What is *not* true yet is the second half of that flow. `general.md §7` says `main` "accepts pull
-requests only from `dev`, enforced by a required check" — **there is no such check**;
-`promotion-guard` is requirement 2 of this file and does not exist. Until it does, the standards
-overstate what is enforced, and requirement 13 has to reconcile them.
+**The branch flow is half real.** Feature branches are cut from `dev` and merged back into it
+([`general.md §7`](../standards/general.md)). But [`general.md §7`](../standards/general.md) also says `main` "accepts pull requests only from `dev`,
+enforced by a required check" — **there is no such check**; `promotion-guard` is requirement 2 of
+this file. Until it lands, the standards overstate what is enforced, and requirement 13 has to
+reconcile them.
 
 Three facts shape the design:
 
 - **The repository is public** (`salmanbd100/kidlearn`), so GitHub's `ubuntu-24.04-arm` hosted runners
   are free. The instance is Graviton, so images must be `linux/arm64`; a native arm64 runner builds
-  them in ordinary time, where QEMU emulation on an x86 runner would take several times longer for
-  the Next.js build alone.
+  them in ordinary time, where QEMU emulation on an x86 runner would take several times longer.
 - **The box has no inbound SSH rule.** Deploys go through `ssm:SendCommand`, not `ssh`.
 - **Both environments live on one instance.** `ssm:SendCommand` is scoped to an instance, not to a
   directory, so IAM cannot fully separate the dev pipeline from the production one. Requirement 4
@@ -84,11 +79,9 @@ Three facts shape the design:
 
 ## Detailed Requirements
 
-1. ~~**`ci.yml` triggers extend to `dev`.**~~ **Moved to file 39, requirement 10.** Extending
-   `push`/`pull_request` to `[main, dev]` costs one line, is required for `general.md §7` to be
-   satisfiable at all, and has nothing to do with deployment — keeping it here queued it behind
-   file 38. Confirm it is in place before requirement 5, because `deploy` triggers off a `dev` push
-   that will not otherwise produce a run. Nothing else about it belongs to this file.
+1. ~~**`ci.yml` triggers extend to `dev`.**~~ Moved to file 39 requirement 10, and landed there. It
+   had nothing to do with deployment, and queueing it behind file 38 let three pull requests merge
+   into `dev` unchecked.
 
 2. **A promotion guard, so the branch flow is real.** GitHub rulesets cannot restrict which *source*
    branch may merge into a target, so a small job does it:
@@ -107,7 +100,7 @@ Three facts shape the design:
 
    Make it a **required status check on `main`** alongside `gates`. Without that it is advisory, and
    an advisory rule about release process is a rule that stops being followed in a hurry.
-   `general.md §7` already describes it in the present tense, so until this lands the standards
+   [`general.md §7`](../standards/general.md) already describes it in the present tense, so until this lands the standards
    claim a check that does not exist — requirement 13 either makes that sentence true or dates it. A genuine
    emergency is a hotfix branch merged to `dev` and promoted in two pull requests, or an admin
    override — both leave a trace, which is the point.
@@ -195,7 +188,7 @@ Three facts shape the design:
    - Every environment and path expression that reads `github.ref_name` has to fall back to
      `inputs.environment`, or a manual run deploys whatever the branch implies rather than what was
      asked for. That is the whole class of bug this design was meant to avoid.
-   - `gates` has no `if:` guard, so a dispatch runs it too — ~3m15s before anything deploys.
+   - `gates` has no `if:` guard, so a dispatch runs it too — a full run before anything deploys.
      **Leave it that way** for `deploy`: `needs: gates` skipping because its dependency skipped
      would hand you a manual deploy of unverified code, and the alternative (`if: always() && ...`)
      is exactly how that mistake gets made.
@@ -265,7 +258,7 @@ Three facts shape the design:
    which in `bash` expands to the empty string and turns the assertion into a request to
    `https://api./health`. Under `curl -sf` that fails loudly, but the same shape elsewhere fails
    *quietly*; name every host in this table and interpolate nothing that is not in it. The three `NEXT_PUBLIC_*` and `MEDIA_ASSET_HOSTS` values are **not** here —
-   they live in the Vercel projects (`runbook.md` §4), which is the only place that builds
+   they live in the Vercel projects ([`runbook.md` §4](../runbook.md)), which is the only place that builds
    them.
 
    **The repository holds no secrets for deployment at all.** If a `secrets.*` reference appears in
@@ -327,6 +320,21 @@ Three facts shape the design:
       that file, restart, and `exit 1`.
    9. `docker image prune -f`, so a 20 GB volume shared by two environments does not silently fill.
 
+   > **What `deploy.sh` does today, and where it disagrees with the list above** (read 2026-10-26).
+   > Steps 1, 3, 4, 6 and the `last-good-tag` write exist. Step 2 (`flock`) does not — add it. The
+   > other three were decided the opposite way while file 38 was deployed by hand, each with its
+   > reason in the script's comments; this file's pull request must pick one side on purpose and
+   > update [`runbook.md` §3](../runbook.md) and
+   > [`deployment/12-automatic-deploys.md`](../deployment/12-automatic-deploys.md) (which describes
+   > the list above) to match:
+   >
+   > | List above | `deploy.sh` today | Why it changed |
+   > |---|---|---|
+   > | 5 — migrate on every deploy | only with `--migrate` | a schema change should be a decision, not a side effect of a restart. A pipeline that keeps the flag has to compute it — e.g. `git diff --name-only <last-good> <sha> -- packages/db/prisma/migrations/` |
+   > | 7 — poll the public URL through Caddy, ~60 s | poll the container healthcheck, then `/ready` from inside it, up to 150 s | a failure should mean the API is broken, not Caddy or DNS; `/ready` catches a wrong `DATABASE_URL` that DB-free `/health` passes. Requirement 10's `curl` of `API_ORIGIN` already covers the edge |
+   > | 8 — redeploy `last-good-tag` automatically | leave the new image running, print `ROLL BACK WITH:` and exit 1 | the logs of the failed release are the evidence; rollback is one command. Unattended, an automatic revert is the better default — but it must then keep printing those logs into the SSM output |
+   > | 9 — `docker image prune -f` | nothing per deploy; a weekly cron keeps the 4 newest images per repository | `prune -f` removes only dangling layers, so it was not doing the job; the cron keeps rollback targets on the box. Adding `prune -f` is harmless but redundant |
+
    Migrations being forward-only means the automatic revert restores the *images*, not the schema.
    That is correct, and it is a constraint worth writing in the runbook: **any migration that reaches
    `main` must be backward-compatible with the image before it**, because for the seconds between
@@ -374,7 +382,7 @@ Three facts shape the design:
     the `main` path. An untested rollback is the one that will be exercised first, at the worst
     moment, and dev is free to break.
 
-13. **Documentation.** Extend `document/runbook.md` (file 38) with: the branch flow and what the
+13. **Documentation.** Extend [`document/runbook.md`](../runbook.md) (file 38) with: the branch flow and what the
     promotion guard enforces; how to deploy either environment without merging; how to roll back and
     where to find the tag (the SHA in the Actions run title, or `docker compose -p kidlearn-<env> images`
     on the box); how to read an SSM command's output when the job log is not enough; and the
@@ -382,7 +390,7 @@ Three facts shape the design:
     the existing comment about the `gates` context, that `gates` and `promotion-guard` are the
     required checks and `deploy` is deliberately not.
 
-    Also **reconcile `general.md §7`**, which already says `main` "accepts pull requests only from
+    Also **reconcile [`general.md §7`](../standards/general.md)**, which already says `main` "accepts pull requests only from
     `dev`, enforced by a required check". Requirement 2 is what makes that sentence true; it is
     false until then. Whichever way it resolves — the check lands, or the sentence gets dated the
     way §7's own "Changed 2026-09-06" note does — the standards must not claim an enforcement tier
@@ -413,7 +421,7 @@ Nothing is created. Resisting a second workflow file is the design decision: kee
 rollback beside each other means the two can never drift apart in how they call `deploy.sh`, and one
 `gates` definition serves both branches.
 
-Sketch of the build-and-deploy chain, after `actions/checkout@v5`:
+Sketch of the build-and-deploy chain, after `actions/checkout`. Major versions only, for readability — the workflow pins every action to a commit SHA with the release in a trailing comment, as `ci.yml` already does:
 
 ```yaml
 - uses: aws-actions/configure-aws-credentials@v4
@@ -462,9 +470,10 @@ commit.
 2. Create the OIDC provider and both roles with requirement 4's policies; verify each trust condition
    names its own environment. (~40 min)
 3. Create the `development` and `production` GitHub Environments and their variables. (~20 min)
-4. Harden `deploy.sh`: argument validation, `flock`, migration abort, health poll through Caddy,
-   `last-good-tag` revert, image prune. Run it on the box by hand for both environments, twice each,
-   and confirm the second run is a no-op. (~50 min)
+4. Harden `deploy.sh`: add the `flock`, and settle each row of requirement 9's table (migrate flag,
+   health gate, failure path, prune). Argument validation and the migration abort already exist.
+   Run it on the box by hand for both environments, twice each, and confirm the second run is a
+   no-op. (~50 min)
 5. Add the `deploy` job with a `workflow_dispatch` path; run it manually against **dev** and watch a
    real image reach the box. (~40 min)
 6. Add requirement 10's post-deploy assertions; point the dev Vercel project's

@@ -137,7 +137,7 @@ export const BETTER_AUTH_ROUTES: RouteDoc[] = [
       description: [
         "Documented so it is on the record as **closed**, not because anything calls it. better-auth is configured with `emailAndPassword.disableSignUp`, so this answers `400 EMAIL_PASSWORD_SIGN_UP_DISABLED` for every request.",
         "",
-        "That is what keeps the shared `user` table safe: nobody can mint an administrator identity over HTTP. Admins exist only because `pnpm --filter server seed:admin` created them, and re-running that seed is how a forgotten password is recovered — there is no self-service reset, so the login page offers neither a signup nor a forgot-password affordance. A signed-in admin can change their own password via better-auth's `POST /api/auth/change-password`.",
+        "That is what keeps the shared `user` table safe: nobody can mint an administrator identity over HTTP. Admins exist only because `pnpm --filter server seed:admin` created them, and re-running that seed is how a forgotten password is recovered — there is no self-service reset, so the login page offers neither a signup nor a forgot-password affordance. A signed-in admin can change their own password via better-auth's `POST /api/auth/change-password`; doing so signs out every other session and revokes every MCP access token the admin minted.",
       ].join("\n"),
       security: [],
       responses: {

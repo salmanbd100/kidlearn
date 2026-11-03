@@ -16,10 +16,6 @@ import {
   mondayOfLocalWeek,
 } from "../../shared/utils/local-date.js";
 import { requireVisibleStoryId } from "../content/story.service.js";
-import {
-  evaluateStartForChild,
-  screenTimeBlockedError,
-} from "../screen-time/screen-time.service.js";
 import { requireVisibleLessonId } from "./lesson-progress.service.js";
 import {
   assertWithinClientEventBudget,
@@ -149,13 +145,6 @@ export async function recordActivityEvent(
   const refId = isStoryEvent
     ? await requireVisibleStoryId(child, report.refId)
     : await requireVisibleLessonId(child, report.refId);
-
-  // A `story_start` is the evidence a story completion is paid against, and a recent one exempts that completion from the
-  // screen-time gate; recording one while the gate is shut would manufacture that exemption.
-  if (report.type === "story_start") {
-    const decision = await evaluateStartForChild(child.id, undefined);
-    if (!decision.allowed) throw screenTimeBlockedError(decision);
-  }
 
   await assertWithinClientEventBudget(child.id);
 

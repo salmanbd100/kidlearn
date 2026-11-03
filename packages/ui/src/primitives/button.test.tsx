@@ -86,3 +86,41 @@ describe("Button behaviour", () => {
     expect(button).toHaveClass("h-11");
   });
 });
+
+describe("Button loading", () => {
+  it("disables itself, marks itself busy and keeps its label", () => {
+    render(<Button isLoading>Save</Button>);
+
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(button.querySelector("svg")).toBeInTheDocument();
+  });
+
+  it('takes the loading label as its name, as the visible "Saving…" it replaces once did', () => {
+    render(
+      <Button isLoading loadingLabel="Saving…">
+        Save
+      </Button>,
+    );
+
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  });
+
+  it("keeps the label laid out under the spinner, so the button does not change width", () => {
+    render(<Button isLoading>Save</Button>);
+
+    const label = screen.getByText("Save");
+    expect(label).toHaveClass("opacity-0");
+    expect(label).toBeVisible();
+  });
+
+  it("shows no spinner when idle", () => {
+    render(<Button>Save</Button>);
+
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toBeEnabled();
+    expect(button).not.toHaveAttribute("aria-busy");
+    expect(button.querySelector("svg")).not.toBeInTheDocument();
+  });
+});

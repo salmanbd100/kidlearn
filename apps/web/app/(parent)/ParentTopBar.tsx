@@ -25,6 +25,7 @@ import { SITE_ROUTES } from "@/features/site/site-routes";
 import { STUDENT_ROUTES } from "@/features/student/student-routes";
 import { signOut } from "@/shared/api/api-client";
 import { LanguageSwitch } from "@/shared/components/LanguageSwitch";
+import { Logo } from "@/shared/components/Logo";
 import { ParentAvatar } from "@/shared/components/ParentAvatar";
 
 const NAV_ITEMS = [
@@ -48,7 +49,6 @@ const navLinkVariants = cva(
 
 export function ParentTopBar() {
   const { t } = useTranslation(PARENT_NAMESPACE);
-  const { t: tCommon } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
   const { status, parent } = useParentSession();
@@ -82,9 +82,9 @@ export function ParentTopBar() {
     <header className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3 border-border border-b pb-3">
       <Link
         href={SITE_ROUTES.home}
-        className="focus-ring inline-flex min-h-11 items-center rounded-sm font-semibold text-foreground text-lg"
+        className="focus-ring inline-flex min-h-11 items-center rounded-sm"
       >
-        {tCommon("app.name")}
+        <Logo className="h-7" />
       </Link>
 
       {/* Full-width second row on a phone, inline from `sm`; `order-last` keeps the avatar beside the wordmark. */}

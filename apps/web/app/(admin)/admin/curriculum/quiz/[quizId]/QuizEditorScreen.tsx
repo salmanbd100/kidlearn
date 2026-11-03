@@ -29,6 +29,7 @@ import {
 import { TransitionButtons } from "@/features/admin/review/TransitionButtons";
 import { ADMIN_ROUTES } from "@/features/admin/shell/admin-routes";
 import { StatusChip } from "@/features/admin/ui/StatusChip";
+import { LoadingState } from "@/shared/components/LoadingState";
 
 type DialogState =
   | { kind: "closed" }
@@ -65,7 +66,7 @@ export function QuizEditorScreen({ quizId, jobId }: QuizEditorScreenProps) {
   }, [load]);
 
   if (status === "loading") {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+    return <LoadingState label="Loading…" />;
   }
   if (status === "error" || quiz === undefined) {
     return (

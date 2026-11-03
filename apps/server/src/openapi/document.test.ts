@@ -240,8 +240,8 @@ describe("openapi document", () => {
     expect(schemas).toHaveProperty("QuizQuestion");
   });
 
-  it("describes the session cookie and the job secret, and nothing else", () => {
-    // Everything human is the cookie; the one bearer token belongs to a scheduler. A third scheme needs a reason in `components.ts`.
+  it("describes the session cookie, the job secret and the MCP token, and nothing else", () => {
+    // Everything human under `/api` is the cookie; one bearer belongs to a scheduler, the other to an AI assistant on `/mcp` only.
     expect(document.components.securitySchemes).toEqual({
       sessionCookie: expect.objectContaining({
         type: "apiKey",
@@ -249,6 +249,10 @@ describe("openapi document", () => {
         name: "better-auth.session_token",
       }),
       cronSecret: expect.objectContaining({ type: "http", scheme: "bearer" }),
+      adminAccessToken: expect.objectContaining({
+        type: "http",
+        scheme: "bearer",
+      }),
     });
   });
 

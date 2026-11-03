@@ -1,4 +1,7 @@
 import type {
+  AdminAccessToken,
+  AdminAccessTokenList,
+  AiCapabilities,
   AiJobCount,
   AiJobDetail,
   AiJobList,
@@ -7,6 +10,8 @@ import type {
   AiReviewResult,
   BatchGenerationRef,
   CharacterSheet,
+  CreateAdminAccessTokenBody,
+  CreatedAdminAccessToken,
   GenerateLessonBody,
   GenerateNarrationBody,
   GenerateQuizBody,
@@ -18,6 +23,11 @@ import type {
 } from "@kidlearn/types";
 import { CONTENT_BASE, listQuery } from "@/features/admin/shell/admin-url";
 import { type ApiResult, apiFetch } from "@/shared/api/api-client";
+
+/** Which generation paths this deployment has, so a Generate button that would only answer 503 can be hidden. */
+export function fetchAiCapabilities(): Promise<ApiResult<AiCapabilities>> {
+  return apiFetch<AiCapabilities>("/api/admin/ai/capabilities");
+}
 
 // Generation endpoints answer with a job to look up, never the content; `retries: 0` because a replay would spend a second generation.
 export function generateLesson(
@@ -161,5 +171,32 @@ export function rejectAiJob(
     method: "POST",
     retries: 0,
     body: JSON.stringify({ reason }),
+  });
+}
+
+// `/api/admin/access-tokens` — credentials for an admin's own AI assistant over MCP (file 41).
+
+const ACCESS_TOKENS_BASE = "/api/admin/access-tokens";
+
+export function fetchAccessTokens(): Promise<ApiResult<AdminAccessTokenList>> {
+  return apiFetch<AdminAccessTokenList>(ACCESS_TOKENS_BASE);
+}
+
+/** The secret is in this response and nowhere else; `retries: 0` so a replay cannot mint a second token. */
+export function createAccessToken(
+  body: CreateAdminAccessTokenBody,
+): Promise<ApiResult<CreatedAdminAccessToken>> {
+  return apiFetch<CreatedAdminAccessToken>(ACCESS_TOKENS_BASE, {
+    method: "POST",
+    retries: 0,
+    body: JSON.stringify(body),
+  });
+}
+
+export function revokeAccessToken(
+  id: string,
+): Promise<ApiResult<AdminAccessToken>> {
+  return apiFetch<AdminAccessToken>(`${ACCESS_TOKENS_BASE}/${id}`, {
+    method: "DELETE",
   });
 }

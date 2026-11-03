@@ -50,29 +50,52 @@ describe("HomeScreen", () => {
     document.documentElement.classList.remove(A11Y_PREF_CLASSES.reducedMotion);
   });
 
-  it("renders the wordmark and every section heading in English", () => {
+  it("renders the headline and every section heading in English", () => {
     renderHome();
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "KidLearn" }),
+      screen.getByRole("heading", { level: 1, name: "Learn, play and grow." }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Read the guides" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "What makes it different" }),
-    ).toBeInTheDocument();
+    for (const name of [
+      "How it works",
+      "Six ways to play",
+      "A calm dashboard for parents",
+      "What makes it different",
+      "Read the guides",
+    ]) {
+      expect(
+        screen.getByRole("heading", { level: 2, name }),
+      ).toBeInTheDocument();
+    }
   });
 
-  it("renders its title in Bangla", () => {
+  it("renders its headline in Bangla", () => {
     renderHome("bn");
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "কিডলার্ন" }),
+      screen.getByRole("heading", { level: 1, name: "শেখো, খেলো, বড় হও।" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "শেখা শুরু করো" }),
     ).toBeInTheDocument();
+  });
+
+  it("names the headline once for a screen reader, not once per sticker", () => {
+    renderHome();
+
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading.querySelector('[aria-hidden="true"]')).toHaveTextContent(
+      "Learnplaygrow",
+    );
+  });
+
+  it("hides the dashboard sketch from assistive technology", () => {
+    renderHome();
+
+    expect(screen.getByTestId("dashboard-sketch")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
   });
 
   it("sends a signed-out child, a parent and an admin to the sign-in dialogs", () => {
