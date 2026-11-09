@@ -15,7 +15,7 @@ catalog:
   "@types/node": ^22.0.0
   "@types/react": ^19
   "@types/react-dom": ^19
-  "@vitejs/plugin-react": ^6.1.1
+  "@vitejs/plugin-react": ^6.2.1
   "@vitest/coverage-v8": ^4.1.12
   class-variance-authority: ^0.7.1
   jsdom: ^29.1.1
