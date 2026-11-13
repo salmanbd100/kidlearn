@@ -17,6 +17,7 @@ website favicon uses the same artwork: `apps/web/app/icon.svg`, `favicon.ico` an
 | LinkedIn company page banner | `linkedin/company-banner-1128x191.png` | 1128×191 | |
 | YouTube profile picture | `youtube/profile-800.png` | 800×800 | |
 | YouTube banner | `youtube/banner-2560x1440.png` | 2560×1440 | Wordmark inside the 1235×338 centre area that every device shows |
+| YouTube video watermark | `youtube/watermark-512.png` | 512×512 | The avatar's cream disc alone, transparent outside the circle, so no blue square shows over the video |
 | Link preview (Open Graph) | `general/og-image-1200x630.png` | 1200×630 | |
 | Square logo, large | `general/avatar-1024.png` | 1024×1024 | For anything not listed |
 | Wordmark on a light background | `general/wordmark-ink-transparent.png` | 1608×444 | Transparent background |
