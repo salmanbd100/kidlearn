@@ -56,6 +56,12 @@ cd apps/web && pnpm dev        # next dev → http://localhost:3000
 cd apps/server && pnpm dev     # tsx watch → http://localhost:4000
 ```
 
+## Branches and pull requests
+
+**Every pull request targets `dev`, never `main`.** `dev` is the integration branch; `main` is the release branch and accepts a pull request only from `dev` itself — a `dev` → `main` release PR, opened only when I ask for one in those words. Feature branches are cut from `dev`.
+
+The repository's GitHub default branch is `dev` (switched 2026-11-16), so `gh` and the GitHub UI already propose `dev` — still pass `--base dev` explicitly — in `/pr`, in any other PR skill, and in a hand-written `gh pr create`. `.claude/hooks/pr-base-guard.sh` blocks a `gh pr create` with no `--base`, or with `--base main` from any branch other than `dev`. Full rules: `document/standards/general.md §7` "GitHub Flow".
+
 ## CI
 
 `.github/workflows/ci.yml` runs one job, `gates`, on every pull request and every push to `main` or `dev`:
