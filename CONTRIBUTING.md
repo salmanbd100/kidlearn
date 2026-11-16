@@ -34,18 +34,18 @@ docker compose up -d postgres
 docker compose ps          # wait for STATUS = (healthy)
 ```
 
-`docker-compose.yml` runs `postgres:16-alpine` on `localhost:5432` with a named volume, so your data survives restarts. On first boot it also creates `kidlearn_test` alongside `kidlearn` — the database the Vitest suite expects.
+`docker-compose.yml` runs `postgres:16-alpine` on `localhost:5433` with a named volume, so your data survives restarts. On first boot it also creates `kidlearn_test` alongside `kidlearn` — the database the Vitest suite expects.
 
-If `5432` is already taken on your machine, do not edit the committed compose file — create a gitignored `docker-compose.override.yml`, which Compose loads automatically on top of it:
+It publishes on host port `5433`, not Postgres's default `5432`, so it does not collide with a Postgres you already run natively (Homebrew, Postgres.app). If `5433` is taken too, do not edit the committed compose file — create a gitignored `docker-compose.override.yml`, which Compose loads automatically on top of it:
 
 ```yaml
 services:
   postgres:
     ports: !override
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:5434:5432"
 ```
 
-`!override` is load-bearing: Compose merges sequences by default, so a plain `ports:` list adds the new mapping while keeping `5432` — binding the container to both and shadowing whatever already held that port. Whichever host port you land on has to appear in **all three** connection strings in step 3.
+`!override` is load-bearing: Compose merges sequences by default, so a plain `ports:` list adds the new mapping while keeping `5433` — binding the container to both and shadowing whatever already held that port. Whichever host port you land on has to appear in **all three** connection strings in step 3.
 
 ### 3. Configure environment
 
@@ -57,14 +57,14 @@ cp apps/server/.env.example apps/server/.env
 **`packages/db/.env`** — Prisma reads this for migrations and Studio. Point both variables at the container. Drop the `?pgbouncer=true` suffix from the example: that flag is for the Supabase pooler, and there is no pooler in front of a local container, so the runtime/migration split collapses to one URL.
 
 ```
-DATABASE_URL="postgresql://postgres:password@localhost:5432/kidlearn"
-DIRECT_URL="postgresql://postgres:password@localhost:5432/kidlearn"
+DATABASE_URL="postgresql://postgres:password@localhost:5433/kidlearn"
+DIRECT_URL="postgresql://postgres:password@localhost:5433/kidlearn"
 ```
 
 **`apps/server/.env`** — the API runs as its own process and needs the connection string in its own environment. Every variable here is validated by `src/config/env.ts` at boot; a missing or malformed value stops the process and names the offending field.
 
 ```
-DATABASE_URL="postgresql://postgres:password@localhost:5432/kidlearn"
+DATABASE_URL="postgresql://postgres:password@localhost:5433/kidlearn"
 BETTER_AUTH_SECRET=      # generate: openssl rand -base64 32  (min 32 chars)
 GOOGLE_CLIENT_ID=        # see .env.example for the Google Cloud console steps
 GOOGLE_CLIENT_SECRET=
@@ -139,8 +139,8 @@ pnpm format       # Apply Biome fixes
 pnpm typecheck    # tsc --noEmit per package
 pnpm test         # Vitest across every package
 pnpm test:coverage # ...with a coverage report per package (what CI runs)
-pnpm --filter server test:db  # *.db.test.ts against Postgres (needs docker compose up -d postgres)
-pnpm --filter server test:db:local  # ...against a local Postgres on port 5433
+pnpm --filter server test:db  # *.db.test.ts against Postgres on 5432 (what CI runs)
+pnpm --filter server test:db:local  # ...against the compose Postgres on 5433
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:migrate   # Run DB migrations
 pnpm db:studio    # Open Prisma Studio (DB browser)
