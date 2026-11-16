@@ -1,6 +1,6 @@
 # Pinned by digest as well as exact version: a tag is mutable, and this image is
 # what production runs. Dependabot (.github/dependabot.yml) moves both together.
-FROM node:22.23.3-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS base
+FROM node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS base
 # PNPM_HOME also sets the store to $PNPM_HOME/store, which is where the cache
 # mounts below point.
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
