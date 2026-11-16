@@ -380,6 +380,28 @@ apps/web/
   served optimised from Cloudinary.
 - Never mix icon families on one surface.
 
+### 9.1 Brand logo
+
+The brand has two marks, and both are artwork. They are outlined paths, never set in a font, and
+they are never translated.
+
+- **Wordmark:** "KidLearn" in Fredoka SemiBold, ink, with a two-stroke sunshine underline.
+  Source: `apps/web/public/logo.svg`. In the app it is the `Logo` component
+  (`apps/web/shared/components/Logo.tsx`); `Logo.test.tsx` fails if the two drift apart. Use it
+  wherever there is room for the full name: headers, banners, link previews.
+- **Brand avatar:** the wordmark's K and its underline, in ink and sunshine, on a cream disc. The
+  disc sits on a full-bleed sky square, with coral, sunshine, mint and grape dots around the K.
+  This is **the** square logo. Use it for the website favicon, profile pictures and anywhere the
+  logo has to fit a square or a circle. Keep every element inside the inscribed circle, because
+  social platforms crop profile pictures to a circle.
+- **Website icons** are all the brand avatar: `apps/web/app/icon.svg`, `favicon.ico`
+  (16, 32 and 48px) and `apple-icon.png` (180px). Next.js serves them from those file names.
+- **Social and marketing exports** live in
+  [`assets/branding/`](./assets/branding/README.md), one folder per platform, each as a PNG with
+  its SVG source.
+- Don't recolour, stretch, rotate or outline either mark. Don't put the ink wordmark on a dark
+  background; use `general/wordmark-cream-transparent` there.
+
 ---
 
 ## 10. Content & voice

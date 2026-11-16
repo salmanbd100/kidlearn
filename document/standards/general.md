@@ -231,8 +231,8 @@ Service tests and route integration tests run against a real test database. Do n
 
 **Landed 2026-10-05.** A suite named `*.db.test.ts` runs
 against Postgres: `pnpm --filter server test:db` (CI runs it with a `postgres:16-alpine`
-service; locally, `docker compose up -d postgres`, or `test:db:local` for a Postgres on
-port 5433). `vitest.db.config.ts` applies the
+service; locally, `docker compose up -d postgres` — published on port 5433 — then
+`test:db:local`, which points at it). `vitest.db.config.ts` applies the
 committed migrations with `prisma migrate deploy` once per run, truncates every table before
 each test, and runs files one at a time. It refuses any database whose name does not end in
 `_test`, so `TEST_DATABASE_URL` cannot be pointed at a real one by mistake. Build rows with
@@ -399,6 +399,8 @@ The engineer reviews the changes, then commits manually. Claude does not commit 
 ### Opening a pull request
 
 Use the `/pr` skill after implementation is complete. It runs the four gates, commits, pushes, and opens the pull request **against `dev`** with a structured description. It refuses to claim a gate it did not run.
+
+However the PR is opened — `/pr`, another skill, or a hand-written `gh pr create` — its base is `dev`, passed explicitly as `--base dev` rather than left to the repository default (which has been `dev` since 2026-11-16). The only PR into `main` is a `dev` → `main` release PR. `.claude/hooks/pr-base-guard.sh` refuses any other `gh pr create` from a Claude Code session.
 
 `/code-review <branch>` diffs against the same base, so what is reviewed is what the PR proposes.
 

@@ -1,0 +1,18 @@
+# Gitignored files copied into every new worktree (Claude Code and the desktop app).
+# .gitignore syntax; a pattern only copies files git already ignores, so nothing
+# tracked is duplicated. Keep this to local config a fresh checkout cannot run without
+# — never build output, caches or node_modules (run `pnpm install` in the worktree).
+
+# Connection strings and secrets — the server refuses to boot without them
+packages/db/.env
+apps/server/.env
+apps/web/.env.local
+
+# Machine-local Compose overrides (ports, mounts)
+docker-compose.override.yml
+
+# Dev lesson media the seed points at (apps/web/scripts/generate-dev-media.sh)
+apps/web/public/dev/
+
+# Personal Claude Code settings, if present
+.claude/settings.local.json
