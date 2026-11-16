@@ -62,6 +62,7 @@ still contains `<` or `>`, stop.
 | Disk full / `no space left on device` | [§2b](#2b-logs-and-health-at-a-glance) disk check, then [§3](#rollback--two-independent-halves) image prune note |
 | An admin AI-assistant token has leaked | [§12 AI assistants](#ai-assistants-over-mcp-file-41) |
 | Admin cannot sign in | [`admin-account-guide.md` §5](admin-account-guide.md#5-troubleshooting) |
+| Changing or rotating the production Google OAuth client; `redirect_uri_mismatch` / `invalid_client` | [§13](#changing-the-production-client) |
 | Anything else | [`deployment/troubleshooting.md`](deployment/troubleshooting.md) |
 
 ---
@@ -967,6 +968,98 @@ drafts. Caddy already proxies the whole API host, so nothing at the edge changes
 
 Why two clients, why the cookie stays `SameSite=Lax`, and why there is no basic
 auth on `api.dev.kidlearn.net`: file 38 requirements 14 and 4, and its Goal.
+
+### Changing the production client
+
+For a new OAuth client, or a rotated secret on the existing one. The API reads
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from SSM **only when `deploy.sh`
+runs**, so editing the parameters changes nothing until the redeploy in step 6.
+The web app holds neither value — Vercel needs no change. Parents who are
+already signed in stay signed in: their session belongs to better-auth, not to
+the Google client.
+
+**1. 🌐 Google Cloud Console → APIs & Services → Credentials → the client.**
+Its origins and redirect URI must match the *production* row of the table
+above exactly. A missing redirect URI only surfaces after the deploy, as
+`redirect_uri_mismatch` on the Google screen. Copy the Client ID and Client
+secret from here.
+
+**2. 💻 Mac — make sure the AWS CLI is signed in.**
+
+```bash
+aws sts get-caller-identity
+```
+
+✅ JSON with your IAM user's `Arn`. `Your session has expired` means run
+`aws login` (a browser window opens), then try again.
+
+**3. 💻 Mac — the Client ID.** It is not a secret — it appears in every Google
+sign-in URL — so typing it on the command line is fine.
+
+```bash
+aws ssm put-parameter --name /kidlearn/prod/GOOGLE_CLIENT_ID --type SecureString \
+  --value '123456789012-abc123def456.apps.googleusercontent.com' --overwrite --region ap-south-1
+```
+
+**4. 💻 Mac — the Client secret, through a hidden prompt.** Never type it into
+the command itself: it would land in your shell history. Run this in a real
+Terminal window — it waits for input, so it cannot run from a tool that only
+captures output (a `!` command in Claude Code just prints the prompt and stops,
+writing nothing). Paste the secret at the prompt; nothing echoes; press Enter.
+
+```bash
+read -rs "SECRET?Google client secret: " && aws ssm put-parameter \
+  --name /kidlearn/prod/GOOGLE_CLIENT_SECRET --type SecureString \
+  --value "$SECRET" --overwrite --region ap-south-1 && unset SECRET
+```
+
+✅ JSON with a new `Version`. (`read -rs "VAR?prompt"` is zsh, the macOS
+default shell; in bash it is `read -rsp 'prompt' SECRET`.)
+
+A client ID and its secret are a pair. Changing one without the other makes
+Google answer `invalid_client` after the redeploy.
+
+**5. 💻 Mac — check both, without printing the secret.**
+
+```bash
+aws ssm get-parameter --name /kidlearn/prod/GOOGLE_CLIENT_ID --with-decryption \
+  --region ap-south-1 --query Parameter.Value --output text
+aws ssm get-parameter --name /kidlearn/prod/GOOGLE_CLIENT_SECRET \
+  --region ap-south-1 --query 'Parameter.[Version,LastModifiedDate]' --output text
+```
+
+✅ The first prints the Client ID from step 1; the second shows today's date.
+
+**6. 🖥️ Server — redeploy the image already running.** No build, no
+`--migrate`: the same tag, run again, rewrites `/opt/kidlearn/prod/app.env` from
+SSM and restarts the API. Get on the box with **your** instance ID — the
+`i-0a1b2c3d4e5f67890` in this file is an example, and using it answers
+`TargetNotConnected … is not connected` ([§2](#2-getting-a-shell--and-the-logs)
+shows how to find the real one). `start-session` opens an interactive shell, so
+it too needs a real Terminal window.
+
+```bash
+aws ssm start-session --target <instance-id> --region ap-south-1   # 💻 Mac
+sudo su -                                                          # 🖥️ server
+/opt/kidlearn/deploy/deploy.sh prod "$(cat /opt/kidlearn/prod/last-good-tag)"
+```
+
+✅ `[deploy:prod] healthy and database reachable — deploy complete at <sha>`.
+
+**7. 🌐 A private browser window — sign in.** Open
+`https://kidlearn.net/?signin=parent` and sign in with Google. ✅ The consent
+screen names the new client's app, and you land in the parent dashboard.
+
+| Google or the API says | Cause | Do |
+|---|---|---|
+| `redirect_uri_mismatch` | Step 1's redirect URI is missing or misspelt | Fix it in the console — no redeploy needed |
+| `invalid_client` | ID and secret come from different clients, or step 6 was skipped | Redo steps 4–6 |
+| The old app name on the consent screen | The API is still running the old `app.env` | Step 6 |
+| `deploy.sh` stops at `did not get as far as a healthcheck` | A parameter is empty or malformed | Read the log lines it prints, fix that parameter, re-run step 6 |
+
+**Going back:** put the previous client's ID and secret back in SSM (steps 3–4)
+and redeploy (step 6). Keep the old client in the console until the new one has
+passed step 7.
 
 **Dev site password: off.** `dev.kidlearn.net` is open to anyone with the
 address; `SITE_NOINDEX` keeps it out of search results. To turn the optional
