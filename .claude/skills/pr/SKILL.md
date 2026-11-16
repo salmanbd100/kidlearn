@@ -16,11 +16,13 @@ Replaces the old `pr-description` skill, which produced text and left the engine
 ## The base branch is `dev`
 
 **Every pull request this skill opens targets `dev`.** `main` accepts pull requests only from
-`dev`, enforced by a required check — see `project-requirement-details.md §9`. A feature branch
+`dev` — see `project-requirement-details.md §9`. The `promotion-guard` check that will enforce
+this on GitHub is not built yet; until it is, `.claude/hooks/pr-base-guard.sh` blocks a
+`gh pr create` without `--base dev` (or `--base main` from anything but `dev`). A feature branch
 pointed at `main` will be rejected, and pointing one there by hand is how the deployment
 pipeline gets bypassed.
 
-`gh` defaults to the repository's default branch, which is `main`. **Always pass `--base dev`
+The repository's default branch is `dev`, but **always pass `--base dev`
 explicitly.** Never rely on the default.
 
 The only case for a different base is a `dev` → `main` release PR, which the user must ask for

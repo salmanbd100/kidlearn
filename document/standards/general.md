@@ -400,6 +400,8 @@ The engineer reviews the changes, then commits manually. Claude does not commit 
 
 Use the `/pr` skill after implementation is complete. It runs the four gates, commits, pushes, and opens the pull request **against `dev`** with a structured description. It refuses to claim a gate it did not run.
 
+However the PR is opened — `/pr`, another skill, or a hand-written `gh pr create` — its base is `dev`, passed explicitly as `--base dev` rather than left to the repository default (which has been `dev` since 2026-11-16). The only PR into `main` is a `dev` → `main` release PR. `.claude/hooks/pr-base-guard.sh` refuses any other `gh pr create` from a Claude Code session.
+
 `/code-review <branch>` diffs against the same base, so what is reviewed is what the PR proposes.
 
 Then watch the pipeline: `gh pr checks` (or `gh run watch`). A PR is not ready for review until `gates` is green.
