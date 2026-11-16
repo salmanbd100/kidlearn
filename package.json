@@ -20,7 +20,7 @@
     "db:studio": "pnpm --filter @kidlearn/db db:studio"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
+    "@biomejs/biome": "^2.6.5",
     "turbo": "^2.11.10"
   }
 }
